@@ -111,6 +111,7 @@ interface DownloadContextValue {
     sourceName?: string,
     autoExtract?: boolean,
     gamePoster?: string | null,
+    onlyFiles?: number[] | null,
   ) => Promise<TorrentDownload>;
   startSelectedDownload: (
     id: string,
@@ -632,6 +633,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       sourceName = "Debrid",
       autoExtract = false,
       gamePoster?: string | null,
+      onlyFiles?: number[] | null,
     ): Promise<TorrentDownload> => {
       const debridProvider = debridRef.current.provider;
       const debridApiKey = debridRef.current.apiKey;
@@ -651,6 +653,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         provider: debridProvider,
         apikey: debridApiKey,
         autoExtract,
+        onlyFiles: onlyFiles ?? null,
       });
       setDownloads((prev) => {
         const without = prev.filter((d) => d.id !== newDownload.id);

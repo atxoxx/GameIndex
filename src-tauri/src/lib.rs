@@ -203,6 +203,8 @@ pub fn run() {
             achievement_watcher::set_local_achievements_enabled,
             downloads::test_debrid_key,
             downloads::debrid_check_cache,
+            downloads::debrid_list_files,
+            downloads::torrent_list_files,
             downloads::direct_download_start,
             downloads::debrid_download_start,
             downloads::download_set_debrid_config,

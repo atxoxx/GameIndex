@@ -28,6 +28,8 @@ export function DetailPanel({
   onAutoExtract,
   chooseFiles,
   onChooseFiles,
+  onSelectFiles,
+  isFetchingFiles,
   useDebrid,
   onUseDebrid,
   debridConfigured,
@@ -49,6 +51,8 @@ export function DetailPanel({
   onAutoExtract: (v: boolean) => void;
   chooseFiles: boolean;
   onChooseFiles: (v: boolean) => void;
+  onSelectFiles: () => void;
+  isFetchingFiles: boolean;
   useDebrid: boolean;
   onUseDebrid: (v: boolean) => void;
   debridConfigured: boolean;
@@ -249,6 +253,8 @@ export function DetailPanel({
           onAutoExtract={onAutoExtract}
           chooseFiles={chooseFiles}
           onChooseFiles={onChooseFiles}
+          onSelectFiles={onSelectFiles}
+          isFetchingFiles={isFetchingFiles}
           isDirect={isDirect}
           useDebrid={useDebrid}
           onUseDebrid={onUseDebrid}

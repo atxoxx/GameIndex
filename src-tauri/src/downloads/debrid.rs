@@ -52,6 +52,25 @@ pub struct DebridCacheResult {
     pub cached: bool,
 }
 
+/// A single file entry in a debrid file listing. Links are omitted —
+/// listing is about choosing; the download resolves the links later.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebridFileEntry {
+    pub name: String,
+    pub size: u64,
+}
+
+/// Result of listing a magnet's files on a debrid provider (no
+/// download started).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebridFileListResult {
+    pub files: Vec<DebridFileEntry>,
+    /// Magnet-level display name reported by the provider, when known.
+    pub name: Option<String>,
+    /// Magnet-level total size reported by the provider.
+    pub total_size: u64,
+}
+
 // ─── AllDebrid Client ────────────────────────────────────────────────────────
 //
 // AllDebrid migrated to `Authorization: Bearer <apikey>` headers and POST-form
@@ -377,6 +396,108 @@ impl AllDebridClient {
         let _ = Self::delete_magnet(apikey, &upload.id).await;
         Ok(DebridCacheResult {
             cached: upload.cached,
+        })
+    }
+
+    /// List the files of a magnet WITHOUT downloading it. Uploads the
+    /// magnet, polls until AllDebrid exposes the file tree (instant for
+    /// cached magnets, a couple of seconds once it has scanned the
+    /// metadata otherwise), then removes the probe magnet from the
+    /// account so the user's active torrent slots are not consumed by a
+    /// listing that never downloads.
+    ///
+    /// The file order reported here is the SAME order the download flow
+    /// resolves (both hit `/v4/magnet/files`), so the indices the caller
+    /// hands back as `only_files` align with the final download.
+    pub async fn list_magnet_files(
+        apikey: &str,
+        magnet: &str,
+    ) -> Result<DebridFileListResult, String> {
+        let upload = Self::upload_magnet(apikey, magnet).await?;
+        let id = upload.id.clone();
+
+        const POLL_INTERVAL_SECS: u64 = 2;
+        // Worst-case bound for magnet metadata that AllDebrid is still
+        // pulling from the swarm. Cached magnets resolve on the first poll.
+        const LIST_DEADLINE_SECS: u64 = 120;
+
+        let client = ad_client();
+        let deadline = std::time::Instant::now()
+            + std::time::Duration::from_secs(LIST_DEADLINE_SECS);
+
+        let mut files: Vec<DebridFileEntry> = Vec::new();
+        let mut name: Option<String> = None;
+        let mut total_size: u64 = 0;
+        let mut first = true;
+
+        loop {
+            if !first {
+                tokio::time::sleep(std::time::Duration::from_secs(POLL_INTERVAL_SECS)).await;
+            }
+            first = false;
+            if std::time::Instant::now() >= deadline {
+                break;
+            }
+
+            // The file tree lives under /v4/magnet/files and appears as
+            // soon as AllDebrid has scanned the magnet metadata, not only
+            // once the transfer is fully "ready".
+            if files.is_empty() {
+                if let Ok(resp) = ad_request(
+                    &client,
+                    Method::POST,
+                    "/v4/magnet/files",
+                    apikey,
+                    Some(&[("id[]", id.as_str())]),
+                )
+                .await
+                {
+                    if let Ok(parsed) = resp.json::<serde_json::Value>().await {
+                        if let Some(payload) = parsed.get("data") {
+                            let mut collected: Vec<DebridFile> = Vec::new();
+                            parse_files_from_json(payload, &mut collected);
+                            files = collected
+                                .into_iter()
+                                .map(|f| DebridFileEntry {
+                                    name: f.name,
+                                    size: f.size,
+                                })
+                                .collect();
+                        }
+                    }
+                }
+            }
+
+            // Display name + magnet-level size come from the status
+            // endpoint; grab them once the file list is available.
+            if !files.is_empty() {
+                if let Ok(status) = Self::get_status(apikey, &id).await {
+                    if name.is_none() {
+                        name = status.name;
+                    }
+                    if total_size == 0 {
+                        total_size = status.magnet_size.unwrap_or(0);
+                    }
+                }
+                break;
+            }
+        }
+
+        // Always free the account slot, even on failure or timeout.
+        let _ = Self::delete_magnet(apikey, &id).await;
+
+        if files.is_empty() {
+            return Err(
+                "AllDebrid could not list the files of this magnet — it may be dead \
+                 or its metadata is unavailable."
+                    .to_string(),
+            );
+        }
+
+        Ok(DebridFileListResult {
+            files,
+            name,
+            total_size,
         })
     }
 

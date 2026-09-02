@@ -534,7 +534,7 @@ pub async fn build_add_torrent(
             // `from_url`, which never sends one.
             if let Some(r) = referer {
                 if uri.starts_with("http://") || uri.starts_with("https://") {
-                    let bytes = fetch_torrent_bytes(uri, r).await?;
+                    let bytes = fetch_torrent_bytes(uri, Some(r)).await?;
                     return Ok(librqbit::AddTorrent::from_bytes(bytes));
                 }
             }
@@ -543,18 +543,20 @@ pub async fn build_add_torrent(
     }
 }
 
-/// Download a `.torrent` file over HTTP(S) with a `Referer` header and
-/// return its bytes. Used for anti-hotlink hosts that reject requests
-/// without the right Referer (librqbit's `from_url` sends none).
-async fn fetch_torrent_bytes(uri: &str, referer: &str) -> Result<Vec<u8>, String> {
+/// Download a `.torrent` file over HTTP(S), optionally with a `Referer`
+/// header for anti-hotlink hosts that reject requests without the right
+/// one (librqbit's `from_url` sends none), and return its bytes.
+async fn fetch_torrent_bytes(uri: &str, referer: Option<&str>) -> Result<Vec<u8>, String> {
     const TORRENT_HTTP_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
     let client = reqwest::Client::builder()
         .user_agent(TORRENT_HTTP_UA)
         .build()
         .map_err(|e| format!("Failed to build .torrent fetch client: {e}"))?;
-    let resp = client
-        .get(uri)
-        .header(reqwest::header::REFERER, referer)
+    let mut req = client.get(uri);
+    if let Some(r) = referer {
+        req = req.header(reqwest::header::REFERER, r);
+    }
+    let resp = req
         .send()
         .await
         .map_err(|e| format!("Failed to fetch .torrent file: {e}"))?;
@@ -568,6 +570,25 @@ async fn fetch_torrent_bytes(uri: &str, referer: &str) -> Result<Vec<u8>, String
         .await
         .map(|b| b.to_vec())
         .map_err(|e| format!("Failed to read .torrent file: {e}"))
+}
+
+/// Obtain the raw bytes of a `.torrent` from a local path or an
+/// http(s) URL (optionally with a Referer). Used by the swarm-free
+/// file listing command — the torrent metadata is embedded in the file
+/// itself, so no peer connection is needed to list its contents.
+pub async fn read_torrent_bytes(
+    uri: &str,
+    referer: Option<&str>,
+) -> Result<Vec<u8>, String> {
+    if let Some(path) = local_torrent_path(uri) {
+        return tokio::fs::read(&path)
+            .await
+            .map_err(|e| format!("Failed to read .torrent file: {}", e));
+    }
+    if uri.starts_with("http://") || uri.starts_with("https://") {
+        return fetch_torrent_bytes(uri, referer).await;
+    }
+    Err("Source must be a local .torrent path or an http(s) .torrent URL".to_string())
 }
 
 /// Result of adding a torrent. `Added` means we own a fresh session

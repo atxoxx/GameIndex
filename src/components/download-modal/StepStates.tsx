@@ -99,32 +99,43 @@ export function ErrorState({
 }
 
 export function FetchingMetadataState({
+  variant = "swarm",
   peers = 0,
   seeds = 0,
 }: {
+  /** Swarm = waiting for P2P metadata; fast = parsing the .torrent or
+   *  asking the debrid provider (no peers involved). */
+  variant?: "swarm" | "fast";
   peers?: number;
   seeds?: number;
 }) {
   const { t } = useLanguage();
   const hasSwarm = peers > 0;
+  const fast = variant === "fast";
 
   return (
     <div className="dl-state-screen dl-state-screen--metadata">
-      <div className="dl-swarm-radar">
-        <div className="dl-swarm-ripple" />
-        <div className="dl-swarm-center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
+      {fast ? (
+        <div className="dl-fast-list-indicator" aria-hidden>
+          <span className="dl-fast-list-spinner" />
         </div>
-      </div>
+      ) : (
+        <div className="dl-swarm-radar">
+          <div className="dl-swarm-ripple" />
+          <div className="dl-swarm-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+        </div>
+      )}
 
       <div className="dl-state-screen-body">
         <h3 className="dl-state-title">{t("downloadModal.fetchingFileList")}</h3>
-        {hasSwarm && (
+        {!fast && hasSwarm && (
           <div className="dl-swarm-badge" role="status" aria-live="polite">
             <span className="dl-swarm-pulse-dot" aria-hidden />
             {t("downloadModal.connectedPeers", {
@@ -135,7 +146,11 @@ export function FetchingMetadataState({
             })}
           </div>
         )}
-        <p className="dl-state-desc">{t("downloadModal.fetchingPeersHint")}</p>
+        <p className="dl-state-desc">
+          {fast
+            ? t("downloadModal.fetchingFileListFast")
+            : t("downloadModal.fetchingPeersHint")}
+        </p>
       </div>
     </div>
   );

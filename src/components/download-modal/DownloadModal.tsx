@@ -153,6 +153,12 @@ export default function DownloadModal({
   const cacheCheckSeq = useRef(0);
   const [tempTorrentId, setTempTorrentId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
+  // Fast file list for the "Choose files" flow: when set, the selection
+  // screen reads from here instead of a live temp torrent. `fetchMode`
+  // records how the confirmed selection must be started ("debrid" = via
+  // the AllDebrid provider, "p2p" = via the torrent engine).
+  const [fetchedFiles, setFetchedFiles] = useState<{ name: string; size: number }[] | null>(null);
+  const [fetchMode, setFetchMode] = useState<"debrid" | "p2p" | null>(null);
   // Collapse low-confidence matches (score < 0.4) behind a toggle so
   // the list stays focused on the most likely correct title.
   const [showWeakMatches, setShowWeakMatches] = useState(false);
@@ -221,6 +227,27 @@ export default function DownloadModal({
     if (!selectedMatch || !selectedSourceUri) return false;
     return classifyUri(selectedSourceUri, selectedMatch.torrentUrl).isMagnet;
   }, [selectedMatch, selectedSourceUri]);
+
+  // Whether the selected result supports per-file selection (any
+  // magnet/.torrent source — direct links and web-only hits do not).
+  const fileSelectionEligible = useMemo(() => {
+    if (!selectedMatch) return false;
+    const uri = resolveSourceUri(selectedMatch, selectedMirrorIndex);
+    if (!uri) return false;
+    const { isMagnet, isTorrentFile } = classifyUri(uri, selectedMatch.torrentUrl);
+    return isMagnet || isTorrentFile;
+  }, [selectedMatch, selectedMirrorIndex]);
+  const wantFileSelection = chooseFiles && fileSelectionEligible;
+
+  // Game subfolder path appended to the chosen save folder — shared by
+  // the start and the file-listing flows so both target the same place.
+  const finalSavePath = useMemo(() => {
+    const safeGameFolder = gameName.replace(/[:*?"<>|\\/]/g, "").trim();
+    const normalizedSave = (savePath ?? "").replace(/\\/g, "/");
+    return normalizedSave.endsWith(safeGameFolder)
+      ? savePath ?? ""
+      : `${normalizedSave}/${safeGameFolder}`.replace(/\\/g, "/");
+  }, [savePath, gameName]);
 
   // Keep selection aligned with the visible sorted matches when filtering
   useEffect(() => {
@@ -304,6 +331,15 @@ export default function DownloadModal({
     if (isDirect && chooseFiles) setChooseFiles(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, matches, chooseFiles]);
+  // A fetched file list belongs to one specific source + mirror (+ the
+  // debrid toggle state at fetch time). Switching any of those while
+  // back on the results screen invalidates the listing so the next
+  // fetch starts clean.
+  useEffect(() => {
+    if (step === "fetching_metadata" || step === "file_selection") return;
+    setFetchedFiles(null);
+    setFetchMode(null);
+  }, [selectedId, selectedMirrorIndex, useDebrid, step]);
   // Marks the moment we entered the metadata-fetch phase so the 30s
   // timeout below is measured from first entry, not from the latest
   // progress poll (which would otherwise keep re-arming and never fire).
@@ -469,29 +505,38 @@ export default function DownloadModal({
   }, [runSearch]);
 
   // ── Helpers ──────────────────────────────────────────────────────
+  // Abort an in-flight or completed file listing: remove any temp
+  // torrent and return to the results screen. Shared by the close path,
+  // the Escape handler, and the metadata watchdog.
+  const cancelFileListing = useCallback(() => {
+    cancelledRef.current = true;
+    if (tempTorrentIdRef.current) {
+      invoke("torrent_remove", { id: tempTorrentIdRef.current, deleteFiles: true }).catch((e) =>
+        console.error("Failed to remove list-only torrent:", e),
+      );
+    }
+    setTempTorrentId(null);
+    setFetchedFiles(null);
+    setFetchMode(null);
+    setStep("results");
+  }, []);
+
   // Centralised close attempt: when a download is still starting we
   // confirm with the user before tearing it down (which would orphan the
   // temporary torrent). During `fetching_metadata` / `file_selection`
-  // the temp torrent is cancelled and we return to the results step so
-  // the user can pick another source rather than losing the whole flow.
+  // the listing is cancelled and we return to the results step so the
+  // user can pick another source rather than losing the whole flow.
   const handleCloseAttempt = useCallback(() => {
     if (step === "starting") {
       setConfirmCancelOpen(true);
       return;
     }
     if (step === "fetching_metadata" || step === "file_selection") {
-      cancelledRef.current = true;
-      if (tempTorrentIdRef.current) {
-        invoke("torrent_remove", { id: tempTorrentIdRef.current, deleteFiles: true }).catch((e) =>
-          console.error("Failed to remove list-only torrent on close:", e),
-        );
-      }
-      setTempTorrentId(null);
-      setStep("results");
+      cancelFileListing();
       return;
     }
     onClose();
-  }, [step, onClose]);
+  }, [step, onClose, cancelFileListing]);
 
   const handleConfirmCancel = useCallback(() => {
     setConfirmCancelOpen(false);
@@ -694,12 +739,6 @@ export default function DownloadModal({
     }
     setError(null);
     try {
-      const safeGameFolder = gameName.replace(/[:*?"<>|\\/]/g, "").trim();
-      const normalizedSave = savePath.replace(/\\/g, "/");
-      const finalSavePath = normalizedSave.endsWith(safeGameFolder)
-        ? savePath
-        : `${savePath}/${safeGameFolder}`.replace(/\\/g, "/");
-
       const { isDirect, isMagnet } = classifyUri(sourceUri, match.torrentUrl);
       const debridActive = useDebrid && debridConfigured;
 
@@ -830,6 +869,232 @@ export default function DownloadModal({
     selectedMirrorIndex,
   ]);
 
+  // ── "Choose files" flow ────────────────────────────────────────────
+  // Fetch the file list of the selected source WITHOUT starting a
+  // download, then hand the user the selection screen. Fast paths:
+  //   • `.torrent` link → parse the metadata embedded in the torrent
+  //     file (instant — no swarm contact needed)
+  //   • AllDebrid on    → ask the provider to list the magnet's files
+  //     (one API round-trip; cached magnets answer immediately)
+  // Slow fallback (kept for plain magnets without debrid): register a
+  // list-only temp torrent and let librqbit pull the metadata from the
+  // swarm, exactly like the old flow.
+  const handleFetchFiles = useCallback(async () => {
+    if (step === "starting" || step === "fetching_metadata" || step === "file_selection") return;
+    if (!selectedMatch) {
+      setError(t('downloadModal.pickResult'));
+      return;
+    }
+    if (!savePath) {
+      setError(t('downloadModal.chooseSave'));
+      return;
+    }
+    const sourceUri = resolveSourceUri(selectedMatch, selectedMirrorIndex);
+    if (!sourceUri) {
+      setError(t('downloadModal.noLink'));
+      return;
+    }
+    cancelledRef.current = false;
+    startAttemptedRef.current = true;
+    setError(null);
+    setMetadataTimedOut(false);
+
+    const { isMagnet, isTorrentFile } = classifyUri(sourceUri, selectedMatch.torrentUrl);
+    const debridActive =
+      useDebrid && debridConfigured && debridProvider !== "none" && !!debridApiKey;
+
+    const showListing = (files: { name: string; size: number }[]) => {
+      if (cancelledRef.current) return;
+      setFetchedFiles(files);
+      setSelectedFiles(new Set(files.map((_, i) => i)));
+      setStep("file_selection");
+    };
+
+    // Fast path 1 — `.torrent` files embed their file list: parse the
+    // metadata directly, no swarm needed.
+    if (isTorrentFile) {
+      setStep("fetching_metadata");
+      setFetchMode("p2p");
+      try {
+        const files = await invoke<{ name: string; size: number }[]>("torrent_list_files", {
+          uri: sourceUri,
+          referer: selectedMatch.referer ?? null,
+        });
+        showListing(files);
+      } catch (err) {
+        if (cancelledRef.current) return;
+        console.error("[DownloadModal] torrent file list failed:", err);
+        setError(String(err));
+        setStep("results");
+      }
+      return;
+    }
+
+    // Fast path 2 — magnets route through AllDebrid when the toggle is
+    // on and a key is configured. The probe magnet is removed from the
+    // account automatically after listing.
+    if (isMagnet && debridActive) {
+      setStep("fetching_metadata");
+      setFetchMode("debrid");
+      try {
+        const res = await invoke<{ files: { name: string; size: number }[] }>(
+          "debrid_list_files",
+          {
+            provider: debridProvider,
+            apikey: debridApiKey,
+            magnet: sourceUri,
+          },
+        );
+        showListing(res.files);
+      } catch (err) {
+        if (cancelledRef.current) return;
+        console.error("[DownloadModal] debrid file list failed:", err);
+        setError(String(err));
+        setStep("results");
+      }
+      return;
+    }
+
+    // Fallback — plain magnet without debrid: register a list-only temp
+    // torrent so librqbit fetches the metadata from the swarm. Files
+    // arrive via the `download-progress` event (see the watchdog effect).
+    if (isMagnet || isTorrentFile) {
+      setStep("fetching_metadata");
+      setFetchMode("p2p");
+      try {
+        const dl = await addDownload(
+          sourceUri,
+          finalSavePath,
+          gameId ?? null,
+          selectedMatch.sourceName,
+          autoExtract,
+          true,
+          selectedMatch.referer ?? null,
+          gamePoster ?? null,
+        );
+        if (cancelledRef.current) {
+          invoke("torrent_remove", { id: dl.id, deleteFiles: true }).catch((e) =>
+            console.error("Failed to clean up cancelled temporary torrent:", e),
+          );
+          return;
+        }
+        setTempTorrentId(dl.id);
+      } catch (addErr) {
+        if (cancelledRef.current) return;
+        console.error("[DownloadModal] list-only add failed:", addErr);
+        setError(t('downloadModal.couldNotStart', { error: String(addErr) }));
+        setStep("results");
+      }
+      return;
+    }
+
+    setError(t('downloadModal.noLink'));
+  }, [
+    step,
+    selectedMatch,
+    savePath,
+    selectedMirrorIndex,
+    useDebrid,
+    debridConfigured,
+    debridProvider,
+    debridApiKey,
+    finalSavePath,
+    gameId,
+    gamePoster,
+    autoExtract,
+    addDownload,
+    t,
+  ]);
+
+  // User confirmed a file selection on the `file_selection` screen.
+  //   • debrid → hand the magnet + picked indices to the provider flow
+  //     (the backend filters the resolved files to the selection).
+  //   • p2p    → the temp torrent is already registered (swarm path) or
+  //     registered now (fast `.torrent` parse path), then started
+  //     restricted to the picked indices.
+  const handleConfirmFileSelection = useCallback(async () => {
+    if (!selectedMatch) return;
+    if (selectedFiles.size === 0) {
+      setError(t('downloadModal.fileSelectRequired'));
+      return;
+    }
+    const sourceUri = resolveSourceUri(selectedMatch, selectedMirrorIndex);
+    if (!sourceUri) {
+      setError(t('downloadModal.noLink'));
+      return;
+    }
+    cancelledRef.current = false;
+    setError(null);
+    setStep("starting");
+    try {
+      if (fetchMode === "debrid") {
+        await addDebridDownload(
+          sourceUri,
+          finalSavePath,
+          gameId ?? null,
+          selectedMatch.sourceName,
+          autoExtract,
+          gamePoster ?? null,
+          Array.from(selectedFiles),
+        );
+        showToast(t('downloadModal.startedWithFileSelection'), "success");
+        onClose();
+        return;
+      }
+      // P2P path: `torrent_start_selected` needs a registered torrent id.
+      let activeId = tempTorrentId;
+      if (!activeId) {
+        const dl = await addDownload(
+          sourceUri,
+          finalSavePath,
+          gameId ?? null,
+          selectedMatch.sourceName,
+          autoExtract,
+          true,
+          selectedMatch.referer ?? null,
+          gamePoster ?? null,
+        );
+        if (cancelledRef.current) {
+          invoke("torrent_remove", { id: dl.id, deleteFiles: true }).catch((e) =>
+            console.error("Failed to clean up cancelled temporary torrent:", e),
+          );
+          return;
+        }
+        activeId = dl.id;
+        // Keep the id so a failed start can retry against the same
+        // registered torrent instead of re-adding from scratch.
+        setTempTorrentId(activeId);
+      }
+      // Null out the temp reference BEFORE starting so the unmount
+      // cleanup can never remove the now-active download.
+      setTempTorrentId(null);
+      await startSelectedDownload(activeId, Array.from(selectedFiles), autoExtract);
+      showToast(t('downloadModal.startedWithFileSelection'), "success");
+      onClose();
+    } catch (err) {
+      if (cancelledRef.current) return;
+      console.error("[DownloadModal] file-selection download failed:", err);
+      setError(String(err));
+      setStep("file_selection");
+    }
+  }, [
+    selectedMatch,
+    selectedMirrorIndex,
+    selectedFiles,
+    fetchMode,
+    tempTorrentId,
+    finalSavePath,
+    gameId,
+    gamePoster,
+    autoExtract,
+    addDownload,
+    addDebridDownload,
+    startSelectedDownload,
+    showToast,
+    onClose,
+    t,
+  ]);
+
   // Clear the inline error when the user actively changes their
   // selection or save path. Note: `step` is intentionally NOT in
   // the dep array — `handleStart`'s catch block sets `step` to
@@ -860,14 +1125,7 @@ export default function DownloadModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && step !== "starting") {
         if (step === "fetching_metadata" || step === "file_selection") {
-          cancelledRef.current = true;
-          if (tempTorrentIdRef.current) {
-            invoke("torrent_remove", { id: tempTorrentIdRef.current, deleteFiles: true }).catch((e) =>
-              console.error("Failed to remove list-only torrent on escape:", e)
-            );
-          }
-          setTempTorrentId(null);
-          setStep("results");
+          cancelFileListing();
         } else {
           handleCloseAttempt();
         }
@@ -875,7 +1133,7 @@ export default function DownloadModal({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [step, handleCloseAttempt]);
+  }, [step, handleCloseAttempt, cancelFileListing]);
 
   // Arrow-key navigation through the results list
   useEffect(() => {
@@ -959,6 +1217,10 @@ export default function DownloadModal({
   }, [step, t]);
 
   const showResultsUI = step === "results" || step === "starting";
+  // File-list fetch in flight (parsing a .torrent / asking AllDebrid /
+  // waiting for swarm metadata). Computed at top level so it stays a
+  // plain boolean inside the step-narrowed JSX below.
+  const filesFetching = step === "fetching_metadata";
   const gameCover = targetGame?.coverArtUrl || targetGame?.iconUrl || gamePoster;
 
   return createPortal(
@@ -1170,6 +1432,8 @@ export default function DownloadModal({
                       onAutoExtract={setAutoExtract}
                       chooseFiles={chooseFiles}
                       onChooseFiles={setChooseFiles}
+                      onSelectFiles={handleFetchFiles}
+                      isFetchingFiles={filesFetching}
                       useDebrid={useDebrid}
                       onUseDebrid={setUseDebrid}
                       debridConfigured={debridConfigured}
@@ -1223,6 +1487,7 @@ export default function DownloadModal({
               const live = activeDownloads.find((d) => d.id === tempTorrentId);
               return (
                 <FetchingMetadataState
+                  variant={tempTorrentId ? "swarm" : "fast"}
                   peers={live?.peers ?? 0}
                   seeds={live?.seeds ?? 0}
                 />
@@ -1231,7 +1496,7 @@ export default function DownloadModal({
 
             {step === "file_selection" && (
               <FileSelection
-                files={activeDownloads.find((d) => d.id === tempTorrentId)?.files ?? []}
+                files={fetchedFiles ?? activeDownloads.find((d) => d.id === tempTorrentId)?.files ?? []}
                 selectedFiles={selectedFiles}
                 onChange={setSelectedFiles}
               />
@@ -1263,7 +1528,8 @@ export default function DownloadModal({
               ) : step === "file_selection" ? (
                 <span className="dl-footer-count-text">
                   {t('downloadModal.totalFiles', {
-                    count: activeDownloads.find((d) => d.id === tempTorrentId)?.files.length ?? 0,
+                    count: (fetchedFiles ?? activeDownloads.find((d) => d.id === tempTorrentId)?.files ?? [])
+                      .length,
                   })}
                 </span>
               ) : (
@@ -1298,21 +1564,7 @@ export default function DownloadModal({
               {step === "file_selection" ? (
                 <Button
                   variant="primary"
-                  onClick={async () => {
-                    if (!tempTorrentId) return;
-                    const activeId = tempTorrentId;
-                    setStep("starting");
-                    try {
-                      setTempTorrentId(null);
-                      await startSelectedDownload(activeId, Array.from(selectedFiles), autoExtract);
-                      showToast(t('downloadModal.startedWithFileSelection'), "success");
-                      onClose();
-                    } catch (e) {
-                      setTempTorrentId(activeId);
-                      setError(String(e));
-                      setStep("file_selection");
-                    }
-                  }}
+                  onClick={handleConfirmFileSelection}
                   disabled={selectedFiles.size === 0}
                 >
                   {t('downloadModal.confirmDownload', { count: selectedFiles.size })}
@@ -1320,7 +1572,7 @@ export default function DownloadModal({
               ) : (
                 <Button
                   variant="primary"
-                  onClick={handleStart}
+                  onClick={wantFileSelection ? handleFetchFiles : handleStart}
                   disabled={
                     step === "starting" ||
                     step === "checking" ||
@@ -1348,12 +1600,7 @@ export default function DownloadModal({
                 >
                   {(() => {
                     if (selectedWebUrl) return t('downloadModal.openInBrowser');
-                    const selMatch = selectedMatch;
-                    const { isDirect } = classifyUri(
-                      resolveSourceUri(selMatch ?? undefined, selectedMirrorIndex),
-                      selMatch?.torrentUrl,
-                    );
-                    if (chooseFiles && !isDirect) return t('downloadModal.fetchFiles');
+                    if (wantFileSelection) return t('downloadModal.selectFiles');
                     return t('downloadModal.startDownload');
                   })()}
                 </Button>

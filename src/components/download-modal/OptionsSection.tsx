@@ -11,6 +11,8 @@ export function OptionsSection({
   onAutoExtract,
   chooseFiles,
   onChooseFiles,
+  onSelectFiles,
+  isFetchingFiles,
   isDirect,
   useDebrid,
   onUseDebrid,
@@ -21,6 +23,8 @@ export function OptionsSection({
   onAutoExtract: (v: boolean) => void;
   chooseFiles: boolean;
   onChooseFiles: (v: boolean) => void;
+  onSelectFiles: () => void;
+  isFetchingFiles: boolean;
   isDirect: boolean;
   useDebrid: boolean;
   onUseDebrid: (v: boolean) => void;
@@ -28,8 +32,10 @@ export function OptionsSection({
   cacheStatus: CacheCheckStatus;
 }) {
   const { t } = useLanguage();
-  // Debrid downloads the whole file, so per-file selection only makes sense on plain P2P
-  const showChooseFiles = !isDirect && !(useDebrid && debridAvailable);
+  // Debrid supports per-file selection too (the list is fetched from the
+  // provider and the confirmed selection is filtered on the debrid side)
+  // — only direct links, which are a single file, hide the option.
+  const showChooseFiles = !isDirect;
 
   return (
     <div className="dl-options-cards">
@@ -96,29 +102,54 @@ export function OptionsSection({
 
       {/* Choose Files Option */}
       {showChooseFiles && (
-        <label className={`dl-option-card${chooseFiles ? " is-active" : ""}`}>
-          <div className="dl-option-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10 9 9 9 8 9" />
-            </svg>
-          </div>
-          <div className="dl-option-text">
-            <span className="dl-option-heading">{t("downloadModal.chooseFiles")}</span>
-            <span className="dl-option-subtext">{t("downloadModal.chooseFilesDesc")}</span>
-          </div>
-          <span className="dl-switch-toggle">
-            <input
-              type="checkbox"
-              checked={chooseFiles}
-              onChange={(e) => onChooseFiles(e.target.checked)}
-            />
-            <span className="dl-switch-slider" aria-hidden />
-          </span>
-        </label>
+        <div className={`dl-option-card dl-option-card--files${chooseFiles ? " is-active" : ""}`}>
+          <label className="dl-option-row">
+            <div className="dl-option-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </div>
+            <div className="dl-option-text">
+              <span className="dl-option-heading">{t("downloadModal.chooseFiles")}</span>
+              <span className="dl-option-subtext">{t("downloadModal.chooseFilesDesc")}</span>
+            </div>
+            <span className="dl-switch-toggle">
+              <input
+                type="checkbox"
+                checked={chooseFiles}
+                onChange={(e) => onChooseFiles(e.target.checked)}
+              />
+              <span className="dl-switch-slider" aria-hidden />
+            </span>
+          </label>
+          {chooseFiles && (
+            <button
+              type="button"
+              className="dl-file-select-cta"
+              onClick={onSelectFiles}
+              disabled={isFetchingFiles}
+            >
+              {isFetchingFiles ? (
+                <span className="dl-file-select-spinner" aria-hidden />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <polyline points="8 17 12 21 16 17" />
+                  <line x1="12" y1="12" x2="12" y2="21" />
+                  <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+                </svg>
+              )}
+              <span>
+                {isFetchingFiles
+                  ? t("downloadModal.fetchingFileList")
+                  : t("downloadModal.selectFiles")}
+              </span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

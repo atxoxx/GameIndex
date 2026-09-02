@@ -1536,6 +1536,62 @@
   animation: dl-spin 0.8s linear infinite;
 }
 
+/* Choose-files card: stacks the toggle row over the "Select files"
+   CTA so the listing button never conflicts with the switch. */
+.dl-option-card--files {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  cursor: default;
+}
+
+.dl-option-card--files .dl-option-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.dl-file-select-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-file-select-cta:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.dl-file-select-cta:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.dl-file-select-cta svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dl-file-select-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: dl-spin 0.8s linear infinite;
+}
+
 /* Custom Switch Toggle */
 .dl-switch-toggle {
   position: relative;
@@ -2057,6 +2113,26 @@
   border-radius: 50%;
   background: var(--color-accent);
   animation: dl-pulse-dot 1s ease-in-out infinite;
+}
+
+/* Fast file-listing state (parsing a .torrent or asking the debrid
+   provider) — a compact spinner instead of the swarm radar. */
+.dl-fast-list-indicator {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dl-fast-list-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: dl-spin 0.9s linear infinite;
 }
 
 .dl-state-screen--checking,

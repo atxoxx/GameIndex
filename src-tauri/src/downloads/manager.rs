@@ -1509,6 +1509,40 @@ async fn run_debrid_flow(
                 files.push((name, f.size, link, f.link.clone()));
             }
 
+            // Apply the file selection chosen in the modal ("Choose
+            // files"): only the picked indices are downloaded. Indices
+            // follow the provider's file order, which matches the order
+            // the listing (debrid_list_files) presented.
+            let files = {
+                let guard = manager.read().await;
+                let only_files = guard
+                    .downloads_map()
+                    .get(&id)
+                    .and_then(|d| d.only_files.clone())
+                    .unwrap_or_default();
+                if only_files.is_empty() {
+                    files
+                } else {
+                    files
+                        .into_iter()
+                        .enumerate()
+                        .filter(|(i, _)| only_files.contains(i))
+                        .map(|(_, f)| f)
+                        .collect::<Vec<_>>()
+                }
+            };
+            if files.is_empty() {
+                fail_download(
+                    &manager,
+                    &id,
+                    "The selected file list is empty — remove and re-add \
+                     this download with files selected."
+                        .to_string(),
+                )
+                .await;
+                return;
+            }
+
             // Single-file downloads keep the file name as the record name;
             // multi-file downloads fall back to the torrent/archive title.
             let record_name = if files.len() == 1 {

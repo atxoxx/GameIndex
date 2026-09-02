@@ -273,6 +273,41 @@ async fn handle_duplicate_add(
 
 // ─── Tauri commands: adds ───────────────────────────────────────────────────
 
+/// Parse `.torrent` bytes into the file list shown by the file-selection
+/// UI. Pure (no I/O) so it can be unit-tested without network access.
+fn parse_torrent_files(bytes: &[u8]) -> Result<Vec<DownloadFile>, String> {
+    let meta = librqbit::torrent_from_bytes(bytes)
+        .map_err(|e| format!("Invalid .torrent file: {}", e))?;
+    let info = meta
+        .info
+        .data
+        .validate()
+        .map_err(|e| format!("Invalid torrent metadata: {}", e))?;
+    Ok(info
+        .iter_file_details()
+        .map(|fd| DownloadFile {
+            name: fd.filename.to_pathbuf().to_string_lossy().into_owned(),
+            size: fd.len,
+            downloaded: 0,
+            progress: 0.0,
+            selected: true,
+        })
+        .collect())
+}
+
+/// List the files of a `.torrent` (local path or http(s) URL) WITHOUT
+/// starting a download. Parses the metadata embedded in the torrent file
+/// directly — instant and swarm-free, unlike a magnet whose file list
+/// only exists after reaching the P2P network.
+#[tauri::command]
+pub async fn torrent_list_files(
+    uri: String,
+    referer: Option<String>,
+) -> Result<Vec<DownloadFile>, String> {
+    let bytes = torrent::read_torrent_bytes(&uri, referer.as_deref()).await?;
+    parse_torrent_files(&bytes)
+}
+
 #[tauri::command]
 pub async fn torrent_add(
     magnet_uri: String,
@@ -571,6 +606,7 @@ pub async fn debrid_download_start(
     provider: String,
     apikey: String,
     auto_extract: Option<bool>,
+    only_files: Option<Vec<usize>>,
 ) -> Result<Download, String> {
     let mgr = wait_for_manager().await?;
 
@@ -585,6 +621,7 @@ pub async fn debrid_download_start(
         auto_extract.unwrap_or(false),
     );
     d.status = DownloadStatus::Queued;
+    d.only_files = only_files;
     d.game_poster = game_poster;
 
     {
@@ -1289,6 +1326,24 @@ pub async fn debrid_check_cache(
     }
 }
 
+/// List the files of a magnet through the configured debrid provider
+/// (AllDebrid only today) WITHOUT enqueuing a download — the fast,
+/// swarm-free file listing behind the modal's "Choose files" flow. The
+/// probe magnet is cleaned up from the account after listing, exactly
+/// like the cache probe, so repeated listings never exhaust slots.
+#[tauri::command]
+pub async fn debrid_list_files(
+    provider: String,
+    apikey: String,
+    magnet: String,
+) -> Result<debrid::DebridFileListResult, String> {
+    if provider.trim().eq_ignore_ascii_case("alldebrid") {
+        debrid::AllDebridClient::list_magnet_files(&apikey, &magnet).await
+    } else {
+        Err("File listing over debrid is only supported for AllDebrid".to_string())
+    }
+}
+
 #[tauri::command]
 pub async fn debrid_unrestrict_link(
     provider: String,
@@ -1318,5 +1373,69 @@ pub async fn download_set_debrid_config(
     guard.default_debrid_provider = if prov.is_empty() { None } else { Some(prov) };
     guard.default_debrid_apikey = if key.is_empty() { None } else { Some(key) };
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A minimal single-file `.torrent` encoded by hand (bencode dict
+    /// with an `info` section). Real torrents carry announce/comment keys
+    /// too, but listing files only needs `info`.
+    fn single_file_torrent() -> Vec<u8> {
+        let mut b = Vec::new();
+        b.extend_from_slice(b"d4:infod6:lengthi5e4:name4:demo12:piece lengthi16384e6:pieces20:");
+        b.extend_from_slice(&[0u8; 20]);
+        b.extend_from_slice(b"ee");
+        b
+    }
+
+    #[test]
+    fn parse_torrent_files_lists_single_file() {
+        let files = parse_torrent_files(&single_file_torrent()).expect("torrent parses");
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].name, "demo");
+        assert_eq!(files[0].size, 5);
+        assert!(files[0].selected);
+    }
+
+    #[test]
+    fn parse_torrent_files_multifile_keeps_paths() {
+        // Multi-file mode: `info` carries a `files` list of dicts with
+        // `path` (list of path components) + `length`. Built
+        // programmatically so the bencode nesting is unambiguous:
+        //   info = d 5:files l <filedict>* e 13:piece length i16384e
+        //           6:pieces <20 bytes> e
+        fn s(v: &str) -> Vec<u8> {
+            format!("{}:{}", v.len(), v).into_bytes()
+        }
+        let mut b = Vec::new();
+        b.extend_from_slice(b"d4:infod5:filesl");
+        // { length: 3, path: ["sub1", "a.txt"] }
+        b.extend_from_slice(b"d6:lengthi3e4:pathl");
+        b.extend_from_slice(&s("sub1"));
+        b.extend_from_slice(&s("a.txt"));
+        b.extend_from_slice(b"ee"); // close path list + file dict
+        // { length: 4, path: ["top.txt"] }
+        b.extend_from_slice(b"d6:lengthi4e4:pathl");
+        b.extend_from_slice(&s("top.txt"));
+        b.extend_from_slice(b"ee"); // close path list + file dict
+        b.extend_from_slice(b"e12:piece lengthi16384e6:pieces20:");
+        b.extend_from_slice(&[1u8; 20]);
+        b.extend_from_slice(b"ee"); // close info dict + root
+        // The path is rendered with the OS-native separator (same as the
+        // swarm listing path), so compare component-wise.
+        let files = parse_torrent_files(&b).expect("torrent parses");
+        assert_eq!(files.len(), 2);
+        assert!(files[0].name.contains("sub1") && files[0].name.contains("a.txt"));
+        assert_eq!(files[0].size, 3);
+        assert_eq!(files[1].name, "top.txt");
+        assert_eq!(files[1].size, 4);
+    }
+
+    #[test]
+    fn parse_torrent_files_rejects_garbage() {
+        assert!(parse_torrent_files(b"this is not bencode").is_err());
+    }
 }
 
