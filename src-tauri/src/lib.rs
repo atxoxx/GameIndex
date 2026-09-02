@@ -1,10 +1,6 @@
-use std::path::Path;
 use std::sync::Arc;
-use std::collections::HashMap;
-use std::time::{Duration, Instant, SystemTime};
-use std::sync::OnceLock;
-use serde::{Deserialize, Deserializer, Serialize};
-use tauri::{Emitter, Listener, Manager, WindowEvent};
+use std::time::Duration;
+use tauri::{Listener, Manager, WindowEvent};
 use tokio::sync::Mutex;
 
 mod config;
@@ -46,9 +42,7 @@ mod system_screenshots;
 mod emulator_install;
 mod plugins;
 mod retro;
-use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, PcRequirementsPayload, IgdbPlatformInfo};
-use game_watcher::{GameWatcher, GameRefInput};
-use gpu_detector::GpuInfo;
+use game_watcher::GameWatcher;
 use epic::auth::{epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_is_authenticated, epic_logout};
 use epic::sync::epic_sync_library;
 use gog::auth::{gog_is_authenticated, gog_logout, gog_start_login};
@@ -62,7 +56,6 @@ use uplay::{
     uplay_get_settings, uplay_launch_game, uplay_save_settings, uplay_sync_library,
 };
 use steam::auth::{steam_connect, steam_logout, steam_get_session};
-use steam::launch_options::SteamLaunchOption;
 use steam::sync::steam_sync_games;
 use size::{detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size};
 use system_screenshots::detect_system_screenshot_folders;
@@ -590,10 +583,9 @@ pub fn run() {
             emulation::start_rom_watcher(app.handle().clone());
 
             let app_handle = app.handle().clone();
-            let (tx, rx) = tokio::sync::mpsc::channel(10);
-            init_internet_sync(tx);
+            init_internet_sync();
             tauri::async_runtime::spawn(async move {
-                start_internet_sync_loop(app_handle, rx).await;
+                start_internet_sync_loop(app_handle).await;
             });
 
             Ok(())

@@ -2,9 +2,9 @@
 
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
-use tauri::{Emitter, Listener, Manager, WindowEvent};
+use tauri::{Emitter, Manager};
 use crate::db;
 use crate::{discord_presence, game_watcher, metrics_collector};
 use crate::game_watcher::{GameRefInput, GameWatcher};

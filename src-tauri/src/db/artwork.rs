@@ -13,7 +13,6 @@ use std::collections::HashSet;
 
 const ARTWORK_DIR: &str = "artwork";
 const CACHE_DIRS: &[&str] = &["artwork-cache", "image-cache", "store-cache", "news-cache"];
-const ARTWORK_CACHE_MARKER: &str = ".artwork-cache";
 
 fn artwork_root(app_data_dir: &Path) -> PathBuf {
     app_data_dir.join(ARTWORK_DIR)
@@ -60,10 +59,6 @@ pub fn store_file(app_data_dir: &Path, game_id: &str, slot: &str, source: &Path)
     let relative = format!("{ARTWORK_DIR}/{}/{}.{}", safe_component(game_id), safe_component(slot), ext);
     std::fs::write(app_data_dir.join(&relative), bytes).map_err(|e| format!("write artwork: {e}"))?;
     Ok(Some(relative))
-}
-
-pub fn delete_game(app_data_dir: &Path, game_id: &str) {
-    let _ = std::fs::remove_dir_all(artwork_root(app_data_dir).join(safe_component(game_id)));
 }
 
 /// Remove temporary/non-library caches older than `max_age`.

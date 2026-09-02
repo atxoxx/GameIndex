@@ -183,49 +183,23 @@ async fn read_framed_string<S: tokio::io::AsyncRead + Unpin>(stream: &mut S) -> 
 
 // ── Internet Sync (Automatic P2P sync via KV discovery) ──────────────
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct InternetSyncStatus {
-    pub enabled: bool,
-    pub bound_port: Option<u16>,
-    pub external_ip: Option<String>,
-    pub upnp_mapped: bool,
-    pub last_synced_times: HashMap<String, u64>,
-    pub error_message: Option<String>,
-}
-
 pub struct InternetSyncState {
     pub bound_port: std::sync::Mutex<Option<u16>>,
     pub external_ip: std::sync::Mutex<Option<String>>,
     pub upnp_mapped: std::sync::Mutex<bool>,
     pub last_synced_times: std::sync::Mutex<HashMap<String, u64>>,
     pub error_message: std::sync::Mutex<Option<String>>,
-    pub trigger_tx: tokio::sync::mpsc::Sender<()>,
-}
-
-impl InternetSyncState {
-    pub fn get_status(&self) -> InternetSyncStatus {
-        InternetSyncStatus {
-            enabled: true,
-            bound_port: *self.bound_port.lock().unwrap(),
-            external_ip: self.external_ip.lock().unwrap().clone(),
-            upnp_mapped: *self.upnp_mapped.lock().unwrap(),
-            last_synced_times: self.last_synced_times.lock().unwrap().clone(),
-            error_message: self.error_message.lock().unwrap().clone(),
-        }
-    }
 }
 
 static INTERNET_SYNC_STATE: OnceLock<Arc<InternetSyncState>> = OnceLock::new();
 
-pub(crate) fn init_internet_sync(trigger_tx: tokio::sync::mpsc::Sender<()>) -> Arc<InternetSyncState> {
+pub(crate) fn init_internet_sync() -> Arc<InternetSyncState> {
     let state = Arc::new(InternetSyncState {
         bound_port: std::sync::Mutex::new(None),
         external_ip: std::sync::Mutex::new(None),
         upnp_mapped: std::sync::Mutex::new(false),
         last_synced_times: std::sync::Mutex::new(HashMap::new()),
         error_message: std::sync::Mutex::new(None),
-        trigger_tx,
     });
     let _ = INTERNET_SYNC_STATE.set(state.clone());
     state
@@ -465,7 +439,7 @@ async fn sync_with_friend(
     Ok(())
 }
 
-pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle, mut trigger_rx: tokio::sync::mpsc::Receiver<()>) {
+pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle) {
     let state = match INTERNET_SYNC_STATE.get() {
         Some(s) => s.clone(),
         None => return,
@@ -475,12 +449,7 @@ pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle, mut trigger_
     let mut active_listener: Option<u16> = None;
     
     loop {
-        tokio::select! {
-            _ = interval.tick() => {},
-            _ = trigger_rx.recv() => {
-                println!("[gameindex] Internet sync manually triggered");
-            }
-        }
+        interval.tick().await;
 
         let db_payload = match load_friends_db_payload(&app) {
             Some(p) => p,

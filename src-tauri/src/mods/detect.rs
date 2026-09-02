@@ -797,18 +797,6 @@ fn scan_custom_root(game_id: &str, root: &str, out: &mut ScanOutcome) {
     out.mods.extend(rows);
 }
 
-/// Run every engine detector against the install and return the
-/// merged, load-order-normalized result. `custom_root` is a
-/// user-picked folder scanned on top of the automatic detection.
-pub fn scan(
-    game_id: &str,
-    game_path: &str,
-    steam_app_id: Option<&str>,
-    custom_root: Option<&str>,
-) -> Result<ScanOutcome, String> {
-    scan_with_cancel(game_id, game_path, steam_app_id, custom_root, None)
-}
-
 pub fn scan_with_cancel(
     game_id: &str,
     game_path: &str,
@@ -898,7 +886,7 @@ mod tests {
         fs::write(plugins.join("CoolMod.dll"), b"dll").unwrap();
         fs::write(plugins.join("OldMod.dll.disabled"), b"dll").unwrap();
 
-        let out = scan("g1", &exe.to_string_lossy(), None, None).unwrap();
+        let out = scan_with_cancel("g1", &exe.to_string_lossy(), None, None, None).unwrap();
         assert!(out.engines.contains(&"bepinex".to_string()));
         assert_eq!(out.mods.len(), 2);
         let cool = out.mods.iter().find(|m| m.name == "CoolMod").unwrap();
