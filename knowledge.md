@@ -21,7 +21,7 @@ This file gives Codebuff context about your project: goals, commands, convention
 - **Updater:** `tauri-plugin-updater` for release builds; `updater.rs` adds portable-mode update download/cancel/apply.
 
 ### Frontend (`src/`)
-- **Router:** React Router v7 with `HashRouter` in `src/main.tsx` (required — Tauri ships `file://` in production). Routes are declared once in **`src/bigscreen/registry.tsx`** (`BIGSCREEN_ROUTE_PAIRS`) and rendered through `<ShellSwitch>` — every desktop page is a `React.lazy` chunk, and big-screen routes swap to controller-first variants when Big Screen is active.
+- **Router:** React Router v7 with `HashRouter` in `src/main.tsx` (required — Tauri ships `file://` in production). Routes are declared once in **`src/bigscreen/registry.tsx`** (`BIGSCREEN_ROUTE_PAIRS`) and rendered through `<ShellSwitch>` — every desktop page is a `React.lazy` chunk, and big-screen routes swap to controller-first variants when Big Screen is active. `App.tsx` remains the provider/layout composition root; do not add a second routing strategy.
 - **Layout:** `App.tsx` wraps `ThemeProvider > LanguageProvider > ToastProvider > UpdateProvider > SplashProvider > GameProvider > ActivityProvider > AchievementProvider > DensityProvider > LibraryFilterProvider > WishlistProvider > SourceProvider > DownloadProvider > SettingsProvider > SessionNotesProvider > BigScreenProvider > PresenceProvider`. The shell renders `TopNav`, `Sidebar`, and `MainContent` via nested routes. `<Splashscreen />` is mounted inside `SplashProvider` at z-index 9500. `BigScreenLayout` is lazy-loaded (heavy controller shell).
 - **Pages (`src/pages/`)** — desktop pages, each its own lazy chunk:
   - `HomePage` (`/home`) — dashboard landing with widgets + spotlight carousel.
@@ -41,7 +41,7 @@ This file gives Codebuff context about your project: goals, commands, convention
 - **Contexts (`src/context/`)** — providers per cross-cutting concern: `GameContext` (library CRUD / launch; split into `context/game/*` hooks: `useLaunch`, `usePersistence`, `useSessions`, `useWatcherIndex`, `useEnrich`), `ActivityContext`, `AchievementContext` (multi-source), `WishlistContext`, `DownloadContext` (concurrent downloads + seeding + speed limits), `SourceContext` (download sources), `SplashContext`, `ToastContext`, `ThemeContext` (light/dark + accent family), `LanguageContext` (i18n), `DensityContext`, `SettingsContext`, `SessionNotesContext`, `SidebarCollapseContext`, `LibraryFilterContext`, `PresenceContext`, `UpdateContext`, `BigScreenContext`.
 - **Hooks (`src/hooks/`)** — extracted filters/store-cache/player-count/steam helpers (`useLibraryFilters`, `useStoreGames`, `useStoreCatalogue`, `useStoreCache`, `useProgressiveImages`, `useSteamGameStats`, `useSteamPlayerCount`, `useSteamPlayerHistory`, `useSteamAppId`, `useNewsFeeds`, `useWishlist`, `useHiddenGames`, `useFilterPresets`, `useDiscordPresence`, `useTrayNavigation`, `useTrayStrings`, `useFriends*`, `useGameMods`, `useDownloadCoverArt`, `useBandwidthHistory`, `useSizeUnit` / `useSpeedUnit`, `useViewDensity`, `useGameAccent`, …).
 - **Types (`src/types/`)** — hand-written TypeScript types mirroring the Rust serde models: `game.ts`, `steam.ts`, `gog.ts`, `epic.ts`, `humble.ts`, `rockstar.ts`, `uplay.ts`, `source.ts`, `download.ts`, `deals.ts`, `plugins.ts`, `retro.ts`, `mods.ts`, `friends.ts`.
-- **Styles (`src/styles/`, `src/*.css`)** — co-located CSS files. `App.css` is a thin barrel of `@import`s that wires up the per-feature stylesheets in cascade order. All theme colors go through CSS custom properties: the base `:root` dark palette lives in `styles/theme.css`, alternate palettes (`[data-theme="light"]`, nord, cyberpunk, aurora, …) live in `styles/themes.css`, and a global **accent family** (`--accent*`) drives the game palette. **Never hardcode hex/rgb values** — use `var(--…)`.
+- **Styles (`src/styles/`, `src/*.css`)** — co-located CSS files. `App.css` is a thin barrel of `@import`s that wires up the per-feature stylesheets in cascade order. All theme colors go through CSS custom properties: the base `:root` dark palette lives in `styles/theme.css`, alternate palettes (`[data-theme="light"]`, nord, cyberpunk, aurora, …) live in `styles/themes.css`, and a global **accent family** (`--accent*`) drives the game palette. **Never hardcode hex/rgb values** — use `var(--…)`. Page-specific styles are scoped to their page/container to avoid cross-surface regressions.
 
 ### Backend (`src-tauri/src/`)
 - **Entry point:** `lib.rs::run()` — the header, module decls, plugin registration, and `generate_handler!` command registry. `main.rs` simply calls `gameindex_lib::run()`. The old 4700-line monolithic lib.rs was split into domain modules (no behavior change): `games.rs`, `emulation.rs`, `launcher.rs`, `media.rs`, `store.rs`, `sessions.rs`, `steam_stats.rs`, `system.rs`, `webview.rs`, `friends.rs`.
@@ -54,11 +54,11 @@ This file gives Codebuff context about your project: goals, commands, convention
   - **Humble** — WebView login + purchases sync (`humble_get_settings` / `humble_save_settings`).
   - **Rockstar** — registry scan of installed games; no cloud auth; `rockstar_launch_game` launches the client.
   - **Uplay** — registry + product-cache scan; `uplay_launch_game` via `uplay://` protocol.
-- **Downloads (`src-tauri/src/downloads/`)** — `manager.rs` orchestrates **concurrent downloads (no queue)** across three paths:
+- **Downloads (`src-tauri/src/downloads/`)** — `manager.rs` orchestrates **concurrent downloads (no single-active queue)** across direct HTTP, debrid, torrent, and browser-resolver paths:
   - `http.rs` — direct HTTP/chunk downloader with resume.
   - `debrid.rs` — Real-Debrid / AllDebrid / TorBox cache lookup + unrestrict.
   - `torrent.rs` — `librqbit` (pinned to `9`, no HTTP API feature) torrent engine with seeding.
-  - `browser_resolver.rs` — captures downloads initiated in the embedded browser; `extract.rs` (post-download extraction), `persistence.rs` (state + history), `hosters.rs`, `types.rs`.
+  - `browser_resolver.rs` — captures downloads initiated in the embedded browser; `extract.rs` (post-download extraction), `persistence.rs` (state + history), `hosters.rs`, `types.rs`. Download history is durable and independent of active-download cleanup.
 - **SQLite storage layer (`src-tauri/src/db/`)** — see "Storage" section below.
 
 ### Cross-cutting UI
@@ -120,7 +120,7 @@ The original single `gamelib.db` was **split into per-domain database files** un
 ## Style & UI conventions
 
 - **Dark-first** — `:root` declares the dark palette; `[data-theme="light"]` overrides. `ThemeProvider` toggles `data-theme` on `<html>`. A global accent family (`--accent*`) drives the game palette across all themes.
-- **Iconography** — `lucide-react` (tree-shakable) for app chrome/navigation icons; inline SVG is still fine for brand marks and one-off glyphs (bigscreen section icons are inline). Components live next to their consumers in `src/components/<area>/`.
+- **Iconography** — `lucide-react` (tree-shakable) for app chrome/navigation icons; inline SVG is still fine for brand marks and one-off glyphs (bigscreen section icons are inline). Components live next to their consumers in `src/components/<area>/`. Keep imports selective so unused icons are not bundled.
 - **Modals & overlays** — `<Splashscreen />` overlays at z-index 9500; modal components use fixed positioning. Render nothing when idle (don't mount empty shells).
 - **Cards / KPIs** — reuse `src/components/ui/Card.tsx`, `KpiTile.tsx`, `Badge.tsx`, `Skeleton.tsx`, `Tooltip.tsx`, `ConfirmModal.tsx` for consistency.
 

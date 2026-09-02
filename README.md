@@ -48,7 +48,7 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 | **Mod Manager** | Dual-pane mod manager for Steam Workshop & Nexus Mods with bulk multi-select (enable/disable/delete), stat cards, and mod size tracking. |
 | **IGDB Storefront** | IGDB-powered catalog browsing (search, filters, rails, price badges, comparisons). |
 | **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS, with interactive timeline, Gantt, performance, and sparkline views. |
-| **Downloads** | Unified download engine with single-active queueing, seeding, HTTP direct, debrid (Real-Debrid / AllDebrid), and torrents via `librqbit`. |
+| **Downloads** | Unified concurrent download engine with seeding, HTTP direct, debrid (Real-Debrid / AllDebrid / TorBox), browser-resolver captures, and torrents via `librqbit`. |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
 | **Community & Friends** | Local-first social layer: profiles, friend sync, shared recommendations, and a community feed. |
 | **Discord Rich Presence** | Playing *and* browsing presence — platform/playtime context, dynamic game poster, and a launcher toggle. |
@@ -56,7 +56,7 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 | **Live Player Counts** | Steam player counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
 | **i18n & Privacy** | Multi-language translation support (`LanguageContext`), theme gallery with custom accent picker, and a Privacy & Data tab to view/wipe local storage. |
 
-> 🚧 **Planned / in progress:** Linux + Steam Deck support · Steam reviews & multi-source ratings · plugin system.
+> 🚧 **Planned / in progress:** Linux + Steam Deck support · theme editor and community themes · broader plugin hooks and marketplace.
 
 ---
 
@@ -263,7 +263,7 @@ npx tsc --noEmit
 └── src-tauri/           Rust backend
     ├── src/             Tauri commands, DB DAOs, integrations
     │   ├── steam|gog|epic|rockstar|uplay|humble/   Per-store sync + auth
-    │   ├── downloader/       Direct + debrid downloads & queue management
+    │   ├── downloads/        Concurrent direct, debrid, torrent & browser-resolver downloads
     │   ├── db/               SQLite pool + schema
     │   └── torrent_engine.rs librqbit wrapper
     └── tauri.conf.json  Frameless window + bundle config
@@ -280,7 +280,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Steam, GOG, Epic, Rockstar, Ubisoft, Humble library sync
 - ✅ Steam achievements, HowLongToBeat, Crackwatch, live + historical player counts
 - ✅ Activity dashboard with FPS + frametime charts
-- ✅ Downloads engine rewrite (single-active queue, seeding, direct & debrid torrents)
+- ✅ Downloads engine rewrite (concurrent downloads, seeding, direct/debrid/torrent sources, browser resolver)
 - ✅ Storage manager + emulator & mod footprint breakdown
 - ✅ News page with RSS feeds
 - ✅ IGDB-powered storefront (search, filters, rails, price badges, comparisons)
@@ -293,10 +293,11 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Privacy & Data management in Settings
 - ✅ Theme gallery + custom accent picker
 - ✅ Steam reviews & multi-source ratings
-- 🚧 Per-game launch options & compatibility profiles
+- ✅ Sandboxed plugin system for search/download sources
+- 🚧 Per-game environment variables, compatibility profiles, performance profiles, and tags
 - ⏳ Linux + Steam Deck support
-- ⏳ Plugin system
 - ⏳ Theme editor & community themes
+- ⏳ Broader plugin hooks and marketplace
 
 ---
 

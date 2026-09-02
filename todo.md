@@ -19,7 +19,7 @@
   - **Project structure** overview (frontend `src/`, backend `src-tauri/`).
   - **Contributing guide**: coding conventions (from `knowledge.md`), PR process.
   - **License** (MIT recommended).
-  - **Acknowledgments**: libraries used (Tauri, React, Recharts, etc.).
+  - **Acknowledgments**: libraries used (Tauri, React, custom SVG charts, and others).
 
 ---
 
@@ -237,7 +237,7 @@
   - ✅ Virtualized library grid (local `VirtualGrid` in `LibraryPage.tsx`) + lazy bigscreen chunks.
   - ✅ Memoized components, debounced search/filter inputs.
   - ⏳ No `react-window` elsewhere (custom `VirtualGrid` covers the library).
-  - ⏳ Recharts re-render tuning on Activity page not fully revisited.
+  - ⏳ Activity chart render tuning and broader large-list virtualization remain to be revisited.
 - **Backend (Rust):**
   - ⏳ Parallelize game scanning with `rayon` or `tokio::spawn`.
   - ✅ Scraped metadata cached in SQLite (store cache, player-count caches, Crackwatch KV, plugin result cache).
@@ -322,7 +322,7 @@
 - The CSS custom-property engine is mature: base `:root` dark palette, light/nord/cyberpunk/aurora overrides, and a **global accent family** driving the full game palette (`f9a0c88`, `73327a9` theme consistency polish).
 - Still missing: theme editor UI in Settings with live preview, import/export `.json` theme files, community theme browser, scheduled theme switching.
 
-### 28. Plugin System — ✅ Done (as sandboxed search plugins)
+### 28. Plugin System — ✅ Done (sandboxed search/download plugins; broader hooks remain future)
 - **Shipped:** sandboxed JS search plugins — QuickJS runtime with memory + instruction budgets (`plugins/runtime.rs`), `PluginManager` (`plugins/mod.rs`), install/import/toggle/remove/bulk commands, 15-minute raw-result cache, merged `search_downloads` / `search_downloads_stream` pipeline, Plugins settings tab + bulk import modal.
 - **Not built (future):** the broader Phase-2 API from the original spec — `registerTab` / `registerGameContextMenu` / `registerMetadataScraper` / `registerSettingsSection` hooks, per-plugin permissions beyond the sandbox, and a plugin marketplace.
 
@@ -371,6 +371,6 @@
 | 🟢 Normal | 40 | Test suite (vitest + Rust unit tests) | ✅ Done |
 | ⚪ Later | 26 | Linux support | ⚠️ Plan written (`plans/Linux.md`), not implemented |
 | ⚪ Later | 27 | Theming system v2 | ⚠️ Partial (accent family + consistency polish done; no theme editor/import-export yet) |
-| ⚪ Later | 28 | Plugin system | ✅ Done (sandboxed search plugins); broader hook/marketplace API future |
+| ⚪ Later | 28 | Plugin system | ✅ Done (sandboxed search/download plugins); broader hook/marketplace API future |
 
 > Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**, **Tray**, **Discord**, **Docs**, **Updater**) are now tracked above.
