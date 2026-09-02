@@ -1205,11 +1205,97 @@
   white-space: nowrap;
 }
 
-/* ─── 10. Reduced Motion ──────────────────────────────────────────────────── */
+/* ─── 10. Enlarged Browser Modal (near-full-window) ──────────────────────── */
+.wl-expand-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: var(--color-surface-overlay);
+  /* Opacity-only: a translated entrance would desync the native child
+     webview, which is positioned from the frame's live bounding rect. */
+  animation: wlExpandIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes wlExpandIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.wl-expand-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.wl-expand-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  flex-shrink: 0;
+}
+
+.wl-expand-toolbar .wl-urlbar {
+  flex: 1;
+  min-width: 0;
+}
+
+.wl-expand-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.wl-expand-close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.wl-expand-close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.wl-expand-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.wl-expand-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: var(--color-bg-primary);
+}
+
+/* ─── 11. Reduced Motion ──────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .wl-tab,
   .wl-webview-loader,
-  .wl-category-menu {
+  .wl-category-menu,
+  .wl-expand-overlay {
     animation: none;
   }
   .wl-mylink-card:hover,

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { Webview } from "@tauri-apps/api/webview";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import { OpenExternalIcon, SteamIcon } from "./WebLinksIcons";
-import type { SourceDef, SteamSectionDef, ViewHeightMode } from "./types";
+import type { SourceDef, SteamSectionDef } from "./types";
 import type { Game } from "../../types/game";
 
 interface WebLinksWebviewProps {
@@ -17,7 +17,10 @@ interface WebLinksWebviewProps {
   isSteamSearchFallback: boolean;
   reloadNonce: number;
   zoomLevel: number;
-  heightMode: ViewHeightMode;
+  /** While true the native webview is repositioned into the expanded modal frame */
+  expanded?: boolean;
+  expandedFrameRef?: RefObject<HTMLDivElement | null>;
+  onWebviewReadyChange?: (ready: boolean) => void;
   onUrlChange?: (url: string) => void;
   onNavStateChange?: (state: { back: boolean; forward: boolean }) => void;
   onWebviewLabelChange?: (label: string | null) => void;
@@ -36,7 +39,9 @@ export default function WebLinksWebview({
   isSteamSearchFallback,
   reloadNonce,
   zoomLevel,
-  heightMode,
+  expanded = false,
+  expandedFrameRef,
+  onWebviewReadyChange,
   onUrlChange,
   onNavStateChange,
   onWebviewLabelChange,
@@ -57,15 +62,21 @@ export default function WebLinksWebview({
 
   useEffect(() => {
     setWebviewReady(false);
+    if (onWebviewReadyChange) onWebviewReadyChange(false);
   }, [url, reloadNonce]);
 
-  // Sizing and positioning sync
+  // Sizing and positioning sync — targets the in-tab frame normally, or the
+  // expanded-modal frame while the enlarge modal is open. The single native
+  // webview is moved/reshaped between the two, which leaves the tab preview
+  // blank while the modal is showing the page.
   useEffect(() => {
-    if (!containerRef.current || !webviewInst) return;
+    const frame =
+      expanded && expandedFrameRef?.current ? expandedFrameRef.current : containerRef.current;
+    if (!frame || !webviewInst) return;
 
     const handleResize = () => {
-      if (!containerRef.current || !webviewInst) return;
-      const rect = containerRef.current.getBoundingClientRect();
+      if (!webviewInst) return;
+      const rect = frame.getBoundingClientRect();
 
       webviewInst
         .setPosition(new LogicalPosition(rect.left, rect.top))
@@ -81,7 +92,7 @@ export default function WebLinksWebview({
       handleResize();
     });
 
-    observer.observe(containerRef.current);
+    observer.observe(frame);
     window.addEventListener("resize", handleResize);
     window.addEventListener("scroll", handleResize, true);
 
@@ -90,7 +101,7 @@ export default function WebLinksWebview({
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("scroll", handleResize, true);
     };
-  }, [webviewInst, heightMode]);
+  }, [webviewInst, expanded, expandedFrameRef]);
 
   // Visibility sync — hide while a DOM popover (category menu) is open,
   // since native webviews composite above DOM content and z-index can't win.
@@ -209,6 +220,8 @@ export default function WebLinksWebview({
         localWebview = webview;
         setWebviewInst(webview);
         if (onWebviewLabelChange) onWebviewLabelChange(webview.label);
+        setWebviewReady(true);
+        if (onWebviewReadyChange) onWebviewReadyChange(true);
 
         navHistoryRef.current = [url];
         navIndexRef.current = 0;
@@ -216,8 +229,6 @@ export default function WebLinksWebview({
 
         if (pollTimer) clearInterval(pollTimer);
         pollTimer = setInterval(pollCurrentUrl, 500);
-
-        setWebviewReady(true);
 
         webview.once("tauri://error", (e) => {
           console.error("Webview creation error:", e);
@@ -232,6 +243,8 @@ export default function WebLinksWebview({
     return () => {
       active = false;
       setWebviewInst(null);
+      setWebviewReady(false);
+      if (onWebviewReadyChange) onWebviewReadyChange(false);
       if (onWebviewLabelChange) onWebviewLabelChange(null);
       if (pollTimer) {
         clearInterval(pollTimer);
@@ -253,15 +266,8 @@ export default function WebLinksWebview({
     };
   }, [url, steamSubDisabled, reloadNonce]);
 
-  const heightClass =
-    heightMode === "max"
-      ? " wl-preview-max"
-      : heightMode === "tall"
-      ? " wl-preview-tall"
-      : " wl-preview-standard";
-
   return (
-    <div className={`wl-preview${heightClass}`}>
+    <div className="wl-preview wl-preview-standard">
       {steamSubDisabled ? (
         <div className="wl-empty">
           <div className="wl-empty-header">

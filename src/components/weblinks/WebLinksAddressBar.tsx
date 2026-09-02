@@ -15,7 +15,7 @@ import {
   MaximizeViewIcon,
   MinimizeViewIcon,
 } from "./WebLinksIcons";
-import type { SourceDef, ViewHeightMode } from "./types";
+import type { SourceDef } from "./types";
 
 interface WebLinksAddressBarProps {
   currentUrl: string;
@@ -33,8 +33,8 @@ interface WebLinksAddressBarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
-  heightMode: ViewHeightMode;
-  onToggleHeightMode: () => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
 }
 
 export default function WebLinksAddressBar({
@@ -53,8 +53,8 @@ export default function WebLinksAddressBar({
   onZoomIn,
   onZoomOut,
   onZoomReset,
-  heightMode,
-  onToggleHeightMode,
+  expanded,
+  onToggleExpand,
 }: WebLinksAddressBarProps) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
@@ -242,21 +242,15 @@ export default function WebLinksAddressBar({
           </button>
         </div>
 
-        {/* Height mode toggle (Standard / Tall / Max) */}
+        {/* Enlarge to a near-full-window modal, or restore back to the tab */}
         <button
-          className={`wl-urlbar-btn icon-only${heightMode !== "standard" ? " active" : ""}`}
-          onClick={onToggleHeightMode}
+          className={`wl-urlbar-btn icon-only${expanded ? " active" : ""}`}
+          onClick={onToggleExpand}
           type="button"
-          title={
-            heightMode === "standard"
-              ? t("weblinks.heightTall")
-              : heightMode === "tall"
-              ? t("weblinks.heightMax")
-              : t("weblinks.heightStandard")
-          }
-          aria-label="Toggle view height"
+          title={expanded ? t("weblinks.collapseView") : t("weblinks.expandView")}
+          aria-label={expanded ? t("weblinks.collapseView") : t("weblinks.expandView")}
         >
-          {heightMode === "max" ? <MinimizeViewIcon /> : <MaximizeViewIcon />}
+          {expanded ? <MinimizeViewIcon /> : <MaximizeViewIcon />}
         </button>
 
         {/* Copy URL */}

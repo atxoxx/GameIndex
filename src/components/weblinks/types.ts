@@ -73,8 +73,6 @@ export interface SteamSectionDef {
   requiresAppId?: boolean;
 }
 
-export type ViewHeightMode = "standard" | "tall" | "max";
-
 export interface CustomLinkItem {
   id: string;
   url: string;

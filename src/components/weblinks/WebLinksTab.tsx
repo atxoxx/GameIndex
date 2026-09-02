@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { useBigScreen } from "../../context/BigScreenContext";
@@ -10,7 +11,7 @@ import {
   deriveCustomLinkMeta,
   getSteamAppIdString,
 } from "./sources";
-import { CustomLinkIcon } from "./WebLinksIcons";
+import { CloseIcon, CustomLinkIcon } from "./WebLinksIcons";
 import WebLinksSourceStrip from "./WebLinksSourceStrip";
 import WebLinksSteamSections from "./WebLinksSteamSections";
 import WebLinksAddressBar from "./WebLinksAddressBar";
@@ -21,7 +22,6 @@ import type {
   SourceCategoryKey,
   SourceDef,
   SteamSectionKey,
-  ViewHeightMode,
   WebLinksTabProps,
 } from "./types";
 
@@ -54,7 +54,10 @@ export default function WebLinksTab({
   });
   const [reloadNonce, setReloadNonce] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(1.0);
-  const [heightMode, setHeightMode] = useState<ViewHeightMode>("standard");
+  // Enlarged browser modal — the native webview is moved into the modal frame
+  const [expanded, setExpanded] = useState(false);
+  const [modalWebviewReady, setModalWebviewReady] = useState(false);
+  const expandedFrameRef = useRef<HTMLDivElement>(null);
 
   // Steam AppID detection (canonical resolver + session override)
   const appId = useMemo(() => {
@@ -251,14 +254,51 @@ export default function WebLinksTab({
   const handleZoomOut = () => setZoomLevel((z) => Math.max(0.6, +(z - 0.1).toFixed(1)));
   const handleZoomReset = () => setZoomLevel(1.0);
 
-  // Toggle View Height Mode
-  const handleToggleHeightMode = () => {
-    setHeightMode((prev) => {
-      if (prev === "standard") return "tall";
-      if (prev === "tall") return "max";
-      return "standard";
-    });
-  };
+  // Shared browser actions (tab toolbar + expanded modal toolbar)
+  const handleGoBack = useCallback(() => {
+    if (!navState.back || !activeWebviewLabel) return;
+    invoke("webview_history_navigate", {
+      label: activeWebviewLabel,
+      direction: "back",
+    }).catch(() => {});
+  }, [navState.back, activeWebviewLabel]);
+
+  const handleGoForward = useCallback(() => {
+    if (!navState.forward || !activeWebviewLabel) return;
+    invoke("webview_history_navigate", {
+      label: activeWebviewLabel,
+      direction: "forward",
+    }).catch(() => {});
+  }, [navState.forward, activeWebviewLabel]);
+
+  const handleReload = useCallback(() => setReloadNonce((n) => n + 1), []);
+
+  const handleHome = useCallback(() => {
+    setCommandedUrl(null);
+    setCurrentNavUrl(computedInitialUrl);
+    setReloadNonce((n) => n + 1);
+  }, [computedInitialUrl]);
+
+  const handleNavigate = useCallback((newUrl: string) => {
+    setCommandedUrl(newUrl);
+    setCurrentNavUrl(newUrl);
+    setReloadNonce((n) => n + 1);
+  }, []);
+
+  // Auto-close the enlarged browser when the tab itself is hidden
+  useEffect(() => {
+    if (!visible) setExpanded(false);
+  }, [visible]);
+
+  // Close the enlarged browser with Escape
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   // BigScreen Mode
   if (isBigScreen) {
@@ -314,31 +354,11 @@ export default function WebLinksTab({
           currentUrl={currentNavUrl || computedInitialUrl}
           activeSourceDef={activeSourceDef}
           navState={navState}
-          onGoBack={() => {
-            if (!navState.back || !activeWebviewLabel) return;
-            invoke("webview_history_navigate", {
-              label: activeWebviewLabel,
-              direction: "back",
-            }).catch(() => {});
-          }}
-          onGoForward={() => {
-            if (!navState.forward || !activeWebviewLabel) return;
-            invoke("webview_history_navigate", {
-              label: activeWebviewLabel,
-              direction: "forward",
-            }).catch(() => {});
-          }}
-          onReload={() => setReloadNonce((n) => n + 1)}
-          onHome={() => {
-            setCommandedUrl(null);
-            setCurrentNavUrl(computedInitialUrl);
-            setReloadNonce((n) => n + 1);
-          }}
-          onNavigate={(newUrl) => {
-            setCommandedUrl(newUrl);
-            setCurrentNavUrl(newUrl);
-            setReloadNonce((n) => n + 1);
-          }}
+          onGoBack={handleGoBack}
+          onGoForward={handleGoForward}
+          onReload={handleReload}
+          onHome={handleHome}
+          onNavigate={handleNavigate}
           onOpenExternal={handleOpenExternal}
           onPinCustomLink={editable ? handlePinCustomLink : undefined}
           isPinned={isCurrentUrlPinned}
@@ -346,8 +366,8 @@ export default function WebLinksTab({
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onZoomReset={handleZoomReset}
-          heightMode={heightMode}
-          onToggleHeightMode={handleToggleHeightMode}
+          expanded={expanded}
+          onToggleExpand={() => setExpanded((v) => !v)}
         />
       )}
 
@@ -372,7 +392,9 @@ export default function WebLinksTab({
           isSteamSearchFallback={isSteamSearchFallback}
           reloadNonce={reloadNonce}
           zoomLevel={zoomLevel}
-          heightMode={heightMode}
+          expanded={expanded}
+          expandedFrameRef={expandedFrameRef}
+          onWebviewReadyChange={setModalWebviewReady}
           onUrlChange={(url) => setCurrentNavUrl(url)}
           onNavStateChange={(state) => setNavState(state)}
           onWebviewLabelChange={(label) => setActiveWebviewLabel(label)}
@@ -397,6 +419,65 @@ export default function WebLinksTab({
         </svg>
         <span>{t("weblinks.footnote")}</span>
       </div>
+
+      {/* ─── 7. Enlarged Browser Modal (near-full-window) ────────────── */}
+      {expanded &&
+        hasPreviewableUrl &&
+        createPortal(
+          <div
+            className="wl-expand-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("weblinks.expandView")}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setExpanded(false);
+            }}
+          >
+            <div className="wl-expand-modal">
+              <div className="wl-expand-toolbar">
+                <WebLinksAddressBar
+                  currentUrl={currentNavUrl || computedInitialUrl}
+                  activeSourceDef={activeSourceDef}
+                  navState={navState}
+                  onGoBack={handleGoBack}
+                  onGoForward={handleGoForward}
+                  onReload={handleReload}
+                  onHome={handleHome}
+                  onNavigate={handleNavigate}
+                  onOpenExternal={handleOpenExternal}
+                  onPinCustomLink={editable ? handlePinCustomLink : undefined}
+                  isPinned={isCurrentUrlPinned}
+                  zoomLevel={zoomLevel}
+                  onZoomIn={handleZoomIn}
+                  onZoomOut={handleZoomOut}
+                  onZoomReset={handleZoomReset}
+                  expanded={expanded}
+                  onToggleExpand={() => setExpanded(false)}
+                />
+                <button
+                  className="wl-expand-close"
+                  onClick={() => setExpanded(false)}
+                  type="button"
+                  title={t("weblinks.closeExpand")}
+                  aria-label={t("weblinks.closeExpand")}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              <div ref={expandedFrameRef} className="wl-expand-frame">
+                {!modalWebviewReady && (
+                  <div className="wl-webview-loader" aria-hidden>
+                    <div className="wl-webview-spinner" />
+                    <span>
+                      {t("weblinks.loading", { source: activeSourceDef.label })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
