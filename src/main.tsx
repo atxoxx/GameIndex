@@ -4,6 +4,12 @@ import App from "./App";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/ui.css";
+// Shared feature stylesheets: loaded globally because the components they
+// style (DownloadModal/DownloadButton, store cards + density toggle, ...)
+// render on many routes, not just the pages that used to import them.
+import "./styles/store-discover.css";
+import "./styles/store-polish.css";
+import "./styles/download.css";
 
 // The friends page resolves its Nostr signing key lazily via `getNostrKeys`,
 // which falls back to a session-stable placeholder when the backend key

@@ -1,6 +1,4 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import "../styles/store-discover.css";
-import "../styles/store-polish.css";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../context/GameContext";

@@ -1,6 +1,4 @@
 import { useEffect, useRef, type CSSProperties } from "react";
-import "../styles/store-discover.css";
-import "../styles/store-polish.css";
 import { useSearchParams } from "react-router-dom";
 import { usePresence } from "../context/PresenceContext";
 import { useStoreCatalogue } from "../hooks/useStoreCatalogue";
