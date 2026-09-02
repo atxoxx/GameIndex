@@ -37,7 +37,6 @@ tauri-plugin-dialog = "2.7.1"
 tauri-plugin-autostart = "2"
 base64 = "0.22"
 mime_guess = "2.0.5"
-spider = { version = "2", default-features = false, features = ["sync", "ua_generator"] }
 scraper = "0.22"
 # `stream` (bytes_stream) is used directly by updater.rs; librqbit 8.x
 # pulled it in transitively but 9.x no longer enables that feature.
