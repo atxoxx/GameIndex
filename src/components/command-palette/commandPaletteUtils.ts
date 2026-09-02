@@ -4,10 +4,12 @@ import type {
   MatchHighlight,
   CalculationResult,
   ParsedQueryFilters,
+  LibraryStatsData,
 } from "./commandPaletteTypes";
+import type { Game } from "../../types/game";
 
 const RECENT_STORAGE_KEY = "gamelib.command_palette_recent:v2";
-const MAX_RECENTS = 20;
+const MAX_RECENTS = 25;
 
 export const THEME_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
   adaptive: { bg: "#07070d", text: "#f5f6fc", accent: "#7c66ff" },
@@ -32,22 +34,68 @@ export const THEME_COLORS: Record<string, { bg: string; text: string; accent: st
   highcontrast: { bg: "#000000", text: "#ffffff", accent: "#ffff00" },
 };
 
+/** Common gaming abbreviation aliases mapping for instant acronym searches */
+const COMMON_ACRONYMS: Record<string, string[]> = {
+  gow: ["god of war", "gears of war"],
+  rdr: ["red dead redemption"],
+  rdr2: ["red dead redemption 2", "red dead redemption ii"],
+  cp2077: ["cyberpunk 2077", "cyberpunk"],
+  bg3: ["baldur's gate 3", "baldurs gate 3", "baldur's gate iii"],
+  gta: ["grand theft auto"],
+  gta5: ["grand theft auto v", "grand theft auto 5"],
+  gta4: ["grand theft auto iv", "grand theft auto 4"],
+  re4: ["resident evil 4", "resident evil iv"],
+  re2: ["resident evil 2", "resident evil ii"],
+  hl2: ["half-life 2", "half life 2"],
+  botw: ["breath of the wild", "the legend of zelda: breath of the wild"],
+  totk: ["tears of the kingdom", "the legend of zelda: tears of the kingdom"],
+  er: ["elden ring"],
+  ds3: ["dark souls iii", "dark souls 3"],
+  ds1: ["dark souls", "dark souls remastered"],
+  ds2: ["dark souls ii", "dark souls 2"],
+  hfw: ["horizon forbidden west"],
+  hzd: ["horizon zero dawn"],
+  tarkov: ["escape from tarkov"],
+  mc: ["minecraft"],
+  cod: ["call of duty"],
+  mw2: ["modern warfare 2", "modern warfare ii"],
+  civ6: ["civilization vi", "civilization 6"],
+  mhw: ["monster hunter: world", "monster hunter world"],
+  ac: ["assassin's creed", "animal crossing", "armored core"],
+  ac6: ["armored core vi", "armored core 6"],
+  ff7: ["final fantasy vii", "final fantasy 7"],
+  dbd: ["dead by daylight"],
+  poe: ["path of exile", "pillars of eternity"],
+  lol: ["league of legends"],
+  cs2: ["counter-strike 2", "counter strike 2"],
+  csgo: ["counter-strike: global offensive"],
+  tf2: ["team fortress 2"],
+  wow: ["world of warcraft"],
+  rottr: ["rise of the tomb raider"],
+  sottr: ["shadow of the tomb raider"],
+  tw3: ["the witcher 3", "witcher 3"],
+};
+
 /**
  * Parses structured power filters from the raw search string.
  * Supports:
- * - is:installed / is:cloud / is:running / is:wishlist
- * - source:steam / source:gog / source:epic / source:rockstar / source:ubisoft / source:local
+ * - is:installed / is:cloud / is:running / is:wishlist / is:fav / is:unplayed / is:untracked / is:hidden
+ * - source:steam / source:gog / source:epic / source:rockstar / source:ubisoft / source:local / source:emulator
  * - genre:rpg / tag:action
- * - dev:valve / pub:ea
+ * - dev:fromsoftware / pub:sony
  * - year:2024 / year:>2020 / year:<2015
+ * - rating:>80 / rating:<60 / rating:4
+ * - playtime:>10h / playtime:<5h / playtime:0
+ * - size:>50gb / size:<10gb / size:>1tb
+ * - sort:recent / sort:playtime / sort:rating / sort:name / sort:size
  */
 export function parseQueryFilters(raw: string): ParsedQueryFilters {
   let text = raw.trim();
   const filters: ParsedQueryFilters = { cleanQuery: "" };
 
-  // Remove leading scope trigger characters if any
-  if (/^[@>/#$?]\s*/.test(text)) {
-    text = text.replace(/^[@>/#$?]\s*/, "");
+  // Remove leading scope trigger characters if any (@, >, /, #, $, ?, !, ~, =)
+  if (/^[@>/#$?!~=]\s*/.test(text)) {
+    text = text.replace(/^[@>/#$?!~=]\s*/, "");
   }
 
   // Tokenize by whitespace while respecting quotes
@@ -61,15 +109,23 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
       filters.isInstalled = true;
     } else if (lower === "is:cloud" || lower === "is:uninstalled" || lower === "installed:false") {
       filters.isCloud = true;
-    } else if (lower === "is:running") {
+    } else if (lower === "is:running" || lower === "running:true") {
       filters.isRunning = true;
-    } else if (lower === "is:wishlist" || lower === "is:wishlisted") {
+    } else if (lower === "is:wishlist" || lower === "is:wishlisted" || lower === "wishlist:true") {
       filters.isWishlisted = true;
+    } else if (lower === "is:fav" || lower === "is:favorite" || lower === "fav:true" || lower === "favorite:true") {
+      filters.isFavorite = true;
+    } else if (lower === "is:unplayed" || lower === "unplayed:true") {
+      filters.isUnplayed = true;
+    } else if (lower === "is:untracked" || lower === "untracked:true") {
+      filters.isUntracked = true;
+    } else if (lower === "is:hidden" || lower === "hidden:true") {
+      filters.isHidden = true;
     } else if (lower.startsWith("source:") || lower.startsWith("from:") || lower.startsWith("store:")) {
       filters.source = lower.split(":")[1]?.replace(/"/g, "");
     } else if (lower.startsWith("genre:") || lower.startsWith("g:")) {
       filters.genre = lower.split(":")[1]?.replace(/"/g, "");
-    } else if (lower.startsWith("tag:")) {
+    } else if (lower.startsWith("tag:") || lower.startsWith("t:")) {
       filters.tag = lower.split(":")[1]?.replace(/"/g, "");
     } else if (lower.startsWith("dev:") || lower.startsWith("developer:")) {
       filters.developer = lower.split(":")[1]?.replace(/"/g, "");
@@ -87,6 +143,47 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
         filters.yearOp = "=";
         filters.year = parseInt(val, 10) || undefined;
       }
+    } else if (lower.startsWith("rating:") || lower.startsWith("score:")) {
+      const val = lower.replace(/^(?:rating|score):/, "").trim();
+      if (val.startsWith(">")) {
+        filters.ratingOp = ">";
+        filters.rating = parseFloat(val.slice(1)) || undefined;
+      } else if (val.startsWith("<")) {
+        filters.ratingOp = "<";
+        filters.rating = parseFloat(val.slice(1)) || undefined;
+      } else {
+        filters.ratingOp = "=";
+        filters.rating = parseFloat(val) || undefined;
+      }
+    } else if (lower.startsWith("playtime:") || lower.startsWith("time:") || lower.startsWith("hours:")) {
+      const val = lower.replace(/^(?:playtime|time|hours):/, "").trim();
+      if (val.startsWith(">")) {
+        filters.playtimeOp = ">";
+        filters.playtimeHours = parsePlaytimeStringToHours(val.slice(1));
+      } else if (val.startsWith("<")) {
+        filters.playtimeOp = "<";
+        filters.playtimeHours = parsePlaytimeStringToHours(val.slice(1));
+      } else {
+        filters.playtimeOp = "=";
+        filters.playtimeHours = parsePlaytimeStringToHours(val);
+      }
+    } else if (lower.startsWith("size:") || lower.startsWith("disk:")) {
+      const val = lower.replace(/^(?:size|disk):/, "").trim();
+      if (val.startsWith(">")) {
+        filters.sizeOp = ">";
+        filters.sizeBytes = parseSizeStringToBytes(val.slice(1));
+      } else if (val.startsWith("<")) {
+        filters.sizeOp = "<";
+        filters.sizeBytes = parseSizeStringToBytes(val.slice(1));
+      } else {
+        filters.sizeOp = "=";
+        filters.sizeBytes = parseSizeStringToBytes(val);
+      }
+    } else if (lower.startsWith("sort:")) {
+      const val = lower.split(":")[1]?.replace(/"/g, "") as any;
+      if (["recent", "playtime", "rating", "name", "size"].includes(val)) {
+        filters.sort = val;
+      }
     } else {
       remainingTokens.push(token);
     }
@@ -98,7 +195,7 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
 
 /**
  * Calculates a match score for a target text against a multi-token search query.
- * Returns -1 if not all required tokens match.
+ * Returns -1 if not matching.
  */
 export function scoreMatch(
   query: string,
@@ -110,55 +207,67 @@ export function scoreMatch(
   const t = target.toLowerCase();
 
   // 1. Exact string match
-  if (t === q) return 1200;
+  if (t === q) return 1500;
 
   // 2. Starts with complete query
   if (t.startsWith(q)) {
-    return 900 + Math.max(0, 50 - (t.length - q.length));
+    return 1100 + Math.max(0, 60 - (t.length - q.length));
   }
 
   // 3. Word boundary match for full query
   const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(q)}`, "i");
   if (wordBoundaryRegex.test(t)) {
-    return 750 + Math.max(0, 30 - t.indexOf(q));
+    return 950 + Math.max(0, 40 - t.indexOf(q));
   }
 
-  // 4. Acronym match (e.g. "gow" -> "God of War", "rdr2" -> "Red Dead Redemption 2")
-  const words = t.split(/[\s\-_:]+/).filter(Boolean);
+  // 4. Known acronym dictionary match (e.g. "gow", "rdr2", "cp2077", "bg3", "gta5")
+  if (COMMON_ACRONYMS[q]) {
+    for (const phrase of COMMON_ACRONYMS[q]) {
+      if (t.includes(phrase)) {
+        return 920;
+      }
+    }
+  }
+
+  // 5. Dynamic word acronym / initialism match
+  const words = t.split(/[\s\-_:.]+/).filter(Boolean);
   if (words.length > 1) {
     const acronym = words.map((w) => w[0]).join("");
-    if (acronym === q) return 700;
-    if (acronym.startsWith(q)) return 600;
+    if (acronym === q) return 860;
+    if (acronym.startsWith(q)) return 780;
+
     // Acronym with digits (e.g. "gta5" for "Grand Theft Auto V" or "Grand Theft Auto 5")
-    const numWords = words.map((w) => {
-      const match = w.match(/^(\d+|[a-zA-Z])/);
-      return match ? match[1].toLowerCase() : "";
-    }).join("");
-    if (numWords === q) return 680;
+    const numWords = words
+      .map((w) => {
+        const match = w.match(/^(\d+|[a-zA-Z])/);
+        return match ? match[1].toLowerCase() : "";
+      })
+      .join("");
+    if (numWords === q) return 840;
   }
 
-  // 5. Multi-token decomposition matching (e.g. "witcher wild" matches "The Witcher 3: Wild Hunt")
+  // 6. Multi-token decomposition matching
   const queryTokens = q.split(/\s+/).filter(Boolean);
   if (queryTokens.length > 1) {
     let allMatched = true;
-    let tokenScore = 400;
+    let tokenScore = 600;
     let prevIndex = -1;
 
     for (const token of queryTokens) {
       const directIdx = t.indexOf(token);
       if (directIdx !== -1) {
-        tokenScore += 50;
+        tokenScore += 60;
         if (prevIndex !== -1 && directIdx > prevIndex) {
-          tokenScore += 40; // in-order sequence bonus
+          tokenScore += 50; // In-order bonus
         }
         prevIndex = directIdx;
       } else {
-        // Check if token matches in extra terms
+        // Check extra terms
         let extraMatched = false;
         for (const term of extraTerms) {
           if (term && term.toLowerCase().includes(token)) {
             extraMatched = true;
-            tokenScore += 20;
+            tokenScore += 30;
             break;
           }
         }
@@ -174,13 +283,13 @@ export function scoreMatch(
     }
   }
 
-  // 6. Direct substring match
+  // 7. Direct substring match
   const subIdx = t.indexOf(q);
   if (subIdx !== -1) {
-    return 380 - Math.min(subIdx * 2, 100);
+    return 500 - Math.min(subIdx * 2, 120);
   }
 
-  // 7. Fuzzy subsequence match
+  // 8. Fuzzy subsequence match
   let qIdx = 0;
   let matches = 0;
   let gapPenalty = 0;
@@ -198,15 +307,27 @@ export function scoreMatch(
   }
 
   if (matches === q.length) {
-    return Math.max(120, 260 - gapPenalty * 6);
+    return Math.max(160, 380 - gapPenalty * 5);
   }
 
-  // 8. Extra metadata / tag terms match
+  // 9. Levenshtein typo-tolerant single word match (tolerates 1-2 mistypes for q.length >= 4)
+  if (q.length >= 4 && words.length > 0) {
+    let bestDist = 999;
+    for (const word of words) {
+      const dist = levenshteinDistance(q, word.slice(0, q.length + 2));
+      if (dist < bestDist) bestDist = dist;
+    }
+    if (bestDist <= (q.length > 6 ? 2 : 1)) {
+      return 280 - bestDist * 60;
+    }
+  }
+
+  // 10. Extra metadata / tag terms match
   for (const term of extraTerms) {
     if (!term) continue;
     const termLower = term.toLowerCase();
-    if (termLower.startsWith(q)) return 140;
-    if (termLower.includes(q)) return 100;
+    if (termLower.startsWith(q)) return 200;
+    if (termLower.includes(q)) return 140;
   }
 
   return -1;
@@ -278,15 +399,186 @@ function escapeRegExp(string: string) {
 }
 
 /**
- * Evaluates safe arithmetic expressions and unit conversions (Raycast-style instant tool).
- * Returns null if the query is not a mathematical or conversion expression.
+ * Calculates Levenshtein distance for typo tolerance
+ */
+export function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix: number[][] = [];
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Parses user size string (e.g. "50gb", "100mb", "1.5tb") into numeric bytes
+ */
+export function parseSizeStringToBytes(str: string): number | undefined {
+  const match = str.trim().toLowerCase().match(/^([\d.,]+)\s*(b|kb|mb|gb|tb|kib|mib|gib|tib)?$/);
+  if (!match) return undefined;
+  const val = parseFloat(match[1].replace(/,/g, ""));
+  if (isNaN(val)) return undefined;
+  const unit = match[2] || "gb";
+
+  if (unit === "b") return val;
+  if (unit === "kb") return val * 1000;
+  if (unit === "mb") return val * 1000 * 1000;
+  if (unit === "gb") return val * 1000 * 1000 * 1000;
+  if (unit === "tb") return val * 1000 * 1000 * 1000 * 1000;
+  if (unit === "kib") return val * 1024;
+  if (unit === "mib") return val * 1024 * 1024;
+  if (unit === "gib") return val * 1024 * 1024 * 1024;
+  if (unit === "tib") return val * 1024 * 1024 * 1024 * 1024;
+  return val * 1000 * 1000 * 1000;
+}
+
+/**
+ * Parses playtime string (e.g. "10h", "120m", "5.5 hours") into numeric hours
+ */
+export function parsePlaytimeStringToHours(str: string): number | undefined {
+  const match = str.trim().toLowerCase().match(/^([\d.,]+)\s*(h|hr|hours?|m|min|minutes?)?$/);
+  if (!match) return undefined;
+  const val = parseFloat(match[1].replace(/,/g, ""));
+  if (isNaN(val)) return undefined;
+  const unit = match[2] || "h";
+
+  if (unit.startsWith("m")) return val / 60;
+  return val;
+}
+
+/**
+ * Formats duration in seconds into human readable time (e.g. "1 hr 45 min", "42 sec", "15 min")
+ */
+export function formatDurationSeconds(sec: number): string {
+  if (sec < 60) return `${Math.round(sec)} sec`;
+  const mins = Math.floor(sec / 60);
+  if (mins < 60) {
+    const remSec = Math.round(sec % 60);
+    return remSec > 0 ? `${mins} min ${remSec}s` : `${mins} min`;
+  }
+  const hours = Math.floor(mins / 60);
+  const remMin = mins % 60;
+  if (hours < 24) {
+    return remMin > 0 ? `${hours} hr ${remMin} min` : `${hours} hr`;
+  }
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return remHours > 0 ? `${days}d ${remHours}h` : `${days} days`;
+}
+
+/**
+ * Evaluates safe arithmetic expressions, unit conversions, download time estimations,
+ * and aspect ratios (Raycast/Alfred style instant tool).
  */
 export function evaluateExpression(query: string): CalculationResult | null {
   const q = query.trim();
   if (q.length < 2) return null;
 
-  // 1. Data Unit Conversion (e.g. "45 gb in mb", "1.2 tb to gb", "1024 mb in gb")
-  const dataConvMatch = q.match(/^([\d.,]+)\s*(b|kb|mb|gb|tb|kib|mib|gib|tib)\s*(?:in|to|=|as)\s*(b|kb|mb|gb|tb|kib|mib|gib|tib)$/i);
+  // 1. Download Time Estimator (e.g. "80 gb at 100 mbps", "50 gb @ 20 mb/s", "100 gb at 1 gbps", "40 gb in 50 mbps")
+  const dlMatch = q.match(/^([\d.,]+)\s*(b|kb|mb|gb|tb|kib|mib|gib|tib)\s*(?:at|@|in)\s*([\d.,]+)\s*(mbps|gbps|kbps|mb\/s|gb\/s|kb\/s|mbit\/s|gbit\/s)$/i);
+  if (dlMatch) {
+    const sizeVal = parseFloat(dlMatch[1].replace(/,/g, ""));
+    const sizeUnit = dlMatch[2].toLowerCase();
+    const speedVal = parseFloat(dlMatch[3].replace(/,/g, ""));
+    const speedUnit = dlMatch[4].toLowerCase();
+
+    if (!isNaN(sizeVal) && !isNaN(speedVal) && speedVal > 0) {
+      const sizeInBytes = parseSizeStringToBytes(`${sizeVal}${sizeUnit}`) || 0;
+      let speedBytesPerSec = 0;
+
+      if (speedUnit.includes("mbps") || speedUnit.includes("mbit/s")) {
+        speedBytesPerSec = (speedVal * 1000 * 1000) / 8;
+      } else if (speedUnit.includes("gbps") || speedUnit.includes("gbit/s")) {
+        speedBytesPerSec = (speedVal * 1000 * 1000 * 1000) / 8;
+      } else if (speedUnit.includes("kbps")) {
+        speedBytesPerSec = (speedVal * 1000) / 8;
+      } else if (speedUnit.includes("mb/s")) {
+        speedBytesPerSec = speedVal * 1000 * 1000;
+      } else if (speedUnit.includes("gb/s")) {
+        speedBytesPerSec = speedVal * 1000 * 1000 * 1000;
+      } else if (speedUnit.includes("kb/s")) {
+        speedBytesPerSec = speedVal * 1000;
+      }
+
+      if (speedBytesPerSec > 0) {
+        const totalSec = sizeInBytes / speedBytesPerSec;
+        const formattedTime = formatDurationSeconds(totalSec);
+        return {
+          expression: `${sizeVal} ${sizeUnit.toUpperCase()} @ ${speedVal} ${speedUnit.toUpperCase()}`,
+          result: `~${formattedTime}`,
+          details: `Downloading ${sizeVal} ${sizeUnit.toUpperCase()} at ${speedVal} ${speedUnit.toUpperCase()} will take approximately ${formattedTime}`,
+          unit: "Time",
+          calcType: "download",
+        };
+      }
+    }
+  }
+
+  // 2. Display Resolution / Aspect Ratio (e.g. "2560x1440 ratio", "3840 x 2160 aspect", "1920x1080 ratio", "2560*1440 aspect")
+  const resMatch = q.match(/^(\d{3,5})\s*(?:x|\*)\s*(\d{3,5})\s*(?:ratio|aspect|res|resolution)?$/i);
+  if (resMatch && (q.toLowerCase().includes("ratio") || q.toLowerCase().includes("aspect") || q.toLowerCase().includes("x") || q.toLowerCase().includes("res"))) {
+    const w = parseInt(resMatch[1], 10);
+    const h = parseInt(resMatch[2], 10);
+    if (w > 0 && h > 0) {
+      const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+      const divisor = gcd(w, h);
+      let rw = w / divisor;
+      let rh = h / divisor;
+
+      // Normalize common display ratios (e.g. 8:5 -> 16:10, 64:27 -> 21:9)
+      if (rw === 8 && rh === 5) {
+        rw = 16;
+        rh = 10;
+      } else if (Math.abs(w / h - 21 / 9) < 0.05) {
+        rw = 21;
+        rh = 9;
+      } else if (Math.abs(w / h - 32 / 9) < 0.05) {
+        rw = 32;
+        rh = 9;
+      }
+
+      const megapixels = ((w * h) / 1000000).toFixed(2);
+      let standardName = "";
+      if (w === 1920 && h === 1080) standardName = "FHD (1080p)";
+      else if (w === 2560 && h === 1440) standardName = "QHD / 2K (1440p)";
+      else if (w === 3840 && h === 2160) standardName = "4K UHD (2160p)";
+      else if (w === 3440 && h === 1440) standardName = "UW-QHD Ultrawide";
+      else if (w === 5120 && h === 1440) standardName = "Dual QHD (Super Ultrawide)";
+      else if (w === 1280 && h === 720) standardName = "HD (720p)";
+      else if (w === 1280 && h === 800) standardName = "Steam Deck (800p)";
+
+      return {
+        expression: `${w} × ${h} Resolution`,
+        result: `${rw}:${rh} (${megapixels} MP)`,
+        details: `${w} × ${h} has a ${rw}:${rh} aspect ratio with ${megapixels} million pixels${standardName ? ` · ${standardName}` : ""}`,
+        unit: `${rw}:${rh}`,
+        calcType: "resolution",
+      };
+    }
+  }
+
+  // 3. Data Unit Conversion (e.g. "45 gb in mb", "1.2 tb to gb", "1024 mb in gb", "500 gib to mib")
+  const dataConvMatch = q.match(/^([\d.,]+)\s*(b|kb|mb|gb|tb|pb|kib|mib|gib|tib)\s*(?:in|to|=|as)\s*(b|kb|mb|gb|tb|pb|kib|mib|gib|tib)$/i);
   if (dataConvMatch) {
     const rawVal = parseFloat(dataConvMatch[1].replace(/,/g, ""));
     const fromUnit = dataConvMatch[2].toLowerCase();
@@ -299,6 +591,7 @@ export function evaluateExpression(query: string): CalculationResult | null {
         if (u === "mb") return v * 1000 * 1000;
         if (u === "gb") return v * 1000 * 1000 * 1000;
         if (u === "tb") return v * 1000 * 1000 * 1000 * 1000;
+        if (u === "pb") return v * 1000 * 1000 * 1000 * 1000 * 1000;
         if (u === "kib") return v * 1024;
         if (u === "mib") return v * 1024 * 1024;
         if (u === "gib") return v * 1024 * 1024 * 1024;
@@ -312,6 +605,7 @@ export function evaluateExpression(query: string): CalculationResult | null {
         if (u === "mb") return bytes / (1000 * 1000);
         if (u === "gb") return bytes / (1000 * 1000 * 1000);
         if (u === "tb") return bytes / (1000 * 1000 * 1000 * 1000);
+        if (u === "pb") return bytes / (1000 * 1000 * 1000 * 1000 * 1000);
         if (u === "kib") return bytes / 1024;
         if (u === "mib") return bytes / (1024 * 1024);
         if (u === "gib") return bytes / (1024 * 1024 * 1024);
@@ -328,11 +622,12 @@ export function evaluateExpression(query: string): CalculationResult | null {
         result: `${formatted} ${toUnit.toUpperCase()}`,
         details: `${rawVal} ${fromUnit.toUpperCase()} = ${formatted} ${toUnit.toUpperCase()} (${formatBytes(bytes) || ""})`,
         unit: toUnit.toUpperCase(),
+        calcType: "data",
       };
     }
   }
 
-  // 2. Gaming Frame-Time / Refresh Rate Conversion (e.g. "144 fps to ms", "16.6 ms to fps")
+  // 4. Gaming Frame-Time / Refresh Rate Conversion (e.g. "144 fps to ms", "16.6 ms to fps", "240 fps in ms")
   const fpsMatch = q.match(/^([\d.,]+)\s*fps\s*(?:in|to|=|as)?\s*ms$/i);
   if (fpsMatch) {
     const fps = parseFloat(fpsMatch[1]);
@@ -343,6 +638,7 @@ export function evaluateExpression(query: string): CalculationResult | null {
         result: `${ms} ms`,
         details: `At ${fps} FPS, each frame takes ${ms} milliseconds`,
         unit: "ms",
+        calcType: "frametime",
       };
     }
   }
@@ -357,12 +653,28 @@ export function evaluateExpression(query: string): CalculationResult | null {
         result: `${fps} FPS`,
         details: `A frame time of ${ms} ms corresponds to ~${fps} frames per second`,
         unit: "FPS",
+        calcType: "frametime",
       };
     }
   }
 
-  // 3. Pure Arithmetic (e.g. "1440 * 2560", "120 / 60", "4.5 * 1024", "(100 + 25) * 1.2")
-  // Only match if string contains math operators and numbers
+  // 5. Pure Arithmetic & Percentages (e.g. "1440 * 2560", "120 / 60", "4.5 * 1024", "(100 + 25) * 1.2", "20% of 150")
+  const percentOfMatch = q.match(/^([\d.,]+)\s*%\s*(?:of|\*)\s*([\d.,]+)$/i);
+  if (percentOfMatch) {
+    const pct = parseFloat(percentOfMatch[1].replace(/,/g, ""));
+    const base = parseFloat(percentOfMatch[2].replace(/,/g, ""));
+    if (!isNaN(pct) && !isNaN(base)) {
+      const res = (pct / 100) * base;
+      const formatted = res % 1 === 0 ? res.toString() : res.toFixed(4).replace(/\.?0+$/, "");
+      return {
+        expression: `${pct}% of ${base}`,
+        result: formatted,
+        details: `${pct}% of ${base} = ${formatted}`,
+        calcType: "math",
+      };
+    }
+  }
+
   if (!/^[\d\s.,+\-*/%^()xX]+$/.test(q)) return null;
   if (!/[\d]/.test(q) || !/[+\-*/%^xX]/.test(q)) return null;
 
@@ -376,7 +688,6 @@ export function evaluateExpression(query: string): CalculationResult | null {
     // Strict validation to avoid dangerous code execution
     if (!/^[0-9+\-*/().\s*]+$/.test(normalized)) return null;
 
-    // Evaluate using Function constructor with no arguments
     const result = Function(`"use strict"; return (${normalized})`)();
     if (typeof result !== "number" || isNaN(result) || !isFinite(result)) return null;
 
@@ -388,10 +699,52 @@ export function evaluateExpression(query: string): CalculationResult | null {
       expression: q,
       result: formattedResult,
       details: `${q} = ${formattedResult}`,
+      calcType: "math",
     };
   } catch {
     return null;
   }
+}
+
+/**
+ * Calculates aggregate library statistics and KPIs
+ */
+export function calculateLibraryStats(games: Game[]): LibraryStatsData {
+  const totalGames = games.length;
+  const installedGames = games.filter((g) => g.installed).length;
+  const totalSizeBytes = games.reduce((acc, g) => acc + (g.sizeBytes || 0), 0);
+  const favoriteCount = games.filter((g) => g.favorite).length;
+
+  let totalPlaytimeHours = 0;
+  let unplayedCount = 0;
+  let topPlayedGame: { name: string; playTime: string; coverArtUrl?: string } | undefined = undefined;
+  let maxPlaytimeHours = 0;
+
+  games.forEach((g) => {
+    const hours = parsePlaytimeStringToHours(g.playTime || "") || 0;
+    totalPlaytimeHours += hours;
+    if (hours === 0 && !g.lastPlayed) {
+      unplayedCount++;
+    }
+    if (hours > maxPlaytimeHours) {
+      maxPlaytimeHours = hours;
+      topPlayedGame = {
+        name: g.name,
+        playTime: g.playTime || `${Math.round(hours)}h`,
+        coverArtUrl: g.coverArtUrl,
+      };
+    }
+  });
+
+  return {
+    totalGames,
+    installedGames,
+    totalSizeBytes,
+    totalPlaytimeHours: Math.round(totalPlaytimeHours * 10) / 10,
+    favoriteCount,
+    unplayedCount,
+    topPlayedGame,
+  };
 }
 
 /**
@@ -423,7 +776,7 @@ export function formatRelativeTime(timestamp: number | undefined): string | null
  */
 export function formatBytes(bytes: number | undefined): string | null {
   if (bytes === undefined || bytes === null || isNaN(bytes) || bytes <= 0) return null;
-  const units = ["B", "KB", "MB", "GB", "TB"];
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
   let val = bytes;
   let unitIndex = 0;
   while (val >= 1024 && unitIndex < units.length - 1) {

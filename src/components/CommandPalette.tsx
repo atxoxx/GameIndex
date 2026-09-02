@@ -11,13 +11,16 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  BarChart3,
   Calculator,
   Compass,
+  Dices,
   Download,
   ExternalLink,
   Folder,
   Gamepad2,
   Heart,
+  HelpCircle,
   History,
   Layers,
   Loader2,
@@ -51,6 +54,7 @@ import type {
   PaletteRecentItem,
 } from "./command-palette/commandPaletteTypes";
 import {
+  calculateLibraryStats,
   deleteRecentItem,
   evaluateExpression,
   getMatchRanges,
@@ -65,6 +69,7 @@ import {
 } from "./command-palette/commandPaletteActions";
 import CommandPaletteInspector from "./command-palette/CommandPaletteInspector";
 import CommandPaletteActionDrawer from "./command-palette/CommandPaletteActionDrawer";
+import CommandPaletteCheatSheet from "./command-palette/CommandPaletteCheatSheet";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -119,16 +124,18 @@ const SCOPE_DEFINITIONS: {
 }[] = [
   { id: "all", labelKey: "commandPalette.scopeAll", icon: Search },
   { id: "games", labelKey: "commandPalette.scopeGames", prefix: "@", icon: Gamepad2 },
+  { id: "wishlist", labelKey: "commandPalette.scopeWishlist", prefix: "!", icon: Heart },
   { id: "actions", labelKey: "commandPalette.scopeActions", prefix: ">", icon: Sparkles },
   { id: "navigation", labelKey: "commandPalette.scopeNavigation", prefix: "/", icon: Compass },
   { id: "themes", labelKey: "commandPalette.scopeThemes", prefix: "#", icon: Palette },
   { id: "downloads", labelKey: "commandPalette.scopeDownloads", prefix: "$", icon: Download },
   { id: "store", labelKey: "commandPalette.scopeStore", prefix: "?", icon: Store },
+  { id: "utility", labelKey: "commandPalette.scopeUtility", prefix: "~", icon: Calculator },
 ];
 
 export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const navigate = useNavigate();
-  const { games, launchGame, forceCloseGame, runningGameIds, isGameUntracked, toggleGameTracking } = useGames();
+  const { games, launchGame, forceCloseGame, runningGameIds, isGameUntracked, toggleGameTracking, updateGame } = useGames();
   const { themes, currentTheme, setTheme } = useTheme();
   const { isBigScreen, setBigScreen } = useBigScreen();
   const { uiSoundEnabled, setUiSoundEnabled, uiSoundVolume, setUiSoundVolume, commandPaletteMode, isSimpleUi } = useSettings();
@@ -166,6 +173,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   // Secondary Action Drawer
   const [actionDrawerOpen, setActionDrawerOpen] = useState(false);
 
+  // Built-in Interactive Cheat Sheet Modal
+  const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
+
+  // Random Game Picker Roll State
+  const [randomGameKey, setRandomGameKey] = useState(0);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputId = useId();
@@ -175,6 +188,16 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     if (runningGameIds.length === 0) return null;
     return games.find((g) => runningGameIds.includes(g.id)) ?? null;
   }, [games, runningGameIds]);
+
+  // Selected random game
+  const randomGame = useMemo(() => {
+    if (games.length === 0) return null;
+    const installed = games.filter((g) => g.installed);
+    const pool = installed.length > 0 ? installed : games;
+    const idx = Math.floor(Math.random() * pool.length);
+    return pool[idx] || null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [games, randomGameKey]);
 
   // Reset state when opened
   useEffect(() => {
@@ -186,6 +209,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       setIsSearchingIgdb(false);
       setDownloadTarget(null);
       setActionDrawerOpen(false);
+      setCheatSheetOpen(false);
       playTabSound();
       const timer = setTimeout(() => inputRef.current?.focus(), 40);
       return () => clearTimeout(timer);
@@ -196,7 +220,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const parsedFilters = useMemo(() => parseQueryFilters(rawQuery), [rawQuery]);
   const cleanQuery = parsedFilters.cleanQuery;
 
-  // Evaluate instant calculator expression
+  // Evaluate instant calculator / converter / estimator expression
   const calcResult = useMemo(() => evaluateExpression(rawQuery), [rawQuery]);
 
   // Handle prefix typing
@@ -207,6 +231,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     else if (val.startsWith("#") && scope !== "themes") setScope("themes");
     else if (val.startsWith("$") && scope !== "downloads") setScope("downloads");
     else if (val.startsWith("?") && scope !== "store") setScope("store");
+    else if (val.startsWith("!") && scope !== "wishlist") setScope("wishlist");
+    else if ((val.startsWith("~") || val.startsWith("=")) && scope !== "utility") setScope("utility");
     setRawQuery(val);
     setSelectedIndex(0);
   };
@@ -271,6 +297,14 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       runningGame: runningGame ? { id: runningGame.id, name: runningGame.name } : null,
       forceCloseGame: runningGame ? () => forceCloseGame(runningGame) : undefined,
       onHistoryCleared: () => setRecentVersion((v) => v + 1),
+      onOpenCheatSheet: () => setCheatSheetOpen(true),
+      onPickRandomGame: () => {
+        setRandomGameKey((k) => k + 1);
+        setRawQuery("roll");
+      },
+      onShowStats: () => {
+        setRawQuery("stats");
+      },
     });
   }, [
     navigate,
@@ -301,20 +335,24 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     return createNavigationItems(navigate, onClose, t);
   }, [navigate, onClose, t]);
 
+  // Aggregate library stats
+  const libraryStats = useMemo(() => calculateLibraryStats(games), [games]);
+
   // Build items list
   const items = useMemo<PaletteItem[]>(() => {
     const q = cleanQuery;
+    const lowerRaw = rawQuery.toLowerCase().trim();
     const isBlank = q === "" && Object.keys(parsedFilters).length <= 1;
     const result: PaletteItem[] = [];
 
-    // ── 0. Instant Calculator / Unit Converter ─────────────────────────────
+    // ── 0. Instant Calculator / Unit Converter / Estimator ────────────────
     if (calcResult) {
       result.push({
         id: `calc-${calcResult.expression}`,
         category: "utility",
         title: calcResult.result,
         subtitle: calcResult.expression,
-        badge: "CALC",
+        badge: calcResult.calcType?.toUpperCase() || "CALC",
         badgeType: "accent",
         icon: <Calculator size={14} />,
         actionText: t("commandPalette.copyResult"),
@@ -324,6 +362,78 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           navigator.clipboard.writeText(calcResult.result);
           showToast(t("commandPalette.copiedToClipboard"), "info");
           onClose();
+        },
+      });
+    }
+
+    // ── 0b. Random Game Picker ("Surprise Me") ──────────────────────────────
+    if (
+      randomGame &&
+      (lowerRaw.includes("random") ||
+        lowerRaw.includes("roll") ||
+        lowerRaw.includes("surprise") ||
+        lowerRaw.includes("picker") ||
+        scope === "utility")
+    ) {
+      result.push({
+        id: `random-game-${randomGame.id}`,
+        category: "utility",
+        title: `${t("commandPalette.surpriseMe")}: ${randomGame.name}`,
+        subtitle: `${randomGame.platform || "PC"} · ${randomGame.playTime || "0h"} · ${t("commandPalette.rerollHint")}`,
+        badge: "SURPRISE",
+        badgeType: "accent",
+        thumb: randomGame.coverArtUrl,
+        icon: <Dices size={14} />,
+        actionText: randomGame.installed ? t("commandPalette.launch") : t("commandPalette.open"),
+        shortcut: "↵",
+        randomGameData: {
+          game: randomGame,
+          onReroll: () => setRandomGameKey((k) => k + 1),
+        },
+        quickActions: [
+          {
+            id: "reroll",
+            icon: <Dices size={12} />,
+            title: t("commandPalette.reroll"),
+            onClick: (e) => {
+              e.stopPropagation();
+              playActionSound();
+              setRandomGameKey((k) => k + 1);
+            },
+          },
+        ],
+        onSelect: () => {
+          playLaunchSound();
+          saveRecentItem(randomGame.id, randomGame.name, "games");
+          onClose();
+          if (randomGame.installed) launchGame(randomGame);
+          else navigate(`/library/${randomGame.id}`);
+        },
+      });
+    }
+
+    // ── 0c. Library Analytics & Statistics Snapshot ────────────────────────
+    if (
+      lowerRaw.includes("stats") ||
+      lowerRaw.includes("summary") ||
+      lowerRaw.includes("kpi") ||
+      lowerRaw === "storage" ||
+      lowerRaw === "analytics"
+    ) {
+      result.push({
+        id: "util-library-stats",
+        category: "utility",
+        title: t("commandPalette.libraryStats"),
+        subtitle: `${libraryStats.totalGames} ${t("commandPalette.scopeGames")} · ${libraryStats.installedGames} ${t("commandPalette.badgeInstalled")} · ${libraryStats.totalPlaytimeHours}h ${t("commandPalette.totalPlaytime")}`,
+        badge: "STATS",
+        badgeType: "accent",
+        icon: <BarChart3 size={14} />,
+        actionText: t("commandPalette.viewLibraryPage"),
+        shortcut: "↵",
+        statsData: libraryStats,
+        onSelect: () => {
+          onClose();
+          navigate("/library");
         },
       });
     }
@@ -389,7 +499,6 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       const recents = getRecentItems();
       if (recents.length > 0) {
         recents.slice(0, 6).forEach((rec: PaletteRecentItem) => {
-          // Check if this corresponds to an existing game
           const matchedGame = games.find((g) => g.id === rec.id || String(g.steamAppId) === rec.id);
 
           result.push({
@@ -451,6 +560,15 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       if (parsedFilters.isCloud) {
         filteredGames = filteredGames.filter((g) => !g.installed);
       }
+      if (parsedFilters.isFavorite) {
+        filteredGames = filteredGames.filter((g) => g.favorite);
+      }
+      if (parsedFilters.isUnplayed) {
+        filteredGames = filteredGames.filter((g) => (!g.playTime || g.playTime === "0h") && !g.lastPlayed);
+      }
+      if (parsedFilters.isUntracked) {
+        filteredGames = filteredGames.filter((g) => isGameUntracked(g.id));
+      }
       if (parsedFilters.source) {
         const src = parsedFilters.source.toLowerCase();
         filteredGames = filteredGames.filter((g) => {
@@ -459,7 +577,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           if (src === "epic") return !!g.epicNamespace || g.platform?.toLowerCase().includes("epic");
           if (src === "rockstar") return !!g.rockstarTitleId || g.platform?.toLowerCase().includes("rockstar");
           if (src === "ubisoft" || src === "uplay") return !!g.uplayGameId || g.platform?.toLowerCase().includes("ubisoft");
-          if (src === "emulated") return !!g.emulatorId || g.platform?.toLowerCase().includes("emulator");
+          if (src === "emulated" || src === "emulator") return !!g.emulatorId || g.platform?.toLowerCase().includes("emulator");
           return g.platform?.toLowerCase().includes(src) || g.metadataSource?.toLowerCase().includes(src);
         });
       }
@@ -492,14 +610,56 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           return matchYear === parsedFilters.year;
         });
       }
+      if (parsedFilters.rating && parsedFilters.ratingOp) {
+        filteredGames = filteredGames.filter((g) => {
+          const r = g.rating || 0;
+          if (parsedFilters.ratingOp === ">") return r > (parsedFilters.rating || 0);
+          if (parsedFilters.ratingOp === "<") return r < (parsedFilters.rating || 0);
+          return r === parsedFilters.rating;
+        });
+      }
+      if (parsedFilters.playtimeHours !== undefined && parsedFilters.playtimeOp) {
+        filteredGames = filteredGames.filter((g) => {
+          const hours = parseInt((g.playTime || "").match(/\d+/)?.[0] || "0", 10);
+          if (parsedFilters.playtimeOp === ">") return hours > (parsedFilters.playtimeHours || 0);
+          if (parsedFilters.playtimeOp === "<") return hours < (parsedFilters.playtimeHours || 0);
+          return hours === parsedFilters.playtimeHours;
+        });
+      }
+      if (parsedFilters.sizeBytes !== undefined && parsedFilters.sizeOp) {
+        filteredGames = filteredGames.filter((g) => {
+          const sz = g.sizeBytes || 0;
+          if (parsedFilters.sizeOp === ">") return sz > (parsedFilters.sizeBytes || 0);
+          if (parsedFilters.sizeOp === "<") return sz < (parsedFilters.sizeBytes || 0);
+          return sz === parsedFilters.sizeBytes;
+        });
+      }
+
+      // Sort overrides if specified
+      if (parsedFilters.sort) {
+        if (parsedFilters.sort === "recent") {
+          filteredGames.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+        } else if (parsedFilters.sort === "playtime") {
+          filteredGames.sort((a, b) => {
+            const ha = parseInt((a.playTime || "").match(/\d+/)?.[0] || "0", 10);
+            const hb = parseInt((b.playTime || "").match(/\d+/)?.[0] || "0", 10);
+            return hb - ha;
+          });
+        } else if (parsedFilters.sort === "rating") {
+          filteredGames.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        } else if (parsedFilters.sort === "size") {
+          filteredGames.sort((a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0));
+        } else if (parsedFilters.sort === "name") {
+          filteredGames.sort((a, b) => a.name.localeCompare(b.name));
+        }
+      }
 
       let matchedGames: { game: Game; score: number }[] = [];
 
       if (isBlank) {
-        // Show recent games (by lastPlayed desc) + top installed games
         matchedGames = [...filteredGames]
           .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0))
-          .slice(0, scope === "games" ? 30 : 6)
+          .slice(0, scope === "games" ? 35 : 7)
           .map((g) => ({ game: g, score: 100 }));
       } else {
         matchedGames = filteredGames
@@ -515,7 +675,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           })
           .filter((item) => item.score > 0)
           .sort((a, b) => b.score - a.score)
-          .slice(0, scope === "games" ? 40 : 10);
+          .slice(0, scope === "games" ? 45 : 12);
       }
 
       matchedGames.forEach(({ game }) => {
@@ -558,6 +718,17 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   },
                 ]
               : []),
+            {
+              id: "favorite",
+              icon: <Heart size={12} fill={game.favorite ? "currentColor" : "none"} />,
+              title: game.favorite ? t("commandPalette.unmarkFavorite") : t("commandPalette.markFavorite"),
+              onClick: (e: React.MouseEvent) => {
+                e.stopPropagation();
+                playActionSound();
+                updateGame(game.id, { favorite: !game.favorite });
+                showToast(game.favorite ? t("commandPalette.removedFromFavorites") : t("commandPalette.addedToFavorites"), "info");
+              },
+            },
             {
               id: "page",
               icon: <ExternalLink size={12} />,
@@ -607,12 +778,73 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       });
     }
 
-    // ── 4. Quick Actions ───────────────────────────────────────────────────
+    // ── 4. Wishlist Items ──────────────────────────────────────────────────
+    if (scope === "all" || scope === "wishlist") {
+      const wishlistItems = wishlistCtx?.wishlist || [];
+      if (wishlistItems.length > 0) {
+        const matchedWishlist = wishlistItems
+          .filter((w) => {
+            if (isBlank) return true;
+            return scoreMatch(q, w.name, [w.genres?.join(" "), w.summary || undefined]) > 0;
+          })
+          .slice(0, scope === "wishlist" ? 25 : 4);
+
+        matchedWishlist.forEach((w) => {
+          result.push({
+            id: `wishlist-${w.id || w.slug}`,
+            category: "wishlist",
+            title: w.name,
+            subtitle: `${t("nav.wishlist")}${w.genres && w.genres.length > 0 ? ` · ${w.genres[0]}` : ""}`,
+            thumb: w.coverUrl || undefined,
+            badge: "WISHLIST",
+            badgeType: "accent",
+            icon: <Heart size={14} fill="currentColor" />,
+            actionText: t("commandPalette.open"),
+            shortcut: "↵",
+            storeData: w,
+            quickActions: [
+              {
+                id: "download",
+                icon: <Download size={12} />,
+                title: t("commandPalette.quickActionDownload"),
+                onClick: (e) => {
+                  e.stopPropagation();
+                  playActionSound();
+                  setDownloadTarget({
+                    name: w.name,
+                    id: String(w.id),
+                    poster: w.coverUrl ?? undefined,
+                  });
+                },
+              },
+              {
+                id: "page",
+                icon: <ExternalLink size={12} />,
+                title: t("commandPalette.quickActionPage"),
+                onClick: (e) => {
+                  e.stopPropagation();
+                  playActionSound();
+                  onClose();
+                  navigate(`/store/${w.slug || w.id}`);
+                },
+              },
+            ],
+            onSelect: () => {
+              playActionSound();
+              onClose();
+              navigate(`/store/${w.slug || w.id}`);
+            },
+          });
+        });
+      }
+    }
+
+    // ── 5. Quick Actions ───────────────────────────────────────────────────
     if (scope === "all" || scope === "actions") {
       let matchedActions: PaletteItem[] = [];
 
       if (isBlank) {
-        matchedActions = systemActions.filter((a) => a.category === "actions").slice(0, 6);
+        matchedActions = systemActions.filter((a) => a.category === "actions").slice(0, 7);
       } else {
         matchedActions = systemActions
           .filter((a) => a.category === "actions")
@@ -628,7 +860,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       result.push(...matchedActions);
     }
 
-    // ── 5. Navigation Routes ───────────────────────────────────────────────
+    // ── 6. Navigation Routes ───────────────────────────────────────────────
     if (scope === "all" || scope === "navigation") {
       let matchedNav: PaletteItem[] = [];
 
@@ -648,7 +880,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       result.push(...matchedNav);
     }
 
-    // ── 6. Themes ─────────────────────────────────────────────────────────
+    // ── 7. Themes ─────────────────────────────────────────────────────────
     if (scope === "all" || scope === "themes") {
       const themeItems = systemActions.filter((a) => a.category === "themes");
       let matchedThemes: PaletteItem[] = [];
@@ -671,7 +903,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       result.push(...matchedThemes);
     }
 
-    // ── 7. Downloads Queue ────────────────────────────────────────────────
+    // ── 8. Downloads Queue ────────────────────────────────────────────────
     if (scope === "all" || scope === "downloads") {
       const activeDownloads = downloadsCtx?.downloads || [];
       if (activeDownloads.length > 0) {
@@ -718,7 +950,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       }
     }
 
-    // ── 8. IGDB Online Catalog Games ───────────────────────────────────────
+    // ── 9. IGDB Online Catalog Games ───────────────────────────────────────
     if ((scope === "all" || scope === "store") && igdbResults.length > 0) {
       igdbResults.forEach((igdbGame) => {
         const year = igdbGame.firstReleaseDate
@@ -734,7 +966,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           category: "store",
           title: igdbGame.name,
           subtitle: subParts || "IGDB Catalog",
-          badge: "IGDB",
+          badge: "STORE",
           badgeType: "accent",
           thumb: igdbGame.coverUrl ?? undefined,
           actionText: t("commandPalette.open"),
@@ -800,6 +1032,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     scope,
     parsedFilters,
     calcResult,
+    randomGame,
+    libraryStats,
     runningGame,
     games,
     systemActions,
@@ -814,7 +1048,10 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     launchGame,
     forceCloseGame,
     showToast,
+    updateGame,
+    isGameUntracked,
     recentVersion,
+    randomGameKey,
   ]);
 
   // Dynamic scope counters calculation
@@ -823,6 +1060,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       all: 0,
       recent: 0,
       games: 0,
+      wishlist: 0,
       actions: 0,
       navigation: 0,
       themes: 0,
@@ -882,11 +1120,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       const scopes: PaletteCategory[] = [
         "all",
         "games",
+        "wishlist",
         "actions",
         "navigation",
         "themes",
         "downloads",
         "store",
+        "utility",
       ];
       const currIdx = scopes.indexOf(scope);
       const nextIdx = e.shiftKey
@@ -903,6 +1143,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     } else if (e.key === "Backspace" && rawQuery === "" && scope !== "all") {
       e.preventDefault();
       setScope("all");
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "h") {
+      e.preventDefault();
+      setCheatSheetOpen((prev) => !prev);
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "r") {
+      e.preventDefault();
+      setRandomGameKey((k) => k + 1);
+      showToast(t("commandPalette.rerolledGameToast"), "info");
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
       const currentItem = items[selectedIndex];
       if (currentItem?.gameData || currentItem?.storeData || currentItem?.calcData) {
@@ -921,6 +1168,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         invoke("open_folder", { path: currentItem.gameData.path }).catch(() => {
           showToast(t("commandPalette.folderNotFound"), "error");
         });
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c") {
+      const currentItem = items[selectedIndex];
+      if (currentItem?.gameData?.name) {
+        e.preventDefault();
+        navigator.clipboard.writeText(currentItem.gameData.name);
+        showToast(t("commandPalette.copiedToClipboard"), "info");
       }
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
       const currentItem = items[selectedIndex];
@@ -952,7 +1206,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         className="command-palette-backdrop"
         onClick={onClose}
         onKeyDown={(e) => {
-          if (e.key === "Escape" && !actionDrawerOpen) {
+          if (e.key === "Escape" && !actionDrawerOpen && !cheatSheetOpen) {
             e.preventDefault();
             onClose();
           }
@@ -1021,6 +1275,16 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 />
               )}
 
+              <button
+                type="button"
+                className="cmd-cheatsheet-toggle-btn"
+                onClick={() => setCheatSheetOpen(true)}
+                title={`${t("commandPalette.cheatSheet")} (Ctrl+H)`}
+                aria-label={t("commandPalette.cheatSheet")}
+              >
+                <HelpCircle size={14} />
+              </button>
+
               {!isSimpleMode && (
                 <button
                   type="button"
@@ -1066,6 +1330,63 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               </div>
             )}
 
+            {/* Quick Interactive Prompt Chips (When Search Input is Empty) */}
+            {rawQuery === "" && (
+              <div className="cmd-prompt-chips-bar">
+                <button
+                  type="button"
+                  className="cmd-prompt-chip"
+                  onClick={() => {
+                    setRandomGameKey((k) => k + 1);
+                    setRawQuery("roll");
+                  }}
+                >
+                  <Dices size={12} />
+                  <span>{t("commandPalette.promptRoll")}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cmd-prompt-chip"
+                  onClick={() => setRawQuery("is:fav ")}
+                >
+                  <Heart size={12} />
+                  <span>{t("commandPalette.promptFavorites")}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cmd-prompt-chip"
+                  onClick={() => setRawQuery("is:installed ")}
+                >
+                  <Gamepad2 size={12} />
+                  <span>{t("commandPalette.promptInstalled")}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cmd-prompt-chip"
+                  onClick={() => setRawQuery("is:unplayed ")}
+                >
+                  <History size={12} />
+                  <span>{t("commandPalette.promptUnplayed")}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cmd-prompt-chip"
+                  onClick={() => setRawQuery("stats")}
+                >
+                  <BarChart3 size={12} />
+                  <span>{t("commandPalette.promptStats")}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cmd-prompt-chip"
+                  onClick={() => setCheatSheetOpen(true)}
+                >
+                  <HelpCircle size={12} />
+                  <span>{t("commandPalette.promptHelp")}</span>
+                </button>
+              </div>
+            )}
+
             {/* Results List */}
             <div ref={listRef} className="command-palette-list" role="listbox">
               {items.length === 0 ? (
@@ -1086,15 +1407,17 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                         ? t("commandPalette.sectionUtility")
                         : item.category === "games"
                           ? t("commandPalette.sectionGames")
-                          : item.category === "store"
-                            ? t("commandPalette.sectionIgdb")
-                            : item.category === "navigation"
-                              ? t("commandPalette.sectionNav")
-                              : item.category === "themes"
-                                ? t("commandPalette.sectionThemes")
-                                : item.category === "downloads"
-                                  ? t("commandPalette.sectionDownloads")
-                                  : t("commandPalette.sectionActions");
+                          : item.category === "wishlist"
+                            ? t("commandPalette.sectionWishlist")
+                            : item.category === "store"
+                              ? t("commandPalette.sectionIgdb")
+                              : item.category === "navigation"
+                                ? t("commandPalette.sectionNav")
+                                : item.category === "themes"
+                                  ? t("commandPalette.sectionThemes")
+                                  : item.category === "downloads"
+                                    ? t("commandPalette.sectionDownloads")
+                                    : t("commandPalette.sectionActions");
 
                   const isSelected = idx === selectedIndex;
 
@@ -1242,6 +1565,10 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   </span>
                 )}
                 <span className="command-palette-hint">
+                  <kbd className="command-palette-key-pill">Ctrl+H</kbd>
+                  <span>{t("commandPalette.hintHelp")}</span>
+                </span>
+                <span className="command-palette-hint">
                   <kbd className="command-palette-key-pill">Esc</kbd>
                   <span>{t("commandPalette.hintClose")}</span>
                 </span>
@@ -1260,6 +1587,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 onOpenDownloadModal={(target) => setDownloadTarget(target)}
                 isWishlisted={(slug) => wishlistCtx?.isWishlisted(slug) ?? false}
                 toggleWishlist={(game) => wishlistCtx?.toggle(game)}
+                onLaunchGame={(game) => {
+                  playLaunchSound();
+                  saveRecentItem(game.id, game.name, "games");
+                  onClose();
+                  launchGame(game);
+                }}
               />
             </div>
           )}
@@ -1277,8 +1610,24 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         launchGame={launchGame}
         isGameUntracked={isGameUntracked}
         toggleGameTracking={toggleGameTracking}
+        toggleFavorite={(id) => {
+          const g = games.find((x) => x.id === id);
+          if (g) updateGame(g.id, { favorite: !g.favorite });
+        }}
         isWishlisted={(slug) => wishlistCtx?.isWishlisted(slug) ?? false}
         toggleWishlist={(game) => wishlistCtx?.toggle(game)}
+        onOpenDownloadModal={(target) => setDownloadTarget(target)}
+      />
+
+      {/* Interactive Cheat Sheet Modal */}
+      <CommandPaletteCheatSheet
+        isOpen={cheatSheetOpen}
+        onClose={() => setCheatSheetOpen(false)}
+        onApplyQuery={(q) => {
+          setRawQuery(q);
+          inputRef.current?.focus();
+        }}
+        t={t}
       />
 
       {/* Download Modal Triggered Directly from Command Palette */}

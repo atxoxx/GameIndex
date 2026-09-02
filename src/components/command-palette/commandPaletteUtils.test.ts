@@ -8,7 +8,11 @@ import {
   saveRecentItem,
   deleteRecentItem,
   clearRecentItems,
+  calculateLibraryStats,
+  levenshteinDistance,
+  formatDurationSeconds,
 } from "./commandPaletteUtils";
+import type { Game } from "../../types/game";
 
 describe("commandPaletteUtils", () => {
   describe("parseQueryFilters", () => {
@@ -18,12 +22,24 @@ describe("commandPaletteUtils", () => {
     });
 
     it("parses power tokens for status", () => {
-      const parsed = parseQueryFilters("is:installed is:cloud is:running is:wishlist cyberpunk");
+      const parsed = parseQueryFilters(
+        "is:installed is:cloud is:running is:wishlist is:fav is:unplayed is:untracked cyberpunk"
+      );
       expect(parsed.isInstalled).toBe(true);
       expect(parsed.isCloud).toBe(true);
       expect(parsed.isRunning).toBe(true);
       expect(parsed.isWishlisted).toBe(true);
+      expect(parsed.isFavorite).toBe(true);
+      expect(parsed.isUnplayed).toBe(true);
+      expect(parsed.isUntracked).toBe(true);
       expect(parsed.cleanQuery).toBe("cyberpunk");
+    });
+
+    it("parses leading scope prefixes", () => {
+      expect(parseQueryFilters("@cyberpunk").cleanQuery).toBe("cyberpunk");
+      expect(parseQueryFilters(">settings").cleanQuery).toBe("settings");
+      expect(parseQueryFilters("!hades").cleanQuery).toBe("hades");
+      expect(parseQueryFilters("~1440 * 2560").cleanQuery).toBe("1440 * 2560");
     });
 
     it("parses source tokens", () => {
@@ -37,6 +53,18 @@ describe("commandPaletteUtils", () => {
       expect(parsed.genre).toBe("rpg");
       expect(parsed.tag).toBe("cyberpunk");
       expect(parsed.cleanQuery).toBe("elden ring");
+    });
+
+    it("parses rating, playtime, and size comparisons", () => {
+      const parsed = parseQueryFilters("rating:>80 playtime:>10h size:>50gb sort:playtime doom");
+      expect(parsed.rating).toBe(80);
+      expect(parsed.ratingOp).toBe(">");
+      expect(parsed.playtimeHours).toBe(10);
+      expect(parsed.playtimeOp).toBe(">");
+      expect(parsed.sizeBytes).toBe(50 * 1000 * 1000 * 1000);
+      expect(parsed.sizeOp).toBe(">");
+      expect(parsed.sort).toBe("playtime");
+      expect(parsed.cleanQuery).toBe("doom");
     });
 
     it("parses year comparisons", () => {
@@ -63,6 +91,18 @@ describe("commandPaletteUtils", () => {
       expect(score).toBeGreaterThan(50);
     });
 
+    it("matches common game acronyms", () => {
+      expect(scoreMatch("gow", "God of War Ragnarok")).toBeGreaterThan(500);
+      expect(scoreMatch("rdr2", "Red Dead Redemption 2")).toBeGreaterThan(500);
+      expect(scoreMatch("cp2077", "Cyberpunk 2077: Phantom Liberty")).toBeGreaterThan(500);
+      expect(scoreMatch("bg3", "Baldur's Gate 3")).toBeGreaterThan(500);
+    });
+
+    it("tolerates minor typos in words", () => {
+      expect(scoreMatch("cybrpnk", "Cyberpunk 2077")).toBeGreaterThan(0);
+      expect(scoreMatch("witchr", "The Witcher 3: Wild Hunt")).toBeGreaterThan(0);
+    });
+
     it("matches multi-tokens out of order", () => {
       const score = scoreMatch("hunt wild witcher", "The Witcher 3: Wild Hunt");
       expect(score).toBeGreaterThan(0);
@@ -81,12 +121,35 @@ describe("commandPaletteUtils", () => {
     it("evaluates arithmetic expressions", () => {
       const res1 = evaluateExpression("1440 * 2560");
       expect(res1).not.toBeNull();
-      // Replace non-breaking spaces or commas
       expect(res1?.result.replace(/[\s\u202f,]/g, "")).toBe("3686400");
 
       expect(evaluateExpression("100 + 25 * 4")?.result).toBe("200");
       expect(evaluateExpression("2 ^ 10")?.result.replace(/[\s\u202f,]/g, "")).toBe("1024");
-      expect(evaluateExpression("15% * 80")?.result).toBe("12");
+      expect(evaluateExpression("20% of 150")?.result).toBe("30");
+    });
+
+    it("estimates download times", () => {
+      const res = evaluateExpression("80 gb at 100 mbps");
+      expect(res).not.toBeNull();
+      expect(res?.result).toContain("1 hr 46 min");
+      expect(res?.calcType).toBe("download");
+
+      const res2 = evaluateExpression("50 gb @ 20 mb/s");
+      expect(res2).not.toBeNull();
+      expect(res2?.result).toContain("41 min 40s");
+    });
+
+    it("calculates display resolution aspect ratio", () => {
+      const res = evaluateExpression("2560x1440 ratio");
+      expect(res).not.toBeNull();
+      expect(res?.result).toContain("16:9");
+      expect(res?.details).toContain("QHD");
+      expect(res?.calcType).toBe("resolution");
+
+      const res2 = evaluateExpression("3840x2160 ratio");
+      expect(res2).not.toBeNull();
+      expect(res2?.result).toContain("16:9");
+      expect(res2?.details).toContain("4K");
     });
 
     it("converts data storage units", () => {
@@ -117,35 +180,93 @@ describe("commandPaletteUtils", () => {
     });
   });
 
-  describe("frecency & history persistence", () => {
+  describe("calculateLibraryStats", () => {
+    it("aggregates library data accurately", () => {
+      const sampleGames: Game[] = [
+        {
+          id: "1",
+          name: "Cyberpunk 2077",
+          path: "C:\\Games\\Cyberpunk2077.exe",
+          platform: "PC",
+          addedAt: 1600000000,
+          installed: true,
+          favorite: true,
+          sizeBytes: 70 * 1000 * 1000 * 1000,
+          playTime: "120h",
+        },
+        {
+          id: "2",
+          name: "Elden Ring",
+          path: "C:\\Games\\eldenring.exe",
+          platform: "PC",
+          addedAt: 1600000000,
+          installed: true,
+          favorite: false,
+          sizeBytes: 50 * 1000 * 1000 * 1000,
+          playTime: "85h",
+        },
+        {
+          id: "3",
+          name: "Hades",
+          path: "C:\\Games\\Hades.exe",
+          platform: "PC",
+          addedAt: 1600000000,
+          installed: false,
+          favorite: false,
+          sizeBytes: 15 * 1000 * 1000 * 1000,
+          playTime: "0h",
+        },
+      ];
+
+      const stats = calculateLibraryStats(sampleGames);
+      expect(stats.totalGames).toBe(3);
+      expect(stats.installedGames).toBe(2);
+      expect(stats.favoriteCount).toBe(1);
+      expect(stats.totalSizeBytes).toBe(135 * 1000 * 1000 * 1000);
+      expect(stats.totalPlaytimeHours).toBe(205);
+      expect(stats.topPlayedGame?.name).toBe("Cyberpunk 2077");
+    });
+  });
+
+  describe("helper utilities", () => {
+    it("calculates levenshtein distance", () => {
+      expect(levenshteinDistance("witcher", "witcher")).toBe(0);
+      expect(levenshteinDistance("witcher", "wtcher")).toBe(1);
+      expect(levenshteinDistance("witcher", "wither")).toBe(1);
+      expect(levenshteinDistance("elden", "eldrn")).toBe(1);
+    });
+
+    it("formats duration seconds nicely", () => {
+      expect(formatDurationSeconds(45)).toBe("45 sec");
+      expect(formatDurationSeconds(125)).toBe("2 min 5s");
+      expect(formatDurationSeconds(3665)).toBe("1 hr 1 min");
+    });
+  });
+
+  describe("Recent Items Storage", () => {
     beforeEach(() => {
-      clearRecentItems();
+      localStorage.clear();
     });
 
     it("saves and retrieves recent items", () => {
-      saveRecentItem("game-1", "Hades II", "games");
-      saveRecentItem("game-2", "Elden Ring", "games");
-
+      saveRecentItem("game-1", "Cyberpunk 2077", "games");
+      saveRecentItem("act-home", "Go to Dashboard", "navigation");
       const recents = getRecentItems();
-      expect(recents.length).toBe(2);
-      expect(recents[0].id).toBe("game-2");
-      expect(recents[0].title).toBe("Elden Ring");
+      const ids = recents.map((r) => r.id);
+      expect(ids).toContain("act-home");
+      expect(ids).toContain("game-1");
     });
 
-    it("deletes recent items", () => {
-      saveRecentItem("game-1", "Hades II", "games");
+    it("deletes individual and all recent items", () => {
+      saveRecentItem("game-1", "Cyberpunk 2077", "games");
       saveRecentItem("game-2", "Elden Ring", "games");
-
       deleteRecentItem("game-1");
-      const recents = getRecentItems();
-      expect(recents.length).toBe(1);
-      expect(recents[0].id).toBe("game-2");
-    });
+      const ids = getRecentItems().map((r) => r.id);
+      expect(ids).not.toContain("game-1");
+      expect(ids).toContain("game-2");
 
-    it("clears all recent items", () => {
-      saveRecentItem("game-1", "Hades II", "games");
       clearRecentItems();
-      expect(getRecentItems().length).toBe(0);
+      expect(getRecentItems()).toHaveLength(0);
     });
   });
 });

@@ -2,15 +2,18 @@ import { createElement } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import {
   Activity,
+  BarChart3,
   BookOpen,
   Camera,
   Check,
   Compass,
+  Dices,
   Download,
   ExternalLink,
   Gamepad2,
   HardDrive,
   Heart,
+  HelpCircle,
   Languages,
   Layers,
   LayoutGrid,
@@ -67,6 +70,9 @@ export interface CreateActionsParams {
   runningGame?: { id: string; name: string } | null;
   forceCloseGame?: (game: any) => Promise<void>;
   onHistoryCleared?: () => void;
+  onOpenCheatSheet?: () => void;
+  onPickRandomGame?: () => void;
+  onShowStats?: () => void;
 }
 
 export function createSystemActions(params: CreateActionsParams): PaletteItem[] {
@@ -98,6 +104,9 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     runningGame,
     forceCloseGame,
     onHistoryCleared,
+    onOpenCheatSheet,
+    onPickRandomGame,
+    onShowStats,
   } = params;
 
   const items: PaletteItem[] = [];
@@ -122,7 +131,57 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   }
 
-  // 1. Core Quick Toggles
+  // 1. Surprise Me / Random Game Launcher
+  if (onPickRandomGame) {
+    items.push({
+      id: "act-surprise-me",
+      category: "actions",
+      title: t("commandPalette.surpriseMe"),
+      subtitle: t("commandPalette.surpriseMeDesc"),
+      badge: "RANDOM",
+      badgeType: "accent",
+      icon: createElement(Dices, { size: 16 }),
+      description: t("commandPalette.surpriseMeDesc"),
+      actionText: t("commandPalette.rollGame"),
+      onSelect: () => {
+        onPickRandomGame();
+      },
+    });
+  }
+
+  // 2. Library Overview & Stats
+  if (onShowStats) {
+    items.push({
+      id: "act-library-stats",
+      category: "actions",
+      title: t("commandPalette.libraryStats"),
+      subtitle: t("commandPalette.libraryStatsDesc"),
+      icon: createElement(BarChart3, { size: 16 }),
+      description: t("commandPalette.libraryStatsDesc"),
+      actionText: t("commandPalette.viewStats"),
+      onSelect: () => {
+        onShowStats();
+      },
+    });
+  }
+
+  // 3. Built-in Cheat Sheet & Help
+  if (onOpenCheatSheet) {
+    items.push({
+      id: "act-open-cheat-sheet",
+      category: "actions",
+      title: t("commandPalette.cheatSheet"),
+      subtitle: t("commandPalette.cheatSheetDesc"),
+      icon: createElement(HelpCircle, { size: 16 }),
+      description: t("commandPalette.cheatSheetDesc"),
+      actionText: "Ctrl+H",
+      onSelect: () => {
+        onOpenCheatSheet();
+      },
+    });
+  }
+
+  // 4. Core Quick Toggles
   items.push({
     id: "act-toggle-bigscreen",
     category: "actions",
@@ -209,7 +268,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   }
 
-  // 2. Library & Storage Operations
+  // 5. Library & Storage Operations
   items.push({
     id: "act-rescan-library",
     category: "actions",
@@ -222,20 +281,6 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
       onClose();
       navigate("/library");
       showToast(t("commandPalette.rescanStartedToast"), "info");
-    },
-  });
-
-  items.push({
-    id: "act-open-captures",
-    category: "actions",
-    title: t("commandPalette.openCaptures"),
-    subtitle: t("commandPalette.openCapturesDesc"),
-    icon: createElement(Camera, { size: 16 }),
-    description: t("commandPalette.openCapturesDesc"),
-    actionText: "↵",
-    onSelect: () => {
-      onClose();
-      navigate("/community");
     },
   });
 
@@ -253,7 +298,21 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     },
   });
 
-  // 3. Clear Command Palette Search History
+  items.push({
+    id: "act-open-captures",
+    category: "actions",
+    title: t("commandPalette.openCaptures"),
+    subtitle: t("commandPalette.openCapturesDesc"),
+    icon: createElement(Camera, { size: 16 }),
+    description: t("commandPalette.openCapturesDesc"),
+    actionText: "↵",
+    onSelect: () => {
+      onClose();
+      navigate("/community");
+    },
+  });
+
+  // 6. Clear Command Palette Search History
   items.push({
     id: "act-clear-palette-history",
     category: "actions",
@@ -269,7 +328,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     },
   });
 
-  // 4. Downloads Actions
+  // 7. Downloads Actions
   if (pauseAllDownloads && activeDownloadsCount > 0) {
     items.push({
       id: "act-pause-all-downloads",
@@ -312,7 +371,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   }
 
-  // 5. Application Updates & Documentation
+  // 8. Application Updates & Documentation
   if (checkForUpdates) {
     items.push({
       id: "act-check-updates",
@@ -343,7 +402,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     },
   });
 
-  // 6. Density Switching
+  // 9. Density Switching
   if (setDensity) {
     const densities: { id: ViewDensity; title: string; desc: string }[] = [
       { id: "cozy", title: t("commandPalette.densityCozy"), desc: t("commandPalette.densityCozyDesc") },
@@ -371,7 +430,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   }
 
-  // 7. Language Switching
+  // 10. Language Switching
   languages.forEach((lang) => {
     const isCurrent = currentLanguage === lang.code;
     items.push({
@@ -391,7 +450,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   });
 
-  // 8. Settings Deep-Links
+  // 11. Settings Deep-Links
   const settingsSections = [
     { path: "/settings/general", titleKey: "settings.tab.general", descKey: "settings.tab.general.desc", icon: Settings },
     { path: "/settings/appearance", titleKey: "settings.tab.appearance", descKey: "settings.tab.appearance.desc", icon: Palette },
@@ -418,7 +477,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   });
 
-  // 9. Themes
+  // 12. Themes
   themes.forEach((th) => {
     const isCurrent = th.id === currentTheme;
     const colors = THEME_COLORS[th.id] || THEME_COLORS.dark;

@@ -6,6 +6,7 @@ export type PaletteCategory =
   | "all"
   | "recent"
   | "games"
+  | "wishlist"
   | "actions"
   | "navigation"
   | "themes"
@@ -36,6 +37,7 @@ export interface CalculationResult {
   result: string;
   details?: string;
   unit?: string;
+  calcType?: "math" | "data" | "frametime" | "download" | "resolution";
 }
 
 export interface PaletteAchievementStats {
@@ -44,9 +46,29 @@ export interface PaletteAchievementStats {
   percentage: number;
 }
 
+export interface LibraryStatsData {
+  totalGames: number;
+  installedGames: number;
+  totalSizeBytes: number;
+  totalPlaytimeHours: number;
+  favoriteCount: number;
+  unplayedCount: number;
+  topPlayedGame?: {
+    name: string;
+    playTime: string;
+    coverArtUrl?: string;
+  };
+}
+
+export interface RandomGameData {
+  game: Game;
+  filterUsed?: string;
+  onReroll: () => void;
+}
+
 export interface PaletteItem {
   id: string;
-  category: "recent" | "games" | "actions" | "navigation" | "themes" | "downloads" | "store" | "utility";
+  category: PaletteCategory;
   title: string;
   subtitle?: string;
   badge?: string;
@@ -68,6 +90,8 @@ export interface PaletteItem {
   downloadData?: TorrentDownload;
   calcData?: CalculationResult;
   achievementStats?: PaletteAchievementStats;
+  statsData?: LibraryStatsData;
+  randomGameData?: RandomGameData;
   metaDetails?: {
     label: string;
     value: string | number | ReactNode;
@@ -96,6 +120,10 @@ export interface ParsedQueryFilters {
   isCloud?: boolean;
   isRunning?: boolean;
   isWishlisted?: boolean;
+  isFavorite?: boolean;
+  isUnplayed?: boolean;
+  isUntracked?: boolean;
+  isHidden?: boolean;
   source?: string;
   genre?: string;
   tag?: string;
@@ -103,4 +131,11 @@ export interface ParsedQueryFilters {
   publisher?: string;
   year?: number;
   yearOp?: ">" | "<" | "=";
+  rating?: number;
+  ratingOp?: ">" | "<" | "=";
+  playtimeHours?: number;
+  playtimeOp?: ">" | "<" | "=";
+  sizeBytes?: number;
+  sizeOp?: ">" | "<" | "=";
+  sort?: "recent" | "playtime" | "rating" | "name" | "size";
 }

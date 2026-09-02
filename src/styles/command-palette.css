@@ -170,7 +170,8 @@
   color: var(--color-text-muted);
 }
 
-.cmd-inspector-toggle-btn {
+.cmd-inspector-toggle-btn,
+.cmd-cheatsheet-toggle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -185,13 +186,15 @@
   flex-shrink: 0;
 }
 
-.cmd-inspector-toggle-btn:hover {
+.cmd-inspector-toggle-btn:hover,
+.cmd-cheatsheet-toggle-btn:hover {
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
   border-color: var(--color-border);
 }
 
-.cmd-inspector-toggle-btn.active {
+.cmd-inspector-toggle-btn.active,
+.cmd-cheatsheet-toggle-btn.active {
   background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-tertiary));
   color: var(--color-accent);
   border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -263,6 +266,46 @@
   background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent);
   padding: 0 4px;
   border-radius: 3px;
+}
+
+/* ── Interactive Quick Prompt Chips Bar ───────────────────────────────── */
+.cmd-prompt-chips-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--space-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 15%, transparent);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cmd-prompt-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.cmd-prompt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-secondary) 80%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.cmd-prompt-chip:hover {
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  color: var(--color-accent);
+  transform: translateY(-1px);
 }
 
 /* ── List Results Container ─────────────────────────────────────────── */
@@ -1564,3 +1607,304 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
+
+/* ── Action Drawer Search Box ─────────────────────────────────────────── */
+.cmd-drawer-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 30%, transparent);
+}
+
+.cmd-drawer-search-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.cmd-drawer-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.cmd-drawer-empty {
+  padding: var(--space-md);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Stats Highlight Card (Inspector) ─────────────────────────────────── */
+.cmd-stats-highlight-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  margin-top: 6px;
+}
+
+.cmd-stats-highlight-thumb {
+  width: 32px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.cmd-stats-highlight-name {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.cmd-stats-highlight-time {
+  font-size: var(--font-size-2xs);
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+/* ── Interactive Cheat Sheet Modal ────────────────────────────────────── */
+.cmd-cheatsheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 10);
+  background: color-mix(in srgb, var(--color-bg-primary) 75%, transparent);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  animation: commandBackdropIn var(--duration-fast) var(--ease-enter) both;
+}
+
+.cmd-cheatsheet-panel {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  max-height: min(85vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    0 24px 64px rgba(0, 0, 0, 0.7),
+    0 0 32px var(--color-accent-glow);
+  overflow: hidden;
+  animation: commandPanelIn var(--duration-normal) var(--ease-bounce) both;
+}
+
+.cmd-cheatsheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 50%, transparent);
+}
+
+.cmd-cheatsheet-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cmd-cheatsheet-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.cmd-cheatsheet-title {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.cmd-cheatsheet-subtitle {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+.cmd-cheatsheet-close {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+}
+
+.cmd-cheatsheet-close:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.cmd-cheatsheet-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 20%, transparent);
+}
+
+.cmd-cheatsheet-search-icon {
+  color: var(--color-text-muted);
+}
+
+.cmd-cheatsheet-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.cmd-cheatsheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.cmd-cheatsheet-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cmd-cheatsheet-section-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cmd-cheatsheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.cmd-cheatsheet-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.cmd-cheatsheet-card:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  transform: translateY(-1px);
+}
+
+.cmd-cheatsheet-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cmd-cheatsheet-prefix-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.cmd-cheatsheet-card-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.cmd-cheatsheet-card-desc {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.cmd-cheatsheet-card-example code,
+.cmd-cheatsheet-token {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-bg-primary) 80%, transparent);
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
+}
+
+.cmd-cheatsheet-hotkeys-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px;
+}
+
+.cmd-cheatsheet-hotkey-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.cmd-cheatsheet-hotkey-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cmd-cheatsheet-hotkey-desc {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+}
+
+.cmd-cheatsheet-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--space-md);
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 40%, transparent);
+}
+
+.cmd-cheatsheet-tip {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+

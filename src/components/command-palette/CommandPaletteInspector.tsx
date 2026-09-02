@@ -13,6 +13,11 @@ import {
   Globe,
   Calculator,
   Heart,
+  BarChart3,
+  Dices,
+  Play,
+  Timer,
+  Maximize,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaletteItem } from "./commandPaletteTypes";
@@ -25,6 +30,7 @@ interface CommandPaletteInspectorProps {
   onOpenDownloadModal?: (target: { name: string; id?: string; poster?: string }) => void;
   isWishlisted?: (slug: string) => boolean;
   toggleWishlist?: (game: any) => void;
+  onLaunchGame?: (game: any) => void;
 }
 
 export default function CommandPaletteInspector({
@@ -34,6 +40,7 @@ export default function CommandPaletteInspector({
   onOpenDownloadModal,
   isWishlisted,
   toggleWishlist,
+  onLaunchGame,
 }: CommandPaletteInspectorProps) {
   const [copied, setCopied] = useState(false);
 
@@ -49,7 +56,16 @@ export default function CommandPaletteInspector({
     );
   }
 
-  const { gameData, storeData, swatchColors, calcData, downloadData, achievementStats } = item;
+  const {
+    gameData,
+    storeData,
+    swatchColors,
+    calcData,
+    downloadData,
+    achievementStats,
+    statsData,
+    randomGameData,
+  } = item;
 
   const handleCopy = (textToCopy: string) => {
     navigator.clipboard.writeText(textToCopy);
@@ -63,12 +79,21 @@ export default function CommandPaletteInspector({
     });
   };
 
-  // 1. CALCULATOR / MATH INSPECTOR
+  // 1. CALCULATOR / MATH / CONVERSION / ESTIMATOR INSPECTOR
   if (calcData) {
+    const isDownload = calcData.calcType === "download";
+    const isResolution = calcData.calcType === "resolution";
+
     return (
       <div className="cmd-inspector">
         <div className="cmd-inspector-calc-hero">
-          <Calculator className="cmd-inspector-calc-icon" size={36} />
+          {isDownload ? (
+            <Timer className="cmd-inspector-calc-icon" size={36} />
+          ) : isResolution ? (
+            <Maximize className="cmd-inspector-calc-icon" size={36} />
+          ) : (
+            <Calculator className="cmd-inspector-calc-icon" size={36} />
+          )}
           <div className="cmd-inspector-calc-result">{calcData.result}</div>
           <div className="cmd-inspector-calc-expr">{calcData.expression}</div>
         </div>
@@ -103,7 +128,183 @@ export default function CommandPaletteInspector({
     );
   }
 
-  // 2. GAME DETAIL INSPECTOR
+  // 2. RANDOM GAME PICKER / SURPRISE ME INSPECTOR
+  if (randomGameData) {
+    const game = randomGameData.game;
+    const heroImage = game.bannerUrl || game.coverArtUrl;
+
+    return (
+      <div className="cmd-inspector">
+        <div className="cmd-inspector-hero">
+          {heroImage ? (
+            <img src={heroImage} alt="" className="cmd-inspector-hero-img" loading="lazy" />
+          ) : (
+            <div className="cmd-inspector-hero-placeholder">
+              <Dices size={40} />
+            </div>
+          )}
+          <div className="cmd-inspector-hero-overlay" />
+          <div className="cmd-inspector-hero-content">
+            <div className="cmd-inspector-hero-badges">
+              <span className="cmd-badge cmd-badge--accent">
+                <Dices size={9} />
+                SURPRISE ME
+              </span>
+              {game.installed && (
+                <span className="cmd-badge cmd-badge--installed">
+                  {t("commandPalette.badgeInstalled")}
+                </span>
+              )}
+              <span className="cmd-badge cmd-badge--platform">{game.platform || "PC"}</span>
+            </div>
+            <h3 className="cmd-inspector-title">{game.name}</h3>
+          </div>
+        </div>
+
+        <div className="cmd-inspector-body">
+          <div className="cmd-inspector-grid">
+            <div className="cmd-inspector-stat">
+              <span className="cmd-inspector-stat-label">
+                <Clock size={12} />
+                {t("commandPalette.inspectorPlaytime")}
+              </span>
+              <span className="cmd-inspector-stat-val">{game.playTime || "0h"}</span>
+            </div>
+            <div className="cmd-inspector-stat">
+              <span className="cmd-inspector-stat-label">
+                <Calendar size={12} />
+                {t("commandPalette.inspectorLastPlayed")}
+              </span>
+              <span className="cmd-inspector-stat-val">
+                {formatRelativeTime(game.lastPlayed) || t("commandPalette.neverPlayed")}
+              </span>
+            </div>
+          </div>
+
+          <div className="cmd-inspector-quick-action-row" style={{ marginTop: "12px" }}>
+            <button
+              type="button"
+              className="cmd-inspector-btn cmd-inspector-btn--accent"
+              onClick={() => {
+                if (game.installed && onLaunchGame) {
+                  onLaunchGame(game);
+                } else if (item.onSelect) {
+                  item.onSelect();
+                }
+              }}
+            >
+              <Play size={13} fill="currentColor" />
+              <span>{game.installed ? t("commandPalette.launch") : t("commandPalette.open")}</span>
+            </button>
+            <button
+              type="button"
+              className="cmd-inspector-btn"
+              onClick={randomGameData.onReroll}
+            >
+              <Dices size={13} />
+              <span>{t("commandPalette.reroll")}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="cmd-inspector-footer">
+          <div className="cmd-shortcut-hint">
+            <kbd className="cmd-key">↵</kbd>
+            <span>{game.installed ? t("commandPalette.launch") : t("commandPalette.open")}</span>
+          </div>
+          <div className="cmd-shortcut-hint">
+            <kbd className="cmd-key">Ctrl+R</kbd>
+            <span>{t("commandPalette.reroll")}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. LIBRARY STATISTICS KPI INSPECTOR
+  if (statsData) {
+    return (
+      <div className="cmd-inspector">
+        <div className="cmd-inspector-action-hero">
+          <div className="cmd-inspector-action-icon">
+            <BarChart3 size={28} />
+          </div>
+          <h3 className="cmd-inspector-title" style={{ marginTop: "12px" }}>
+            {t("commandPalette.libraryStats")}
+          </h3>
+          <span className="cmd-badge cmd-badge--accent" style={{ marginTop: "6px" }}>
+            {statsData.totalGames} {t("commandPalette.scopeGames")}
+          </span>
+        </div>
+
+        <div className="cmd-inspector-body">
+          <div className="cmd-inspector-grid">
+            <div className="cmd-inspector-stat">
+              <span className="cmd-inspector-stat-label">
+                <Gamepad2 size={12} />
+                {t("commandPalette.installedGames")}
+              </span>
+              <span className="cmd-inspector-stat-val">{statsData.installedGames}</span>
+            </div>
+
+            <div className="cmd-inspector-stat">
+              <span className="cmd-inspector-stat-label">
+                <HardDrive size={12} />
+                {t("commandPalette.totalDiskSpace")}
+              </span>
+              <span className="cmd-inspector-stat-val">
+                {formatBytes(statsData.totalSizeBytes) || "0 GB"}
+              </span>
+            </div>
+
+            <div className="cmd-inspector-stat">
+              <span className="cmd-inspector-stat-label">
+                <Clock size={12} />
+                {t("commandPalette.totalPlaytime")}
+              </span>
+              <span className="cmd-inspector-stat-val">{statsData.totalPlaytimeHours}h</span>
+            </div>
+
+            <div className="cmd-inspector-stat">
+              <span className="cmd-inspector-stat-label">
+                <Heart size={12} />
+                {t("commandPalette.favoriteGames")}
+              </span>
+              <span className="cmd-inspector-stat-val">{statsData.favoriteCount}</span>
+            </div>
+          </div>
+
+          {statsData.topPlayedGame && (
+            <div className="cmd-inspector-section" style={{ marginTop: "12px" }}>
+              <span className="cmd-inspector-label">{t("commandPalette.mostPlayedTitle")}</span>
+              <div className="cmd-stats-highlight-card">
+                {statsData.topPlayedGame.coverArtUrl && (
+                  <img
+                    src={statsData.topPlayedGame.coverArtUrl}
+                    alt=""
+                    className="cmd-stats-highlight-thumb"
+                  />
+                )}
+                <div>
+                  <div className="cmd-stats-highlight-name">{statsData.topPlayedGame.name}</div>
+                  <div className="cmd-stats-highlight-time">{statsData.topPlayedGame.playTime}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="cmd-inspector-footer">
+          <div className="cmd-shortcut-hint">
+            <kbd className="cmd-key">↵</kbd>
+            <span>{t("commandPalette.viewLibraryPage")}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. GAME DETAIL INSPECTOR
   if (gameData) {
     const isRunning = item.badgeType === "success";
     const heroImage = gameData.bannerUrl || gameData.coverArtUrl;
@@ -115,12 +316,7 @@ export default function CommandPaletteInspector({
         {/* Hero Banner Header */}
         <div className="cmd-inspector-hero">
           {heroImage ? (
-            <img
-              src={heroImage}
-              alt=""
-              className="cmd-inspector-hero-img"
-              loading="lazy"
-            />
+            <img src={heroImage} alt="" className="cmd-inspector-hero-img" loading="lazy" />
           ) : (
             <div className="cmd-inspector-hero-placeholder">
               <Gamepad2 size={40} />
@@ -147,6 +343,12 @@ export default function CommandPaletteInspector({
               <span className="cmd-badge cmd-badge--platform">
                 {gameData.platform || "PC"}
               </span>
+              {gameData.favorite && (
+                <span className="cmd-badge cmd-badge--accent">
+                  <Heart size={9} fill="currentColor" />
+                  FAV
+                </span>
+              )}
               {gameData.rating && (
                 <span className="cmd-badge cmd-badge--rating">
                   ★ {gameData.rating}/5
@@ -313,6 +515,18 @@ export default function CommandPaletteInspector({
                 <ExternalLink size={11} />
                 <span>PCGamingWiki</span>
               </button>
+              <button
+                type="button"
+                className="cmd-web-link-btn"
+                onClick={() =>
+                  openExternalUrl(
+                    `https://howlongtobeat.com/?q=${encodeURIComponent(gameData.name)}`
+                  )
+                }
+              >
+                <Clock size={11} />
+                <span>HowLongToBeat</span>
+              </button>
             </div>
           </div>
         </div>
@@ -343,7 +557,7 @@ export default function CommandPaletteInspector({
     );
   }
 
-  // 3. STORE / IGDB DETAIL INSPECTOR
+  // 5. STORE / IGDB DETAIL INSPECTOR
   if (storeData) {
     const year = storeData.firstReleaseDate
       ? new Date(storeData.firstReleaseDate).getFullYear()
@@ -355,12 +569,7 @@ export default function CommandPaletteInspector({
       <div className="cmd-inspector">
         <div className="cmd-inspector-hero">
           {storeData.coverUrl ? (
-            <img
-              src={storeData.coverUrl}
-              alt=""
-              className="cmd-inspector-hero-img"
-              loading="lazy"
-            />
+            <img src={storeData.coverUrl} alt="" className="cmd-inspector-hero-img" loading="lazy" />
           ) : (
             <div className="cmd-inspector-hero-placeholder">
               <ExternalLink size={36} />
@@ -369,11 +578,9 @@ export default function CommandPaletteInspector({
           <div className="cmd-inspector-hero-overlay" />
           <div className="cmd-inspector-hero-content">
             <div className="cmd-inspector-hero-badges">
-              <span className="cmd-badge cmd-badge--accent">IGDB</span>
+              <span className="cmd-badge cmd-badge--accent">STORE</span>
               {year && <span className="cmd-badge">{year}</span>}
-              {rating && (
-                <span className="cmd-badge cmd-badge--success">★ {rating}</span>
-              )}
+              {rating && <span className="cmd-badge cmd-badge--success">★ {rating}</span>}
               {wishlisted && (
                 <span className="cmd-badge cmd-badge--accent">
                   <Heart size={9} fill="currentColor" />
@@ -447,7 +654,7 @@ export default function CommandPaletteInspector({
     );
   }
 
-  // 4. DOWNLOAD TASK DETAIL INSPECTOR
+  // 6. DOWNLOAD TASK DETAIL INSPECTOR
   if (downloadData) {
     const percent = Math.round((downloadData.progress ?? 0) * 100);
 
@@ -500,7 +707,7 @@ export default function CommandPaletteInspector({
     );
   }
 
-  // 5. THEME DETAIL INSPECTOR
+  // 7. THEME DETAIL INSPECTOR
   if (swatchColors) {
     return (
       <div className="cmd-inspector">
@@ -586,7 +793,7 @@ export default function CommandPaletteInspector({
     );
   }
 
-  // 6. ACTION / NAVIGATION DETAIL INSPECTOR
+  // 8. ACTION / NAVIGATION DETAIL INSPECTOR
   return (
     <div className="cmd-inspector">
       <div className="cmd-inspector-action-hero">
