@@ -196,10 +196,15 @@ export function samplePixelData(
 /**
  * Sample the ambient average and the dominant *actual artwork color* from
  * an image URL using a tiny 48×48 offscreen canvas + weighted median-cut.
+ *
+ * Resolves `null` when no usable sample can be extracted (missing URL,
+ * load timeout, network error, or a canvas that is tainted/CORS-blocked)
+ * so callers can keep their current palette instead of snapping to the
+ * default fallback colors.
  */
-export function sampleArtworkColors(imageUrl: string): Promise<SampledColors> {
+export function sampleArtworkColors(imageUrl: string): Promise<SampledColors | null> {
   if (!imageUrl) {
-    return Promise.resolve(DEFAULT_ADAPTIVE_COLORS);
+    return Promise.resolve(null);
   }
 
   const cached = COLOR_CACHE.get(imageUrl);
@@ -213,7 +218,7 @@ export function sampleArtworkColors(imageUrl: string): Promise<SampledColors> {
 
     const timeout = setTimeout(() => {
       img.src = "";
-      resolve(DEFAULT_ADAPTIVE_COLORS);
+      resolve(null);
     }, 4000);
 
     img.onload = () => {
@@ -224,7 +229,7 @@ export function sampleArtworkColors(imageUrl: string): Promise<SampledColors> {
         canvas.height = SAMPLE_SIZE;
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) {
-          resolve(DEFAULT_ADAPTIVE_COLORS);
+          resolve(null);
           return;
         }
 
@@ -242,13 +247,13 @@ export function sampleArtworkColors(imageUrl: string): Promise<SampledColors> {
 
         resolve(result);
       } catch {
-        resolve(DEFAULT_ADAPTIVE_COLORS);
+        resolve(null);
       }
     };
 
     img.onerror = () => {
       clearTimeout(timeout);
-      resolve(DEFAULT_ADAPTIVE_COLORS);
+      resolve(null);
     };
 
     img.src = imageUrl;

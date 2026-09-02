@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useGames } from "../context/GameContext";
 import { useSettings } from "../context/SettingsContext";
+import { useTheme } from "../context/ThemeContext";
 import { useGameAccent } from "../hooks/useGameAccent";
 import { applyAccentFamily, applyGameAccentFamily } from "../utils/color";
 
@@ -26,7 +27,10 @@ import { applyAccentFamily, applyGameAccentFamily } from "../utils/color";
 export function GameAccentSync() {
   const { autoGameAccent, accentColor } = useSettings();
   const { runningGameIds, getGame } = useGames();
+  const { currentTheme } = useTheme();
   const location = useLocation();
+
+  const isAdaptive = currentTheme === "adaptive";
 
   const isPageOwnedRoute =
     /^\/(?:library|game)\/[^/?#]+/.test(location.pathname) ||
@@ -42,6 +46,12 @@ export function GameAccentSync() {
 
   useEffect(() => {
     const root = document.documentElement;
+    if (isAdaptive) {
+      // The adaptive theme owns the entire palette (surfaces + accent), so
+      // the auto game-accent sync must not overwrite it between pages.
+      delete root.dataset.gameAccent;
+      return;
+    }
     if (!autoGameAccent) {
       // Leaving auto mode: hand control back to the user accent baseline.
       applyAccentFamily(root, accentColor);
@@ -59,7 +69,7 @@ export function GameAccentSync() {
     // Flag the chrome tint (sidebar/topnav/window controls) that reads the
     // live game accent; cleared above whenever the baseline is restored.
     root.dataset.gameAccent = "true";
-  }, [autoGameAccent, palette, accentColor, isPageOwnedRoute]);
+  }, [isAdaptive, autoGameAccent, palette, accentColor, isPageOwnedRoute]);
 
   return null;
 }
