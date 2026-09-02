@@ -1,5 +1,5 @@
 import { useCallback, useId, useRef, useState, useEffect, useMemo } from "react";
-import type { MouseEvent } from "react";
+import type { MouseEvent, WheelEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -164,6 +164,16 @@ export default function TopNav() {
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, []);
 
+  // Translate vertical mouse-wheel input into horizontal tab scrolling.
+  const handleTabsWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
+    const tabs = tabsRef.current;
+    if (!tabs || tabs.scrollWidth <= tabs.clientWidth) return;
+    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (delta === 0) return;
+    e.preventDefault();
+    tabs.scrollLeft += delta;
+  }, []);
+
   // Scroll active tab into view
   useEffect(() => {
     const el = tabsRef.current;
@@ -255,7 +265,7 @@ export default function TopNav() {
 
           <span className="topnav-divider" aria-hidden="true" />
 
-          <div ref={tabsRef} className="topnav-tabs">
+          <div ref={tabsRef} className="topnav-tabs" onWheel={handleTabsWheel}>
             {displayedTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = location.pathname.startsWith(tab.path);
