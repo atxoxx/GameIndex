@@ -2,8 +2,26 @@ import { describe, it, expect } from "vitest";
 import {
   deriveAdaptiveTheme,
   DEFAULT_ADAPTIVE_COLORS,
+  samplePixelData,
 } from "./adaptiveTheme";
 import { contrastRatio, luminance } from "./color";
+
+/** Build an opaque square RGBA buffer where each row is a flat color. */
+function rgbaImage(rows: Array<[number, number, number]>): Uint8ClampedArray {
+  const size = rows.length;
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const [r, g, b] = rows[y];
+      const i = (y * size + x) * 4;
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+      data[i + 3] = 255;
+    }
+  }
+  return data;
+}
 
 /** Resolve a derived token to a concrete color where possible. */
 function token(tokens: Record<string, string>, key: string): string {
@@ -28,6 +46,36 @@ function surfaceHexes(tokens: Record<string, string>): string[] {
     tokens["--color-bg-tertiary"],
   ].filter((h): h is string => typeof h === "string" && h.startsWith("#"));
 }
+
+describe("samplePixelData", () => {
+  it("extracts a real dominant cluster, not a washed-out mix", () => {
+    // 3/4 red, 1/4 blue — an average would land as a muddy purple-ish mix.
+    const rows = Array.from({ length: 8 }, (_, y) =>
+      y < 6 ? ([255, 0, 0] as [number, number, number]) : ([0, 0, 255] as [number, number, number])
+    );
+    const sampled = samplePixelData(rgbaImage(rows), 8);
+    expect(sampled.dominant.r).toBeGreaterThan(150);
+    expect(sampled.dominant.b).toBeLessThan(100);
+    expect(sampled.dominant.g).toBeLessThan(60);
+    // The ambient average is still the mixed tone (heavy red, some blue).
+    expect(sampled.average.r).toBeGreaterThan(120);
+    expect(sampled.average.b).toBeGreaterThan(20);
+    expect(sampled.average.b).toBeLessThan(130);
+  });
+
+  it("falls back to the default average when every pixel is transparent", () => {
+    const sampled = samplePixelData(new Uint8ClampedArray(8 * 8 * 4), 8);
+    expect(sampled.average).toEqual(DEFAULT_ADAPTIVE_COLORS.average);
+    expect(sampled.dominant).toEqual(DEFAULT_ADAPTIVE_COLORS.average);
+  });
+
+  it("falls back to the average when the artwork is chromatically flat", () => {
+    const black = rgbaImage(Array.from({ length: 4 }, () => [0, 0, 0] as [number, number, number]));
+    const sampled = samplePixelData(black, 4);
+    expect(sampled.dominant).toEqual({ r: 0, g: 0, b: 0 });
+    expect(sampled.average).toEqual({ r: 0, g: 0, b: 0 });
+  });
+});
 
 describe("deriveAdaptiveTheme contrast guarantees", () => {
   const accentCountries: Array<{ dominant: [number, number, number]; name: string }> = [

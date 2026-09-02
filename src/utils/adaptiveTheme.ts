@@ -15,10 +15,13 @@ import {
   harmonizeAccent,
   hslToRgb,
   luminance,
+  medianCutQuantize,
   rgbToHex,
   rgbToHsl,
+  selectGamePalette,
   textColorFor,
   type RgbColor,
+  type WeightedPixel,
 } from "./color";
 
 /**
@@ -53,9 +56,11 @@ function minContrastLightness(
 }
 
 export interface SampledColors {
-  /** Dominant vibrant/chromatic artwork color. */
+  /** Dominant vibrant/chromatic artwork color — a real quantized cluster,
+   *  never a washed-out pixel average. */
   dominant: RgbColor;
-  /** True center-weighted average color of the artwork. */
+  /** Center-weighted average color of the artwork — the ambient tone that
+   *  tints the background, where a mix is the point. */
   average: RgbColor;
 }
 
@@ -123,9 +128,74 @@ export const ADAPTIVE_THEME_KEYS: readonly string[] = [
   "--shadow-glow",
 ];
 
+/** Sample size for the off-DOM canvas — 48×48 keeps the per-pixel pass
+ *  (~2 300 weighted pixels) negligible while preserving color identity. */
+const SAMPLE_SIZE = 48;
+
 /**
- * Sample both the average and dominant chromatic colors from an image URL using
- * a tiny 16×16 offscreen canvas.
+ * Turn raw RGBA pixel data into the sampled colors the adaptive theme
+ * consumes. Pure and synchronous so the canvas plumbing in
+ * `sampleArtworkColors` stays thin and this can be unit-tested.
+ *
+ * The dominant color is the primary cluster from weighted median-cut — an
+ * actual artwork color — while the average stays a plain center-weighted
+ * mean, since it only feeds the ambient background tint where a mix is
+ * the point.
+ */
+export function samplePixelData(
+  data: Uint8ClampedArray,
+  size: number
+): SampledColors {
+  const pixels: WeightedPixel[] = [];
+  let avgR = 0;
+  let avgG = 0;
+  let avgB = 0;
+  let avgCount = 0;
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      if (data[i + 3] < 128) continue; // skip transparent pixels
+
+      const dx = x - size / 2;
+      const dy = y - size / 2;
+      const distWeight = 1 + (size - Math.hypot(dx, dy)) / size;
+      const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+      // Center bias + vibrancy weight so letterbox bars and dull fills lose
+      // out to the actual subject; the average is chroma-free (center bias
+      // only) because it is the ambient tone.
+      const w = distWeight * (1 + (chroma / 255) * 1.5);
+      pixels.push({ r, g, b, w });
+
+      avgR += r * distWeight;
+      avgG += g * distWeight;
+      avgB += b * distWeight;
+      avgCount += distWeight;
+    }
+  }
+
+  const average: RgbColor =
+    avgCount > 0
+      ? {
+          r: Math.round(avgR / avgCount),
+          g: Math.round(avgG / avgCount),
+          b: Math.round(avgB / avgCount),
+        }
+      : DEFAULT_ADAPTIVE_COLORS.average;
+
+  const chosen = selectGamePalette(medianCutQuantize(pixels, 8));
+  return {
+    dominant: chosen ? chosen.primary : average,
+    average,
+  };
+}
+
+/**
+ * Sample the ambient average and the dominant *actual artwork color* from
+ * an image URL using a tiny 48×48 offscreen canvas + weighted median-cut.
  */
 export function sampleArtworkColors(imageUrl: string): Promise<SampledColors> {
   if (!imageUrl) {
@@ -149,97 +219,20 @@ export function sampleArtworkColors(imageUrl: string): Promise<SampledColors> {
     img.onload = () => {
       clearTimeout(timeout);
       try {
-        const size = 16;
         const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
+        canvas.width = SAMPLE_SIZE;
+        canvas.height = SAMPLE_SIZE;
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) {
           resolve(DEFAULT_ADAPTIVE_COLORS);
           return;
         }
 
-        ctx.drawImage(img, 0, 0, size, size);
-        const { data } = ctx.getImageData(0, 0, size, size);
-
-        let domR = 0;
-        let domG = 0;
-        let domB = 0;
-        let domCount = 0;
-
-        let avgR = 0;
-        let avgG = 0;
-        let avgB = 0;
-        let avgCount = 0;
-
-        for (let y = 0; y < size; y++) {
-          for (let x = 0; x < size; x++) {
-            const i = (y * size + x) * 4;
-            const pr = data[i];
-            const pg = data[i + 1];
-            const pb = data[i + 2];
-            const pa = data[i + 3];
-
-            if (pa < 128) continue; // Skip transparent pixels
-
-            // Center-weighted average color calculation
-            const dx = x - size / 2;
-            const dy = y - size / 2;
-            const distWeight = 1 + (size - Math.hypot(dx, dy)) / size;
-
-            avgR += pr * distWeight;
-            avgG += pg * distWeight;
-            avgB += pb * distWeight;
-            avgCount += distWeight;
-
-            // Dominant vibrant color calculation (skip near-black / blown-out white / dull grays)
-            const max = Math.max(pr, pg, pb);
-            const min = Math.min(pr, pg, pb);
-            const chroma = max - min;
-
-            if (chroma < 14) continue;
-            if (max > 248 && min > 210) continue;
-
-            const chromaWeight = 1 + (chroma / 255) * 3;
-            const weight = distWeight * chromaWeight;
-
-            domR += pr * weight;
-            domG += pg * weight;
-            domB += pb * weight;
-            domCount += weight;
-          }
-        }
-
-        const average: RgbColor =
-          avgCount > 0
-            ? {
-                r: Math.round(avgR / avgCount),
-                g: Math.round(avgG / avgCount),
-                b: Math.round(avgB / avgCount),
-              }
-            : DEFAULT_ADAPTIVE_COLORS.average;
-
-        let dominant: RgbColor;
-        if (domCount > 0) {
-          let r = Math.round(domR / domCount);
-          let g = Math.round(domG / domCount);
-          let b = Math.round(domB / domCount);
-
-          // Ensure minimum vibrancy for UI accents
-          const max = Math.max(r, g, b);
-          const min = Math.min(r, g, b);
-          const mid = (max + min) / 2;
-          if (max - min < 45) {
-            r = Math.min(255, Math.max(0, Math.round(mid + (r - mid) * 1.55)));
-            g = Math.min(255, Math.max(0, Math.round(mid + (g - mid) * 1.55)));
-            b = Math.min(255, Math.max(0, Math.round(mid + (b - mid) * 1.55)));
-          }
-          dominant = { r, g, b };
-        } else {
-          dominant = average;
-        }
-
-        const result: SampledColors = { dominant, average };
+        ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+        const result = samplePixelData(
+          ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data,
+          SAMPLE_SIZE
+        );
 
         if (COLOR_CACHE.size >= MAX_CACHE_SIZE) {
           const firstKey = COLOR_CACHE.keys().next().value;
