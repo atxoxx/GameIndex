@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GameIndex</title>
     <style>
-      /* Dark defaults — overridden by the inline script below when a
-         persisted theme (or accent override) is found in localStorage. */
       :root {
         --bg: #08090c;
         --text: #f3f5fa;
         --sub: #9ea4b5;
         --accent: #635bff;
+        --accent-2: #a78bfa;
       }
 
       * {
@@ -22,90 +21,417 @@
 
       html,
       body {
+        width: 100%;
         height: 100%;
+        overflow: hidden;
       }
 
       body {
         display: flex;
         align-items: center;
         justify-content: center;
-        background:
-          radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%),
-          radial-gradient(circle at 82% 88%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%),
-          var(--bg);
+        background-color: var(--bg);
         color: var(--text);
         font-family: "Outfit", "Inter", -apple-system, BlinkMacSystemFont,
           "Segoe UI", Roboto, sans-serif;
-        overflow: hidden;
         user-select: none;
         -webkit-user-select: none;
+        position: relative;
       }
 
-      .splash {
+      /* Ambient Atmospheric Background */
+      .ambient-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
+        overflow: hidden;
+      }
+
+      .ambient-glow-primary {
+        position: absolute;
+        width: 420px;
+        height: 320px;
+        top: -60px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: radial-gradient(
+          ellipse at center,
+          color-mix(in srgb, var(--accent) 26%, transparent),
+          transparent 70%
+        );
+        filter: blur(28px);
+        animation: breath-glow 4.5s ease-in-out infinite alternate;
+      }
+
+      .ambient-glow-secondary {
+        position: absolute;
+        width: 320px;
+        height: 240px;
+        bottom: -60px;
+        right: -40px;
+        background: radial-gradient(
+          circle at center,
+          color-mix(in srgb, var(--accent-2) 18%, transparent),
+          transparent 65%
+        );
+        filter: blur(34px);
+        animation: breath-glow-rev 5.5s ease-in-out infinite alternate;
+      }
+
+      .ambient-vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse at 50% 50%,
+          transparent 55%,
+          rgba(0, 0, 0, 0.48) 100%
+        );
+      }
+
+      /* Particle Canvas */
+      #particles-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2;
+        pointer-events: none;
+      }
+
+      /* Splash Window Frame */
+      .splash-card {
+        position: relative;
+        z-index: 3;
+        width: 100%;
+        height: 100%;
+        padding: 24px 32px 18px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 16px;
-        text-align: center;
-        animation: splash-in 320ms ease-out;
+        justify-content: space-between;
+        border: 1px solid color-mix(in srgb, var(--text) 11%, transparent);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.14),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+        background: radial-gradient(
+          circle at 50% 30%,
+          rgba(255, 255, 255, 0.02),
+          transparent 75%
+        );
+        animation: splash-intro 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
 
-      .mark {
-        width: 64px;
-        height: 64px;
+      /* Corner Cyber Accents */
+      .corner-accent {
+        position: absolute;
+        width: 9px;
+        height: 9px;
+        border-color: color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.25));
+        pointer-events: none;
+        opacity: 0.7;
+      }
+      .corner-tl { top: 10px; left: 10px; border-top: 1.5px solid; border-left: 1.5px solid; }
+      .corner-tr { top: 10px; right: 10px; border-top: 1.5px solid; border-right: 1.5px solid; }
+      .corner-bl { bottom: 10px; left: 10px; border-bottom: 1.5px solid; border-left: 1.5px solid; }
+      .corner-br { bottom: 10px; right: 10px; border-bottom: 1.5px solid; border-right: 1.5px solid; }
+
+      /* Hero Content Block */
+      .hero-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-top: 6px;
+        text-align: center;
+      }
+
+      /* Multi-Layer Emblem Badge */
+      .emblem-wrapper {
+        position: relative;
+        width: 76px;
+        height: 76px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 18px;
-        background: linear-gradient(
-          135deg,
-          var(--accent),
-          color-mix(in srgb, var(--accent) 70%, #000 30%)
-        );
-        box-shadow: 0 8px 32px color-mix(in srgb, var(--accent) 45%, transparent);
       }
 
-      .mark svg {
-        width: 34px;
-        height: 34px;
-        color: #fff;
+      .emblem-halo {
+        position: absolute;
+        inset: -12px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          color-mix(in srgb, var(--accent) 50%, transparent),
+          transparent 70%
+        );
+        filter: blur(14px);
+        animation: halo-pulse 3s ease-in-out infinite alternate;
+      }
+
+      .emblem-badge {
+        position: relative;
+        width: 72px;
+        height: 72px;
+        border-radius: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(
+          145deg,
+          color-mix(in srgb, var(--accent) 42%, #141624),
+          color-mix(in srgb, var(--accent) 16%, #090a12)
+        );
+        border: 1px solid color-mix(in srgb, var(--accent) 50%, rgba(255, 255, 255, 0.45));
+        box-shadow:
+          0 10px 30px color-mix(in srgb, var(--accent) 45%, transparent),
+          inset 0 1px 1px rgba(255, 255, 255, 0.4),
+          inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+      }
+
+      /* Shimmer Sweep */
+      .emblem-badge::after {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -80%;
+        width: 60%;
+        height: 200%;
+        background: linear-gradient(
+          105deg,
+          transparent 20%,
+          rgba(255, 255, 255, 0.4) 50%,
+          transparent 80%
+        );
+        transform: rotate(25deg);
+        animation: shimmer-sweep 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        pointer-events: none;
+      }
+
+      /* High-Precision Gamepad SVG */
+      .emblem-svg {
+        width: 44px;
+        height: 44px;
+        filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.4));
+      }
+
+      .gp-body {
+        fill: color-mix(in srgb, var(--accent) 20%, #161826);
+        stroke: #ffffff;
+        stroke-width: 1.75;
+        stroke-linejoin: round;
+      }
+
+      .gp-grip {
+        stroke: rgba(255, 255, 255, 0.25);
+        stroke-width: 1.2;
+        stroke-linecap: round;
+        fill: none;
+      }
+
+      .gp-dpad {
+        fill: #ffffff;
+        opacity: 0.95;
+      }
+
+      .gp-stick {
+        fill: rgba(255, 255, 255, 0.12);
+        stroke: rgba(255, 255, 255, 0.35);
+        stroke-width: 1.2;
+      }
+
+      .gp-stick-head {
+        fill: var(--accent);
+      }
+
+      .gp-btn {
+        fill: #ffffff;
+        opacity: 0.95;
+      }
+
+      .gp-btn-accent {
+        fill: var(--accent-2);
+      }
+
+      .gp-jewel {
+        fill: #ffffff;
+        filter: drop-shadow(0 0 5px var(--accent));
+        animation: jewel-pulse 2s ease-in-out infinite alternate;
+      }
+
+      /* Title & Brand */
+      .brand-title-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
       }
 
       h1 {
-        font-size: 28px;
-        font-weight: 700;
-        letter-spacing: -0.02em;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1.1;
+        background: linear-gradient(
+          180deg,
+          #ffffff 20%,
+          color-mix(in srgb, var(--text) 82%, var(--accent) 18%) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 28%, transparent);
       }
 
-      p {
+      p.tagline {
         font-size: 13px;
         color: var(--sub);
         font-weight: 500;
+        letter-spacing: -0.01em;
+        line-height: 1.3;
+        transition: opacity 240ms ease;
       }
 
-      .loader {
+      /* Progress & Status Container */
+      .progress-section {
+        width: 100%;
+        max-width: 320px;
         display: flex;
-        gap: 6px;
-        margin-top: 6px;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 2px;
       }
 
-      .loader span {
-        width: 7px;
-        height: 7px;
+      /* Laser Progress Bar Track */
+      .progress-track {
+        position: relative;
+        width: 100%;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+      }
+
+      .progress-fill {
+        position: relative;
+        height: 100%;
+        width: 0%;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          var(--accent),
+          var(--accent-2, var(--accent))
+        );
+        box-shadow:
+          0 0 12px color-mix(in srgb, var(--accent) 80%, transparent),
+          0 0 4px #ffffff;
+        transition: width 220ms cubic-bezier(0.2, 0.8, 0.25, 1);
+      }
+
+      .progress-fill::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 16px;
+        background: #ffffff;
+        filter: blur(2px);
+        opacity: 0.85;
+      }
+
+      /* Status Row */
+      .status-row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11.5px;
+        color: var(--sub);
+        font-weight: 500;
+        padding: 0 2px;
+      }
+
+      .status-left {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .status-spinner {
+        width: 12px;
+        height: 12px;
         border-radius: 50%;
-        background: var(--accent);
-        animation: pulse 1.2s ease-in-out infinite;
+        border: 1.75px solid color-mix(in srgb, var(--accent) 30%, transparent);
+        border-top-color: var(--accent);
+        animation: spin 750ms linear infinite;
+        flex-shrink: 0;
       }
 
-      .loader span:nth-child(2) {
-        animation-delay: 0.15s;
+      .status-text {
+        color: color-mix(in srgb, var(--text) 88%, transparent);
+        transition: opacity 180ms ease, transform 180ms ease;
       }
 
-      .loader span:nth-child(3) {
-        animation-delay: 0.3s;
+      .status-pct {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: var(--text);
+        opacity: 0.9;
       }
 
-      @keyframes splash-in {
+      /* Footer Bar */
+      .footer-row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 10px;
+        border-top: 1px solid color-mix(in srgb, var(--text) 7%, transparent);
+        font-size: 11px;
+        color: var(--sub);
+      }
+
+      .version-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: color-mix(in srgb, var(--text) 75%, transparent);
+      }
+
+      .version-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #10b981;
+        box-shadow: 0 0 6px #10b981;
+      }
+
+      .footer-tip {
+        font-size: 11px;
+        opacity: 0.65;
+        letter-spacing: -0.01em;
+      }
+
+      /* Exit Transition */
+      .splash-closing {
+        animation: splash-exit 240ms cubic-bezier(0.4, 0, 1, 1) forwards;
+      }
+
+      /* Keyframes */
+      @keyframes splash-intro {
         from {
           opacity: 0;
           transform: scale(0.96);
@@ -116,53 +442,118 @@
         }
       }
 
-      @keyframes pulse {
-        0%,
-        60%,
-        100% {
-          opacity: 0.25;
-          transform: scale(0.85);
-        }
-        30% {
+      @keyframes splash-exit {
+        from {
           opacity: 1;
           transform: scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: scale(1.02);
+        }
+      }
+
+      @keyframes breath-glow {
+        0% {
+          opacity: 0.65;
+          transform: translateX(-50%) scale(0.92);
+        }
+        100% {
+          opacity: 1;
+          transform: translateX(-50%) scale(1.08);
+        }
+      }
+
+      @keyframes breath-glow-rev {
+        0% {
+          opacity: 0.5;
+          transform: scale(0.95);
+        }
+        100% {
+          opacity: 0.9;
+          transform: scale(1.1);
+        }
+      }
+
+      @keyframes halo-pulse {
+        0% {
+          transform: scale(0.92);
+          opacity: 0.55;
+        }
+        100% {
+          transform: scale(1.1);
+          opacity: 0.9;
+        }
+      }
+
+      @keyframes shimmer-sweep {
+        0%,
+        25% {
+          left: -80%;
+        }
+        60%,
+        100% {
+          left: 140%;
+        }
+      }
+
+      @keyframes jewel-pulse {
+        0% {
+          opacity: 0.7;
+          filter: drop-shadow(0 0 3px var(--accent));
+        }
+        100% {
+          opacity: 1;
+          filter: drop-shadow(0 0 8px var(--accent-2));
+        }
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .splash,
-        .loader span {
+        .splash-card,
+        .ambient-glow-primary,
+        .ambient-glow-secondary,
+        .emblem-halo,
+        .emblem-badge::after,
+        .gp-jewel,
+        .status-spinner {
           animation: none;
+        }
+        .progress-fill {
+          transition: none;
         }
       }
     </style>
     <script>
       (function () {
-        // Mirrors ThemeContext's localStorage keys. The splash window shares
-        // the app's origin, so the persisted theme id + accent override are
-        // readable here before first paint. Keep entries in sync with the
-        // built-in themes in src/styles/themes.css.
+        // Complete 20-theme token system from src/styles/themes.css
+        // [bg, text, sub, accent, accent-2]
         var PALETTES = {
-          dark:         ["#08090c", "#f3f5fa", "#9ea4b5", "#635bff"],
-          light:        ["#f8fafc", "#0f172a", "#475569", "#7c3aed"],
-          adaptive:     ["#07070d", "#f5f6fc", "#b5b9cc", "#7c66ff"],
-          nord:         ["#2e3440", "#eceff4", "#d8dee9", "#88c0d0"],
-          cyberpunk:    ["#050508", "#f0f2f5", "#00f0ff", "#00f0ff"],
-          emerald:      ["#08110c", "#ecf3ee", "#a6c4b2", "#10b981"],
-          dracula:      ["#1e1f29", "#f8f8f2", "#ff79c6", "#bd93f9"],
-          solarized:    ["#002b36", "#fdf6e3", "#eee8d5", "#268bd2"],
-          tokyonight:   ["#1a1b26", "#c0caf5", "#a9b1d6", "#7aa2f7"],
-          gruvbox:      ["#282828", "#ebdbb2", "#d5c4a1", "#fe8019"],
-          catppuccin:   ["#1e1e2e", "#cad3f5", "#b8c0e0", "#cba6f7"],
-          sunset:       ["#1f0f1a", "#fdeef2", "#f3c5d4", "#ff7a59"],
-          oceanic:      ["#071a2b", "#e6f6fb", "#b3dcec", "#22d3ee"],
-          rosepine:     ["#191724", "#e0def4", "#c5c3e0", "#eb6f92"],
-          synthwave:    ["#170d2b", "#f9f2ff", "#05d9e8", "#ff71ce"],
-          forest:       ["#0c1510", "#eef5ea", "#b9d4ab", "#84cc16"],
-          desert:       ["#1c160f", "#f5ead7", "#e0c9a3", "#e0ab55"],
-          aurora:       ["#050410", "#f3f1ff", "#b7b2dc", "#9a6bff"],
-          oled:         ["#000000", "#ffffff", "#b0b4c0", "#3b82f6"],
-          highcontrast: ["#000000", "#ffffff", "#ffff00", "#ffff00"]
+          dark:         ["#08090c", "#f3f5fa", "#9ea4b5", "#635bff", "#a78bfa"],
+          light:        ["#f8fafc", "#0f172a", "#475569", "#7c3aed", "#6366f1"],
+          adaptive:     ["#07070d", "#f5f6fc", "#b5b9cc", "#7c66ff", "#38bdf8"],
+          nord:         ["#2e3440", "#eceff4", "#d8dee9", "#88c0d0", "#81a1c1"],
+          cyberpunk:    ["#050508", "#f0f2f5", "#00f0ff", "#00f0ff", "#ff0055"],
+          emerald:      ["#08110c", "#ecf3ee", "#a6c4b2", "#10b981", "#34d399"],
+          dracula:      ["#1e1f29", "#f8f8f2", "#bd93f9", "#bd93f9", "#ff79c6"],
+          solarized:    ["#002b36", "#fdf6e3", "#eee8d5", "#268bd2", "#2aa198"],
+          tokyonight:   ["#1a1b26", "#c0caf5", "#a9b1d6", "#7aa2f7", "#bb9af7"],
+          gruvbox:      ["#282828", "#ebdbb2", "#d5c4a1", "#fe8019", "#fabd2f"],
+          catppuccin:   ["#1e1e2e", "#cad3f5", "#b8c0e0", "#cba6f7", "#f5c2e7"],
+          sunset:       ["#1f0f1a", "#fdeef2", "#f3c5d4", "#ff7a59", "#ffb86c"],
+          oceanic:      ["#071a2b", "#e6f6fb", "#b3dcec", "#22d3ee", "#38bdf8"],
+          rosepine:     ["#191724", "#e0def4", "#c5c3e0", "#eb6f92", "#c4a7e7"],
+          synthwave:    ["#170d2b", "#f9f2ff", "#ff71ce", "#ff71ce", "#05d9e8"],
+          forest:       ["#0c1510", "#eef5ea", "#b9d4ab", "#84cc16", "#22c55e"],
+          desert:       ["#1c160f", "#f5ead7", "#e0c9a3", "#e0ab55", "#f59e0b"],
+          aurora:       ["#050410", "#f3f1ff", "#b7b2dc", "#9a6bff", "#38bdf8"],
+          oled:         ["#000000", "#ffffff", "#b0b4c0", "#3b82f6", "#60a5fa"],
+          highcontrast: ["#000000", "#ffffff", "#ffff00", "#ffff00", "#00ffff"]
         };
 
         var root = document.documentElement;
@@ -170,116 +561,403 @@
         try {
           themeId = localStorage.getItem("gamelib-theme") || "dark";
         } catch (e) {
-          /* localStorage unavailable — keep dark defaults */
+          /* keep dark default */
         }
 
-        var palette = PALETTES[themeId] || PALETTES.dark;
-        root.style.setProperty("--bg", palette[0]);
-        root.style.setProperty("--text", palette[1]);
-        root.style.setProperty("--sub", palette[2]);
-        root.style.setProperty("--accent", palette[3]);
+        function applyPalette(id) {
+          var p = PALETTES[id] || PALETTES.dark;
+          root.style.setProperty("--bg", p[0]);
+          root.style.setProperty("--text", p[1]);
+          root.style.setProperty("--sub", p[2]);
+          root.style.setProperty("--accent", p[3]);
+          root.style.setProperty("--accent-2", p[4]);
+        }
 
-        // Optional user accent override (Settings → Appearance).
+        applyPalette(themeId);
+
         try {
-          var accent = localStorage.getItem("gamelib.accent_color");
-          if (accent && /^#[0-9a-fA-F]{6}$/.test(accent)) {
-            root.style.setProperty("--accent", accent);
+          var customAccent = localStorage.getItem("gamelib.accent_color");
+          if (customAccent && /^#[0-9a-fA-F]{6}$/.test(customAccent)) {
+            root.style.setProperty("--accent", customAccent);
           }
         } catch (e) {
           /* ignore */
         }
 
-        // This window's localStorage isn't guaranteed to be shared with
-        // the main window, so the theme + accent override are also
-        // persisted to the backend kv store (get_theme /
-        // get_accent_color, mirrored by ThemeContext/SettingsContext).
-        // Re-apply from there once the IPC round-trip resolves; the
-        // localStorage read above already painted the right colors
-        // when the origin is shared (dev mode).
-        function applyPalette(id) {
-          var palette = PALETTES[id] || PALETTES.dark;
-          root.style.setProperty("--bg", palette[0]);
-          root.style.setProperty("--text", palette[1]);
-          root.style.setProperty("--sub", palette[2]);
-          root.style.setProperty("--accent", palette[3]);
-        }
+        // Query backend KV store via Tauri IPC
         try {
           if (window.__TAURI__ && window.__TAURI__.core) {
-            var tauriCore = window.__TAURI__.core;
-            tauriCore
-              .invoke("get_theme")
+            var core = window.__TAURI__.core;
+            core.invoke("get_theme")
               .then(function (id) {
                 if (id) applyPalette(id);
-                return tauriCore.invoke("get_accent_color");
+                return core.invoke("get_accent_color");
               })
               .then(function (accent) {
                 if (accent && /^#[0-9a-fA-F]{6}$/.test(accent)) {
                   root.style.setProperty("--accent", accent);
                 }
               })
-              .catch(function () {
-                /* backend not ready — keep the localStorage defaults */
-              });
+              .catch(function () {});
           }
-        } catch (e) {
-          /* no Tauri API (plain browser preview) */
-        }
+        } catch (e) {}
       })();
     </script>
   </head>
   <body>
-    <div class="splash">
-      <div class="mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 9h4" />
-          <path d="M8 7v4" />
-          <path d="M15.5 10.5h.01" />
-          <path d="M18 13h.01" />
-          <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z" />
-        </svg>
+    <!-- Ambient Atmospheric Glows -->
+    <div class="ambient-layer" aria-hidden="true">
+      <div class="ambient-glow-primary"></div>
+      <div class="ambient-glow-secondary"></div>
+      <div class="ambient-vignette"></div>
+    </div>
+
+    <!-- Particle Constellation Canvas -->
+    <canvas id="particles-canvas" aria-hidden="true"></canvas>
+
+    <!-- Main Splash Card -->
+    <div class="splash-card">
+      <!-- High-Tech Corner Brackets -->
+      <div class="corner-accent corner-tl" aria-hidden="true"></div>
+      <div class="corner-accent corner-tr" aria-hidden="true"></div>
+      <div class="corner-accent corner-bl" aria-hidden="true"></div>
+      <div class="corner-accent corner-br" aria-hidden="true"></div>
+
+      <!-- Hero Section -->
+      <div class="hero-block">
+        <div class="emblem-wrapper" aria-hidden="true">
+          <div class="emblem-halo"></div>
+          <div class="emblem-badge">
+            <svg class="emblem-svg" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path class="gp-body" d="M14.5 12.5C9 12.5 5 16.5 5 22C5 27.5 8.5 35 12 37.5C14.5 39.2 17.5 38 19.5 35L21.5 32H26.5L28.5 35C30.5 38 33.5 39.2 36 37.5C39.5 35 43 27.5 43 22C43 16.5 39 12.5 33.5 12.5H14.5Z" />
+              <path class="gp-grip" d="M7.5 23.5C7.5 30 11 34.5 13.5 36" />
+              <path class="gp-grip" d="M40.5 23.5C40.5 30 37 34.5 34.5 36" />
+              <g class="gp-dpad">
+                <rect x="13.2" y="19" width="3.6" height="9" rx="1.2" />
+                <rect x="10.5" y="21.7" width="9" height="3.6" rx="1.2" />
+              </g>
+              <g>
+                <circle cx="33" cy="20.2" r="1.6" class="gp-btn gp-btn-accent" />
+                <circle cx="36.8" cy="24" r="1.6" class="gp-btn" />
+                <circle cx="33" cy="27.8" r="1.6" class="gp-btn" />
+                <circle cx="29.2" cy="24" r="1.6" class="gp-btn gp-btn-accent" />
+              </g>
+              <circle cx="18.5" cy="28" r="2.8" class="gp-stick" />
+              <circle cx="18.5" cy="28" r="1.4" class="gp-stick-head" />
+              <circle cx="29.5" cy="28" r="2.8" class="gp-stick" />
+              <circle cx="29.5" cy="28" r="1.4" class="gp-stick-head" />
+              <circle cx="24" cy="18.2" r="2" class="gp-jewel" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="brand-title-wrap">
+          <h1>GameIndex</h1>
+          <p id="splash-tagline" class="tagline">Your unified game library</p>
+        </div>
       </div>
-      <h1>GameIndex</h1>
-      <p id="splash-tagline">Your unified game library</p>
-      <div class="loader" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
+
+      <!-- Dynamic Progress & Status -->
+      <div class="progress-section" aria-live="polite">
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <div class="status-row">
+          <div class="status-left">
+            <div id="status-spinner" class="status-spinner" aria-hidden="true"></div>
+            <span id="status-text" class="status-text">Initializing core engine...</span>
+          </div>
+          <span id="status-pct" class="status-pct">0%</span>
+        </div>
+      </div>
+
+      <!-- Footer Bar -->
+      <div class="footer-row">
+        <div class="version-pill">
+          <span class="version-dot"></span>
+          <span id="version-text">v0.20.2</span>
+        </div>
+        <div id="splash-tip" class="footer-tip">
+          Ctrl + Shift + F · Big Screen Mode
+        </div>
       </div>
     </div>
+
+    <!-- Initialization, Animations & Localizations -->
     <script>
       (function () {
-        // Mirrors LanguageContext's persisted language (backend kv store,
-        // "language" key, exposed by the get_language command). One IPC call
-        // resolves the last-used language before the app shell shows.
-        // Taglines mirror "home.empty.subtitle" in src/i18n/*.ts.
-        var TAGLINES = {
-          en: "Your unified game library",
-          fr: "Votre bibliothèque de jeux unifiée",
-          es: "Tu biblioteca unificada de juegos",
-          de: "Deine einheitliche Spielebibliothek",
-          ru: "Ваша единая игровая библиотека",
-          "zh-CN": "您的统一游戏库"
+        var I18N = {
+          en: {
+            tagline: "Your unified game library",
+            steps: [
+              "Initializing core engine...",
+              "Connecting game libraries...",
+              "Checking local cache...",
+              "Preparing interface...",
+              "Ready"
+            ],
+            hint: "Ctrl + Shift + F · Big Screen"
+          },
+          fr: {
+            tagline: "Votre bibliothèque de jeux unifiée",
+            steps: [
+              "Initialisation du moteur...",
+              "Connexion aux bibliothèques...",
+              "Vérification du cache...",
+              "Préparation de l'interface...",
+              "Prêt"
+            ],
+            hint: "Ctrl + Maj + F · Mode Big Screen"
+          },
+          es: {
+            tagline: "Tu biblioteca unificada de juegos",
+            steps: [
+              "Inicializando motor...",
+              "Conectando bibliotecas...",
+              "Comprobando caché...",
+              "Preparando interfaz...",
+              "Listo"
+            ],
+            hint: "Ctrl + Mayús + F · Modo Big Screen"
+          },
+          de: {
+            tagline: "Deine einheitliche Spielebibliothek",
+            steps: [
+              "Core-Engine wird initialisiert...",
+              "Spielebibliotheken verbinden...",
+              "Lokalen Cache prüfen...",
+              "Benutzeroberfläche vorbereiten...",
+              "Bereit"
+            ],
+            hint: "Strg + Umschalt + F · Big-Screen-Modus"
+          },
+          ru: {
+            tagline: "Ваша единая игровая библиотека",
+            steps: [
+              "Инициализация ядра...",
+              "Подключение библиотек игр...",
+              "Проверка кэша...",
+              "Подготовка интерфейса...",
+              "Готово"
+            ],
+            hint: "Ctrl + Shift + F · Режим Big Screen"
+          },
+          "zh-CN": {
+            tagline: "您的统一游戏库",
+            steps: [
+              "正在初始化核心引擎...",
+              "正在连接游戏库...",
+              "正在检查本地缓存...",
+              "正在准备用户界面...",
+              "就绪"
+            ],
+            hint: "Ctrl + Shift + F · 大屏幕模式"
+          }
         };
 
-        var tagline = document.getElementById("splash-tagline");
-        if (!tagline) return;
+        var currentLang = "en";
+        try {
+          var storedLang = localStorage.getItem("gamelib-language");
+          if (storedLang && I18N[storedLang]) {
+            currentLang = storedLang;
+          }
+        } catch (e) {}
+
+        var taglineEl = document.getElementById("splash-tagline");
+        var statusTextEl = document.getElementById("status-text");
+        var tipEl = document.getElementById("splash-tip");
+        var progressFillEl = document.getElementById("progress-fill");
+        var progressPctEl = document.getElementById("status-pct");
+        var spinnerEl = document.getElementById("status-spinner");
+
+        function applyLanguage(code) {
+          var dict = I18N[code] || I18N.en;
+          currentLang = code;
+          document.documentElement.lang = code;
+          if (taglineEl) taglineEl.textContent = dict.tagline;
+          if (tipEl) tipEl.textContent = dict.hint;
+        }
+
+        applyLanguage(currentLang);
+
+        // Fetch backend language via Tauri IPC
         try {
           if (window.__TAURI__ && window.__TAURI__.core) {
-            window.__TAURI__.core
-              .invoke("get_language")
+            window.__TAURI__.core.invoke("get_language")
               .then(function (code) {
-                if (code && TAGLINES[code]) {
-                  tagline.textContent = TAGLINES[code];
-                  document.documentElement.lang = code;
+                if (code && I18N[code]) {
+                  applyLanguage(code);
                 }
               })
-              .catch(function () {
-                /* backend not ready — keep the English default */
-              });
+              .catch(function () {});
           }
-        } catch (e) {
-          /* no Tauri API (plain browser preview) — keep the English default */
+        } catch (e) {}
+
+        /* ── Dynamic Particle Canvas ── */
+        var canvas = document.getElementById("particles-canvas");
+        if (canvas) {
+          var ctx = canvas.getContext("2d");
+          var particles = [];
+          var particleCount = 32;
+          var animationFrameId = null;
+          var isReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+          function resizeCanvas() {
+            var dpr = window.devicePixelRatio || 1;
+            canvas.width = canvas.offsetWidth * dpr;
+            canvas.height = canvas.offsetHeight * dpr;
+            ctx.scale(dpr, dpr);
+          }
+
+          function initParticles() {
+            particles = [];
+            var width = canvas.offsetWidth || 520;
+            var height = canvas.offsetHeight || 360;
+            for (var i = 0; i < particleCount; i++) {
+              particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                radius: Math.random() * 1.5 + 0.8,
+                vx: (Math.random() - 0.5) * 0.25,
+                vy: -(Math.random() * 0.35 + 0.15),
+                alpha: Math.random() * 0.45 + 0.15,
+                baseAlpha: Math.random() * 0.45 + 0.15,
+                pulseSpeed: Math.random() * 0.02 + 0.01,
+                pulsePhase: Math.random() * Math.PI * 2
+              });
+            }
+          }
+
+          function drawParticles() {
+            var width = canvas.offsetWidth || 520;
+            var height = canvas.offsetHeight || 360;
+            ctx.clearRect(0, 0, width, height);
+
+            var accentColor = getComputedStyle(document.documentElement)
+              .getPropertyValue("--accent")
+              .trim() || "#635bff";
+
+            for (var i = 0; i < particles.length; i++) {
+              var p = particles[i];
+              p.x += p.vx;
+              p.y += p.vy;
+              p.pulsePhase += p.pulseSpeed;
+              p.alpha = p.baseAlpha + Math.sin(p.pulsePhase) * 0.12;
+
+              if (p.y < -5) {
+                p.y = height + 5;
+                p.x = Math.random() * width;
+              }
+              if (p.x < -5) p.x = width + 5;
+              if (p.x > width + 5) p.x = -5;
+
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(255, 255, 255, " + Math.max(0, p.alpha) + ")";
+              ctx.shadowColor = accentColor;
+              ctx.shadowBlur = 6;
+              ctx.fill();
+
+              // Subtle connecting lines between close particles
+              for (var j = i + 1; j < particles.length; j++) {
+                var p2 = particles[j];
+                var dx = p.x - p2.x;
+                var dy = p.y - p2.y;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 46) {
+                  ctx.beginPath();
+                  ctx.moveTo(p.x, p.y);
+                  ctx.lineTo(p2.x, p2.y);
+                  ctx.strokeStyle = "rgba(255, 255, 255, " + (0.07 * (1 - dist / 46)) + ")";
+                  ctx.shadowBlur = 0;
+                  ctx.stroke();
+                }
+              }
+            }
+
+            if (!isReducedMotion) {
+              animationFrameId = requestAnimationFrame(drawParticles);
+            }
+          }
+
+          resizeCanvas();
+          initParticles();
+          if (!isReducedMotion) {
+            animationFrameId = requestAnimationFrame(drawParticles);
+          }
+          window.addEventListener("resize", function () {
+            resizeCanvas();
+          });
         }
+
+        /* ── Phased Progress Controller ── */
+        var currentPct = 0;
+        var targetPct = 0;
+        var currentStepIdx = 0;
+
+        function setStatusText(text) {
+          if (!statusTextEl) return;
+          statusTextEl.style.opacity = "0";
+          statusTextEl.style.transform = "translateY(2px)";
+          setTimeout(function () {
+            statusTextEl.textContent = text;
+            statusTextEl.style.opacity = "1";
+            statusTextEl.style.transform = "translateY(0)";
+          }, 120);
+        }
+
+        function updateStep(idx) {
+          if (idx === currentStepIdx) return;
+          currentStepIdx = idx;
+          var dict = I18N[currentLang] || I18N.en;
+          if (dict.steps[idx]) {
+            setStatusText(dict.steps[idx]);
+          }
+          if (idx >= 4 && spinnerEl) {
+            spinnerEl.style.borderColor = "#10b981";
+            spinnerEl.style.animation = "none";
+          }
+        }
+
+        // Fluid physics progress loop
+        function progressLoop() {
+          currentPct += (targetPct - currentPct) * 0.085;
+          if (Math.abs(targetPct - currentPct) < 0.2) {
+            currentPct = targetPct;
+          }
+
+          if (progressFillEl) {
+            progressFillEl.style.width = currentPct.toFixed(1) + "%";
+          }
+          if (progressPctEl) {
+            progressPctEl.textContent = Math.round(currentPct) + "%";
+          }
+
+          if (currentPct < 25) {
+            updateStep(0);
+          } else if (currentPct < 60) {
+            updateStep(1);
+          } else if (currentPct < 85) {
+            updateStep(2);
+          } else if (currentPct < 99) {
+            updateStep(3);
+          } else {
+            updateStep(4);
+          }
+
+          if (currentPct < 100 || targetPct < 100) {
+            requestAnimationFrame(progressLoop);
+          }
+        }
+
+        requestAnimationFrame(progressLoop);
+
+        // Sequence of realistic initialization progress
+        setTimeout(function () { targetPct = 28; }, 60);
+        setTimeout(function () { targetPct = 58; }, 220);
+        setTimeout(function () { targetPct = 82; }, 440);
+        setTimeout(function () { targetPct = 95; }, 620);
+        setTimeout(function () { targetPct = 100; }, 760);
       })();
     </script>
   </body>

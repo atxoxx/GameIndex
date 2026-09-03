@@ -134,11 +134,15 @@ function AppShell() {
 }
 
 function App() {
-  // Reveal the main window once the app has mounted its first frame.
-  // The main window starts hidden behind the native splashscreen window
-  // (tauri.conf.json), so this is the hand-off that swaps splash -> app.
   useEffect(() => {
-    invoke("close_splashscreen").catch(() => {});
+    // Reveal the main window once the app has mounted its first frame.
+    // The main window starts hidden behind the native splashscreen window
+    // (tauri.conf.json). A brief hold ensures the heavy provider tree and initial
+    // layout render cleanly before revealing, avoiding jarring flashes or blank frames.
+    const timer = setTimeout(() => {
+      invoke("close_splashscreen").catch(() => {});
+    }, 750);
+    return () => clearTimeout(timer);
   }, []);
 
   // Route chunks are loaded on demand. Navigation components still preload
