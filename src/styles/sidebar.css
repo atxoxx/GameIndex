@@ -590,7 +590,7 @@ html[data-game-accent] .sidebar {
 .sidebar-empty-cta {
   margin-top: var(--space-sm);
   padding: var(--space-sm) var(--space-xl);
-  background: var(--brand-gradient-strong);
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
@@ -1744,7 +1744,7 @@ html[data-game-accent] .sidebar {
 .sidebar-import-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-contrast);
-  background: var(--brand-gradient-strong);
+  background: var(--color-accent);
   box-shadow: 0 4px 15px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 20%, transparent);
 }
 

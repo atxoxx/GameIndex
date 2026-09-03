@@ -60,8 +60,8 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   /* Accent strength knobs */
   --accent-glow-strength: 28%;
@@ -104,8 +104,8 @@
   --brand-2: var(--color-accent-hover);
   --brand-3: var(--color-accent-hover);
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 78% 55% at 18% -8%, color-mix(in srgb, var(--color-accent) 5%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 62% 48% at 88% 0%, color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 4%, transparent) 0%, transparent 58%),

@@ -36,29 +36,29 @@
   border-color: color-mix(in srgb, var(--brand-1) 40%, transparent);
 }
 .store-page .store-hero-cta {
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   border-color: transparent;
 }
 .store-page .store-hero-cta:hover {
-  background: var(--brand-gradient-strong);
+  background: var(--color-accent-hover);
   border-color: transparent;
 }
 
 /* ── Brand-tint the "Browse" (See all) CTA on rails ─────────────── */
 .store-page .store-rail-see-all:hover {
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   border-color: transparent;
   color: var(--color-accent-contrast);
 }
 
 /* ── Detail-page primary "Add to Library" CTA tinted brand ──────── */
 .game-page .store-add-btn {
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   border-color: transparent;
   color: var(--color-accent-contrast);
 }
 .game-page .store-add-btn:hover:not(:disabled) {
-  background: var(--brand-gradient-strong);
+  background: var(--color-accent-hover);
 }
 
 /* ── Store header (prominent search + sort + actions) ── */
@@ -632,7 +632,7 @@
   font-size: 13px;
   font-weight: 700;
   border-radius: var(--radius-md);
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   box-shadow: 0 4px 18px var(--color-accent-glow);
   color: var(--color-accent-contrast);
   display: inline-flex;
@@ -2132,7 +2132,7 @@
 }
 
 .store-filter-preset-btn.active {
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
   border-color: transparent;
 }

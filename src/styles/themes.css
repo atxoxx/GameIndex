@@ -48,15 +48,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-2);
   --brand-3: var(--color-accent-hover);
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 75% 55% at 20% -8%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 60% 45% at 85% 2%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 58%),
@@ -112,15 +112,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 60%, var(--color-accent-active) 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-2);
   --brand-3: var(--color-accent-hover);
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   /* Light mesh mirrors the dark structure (same three-radial shape) so the
      ambient atmosphere is recognizably the same across every theme — just
      tuned to indigo/cyan washes instead of glow. */
@@ -197,15 +197,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(118deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(118deg, var(--color-accent) 0%, var(--color-accent-2) 62%, var(--color-accent-active) 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-2);
   --brand-3: #8fbcbb;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(118deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(118deg, var(--color-accent) 0%, var(--color-accent-2) 62%, var(--color-accent-active) 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 70% 50% at 22% -6%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 55% 42% at 82% 4%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 58%),
@@ -258,15 +258,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 5%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #ffe600 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #ff007f;
   --brand-3: #ffe600;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 52%, #ffe600 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 62% 55% at 18% -6%, color-mix(in srgb, var(--color-accent) 13%, transparent) 0%, transparent 60%),
     radial-gradient(ellipse 48% 45% at 88% -4%, color-mix(in srgb, var(--color-accent-2) 11%, transparent) 0%, transparent 58%),
@@ -319,15 +319,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-2);
   --brand-3: #6ee7b7;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 74% 58% at 28% -10%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 58% 44% at 82% 6%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 60%);
@@ -379,15 +379,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 60%, #8be9fd 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #ff79c6;
   --brand-3: #8be9fd;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 50%, #8be9fd 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 68% 52% at 42% -8%, color-mix(in srgb, var(--color-accent) 11%, transparent) 0%, transparent 64%),
     radial-gradient(ellipse 52% 40% at 86% 6%, color-mix(in srgb, var(--color-accent-2) 8%, transparent) 0%, transparent 60%);
@@ -439,15 +439,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(128deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(128deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #b58900 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #2aa198;
   --brand-3: #b58900;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(128deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(128deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #b58900 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 66% 48% at 32% -10%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 50% 38% at 78% 8%, color-mix(in srgb, #b58900 5%, transparent) 0%, transparent 60%);
@@ -499,15 +499,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #f7768e 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #bb9af7;
   --brand-3: #f7768e;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #f7768e 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 72% 54% at 58% -10%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 54% 42% at 88% 8%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 60%);
@@ -559,15 +559,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #b8bb26 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #fabd2f;
   --brand-3: #b8bb26;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #b8bb26 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 70% 52% at 50% -10%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 64%),
     radial-gradient(ellipse 58% 40% at 85% 10%, color-mix(in srgb, var(--color-accent-2) 6%, transparent) 0%, transparent 60%);
@@ -619,15 +619,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #f5c2e7 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #89b4fa;
   --brand-3: #f5c2e7;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #f5c2e7 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 70% 52% at 48% -10%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 56% 44% at 86% 6%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 60%);
@@ -679,15 +679,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #f472b6 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #fbbf24;
   --brand-3: #f472b6;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #f472b6 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 72% 56% at 62% -10%, color-mix(in srgb, var(--color-accent) 11%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 56% 44% at 18% 8%, color-mix(in srgb, #f472b6 7%, transparent) 0%, transparent 60%);
@@ -739,15 +739,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #818cf8 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #38bdf8;
   --brand-3: #818cf8;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #818cf8 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 74% 58% at 50% -12%, color-mix(in srgb, var(--color-accent) 11%, transparent) 0%, transparent 64%),
     radial-gradient(ellipse 58% 44% at 84% 10%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 60%);
@@ -799,15 +799,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #9ccfd8 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #f6c177;
   --brand-3: #9ccfd8;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #9ccfd8 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 70% 52% at 50% -10%, color-mix(in srgb, var(--color-accent) 11%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 54% 42% at 82% 8%, color-mix(in srgb, var(--color-accent-2) 6%, transparent) 0%, transparent 60%);
@@ -859,15 +859,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 5%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #ffb800 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #05d9e8;
   --brand-3: #ffb800;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 52%, #ffb800 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 68% 55% at 28% -8%, color-mix(in srgb, var(--color-accent) 13%, transparent) 0%, transparent 60%),
     radial-gradient(ellipse 52% 45% at 82% -6%, color-mix(in srgb, var(--color-accent-2) 11%, transparent) 0%, transparent 58%),
@@ -920,15 +920,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #a3e635 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #22c55e;
   --brand-3: #a3e635;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #a3e635 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 70% 52% at 34% -10%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 56% 42% at 78% 8%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 60%);
@@ -980,15 +980,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #f97316 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #fbbf24;
   --brand-3: #f97316;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, #f97316 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 70% 52% at 50% -10%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 64%),
     radial-gradient(ellipse 56% 42% at 82% 10%, color-mix(in srgb, var(--color-accent-2) 6%, transparent) 0%, transparent 60%);
@@ -1040,15 +1040,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #c084fc 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #38bdf8;
   --brand-3: #c084fc;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 55%, #c084fc 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 72% 58% at 58% -10%, color-mix(in srgb, var(--color-accent) 12%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 54% 44% at 22% 4%, color-mix(in srgb, var(--color-accent-2) 9%, transparent) 0%, transparent 60%);
@@ -1100,15 +1100,15 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 60%, #93c5fd 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
   --brand-2: #60a5fa;
   --brand-3: #93c5fd;
   --brand-4: var(--color-accent);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 60%, #93c5fd 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient:
     radial-gradient(ellipse 60% 40% at 50% -8%, color-mix(in srgb, var(--color-accent) 4.5%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 48% 30% at 88% 4%, color-mix(in srgb, var(--color-accent-2) 3%, transparent) 0%, transparent 60%);
@@ -1160,15 +1160,15 @@
   --color-accent-subtle: rgba(255, 255, 0, 0.08);
   --color-accent-badge: rgba(255, 255, 0, 0.2);
   --color-accent-laser: #ffff00;
-  --color-accent-gradient: linear-gradient(135deg, #ffff00 0%, #00ffff 100%);
-  --color-accent-gradient-strong: linear-gradient(135deg, #ffff00 0%, #00ffff 55%, #ffffff 100%);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: #ffff00;
   --brand-2: #00ffff;
   --brand-3: #ffffff;
   --brand-4: #ffff00;
-  --brand-gradient: linear-gradient(135deg, #ffff00 0%, #00ffff 100%);
-  --brand-gradient-strong: linear-gradient(135deg, #ffff00 0%, #00ffff 55%, #ffffff 100%);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
   --mesh-gradient: none;
 
   --color-success: #00ff00;

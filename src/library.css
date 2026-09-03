@@ -258,7 +258,7 @@
 }
 
 .lib-hero-btn--primary {
-  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
   border-color: transparent;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 30%, transparent);
@@ -4053,7 +4053,7 @@
   padding: 0 12px;
   border-radius: var(--radius-full);
   border: none;
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);

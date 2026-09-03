@@ -1284,12 +1284,12 @@
 }
 
 .game-launch-btn--install {
-  background: linear-gradient(135deg, var(--color-info), color-mix(in srgb, var(--color-info) 65%, black 35%));
+  background: var(--color-info);
   border: 1px solid color-mix(in srgb, var(--color-info) 60%, transparent);
 }
 
 .game-launch-btn--install:hover {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--color-info) 88%, white 12%), var(--color-info));
+  background: color-mix(in srgb, var(--color-info) 88%, white 12%);
   border-color: var(--color-info);
 }
 

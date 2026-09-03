@@ -234,7 +234,7 @@
 }
 
 .home-hero__btn--primary {
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   color: var(--color-accent-contrast, #fff);
   box-shadow: 0 4px 14px var(--color-accent-glow);
 }
@@ -2313,7 +2313,7 @@
 }
 
 .home-simple-btn--primary {
-  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
+  background: var(--color-accent);
   color: var(--color-accent-contrast, #fff);
   border-color: transparent;
   box-shadow: 0 4px 14px var(--color-accent-glow);

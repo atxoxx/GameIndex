@@ -398,23 +398,7 @@
 
 .store-hero-cta > * { position: relative; z-index: 1; }
 
-/* Premium light sweep on hover */
-.store-hero-cta::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    110deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.35) 50%,
-    transparent 70%
-  );
-  transform: translateX(-120%);
-  transition: transform 600ms ease;
-  pointer-events: none;
-  z-index: 0;
-}
-.store-hero-cta:hover::before { transform: translateX(120%); }
+
 
 .store-hero-cta:hover {
   background: var(--color-accent-hover);
