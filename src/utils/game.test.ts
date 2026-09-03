@@ -9,7 +9,26 @@ import {
   extractSteamAppId,
   extractSteamAppIdFromWebsites,
   resolveSteamAppId,
+  dedupeGamesById,
 } from "../types/game";
+
+describe("dedupeGamesById", () => {
+  it("keeps the first record for repeated library ids", () => {
+    const first = { id: "epic-ns-wwz", name: "World War Z", path: "", platform: "Epic", installed: false, playTime: "0h", addedAt: 1 };
+    const duplicate = { ...first, coverArtUrl: "duplicate-art" };
+    const other = { ...first, id: "epic-ns-other", name: "Other Game" };
+
+    expect(dedupeGamesById([first, duplicate, other])).toEqual([first, other]);
+  });
+
+  it("does not merge different game ids with the same title", () => {
+    const base = { name: "World War Z", path: "", platform: "Epic", installed: false, playTime: "0h", addedAt: 1 };
+    const one = { ...base, id: "epic-ns-one" };
+    const two = { ...base, id: "epic-ns-two" };
+
+    expect(dedupeGamesById([one, two])).toHaveLength(2);
+  });
+});
 
 describe("slugify", () => {
   it("creates kebab slug", () => {

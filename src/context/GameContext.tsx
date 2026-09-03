@@ -11,6 +11,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   gameNameFromPath,
   extractSteamAppId,
+  dedupeGamesById,
   type Game,
   type GameMetadataResult,
 } from "../types/game";
@@ -181,7 +182,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const addGame = useCallback((game: Game) => {
     const id = game.id || generateId();
-    setGames((prev) => [...prev, { ...game, id }]);
+    setGames((prev) => dedupeGamesById([...prev, { ...game, id }]));
     // Refresh the watcher index so the new game is passively detectable.
     scheduleWatcherIndexRebuild();
     // IGDB metadata is now lazy: GamePage calls enrichGameMetadata on mount
@@ -191,7 +192,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const addGames = useCallback((newGames: Game[]) => {
     const withIds = newGames.map((g) => ({ ...g, id: g.id || generateId() }));
-    setGames((prev) => [...prev, ...withIds]);
+    setGames((prev) => dedupeGamesById([...prev, ...withIds]));
     // Refresh the watcher index so the imported games are passively
     // detectable without a restart.
     scheduleWatcherIndexRebuild();

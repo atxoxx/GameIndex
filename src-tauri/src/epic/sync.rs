@@ -513,6 +513,8 @@ fn filter_owned_games(
         .map(|ci| ((ci.namespace.as_str(), ci.catalog_item_id.as_str()), ci))
         .collect();
 
+    let mut seen_game_ids: HashSet<(String, String)> = HashSet::new();
+
     assets
         .iter()
         .filter_map(|asset| {
@@ -625,6 +627,9 @@ fn filter_owned_games(
                 last_played: None,
                 cover_url,
             })
+        })
+        .filter(|game| {
+            seen_game_ids.insert((game.namespace.clone(), game.catalog_item_id.clone()))
         })
         .collect()
 }
@@ -779,6 +784,20 @@ mod tests {
             custom_attributes: None,
             main_game_item: None,
         }
+    }
+
+    /// Repeated entitlement records for one Epic identity must produce a
+    /// single library game, even when the API returns the same record twice.
+    #[test]
+    fn duplicate_entitlements_are_deduplicated() {
+        let assets = vec![
+            asset("ns1", "wwz", "WorldWarZ"),
+            asset("ns1", "wwz", "WorldWarZ"),
+        ];
+        let catalogs = vec![catalog("ns1", "wwz", "World War Z", &["applications"] )];
+        let result = filter_owned_games(&assets, &catalogs);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "epic-ns1-wwz");
     }
 
     /// A base game with `applications` in the catalog categories should

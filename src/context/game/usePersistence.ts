@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { Game } from "../../types/game";
+import { dedupeGamesById, type Game } from "../../types/game";
 import { normalizeGameArtworkUrls } from "../../utils/artworkUrl";
 import { toWatcherRefs } from "./useWatcherIndex";
 
@@ -26,7 +26,7 @@ export function usePersistence(options: {
           // Legacy rows may carry `file://` artwork URLs (written before
           // the asset protocol was enabled); the webview refuses to load
           // those, so convert them back to asset-protocol URLs on load.
-          setGames(data.map(normalizeGameArtworkUrls));
+          setGames(dedupeGamesById(data.map(normalizeGameArtworkUrls)));
           // Populate the watcher's process index for passive detection.
           // Pass game refs so the background poll loop can match
           // running processes to known games (excluding untracked ones).

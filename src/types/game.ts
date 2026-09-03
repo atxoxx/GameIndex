@@ -206,6 +206,16 @@ export interface Game {
   untracked?: boolean;
 }
 
+/** Remove repeated library records while preserving the first record for each stable id. */
+export function dedupeGamesById(games: Game[]): Game[] {
+  const seen = new Set<string>();
+  return games.filter((game) => {
+    if (seen.has(game.id)) return false;
+    seen.add(game.id);
+    return true;
+  });
+}
+
 /** An additional executable launched alongside the main game. */
 export interface CompanionApp {
   /** Full path to the executable. */
