@@ -494,6 +494,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [accentColor]);
 
+  // Mirror the accent override to the backend kv store
+  // (get_accent_color / set_accent_color) so the native splash
+  // window can apply it on next launch.
+  useEffect(() => {
+    invoke("set_accent_color", { accent: accentColor ?? "" }).catch(() => {
+      /* non-fatal */
+    });
+  }, [accentColor]);
+
   const [autoGameAccent, setAutoGameAccentState] = useState<boolean>(() =>
     lsGet(LS_AUTO_GAME_ACCENT) === "true",
   );

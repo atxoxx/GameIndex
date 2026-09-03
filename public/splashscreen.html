@@ -140,25 +140,29 @@
       (function () {
         // Mirrors ThemeContext's localStorage keys. The splash window shares
         // the app's origin, so the persisted theme id + accent override are
-        // readable here before first paint.
+        // readable here before first paint. Keep entries in sync with the
+        // built-in themes in src/styles/themes.css.
         var PALETTES = {
-          dark:       ["#08090c", "#f3f5fa", "#9ea4b5", "#635bff"],
-          light:      ["#f8fafc", "#0f172a", "#475569", "#7c3aed"],
-          nord:       ["#2e3440", "#eceff4", "#d8dee9", "#88c0d0"],
-          cyberpunk:  ["#050508", "#f0f2f5", "#00f0ff", "#00f0ff"],
-          emerald:    ["#08110c", "#ecf3ee", "#a6c4b2", "#10b981"],
-          dracula:    ["#1e1f29", "#f8f8f2", "#ff79c6", "#bd93f9"],
-          solarized:  ["#002b36", "#fdf6e3", "#eee8d5", "#268bd2"],
-          tokyonight: ["#1a1b26", "#c0caf5", "#a9b1d6", "#7aa2f7"],
-          gruvbox:    ["#282828", "#ebdbb2", "#d5c4a1", "#fe8019"],
-          catppuccin: ["#1e1e2e", "#cad3f5", "#b8c0e0", "#cba6f7"],
-          sunset:     ["#1f0f1a", "#fdeef2", "#f3c5d4", "#ff7a59"],
-          oceanic:    ["#071a2b", "#e6f6fb", "#b3dcec", "#22d3ee"],
-          rosepine:   ["#191724", "#e0def4", "#c5c3e0", "#eb6f92"],
-          synthwave:  ["#170d2b", "#f9f2ff", "#05d9e8", "#ff71ce"],
-          forest:     ["#0c1510", "#eef5ea", "#b9d4ab", "#84cc16"],
-          desert:     ["#1c160f", "#f5ead7", "#e0c9a3", "#e0ab55"],
-          aurora:     ["#050410", "#f3f1ff", "#b7b2dc", "#9a6bff"]
+          dark:         ["#08090c", "#f3f5fa", "#9ea4b5", "#635bff"],
+          light:        ["#f8fafc", "#0f172a", "#475569", "#7c3aed"],
+          adaptive:     ["#07070d", "#f5f6fc", "#b5b9cc", "#7c66ff"],
+          nord:         ["#2e3440", "#eceff4", "#d8dee9", "#88c0d0"],
+          cyberpunk:    ["#050508", "#f0f2f5", "#00f0ff", "#00f0ff"],
+          emerald:      ["#08110c", "#ecf3ee", "#a6c4b2", "#10b981"],
+          dracula:      ["#1e1f29", "#f8f8f2", "#ff79c6", "#bd93f9"],
+          solarized:    ["#002b36", "#fdf6e3", "#eee8d5", "#268bd2"],
+          tokyonight:   ["#1a1b26", "#c0caf5", "#a9b1d6", "#7aa2f7"],
+          gruvbox:      ["#282828", "#ebdbb2", "#d5c4a1", "#fe8019"],
+          catppuccin:   ["#1e1e2e", "#cad3f5", "#b8c0e0", "#cba6f7"],
+          sunset:       ["#1f0f1a", "#fdeef2", "#f3c5d4", "#ff7a59"],
+          oceanic:      ["#071a2b", "#e6f6fb", "#b3dcec", "#22d3ee"],
+          rosepine:     ["#191724", "#e0def4", "#c5c3e0", "#eb6f92"],
+          synthwave:    ["#170d2b", "#f9f2ff", "#05d9e8", "#ff71ce"],
+          forest:       ["#0c1510", "#eef5ea", "#b9d4ab", "#84cc16"],
+          desert:       ["#1c160f", "#f5ead7", "#e0c9a3", "#e0ab55"],
+          aurora:       ["#050410", "#f3f1ff", "#b7b2dc", "#9a6bff"],
+          oled:         ["#000000", "#ffffff", "#b0b4c0", "#3b82f6"],
+          highcontrast: ["#000000", "#ffffff", "#ffff00", "#ffff00"]
         };
 
         var root = document.documentElement;
@@ -184,6 +188,42 @@
         } catch (e) {
           /* ignore */
         }
+
+        // This window's localStorage isn't guaranteed to be shared with
+        // the main window, so the theme + accent override are also
+        // persisted to the backend kv store (get_theme /
+        // get_accent_color, mirrored by ThemeContext/SettingsContext).
+        // Re-apply from there once the IPC round-trip resolves; the
+        // localStorage read above already painted the right colors
+        // when the origin is shared (dev mode).
+        function applyPalette(id) {
+          var palette = PALETTES[id] || PALETTES.dark;
+          root.style.setProperty("--bg", palette[0]);
+          root.style.setProperty("--text", palette[1]);
+          root.style.setProperty("--sub", palette[2]);
+          root.style.setProperty("--accent", palette[3]);
+        }
+        try {
+          if (window.__TAURI__ && window.__TAURI__.core) {
+            var tauriCore = window.__TAURI__.core;
+            tauriCore
+              .invoke("get_theme")
+              .then(function (id) {
+                if (id) applyPalette(id);
+                return tauriCore.invoke("get_accent_color");
+              })
+              .then(function (accent) {
+                if (accent && /^#[0-9a-fA-F]{6}$/.test(accent)) {
+                  root.style.setProperty("--accent", accent);
+                }
+              })
+              .catch(function () {
+                /* backend not ready — keep the localStorage defaults */
+              });
+          }
+        } catch (e) {
+          /* no Tauri API (plain browser preview) */
+        }
       })();
     </script>
   </head>
@@ -199,12 +239,48 @@
         </svg>
       </div>
       <h1>GameIndex</h1>
-      <p>Your unified game library</p>
+      <p id="splash-tagline">Your unified game library</p>
       <div class="loader" aria-hidden="true">
         <span></span>
         <span></span>
         <span></span>
       </div>
     </div>
+    <script>
+      (function () {
+        // Mirrors LanguageContext's persisted language (backend kv store,
+        // "language" key, exposed by the get_language command). One IPC call
+        // resolves the last-used language before the app shell shows.
+        // Taglines mirror "home.empty.subtitle" in src/i18n/*.ts.
+        var TAGLINES = {
+          en: "Your unified game library",
+          fr: "Votre bibliothèque de jeux unifiée",
+          es: "Tu biblioteca unificada de juegos",
+          de: "Deine einheitliche Spielebibliothek",
+          ru: "Ваша единая игровая библиотека",
+          "zh-CN": "您的统一游戏库"
+        };
+
+        var tagline = document.getElementById("splash-tagline");
+        if (!tagline) return;
+        try {
+          if (window.__TAURI__ && window.__TAURI__.core) {
+            window.__TAURI__.core
+              .invoke("get_language")
+              .then(function (code) {
+                if (code && TAGLINES[code]) {
+                  tagline.textContent = TAGLINES[code];
+                  document.documentElement.lang = code;
+                }
+              })
+              .catch(function () {
+                /* backend not ready — keep the English default */
+              });
+          }
+        } catch (e) {
+          /* no Tauri API (plain browser preview) — keep the English default */
+        }
+      })();
+    </script>
   </body>
 </html>

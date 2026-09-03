@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 /**
  * Describes the "feel" of a theme so the UI can tag it with the right
@@ -193,6 +194,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Apply theme on mount and on change
   useEffect(() => {
     applyTheme(currentTheme);
+  }, [currentTheme]);
+
+  // Mirror the active theme to the backend kv store (get_theme /
+  // set_theme) so the native splash window can apply the last-used
+  // theme on next launch — it can't read this window's localStorage.
+  useEffect(() => {
+    invoke("set_theme", { theme: currentTheme }).catch(() => {
+      /* non-fatal */
+    });
   }, [currentTheme]);
 
   // Listen for OS color-scheme changes when systemSync is on

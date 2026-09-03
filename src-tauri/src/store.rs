@@ -330,6 +330,39 @@ pub fn set_language(app: tauri::AppHandle, language: String) -> Result<(), Strin
     db::kv::set(db_state.inner(), "language", &language)
 }
 
+/// Read the user's last-used theme id. Returns `None` when unset
+/// (the frontend treats that as the `dark` default). Persisted by
+/// ThemeContext via `set_theme` so the native splash window — which
+/// can't read the main window's localStorage on every platform — can
+/// apply the last-used theme before the app shell shows.
+#[tauri::command]
+pub fn get_theme(app: tauri::AppHandle) -> Option<String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::kv::get(db_state.inner(), "theme").ok().flatten()
+}
+
+/// Persist the user's last-used theme id (e.g. "dark", "nord").
+#[tauri::command]
+pub fn set_theme(app: tauri::AppHandle, theme: String) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::kv::set(db_state.inner(), "theme", &theme)
+}
+
+/// Read the user's accent-color override. Returns `None` when unset.
+#[tauri::command]
+pub fn get_accent_color(app: tauri::AppHandle) -> Option<String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::kv::get(db_state.inner(), "accent_color").ok().flatten()
+}
+
+/// Persist the user's accent-color override (e.g. "#7c3aed"), or an
+/// empty string to clear it. Mirrored from SettingsContext.
+#[tauri::command]
+pub fn set_accent_color(app: tauri::AppHandle, accent: String) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::kv::set(db_state.inner(), "accent_color", &accent)
+}
+
 /// Fetch the localized "About" payload for every configured language
 /// (see `game_scraper::ABOUT_LANGUAGES`) and return them as a bundle.
 /// The frontend picks `by_language[uiLang]`, falling back to
