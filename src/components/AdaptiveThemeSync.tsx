@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { useTheme } from "../context/ThemeContext";
 import { useGames } from "../context/GameContext";
 import {
@@ -12,6 +13,26 @@ import {
   deriveAdaptiveTheme,
   sampleArtworkColors,
 } from "../utils/adaptiveTheme";
+
+export const ADAPTIVE_PALETTE_STORAGE_KEY = "gamelib_adaptive_palette";
+
+function persistAdaptivePalette(tokens: Record<string, string>) {
+  const palette = {
+    bg: tokens["--color-bg-primary"],
+    text: tokens["--color-text-primary"],
+    sub: tokens["--color-text-secondary"],
+    accent: tokens["--color-accent"],
+    accent2: tokens["--color-accent-2"],
+  };
+  const json = JSON.stringify(palette);
+  try {
+    localStorage.setItem(ADAPTIVE_PALETTE_STORAGE_KEY, json);
+  } catch {
+    /* ignore */
+  }
+  invoke("set_adaptive_palette", { palette: json }).catch(() => {});
+  invoke("set_accent_color", { accent: palette.accent }).catch(() => {});
+}
 
 /**
  * AdaptiveThemeSync
@@ -138,6 +159,7 @@ export function AdaptiveThemeSync() {
       lastAppliedTokensRef.current = tokens;
       lastSampledUrlRef.current = targetArtworkUrl;
       applyAdaptiveTheme(root, tokens);
+      persistAdaptivePalette(tokens);
     });
 
     return () => {

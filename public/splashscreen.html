@@ -7,10 +7,15 @@
     <style>
       :root {
         --bg: #08090c;
+        --color-bg-primary: var(--bg);
         --text: #f3f5fa;
+        --color-text-primary: var(--text);
         --sub: #9ea4b5;
+        --color-text-secondary: var(--sub);
         --accent: #635bff;
+        --color-accent: var(--accent);
         --accent-2: #a78bfa;
+        --color-accent-2: var(--accent-2);
       }
 
       * {
@@ -37,6 +42,7 @@
         user-select: none;
         -webkit-user-select: none;
         position: relative;
+        transition: background-color 220ms ease, color 220ms ease;
       }
 
       /* Ambient Atmospheric Background */
@@ -50,33 +56,35 @@
 
       .ambient-glow-primary {
         position: absolute;
-        width: 420px;
-        height: 320px;
-        top: -60px;
+        width: 440px;
+        height: 330px;
+        top: -65px;
         left: 50%;
         transform: translateX(-50%);
         background: radial-gradient(
           ellipse at center,
-          color-mix(in srgb, var(--accent) 26%, transparent),
+          color-mix(in srgb, var(--accent) 30%, transparent),
           transparent 70%
         );
         filter: blur(28px);
         animation: breath-glow 4.5s ease-in-out infinite alternate;
+        transition: background 300ms ease;
       }
 
       .ambient-glow-secondary {
         position: absolute;
         width: 320px;
-        height: 240px;
+        height: 250px;
         bottom: -60px;
         right: -40px;
         background: radial-gradient(
           circle at center,
-          color-mix(in srgb, var(--accent-2) 18%, transparent),
+          color-mix(in srgb, var(--accent-2) 22%, transparent),
           transparent 65%
         );
         filter: blur(34px);
         animation: breath-glow-rev 5.5s ease-in-out infinite alternate;
+        transition: background 300ms ease;
       }
 
       .ambient-vignette {
@@ -85,7 +93,7 @@
         background: radial-gradient(
           ellipse at 50% 50%,
           transparent 55%,
-          rgba(0, 0, 0, 0.48) 100%
+          rgba(0, 0, 0, 0.45) 100%
         );
       }
 
@@ -110,13 +118,13 @@
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
-        border: 1px solid color-mix(in srgb, var(--text) 11%, transparent);
+        border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
         box-shadow:
           inset 0 1px 0 rgba(255, 255, 255, 0.14),
           inset 0 -1px 0 rgba(0, 0, 0, 0.35);
         background: radial-gradient(
           circle at 50% 30%,
-          rgba(255, 255, 255, 0.02),
+          color-mix(in srgb, var(--text) 2%, transparent),
           transparent 75%
         );
         animation: splash-intro 450ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -127,9 +135,10 @@
         position: absolute;
         width: 9px;
         height: 9px;
-        border-color: color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.25));
+        border-color: color-mix(in srgb, var(--accent) 55%, var(--text) 25%);
         pointer-events: none;
         opacity: 0.7;
+        transition: border-color 300ms ease;
       }
       .corner-tl { top: 10px; left: 10px; border-top: 1.5px solid; border-left: 1.5px solid; }
       .corner-tr { top: 10px; right: 10px; border-top: 1.5px solid; border-right: 1.5px solid; }
@@ -162,11 +171,12 @@
         border-radius: 50%;
         background: radial-gradient(
           circle,
-          color-mix(in srgb, var(--accent) 50%, transparent),
+          color-mix(in srgb, var(--accent) 55%, transparent),
           transparent 70%
         );
         filter: blur(14px);
         animation: halo-pulse 3s ease-in-out infinite alternate;
+        transition: background 300ms ease;
       }
 
       .emblem-badge {
@@ -179,15 +189,16 @@
         justify-content: center;
         background: linear-gradient(
           145deg,
-          color-mix(in srgb, var(--accent) 42%, #141624),
-          color-mix(in srgb, var(--accent) 16%, #090a12)
+          color-mix(in srgb, var(--accent) 42%, var(--bg)),
+          color-mix(in srgb, var(--accent) 16%, var(--bg))
         );
-        border: 1px solid color-mix(in srgb, var(--accent) 50%, rgba(255, 255, 255, 0.45));
+        border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--text) 35%);
         box-shadow:
           0 10px 30px color-mix(in srgb, var(--accent) 45%, transparent),
           inset 0 1px 1px rgba(255, 255, 255, 0.4),
           inset 0 -2px 4px rgba(0, 0, 0, 0.4);
         overflow: hidden;
+        transition: background 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
       }
 
       /* Shimmer Sweep */
@@ -217,41 +228,48 @@
       }
 
       .gp-body {
-        fill: color-mix(in srgb, var(--accent) 20%, #161826);
-        stroke: #ffffff;
+        fill: color-mix(in srgb, var(--accent) 20%, var(--bg));
+        stroke: var(--text);
         stroke-width: 1.75;
         stroke-linejoin: round;
+        transition: fill 300ms ease, stroke 300ms ease;
       }
 
       .gp-grip {
-        stroke: rgba(255, 255, 255, 0.25);
+        stroke: color-mix(in srgb, var(--text) 25%, transparent);
         stroke-width: 1.2;
         stroke-linecap: round;
         fill: none;
+        transition: stroke 300ms ease;
       }
 
       .gp-dpad {
-        fill: #ffffff;
+        fill: var(--text);
         opacity: 0.95;
+        transition: fill 300ms ease;
       }
 
       .gp-stick {
-        fill: rgba(255, 255, 255, 0.12);
-        stroke: rgba(255, 255, 255, 0.35);
+        fill: color-mix(in srgb, var(--text) 12%, transparent);
+        stroke: color-mix(in srgb, var(--text) 35%, transparent);
         stroke-width: 1.2;
+        transition: fill 300ms ease, stroke 300ms ease;
       }
 
       .gp-stick-head {
         fill: var(--accent);
+        transition: fill 300ms ease;
       }
 
       .gp-btn {
-        fill: #ffffff;
+        fill: var(--text);
         opacity: 0.95;
+        transition: fill 300ms ease;
       }
 
       .gp-btn-accent {
         fill: var(--accent-2);
+        transition: fill 300ms ease;
       }
 
       .gp-jewel {
@@ -275,12 +293,13 @@
         line-height: 1.1;
         background: linear-gradient(
           180deg,
-          #ffffff 20%,
+          var(--text) 20%,
           color-mix(in srgb, var(--text) 82%, var(--accent) 18%) 100%
         );
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 28%, transparent);
+        transition: text-shadow 300ms ease;
       }
 
       p.tagline {
@@ -289,7 +308,7 @@
         font-weight: 500;
         letter-spacing: -0.01em;
         line-height: 1.3;
-        transition: opacity 240ms ease;
+        transition: opacity 240ms ease, color 300ms ease;
       }
 
       /* Progress & Status Container */
@@ -309,8 +328,8 @@
         width: 100%;
         height: 5px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: color-mix(in srgb, var(--text) 8%, transparent);
+        border: 1px solid color-mix(in srgb, var(--text) 6%, transparent);
         overflow: hidden;
         box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
       }
@@ -328,7 +347,7 @@
         box-shadow:
           0 0 12px color-mix(in srgb, var(--accent) 80%, transparent),
           0 0 4px #ffffff;
-        transition: width 220ms cubic-bezier(0.2, 0.8, 0.25, 1);
+        transition: width 220ms cubic-bezier(0.2, 0.8, 0.25, 1), background 300ms ease, box-shadow 300ms ease;
       }
 
       .progress-fill::after {
@@ -353,6 +372,7 @@
         color: var(--sub);
         font-weight: 500;
         padding: 0 2px;
+        transition: color 300ms ease;
       }
 
       .status-left {
@@ -372,11 +392,12 @@
         border-top-color: var(--accent);
         animation: spin 750ms linear infinite;
         flex-shrink: 0;
+        transition: border-color 300ms ease;
       }
 
       .status-text {
         color: color-mix(in srgb, var(--text) 88%, transparent);
-        transition: opacity 180ms ease, transform 180ms ease;
+        transition: opacity 180ms ease, transform 180ms ease, color 300ms ease;
       }
 
       .status-pct {
@@ -384,6 +405,7 @@
         font-weight: 600;
         color: var(--text);
         opacity: 0.9;
+        transition: color 300ms ease;
       }
 
       /* Footer Bar */
@@ -393,9 +415,10 @@
         align-items: center;
         justify-content: space-between;
         padding-top: 10px;
-        border-top: 1px solid color-mix(in srgb, var(--text) 7%, transparent);
+        border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
         font-size: 11px;
         color: var(--sub);
+        transition: border-color 300ms ease, color 300ms ease;
       }
 
       .version-pill {
@@ -404,11 +427,12 @@
         gap: 6px;
         padding: 3px 8px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.07);
+        background: color-mix(in srgb, var(--text) 5%, transparent);
+        border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
         font-weight: 600;
         letter-spacing: 0.02em;
         color: color-mix(in srgb, var(--text) 75%, transparent);
+        transition: background 300ms ease, border-color 300ms ease, color 300ms ease;
       }
 
       .version-dot {
@@ -425,11 +449,6 @@
         letter-spacing: -0.01em;
       }
 
-      /* Exit Transition */
-      .splash-closing {
-        animation: splash-exit 240ms cubic-bezier(0.4, 0, 1, 1) forwards;
-      }
-
       /* Keyframes */
       @keyframes splash-intro {
         from {
@@ -439,17 +458,6 @@
         to {
           opacity: 1;
           transform: scale(1);
-        }
-      }
-
-      @keyframes splash-exit {
-        from {
-          opacity: 1;
-          transform: scale(1);
-        }
-        to {
-          opacity: 0;
-          transform: scale(1.02);
         }
       }
 
@@ -531,13 +539,15 @@
     </style>
     <script>
       (function () {
-        // Complete 20-theme token system from src/styles/themes.css
+        var root = document.documentElement;
+
+        // Built-in palettes from src/styles/themes.css
         // [bg, text, sub, accent, accent-2]
         var PALETTES = {
-          dark:         ["#08090c", "#f3f5fa", "#9ea4b5", "#635bff", "#a78bfa"],
-          light:        ["#f8fafc", "#0f172a", "#475569", "#7c3aed", "#6366f1"],
+          dark:         ["#08090c", "#f3f5fa", "#a3abc0", "#635bff", "#a78bfa"],
+          light:        ["#f2f5f9", "#0f172a", "#334155", "#6d28d9", "#8b5cf6"],
           adaptive:     ["#07070d", "#f5f6fc", "#b5b9cc", "#7c66ff", "#38bdf8"],
-          nord:         ["#2e3440", "#eceff4", "#d8dee9", "#88c0d0", "#81a1c1"],
+          nord:         ["#242933", "#eceff4", "#d8dee9", "#88c0d0", "#81a1c1"],
           cyberpunk:    ["#050508", "#f0f2f5", "#00f0ff", "#00f0ff", "#ff0055"],
           emerald:      ["#08110c", "#ecf3ee", "#a6c4b2", "#10b981", "#34d399"],
           dracula:      ["#1e1f29", "#f8f8f2", "#bd93f9", "#bd93f9", "#ff79c6"],
@@ -556,51 +566,279 @@
           highcontrast: ["#000000", "#ffffff", "#ffff00", "#ffff00", "#00ffff"]
         };
 
-        var root = document.documentElement;
-        var themeId = "dark";
-        try {
-          themeId = localStorage.getItem("gamelib-theme") || "dark";
-        } catch (e) {
-          /* keep dark default */
+        // Universal color parser supporting #hex, rgb(...), rgba(...), hsl(...)
+        function parseRgb(colorStr) {
+          if (!colorStr || typeof colorStr !== "string") return null;
+          var trimmed = colorStr.trim();
+          if (!trimmed || trimmed === "transparent" || trimmed === "inherit" || trimmed === "none") return null;
+
+          // Quick hex match
+          if (/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) {
+            var h = trimmed.slice(1);
+            if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+            return {
+              r: parseInt(h.slice(0, 2), 16),
+              g: parseInt(h.slice(2, 4), 16),
+              b: parseInt(h.slice(4, 6), 16)
+            };
+          }
+
+          // Direct rgb(...) match
+          var rgbMatch = trimmed.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+          if (rgbMatch) {
+            return {
+              r: parseInt(rgbMatch[1], 10),
+              g: parseInt(rgbMatch[2], 10),
+              b: parseInt(rgbMatch[3], 10)
+            };
+          }
+
+          // DOM fallback for any valid CSS color
+          try {
+            var probe = document.createElement("div");
+            probe.style.color = trimmed;
+            (document.body || root).appendChild(probe);
+            var computed = window.getComputedStyle(probe).color;
+            probe.parentNode.removeChild(probe);
+            var m = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (m) {
+              return {
+                r: parseInt(m[1], 10),
+                g: parseInt(m[2], 10),
+                b: parseInt(m[3], 10)
+              };
+            }
+          } catch (e) {}
+
+          return null;
         }
 
-        function applyPalette(id) {
-          var p = PALETTES[id] || PALETTES.dark;
+        function rgbToHsl(r, g, b) {
+          r /= 255; g /= 255; b /= 255;
+          var max = Math.max(r, g, b), min = Math.min(r, g, b);
+          var h, s, l = (max + min) / 2;
+          if (max === min) {
+            h = s = 0;
+          } else {
+            var d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+              case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+              case g: h = (b - r) / d + 2; break;
+              case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+          }
+          return { h: h * 360, s: s, l: l };
+        }
+
+        function hslToRgb(h, s, l) {
+          var r, g, b;
+          h /= 360;
+          if (s === 0) {
+            r = g = b = l;
+          } else {
+            function hue2rgb(p, q, t) {
+              if (t < 0) t += 1;
+              if (t > 1) t -= 1;
+              if (t < 1/6) return p + (q - p) * 6 * t;
+              if (t < 1/2) return q;
+              if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+              return p;
+            }
+            var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            var p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+          }
+          return "rgb(" + Math.round(r * 255) + ", " + Math.round(g * 255) + ", " + Math.round(b * 255) + ")";
+        }
+
+        function deriveHarmonizedAccent2(rgb) {
+          var hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+          var nextL = Math.min(0.85, Math.max(0.24, hsl.l + 0.14));
+          var nextS = Math.min(1, Math.max(0.35, hsl.s * 0.95));
+          return hslToRgb(hsl.h, nextS, nextL);
+        }
+
+        function applyPalette(themeId) {
+          var p = PALETTES[themeId] || PALETTES.dark;
+          root.setAttribute("data-theme", themeId);
           root.style.setProperty("--bg", p[0]);
+          root.style.setProperty("--color-bg-primary", p[0]);
           root.style.setProperty("--text", p[1]);
+          root.style.setProperty("--color-text-primary", p[1]);
           root.style.setProperty("--sub", p[2]);
+          root.style.setProperty("--color-text-secondary", p[2]);
           root.style.setProperty("--accent", p[3]);
+          root.style.setProperty("--color-accent", p[3]);
           root.style.setProperty("--accent-2", p[4]);
+          root.style.setProperty("--color-accent-2", p[4]);
         }
 
-        applyPalette(themeId);
+        function applyAdaptivePalette(palette) {
+          if (!palette) return;
+          root.setAttribute("data-theme", "adaptive");
+          if (palette.bg) {
+            root.style.setProperty("--bg", palette.bg);
+            root.style.setProperty("--color-bg-primary", palette.bg);
+          }
+          if (palette.text) {
+            root.style.setProperty("--text", palette.text);
+            root.style.setProperty("--color-text-primary", palette.text);
+          }
+          if (palette.sub) {
+            root.style.setProperty("--sub", palette.sub);
+            root.style.setProperty("--color-text-secondary", palette.sub);
+          }
+          if (palette.accent) {
+            root.style.setProperty("--accent", palette.accent);
+            root.style.setProperty("--color-accent", palette.accent);
+          }
+          var acc2 = palette.accent2 || palette["accent-2"] || palette.accent_2;
+          if (acc2) {
+            root.style.setProperty("--accent-2", acc2);
+            root.style.setProperty("--color-accent-2", acc2);
+          } else if (palette.accent) {
+            var rgb = parseRgb(palette.accent);
+            if (rgb) {
+              var partner = deriveHarmonizedAccent2(rgb);
+              root.style.setProperty("--accent-2", partner);
+              root.style.setProperty("--color-accent-2", partner);
+            }
+          }
+        }
 
+        function synthesizeAdaptiveFromAccent(accentStr) {
+          var rgb = parseRgb(accentStr);
+          if (!rgb) return;
+          var hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+          var bgSat = Math.min(0.24, hsl.s * 0.38);
+          var bg = hslToRgb(hsl.h, bgSat, 0.038);
+          var text = hslToRgb(hsl.h, 0.14, 0.965);
+          var sub = hslToRgb(hsl.h, 0.18, 0.76);
+          var partner = deriveHarmonizedAccent2(rgb);
+
+          applyAdaptivePalette({
+            bg: bg,
+            text: text,
+            sub: sub,
+            accent: accentStr,
+            accent2: partner
+          });
+        }
+
+        function applyAccent(accentStr) {
+          var rgb = parseRgb(accentStr);
+          if (!rgb) return;
+          var formatted = "rgb(" + rgb.r + ", " + rgb.g + ", " + rgb.b + ")";
+          root.style.setProperty("--accent", formatted);
+          root.style.setProperty("--color-accent", formatted);
+          var partner = deriveHarmonizedAccent2(rgb);
+          if (partner) {
+            root.style.setProperty("--accent-2", partner);
+            root.style.setProperty("--color-accent-2", partner);
+          }
+        }
+
+        // 1. Synchronous hydration from localStorage
         try {
-          var customAccent = localStorage.getItem("gamelib.accent_color");
-          if (customAccent && /^#[0-9a-fA-F]{6}$/.test(customAccent)) {
-            root.style.setProperty("--accent", customAccent);
+          var cachedTheme = localStorage.getItem("gamelib-theme") || "dark";
+          if (cachedTheme === "adaptive") {
+            var rawAdaptive = localStorage.getItem("gamelib_adaptive_palette");
+            var applied = false;
+            if (rawAdaptive) {
+              try {
+                var parsed = JSON.parse(rawAdaptive);
+                if (parsed && parsed.accent) {
+                  applyAdaptivePalette(parsed);
+                  applied = true;
+                }
+              } catch (e) {}
+            }
+            if (!applied) {
+              var cachedAccent = localStorage.getItem("gamelib.accent_color");
+              if (cachedAccent) {
+                synthesizeAdaptiveFromAccent(cachedAccent);
+              } else {
+                applyPalette("adaptive");
+              }
+            }
+          } else {
+            applyPalette(cachedTheme);
+            var cachedAccent = localStorage.getItem("gamelib.accent_color");
+            if (cachedAccent) applyAccent(cachedAccent);
           }
         } catch (e) {
-          /* ignore */
+          applyPalette("dark");
         }
 
-        // Query backend KV store via Tauri IPC
-        try {
-          if (window.__TAURI__ && window.__TAURI__.core) {
-            var core = window.__TAURI__.core;
-            core.invoke("get_theme")
-              .then(function (id) {
-                if (id) applyPalette(id);
-                return core.invoke("get_accent_color");
-              })
-              .then(function (accent) {
-                if (accent && /^#[0-9a-fA-F]{6}$/.test(accent)) {
-                  root.style.setProperty("--accent", accent);
-                }
-              })
-              .catch(function () {});
+        // 2. Reliable Tauri IPC bridge with polling retry
+        function getTauriInvoke() {
+          if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === "function") {
+            return window.__TAURI__.core.invoke;
           }
-        } catch (e) {}
+          if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === "function") {
+            return window.__TAURI_INTERNALS__.invoke;
+          }
+          return null;
+        }
+
+        function syncThemeFromBackend(retriesLeft) {
+          var invoke = getTauriInvoke();
+          if (!invoke) {
+            if (retriesLeft > 0) {
+              setTimeout(function () { syncThemeFromBackend(retriesLeft - 1); }, 20);
+            }
+            return;
+          }
+
+          invoke("get_theme")
+            .then(function (themeId) {
+              var activeTheme = themeId || "dark";
+              if (activeTheme === "adaptive") {
+                return invoke("get_adaptive_palette")
+                  .then(function (paletteJson) {
+                    if (paletteJson) {
+                      try {
+                        var parsed = JSON.parse(paletteJson);
+                        if (parsed && parsed.accent) {
+                          applyAdaptivePalette(parsed);
+                          return;
+                        }
+                      } catch (e) {}
+                    }
+                    return invoke("get_accent_color").then(function (accent) {
+                      if (accent) {
+                        synthesizeAdaptiveFromAccent(accent);
+                      } else {
+                        applyPalette("adaptive");
+                      }
+                    });
+                  });
+              } else {
+                applyPalette(activeTheme);
+                return invoke("get_accent_color").then(function (accent) {
+                  if (accent) applyAccent(accent);
+                });
+              }
+            })
+            .catch(function () {});
+
+          invoke("get_language")
+            .then(function (lang) {
+              if (lang && window.__setSplashLanguage) {
+                window.__setSplashLanguage(lang);
+              }
+            })
+            .catch(function () {});
+        }
+
+        syncThemeFromBackend(40);
+        document.addEventListener("DOMContentLoaded", function () {
+          syncThemeFromBackend(10);
+        });
       })();
     </script>
   </head>
@@ -778,20 +1016,8 @@
           if (tipEl) tipEl.textContent = dict.hint;
         }
 
+        window.__setSplashLanguage = applyLanguage;
         applyLanguage(currentLang);
-
-        // Fetch backend language via Tauri IPC
-        try {
-          if (window.__TAURI__ && window.__TAURI__.core) {
-            window.__TAURI__.core.invoke("get_language")
-              .then(function (code) {
-                if (code && I18N[code]) {
-                  applyLanguage(code);
-                }
-              })
-              .catch(function () {});
-          }
-        } catch (e) {}
 
         /* ── Dynamic Particle Canvas ── */
         var canvas = document.getElementById("particles-canvas");

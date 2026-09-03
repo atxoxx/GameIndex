@@ -363,6 +363,20 @@ pub fn set_accent_color(app: tauri::AppHandle, accent: String) -> Result<(), Str
     db::kv::set(db_state.inner(), "accent_color", &accent)
 }
 
+/// Read the user's last-used adaptive theme palette JSON. Returns `None` when unset.
+#[tauri::command]
+pub fn get_adaptive_palette(app: tauri::AppHandle) -> Option<String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::kv::get(db_state.inner(), "adaptive_palette").ok().flatten()
+}
+
+/// Persist the user's last-used adaptive theme palette JSON (e.g. `{"bg": "...", "accent": "..."}`).
+#[tauri::command]
+pub fn set_adaptive_palette(app: tauri::AppHandle, palette: String) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::kv::set(db_state.inner(), "adaptive_palette", &palette)
+}
+
 /// Fetch the localized "About" payload for every configured language
 /// (see `game_scraper::ABOUT_LANGUAGES`) and return them as a bundle.
 /// The frontend picks `by_language[uiLang]`, falling back to
