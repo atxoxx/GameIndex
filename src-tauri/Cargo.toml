@@ -165,3 +165,12 @@ discord-rich-presence = "1.1.0"
 # decryption material lives in the binary too.
 obfstr = "0.4"
 
+# Release profile tuned for maximum runtime performance and minimum binary size.
+[profile.release]
+opt-level = 3        # Aggressive runtime performance optimizations
+lto = true           # Cross-crate link-time optimization (eliminates dead code across dependencies)
+codegen-units = 1    # Enables maximum cross-function inlining and whole-crate optimizations
+strip = true         # Automatically strips symbols and debuginfo, significantly reducing executable size
+panic = "unwind"     # Preserves catch_unwind safety in telemetry/metrics collector
+
+
