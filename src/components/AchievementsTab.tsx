@@ -901,15 +901,15 @@ export default function AchievementsTab({ game }: { game: Game }) {
         {/* ── Rarity & Stats Sidebar ─────────────────────────────── */}
         <aside className="ach-rarity-side">
           <div className="ach-rarity-side-stats">
-            <div className="achievements-stat-card">
+            <div className="achievements-stat-card" title={`${t("achievements.unlocked")}: ${unlocked}`}>
               <span className="achievements-stat-value">{unlocked}</span>
               <span className="achievements-stat-label">{t("achievements.unlocked")}</span>
             </div>
-            <div className="achievements-stat-card">
+            <div className="achievements-stat-card" title={`${t("achievements.locked")}: ${total - unlocked}`}>
               <span className="achievements-stat-value achievements-stat-locked">{total - unlocked}</span>
               <span className="achievements-stat-label">{t("achievements.locked")}</span>
             </div>
-            <div className="achievements-stat-card">
+            <div className="achievements-stat-card" title={`${t("achievements.total")}: ${total}`}>
               <span className="achievements-stat-value">{total}</span>
               <span className="achievements-stat-label">{t("achievements.total")}</span>
             </div>
@@ -919,10 +919,36 @@ export default function AchievementsTab({ game }: { game: Game }) {
             {t("achievementsPage.rarityDistribution")}
           </h4>
 
+          {/* Rarity distribution stacked bar */}
+          {total > 0 && (
+            <div className="achievements-rarity-bar-wrap">
+              <div className="achievements-rarity-bar">
+                {RARITY_TIERS.map((tier) => {
+                  const count = rarityBreakdown.total[tier];
+                  if (count === 0) return null;
+                  const pct = (count / total) * 100;
+                  return (
+                    <div
+                      key={tier}
+                      className="achievements-rarity-segment"
+                      data-tier={tier}
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: RARITY_COLORS[tier],
+                      }}
+                      title={`${t(`achievementsPage.rarity.${tier}`)}: ${count} (${Math.round(pct)}%)`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {RARITY_TIERS.map((tier) => {
             const tierTotal = rarityBreakdown.total[tier];
+            if (tierTotal === 0) return null;
             const tierUnlocked = rarityBreakdown.unlocked[tier];
-            const tierPct = tierTotal > 0 ? Math.round((tierUnlocked / tierTotal) * 100) : 0;
+            const tierPct = Math.round((tierUnlocked / tierTotal) * 100);
             return (
               <div className="ach-rarity-row" key={tier}>
                 <div className="ach-rarity-row-head">

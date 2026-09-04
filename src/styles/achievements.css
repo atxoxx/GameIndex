@@ -139,7 +139,7 @@
 
 .ach-rarity-counts {
   display: grid;
-  grid-template-columns: repeat(4, 46px);
+  grid-template-columns: repeat(4, minmax(54px, 1fr));
   gap: var(--space-2xs);
   flex-shrink: 0;
 }
@@ -148,11 +148,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: var(--space-2xs) var(--space-3xs);
+  padding: var(--space-2xs) 4px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  min-width: 52px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .ach-rarity-count-value {
@@ -163,12 +167,17 @@
 }
 
 .ach-rarity-count-label {
-  font-size: var(--font-size-2xs);
+  font-size: 9px;
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  display: block;
 }
 
 /* Source filter tray (page toolbar) */
@@ -669,9 +678,10 @@
 }
 
 .ach-rarity-side-stats {
-  display: flex;
-  gap: var(--space-xl);
-  padding-bottom: var(--space-lg);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+  padding-bottom: var(--space-md);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -682,8 +692,15 @@
   letter-spacing: 0.6px;
   color: var(--color-text-secondary);
   margin: 0;
-  padding-top: var(--space-lg);
-  border-top: 1px solid var(--color-border);
+  padding-top: 0;
+}
+
+.ach-rarity-side .achievements-rarity-bar-wrap {
+  min-width: 0;
+  width: 100%;
+  flex: none;
+  margin-top: calc(-1 * var(--space-xs));
+  margin-bottom: var(--space-2xs);
 }
 
 .ach-rarity-row {
@@ -730,11 +747,20 @@
 .achievements-stat-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-xs) 4px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
 }
 
 .achievements-stat-value {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   line-height: 1.1;
@@ -746,11 +772,17 @@
 }
 
 .achievements-stat-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  font-size: 9px;
+  color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
   font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  display: block;
 }
 
 /* Rarity bar (also reused on AchievementsPage) */
@@ -2147,6 +2179,12 @@
 @media (max-width: 1100px) {
   .ach-tab-body {
     grid-template-columns: minmax(0, 1fr) 220px;
+  }
+  .ach-rarity-counts {
+    grid-template-columns: repeat(4, 40px);
+  }
+  .ach-rarity-count {
+    min-width: 38px;
   }
   .ach-rarity-count-label {
     display: none;
