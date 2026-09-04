@@ -14,6 +14,9 @@ export { default as GameLaunchActions } from "./GameLaunchActions";
 export { default as GameTabs } from "./GameTabs";
 export { default as ImageLightbox } from "./ImageLightbox";
 export { default as GameQuickActions } from "./GameQuickActions";
+export { default as GameMediaSpotlight } from "./GameMediaSpotlight";
+export { default as GameQuickStatsBar } from "./GameQuickStatsBar";
+export { default as GameActivityPulseCard } from "./GameActivityPulseCard";
 
 export { default as InfoKpiCard } from "./InfoKpiCard";
 export { default as RatingsKpiCard } from "./RatingsKpiCard";

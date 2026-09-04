@@ -30,6 +30,8 @@ import {
   GameHero,
   GameTabs,
   GameQuickActions,
+  GameMediaSpotlight,
+  GameQuickStatsBar,
   ImageLightbox,
   InfoKpiCard,
   RatingsKpiCard,
@@ -39,8 +41,6 @@ import {
   LanguagesSection,
   AboutSection,
   StorylineSection,
-  ScreenshotsSection,
-  VideosSection,
   SystemRequirementsCard,
   DetailSectionsHiddenNote,
 } from "../components/game";
@@ -457,6 +457,7 @@ export default function StoreGameDetail() {
         accentSrc={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
         steamAppId={steamAppId ?? null}
         rating={data.igdbRating || data.criticRating || null}
+        genres={data.genres}
         metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(
           (v): v is string => Boolean(v)
         )}
@@ -507,66 +508,88 @@ export default function StoreGameDetail() {
 
       {/* Tab Panels */}
       {effectiveTab === "overview" && (
-        <div className="game-content-grid">
-          <div className="game-main-col">
-            <DetailSectionsHiddenNote
-              sections={[
-                "systemRequirements",
-                "gameRelations",
-                "timeToBeat",
-                "protonDb",
-                "releases",
-                "reviews",
-                "achievements",
-                "weblinks",
-                "news",
-              ]}
-            />
-            <AboutSection game={mockGame} />
-            {detailSectionVisible.systemRequirements && (
-              <SystemRequirementsCard steamAppId={steamAppId ?? null} />
-            )}
-            <div className="ui-complete-only">
-              <StorylineSection game={mockGame} />
-            </div>
-            <ScreenshotsSection
-              game={mockGame}
-              onOpen={handleOpenScreenshot}
-            />
-            <VideosSection game={mockGame} />
+        <>
+          {/* Overview Quick Stats Command Bar */}
+          <GameQuickStatsBar
+            game={mockGame}
+            steamAppId={steamAppId}
+            sizeUnit={sizeUnit}
+            isStoreMode={true}
+          />
 
-            <div className="ui-complete-only">
-              {detailSectionVisible.gameRelations && (
-                <GameRelationsCard
-                  mode="store"
-                  currentGame={data}
-                  similarGames={data.similarGames}
-                  collectionId={data.collectionId}
-                  collectionName={data.collection}
-                />
+          <div className="game-content-grid">
+            <div className="game-main-col">
+              <DetailSectionsHiddenNote
+                sections={[
+                  "systemRequirements",
+                  "gameRelations",
+                  "timeToBeat",
+                  "protonDb",
+                  "releases",
+                  "reviews",
+                  "achievements",
+                  "weblinks",
+                  "news",
+                ]}
+              />
+
+              {/* 1. About & Story Synopsis */}
+              <AboutSection
+                game={mockGame}
+                steamAppId={steamAppId}
+                igdbSlug={gameSlug}
+              />
+
+              <div className="ui-complete-only">
+                <StorylineSection game={mockGame} />
+              </div>
+
+              {/* 2. Interactive Media Showcase */}
+              <GameMediaSpotlight
+                game={mockGame}
+                onOpenLightbox={handleOpenScreenshot}
+                steamAppId={steamAppId}
+              />
+
+              {/* 3. Hardware & System Requirements */}
+              {detailSectionVisible.systemRequirements && (
+                <SystemRequirementsCard steamAppId={steamAppId ?? null} />
               )}
+
+              {/* 4. Franchise & Similar Games */}
+              <div className="ui-complete-only">
+                {detailSectionVisible.gameRelations && (
+                  <GameRelationsCard
+                    mode="store"
+                    currentGame={data}
+                    similarGames={data.similarGames}
+                    collectionId={data.collectionId}
+                    collectionName={data.collection}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="game-side-col">
+              <div className="side-group">
+                <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />
+                <RatingsKpiCard game={mockGame} />
+                {detailSectionVisible.timeToBeat && <TimeToBeatCard game={mockGame} />}
+              </div>
+              <div className="side-group ui-complete-only">
+                <SpecsCard game={mockGame} />
+                {detailSectionVisible.protonDb && (
+                  <ProtonDBCard steamAppId={steamAppId} />
+                )}
+                <CrackWatchCard gameName={data.title} appId={steamAppId} />
+              </div>
+              <div className="side-group ui-complete-only">
+                {detailSectionVisible.releases && <ReleasesCard game={mockGame} />}
+                <LanguagesSection game={mockGame} />
+              </div>
             </div>
           </div>
-
-          <div className="game-side-col">
-            <div className="side-group">
-              <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />
-              <RatingsKpiCard game={mockGame} />
-              {detailSectionVisible.timeToBeat && <TimeToBeatCard game={mockGame} />}
-            </div>
-            <div className="side-group ui-complete-only">
-              <SpecsCard game={mockGame} />
-              {detailSectionVisible.protonDb && (
-                <ProtonDBCard steamAppId={steamAppId} />
-              )}
-              <CrackWatchCard gameName={data.title} appId={steamAppId} />
-            </div>
-            <div className="side-group ui-complete-only">
-              {detailSectionVisible.releases && <ReleasesCard game={mockGame} />}
-              <LanguagesSection game={mockGame} />
-            </div>
-          </div>
-        </div>
+        </>
       )}
 
       {effectiveTab === "reviews" && (

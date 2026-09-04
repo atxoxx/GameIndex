@@ -20,6 +20,9 @@ import {
   GameHero,
   GameTabs,
   GameQuickActions,
+  GameMediaSpotlight,
+  GameQuickStatsBar,
+  GameActivityPulseCard,
   ImageLightbox,
   InfoKpiCard,
   RatingsKpiCard,
@@ -30,8 +33,6 @@ import {
   AboutSection,
   StorylineSection,
   NotesSection,
-  ScreenshotsSection,
-  VideosSection,
   SystemRequirementsCard,
   DetailSectionsHiddenNote,
 } from "../components/game";
@@ -299,74 +300,101 @@ function GameDetail({ game }: { game: Game }) {
 
       {/* Tab Content Panels */}
       {effectiveTab === "overview" && (
-        <div className="game-content-grid">
-          <div className="game-main-col">
-            <DetailSectionsHiddenNote
-              sections={[
-                "systemRequirements",
-                "gameRelations",
-                "timeToBeat",
-                "protonDb",
-                "releases",
-                "reviews",
-                "activity",
-                "achievements",
-                "mods",
-                "weblinks",
-                "news",
-              ]}
-            />
-            <AboutSection game={game} />
-            <NotesSection game={game} />
-            {detailSectionVisible.systemRequirements && (
-              <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
-            )}
-            <div className="ui-complete-only">
-              <StorylineSection game={game} />
-            </div>
-            <ScreenshotsSection
-              game={game}
-              onOpen={handleOpenScreenshot}
-            />
-            <VideosSection game={game} />
+        <>
+          {/* Overview Quick Stats Command Bar */}
+          <GameQuickStatsBar
+            game={game}
+            steamAppId={heroSteamAppId}
+            sizeUnit={sizeUnit}
+          />
 
-            <div className="ui-complete-only">
-              {detailSectionVisible.gameRelations && (
-                <GameRelationsCard
-                  mode="library"
-                  currentGame={game}
-                  currentGameId={game.id}
-                  similarGames={game.similarGames}
-                  collectionId={game.collectionId}
-                  collectionName={game.collection}
+          <div className="game-content-grid">
+            <div className="game-main-col">
+              <DetailSectionsHiddenNote
+                sections={[
+                  "systemRequirements",
+                  "gameRelations",
+                  "timeToBeat",
+                  "protonDb",
+                  "releases",
+                  "reviews",
+                  "activity",
+                  "achievements",
+                  "mods",
+                  "weblinks",
+                  "news",
+                ]}
+              />
+
+              {/* 1. About & Story Synopsis */}
+              <AboutSection game={game} />
+              
+              <div className="ui-complete-only">
+                <StorylineSection game={game} />
+              </div>
+
+              {/* 2. Interactive Media Showcase */}
+              <GameMediaSpotlight
+                game={game}
+                onOpenLightbox={handleOpenScreenshot}
+                steamAppId={heroSteamAppId}
+              />
+
+              {/* 3. Hardware & System Requirements */}
+              {detailSectionVisible.systemRequirements && (
+                <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
+              )}
+
+              {/* 4. Player Notes Journal */}
+              <NotesSection game={game} />
+
+              {/* 5. Franchise & Similar Games */}
+              <div className="ui-complete-only">
+                {detailSectionVisible.gameRelations && (
+                  <GameRelationsCard
+                    mode="library"
+                    currentGame={game}
+                    currentGameId={game.id}
+                    similarGames={game.similarGames}
+                    collectionId={game.collectionId}
+                    collectionName={game.collection}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="game-side-col">
+              {/* Personal Play Pulse */}
+              {detailSectionVisible.activity && (
+                <GameActivityPulseCard
+                  game={game}
+                  onNavigateTab={(tab) => handleTabChange(tab)}
                 />
               )}
-            </div>
-          </div>
 
-          <div className="game-side-col">
-            <div className="side-group">
-              <InfoKpiCard
-                game={game}
-                sizeUnit={sizeUnit}
-                onEditSize={() => setEditing(true)}
-              />
-              <RatingsKpiCard game={game} />
-              {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
-            </div>
-            <div className="side-group ui-complete-only">
-              <SpecsCard game={game} />
-              {detailSectionVisible.protonDb && (
-                <ProtonDBCard steamAppId={game.steamAppId} />
-              )}
-              <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
-            </div>
-            <div className="side-group ui-complete-only">
-              {detailSectionVisible.releases && <ReleasesCard game={game} />}
-              <LanguagesSection game={game} />
+              <div className="side-group">
+                <InfoKpiCard
+                  game={game}
+                  sizeUnit={sizeUnit}
+                  onEditSize={() => setEditing(true)}
+                />
+                <RatingsKpiCard game={game} />
+                {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
+              </div>
+              <div className="side-group ui-complete-only">
+                <SpecsCard game={game} />
+                {detailSectionVisible.protonDb && (
+                  <ProtonDBCard steamAppId={game.steamAppId} />
+                )}
+                <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
+              </div>
+              <div className="side-group ui-complete-only">
+                {detailSectionVisible.releases && <ReleasesCard game={game} />}
+                <LanguagesSection game={game} />
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {effectiveTab === "reviews" && <ReviewsTab game={game} />}

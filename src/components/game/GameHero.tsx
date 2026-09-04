@@ -59,6 +59,8 @@ interface GameHeroProps {
   variant?: "cinematic" | "compact";
   /** Optional rating score to show in meta row (0-100) */
   rating?: number | null;
+  /** Genre tags to show as chips */
+  genres?: string[];
 }
 
 function formatHeroPlayTime(playTime: string): string {
@@ -81,6 +83,7 @@ export default function GameHero({
   friends: friendsProp,
   variant: variantProp,
   rating: ratingProp,
+  genres: genresProp,
 }: GameHeroProps) {
   const { t } = useLanguage();
 
@@ -90,6 +93,7 @@ export default function GameHero({
   const bannerUrl = game?.bannerUrl ?? bannerProp ?? null;
   const accentSrc = accentProp ?? coverUrl ?? bannerUrl ?? null;
   const logoUrl = game?.logoUrl ?? logoProp ?? null;
+  const genres = game?.genres ?? genresProp ?? [];
   const steamAppId = useMemo(
     () => (steamAppIdProp != null ? resolveSteamAppId(undefined, steamAppIdProp) : game ? resolveSteamAppId(game) : null),
     [steamAppIdProp, game]
@@ -178,6 +182,13 @@ export default function GameHero({
   const friends = friendsProp ?? (isGame ? { gameName: game.name, gameId: game.id } : null);
 
   // ── Info-row meta ────────────────────────────────────────────
+  const ratingBadgeClass =
+    rating && rating >= 75
+      ? "game-hero-rating-badge--high"
+      : rating && rating >= 50
+      ? "game-hero-rating-badge--mid"
+      : "game-hero-rating-badge--low";
+
   const metaRow = isGame ? (
     <>
       <span className="game-hero-meta-item">
@@ -189,7 +200,7 @@ export default function GameHero({
       {rating && (
         <>
           <span className="game-hero-meta-dot" />
-          <span className="game-hero-rating-badge" title={t("ratings.title")}>
+          <span className={`game-hero-rating-badge ${ratingBadgeClass}`} title={t("ratings.title")}>
             <IconStar size={11} className="game-hero-rating-star" />
             <span>{Math.round(rating)}</span>
           </span>
@@ -207,7 +218,7 @@ export default function GameHero({
       {rating && (
         <>
           {(metaItems?.length ?? 0) > 0 && <span className="game-hero-meta-dot" />}
-          <span className="game-hero-rating-badge" title={t("ratings.title")}>
+          <span className={`game-hero-rating-badge ${ratingBadgeClass}`} title={t("ratings.title")}>
             <IconStar size={11} className="game-hero-rating-star" />
             <span>{Math.round(rating)}</span>
           </span>
@@ -330,6 +341,15 @@ export default function GameHero({
               <h1 className="game-hero-title">{name}</h1>
             )}
             <div className="game-hero-meta">{metaRow}</div>
+            {genres.length > 0 && (
+              <div className="game-hero-genres">
+                {genres.slice(0, 4).map((g) => (
+                  <span key={g} className="game-hero-genre-chip">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
             {friends && (
               <FriendsPlayingStrip gameName={friends.gameName} gameId={friends.gameId} />
             )}
