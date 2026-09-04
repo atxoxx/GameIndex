@@ -5851,10 +5851,14 @@ fn extract_opencritic_json_reviews(doc: &scraper::Html) -> Option<Vec<IgdbReview
             (None, None) => None,
         };
 
+        // `score` is OpenCritic's canonical per-review value, already
+        // normalized to a 0-100 scale across outlet formats. `npScore` is
+        // often 0 (non-numeric/star outlets) or 100 (perfect scores), so it
+        // must never take precedence over the real score.
         let rating = item
-            .get("npScore")
-            .or_else(|| item.get("score"))
-            .and_then(|v| v.as_f64());
+            .get("score")
+            .and_then(|v| v.as_f64())
+            .or_else(|| item.get("npScore").and_then(|v| v.as_f64()));
 
         let content = item
             .get("snippet")
