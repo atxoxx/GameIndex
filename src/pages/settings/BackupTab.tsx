@@ -7,6 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import SettingsSection from "./SettingsSection";
 import { BackupIcon, CloudIcon, DownloadIcon, RefreshIcon } from "./settingsIcons";
 import { formatBackupBytes } from "./backupUtils";
+import BackupProgressModal from "./BackupProgressModal";
 
 /** One row of the backup overview (mirrors Rust `DomainStatus`). */
 interface DomainStatus {
@@ -77,7 +78,9 @@ export default function BackupTab() {
   const { showToast } = useToast();
   const [status, setStatus] = useState<BackupStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createTargetPath, setCreateTargetPath] = useState("");
+  const [createDomains, setCreateDomains] = useState<string[]>([]);
   const [restoring, setRestoring] = useState(false);
   const [restartOpen, setRestartOpen] = useState(false);
 
@@ -135,17 +138,11 @@ export default function BackupTab() {
         filters: [{ name: "GameIndex Backup (.gibak)", extensions: ["gibak", "zip"] }],
       });
       if (!target) return;
-      setCreating(true);
-      await invoke<BackupOutcome>("backup_create", {
-        targetPath: target,
-        domains: chosen,
-      });
-      showToast(t("settings.backup.createdToast"), "success");
-      await refresh();
+      setCreateTargetPath(target);
+      setCreateDomains(chosen);
+      setShowCreateModal(true);
     } catch (err) {
       showToast(t("settings.backup.createFailed", { error: String(err) }), "error");
-    } finally {
-      setCreating(false);
     }
   };
 
@@ -223,7 +220,7 @@ export default function BackupTab() {
   const canCreate =
     existingDomains.length === 0 ||
     createChoices.length === 0 ||
-    creating ||
+    showCreateModal ||
     loading;
   const createDisabledHint = existingDomains.length === 0
     ? t("settings.backup.empty")
@@ -295,7 +292,7 @@ export default function BackupTab() {
             disabled={canCreate}
             title={createDisabledHint}
           >
-            {creating ? t("settings.backup.creating") : t("settings.backup.createBtn")}
+            {showCreateModal ? t("settings.backup.creating") : t("settings.backup.createBtn")}
           </Button>
         </div>
         {existingDomains.length > 0 && (
@@ -440,6 +437,22 @@ export default function BackupTab() {
         onConfirm={handleRestart}
         onCancel={() => setRestartOpen(false)}
       />
+
+      {showCreateModal && (
+        <BackupProgressModal
+          open={showCreateModal}
+          targetPath={createTargetPath}
+          domains={createDomains}
+          onComplete={() => {
+            showToast(t("settings.backup.createdToast"), "success");
+            void refresh();
+          }}
+          onClose={() => {
+            setShowCreateModal(false);
+            void refresh();
+          }}
+        />
+      )}
     </>
   );
 }

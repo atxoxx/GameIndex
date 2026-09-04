@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
@@ -17,6 +16,7 @@ import {
   type PlayStatus,
 } from "../../types/game";
 import ImportModal, { type ExeInfo } from "../ImportModal";
+import FolderScanProgressModal from "../library/FolderScanProgressModal";
 import SidebarFilterPopover from "../SidebarFilterPopover";
 import { SidebarHoverPreview } from "../SidebarHoverPreview";
 import SidebarHeader from "./SidebarHeader";
@@ -182,6 +182,8 @@ export default function Sidebar() {
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showScanProgressModal, setShowScanProgressModal] = useState(false);
+  const [scanFolderPaths, setScanFolderPaths] = useState<string[]>([]);
   const [scannedExes, setScannedExes] = useState<ExeInfo[]>([]);
   const [importRootPath, setImportRootPath] = useState<string>("");
   const [randomPickedGameId, setRandomPickedGameId] = useState<string | null>(null);
@@ -193,6 +195,11 @@ export default function Sidebar() {
   // ── Multi-select state ───────────────────────────────────────────
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
   const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+
+  const existingPathsSet = useMemo(
+    () => new Set(games.map((g) => g.path.toLowerCase())),
+    [games]
+  );
 
   useEffect(() => {
     if (bulkSelectedIds.size === 0) return;
@@ -488,33 +495,38 @@ export default function Sidebar() {
   async function handleImportFolder() {
     setShowImportMenu(false);
     try {
-      const folderPath = await open({
-        multiple: false,
+      const selected = await open({
+        multiple: true,
         directory: true,
         title: t("sidebar.selectFolderScan"),
       });
-      if (folderPath && typeof folderPath === "string") {
-        const exes: ExeInfo[] = await invoke("scan_folder_for_exes", { folderPath });
-        if (exes.length === 0) {
-          showToast(t("sidebar.noExesFound"), "info");
-          return;
-        }
-        const existingPaths = new Set(games.map((g) => g.path.toLowerCase()));
-        const newExes = exes.filter(
-          (exe) => !existingPaths.has(exe.path.toLowerCase())
-        );
-        if (newExes.length === 0) {
-          showToast(t("sidebar.allExesInLibrary"), "info");
-          return;
-        }
-        setScannedExes(newExes);
-        setImportRootPath(folderPath);
-        setShowImportModal(true);
+      const paths: string[] = Array.isArray(selected)
+        ? selected
+        : typeof selected === "string"
+        ? [selected]
+        : [];
+      if (paths.length > 0) {
+        setScanFolderPaths(paths);
+        setShowScanProgressModal(true);
       }
     } catch (err) {
-      console.error("Failed to import folder:", err);
+      console.error("Failed to select folders for scan:", err);
     }
   }
+
+  const handleScanComplete = useCallback(
+    (exes: ExeInfo[], rootPath: string) => {
+      setShowScanProgressModal(false);
+      if (exes.length === 0) {
+        showToast(t("sidebar.noExesFound"), "info");
+        return;
+      }
+      setScannedExes(exes);
+      setImportRootPath(rootPath);
+      setShowImportModal(true);
+    },
+    [showToast, t]
+  );
 
   async function handleConfirmImport(
     imports: { path: string; metadata: GameMetadataResult | null }[],
@@ -1201,6 +1213,16 @@ export default function Sidebar() {
           existingPaths={games.map((g) => g.path)}
           onConfirm={handleConfirmImport}
           onCancel={() => setShowImportModal(false)}
+        />
+      )}
+
+      {showScanProgressModal && (
+        <FolderScanProgressModal
+          open={showScanProgressModal}
+          folderPaths={scanFolderPaths}
+          existingPaths={existingPathsSet}
+          onComplete={handleScanComplete}
+          onCancel={() => setShowScanProgressModal(false)}
         />
       )}
 

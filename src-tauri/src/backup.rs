@@ -23,7 +23,20 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, DatabaseName};
 use serde::Serialize;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+
+/// Progress update emitted via `backup-progress`.
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupProgress {
+    pub phase: String,
+    pub current_domain: Option<String>,
+    pub domain_index: usize,
+    pub total_domains: usize,
+    pub percent: u8,
+    pub bytes_written: u64,
+    pub message: String,
+}
 
 use crate::db::kv;
 use crate::db::pool::{Db, SqlitePool};
@@ -137,7 +150,16 @@ pub fn backup_create(
 ) -> Result<BackupOutcome, String> {
     let db = state_db(&app)?;
     let data_dir = app_data_dir(&app)?;
-    let outcome = do_create(db, &data_dir, &target_path, domains.as_deref())?;
+    let app_handle = app.clone();
+    let outcome = do_create_with_progress(
+        db,
+        &data_dir,
+        &target_path,
+        domains.as_deref(),
+        Some(move |progress: BackupProgress| {
+            let _ = app_handle.emit("backup-progress", progress);
+        }),
+    )?;
     // Recording the timestamp is best-effort — the archive itself is the
     // deliverable and is already on disk by now.
     let _ = kv::set(db, KV_LAST_AT, &outcome.created_at.to_string());
@@ -164,12 +186,26 @@ pub fn backup_restore(
 
 // ─── Core logic (command wrappers are thin; tests hit these) ─────────────────
 
+#[cfg(test)]
 fn do_create(
     db: &Db,
     data_dir: &Path,
     target_path: &str,
     only: Option<&[String]>,
 ) -> Result<BackupOutcome, String> {
+    do_create_with_progress::<fn(BackupProgress)>(db, data_dir, target_path, only, None)
+}
+
+fn do_create_with_progress<F>(
+    db: &Db,
+    data_dir: &Path,
+    target_path: &str,
+    only: Option<&[String]>,
+    mut on_progress: Option<F>,
+) -> Result<BackupOutcome, String>
+where
+    F: FnMut(BackupProgress),
+{
     // Reject unknown names up front so a stale selection can never
     // silently produce an archive missing an item the user asked for.
     if let Some(only) = only {
@@ -180,16 +216,20 @@ fn do_create(
         }
     }
 
-    // Stage consistent snapshots of the selected domains that actually
-    // have a file (fresh installs may never have touched some domains
-    // yet). The online backup API reads through the WAL, so mid-write
-    // data is captured correctly.
-    let staging = tempfile::tempdir().map_err(|e| format!("backup staging: {e}"))?;
-    let snapshots_dir = staging.path().join("domains");
-    std::fs::create_dir_all(&snapshots_dir)
-        .map_err(|e| format!("backup staging dir: {e}"))?;
+    if let Some(ref mut cb) = on_progress {
+        cb(BackupProgress {
+            phase: "preparing".into(),
+            current_domain: None,
+            domain_index: 0,
+            total_domains: 0,
+            percent: 5,
+            bytes_written: 0,
+            message: "Preparing backup snapshot...".into(),
+        });
+    }
 
-    let mut backed: Vec<String> = Vec::with_capacity(BACKUP_DOMAINS.len());
+    // Determine candidate domains that actually have files
+    let mut candidate_domains = Vec::new();
     for name in BACKUP_DOMAINS {
         if let Some(only) = only {
             if !only.iter().any(|d| d == name) {
@@ -197,15 +237,45 @@ fn do_create(
             }
         }
         let live = data_dir.join(format!("{name}.db"));
-        if !live.is_file() {
-            continue;
+        if live.is_file() {
+            candidate_domains.push(*name);
         }
-        let dest = snapshots_dir.join(format!("{name}.db"));
-        snapshot_pool(db.pool(name).ok_or_else(|| format!("unknown domain: {name}"))?, &dest, name)?;
-        backed.push((*name).to_string());
     }
-    if backed.is_empty() {
+
+    if candidate_domains.is_empty() {
         return Err("Nothing to back up yet".into());
+    }
+
+    let staging = tempfile::tempdir().map_err(|e| format!("backup staging: {e}"))?;
+    let snapshots_dir = staging.path().join("domains");
+    std::fs::create_dir_all(&snapshots_dir)
+        .map_err(|e| format!("backup staging dir: {e}"))?;
+
+    let total_domains = candidate_domains.len();
+    let mut backed: Vec<String> = Vec::with_capacity(total_domains);
+
+    for (idx, &name) in candidate_domains.iter().enumerate() {
+        let percent = 10 + ((idx as f32 / total_domains as f32) * 65.0) as u8;
+        if let Some(ref mut cb) = on_progress {
+            cb(BackupProgress {
+                phase: "snapshotting".into(),
+                current_domain: Some(name.to_string()),
+                domain_index: idx + 1,
+                total_domains,
+                percent,
+                bytes_written: 0,
+                message: format!("Snapshotting {} database...", name),
+            });
+        }
+
+        let dest = snapshots_dir.join(format!("{name}.db"));
+        snapshot_pool(
+            db.pool(name)
+                .ok_or_else(|| format!("unknown domain: {name}"))?,
+            &dest,
+            name,
+        )?;
+        backed.push(name.to_string());
     }
 
     let manifest = serde_json::json!({
@@ -215,6 +285,18 @@ fn do_create(
         "createdAt": unix_now(),
         "domains": backed,
     });
+
+    if let Some(ref mut cb) = on_progress {
+        cb(BackupProgress {
+            phase: "compressing".into(),
+            current_domain: None,
+            domain_index: total_domains,
+            total_domains,
+            percent: 80,
+            bytes_written: 0,
+            message: "Compressing backup archive...".into(),
+        });
+    }
 
     // Assemble the zip: manifest + one snapshot per domain.
     let mut files: Vec<(String, Vec<u8>)> = Vec::with_capacity(backed.len() + 1);
@@ -234,6 +316,18 @@ fn do_create(
     }
     write_zip(target, &files)?;
     let size_bytes = std::fs::metadata(target).map(|m| m.len()).unwrap_or(0);
+
+    if let Some(ref mut cb) = on_progress {
+        cb(BackupProgress {
+            phase: "complete".into(),
+            current_domain: None,
+            domain_index: total_domains,
+            total_domains,
+            percent: 100,
+            bytes_written: size_bytes,
+            message: "Backup created successfully".into(),
+        });
+    }
 
     Ok(BackupOutcome {
         file_path: target_path.to_string(),
