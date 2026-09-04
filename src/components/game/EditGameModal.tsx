@@ -566,6 +566,10 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       metadataSource: editMetadataSource ? editMetadataSource : undefined,
       metadataUrl: editMetadataUrl ? editMetadataUrl : undefined,
       path: editPath.trim() || undefined,
+      // Attaching an executable means the game is present on disk — flip
+      // it to installed. One-way only: clearing a path never downgrades
+      // installed (launcher titles stay installed without a local exe).
+      installed: editPath.trim() ? true : game.installed,
       launchArguments: editLaunchArguments.trim() || undefined,
       runAsAdmin: editRunAsAdmin || undefined,
       showSteamLaunchSelection: editShowSteamLaunchSelection || undefined,
