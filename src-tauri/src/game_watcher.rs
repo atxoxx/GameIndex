@@ -551,16 +551,24 @@ impl GameWatcher {
             // searches the install dir first, then climbs up the directory
             // tree (shared publisher roots like `Rockstar Games\Launcher`
             // vs `Rockstar Games\GameName`), and finally falls back to an
-            // exe-stem match. Without this broadening, launcher-based games
-            // lose their session a few seconds after launch.
-            let found_proc = find_session_process(
-                &processes,
-                session.install_dir.as_ref(),
-                &session.matched_exe,
-                // Only app-launched sessions get the Tier-1 skip-keyword
-                // fallback; passive detection never relaxes the filter.
-                session.launched_by_app,
-            );
+            // exe-stem match.
+            //
+            // Only attempted while the session is still healthy (no grace
+            // period yet): the re-attach exists for the few-seconds
+            // launcher→game hand-off, so once the process has been missing
+            // for a full poll, whatever is still alive in the folder is a
+            // leftover helper, not a hand-off — re-attaching to it would
+            // pin the session open and the app would never notice the game
+            // quit (playtime keeps accumulating via the heartbeat).
+            let found_proc = if session.lost_at.is_none() {
+                find_session_process(
+                    &processes,
+                    session.install_dir.as_ref(),
+                    &session.matched_exe,
+                )
+            } else {
+                None
+            };
 
             if let Some(proc) = found_proc {
                 // Re-attached to a new process (launcher hand-off or a
@@ -1128,17 +1136,85 @@ pub struct ForceCloseData {
     pub install_dir_lower: Option<String>,
 }
 
+/// Whether a force-close install-dir sweep is safe for `dir_lower`.
+///
+/// The sweep kills every qualifying process *under* the directory, so it
+/// must never be pointed at a drive root or a shallow shared root (e.g.
+/// `d:\` or `d:\games`): a sweep there would match unrelated user
+/// processes — including GameIndex itself (stem `gameindex` is not in
+/// `SKIP_KEYWORDS`) and explorer.exe — and terminate them. A directory
+/// with at least three path components (drive + two levels) is
+/// specific enough to be a single game's folder.
+fn is_install_dir_sweep_safe(dir_lower: &str) -> bool {
+    let components: Vec<&str> = dir_lower.split('\\').filter(|c| !c.is_empty()).collect();
+    // "c:" counts as one component; require drive + at least two levels.
+    components.len() >= 3
+}
+
+/// Whether a running process at `proc_path_lower` may be force-killed by
+/// an install-dir sweep.
+///
+/// Guards:
+///   1. The path must really live inside `dir_lower` — not a sibling
+///      path that happens to share the prefix (e.g. "FooBar" when the
+///      dir is "Foo").
+///   2. A direct child qualifies when the tracked exe stem is unknown
+///      (pending protocol launch) or when it shares that stem. At any
+///      depth, a known tracked exe requires a stem match. This is what
+///      keeps a sweep over a broad directory (publisher root,
+///      `steamapps\common`) from terminating unrelated processes: only
+///      the game itself qualifies.
+fn is_sweep_candidate(proc_path_lower: &str, dir_lower: &str, expected_exe_lower: &str) -> bool {
+    if !proc_path_lower.starts_with(dir_lower) {
+        return false;
+    }
+    let remainder = &proc_path_lower[dir_lower.len()..];
+    if !remainder.is_empty() && !remainder.starts_with('\\') {
+        return false;
+    }
+    let expected_stem = Path::new(expected_exe_lower)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+    let stem_matches = Path::new(proc_path_lower)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase() == expected_stem)
+        .unwrap_or(false);
+
+    let rel = remainder.trim_start_matches('\\');
+    if rel.is_empty() || !rel.contains('\\') {
+        // Direct child (or the dir itself): qualifies when the tracked exe
+        // stem is unknown (pending launch) or the child shares that stem.
+        // A helper sitting beside the game is never swept just because it
+        // shares the folder.
+        return expected_stem.is_empty() || stem_matches;
+    }
+    // Deeper in the tree: only the tracked game's own exe stem qualifies.
+    if expected_stem.is_empty() {
+        return false;
+    }
+    stem_matches
+}
+
 /// Terminate every currently-running process belonging to a game.
 ///
 /// A process is "the game" when its exe path equals the expected
 /// (normalized) exe, OR it lives inside the game's install directory
-/// and is not one of the known non-game binaries (`SKIP_KEYWORDS` —
-/// launchers, crash handlers, redistributables). The install-dir
-/// branch lets us kill the real game even when:
+/// and passes `is_sweep_candidate` (a direct child when the tracked exe
+/// stem is unknown, or a stem match of the tracked exe at any depth)
+/// plus the `SKIP_KEYWORDS` filter. The install-dir branch lets us kill
+/// the real game even when:
 ///
 ///   * the launch was a pending session (no tracked PID yet), or
 ///   * the tracked PID was a launcher that already exited, or
 ///   * the game re-spawned under a new child PID.
+///
+/// The sweep is deliberately bounded: `is_install_dir_sweep_safe`
+/// rejects drive roots / shallow shared roots so a force-close can
+/// never kill unrelated processes (including GameIndex itself) just
+/// because they share a directory with the game.
 ///
 /// Each candidate is killed via `kill_pid_if_exe_matches` (which
 /// verifies the exe and escalates TerminateProcess → taskkill /T so
@@ -1167,18 +1243,16 @@ pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Opti
     }
 
     // 2. Install-dir match — covers pending launches and re-parented
-    //    game processes that don't share the tracked exe name exactly.
+    //    game processes that don't share the tracked exe path exactly.
+    //    Bounded so it can never sweep an entire drive or shared root:
+    //    the directory must be game-specific (≥3 path components) and
+    //    each candidate must be a direct child (when the tracked exe
+    //    stem is unknown) or share the tracked exe's stem.
     if let Some(dir) = install_dir_lower {
-        if !dir.is_empty() {
+        if is_install_dir_sweep_safe(dir) {
             for proc in &processes {
                 let path_lower = proc.exe_path.to_lowercase().replace('/', "\\");
-                if !path_lower.starts_with(dir) {
-                    continue;
-                }
-                // Ensure it's actually inside the dir, not a sibling
-                // prefix (e.g. "FooBar" when looking for "Foo").
-                let remainder = &path_lower[dir.len()..];
-                if !remainder.is_empty() && !remainder.starts_with('\\') {
+                if !is_sweep_candidate(&path_lower, dir, expected_exe_lower) {
                     continue;
                 }
                 // Skip known non-game binaries (launchers, crash
@@ -1641,33 +1715,43 @@ fn is_currently_running(
 /// to the real game — commonly right as the game goes fullscreen).
 ///
 /// Search strategy, in priority order:
-///   1. The session's `install_dir` (the original behaviour).
+///   1. The session's `install_dir`.
 ///   2. Progressively higher parent directories (up to 3 levels). This
 ///      catches publisher launchers that install their games in a *sibling*
 ///      folder under a shared root — e.g. `Rockstar Games\Launcher` launches
 ///      `Rockstar Games\Grand Theft Auto V`, or `Ubisoft\UbisoftConnect`
-///      launches `Ubisoft\GameName`. Without this step the watcher never
-///      re-attaches and the session is ended a few seconds after launch.
+///      launches `Ubisoft\GameName`.
 ///   3. As a last resort, any running process whose exe stem exactly matches
 ///      the session's tracked exe stem (handles games that relaunch the same
 ///      binary under a different path). Candidates are restricted to the
 ///      install-dir tree (and its parents) so an unrelated title with a
 ///      similar name is never grabbed.
 ///
-/// Skip-keyword executables (launchers, crash handlers, etc.) are always
-/// excluded from every tier — except that `allow_skip_fallback` lets the
-/// Tier-1 install-dir scan relax that exclusion (see
-/// [`find_best_process_in_dir`]). Only app-launched sessions pass `true`;
-/// passive detection always passes `false`.
+/// Every tier requires the candidate to be *the game*, not just any
+/// process in the folder: with a known tracked exe, only processes
+/// sharing its exe stem qualify; without one (pending protocol launch),
+/// only direct children of the install dir qualify. This is what keeps
+/// the session from pinning to a leftover process — an anti-cheat daemon,
+/// an updater, a crash handler, or a *sibling game under the same
+/// publisher root* — which would make the app never notice the game quit
+/// and inflate playtime forever. Skip-keyword executables are always
+/// excluded from every tier.
 fn find_session_process(
     processes: &[ProcessInfo],
     install_dir: Option<&PathBuf>,
     matched_exe: &str,
-    allow_skip_fallback: bool,
 ) -> Option<ProcessInfo> {
+    // Stem of the tracked exe. `None` only for pending protocol launches
+    // with no known exe; those fall back to direct children of the dir.
+    let expected_stem = Path::new(matched_exe)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .filter(|s| !s.is_empty() && !SKIP_KEYWORDS.iter().any(|kw| s.contains(kw)));
+
     // Tier 1: the session's own install dir.
     if let Some(dir) = install_dir {
-        if let Some(p) = find_best_process_in_dir(processes, dir, allow_skip_fallback) {
+        if let Some(p) = find_best_process_in_dir(processes, dir, expected_stem.as_deref()) {
             return Some(p);
         }
 
@@ -1677,7 +1761,9 @@ fn find_session_process(
         for _ in 0..3 {
             match cur {
                 Some(p) if !p.as_os_str().is_empty() => {
-                    if let Some(found) = find_best_process_in_dir(processes, p, false) {
+                    if let Some(found) =
+                        find_best_process_in_dir(processes, p, expected_stem.as_deref())
+                    {
                         return Some(found);
                     }
                     cur = p.parent();
@@ -1759,20 +1845,21 @@ fn find_session_process(
     None
 }
 
-/// Find the best running process inside an install directory. Prefers
-/// executables whose stem does not contain known non-game keywords
-/// (launchers, crash handlers, etc.) and, when multiple candidates
-/// remain, picks the one with the largest working set.
+/// Find the best running process inside an install directory that can
+/// plausibly be the game we're re-attaching to. Prefers executables
+/// whose stem does not contain known non-game keywords (launchers,
+/// crash handlers, etc.) and, when multiple candidates remain, picks the
+/// one with the largest working set.
 ///
-/// `allow_skip_fallback` relaxes the skip-keyword exclusion in ONE
-/// corner case: when every candidate is skip-keyworded AND the caller
-/// is re-attaching a session the user launched through the app, the
-/// largest-working-set candidate from the full list is returned
-/// anyway. Passive detection and parent-dir climbs always pass `false`.
+/// `expected_stem` bounds the match: when the tracked exe stem is known
+/// (most sessions), ONLY candidates sharing that stem qualify — a leftover
+/// helper or a sibling game in the same folder is never picked. When the
+/// stem is unknown (pending protocol launch), only direct children of
+/// the directory qualify. Skip-keyword executables are always excluded.
 fn find_best_process_in_dir(
     processes: &[ProcessInfo],
     install_dir: &Path,
-    allow_skip_fallback: bool,
+    expected_stem: Option<&str>,
 ) -> Option<ProcessInfo> {
     let dir_lower = install_dir
         .to_string_lossy()
@@ -1785,6 +1872,8 @@ fn find_best_process_in_dir(
         return None;
     }
 
+    let expected_stem = expected_stem.map(|s| s.to_lowercase());
+
     let mut candidates: Vec<ProcessInfo> = processes
         .iter()
         .filter(|p| {
@@ -1796,7 +1885,32 @@ fn find_best_process_in_dir(
             // sibling path that happens to share the prefix (e.g. "FooBar"
             // when looking for "Foo").
             let remainder = &path_lower[dir_lower.len()..];
-            remainder.starts_with('\\') || remainder.is_empty()
+            if !remainder.is_empty() && !remainder.starts_with('\\') {
+                return false;
+            }
+            // Direct child (or the dir itself): qualifies when the tracked
+            // exe stem is unknown (pending launch) or the child shares that
+            // stem. A different-stem process in the folder (anti-cheat
+            // daemon, updater, sibling game) is never the game.
+            let rel = remainder.trim_start_matches('\\');
+            if rel.is_empty() || !rel.contains('\\') {
+                return match expected_stem.as_deref() {
+                    None => true,
+                    Some(stem) => Path::new(&p.exe_path)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .map(|s| s.to_lowercase() == stem)
+                        .unwrap_or(false),
+                };
+            }
+            match expected_stem.as_deref() {
+                Some(stem) => Path::new(&p.exe_path)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_lowercase() == stem)
+                    .unwrap_or(false),
+                None => false,
+            }
         })
         .cloned()
         .collect();
@@ -1825,18 +1939,7 @@ fn find_best_process_in_dir(
     // picking one — without this guard a lone wallpaper64.exe (or
     // similar background app) in a parent directory like
     // `…\steamapps\common\` would be chosen as the "best process".
-    //
-    // `allow_skip_fallback` relaxes this ONLY for Tier-1 re-attach of a
-    // session the user launched through the app: a Steam-launched game
-    // whose only live process is skip-keyworded (e.g. a `gamingservices`
-    // child inside the install dir) still needs to attach, and the
-    // largest-WS candidate keeps the preference ordering. Passive
-    // detection never passes `true` here.
     if skip_filtered.is_empty() {
-        if allow_skip_fallback {
-            candidates.sort_by(|a, b| b.working_set_size.cmp(&a.working_set_size));
-            return candidates.into_iter().next();
-        }
         return None;
     }
     candidates = skip_filtered;
@@ -2408,7 +2511,7 @@ mod tests {
             make_proc(2, "C:\\Games\\Foo\\game2.exe", 500),
             make_proc(3, "C:\\Games\\Foo\\helper.exe", 200),
         ];
-        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), false).unwrap();
+        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None).unwrap();
         assert_eq!(best.pid, 2, "largest working set wins among non-skip candidates");
     }
 
@@ -2418,36 +2521,64 @@ mod tests {
             make_proc(1, "C:\\Games\\Foo\\game.exe", 100),
             make_proc(2, "C:\\Games\\Foo\\launcher.exe", 999),
         ];
-        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), false).unwrap();
+        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None).unwrap();
         assert_eq!(best.pid, 1, "skip-keyworded exe never beats a real candidate");
     }
 
     #[test]
-    fn test_find_best_process_in_dir_all_skip_no_fallback() {
+    fn test_find_best_process_in_dir_all_skip_never_attaches() {
         let procs = vec![
             make_proc(1, "C:\\Games\\Foo\\launcher.exe", 100),
             make_proc(2, "C:\\Games\\Foo\\crashhandler.exe", 999),
         ];
         assert!(
-            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), false).is_none(),
-            "all-skip candidates must resolve to None without the fallback"
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None).is_none(),
+            "all-skip candidates must resolve to None — no skip-keyword fallback"
         );
     }
 
     #[test]
-    fn test_find_best_process_in_dir_all_skip_with_fallback() {
+    fn test_find_best_process_in_dir_known_stem_excludes_other_stem_helpers() {
+        // A helper with a different stem must never be picked even when it
+        // is the largest process in the folder.
         let procs = vec![
-            make_proc(1, "C:\\Games\\Foo\\launcher.exe", 100),
-            make_proc(2, "C:\\Games\\Foo\\crashhandler.exe", 999),
+            make_proc(1, "C:\\Games\\Foo\\game.exe", 100),
+            make_proc(2, "C:\\Games\\Foo\\anticheatdaemon.exe", 999),
         ];
-        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), true).unwrap();
-        assert_eq!(best.pid, 2, "fallback picks the largest working set from the full list");
+        let best =
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), Some("game")).unwrap();
+        assert_eq!(best.pid, 1, "only the tracked exe stem qualifies when known");
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_known_stem_matches_deep_exe() {
+        // Games that ship the real exe deep in the tree still re-attach
+        // via the stem even though they are not direct children.
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Foo\\bin\\win64\\game.exe", 400),
+            make_proc(2, "C:\\Games\\Foo\\overlay.exe", 900),
+        ];
+        let best =
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), Some("game")).unwrap();
+        assert_eq!(best.pid, 1, "deep stem match beats a larger unrelated helper");
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_unknown_stem_requires_direct_child() {
+        let nested = vec![make_proc(1, "C:\\Games\\Foo\\bin\\win64\\game.exe", 400)];
+        assert!(
+            find_best_process_in_dir(&nested, Path::new("C:\\Games\\Foo"), None).is_none(),
+            "with an unknown stem, nested processes must not be attached"
+        );
+        let direct = vec![make_proc(2, "C:\\Games\\Foo\\game.exe", 400)];
+        let best = find_best_process_in_dir(&direct, Path::new("C:\\Games\\Foo"), None).unwrap();
+        assert_eq!(best.pid, 2, "direct child attaches for pending protocol launches");
     }
 
     #[test]
     fn test_find_best_process_in_dir_empty() {
-        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), false).is_none());
-        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), true).is_none());
+        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), None).is_none());
+        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), Some("game")).is_none());
     }
 
     // ── find_session_process ─────────────────────────────────────────
@@ -2459,15 +2590,30 @@ mod tests {
             make_proc(2, "C:\\Games\\Foo\\other.exe", 50),
         ];
         let dir = PathBuf::from("C:\\Games\\Foo");
-        let found =
-            find_session_process(&procs, Some(&dir), "C:\\Games\\Foo\\game.exe", false).unwrap();
-        assert_eq!(found.pid, 1, "Tier 1 should attach inside the install dir");
+        let found = find_session_process(&procs, Some(&dir), "C:\\Games\\Foo\\game.exe").unwrap();
+        assert_eq!(found.pid, 1, "Tier 1 should attach the tracked exe stem inside the install dir");
     }
 
     #[test]
-    fn test_find_session_process_tier2_parent_climb() {
-        // The launcher lives in a sibling folder under a shared publisher
-        // root; Tier 2 must climb up to find the real game.
+    fn test_find_session_process_does_not_attach_leftover_helper() {
+        // Regression: the game quit, but a large unrelated process is still
+        // running in the install dir. The session must NOT re-attach to it
+        // — that would make the app never notice the quit and inflate
+        // playtime via the heartbeat.
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Foo\\anticheatdaemon.exe", 5000),
+            make_proc(2, "C:\\Games\\Foo\\bin\\updater.exe", 10),
+        ];
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        assert!(
+            find_session_process(&procs, Some(&dir), "C:\\Games\\Foo\\Game.exe").is_none(),
+            "leftover non-game processes must not pin the session open"
+        );
+    }
+
+    #[test]
+    fn test_find_session_process_tier2_stem_matched_sibling_attaches() {
+        // Publisher root: the tracked exe stem lives in a sibling folder.
         let procs = vec![
             make_proc(1, "C:\\Games\\Publisher\\Launcher\\launcher.exe", 100),
             make_proc(2, "C:\\Games\\Publisher\\GameName\\game.exe", 50),
@@ -2476,11 +2622,30 @@ mod tests {
         let found = find_session_process(
             &procs,
             Some(&dir),
-            "C:\\Games\\Publisher\\Launcher\\launcher.exe",
-            false,
+            "C:\\Games\\Publisher\\GameName\\game.exe",
         )
         .unwrap();
-        assert_eq!(found.pid, 2, "Tier 2 should climb to the shared publisher root");
+        assert_eq!(found.pid, 2, "parent climb finds the stem-matched sibling game");
+    }
+
+    #[test]
+    fn test_find_session_process_tier2_ignores_unrelated_sibling_game() {
+        // The tracked game quit, but a DIFFERENT game is running under the
+        // same publisher root. It must not be grabbed as this session.
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Publisher\\Launcher\\launcher.exe", 100),
+            make_proc(2, "C:\\Games\\Publisher\\OtherGame\\other.exe", 9999),
+        ];
+        let dir = PathBuf::from("C:\\Games\\Publisher\\Launcher");
+        assert!(
+            find_session_process(
+                &procs,
+                Some(&dir),
+                "C:\\Games\\Publisher\\GameName\\game.exe"
+            )
+            .is_none(),
+            "a sibling game under the shared root must never be re-attached"
+        );
     }
 
     #[test]
@@ -2490,29 +2655,72 @@ mod tests {
         // disk must not be grabbed.
         let procs = vec![make_proc(1, "D:\\Games\\GameName\\game.exe", 100)];
         let dir = PathBuf::from("C:\\Games\\Foo");
-        assert!(find_session_process(&procs, Some(&dir), "", false).is_none());
-        assert!(find_session_process(&procs, Some(&dir), "", true).is_none());
+        assert!(find_session_process(&procs, Some(&dir), "").is_none());
     }
 
     #[test]
     fn test_find_session_process_no_install_dir_empty_matched_exe_returns_none() {
         let procs = vec![make_proc(1, "C:\\Games\\Foo\\game.exe", 100)];
-        assert!(find_session_process(&procs, None, "", false).is_none());
-        assert!(find_session_process(&procs, None, "", true).is_none());
+        assert!(find_session_process(&procs, None, "").is_none());
     }
 
     #[test]
-    fn test_find_session_process_allow_flag_reaches_tier1_only() {
-        // Only a skip-keyworded process sits inside the install dir. For
-        // an app-launched session (allow=true) the Tier-1 scan still
-        // attaches; passive detection (allow=false) must not.
+    fn test_find_session_process_skip_keyworded_direct_child_never_attaches() {
+        // Only a skip-keyworded process sits inside the install dir. It is
+        // never the game — neither for app-launched nor passive sessions.
         let procs = vec![make_proc(7, "C:\\Games\\Foo\\launcher.exe", 100)];
         let dir = PathBuf::from("C:\\Games\\Foo");
-        assert!(
-            find_session_process(&procs, Some(&dir), "", false).is_none(),
-            "allow=false must not relax the skip filter in Tier 1"
-        );
-        let found = find_session_process(&procs, Some(&dir), "", true).unwrap();
-        assert_eq!(found.pid, 7, "allow=true relaxes the skip filter in Tier 1");
+        assert!(find_session_process(&procs, Some(&dir), "").is_none());
+        assert!(find_session_process(&procs, Some(&dir), "C:\\Games\\Foo\\Game.exe").is_none());
+    }
+
+    #[test]
+    fn test_find_session_process_unknown_stem_attaches_direct_child() {
+        // Pending protocol launch (no exe known): a direct child of the
+        // install dir is the game.
+        let procs = vec![make_proc(3, "C:\\Games\\Foo\\game.exe", 100)];
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        let found = find_session_process(&procs, Some(&dir), "").unwrap();
+        assert_eq!(found.pid, 3);
+    }
+
+    // ── force-close sweep guards ─────────────────────────────────────
+
+    #[test]
+    fn test_is_install_dir_sweep_safe_rejects_broad_roots() {
+        assert!(!is_install_dir_sweep_safe("d:\\"));
+        assert!(!is_install_dir_sweep_safe("d:/"));
+        assert!(!is_install_dir_sweep_safe("d:\\games"));
+        assert!(!is_install_dir_sweep_safe(""));
+        assert!(is_install_dir_sweep_safe("d:\\games\\witcher3"));
+        assert!(is_install_dir_sweep_safe(
+            "c:\\program files (x86)\\steam\\steamapps\\common\\skyrim"
+        ));
+        assert!(is_install_dir_sweep_safe("\\\\server\\share\\games\\skyrim"));
+    }
+
+    #[test]
+    fn test_is_sweep_candidate_bounds_the_install_dir_kill() {
+        let dir = "d:\\games\\foo";
+        // Deep stem match against the tracked exe → kill.
+        assert!(is_sweep_candidate(
+            "d:\\games\\foo\\bin\\win64\\foo.exe",
+            dir,
+            "D:\\Games\\Foo\\bin\\win64\\foo.exe"
+        ));
+        // Direct child with a known tracked stem → only the matching stem.
+        assert!(!is_sweep_candidate("d:\\games\\foo\\overlay.exe", dir, "D:\\Games\\Foo\\foo.exe"));
+        assert!(is_sweep_candidate("d:\\games\\foo\\foo.exe", dir, "D:\\Games\\Foo\\foo.exe"));
+        // Direct child with an unknown tracked exe (pending launch) → kill.
+        assert!(is_sweep_candidate("d:\\games\\foo\\game.exe", dir, ""));
+        // Sibling-prefix path (FooBar) → never.
+        assert!(!is_sweep_candidate("d:\\games\\foobar\\game.exe", dir, ""));
+        // Outside the dir → never.
+        assert!(!is_sweep_candidate("d:\\other\\foo.exe", dir, "D:\\Games\\Foo\\foo.exe"));
+        // Deeper path with unknown stem → never.
+        assert!(!is_sweep_candidate("d:\\games\\foo\\bin\\game.exe", dir, ""));
+        // Deeper path with mismatched stem → never (the drive-root crash fix:
+        // an unrelated process sharing the folder must never be swept).
+        assert!(!is_sweep_candidate("d:\\games\\foo\\explorer.exe", dir, "D:\\Games\\Foo\\foo.exe"));
     }
 }
