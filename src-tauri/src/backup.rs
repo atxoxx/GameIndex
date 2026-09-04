@@ -2,14 +2,16 @@
 //!
 //! Everything GameIndex persists lives in per-domain SQLite files under
 //! `<app_data_dir>` (see `db/mod.rs`). A backup is a single `.gibak`
-//! zip containing a consistent snapshot of every domain database —
-//! taken via SQLite's online backup API, so WAL-mode writes are
-//! captured even mid-flight — plus a small manifest describing the
-//! archive. Restore validates the archive first, then streams the
-//! staged databases back into the live pools via the same backup API
-//! (no file swapping, so it works on Windows where open connections
-//! would block an `fs::copy`), and the frontend relaunches the app so
-//! every pool re-opens cleanly.
+//! zip containing a consistent snapshot of the chosen domain databases
+//! (by default every domain with data) — taken via SQLite's online
+//! backup API, so WAL-mode writes are captured even mid-flight — plus
+//! a small manifest describing the archive. Both create and restore
+//! accept a domain subset so the user can pick what goes in / comes
+//! back; `None` means all domains. Restore validates the archive first,
+//! then streams the staged databases back into the live pools via the
+//! same backup API (no file swapping, so it works on Windows where open
+//! connections would block an `fs::copy`), and the frontend relaunches
+//! the app so every pool re-opens cleanly.
 //!
 //! Credentials (Steam/Epic OAuth, debrid keys) deliberately stay in the
 //! OS keychain and are never part of a backup; artwork, downloads and
@@ -82,6 +84,17 @@ pub struct BackupOutcome {
     pub domains: Vec<String>,
 }
 
+/// What a `.gibak` archive contains — shown to the user before restore
+/// so they can pick which domains to bring back.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupInspect {
+    pub created_at: u64,
+    pub app_version: String,
+    /// Domain file stems stored in the archive, in archive order.
+    pub domains: Vec<String>,
+}
+
 // ─── Commands ─────────────────────────────────────────────────────────────────
 
 /// Summary of what a backup would contain + when the last one was made.
@@ -107,12 +120,24 @@ pub fn backup_get_status(app: tauri::AppHandle) -> Result<BackupStatus, String> 
     })
 }
 
-/// Snapshot all domain databases into a `.gibak` zip at `target_path`.
+/// Peek inside a `.gibak` zip so the frontend can list what a restore
+/// would bring back before anything is replaced.
 #[tauri::command]
-pub fn backup_create(app: tauri::AppHandle, target_path: String) -> Result<BackupOutcome, String> {
+pub fn backup_inspect(source_path: String) -> Result<BackupInspect, String> {
+    inspect_archive(&source_path)
+}
+
+/// Snapshot the selected domain databases (default: every domain with a
+/// live file) into a `.gibak` zip at `target_path`.
+#[tauri::command]
+pub fn backup_create(
+    app: tauri::AppHandle,
+    target_path: String,
+    domains: Option<Vec<String>>,
+) -> Result<BackupOutcome, String> {
     let db = state_db(&app)?;
     let data_dir = app_data_dir(&app)?;
-    let outcome = do_create(db, &data_dir, &target_path)?;
+    let outcome = do_create(db, &data_dir, &target_path, domains.as_deref())?;
     // Recording the timestamp is best-effort — the archive itself is the
     // deliverable and is already on disk by now.
     let _ = kv::set(db, KV_LAST_AT, &outcome.created_at.to_string());
@@ -120,13 +145,18 @@ pub fn backup_create(app: tauri::AppHandle, target_path: String) -> Result<Backu
     Ok(outcome)
 }
 
-/// Validate a `.gibak` zip and restore every domain it contains into the
-/// live databases. The frontend relaunches the app once this returns.
+/// Validate a `.gibak` zip and restore the selected domains (default:
+/// every domain the archive contains) into the live databases. The
+/// frontend relaunches the app once this returns.
 #[tauri::command]
-pub fn backup_restore(app: tauri::AppHandle, source_path: String) -> Result<BackupOutcome, String> {
+pub fn backup_restore(
+    app: tauri::AppHandle,
+    source_path: String,
+    domains: Option<Vec<String>>,
+) -> Result<BackupOutcome, String> {
     let db = state_db(&app)?;
     let data_dir = app_data_dir(&app)?;
-    let outcome = do_restore(db, &data_dir, &source_path)?;
+    let outcome = do_restore(db, &data_dir, &source_path, domains.as_deref())?;
     let _ = kv::set(db, KV_LAST_AT, &outcome.created_at.to_string());
     let _ = kv::set(db, KV_LAST_BYTES, &outcome.size_bytes.to_string());
     Ok(outcome)
@@ -134,11 +164,26 @@ pub fn backup_restore(app: tauri::AppHandle, source_path: String) -> Result<Back
 
 // ─── Core logic (command wrappers are thin; tests hit these) ─────────────────
 
-fn do_create(db: &Db, data_dir: &Path, target_path: &str) -> Result<BackupOutcome, String> {
-    // Stage consistent snapshots of every domain that actually has a file
-    // (fresh installs may never have touched some domains yet). The
-    // online backup API reads through the WAL, so mid-write data is
-    // captured correctly.
+fn do_create(
+    db: &Db,
+    data_dir: &Path,
+    target_path: &str,
+    only: Option<&[String]>,
+) -> Result<BackupOutcome, String> {
+    // Reject unknown names up front so a stale selection can never
+    // silently produce an archive missing an item the user asked for.
+    if let Some(only) = only {
+        for name in only {
+            if !BACKUP_DOMAINS.contains(&name.as_str()) {
+                return Err(format!("Unknown backup item: {name}"));
+            }
+        }
+    }
+
+    // Stage consistent snapshots of the selected domains that actually
+    // have a file (fresh installs may never have touched some domains
+    // yet). The online backup API reads through the WAL, so mid-write
+    // data is captured correctly.
     let staging = tempfile::tempdir().map_err(|e| format!("backup staging: {e}"))?;
     let snapshots_dir = staging.path().join("domains");
     std::fs::create_dir_all(&snapshots_dir)
@@ -146,6 +191,11 @@ fn do_create(db: &Db, data_dir: &Path, target_path: &str) -> Result<BackupOutcom
 
     let mut backed: Vec<String> = Vec::with_capacity(BACKUP_DOMAINS.len());
     for name in BACKUP_DOMAINS {
+        if let Some(only) = only {
+            if !only.iter().any(|d| d == name) {
+                continue;
+            }
+        }
         let live = data_dir.join(format!("{name}.db"));
         if !live.is_file() {
             continue;
@@ -193,28 +243,38 @@ fn do_create(db: &Db, data_dir: &Path, target_path: &str) -> Result<BackupOutcom
     })
 }
 
-fn do_restore(db: &Db, data_dir: &Path, source_path: &str) -> Result<BackupOutcome, String> {
+fn do_restore(
+    db: &Db,
+    data_dir: &Path,
+    source_path: &str,
+    only: Option<&[String]>,
+) -> Result<BackupOutcome, String> {
     // Validate + extract into staging BEFORE touching any live file, so a
     // corrupt or foreign archive can never leave the app half-restored.
-    let manifest = read_manifest(source_path)?;
-    if manifest["format"].as_str() != Some(BACKUP_MAGIC) {
-        return Err("Not a GameIndex backup file".into());
+    let manifest = load_manifest(source_path)?;
+    let available = manifest_domains(&manifest);
+    if available.is_empty() {
+        return Err("Backup contains no databases".into());
     }
-    if manifest["version"].as_u64() != Some(BACKUP_FORMAT_VERSION as u64) {
-        return Err(format!("Unsupported backup version: {version}", version = manifest["version"]));
-    }
-    let mut domains: Vec<String> = Vec::new();
-    if let Some(list) = manifest["domains"].as_array() {
-        for item in list {
-            if let Some(name) = item.as_str() {
-                if !name.is_empty() && BACKUP_DOMAINS.contains(&name) && !domains.contains(&name.to_string()) {
-                    domains.push(name.to_string());
+    // Default restores everything in the archive; a requested subset is
+    // checked against what the archive actually holds and kept in the
+    // archive's own (display) order.
+    let domains: Vec<String> = match only {
+        Some(only) => {
+            for name in only {
+                if !available.contains(name) {
+                    return Err(format!("Backup does not contain \"{name}\""));
                 }
             }
+            available
+                .into_iter()
+                .filter(|d| only.iter().any(|o| o == d))
+                .collect()
         }
-    }
+        None => available,
+    };
     if domains.is_empty() {
-        return Err("Backup contains no databases".into());
+        return Err("Nothing selected to restore".into());
     }
 
     let staging = tempfile::tempdir().map_err(|e| format!("restore staging: {e}"))?;
@@ -311,6 +371,51 @@ fn checkpoint_all(db: &Db) -> Result<(), String> {
     Ok(())
 }
 
+/// Preview an archive: header fields + the domains stored in it.
+fn inspect_archive(source_path: &str) -> Result<BackupInspect, String> {
+    let manifest = load_manifest(source_path)?;
+    Ok(BackupInspect {
+        created_at: manifest["createdAt"].as_u64().unwrap_or(0),
+        app_version: manifest["appVersion"].as_str().unwrap_or_default().to_string(),
+        domains: manifest_domains(&manifest),
+    })
+}
+
+/// Read a manifest and reject anything that is not a GameIndex backup of
+/// the current format version.
+fn load_manifest(path: &str) -> Result<serde_json::Value, String> {
+    let manifest = read_manifest(path)?;
+    if manifest["format"].as_str() != Some(BACKUP_MAGIC) {
+        return Err("Not a GameIndex backup file".into());
+    }
+    if manifest["version"].as_u64() != Some(BACKUP_FORMAT_VERSION as u64) {
+        return Err(format!(
+            "Unsupported backup version: {version}",
+            version = manifest["version"]
+        ));
+    }
+    Ok(manifest)
+}
+
+/// Domain file stems listed in a manifest, deduplicated and restricted to
+/// known domains, preserving the manifest's own order.
+fn manifest_domains(manifest: &serde_json::Value) -> Vec<String> {
+    let mut domains: Vec<String> = Vec::new();
+    if let Some(list) = manifest["domains"].as_array() {
+        for item in list {
+            if let Some(name) = item.as_str() {
+                if !name.is_empty()
+                    && BACKUP_DOMAINS.contains(&name)
+                    && !domains.contains(&name.to_string())
+                {
+                    domains.push(name.to_string());
+                }
+            }
+        }
+    }
+    domains
+}
+
 fn read_manifest(path: &str) -> Result<serde_json::Value, String> {
     let file = std::fs::File::open(path).map_err(|e| format!("open backup file: {e}"))?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("read backup archive: {e}"))?;
@@ -376,13 +481,13 @@ mod tests {
         kv::set(&db, "test.marker", "hello-backup").unwrap();
         let target = dir.path().join("out.gibak");
 
-        do_create(&db, dir.path(), target.to_str().unwrap()).unwrap();
+        do_create(&db, dir.path(), target.to_str().unwrap(), None).unwrap();
 
         // Wipe the marker, then prove restore brings it back.
         kv::delete(&db, "test.marker").unwrap();
         assert_eq!(kv::get(&db, "test.marker").unwrap(), None);
 
-        do_restore(&db, dir.path(), target.to_str().unwrap()).unwrap();
+        do_restore(&db, dir.path(), target.to_str().unwrap(), None).unwrap();
         assert_eq!(kv::get(&db, "test.marker").unwrap(), Some("hello-backup".into()));
     }
 
@@ -391,7 +496,7 @@ mod tests {
         let (dir, db) = prep();
         let junk = dir.path().join("not-a-backup.gibak");
         std::fs::write(&junk, b"this is not a zip file at all").unwrap();
-        let err = do_restore(&db, dir.path(), junk.to_str().unwrap()).unwrap_err();
+        let err = do_restore(&db, dir.path(), junk.to_str().unwrap(), None).unwrap_err();
         assert!(err.contains("archive") || err.contains("backup file"), "unexpected err: {err}");
     }
 
@@ -419,7 +524,105 @@ mod tests {
         .unwrap();
 
         let (restore_dir, db) = prep();
-        let err = do_restore(&db, restore_dir.path(), fake.to_str().unwrap()).unwrap_err();
+        let err = do_restore(&db, restore_dir.path(), fake.to_str().unwrap(), None).unwrap_err();
         assert!(err.contains("games"), "unexpected err: {err}");
+    }
+
+    #[test]
+    fn create_with_selected_domains_archives_only_them() {
+        let (dir, db) = prep();
+        kv::set(&db, "test.marker", "x").unwrap();
+        let target = dir.path().join("subset.gibak");
+
+        let outcome = do_create(
+            &db,
+            dir.path(),
+            target.to_str().unwrap(),
+            Some(&["kv".to_string(), "games".to_string()]),
+        )
+        .unwrap();
+        // Stems come back in BACKUP_DOMAINS display order, not request order.
+        assert_eq!(outcome.domains, vec!["games", "kv"]);
+
+        let inspect = inspect_archive(target.to_str().unwrap()).unwrap();
+        assert_eq!(inspect.domains, vec!["games", "kv"]);
+        assert!(inspect.created_at > 0);
+        assert!(!inspect.app_version.is_empty());
+    }
+
+    #[test]
+    fn create_rejects_unknown_domain() {
+        let (dir, db) = prep();
+        let target = dir.path().join("bad.gibak");
+        let err = do_create(
+            &db,
+            dir.path(),
+            target.to_str().unwrap(),
+            Some(&["not_a_domain".to_string()]),
+        )
+        .unwrap_err();
+        assert!(err.contains("not_a_domain"), "unexpected err: {err}");
+    }
+
+    #[test]
+    fn restore_with_selected_domains_restores_only_them() {
+        let (dir, db) = prep();
+        kv::set(&db, "test.marker", "hello").unwrap();
+        let target = dir.path().join("full.gibak");
+        do_create(&db, dir.path(), target.to_str().unwrap(), None).unwrap();
+
+        // Restoring only "games" must leave the kv marker untouched.
+        let (dir2, db2) = prep();
+        do_restore(
+            &db2,
+            dir2.path(),
+            target.to_str().unwrap(),
+            Some(&["games".to_string()]),
+        )
+        .unwrap();
+        assert_eq!(kv::get(&db2, "test.marker").unwrap(), None);
+
+        // Restoring only "kv" brings the marker back.
+        let (dir3, db3) = prep();
+        do_restore(
+            &db3,
+            dir3.path(),
+            target.to_str().unwrap(),
+            Some(&["kv".to_string()]),
+        )
+        .unwrap();
+        assert_eq!(kv::get(&db3, "test.marker").unwrap(), Some("hello".into()));
+    }
+
+    #[test]
+    fn restore_rejects_domain_not_in_archive() {
+        let (dir, db) = prep();
+        let target = dir.path().join("subset.gibak");
+        do_create(
+            &db,
+            dir.path(),
+            target.to_str().unwrap(),
+            Some(&["kv".to_string()]),
+        )
+        .unwrap();
+
+        let (restore_dir, restore_db) = prep();
+        let err = do_restore(
+            &restore_db,
+            restore_dir.path(),
+            target.to_str().unwrap(),
+            Some(&["games".to_string()]),
+        )
+        .unwrap_err();
+        assert!(err.contains("games"), "unexpected err: {err}");
+    }
+
+    #[test]
+    fn inspect_rejects_foreign_zip() {
+        let (dir, _db) = prep();
+        let junk = dir.path().join("foreign.gibak");
+        std::fs::write(&junk, b"definitely not a zip").unwrap();
+        let err = inspect_archive(junk.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("archive") || err.contains("backup file"), "unexpected err: {err}");
     }
 }

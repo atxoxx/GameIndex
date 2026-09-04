@@ -139,6 +139,7 @@ pub fn run() {
             plugins::search_downloads,
             // Backup & restore of the local domain databases (Settings → Backup).
             backup::backup_get_status,
+            backup::backup_inspect,
             backup::backup_create,
             backup::backup_restore,
             plugins::search_downloads_stream,

@@ -29,6 +29,20 @@ interface BackupOutcome {
   domains: string[];
 }
 
+/** Payload from `backup_inspect` (mirrors Rust `BackupInspect`). */
+interface BackupInspect {
+  createdAt: number;
+  appVersion: string;
+  domains: string[];
+}
+
+/** A picked .gibak file whose contents are shown in the restore gate. */
+interface PickedBackup {
+  path: string;
+  createdAt: number;
+  domains: string[];
+}
+
 /** Domain file stem → localized label key. Unknown stems fall back to raw. */
 const BACKUP_DOMAIN_LABEL_KEYS: Record<string, string> = {
   games: "settings.backup.domain.games",
@@ -45,11 +59,18 @@ const BACKUP_DOMAIN_LABEL_KEYS: Record<string, string> = {
   plugins: "settings.backup.domain.plugins",
 };
 
+/** Last path segment of a file dialog result. */
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() ?? path;
+}
+
 /**
- * BackupTab — create full backups of the local domain databases (games,
- * playtime, activity, achievements, …) as a single .gibak file, and
- * restore from one. Restore streams the staged databases back into the
- * live pools and asks for a relaunch so every pool re-opens cleanly.
+ * BackupTab — create .gibak backups of the local domain databases (games,
+ * playtime, activity, achievements, …) and restore from one. Both flows
+ * let the user pick which domains are included: the create section is a
+ * checklist over the databases that have data, and picking a file to
+ * restore first inspects the archive (via `backup_inspect`) so its
+ * contents can be reviewed and selected before anything is replaced.
  */
 export default function BackupTab() {
   const { t } = useLanguage();
@@ -58,8 +79,16 @@ export default function BackupTab() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [pendingRestore, setPendingRestore] = useState<string | null>(null);
   const [restartOpen, setRestartOpen] = useState(false);
+
+  // Create: which domains (by stem) to include. Absent entries = checked,
+  // so every domain starts selected and new domains default to included.
+  const [selectedCreate, setSelectedCreate] = useState<Record<string, boolean>>({});
+  // Restore: the picked archive being reviewed + its selection.
+  const [archive, setArchive] = useState<PickedBackup | null>(null);
+  const [selectedRestore, setSelectedRestore] = useState<Record<string, boolean>>({});
+  const [inspecting, setInspecting] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -74,7 +103,6 @@ export default function BackupTab() {
   useEffect(() => {
     void refresh();
     return () => {
-      setPendingRestore(null);
       setRestartOpen(false);
     };
   }, [refresh]);
@@ -82,7 +110,23 @@ export default function BackupTab() {
   const existingDomains = status?.domains.filter((d) => d.sizeBytes > 0) ?? [];
   const totalBytes = existingDomains.reduce((acc, d) => acc + d.sizeBytes, 0);
 
+  // ─── Create selection helpers ──────────────────────────────────────────
+  const isCreateChecked = (name: string) => selectedCreate[name] !== false;
+  const createChoices = existingDomains.filter((d) => isCreateChecked(d.name));
+  const createAllSelected =
+    existingDomains.length > 0 && existingDomains.every((d) => isCreateChecked(d.name));
+
+  const toggleCreate = (name: string, checked: boolean) =>
+    setSelectedCreate((prev) => ({ ...prev, [name]: checked }));
+
+  const setAllCreate = (checked: boolean) =>
+    setSelectedCreate(
+      Object.fromEntries(existingDomains.map((d) => [d.name, checked])),
+    );
+
   const handleCreate = async () => {
+    const chosen = createChoices.map((d) => d.name);
+    if (chosen.length === 0) return;
     try {
       const today = new Date().toISOString().slice(0, 10);
       const target = await save({
@@ -92,7 +136,10 @@ export default function BackupTab() {
       });
       if (!target) return;
       setCreating(true);
-      await invoke<BackupOutcome>("backup_create", { targetPath: target });
+      await invoke<BackupOutcome>("backup_create", {
+        targetPath: target,
+        domains: chosen,
+      });
       showToast(t("settings.backup.createdToast"), "success");
       await refresh();
     } catch (err) {
@@ -102,6 +149,7 @@ export default function BackupTab() {
     }
   };
 
+  // ─── Restore pick + review ─────────────────────────────────────────────
   const pickRestore = async () => {
     try {
       const picked = await open({
@@ -110,20 +158,52 @@ export default function BackupTab() {
         filters: [{ name: "GameIndex Backup (.gibak)", extensions: ["gibak", "zip"] }],
       });
       if (!picked || typeof picked !== "string") return;
-      setPendingRestore(picked);
+      setArchive(null);
+      setReadError(null);
+      setInspecting(true);
+      try {
+        const info = await invoke<BackupInspect>("backup_inspect", {
+          sourcePath: picked,
+        });
+        setArchive({ path: picked, createdAt: info.createdAt, domains: info.domains });
+        setSelectedRestore({});
+      } catch (err) {
+        setReadError(t("settings.backup.readFailed", { error: String(err) }));
+      } finally {
+        setInspecting(false);
+      }
     } catch (err) {
       showToast(String(err), "error");
     }
   };
 
+  const isRestoreChecked = (name: string) => selectedRestore[name] !== false;
+  const restoreChoices = archive?.domains.filter((name) => isRestoreChecked(name)) ?? [];
+  const restoreAllSelected =
+    archive !== null && archive.domains.every((name) => isRestoreChecked(name));
+
+  const toggleRestore = (name: string, checked: boolean) =>
+    setSelectedRestore((prev) => ({ ...prev, [name]: checked }));
+
+  const setAllRestore = (checked: boolean) => {
+    if (!archive) return;
+    setSelectedRestore(Object.fromEntries(archive.domains.map((name) => [name, checked])));
+  };
+
   const doRestore = async () => {
-    if (!pendingRestore) return;
+    if (!archive) return;
+    const chosen = archive.domains.filter((name) => isRestoreChecked(name));
+    if (chosen.length === 0) return;
     try {
       setRestoring(true);
-      await invoke<BackupOutcome>("backup_restore", { sourcePath: pendingRestore });
+      await invoke<BackupOutcome>("backup_restore", {
+        sourcePath: archive.path,
+        domains: chosen,
+      });
       showToast(t("settings.backup.restoredToast"), "success");
-      setPendingRestore(null);
+      setArchive(null);
       setRestartOpen(true);
+      await refresh();
     } catch (err) {
       showToast(t("settings.backup.restoreFailed", { error: String(err) }), "error");
     } finally {
@@ -139,6 +219,17 @@ export default function BackupTab() {
       window.location.reload();
     }
   };
+
+  const canCreate =
+    existingDomains.length === 0 ||
+    createChoices.length === 0 ||
+    creating ||
+    loading;
+  const createDisabledHint = existingDomains.length === 0
+    ? t("settings.backup.empty")
+    : createChoices.length === 0
+      ? t("settings.backup.requireSelection")
+      : undefined;
 
   return (
     <>
@@ -201,20 +292,50 @@ export default function BackupTab() {
         <div className="settings-backup-actions">
           <Button
             onClick={handleCreate}
-            disabled={creating || loading || existingDomains.length === 0}
-            title={
-              existingDomains.length === 0 ? t("settings.backup.empty") : undefined
-            }
+            disabled={canCreate}
+            title={createDisabledHint}
           >
             {creating ? t("settings.backup.creating") : t("settings.backup.createBtn")}
           </Button>
         </div>
-        <p className="settings-backup-note">
-          <strong>{t("settings.backup.included")}:</strong>{" "}
-          {existingDomains
-            .map((d) => t(BACKUP_DOMAIN_LABEL_KEYS[d.name] ?? d.name))
-            .join(" · ")}
-        </p>
+        {existingDomains.length > 0 && (
+          <div className="settings-backup-picker">
+            <div className="settings-backup-picker-bar">
+              <label className="settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={createAllSelected}
+                  onChange={(e) => setAllCreate(e.target.checked)}
+                />
+                {t("settings.backup.selectAll")}
+              </label>
+              <span className="settings-backup-picker-count">
+                {t("settings.backup.selectedCount", {
+                  count: createChoices.length,
+                  total: existingDomains.length,
+                })}
+              </span>
+            </div>
+            {existingDomains.map((d) => (
+              <label
+                key={d.name}
+                className="settings-checkbox-label settings-backup-check-row"
+              >
+                <input
+                  type="checkbox"
+                  checked={isCreateChecked(d.name)}
+                  onChange={(e) => toggleCreate(d.name, e.target.checked)}
+                />
+                <span className="settings-backup-row-name">
+                  {t(BACKUP_DOMAIN_LABEL_KEYS[d.name] ?? d.name)}
+                </span>
+                <span className="settings-backup-row-size">
+                  {formatBackupBytes(d.sizeBytes)}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
         <p className="settings-backup-note">
           <strong>{t("settings.backup.notIncluded")}:</strong>{" "}
           {t("settings.backup.notIncludedDesc")}
@@ -228,21 +349,87 @@ export default function BackupTab() {
         desc={t("settings.backup.restoreDesc")}
       >
         <div className="settings-backup-actions">
-          <Button variant="secondary" onClick={pickRestore} disabled={restoring}>
+          <Button
+            variant="secondary"
+            onClick={pickRestore}
+            disabled={restoring || inspecting}
+          >
             {restoring ? t("settings.backup.restoring") : t("settings.backup.restoreBtn")}
           </Button>
+          {inspecting && <span className="settings-backup-note">{t("settings.backup.inspecting")}</span>}
         </div>
-      </SettingsSection>
 
-      <ConfirmModal
-        open={pendingRestore !== null}
-        title={t("settings.backup.restoreConfirmTitle")}
-        message={t("settings.backup.restoreConfirmBody")}
-        confirmLabel={t("settings.backup.restoreConfirmBtn")}
-        cancelLabel={t("common.cancel")}
-        onConfirm={doRestore}
-        onCancel={() => setPendingRestore(null)}
-      />
+        {readError && <div className="settings-backup-error">{readError}</div>}
+
+        {archive && (
+          <div className="settings-backup-gate">
+            <div className="settings-backup-gate-file">
+              <span className="settings-backup-gate-name">{fileName(archive.path)}</span>
+              {archive.createdAt > 0 && (
+                <span className="settings-backup-gate-date">
+                  {t("settings.backup.restoreFrom", {
+                    date: new Date(archive.createdAt * 1000).toLocaleString(),
+                  })}
+                </span>
+              )}
+            </div>
+            <div className="settings-backup-picker">
+              <div className="settings-backup-picker-bar">
+                <label className="settings-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={restoreAllSelected}
+                    onChange={(e) => setAllRestore(e.target.checked)}
+                  />
+                  {t("settings.backup.selectAll")}
+                </label>
+                <span className="settings-backup-picker-count">
+                  {t("settings.backup.selectedCount", {
+                    count: restoreChoices.length,
+                    total: archive.domains.length,
+                  })}
+                </span>
+              </div>
+              {archive.domains.map((name) => (
+                <label
+                  key={name}
+                  className="settings-checkbox-label settings-backup-check-row"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isRestoreChecked(name)}
+                    onChange={(e) => toggleRestore(name, e.target.checked)}
+                  />
+                  <span className="settings-backup-row-name">
+                    {t(BACKUP_DOMAIN_LABEL_KEYS[name] ?? name)}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="settings-backup-gate-warning">
+              {t("settings.backup.restoreConfirmBody")}
+            </p>
+            <div className="settings-backup-gate-actions">
+              <Button variant="ghost" onClick={() => setArchive(null)} disabled={restoring}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => void doRestore()}
+                isLoading={restoring}
+                disabled={restoreChoices.length === 0}
+                title={
+                  restoreChoices.length === 0
+                    ? t("settings.backup.requireSelection")
+                    : undefined
+                }
+              >
+                {t("settings.backup.restoreConfirmBtn")}
+              </Button>
+            </div>
+          </div>
+        )}
+      </SettingsSection>
 
       <ConfirmModal
         open={restartOpen}
