@@ -347,15 +347,14 @@ pub fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), Str
 #[tauri::command]
 pub fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
-    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
     let row: db::games::GameRow =
         serde_json::from_value(value).map_err(|e| format!("to GameRow: {e}"))?;
-    let result = db::games::upsert_one(db_state.inner(), &row);
-    if result.is_ok() {
-        db::artwork::cleanup_non_library_caches(&app_data_dir, std::time::Duration::from_secs(30 * 24 * 60 * 60));
-    }
-    result
+    // NOTE: no artwork cleanup here — `save_game` fires per image write
+    // during a library scroll, and pruning cache dirs on that hot path
+    // walks the filesystem for every fetched cover. Both cleanups now run
+    // once per session from a background thread spawned in `load_games`.
+    db::games::upsert_one(db_state.inner(), &row)
 }
 
 /// Load the game library. Returns every row in Continue-Playing order
@@ -388,7 +387,22 @@ pub fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
         }
     }
     let ids: HashSet<String> = out.iter().map(|game| game.id.clone()).collect();
-    db::artwork::cleanup_unreferenced_artwork(&app_data_dir, &ids);
+    // Referenced-artwork + stale non-library cache cleanup used to run
+    // synchronously here (and on every `save_game`), walking the artwork
+    // dirs on the boot path the UI waits on. Defer both to a background
+    // thread a few seconds after startup: `load_games` returns as fast as
+    // the query allows, and pruning still happens once per session.
+    {
+        let dir = app_data_dir.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            db::artwork::cleanup_unreferenced_artwork(&dir, &ids);
+            db::artwork::cleanup_non_library_caches(
+                &dir,
+                std::time::Duration::from_secs(30 * 24 * 60 * 60),
+            );
+        });
+    }
     Ok(out)
 }
 

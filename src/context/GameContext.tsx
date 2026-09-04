@@ -5,6 +5,8 @@ import {
   useCallback,
   useRef,
   useMemo,
+  useEffect,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -75,6 +77,14 @@ interface GameContextType {
   toggleGameTracking: (gameId: string, forceUntracked?: boolean) => void;
 }
 
+// Per-game narrow subscription surface. Consumers that only need ONE game
+// (GamePage, hero accents, …) subscribe here instead of to the full
+// `games` array, so a change to an unrelated game never re-renders them.
+interface GameByIdValue {
+  subscribeToGame: (id: string, cb: () => void) => () => void;
+  getGameSnapshot: (id: string) => Game | undefined;
+}
+
 // Persist the React context instance across Vite HMR module re-evaluations so
 // lazy-loaded page chunks never lose their Provider instance.
 const globalGameObj = globalThis as unknown as {
@@ -83,6 +93,8 @@ const globalGameObj = globalThis as unknown as {
 const GameContext =
   globalGameObj.__gamelib_game_context__ ??
   (globalGameObj.__gamelib_game_context__ = createContext<GameContextType | null>(null));
+
+const GameByIdContext = createContext<GameByIdValue | null>(null);
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 
@@ -121,6 +133,62 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // the current function after its definition breaks the circular
   // dependency without re-registering the event listener every render.
   const removeGamesRef = useRef<((predicate: (game: Game) => boolean) => void) | null>(null);
+
+  // ── Per-game narrow subscriptions ────────────────────────────────
+  // `gameMapRef` mirrors the games array as an id→Game map so a
+  // `useGameById(id)` consumer can snapshot its own game without walking
+  // (or subscribing to) the whole array. After every `games` change we
+  // diff object identities against the previous map and notify only the
+  // subscribers whose game actually changed — a `lastPlayed` bump on one
+  // title no longer re-renders the open GamePage of another.
+  const gameMapRef = useRef(new Map<string, Game>());
+  const prevGameMapRef = useRef(new Map<string, Game>());
+  const gameSubsRef = useRef(new Map<string, Set<() => void>>());
+
+  useEffect(() => {
+    const next = new Map<string, Game>();
+    for (const g of games) next.set(g.id, g);
+    const prev = prevGameMapRef.current;
+    const changed = new Set<string>();
+    for (const [id, g] of next) {
+      if (prev.get(id) !== g) changed.add(id);
+    }
+    for (const id of prev.keys()) {
+      if (!next.has(id)) changed.add(id);
+    }
+    gameMapRef.current = next;
+    prevGameMapRef.current = next;
+    if (changed.size > 0) {
+      const subs = gameSubsRef.current;
+      for (const id of changed) {
+        const set = subs.get(id);
+        if (set) {
+          for (const cb of set) cb();
+        }
+      }
+    }
+  }, [games]);
+
+  const subscribeToGame = useCallback((id: string, cb: () => void) => {
+    let set = gameSubsRef.current.get(id);
+    if (!set) {
+      set = new Set();
+      gameSubsRef.current.set(id, set);
+    }
+    set.add(cb);
+    return () => {
+      set.delete(cb);
+      if (set.size === 0) gameSubsRef.current.delete(id);
+    };
+  }, []);
+
+  const gameByIdValue = useMemo<GameByIdValue>(
+    () => ({
+      subscribeToGame,
+      getGameSnapshot: (id: string) => gameMapRef.current.get(id),
+    }),
+    [subscribeToGame]
+  );
 
   // ── Watcher process index ──────────────────────────────────────
   const { scheduleWatcherIndexRebuild } = useWatcherIndex({
@@ -503,7 +571,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return (
     <GameContext.Provider value={contextValue}>
-      {children}
+      <GameByIdContext.Provider value={gameByIdValue}>
+        {children}
+      </GameByIdContext.Provider>
     </GameContext.Provider>
   );
 }
@@ -522,8 +592,25 @@ export function useRunningGames(): string[] {
   return runningGameIds;
 }
 
-/** Narrow selector: returns a single game by id, memoized to avoid re-renders when unrelated games change. */
+/**
+ * Narrow selector: returns a single game by id via `useSyncExternalStore`,
+ * re-rendering only when THAT game's object identity changes (or it is
+ * removed). Unlike `getGame`-based lookups it does not subscribe to the
+ * whole `games` array, so an unrelated game mutation — a session exit,
+ * an image enrichment, a size probe — doesn't re-render this consumer.
+ */
 export function useGameById(id: string): Game | undefined {
-  const { getGame } = useGames();
-  return useMemo(() => getGame(id), [getGame, id]);
+  const value = useContext(GameByIdContext);
+  if (!value) {
+    throw new Error("useGameById must be used within a GameProvider");
+  }
+  const subscribe = useCallback(
+    (cb: () => void) => value.subscribeToGame(id, cb),
+    [value, id]
+  );
+  const getSnapshot = useCallback(
+    () => value.getGameSnapshot(id),
+    [value, id]
+  );
+  return useSyncExternalStore(subscribe, getSnapshot);
 }

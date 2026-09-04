@@ -5,8 +5,16 @@ import react from "@vitejs/plugin-react";
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig(async ({ mode }) => ({
   plugins: [react()],
+
+  // Strip console.* + debugger from production bundles only. Dev keeps
+  // full logging (the boot-timing harness reads it); release builds drop
+  // the calls so hot paths never serialize console output.
+  esbuild:
+    mode === "production"
+      ? { drop: ["console", "debugger"] }
+      : undefined,
 
   build: {
     chunkSizeWarningLimit: 1500,

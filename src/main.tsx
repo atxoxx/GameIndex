@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { markBootStart } from "./utils/bootPerf";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/ui.css";
@@ -22,6 +23,8 @@ import "./styles/download.css";
 // split into its own async chunk that only loads in the background after
 // bootstrap, and on the rare occasion the user opens the Friends page
 // before it has landed, `getNostrKeys` degrades to the session fallback.
+markBootStart();
+
 async function bootstrap() {
   // Fire-and-forget: hydrate the Nostr key cache when reachable, but never
   // gate first paint on it. Any failure is non-fatal and flows through the

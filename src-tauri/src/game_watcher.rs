@@ -144,6 +144,17 @@ const POLL_INTERVAL_STEADY: std::time::Duration = std::time::Duration::from_secs
 /// real process within ~1 s instead of waiting up to POLL_INTERVAL_STEADY.
 const POLL_INTERVAL_PENDING: std::time::Duration = std::time::Duration::from_secs(1);
 
+/// Poll interval when no session is active at all. The loop still has to
+/// run — it passively detects games launched outside GameIndex — but
+/// WMI process enumeration every 5 s with nothing running is wasted
+/// work, so idle polls relax to this cadence. App-launched sessions
+/// never wait on it: launches wake the loop immediately (see
+/// `request_immediate_poll`). Passive detection of an externally
+/// launched game therefore starts ≤15 s later than before, which only
+/// delays session start — recorded playtime is anchored at attach, so
+/// nothing is lost.
+const POLL_INTERVAL_IDLE: std::time::Duration = std::time::Duration::from_secs(15);
+
 /// Grace period once a tracked process goes missing before the session
 /// is ended. Kept short (was 20 s) so the running indicator and
 /// last-played stamp update promptly; the re-attach window (looking
@@ -1884,6 +1895,10 @@ pub fn start_background_poll(
         // Re-evaluate interval after polling: if we just cleared the last
         // pending session, settle back to the steady interval promptly.
         let next_interval = w.current_poll_interval();
+        // Nothing running → relax to the idle cadence for the next sleep.
+        // Passive detection still needs periodic polls, so this backs off
+        // rather than stopping entirely.
+        let no_active_sessions = w.active_sessions.is_empty();
 
         // Periodic heartbeat: emit `game-progress` for every attached
         // session and snapshot the durable running rows to persist below
@@ -1924,7 +1939,9 @@ pub fn start_background_poll(
             }
         }
 
-        let wait = if next_interval < interval {
+        let wait = if no_active_sessions {
+            POLL_INTERVAL_IDLE
+        } else if next_interval < interval {
             next_interval
         } else {
             interval

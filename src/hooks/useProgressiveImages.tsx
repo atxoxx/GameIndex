@@ -44,6 +44,10 @@ export function useProgressiveImage(
 
       if (!node || !url || downloadingRef.current) return;
 
+      // Decode off the main thread once the asset arrives so a scroll
+      // through many covers never janks on synchronous image decode.
+      if (node instanceof HTMLImageElement) node.decoding = "async";
+
       observerRef.current = new IntersectionObserver(
         ([entry]) => {
           if (entry.isIntersecting && !downloadingRef.current) {

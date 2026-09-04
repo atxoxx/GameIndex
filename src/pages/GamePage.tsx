@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useGames, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
+import { useGames, useGameById, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings, type DetailSectionKey } from "../context/SettingsContext";
@@ -422,7 +422,7 @@ function GameDetail({ game }: { game: Game }) {
 
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
-  const { getGame, setSelectedGameId } = useGames();
+  const { setSelectedGameId } = useGames();
 
   useEffect(() => {
     if (gameId) {
@@ -430,7 +430,11 @@ export default function GamePage() {
     }
   }, [gameId, setSelectedGameId]);
 
-  const game = gameId ? getGame(gameId) : undefined;
+  // Narrow per-game subscription: the page (and its whole detail subtree)
+  // re-renders only when THIS game's record changes, not on any unrelated
+  // library mutation (watcher exit bumps `lastPlayed` on other titles,
+  // enrichments update covers, etc.).
+  const game = useGameById(gameId ?? "");
 
   if (!game) {
     return <GameNotFound />;

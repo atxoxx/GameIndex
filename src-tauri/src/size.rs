@@ -492,6 +492,7 @@ fn copy_dir_with_progress(
     app: &tauri::AppHandle,
     game_id: &str,
     total: u64,
+    last_emit: &mut std::time::Instant,
 ) -> Result<(), String> {
     std::fs::create_dir_all(to)
         .map_err(|e| format!("create_dir {} failed: {}", to.display(), e))?;
@@ -511,13 +512,24 @@ fn copy_dir_with_progress(
             continue;
         }
         if meta.is_dir() {
-            copy_dir_with_progress(&path, &dest, copied, app, game_id, total)?;
+            copy_dir_with_progress(&path, &dest, copied, app, game_id, total, last_emit)?;
         } else if meta.is_file() {
             if let Err(e) = std::fs::copy(&path, &dest) {
                 return Err(format!("copy {} → {} failed: {e}", path.display(), dest.display()));
             }
             let c = copied.fetch_add(meta.len(), Ordering::SeqCst) + meta.len();
-            emit_move_progress(app, game_id, c, total, "copying");
+            // Throttle progress IPC: emitting per file floods the frontend
+            // on folders with many small files (tens of thousands of events
+            // for a game install). Emit at most every 150 ms; the caller
+            // sends the final 100% tick on completion.
+            let now = std::time::Instant::now();
+            if c >= total
+                || now.duration_since(*last_emit)
+                    >= std::time::Duration::from_millis(150)
+            {
+                *last_emit = now;
+                emit_move_progress(app, game_id, c, total, "copying");
+            }
         }
     }
     Ok(())
@@ -568,9 +580,18 @@ pub fn move_game_install(
     // cycle-guarded walker so symlinked/junction trees don't hang.
     let total = sum_folder_size(from).map(|r| r.size_bytes).unwrap_or(0);
     let copied = Arc::new(AtomicU64::new(0));
+    let mut last_emit = std::time::Instant::now();
     emit_move_progress(&app, &game_id, 0, total, "copying");
 
-    copy_dir_with_progress(from, &new_root, &copied, &app, &game_id, total)?;
+    copy_dir_with_progress(
+        from,
+        &new_root,
+        &copied,
+        &app,
+        &game_id,
+        total,
+        &mut last_emit,
+    )?;
 
     emit_move_progress(&app, &game_id, total, total, "verifying");
     let new_size = sum_folder_size(&new_root)

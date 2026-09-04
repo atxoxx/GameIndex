@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import type { Game } from "../types/game";
 import { parsePlayTime } from "../types/game";
 import { useLibraryFilterState } from "../context/LibraryFilterContext";
@@ -45,6 +45,15 @@ export function useLibraryFilters(games: Game[]) {
   const state = useLibraryFilterState();
   const { filters, ...handlers } = state;
 
+  // Defer the expensive derivations (search narrowing + sorting over the
+  // whole library) behind React's `useDeferredValue`: keystrokes update
+  // `filters` on the urgent path so the search box stays perfectly
+  // responsive, while the narrowing/sorting memos below recompute at idle
+  // priority and the grid lags by at most a frame or two. Facet lists
+  // (genres/platforms) stay urgent — they don't depend on the query and are
+  // cheap.
+  const deferredFilters = useDeferredValue(filters);
+
   // Build unique, sorted facet lists from the source array so the sidebar
   // only shows values that actually exist in the user's library.
   const availableGenres = useMemo(() => {
@@ -68,8 +77,8 @@ export function useLibraryFilters(games: Game[]) {
   }, [games]);
 
   const filteredGames = useMemo(() => {
-    const narrowed = filterGames(games, filters);
-    const q = filters.search.trim();
+    const narrowed = filterGames(games, deferredFilters);
+    const q = deferredFilters.search.trim();
     if (q) {
       const tokens = tokenizeSearchQuery(q);
       // Relevance first, then existing sort as tie-breaker (FTS ranking)
@@ -78,7 +87,7 @@ export function useLibraryFilters(games: Game[]) {
       for (const g of ranked) {
         scores.set(g.id, getSearchRelevanceScore(g, q, tokens));
       }
-      const playtimes = filters.sort === "most_played" ? new Map<string, number>() : null;
+      const playtimes = deferredFilters.sort === "most_played" ? new Map<string, number>() : null;
       if (playtimes) {
         for (const g of ranked) playtimes.set(g.id, parsePlayTime(g.playTime));
       }
@@ -86,7 +95,7 @@ export function useLibraryFilters(games: Game[]) {
         const sa = scores.get(a.id) ?? 0;
         const sb = scores.get(b.id) ?? 0;
         if (sb !== sa) return sb - sa;
-        switch (filters.sort) {
+        switch (deferredFilters.sort) {
           case "alphabetical":
             return a.name.localeCompare(b.name);
           case "date_added":
@@ -106,10 +115,13 @@ export function useLibraryFilters(games: Game[]) {
       });
       return ranked;
     }
-    return sortGames(narrowed, filters.sort);
-  }, [games, filters]);
+    return sortGames(narrowed, deferredFilters.sort);
+  }, [games, deferredFilters]);
 
-  const hasFilters = useMemo(() => hasActiveFilters(filters), [filters]);
+  const hasFilters = useMemo(
+    () => hasActiveFilters(deferredFilters),
+    [deferredFilters]
+  );
 
   return {
     filters,

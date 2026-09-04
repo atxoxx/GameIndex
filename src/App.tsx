@@ -1,5 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { lazy, Suspense } from "react";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import TopNav from "./components/TopNav";
 import Sidebar from "./components/Sidebar";
@@ -42,6 +41,7 @@ import { useTrayNavigation } from "./hooks/useTrayNavigation";
 import { useTrayStrings } from "./hooks/useTrayStrings";
 import { LandingRedirect } from "./components/LandingRedirect";
 import Splashscreen from "./components/Splashscreen";
+import WindowReveal from "./components/WindowReveal";
 import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
 import { GameAccentSync } from "./components/GameAccentSync";
 import { Skeleton } from "./components/ui/Skeleton";
@@ -134,17 +134,6 @@ function AppShell() {
 }
 
 function App() {
-  useEffect(() => {
-    // Reveal the main window once the app has mounted its first frame.
-    // The main window starts hidden behind the native splashscreen window
-    // (tauri.conf.json). A brief hold ensures the heavy provider tree and initial
-    // layout render cleanly before revealing, avoiding jarring flashes or blank frames.
-    const timer = setTimeout(() => {
-      invoke("close_splashscreen").catch(() => {});
-    }, 750);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Route chunks are loaded on demand. Navigation components still preload
   // the route being hovered/focused, avoiding the resident memory cost of
   // warming pages the user may never visit.
@@ -157,6 +146,9 @@ function App() {
             <UpdateProvider>
               <SplashProvider>
                 <GameProvider>
+                  {/* Reveals the hidden main window once the library has
+                      hydrated and the first frame painted (see component). */}
+                  <WindowReveal />
                   <ActivityProvider>
                     <AchievementProvider>
                       <DensityProvider>
