@@ -118,6 +118,18 @@
   transform: scale(0.94);
 }
 
+.activity__icon-btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.activity__icon-btn--primary:hover {
+  background: color-mix(in srgb, var(--color-accent) 85%, #fff);
+  border-color: color-mix(in srgb, var(--color-accent) 85%, #fff);
+  color: var(--color-accent-contrast);
+}
+
 /* ══ Unified controls panel ────────────────────────────────────────────
    Primary tabs on the top row, shared + per-tab filters on the second.
    One surface, one hairline between the rows. */
@@ -2093,6 +2105,11 @@
 
 .activity-session-item__player-chip .steam-player-count-suffix {
   display: none;
+}
+
+.activity-session-item__player-chip-badge {
+  display: inline-flex;
+  align-items: center;
 }
 
 .activity-session-item__info {
