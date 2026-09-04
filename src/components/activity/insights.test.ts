@@ -6,6 +6,11 @@ import {
   buildGamerPersona,
   buildGameCompletionProgress,
   calculateFpsStability,
+  calculateCompletionForecast,
+  buildDayOfWeekDistribution,
+  calculateTelemetryInsights,
+  buildResolutionBreakdown,
+  compareSessions,
 } from "./insights";
 import type { Game, GameSession } from "../../types/game";
 
@@ -198,6 +203,78 @@ describe("activity insights", () => {
       const unstable = calculateFpsStability(80, 40);
       expect(unstable.ratio).toBe(50);
       expect(unstable.rating).toBe("unstable");
+    });
+  });
+
+  describe("calculateCompletionForecast", () => {
+    it("should calculate remaining time and estimated days based on velocity", () => {
+      const ttb = { normally: 50 }; // 50 hours target
+      // Played 30 hours (1800 mins), 7 hours/week velocity (420 mins)
+      const forecast = calculateCompletionForecast(1800, ttb, 420);
+      expect(forecast.targetHours).toBe(50);
+      expect(forecast.playedHours).toBe(30);
+      expect(forecast.remainingHours).toBe(20);
+      expect(forecast.weeklyVelocityHours).toBe(7);
+      expect(forecast.estimatedDaysRemaining).toBe(20); // 20 hours / 1 hr per day = 20 days
+      expect(forecast.status).toBe("onTrack");
+    });
+
+    it("should flag completed games", () => {
+      const ttb = { normally: 30 };
+      const forecast = calculateCompletionForecast(2000, ttb, 100);
+      expect(forecast.remainingHours).toBe(0);
+      expect(forecast.status).toBe("completed");
+    });
+
+    it("should flag stalled games when weekly velocity is near zero", () => {
+      const ttb = { normally: 50 };
+      const forecast = calculateCompletionForecast(600, ttb, 0);
+      expect(forecast.status).toBe("stalled");
+      expect(forecast.estimatedDaysRemaining).toBeNull();
+    });
+  });
+
+  describe("buildDayOfWeekDistribution", () => {
+    it("should classify sessions into 7 days of the week starting from Monday", () => {
+      const dist = buildDayOfWeekDistribution(dummySessions, "en");
+      expect(dist.days.length).toBe(7);
+      expect(dist.totalMinutes).toBe(285);
+      expect(dist.days[0].dayIndex).toBe(0); // Mon
+      expect(dist.days[6].dayIndex).toBe(6); // Sun
+      expect(dist.peakDay).toBeDefined();
+    });
+  });
+
+  describe("calculateTelemetryInsights", () => {
+    it("should estimate 1% low and calculate stability score and headroom", () => {
+      const metrics = dummySessions[0].metrics!;
+      const insights = calculateTelemetryInsights(metrics);
+      expect(insights).toBeDefined();
+      expect(insights!.avgFps).toBe(95);
+      expect(insights!.onePercentLowFps).toBeGreaterThanOrEqual(metrics.minFps);
+      expect(insights!.onePercentLowFps).toBeLessThanOrEqual(metrics.avgFps);
+      expect(insights!.fpsStabilityScore).toBeGreaterThan(0);
+      expect(insights!.thermalHeadroomGpu).toBe(85 - 68);
+    });
+  });
+
+  describe("buildResolutionBreakdown", () => {
+    it("should group sessions by resolution and compute averages", () => {
+      const breakdown = buildResolutionBreakdown(dummySessions);
+      expect(breakdown.length).toBe(1);
+      expect(breakdown[0].resolution).toBe("2560x1440");
+      expect(breakdown[0].sessionsCount).toBe(3);
+      expect(breakdown[0].avgFps).toBeGreaterThan(0);
+      expect(breakdown[0].pct).toBe(100);
+    });
+  });
+
+  describe("compareSessions", () => {
+    it("should calculate deltas between two sessions", () => {
+      const diff = compareSessions(dummySessions[1], dummySessions[0]);
+      expect(diff.durationDeltaMin).toBe(45); // 90 - 45
+      expect(diff.avgFpsDelta).toBe(35); // 95 - 60
+      expect(diff.avgGpuDelta).toBe(18); // 88 - 70
     });
   });
 });

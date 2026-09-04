@@ -14,4 +14,8 @@ export { SessionLengthDistribution } from "./SessionLengthDistribution";
 export { GamerPersonaCard } from "./GamerPersonaCard";
 export { TimeToBeatProgress } from "./TimeToBeatProgress";
 export { SessionInspectorModal } from "./SessionInspectorModal";
+export { ManualSessionModal } from "./ManualSessionModal";
+export { SessionComparisonModal } from "./SessionComparisonModal";
+export { DayOfWeekDistribution } from "./DayOfWeekDistribution";
+export { BacklogCompletionHub } from "./BacklogCompletionHub";
 export * from "./insights";

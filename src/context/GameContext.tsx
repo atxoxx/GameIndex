@@ -85,16 +85,19 @@ interface GameByIdValue {
   getGameSnapshot: (id: string) => Game | undefined;
 }
 
-// Persist the React context instance across Vite HMR module re-evaluations so
+// Persist the React context instances across Vite HMR module re-evaluations so
 // lazy-loaded page chunks never lose their Provider instance.
 const globalGameObj = globalThis as unknown as {
   __gamelib_game_context__?: React.Context<GameContextType | null>;
+  __gamelib_game_by_id_context__?: React.Context<GameByIdValue | null>;
 };
 const GameContext =
   globalGameObj.__gamelib_game_context__ ??
   (globalGameObj.__gamelib_game_context__ = createContext<GameContextType | null>(null));
 
-const GameByIdContext = createContext<GameByIdValue | null>(null);
+const GameByIdContext =
+  globalGameObj.__gamelib_game_by_id_context__ ??
+  (globalGameObj.__gamelib_game_by_id_context__ = createContext<GameByIdValue | null>(null));
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 
@@ -601,16 +604,21 @@ export function useRunningGames(): string[] {
  */
 export function useGameById(id: string): Game | undefined {
   const value = useContext(GameByIdContext);
-  if (!value) {
-    throw new Error("useGameById must be used within a GameProvider");
-  }
+  const gamesCtx = useContext(GameContext);
+
   const subscribe = useCallback(
-    (cb: () => void) => value.subscribeToGame(id, cb),
+    (cb: () => void) => (value ? value.subscribeToGame(id, cb) : () => {}),
     [value, id]
   );
   const getSnapshot = useCallback(
-    () => value.getGameSnapshot(id),
-    [value, id]
+    () => (value ? value.getGameSnapshot(id) : gamesCtx?.getGame(id)),
+    [value, gamesCtx, id]
   );
-  return useSyncExternalStore(subscribe, getSnapshot);
+  const synced = useSyncExternalStore(subscribe, getSnapshot);
+
+  if (!value && !gamesCtx) {
+    throw new Error("useGameById must be used within a GameProvider");
+  }
+
+  return value ? synced : gamesCtx?.getGame(id);
 }

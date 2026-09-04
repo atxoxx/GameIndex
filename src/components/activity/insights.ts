@@ -1,4 +1,4 @@
-import type { Game, GameSession } from "../../types/game";
+import type { Game, GameSession, SessionMetrics } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
 
 /** Date-range presets shared by both activity surfaces. */
@@ -698,7 +698,7 @@ export function buildSessionLengthDistribution(sessions: GameSession[]): {
       rangeLabel: "1h – 2h",
       count: bucketsMap.medium.count,
       totalMinutes: bucketsMap.medium.minutes,
-      pct: totalSessions > 0 ? Math.round((bucketsMap.short.count / totalSessions) * 100) : 0,
+      pct: totalSessions > 0 ? Math.round((bucketsMap.medium.count / totalSessions) * 100) : 0,
     },
     {
       key: "long",
@@ -1034,5 +1034,302 @@ export function calculateFpsStability(
   if (ratio >= 80) return { ratio, rating: "exceptional" };
   if (ratio >= 60) return { ratio, rating: "smooth" };
   return { ratio, rating: "unstable" };
+}
+
+// ─── Completion Forecasting ───────────────────────────────────────────────────
+
+export interface CompletionForecast {
+  targetHours: number;
+  playedHours: number;
+  remainingHours: number;
+  weeklyVelocityHours: number;
+  estimatedDaysRemaining: number | null;
+  status: "completed" | "onTrack" | "stalled" | "noTarget";
+}
+
+export function calculateCompletionForecast(
+  playedMinutes: number,
+  timeToBeat?: { hastily?: number; normally?: number; completely?: number },
+  recentWeeklyMinutes: number = 0,
+): CompletionForecast {
+  const playedHours = Math.round((playedMinutes / 60) * 10) / 10;
+  if (!timeToBeat || (!timeToBeat.normally && !timeToBeat.completely && !timeToBeat.hastily)) {
+    return {
+      targetHours: 0,
+      playedHours,
+      remainingHours: 0,
+      weeklyVelocityHours: Math.round((recentWeeklyMinutes / 60) * 10) / 10,
+      estimatedDaysRemaining: null,
+      status: "noTarget",
+    };
+  }
+
+  const toHours = (sec?: number | null): number => {
+    if (sec === undefined || sec === null || sec <= 0) return 0;
+    const hours = sec > 500 ? sec / 3600 : sec;
+    return Math.round(hours * 10) / 10;
+  };
+
+  const targetHours = toHours(timeToBeat.normally) || toHours(timeToBeat.hastily) || toHours(timeToBeat.completely);
+  const remainingHours = Math.max(0, Math.round((targetHours - playedHours) * 10) / 10);
+  const weeklyVelocityHours = Math.round((recentWeeklyMinutes / 60) * 10) / 10;
+
+  if (remainingHours <= 0) {
+    return {
+      targetHours,
+      playedHours,
+      remainingHours: 0,
+      weeklyVelocityHours,
+      estimatedDaysRemaining: 0,
+      status: "completed",
+    };
+  }
+
+  if (weeklyVelocityHours <= 0.1) {
+    return {
+      targetHours,
+      playedHours,
+      remainingHours,
+      weeklyVelocityHours,
+      estimatedDaysRemaining: null,
+      status: "stalled",
+    };
+  }
+
+  const dailyVelocityHours = weeklyVelocityHours / 7;
+  const estimatedDaysRemaining = Math.max(1, Math.round(remainingHours / dailyVelocityHours));
+
+  return {
+    targetHours,
+    playedHours,
+    remainingHours,
+    weeklyVelocityHours,
+    estimatedDaysRemaining,
+    status: "onTrack",
+  };
+}
+
+// ─── Day of Week Distribution ─────────────────────────────────────────────────
+
+export interface DayOfWeekItem {
+  dayIndex: number; // 0 = Mon, 1 = Tue, ..., 6 = Sun
+  dayName: string;
+  minutes: number;
+  sessionsCount: number;
+  pct: number;
+}
+
+export interface DayOfWeekDistribution {
+  days: DayOfWeekItem[];
+  peakDay: DayOfWeekItem | null;
+  weekdayMinutes: number;
+  weekendMinutes: number;
+  weekendRatioPct: number;
+  totalMinutes: number;
+}
+
+export function buildDayOfWeekDistribution(
+  sessions: GameSession[],
+  language: string = "en",
+): DayOfWeekDistribution {
+  const dayNames = Array.from({ length: 7 }, (_, i) =>
+    new Date(2026, 0, 5 + i).toLocaleDateString(language, { weekday: "short" })
+  );
+
+  const dayTotals = new Array(7).fill(0);
+  const dayCounts = new Array(7).fill(0);
+
+  let weekdayMins = 0;
+  let weekendMins = 0;
+  let totalMinutes = 0;
+
+  for (const s of sessions) {
+    const d = new Date(s.date);
+    const jsDay = d.getDay();
+    const monFirstIndex = (jsDay + 6) % 7;
+
+    dayTotals[monFirstIndex] += s.durationMin;
+    dayCounts[monFirstIndex] += 1;
+    totalMinutes += s.durationMin;
+
+    if (jsDay === 0 || jsDay === 6) {
+      weekendMins += s.durationMin;
+    } else {
+      weekdayMins += s.durationMin;
+    }
+  }
+
+  const days: DayOfWeekItem[] = dayNames.map((name, i) => ({
+    dayIndex: i,
+    dayName: name,
+    minutes: dayTotals[i],
+    sessionsCount: dayCounts[i],
+    pct: totalMinutes > 0 ? Math.round((dayTotals[i] / totalMinutes) * 100) : 0,
+  }));
+
+  let peakDay: DayOfWeekItem | null = null;
+  for (const d of days) {
+    if (!peakDay || d.minutes > peakDay.minutes) {
+      peakDay = d;
+    }
+  }
+  if (peakDay && peakDay.minutes === 0) peakDay = null;
+
+  const totalSplit = weekdayMins + weekendMins;
+  const weekendRatioPct = totalSplit > 0 ? Math.round((weekendMins / totalSplit) * 100) : 0;
+
+  return {
+    days,
+    peakDay,
+    weekdayMinutes: weekdayMins,
+    weekendMinutes: weekendMins,
+    weekendRatioPct,
+    totalMinutes,
+  };
+}
+
+// ─── 1% Low FPS & Telemetry Consistency ──────────────────────────────────────
+
+export interface TelemetryInsights {
+  avgFps: number;
+  minFps: number;
+  maxFps: number;
+  onePercentLowFps: number;
+  zeroPointOnePercentLowFps: number;
+  fpsStabilityScore: number;
+  stabilityRating: "exceptional" | "smooth" | "unstable" | "unknown";
+  thermalHeadroomCpu: number;
+  thermalHeadroomGpu: number;
+}
+
+export function calculateTelemetryInsights(
+  metrics?: SessionMetrics | null,
+): TelemetryInsights | null {
+  if (!metrics || metrics.avgFps <= 0) return null;
+
+  const avg = metrics.avgFps;
+  const min = metrics.minFps > 0 ? metrics.minFps : Math.round(avg * 0.7);
+  const max = metrics.maxFps > 0 ? metrics.maxFps : Math.round(avg * 1.25);
+
+  let onePercentLow: number;
+  let zeroPointOnePercentLow: number;
+
+  if (metrics.samples && metrics.samples.length >= 5) {
+    const validFpsSamples = metrics.samples
+      .map((s) => s.fps)
+      .filter((v): v is number => v != null && v > 0)
+      .sort((a, b) => a - b);
+
+    if (validFpsSamples.length >= 5) {
+      const idx1Pct = Math.max(0, Math.floor(validFpsSamples.length * 0.01));
+      const idx01Pct = Math.max(0, Math.floor(validFpsSamples.length * 0.001));
+      onePercentLow = Math.round(validFpsSamples[idx1Pct]);
+      zeroPointOnePercentLow = Math.round(validFpsSamples[idx01Pct]);
+    } else {
+      onePercentLow = Math.round(min + (avg - min) * 0.25);
+      zeroPointOnePercentLow = Math.round(min);
+    }
+  } else {
+    onePercentLow = Math.round(min + (avg - min) * 0.3);
+    zeroPointOnePercentLow = Math.round(min);
+  }
+
+  const stabilityRatio = Math.min(100, Math.round((onePercentLow / avg) * 100));
+  const stabilityRating =
+    stabilityRatio >= 80 ? "exceptional" : stabilityRatio >= 60 ? "smooth" : "unstable";
+
+  const thermalHeadroomCpu = Math.max(0, 85 - (metrics.avgCpuTemp || 0));
+  const thermalHeadroomGpu = Math.max(0, 85 - (metrics.avgGpuTemp || 0));
+
+  return {
+    avgFps: avg,
+    minFps: min,
+    maxFps: max,
+    onePercentLowFps: onePercentLow,
+    zeroPointOnePercentLowFps: zeroPointOnePercentLow,
+    fpsStabilityScore: stabilityRatio,
+    stabilityRating,
+    thermalHeadroomCpu,
+    thermalHeadroomGpu,
+  };
+}
+
+// ─── Resolution Breakdown ────────────────────────────────────────────────────
+
+export interface ResolutionStat {
+  resolution: string;
+  minutes: number;
+  hours: number;
+  sessionsCount: number;
+  avgFps: number;
+  pct: number;
+}
+
+export function buildResolutionBreakdown(sessions: GameSession[]): ResolutionStat[] {
+  const map = new Map<string, { minutes: number; count: number; totalFps: number; fpsCount: number }>();
+  let totalMins = 0;
+
+  for (const s of sessions) {
+    const res = s.metrics?.resolution || "Unknown";
+    totalMins += s.durationMin;
+    const cur = map.get(res) || { minutes: 0, count: 0, totalFps: 0, fpsCount: 0 };
+    cur.minutes += s.durationMin;
+    cur.count += 1;
+    if (s.metrics?.avgFps && s.metrics.avgFps > 0) {
+      cur.totalFps += s.metrics.avgFps;
+      cur.fpsCount += 1;
+    }
+    map.set(res, cur);
+  }
+
+  return Array.from(map.entries())
+    .map(([resolution, data]) => ({
+      resolution,
+      minutes: data.minutes,
+      hours: Math.round((data.minutes / 60) * 10) / 10,
+      sessionsCount: data.count,
+      avgFps: data.fpsCount > 0 ? Math.round(data.totalFps / data.fpsCount) : 0,
+      pct: totalMins > 0 ? Math.round((data.minutes / totalMins) * 100) : 0,
+    }))
+    .sort((a, b) => b.minutes - a.minutes);
+}
+
+// ─── Session Comparison ──────────────────────────────────────────────────────
+
+export interface SessionComparisonResult {
+  sessionA: GameSession;
+  sessionB: GameSession;
+  durationDeltaMin: number;
+  avgFpsDelta: number | null;
+  avgCpuDelta: number | null;
+  avgGpuDelta: number | null;
+  avgRamDelta: number | null;
+  avgCpuTempDelta: number | null;
+  avgGpuTempDelta: number | null;
+  onePercentLowDelta: number | null;
+}
+
+export function compareSessions(
+  sessionA: GameSession,
+  sessionB: GameSession,
+): SessionComparisonResult {
+  const mA = sessionA.metrics;
+  const mB = sessionB.metrics;
+
+  const tA = calculateTelemetryInsights(mA);
+  const tB = calculateTelemetryInsights(mB);
+
+  return {
+    sessionA,
+    sessionB,
+    durationDeltaMin: sessionB.durationMin - sessionA.durationMin,
+    avgFpsDelta: mA?.avgFps != null && mB?.avgFps != null ? mB.avgFps - mA.avgFps : null,
+    avgCpuDelta: mA?.avgCpuUsage != null && mB?.avgCpuUsage != null ? mB.avgCpuUsage - mA.avgCpuUsage : null,
+    avgGpuDelta: mA?.avgGpuUsage != null && mB?.avgGpuUsage != null ? mB.avgGpuUsage - mA.avgGpuUsage : null,
+    avgRamDelta: mA?.avgRamUsage != null && mB?.avgRamUsage != null ? mB.avgRamUsage - mA.avgRamUsage : null,
+    avgCpuTempDelta: mA?.avgCpuTemp != null && mB?.avgCpuTemp != null ? mB.avgCpuTemp - mA.avgCpuTemp : null,
+    avgGpuTempDelta: mA?.avgGpuTemp != null && mB?.avgGpuTemp != null ? mB.avgGpuTemp - mA.avgGpuTemp : null,
+    onePercentLowDelta: tA && tB ? tB.onePercentLowFps - tA.onePercentLowFps : null,
+  };
 }
 

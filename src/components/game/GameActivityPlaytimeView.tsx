@@ -3,8 +3,6 @@ import { type GameSession, type Game, formatPlayTime, parsePlayTime } from "../.
 import BarChart from "../charts/BarChart";
 import LineChart from "../charts/LineChart";
 import { useLanguage } from "../../context/LanguageContext";
-import { useSessionNotes } from "../../context/SessionNotesContext";
-import type { TempUnit } from "../../context/SettingsContext";
 import {
   SectionPanel,
   Segmented,
@@ -13,19 +11,15 @@ import {
   RecordsStrip,
   Milestones,
   WeeklyHeatmap,
-  TimeOfDayDistribution,
-  SessionLengthDistribution,
   TimeToBeatProgress,
-  buildTimeOfDayDistribution,
-  buildSessionLengthDistribution,
   buildCumulativeSeries,
   buildGameCompletionProgress,
+  calculateCompletionForecast,
   type PeriodComparison,
   type RecordItem,
   type MilestoneLadder,
 } from "../activity";
 import type { Stats, Timeframe, PlaytimeAggregation, PlaytimeChartStyle } from "./GameActivityShared";
-import { GameSessionDetail } from "./GameSessionDetail";
 import * as Icons from "../activity/Icons";
 
 interface GameActivityPlaytimeViewProps {
@@ -34,18 +28,15 @@ interface GameActivityPlaytimeViewProps {
   allSessions?: GameSession[];
   playtimeChartData: { data: number[]; labels: string[] };
   filteredSessions: GameSession[];
-  sessionsWithHw: GameSession[];
   timeframe: Timeframe;
   playtimeAgg: PlaytimeAggregation;
   onAggChange: (agg: PlaytimeAggregation) => void;
   playtimeChartStyle: PlaytimeChartStyle;
   onStyleChange: (style: PlaytimeChartStyle) => void;
-  onRequestDelete: (sessionId: string) => void;
+  onNavigateToSessions?: () => void;
   comparison: PeriodComparison | null;
   records: RecordItem[];
   milestones: MilestoneLadder[];
-  hasTemps: boolean;
-  tempUnit: TempUnit;
 }
 
 export function GameActivityPlaytimeView({
@@ -54,39 +45,24 @@ export function GameActivityPlaytimeView({
   allSessions,
   playtimeChartData,
   filteredSessions,
-  sessionsWithHw,
   timeframe,
   playtimeAgg,
   onAggChange,
   playtimeChartStyle,
   onStyleChange,
-  onRequestDelete,
+  onNavigateToSessions,
   comparison,
   records,
   milestones,
-  hasTemps,
-  tempUnit,
 }: GameActivityPlaytimeViewProps) {
   const { t, language } = useLanguage();
-  const { getNote, setNote, setTags } = useSessionNotes();
-  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [chartMode, setChartMode] = useState<"periodic" | "cumulative">("periodic");
-
-  // Inline Note Editor State for a Session
-  const [editingSessionNoteId, setEditingSessionNoteId] = useState<string | null>(null);
-  const [noteInput, setNoteInput] = useState("");
-  const [tagInput, setTagInput] = useState("");
-  const [tagsList, setTagsList] = useState<string[]>([]);
 
   const timeframeDays = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365;
   const timeframeLabel =
     timeframe === "all"
       ? t("activity.allTime")
       : t("gameActivity.lastDays", { count: timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90 });
-  const sessionCountLabel = t("gameActivity.sessionCount", {
-    count: filteredSessions.length,
-    s: filteredSessions.length > 1 ? "s" : "",
-  });
 
   const totalAllTimeMinutes = useMemo(() => {
     const fromSessions = (allSessions ?? filteredSessions).reduce((acc, s) => acc + s.durationMin, 0);
@@ -98,13 +74,16 @@ export function GameActivityPlaytimeView({
     return buildGameCompletionProgress(totalAllTimeMinutes, game.timeToBeat);
   }, [totalAllTimeMinutes, game.timeToBeat]);
 
-  const timeOfDayDist = useMemo(() => {
-    return buildTimeOfDayDistribution(filteredSessions);
-  }, [filteredSessions]);
+  const twoWeeksAgoMs = Date.now() - 14 * 86_400_000;
+  const recentSessions = (allSessions ?? filteredSessions).filter(
+    (s) => new Date(s.date).getTime() >= twoWeeksAgoMs,
+  );
+  const recentMinutes = recentSessions.reduce((acc, s) => acc + s.durationMin, 0);
+  const recentWeeklyMinutes = Math.round(recentMinutes / 2);
 
-  const sessionLengthDist = useMemo(() => {
-    return buildSessionLengthDistribution(filteredSessions);
-  }, [filteredSessions]);
+  const forecast = useMemo(() => {
+    return calculateCompletionForecast(totalAllTimeMinutes, game.timeToBeat, recentWeeklyMinutes);
+  }, [totalAllTimeMinutes, game.timeToBeat, recentWeeklyMinutes]);
 
   const { startDate, endDate } = useMemo(() => {
     const today = new Date();
@@ -120,32 +99,9 @@ export function GameActivityPlaytimeView({
     return buildCumulativeSeries(filteredSessions, startDate, endDate, aggKey, language);
   }, [filteredSessions, startDate, endDate, aggKey, language]);
 
-  const openNoteEditor = (session: GameSession) => {
-    const current = getNote(session.id);
-    setNoteInput(current.note);
-    setTagsList(current.tags);
-    setEditingSessionNoteId(session.id);
-  };
-
-  const handleSaveNote = (sessionId: string) => {
-    setNote(sessionId, noteInput);
-    setTags(sessionId, tagsList);
-    setEditingSessionNoteId(null);
-  };
-
-  const handleAddTag = (e: React.KeyboardEvent | React.MouseEvent, sessionId: string) => {
-    if ("key" in e && e.key !== "Enter") return;
-    const clean = tagInput.trim();
-    if (clean && !tagsList.includes(clean)) {
-      const next = [...tagsList, clean];
-      setTagsList(next);
-      setTags(sessionId, next);
-      setTagInput("");
-    }
-  };
-
   return (
     <div id="game-activity-panel-playtime" role="tabpanel" className="act-stack">
+      {/* Hero Stat Band */}
       <StatBand>
         <StatCell
           hero
@@ -181,32 +137,43 @@ export function GameActivityPlaytimeView({
         />
       </StatBand>
 
+      {/* Completion & Pacing Forecast Section */}
       {completionProgress.hasTimeToBeat && (
         <SectionPanel
           icon={<Icons.Target size={14} />}
           title={t("gameActivity.ttb.title")}
           sub={t("gameActivity.ttb.subtitle")}
           tools={
-            <span
-              className={`act-ttb__status-badge act-ttb__status-badge--${completionProgress.status}`}
-            >
-              {completionProgress.status === "completionistComplete"
-                ? t("gameActivity.ttb.status100")
-                : completionProgress.status === "mainStoryComplete"
-                  ? t("gameActivity.ttb.statusMainDone")
-                  : completionProgress.status === "inProgress"
-                    ? t("gameActivity.ttb.statusInProgress")
-                    : t("gameActivity.ttb.statusNotStarted")}
-            </span>
+            <div className="act-ttb-forecast-badges">
+              {forecast.status === "completed" ? (
+                <span className="act-ttb__status-badge act-ttb__status-badge--completionistComplete">
+                  <Icons.Check size={11} /> {t("activityBacklog.storyCompleted")}
+                </span>
+              ) : forecast.estimatedDaysRemaining != null ? (
+                <span className="act-ttb__status-badge act-ttb__status-badge--inProgress">
+                  <Icons.Clock size={11} /> ~{forecast.estimatedDaysRemaining}d {t("activityBacklog.toFinish")} ({forecast.weeklyVelocityHours}h/{t("activity.1w")})
+                </span>
+              ) : (
+                <span className={`act-ttb__status-badge act-ttb__status-badge--${completionProgress.status}`}>
+                  {completionProgress.status === "mainStoryComplete"
+                    ? t("gameActivity.ttb.statusMainDone")
+                    : completionProgress.status === "inProgress"
+                      ? t("gameActivity.ttb.statusInProgress")
+                      : t("gameActivity.ttb.statusNotStarted")}
+                </span>
+              )}
+            </div>
           }
         >
           <TimeToBeatProgress progress={completionProgress} showHeader={false} />
         </SectionPanel>
       )}
 
+      {/* Records Strip & Milestones */}
       <RecordsStrip records={records} />
       <Milestones ladders={milestones} />
 
+      {/* Main Playtime Chart & Weekly Heatmap */}
       <div className="act-cols">
         <SectionPanel
           icon={<Icons.TrendingUp size={14} />}
@@ -316,216 +283,29 @@ export function GameActivityPlaytimeView({
         </SectionPanel>
       </div>
 
-      {/* Routine & Duration Breakdown for this game */}
-      <div className="act-cols">
-        <SectionPanel
-          icon={<Icons.Clock size={14} />}
-          title={t("activityInsights.timeOfDayTitle")}
-        >
-          <TimeOfDayDistribution distribution={timeOfDayDist} compact />
-        </SectionPanel>
-
-        <SectionPanel
-          icon={<Icons.Target size={14} />}
-          title={t("activityInsights.sessionLengthsTitle")}
-        >
-          <SessionLengthDistribution
-            buckets={sessionLengthDist.buckets}
-            averageMinutes={sessionLengthDist.averageMinutes}
-            longestMinutes={sessionLengthDist.longestMinutes}
-            totalSessions={sessionLengthDist.totalSessions}
-          />
-        </SectionPanel>
-      </div>
-
-      <SectionPanel
-        icon={<Icons.History size={14} />}
-        title={t("activity.recentSessions")}
-        sub={sessionsWithHw.length > 0 ? t("gameActivity.sessionsHint") : undefined}
-        tools={<span className="act-panel__sub">{sessionCountLabel}</span>}
-      >
-        <div className="act-session-list">
-          {filteredSessions.map((session) => {
-            const hasHw = sessionsWithHw.some((s) => s.id === session.id);
-            const isExpanded = expandedSessionId === session.id;
-            const noteData = getNote(session.id);
-            const hasNote = Boolean(noteData.note || noteData.tags.length > 0);
-
-            const formattedDate = new Date(session.date).toLocaleDateString(language, {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-            });
-            const startTimeStr = new Date(session.date).toLocaleTimeString(language, {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-            const endTimeStr = new Date(new Date(session.date).getTime() + session.durationMin * 60000).toLocaleTimeString(
-              language,
-              { hour: "2-digit", minute: "2-digit" },
-            );
-
-            return (
-              <div
-                key={session.id}
-                className={`act-session-wrap${isExpanded ? " act-session-wrap--expanded" : ""}`}
-              >
-                <div
-                  className={`act-session${isExpanded ? " act-session--active" : ""} act-session--selectable`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setExpandedSessionId(isExpanded ? null : session.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setExpandedSessionId(isExpanded ? null : session.id);
-                    }
-                  }}
-                >
-                  <div className="act-session__icon">
-                    <Icons.Clock size={14} />
-                  </div>
-                  <div className="act-session__date">
-                    <span className="act-session__day">{formattedDate}</span>
-                    <span className="act-session__range">
-                      {startTimeStr} – {endTimeStr}
-                    </span>
-                  </div>
-
-                  <div className="act-session__pills">
-                    {session.metrics?.avgFps && session.metrics.avgFps > 0 ? (
-                      <span className="act-session__pill act-session__pill--fps">
-                        {session.metrics.avgFps} FPS
-                      </span>
-                    ) : null}
-                    {hasNote && (
-                      <span className="act-session__pill act-session__pill--note" title={noteData.note}>
-                        <Icons.FileText size={10} /> {noteData.tags.length > 0 ? `${noteData.tags.length} tags` : "Note"}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="act-session__duration">
-                    <span>{formatPlayTime(session.durationMin)}</span>
-                    <span className="act-session__chevron" aria-hidden="true">
-                      {isExpanded ? <Icons.ChevronUp size={14} /> : <Icons.ChevronDown size={14} />}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="act-session__delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRequestDelete(session.id);
-                    }}
-                    title={t("activity.deleteSessionBtn")}
-                    aria-label={t("activity.deleteSessionAria", { name: game.name })}
-                  >
-                    <Icons.Trash2 size={13} />
-                  </button>
-                </div>
-
-                {isExpanded && (
-                  <div className="act-session-expanded-body">
-                    {hasHw ? (
-                      <GameSessionDetail
-                        session={session}
-                        tempUnit={tempUnit}
-                        hasTemps={hasTemps}
-                      />
-                    ) : (
-                      <div className="act-empty act-empty--compact">
-                        <div className="act-empty__title">{t("activity.noTelemetryCaptured")}</div>
-                      </div>
-                    )}
-
-                    {/* Inline Session Notes in Game Page Activity Tab */}
-                    <div className="act-session-item__notes-box">
-                      <div className="act-session-item__notes-head">
-                        <span className="act-session-item__notes-title">
-                          <Icons.FileText size={13} /> {t("sessionNotes.title")}
-                        </span>
-                        {editingSessionNoteId !== session.id && (
-                          <button
-                            type="button"
-                            className="act-inspector-btn act-inspector-btn--sm"
-                            onClick={() => openNoteEditor(session)}
-                          >
-                            <Icons.Edit3 size={11} /> {noteData.note ? t("common.edit") : t("sessionNotes.addNote")}
-                          </button>
-                        )}
-                      </div>
-
-                      {editingSessionNoteId === session.id ? (
-                        <div className="act-inspector-notes__editor">
-                          <textarea
-                            className="act-inspector-notes__textarea"
-                            rows={2}
-                            placeholder={t("sessionNotes.placeholder")}
-                            value={noteInput}
-                            onChange={(e) => setNoteInput(e.target.value)}
-                          />
-                          <div className="act-inspector-notes__tags-input-row">
-                            <input
-                              type="text"
-                              className="act-inspector-notes__tag-input"
-                              placeholder={t("sessionNotes.tagPlaceholder")}
-                              value={tagInput}
-                              onChange={(e) => setTagInput(e.target.value)}
-                              onKeyDown={(e) => handleAddTag(e, session.id)}
-                            />
-                            <button
-                              type="button"
-                              className="act-inspector-btn act-inspector-btn--sm"
-                              onClick={(e) => handleAddTag(e, session.id)}
-                            >
-                              <Icons.Tag size={11} /> {t("sessionNotes.addTag")}
-                            </button>
-                          </div>
-                          <div className="act-inspector-notes__editor-actions">
-                            <button
-                              type="button"
-                              className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
-                              onClick={() => handleSaveNote(session.id)}
-                            >
-                              <Icons.Check size={12} /> {t("common.save")}
-                            </button>
-                            <button
-                              type="button"
-                              className="act-inspector-btn act-inspector-btn--ghost act-inspector-btn--sm"
-                              onClick={() => setEditingSessionNoteId(null)}
-                            >
-                              {t("common.cancel")}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="activity-session-item__notes-content">
-                          {noteData.note ? (
-                            <p className="activity-session-item__notes-text">{noteData.note}</p>
-                          ) : (
-                            <p className="activity-session-item__notes-empty">{t("sessionNotes.noNotes")}</p>
-                          )}
-                          {noteData.tags.length > 0 && (
-                            <div className="act-inspector-notes__tags">
-                              {noteData.tags.map((tag) => (
-                                <span key={tag} className="act-inspector-tag">
-                                  <Icons.Tag size={10} /> {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {/* Jump to Full Session Log Banner */}
+      {filteredSessions.length > 0 && onNavigateToSessions && (
+        <div className="act-jump-banner">
+          <div className="act-jump-banner__info">
+            <Icons.History size={16} />
+            <div>
+              <span className="act-jump-banner__title">
+                {t("gameActivity.sessionLogBannerTitle", { count: filteredSessions.length })}
+              </span>
+              <span className="act-jump-banner__sub">
+                {t("gameActivity.sessionLogBannerSub")}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="act-inspector-btn act-inspector-btn--secondary"
+            onClick={onNavigateToSessions}
+          >
+            <Icons.Maximize2 size={12} /> {t("gameActivity.viewSessionLog")}
+          </button>
         </div>
-      </SectionPanel>
+      )}
     </div>
   );
 }

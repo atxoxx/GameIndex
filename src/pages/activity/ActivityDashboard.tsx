@@ -15,6 +15,8 @@ import {
   WeeklyHeatmap,
   TimeOfDayDistribution,
   SessionLengthDistribution,
+  DayOfWeekDistribution,
+  BacklogCompletionHub,
   GamerPersonaCard,
   TimeToBeatProgress,
   buildPeriodComparison,
@@ -22,6 +24,7 @@ import {
   buildMilestoneLadders,
   buildTimeOfDayDistribution,
   buildSessionLengthDistribution,
+  buildDayOfWeekDistribution,
   buildCumulativeSeries,
   buildGamerPersona,
   buildGameCompletionProgress,
@@ -208,6 +211,10 @@ export function ActivityDashboard({
 
   const sessionLengthDist = useMemo(() => {
     return buildSessionLengthDistribution(gameIsolatedSessions);
+  }, [gameIsolatedSessions]);
+
+  const dayOfWeekDist = useMemo(() => {
+    return buildDayOfWeekDistribution(gameIsolatedSessions);
   }, [gameIsolatedSessions]);
 
   const heatmapDays = useMemo(() => {
@@ -581,8 +588,20 @@ export function ActivityDashboard({
             </div>
           </div>
 
+          <div className="section-panel">
+            <h3 className="section-panel__title">
+              <Icons.Calendar size={14} /> {t("activityInsights.dayOfWeekTitle")}
+            </h3>
+            <DayOfWeekDistribution distribution={dayOfWeekDist} compact={Boolean(selectedGameId)} />
+          </div>
+
           {!selectedGameId && (
             <>
+              <BacklogCompletionHub
+                games={games}
+                sessions={sessions}
+                onLaunchGame={onLaunchGame}
+              />
               <div className="activity__two-column">
                 <div className="section-panel">
                   <h3 className="section-panel__title">{t("activityDash.platformBreakdown")}</h3>

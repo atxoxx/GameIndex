@@ -15,7 +15,7 @@ import { ActivitySessions } from "./activity/ActivitySessions";
 import { ActivityPerformance } from "./activity/ActivityPerformance";
 import * as Icons from "./activity/Icons";
 import { PageHeader } from "../components/ui";
-import { Segmented, RangePills } from "../components/activity";
+import { Segmented, RangePills, ManualSessionModal } from "../components/activity";
 import type { DateRangeKey } from "../components/activity";
 import { useLanguage } from "../context/LanguageContext";
 import "./activity/ActivityPage.css";
@@ -38,6 +38,7 @@ export default function ActivityPage() {
   const [aggregation, setAggregation] = useState<AggregationType>("day");
   const [chartType, setChartType] = useState<ChartType>("bar");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [manualSessionOpen, setManualSessionOpen] = useState(false);
 
   const effectiveTab: TabType = isSimpleUi && (activeTab === "timeline" || activeTab === "performance")
     ? "dashboard"
@@ -308,6 +309,14 @@ export default function ActivityPage() {
             <div className="activity__export-actions ui-complete-only">
               <button
                 type="button"
+                className="activity__icon-btn activity__icon-btn--primary"
+                onClick={() => setManualSessionOpen(true)}
+                title={t("activityManual.logSessionBtn")}
+              >
+                <Icons.Plus size={13} />
+              </button>
+              <button
+                type="button"
                 className="activity__icon-btn"
                 onClick={handleCaptureScreenshot}
                 title={t("activity.capture")}
@@ -435,6 +444,12 @@ export default function ActivityPage() {
           />
         )}
       </main>
+
+      <ManualSessionModal
+        isOpen={manualSessionOpen}
+        onClose={() => setManualSessionOpen(false)}
+        games={games}
+      />
     </div>
   );
 }

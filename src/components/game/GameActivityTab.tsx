@@ -12,10 +12,13 @@ import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
 import { GameActivityPlaytimeView } from "./GameActivityPlaytimeView";
 import { GameActivityPerformanceView } from "./GameActivityPerformanceView";
+import { GameActivitySessionsView } from "./GameActivitySessionsView";
+import { GameActivityHabitsView } from "./GameActivityHabitsView";
 import {
   Segmented,
   RangePills,
   EmptyState,
+  ManualSessionModal,
   buildPeriodComparison,
   buildRecords,
   buildMilestoneLadders,
@@ -42,6 +45,7 @@ export function GameActivityTab({ game }: { game: Game }) {
   const [playtimeAgg, setPlaytimeAgg] = useState<PlaytimeAggregation>("AGG_DAY");
   const [isolatedSessionIndex, setIsolatedSessionIndex] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [showManualModal, setShowManualModal] = useState(false);
 
   const handleCaptureScreenshot = async () => {
     try {
@@ -154,10 +158,10 @@ export function GameActivityTab({ game }: { game: Game }) {
     let currentStreak = 0;
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    let checkDate = sortedDays.includes(today) ? today : sortedDays.includes(yesterday) ? yesterday : null;
+    const checkDate = sortedDays.includes(today) ? today : sortedDays.includes(yesterday) ? yesterday : null;
 
     if (checkDate) {
-      let cursor = new Date(checkDate);
+      const cursor = new Date(checkDate);
       while (true) {
         const cursorStr = cursor.toISOString().slice(0, 10);
         if (sortedDays.includes(cursorStr)) {
@@ -426,11 +430,31 @@ export function GameActivityTab({ game }: { game: Game }) {
 
   if (sessions.length === 0) {
     return (
-      <EmptyState
-        icon={<Icons.History size={24} />}
-        title={t("gameActivity.noSessionsTitle")}
-        hint={t("activityInsights.gameEmptyHint")}
-      />
+      <div className="game-activity-tab act-stack">
+        <EmptyState
+          icon={<Icons.History size={24} />}
+          title={t("gameActivity.noSessionsTitle")}
+          hint={t("activityInsights.gameEmptyHint")}
+        />
+        <div className="act-empty-actions">
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Icons.Plus size={13} />}
+            onClick={() => setShowManualModal(true)}
+          >
+            {t("activityManual.logSessionBtn")}
+          </Button>
+        </div>
+        {showManualModal && (
+          <ManualSessionModal
+            isOpen={showManualModal}
+            onClose={() => setShowManualModal(false)}
+            preselectedGameId={game.id}
+            games={[game]}
+          />
+        )}
+      </div>
     );
   }
 
@@ -446,12 +470,22 @@ export function GameActivityTab({ game }: { game: Game }) {
               options={[
                 { value: "playtime", label: <><Icons.Clock size={13} /> {t("activity.playtime")}</> },
                 { value: "performance", label: <><Icons.BarChart3 size={13} /> {t("activity.performance")}</> },
+                { value: "sessions", label: <><Icons.History size={13} /> {t("activity.tab.sessions")}</> },
+                { value: "habits", label: <><Icons.Sparkles size={13} /> {t("activity.tab.habits")}</> },
               ]}
             />
             <RangePills value={timeframe} onChange={setTimeframe} />
           </div>
 
           <div className="act-toolbar__right">
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Icons.Plus size={13} />}
+              onClick={() => setShowManualModal(true)}
+            >
+              {t("activityManual.logSessionBtn")}
+            </Button>
             <button
               type="button"
               className="act-icon-btn"
@@ -470,27 +504,26 @@ export function GameActivityTab({ game }: { game: Game }) {
           </div>
         </div>
 
-        {viewMode === "playtime" ? (
+        {viewMode === "playtime" && (
           <GameActivityPlaytimeView
             game={game}
             stats={stats}
             allSessions={sessions}
             playtimeChartData={playtimeChartData}
             filteredSessions={filteredSessions}
-            sessionsWithHw={sessionsWithHw}
             timeframe={timeframe}
             playtimeAgg={playtimeAgg}
             onAggChange={setPlaytimeAgg}
             playtimeChartStyle={playtimeChartStyle}
             onStyleChange={setPlaytimeChartStyle}
-            onRequestDelete={setPendingDeleteId}
+            onNavigateToSessions={() => setViewMode("sessions")}
             comparison={comparison}
             records={records}
             milestones={milestones}
-            hasTemps={hasTemps}
-            tempUnit={tempUnit}
           />
-        ) : (
+        )}
+
+        {viewMode === "performance" && (
           <GameActivityPerformanceView
             filteredSessions={filteredSessions}
             sessionsWithHw={sessionsWithHw}
@@ -502,7 +535,29 @@ export function GameActivityTab({ game }: { game: Game }) {
             tempUnit={tempUnit}
           />
         )}
+
+        {viewMode === "sessions" && (
+          <GameActivitySessionsView
+            game={game}
+            sessions={sessions}
+            sessionsWithHw={sessionsWithHw}
+            hasTemps={hasTemps}
+            tempUnit={tempUnit}
+            onRequestDelete={setPendingDeleteId}
+          />
+        )}
+
+        {viewMode === "habits" && (
+          <GameActivityHabitsView
+            sessions={sessions}
+            filteredSessions={filteredSessions}
+            timeframe={timeframe}
+            records={records}
+            milestones={milestones}
+          />
+        )}
       </div>
+
       <ConfirmModal
         open={pendingDeleteId !== null}
         title={t("gameActivity.deleteTitle")}
@@ -517,6 +572,15 @@ export function GameActivityTab({ game }: { game: Game }) {
           setPendingDeleteId(null);
         }}
       />
+
+      {showManualModal && (
+        <ManualSessionModal
+          isOpen={showManualModal}
+          onClose={() => setShowManualModal(false)}
+          preselectedGameId={game.id}
+          games={[game]}
+        />
+      )}
     </>
   );
 }

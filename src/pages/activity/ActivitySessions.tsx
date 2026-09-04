@@ -20,9 +20,12 @@ import {
 } from "../../utils/temp";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime, type Game, type GameSession } from "../../types/game";
+import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
+import { useToast } from "../../context/ToastContext";
 import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import { generateEstimatedTimeline } from "./performance/perfData";
-import { EmptyState } from "../../components/activity";
+import { EmptyState, ManualSessionModal, SessionComparisonModal } from "../../components/activity";
 import * as Icons from "./Icons";
 
 export interface ActivitySessionsProps {
@@ -43,9 +46,12 @@ export function ActivitySessions({
 }: ActivitySessionsProps) {
   const { t, language } = useLanguage();
   const { getAllNotes } = useSessionNotes();
+  const { showToast } = useToast();
+  const { tempUnit } = useSettings();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "7d" | "30d" | "90d">("all");
   const [telemetryFilter, setTelemetryFilter] = useState<"all" | "telemetry" | "notes">("all");
   const [durationFilter, setDurationFilter] = useState<"all" | "quick" | "medium" | "long">("all");
   const [sortField, setSortField] = useState<SortField>("date");
@@ -54,6 +60,8 @@ export function ActivitySessions({
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [pendingDeleteSession, setPendingDeleteSession] = useState<GameSession | null>(null);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [manualSessionOpen, setManualSessionOpen] = useState(false);
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
 
   const gameById = useMemo(() => {
     const map = new Map<string, Game>();
@@ -90,6 +98,12 @@ export function ActivitySessions({
         if (!note || (!note.note && note.tags.length === 0)) return false;
       }
 
+      if (dateRangeFilter !== "all") {
+        const days = dateRangeFilter === "7d" ? 7 : dateRangeFilter === "30d" ? 30 : 90;
+        const cutoff = Date.now() - days * 86_400_000;
+        if (new Date(s.date).getTime() < cutoff) return false;
+      }
+
       if (durationFilter === "quick" && s.durationMin >= 30) return false;
       if (durationFilter === "medium" && (s.durationMin < 30 || s.durationMin > 120)) return false;
       if (durationFilter === "long" && s.durationMin <= 120) return false;
@@ -119,6 +133,7 @@ export function ActivitySessions({
     sessions,
     searchQuery,
     sourceFilter,
+    dateRangeFilter,
     telemetryFilter,
     durationFilter,
     sortField,
@@ -126,6 +141,102 @@ export function ActivitySessions({
     gameById,
     allNotes,
   ]);
+
+  const selectedPair = useMemo(() => {
+    if (selectedSessionIds.size !== 2) return null;
+    const arr = Array.from(selectedSessionIds);
+    return { a: arr[0], b: arr[1] };
+  }, [selectedSessionIds]);
+
+  const handleExportSelectedCSV = () => {
+    const list = sessions.filter((s) => selectedSessionIds.has(s.id));
+    if (list.length === 0) return;
+
+    const headers = [
+      t("activityCsv.sessionId"),
+      t("activityCsv.gameName"),
+      t("activityCsv.gameId"),
+      t("activityCsv.datePlayed"),
+      t("activityCsv.durationMinutes"),
+      t("activityCsv.platform"),
+      t("activityCsv.avgFps"),
+      t("activityCsv.minFps"),
+      t("activityCsv.maxFps"),
+      t("activityCsv.avgCpuUsage"),
+      t("activityCsv.avgGpuUsage"),
+      t("activityCsv.avgRamUsage"),
+      t("activityCsv.avgCpuTemp", { unit: tempUnitLabel(tempUnit) }),
+      t("activityCsv.avgGpuTemp", { unit: tempUnitLabel(tempUnit) }),
+      t("sessionNotes.title"),
+    ];
+
+    const rows = list.map((s) => {
+      const game = games.find((g) => g.id === s.gameId);
+      const note = allNotes[s.id]?.note || "";
+      return [
+        s.id,
+        s.gameName,
+        s.gameId,
+        s.date,
+        s.durationMin,
+        game?.platform || "Local",
+        s.metrics?.avgFps || "—",
+        s.metrics?.minFps || "—",
+        s.metrics?.maxFps || "—",
+        s.metrics?.avgCpuUsage || "—",
+        s.metrics?.avgGpuUsage || "—",
+        s.metrics?.avgRamUsage || "—",
+        s.metrics?.avgCpuTemp || "—",
+        s.metrics?.avgGpuTemp || "—",
+        note,
+      ];
+    });
+
+    const csvContent = [headers.join(","), ...rows.map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `gamelib_selected_sessions_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast(t("activity.exportedAs", { format: "CSV" }), "success");
+  };
+
+  const handleExportSelectedJSON = async () => {
+    const list = sessions.filter((s) => selectedSessionIds.has(s.id));
+    if (list.length === 0) return;
+
+    try {
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        totalSessions: list.length,
+        sessions: list.map((s) => ({
+          ...s,
+          platform: games.find((g) => g.id === s.gameId)?.platform || "Local",
+          notes: allNotes[s.id] || null,
+        })),
+      };
+
+      const suggestedName = `gamelib_selected_sessions_${new Date().toISOString().slice(0, 10)}.json`;
+      const filePath = await save({
+        defaultPath: suggestedName,
+        filters: [{ name: "JSON File", extensions: ["json"] }],
+      });
+
+      if (filePath) {
+        await invoke("save_text_file", {
+          filePath,
+          contents: JSON.stringify(exportData, null, 2),
+        });
+        showToast(t("activity.exportedAs", { format: "JSON" }), "success");
+      }
+    } catch (err) {
+      console.error("JSON export failed:", err);
+      showToast(t("activity.exportFailed", { error: String(err) }), "error");
+    }
+  };
 
   const toggleSelectAll = () => {
     if (selectedSessionIds.size === filteredAndSortedSessions.length) {
@@ -175,6 +286,18 @@ export function ActivitySessions({
         </div>
 
         <div className="activity-sessions-toolbar__filters">
+          <select
+            className="act-toolbar__select"
+            value={dateRangeFilter}
+            onChange={(e) => setDateRangeFilter(e.target.value as "all" | "7d" | "30d" | "90d")}
+            aria-label={t("activity.range")}
+          >
+            <option value="all">{t("activity.allTime")}</option>
+            <option value="7d">{t("activity.7d")}</option>
+            <option value="30d">{t("activity.30d")}</option>
+            <option value="90d">{t("activity.90d")}</option>
+          </select>
+
           <select
             className="act-toolbar__select"
             value={sourceFilter}
@@ -233,6 +356,15 @@ export function ActivitySessions({
               {sortOrder === "asc" ? <Icons.ChevronUp size={13} /> : <Icons.ChevronDown size={13} />}
             </button>
           </div>
+
+          <button
+            type="button"
+            className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+            onClick={() => setManualSessionOpen(true)}
+            title={t("activityManual.logSessionBtn")}
+          >
+            <Icons.Plus size={12} /> {t("activityManual.logSessionBtn")}
+          </button>
         </div>
       </div>
 
@@ -243,6 +375,31 @@ export function ActivitySessions({
             {t("activitySessions.selectedCount", { count: selectedSessionIds.size })}
           </span>
           <div className="activity-sessions-batch-bar__actions">
+            {selectedSessionIds.size === 2 && (
+              <button
+                type="button"
+                className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                onClick={() => setCompareModalOpen(true)}
+              >
+                <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+              onClick={handleExportSelectedCSV}
+              title={t("activity.exportCsv")}
+            >
+              <Icons.Download size={12} /> CSV
+            </button>
+            <button
+              type="button"
+              className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+              onClick={handleExportSelectedJSON}
+              title={t("activity.exportJson")}
+            >
+              <Icons.FileText size={12} /> JSON
+            </button>
             <button
               type="button"
               className="act-inspector-btn act-inspector-btn--danger act-inspector-btn--sm"
@@ -347,6 +504,20 @@ export function ActivitySessions({
           onCancel={() => setConfirmBatchDelete(false)}
         />
       )}
+
+      <ManualSessionModal
+        isOpen={manualSessionOpen}
+        onClose={() => setManualSessionOpen(false)}
+        games={games}
+      />
+
+      <SessionComparisonModal
+        isOpen={compareModalOpen}
+        onClose={() => setCompareModalOpen(false)}
+        sessions={sessions}
+        initialSessionAId={selectedPair?.a}
+        initialSessionBId={selectedPair?.b}
+      />
     </div>
   );
 }

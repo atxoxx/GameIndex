@@ -1,5 +1,5 @@
 export type Timeframe = "7d" | "30d" | "90d" | "all";
-export type ViewMode = "playtime" | "performance";
+export type ViewMode = "playtime" | "performance" | "sessions" | "habits";
 export type PlaytimeChartStyle = "bar" | "line";
 export type PlaytimeAggregation = "AGG_DAY" | "AGG_WEEK" | "AGG_MONTH";
 

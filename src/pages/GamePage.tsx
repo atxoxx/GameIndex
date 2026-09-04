@@ -4,6 +4,7 @@ import { useGames, useGameById, NO_IGDB_MATCH_SOURCE } from "../context/GameCont
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings, type DetailSectionKey } from "../context/SettingsContext";
+import { useActivity } from "../context/ActivityContext";
 import { EditGameModal } from "../components/game/EditGameModal";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
@@ -222,12 +223,21 @@ function GameDetail({ game }: { game: Game }) {
     navigate("/library");
   };
 
+  const { getGameSessions } = useActivity();
+  const gameSessions = useMemo(() => getGameSessions(game.id), [getGameSessions, game.id]);
+  const sessionCount = gameSessions.length;
+
   // Tab definitions with icons and live counts
   const tabs = useMemo(() => {
     const allTabs = [
       { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
       { id: "reviews" as const, label: t("game.tab.reviews"), icon: IconMessageSquare },
-      { id: "activity" as const, label: t("game.tab.activity"), icon: IconActivity },
+      {
+        id: "activity" as const,
+        label: t("game.tab.activity"),
+        icon: IconActivity,
+        count: sessionCount > 0 ? sessionCount : null,
+      },
       {
         id: "achievements" as const,
         label: t("game.tab.achievements"),
