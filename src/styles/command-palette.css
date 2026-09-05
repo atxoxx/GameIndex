@@ -32,7 +32,7 @@
   max-width: 640px;
   max-height: min(84vh, 660px);
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   background: color-mix(in srgb, var(--color-bg-secondary) 92%, transparent);
   backdrop-filter: blur(var(--blur-md));
   -webkit-backdrop-filter: blur(var(--blur-md));
@@ -83,14 +83,21 @@
   }
 }
 
+/* Split Body Row (search column + inspector) */
+.cmd-panel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+}
+
 /* Main Search & List Column */
 .cmd-main-column {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-height: inherit;
 }
 
 /* Header & Search Bar */
@@ -170,6 +177,27 @@
   color: var(--color-text-muted);
 }
 
+.cmd-header-search-icon-wrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cmd-header-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.cmd-header-spinner-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
 .cmd-inspector-toggle-btn,
 .cmd-cheatsheet-toggle-btn {
   display: inline-flex;
@@ -213,50 +241,134 @@
   flex-shrink: 0;
 }
 
-/* ── Scope Chips Bar ─────────────────────────────────────────────────── */
-.cmd-scope-bar {
+/* ── Scope Dropdown ──────────────────────────────────────────────────── */
+.cmd-scope-dropdown-bar {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px var(--space-md);
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
   background: color-mix(in srgb, var(--color-bg-tertiary) 25%, transparent);
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
-.cmd-scope-bar::-webkit-scrollbar {
-  display: none;
+.cmd-scope-dropdown {
+  position: relative;
 }
 
-.cmd-scope-chip {
+.cmd-scope-dropdown-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
   border-radius: var(--radius-full);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--color-text-muted);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary));
+  color: var(--color-accent);
   font-size: var(--font-size-xs);
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
   transition: all var(--duration-fast) var(--ease-standard);
 }
 
-.cmd-scope-chip:hover {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  border-color: var(--color-border);
+.cmd-scope-dropdown-trigger:hover {
+  background: color-mix(in srgb, var(--color-accent) 26%, var(--color-bg-tertiary));
+  box-shadow: 0 1px 6px var(--color-accent-glow);
 }
 
-.cmd-scope-chip.active {
-  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary));
+.cmd-scope-dropdown-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cmd-scope-dropdown-chevron {
+  flex-shrink: 0;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.cmd-scope-dropdown-trigger[aria-expanded="true"] .cmd-scope-dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.cmd-scope-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  max-width: 340px;
+  max-height: min(320px, 45vh);
+  overflow-y: auto;
+  z-index: 30;
+  padding: var(--space-2xs);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: color-mix(in srgb, var(--color-bg-secondary) 96%, transparent);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.55),
+    0 0 20px var(--color-accent-glow);
+  animation: cmdDrawerPanelIn var(--duration-fast) var(--ease-enter) both;
+  outline: none;
+}
+
+.cmd-scope-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  user-select: none;
+  transition: all var(--duration-instant) var(--ease-standard);
+}
+
+.cmd-scope-dropdown-item:hover,
+.cmd-scope-dropdown-item.is-highlighted {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+}
+
+.cmd-scope-dropdown-item.is-active {
   color: var(--color-accent);
-  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  box-shadow: 0 1px 6px var(--color-accent-glow);
+}
+
+.cmd-scope-dropdown-item-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.cmd-scope-dropdown-item.is-active .cmd-scope-dropdown-item-icon {
+  color: var(--color-accent);
+}
+
+.cmd-scope-dropdown-item-label {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmd-scope-dropdown-check {
+  flex-shrink: 0;
+  color: var(--color-accent);
 }
 
 .cmd-chip-prefix {
@@ -266,6 +378,7 @@
   background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent);
   padding: 0 4px;
   border-radius: 3px;
+  flex-shrink: 0;
 }
 
 /* ── Interactive Quick Prompt Chips Bar ───────────────────────────────── */
@@ -306,6 +419,65 @@
   border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
   color: var(--color-accent);
   transform: translateY(-1px);
+}
+
+.cmd-prompt-chip-icon {
+  flex-shrink: 0;
+  color: inherit;
+}
+
+/* ── Active Filter Toggle Pills (shown while typing) ────────────────── */
+.cmd-active-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--space-md);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 15%, transparent);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cmd-active-filters-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.cmd-filter-toggle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-secondary) 80%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.cmd-filter-toggle-pill:hover {
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  color: var(--color-accent);
+}
+
+.cmd-filter-toggle-pill.is-active {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary));
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.cmd-filter-remove-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.cmd-filter-toggle-pill:hover .cmd-filter-remove-icon {
+  opacity: 1;
 }
 
 /* ── List Results Container ─────────────────────────────────────────── */
@@ -421,6 +593,20 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.cmd-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cmd-item-visual-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .command-palette-item-subtitle {
@@ -584,6 +770,10 @@
   flex-shrink: 0;
 }
 
+.cmd-action-label {
+  white-space: nowrap;
+}
+
 .command-palette-item.is-selected .command-palette-item-action {
   color: var(--color-accent);
 }
@@ -671,6 +861,28 @@
   gap: 4px;
 }
 
+.cmd-footer-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.cmd-footer-counter {
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary));
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
 .cmd-footer-brand {
   font-weight: 600;
   font-size: 10px;
@@ -685,13 +897,13 @@
 
 .cmd-inspector-column {
   width: 340px;
+  flex-shrink: 0;
   border-left: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-bg-secondary) 95%, transparent);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  height: 100%;
 }
 
 .cmd-inspector {
@@ -886,6 +1098,13 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cmd-inspector-label-icon {
+  flex-shrink: 0;
 }
 
 .cmd-inspector-desc {

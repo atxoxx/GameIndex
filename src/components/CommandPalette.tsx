@@ -349,8 +349,9 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           }`}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Main List Column */}
-          <div className="cmd-main-column">
+          <div className="cmd-panel-body">
+            {/* Main List Column */}
+            <div className="cmd-main-column">
             {/* Header & Search Bar */}
             <CommandPaletteHeader
               inputId={inputId}
@@ -460,35 +461,37 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               )}
             </div>
 
-            {/* Footer Keyboard Hints */}
-            <CommandPaletteFooter
-              selectedItem={currentSelectedItem}
-              itemCount={items.length}
-              isSimpleMode={isSimpleMode}
-              t={t}
-            />
+            </div>
+
+            {/* Right Inspector Column */}
+            {effectiveShowInspector && (
+              <div className="cmd-inspector-column">
+                <CommandPaletteInspector
+                  item={currentSelectedItem}
+                  t={t}
+                  locale={language}
+                  onOpenActionDrawer={() => setActionDrawerOpen(true)}
+                  onOpenDownloadModal={(target) => setDownloadTarget(target)}
+                  isWishlisted={(slug) => wishlistCtx?.isWishlisted(slug) ?? false}
+                  toggleWishlist={(game) => wishlistCtx?.toggle(game)}
+                  onLaunchGame={(game) => {
+                    playLaunchSound();
+                    saveRecentItem(game.id, game.name, "games");
+                    onClose();
+                    launchGame(game);
+                  }}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Right Inspector Column */}
-          {effectiveShowInspector && (
-            <div className="cmd-inspector-column">
-              <CommandPaletteInspector
-                item={currentSelectedItem}
-                t={t}
-                locale={language}
-                onOpenActionDrawer={() => setActionDrawerOpen(true)}
-                onOpenDownloadModal={(target) => setDownloadTarget(target)}
-                isWishlisted={(slug) => wishlistCtx?.isWishlisted(slug) ?? false}
-                toggleWishlist={(game) => wishlistCtx?.toggle(game)}
-                onLaunchGame={(game) => {
-                  playLaunchSound();
-                  saveRecentItem(game.id, game.name, "games");
-                  onClose();
-                  launchGame(game);
-                }}
-              />
-            </div>
-          )}
+          {/* Footer Keyboard Hints — full panel width */}
+          <CommandPaletteFooter
+            selectedItem={currentSelectedItem}
+            itemCount={items.length}
+            isSimpleMode={isSimpleMode}
+            t={t}
+          />
         </div>
       </div>
 

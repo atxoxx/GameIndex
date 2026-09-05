@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Search,
   Gamepad2,
@@ -9,8 +9,8 @@ import {
   Download,
   Store,
   Calculator,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import type { PaletteCategory } from "./commandPaletteTypes";
 
@@ -44,93 +44,153 @@ export default function CommandPaletteScopeBar({
   scopeCounts,
   t,
 }: CommandPaletteScopeBarProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
 
-  const checkScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 4);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-  }, []);
+  const activeIndex = Math.max(
+    0,
+    SCOPE_DEFINITIONS.findIndex((def) => def.id === scope)
+  );
+  const activeDef = SCOPE_DEFINITIONS[activeIndex];
+  const ActiveIcon = activeDef.icon;
 
+  const selectScope = useCallback(
+    (id: PaletteCategory) => {
+      onSelectScope(id);
+      setOpen(false);
+    },
+    [onSelectScope]
+  );
+
+  // Focus the menu when it opens so arrow-key navigation works immediately
   useEffect(() => {
-    checkScroll();
-    window.addEventListener("resize", checkScroll);
-    return () => window.removeEventListener("resize", checkScroll);
-  }, [checkScroll, scopeCounts]);
+    if (open) {
+      setHighlighted(activeIndex);
+      menuRef.current?.focus();
+    }
+  }, [open, activeIndex]);
 
-  const handleWheel = (e: React.WheelEvent) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
-      el.scrollLeft += e.deltaY;
-      checkScroll();
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
+
+  const openMenu = () => {
+    setOpen(true);
+    setHighlighted(activeIndex);
+  };
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      e.stopPropagation();
+      openMenu();
     }
   };
 
-  const scrollByAmount = (amt: number) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: amt, behavior: "smooth" });
-    setTimeout(checkScroll, 200);
+  const handleMenuKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      e.stopPropagation();
+      setHighlighted((prev) => (prev + 1) % SCOPE_DEFINITIONS.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      setHighlighted(
+        (prev) => (prev - 1 + SCOPE_DEFINITIONS.length) % SCOPE_DEFINITIONS.length
+      );
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      e.stopPropagation();
+      setHighlighted(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      e.stopPropagation();
+      setHighlighted(SCOPE_DEFINITIONS.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      e.stopPropagation();
+      const def = SCOPE_DEFINITIONS[highlighted];
+      if (def) selectScope(def.id);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+    } else if (e.key === "Tab") {
+      // Hand the Tab back to the palette (scope cycling); close the menu
+      setOpen(false);
+    }
   };
 
   return (
-    <div className={`cmd-scope-container${canScrollLeft ? " can-scroll-left" : ""}${canScrollRight ? " can-scroll-right" : ""}`}>
-      {canScrollLeft && (
+    <div className="cmd-scope-dropdown-bar">
+      <div className="cmd-scope-dropdown" ref={wrapRef}>
         <button
+          ref={triggerRef}
           type="button"
-          className="cmd-scope-scroll-arrow cmd-scope-scroll-left"
-          onClick={() => scrollByAmount(-120)}
-          aria-label="Scroll left"
+          className="cmd-scope-dropdown-trigger"
+          onClick={() => (open ? setOpen(false) : openMenu())}
+          onKeyDown={handleTriggerKeyDown}
+          aria-haspopup="menu"
+          aria-expanded={open}
         >
-          <ChevronLeft size={13} />
+          <ActiveIcon size={13} className="cmd-scope-dropdown-icon" />
+          <span className="cmd-scope-dropdown-trigger-label">{t(activeDef.labelKey)}</span>
+          {(scopeCounts[scope] ?? 0) > 0 && (
+            <span className="cmd-scope-count">{scopeCounts[scope]}</span>
+          )}
+          {activeDef.prefix && <kbd className="cmd-chip-prefix">{activeDef.prefix}</kbd>}
+          <ChevronDown size={13} className="cmd-scope-dropdown-chevron" />
         </button>
-      )}
 
-      <div
-        ref={scrollRef}
-        className="cmd-scope-bar"
-        onScroll={checkScroll}
-        onWheel={handleWheel}
-        role="tablist"
-        aria-label="Filter Categories"
-      >
-        {SCOPE_DEFINITIONS.map((def) => {
-          const isActive = scope === def.id;
-          const Icon = def.icon;
-          const count = scopeCounts[def.id] || 0;
+        {open && (
+          <div
+            ref={menuRef}
+            className="cmd-scope-dropdown-menu"
+            role="menu"
+            tabIndex={-1}
+            onKeyDown={handleMenuKeyDown}
+          >
+            {SCOPE_DEFINITIONS.map((def, idx) => {
+              const Icon = def.icon;
+              const count = scopeCounts[def.id] || 0;
+              const isActive = def.id === scope;
+              const isHighlighted = idx === highlighted;
 
-          return (
-            <button
-              key={def.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`cmd-scope-chip${isActive ? " active" : ""}`}
-              onClick={() => onSelectScope(def.id)}
-            >
-              <Icon size={12} className="cmd-scope-chip-icon" />
-              <span>{t(def.labelKey)}</span>
-              {count > 0 && <span className="cmd-scope-count">{count}</span>}
-              {def.prefix && <kbd className="cmd-chip-prefix">{def.prefix}</kbd>}
-            </button>
-          );
-        })}
+              return (
+                <button
+                  key={def.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={isActive}
+                  className={`cmd-scope-dropdown-item${isActive ? " is-active" : ""}${
+                    isHighlighted ? " is-highlighted" : ""
+                  }`}
+                  onClick={() => selectScope(def.id)}
+                  onMouseEnter={() => setHighlighted(idx)}
+                >
+                  <Icon size={13} className="cmd-scope-dropdown-item-icon" />
+                  <span className="cmd-scope-dropdown-item-label">{t(def.labelKey)}</span>
+                  {count > 0 && <span className="cmd-scope-count">{count}</span>}
+                  {def.prefix && <kbd className="cmd-chip-prefix">{def.prefix}</kbd>}
+                  {isActive && <Check size={13} className="cmd-scope-dropdown-check" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
-
-      {canScrollRight && (
-        <button
-          type="button"
-          className="cmd-scope-scroll-arrow cmd-scope-scroll-right"
-          onClick={() => scrollByAmount(120)}
-          aria-label="Scroll right"
-        >
-          <ChevronRight size={13} />
-        </button>
-      )}
     </div>
   );
 }
