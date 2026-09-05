@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import StoreFilterSidebar from "./StoreFilterSidebar";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
 import { useLanguage } from "../../context/LanguageContext";
@@ -58,18 +59,22 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
       </div>
 
       {/* Left-side overlay for compact widths; toggled from the toolbar. */}
-      <div
-        className={`store-filter-overlay-scrim${c.filtersOpen ? " open" : ""}`}
-        onClick={() => c.setFiltersOpen(false)}
-        aria-hidden={!c.filtersOpen}
-      />
-      <aside
-        className={`store-filter-overlay${c.filtersOpen ? " open" : ""}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("store.filters")}
-        aria-hidden={!c.filtersOpen}
-      >
+      {createPortal(
+        <div
+          className={`store-filter-overlay-scrim${c.filtersOpen ? " open" : ""}`}
+          onClick={() => c.setFiltersOpen(false)}
+          aria-hidden={!c.filtersOpen}
+        />,
+        document.body
+      )}
+      {createPortal(
+        <aside
+          className={`store-filter-overlay${c.filtersOpen ? " open" : ""}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("store.filters")}
+          aria-hidden={!c.filtersOpen}
+        >
         <div className="store-filter-overlay-header">
           <h3>{t("store.filtersTitle")}</h3>
           <button
@@ -85,7 +90,9 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
           </button>
         </div>
         <div className="store-filter-overlay-body">{renderSidebar()}</div>
-      </aside>
+        </aside>,
+        document.body
+      )}
     </>
   );
 }

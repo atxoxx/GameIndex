@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
@@ -185,7 +186,7 @@ export default function EmulatorEditorModal({
 
   const argPresets = ['"%ROM%"', '-f "%ROM%"', '-g "%ROM%"', '--fullscreen "%ROM%"', '-L "%ROM%"'];
 
-  return (
+  return createPortal(
     <div className="modal-overlay emulators-modal-overlay" onMouseDown={onClose}>
       <div
         className="modal emulators-modal"
@@ -455,6 +456,7 @@ export default function EmulatorEditorModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

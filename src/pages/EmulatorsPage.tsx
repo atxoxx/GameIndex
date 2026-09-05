@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
@@ -841,8 +842,9 @@ export default function EmulatorsPage() {
       />
 
       {/* Rename ROM Modal */}
-      {renameGame && (
-        <div className="modal-overlay" onMouseDown={() => setRenameGame(null)}>
+      {renameGame &&
+        createPortal(
+          <div className="modal-overlay" onMouseDown={() => setRenameGame(null)}>
           <div
             className="modal emulators-modal"
             onMouseDown={(e) => e.stopPropagation()}
@@ -887,7 +889,8 @@ export default function EmulatorsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete Single ROM Confirmation */}
@@ -907,8 +910,9 @@ export default function EmulatorsPage() {
       />
 
       {/* Emulator Discovery Modal */}
-      {showDiscovery && (
-        <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setShowDiscovery(false)}>
+      {showDiscovery &&
+        createPortal(
+          <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setShowDiscovery(false)}>
           <div
             className="modal emulators-modal emu-discovery-modal"
             role="dialog"
@@ -965,12 +969,14 @@ export default function EmulatorsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* BIOS Check Modal */}
-      {biosResult && (
-        <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setBiosResult(null)}>
+      {biosResult &&
+        createPortal(
+          <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setBiosResult(null)}>
           <div
             className="modal emulators-modal emu-bios-modal"
             role="dialog"
@@ -1030,12 +1036,14 @@ export default function EmulatorsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Discovered ROM-folder candidates */}
-      {romFolderCandidates.length > 0 && selectedRow?.emulator && (
-        <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setRomFolderCandidates([])}>
+      {romFolderCandidates.length > 0 && selectedRow?.emulator &&
+        createPortal(
+          <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setRomFolderCandidates([])}>
           <div
             className="modal emulators-modal emu-folder-modal"
             role="dialog"
@@ -1075,7 +1083,8 @@ export default function EmulatorsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Bulk Delete ROMs Confirmation */}

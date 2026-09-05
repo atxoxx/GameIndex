@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { Game, GameSession } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
@@ -100,7 +101,7 @@ export function SessionInspectorModal({
   const m = session.metrics;
   const hasHw = m && (m.avgCpuUsage > 0 || (m.avgFps && m.avgFps > 0));
 
-  return (
+  return createPortal(
     <>
       <div className="act-modal-backdrop" onClick={onClose}>
         <div
@@ -337,6 +338,7 @@ export function SessionInspectorModal({
           onCancel={() => setConfirmDelete(false)}
         />
       )}
-    </>
+    </>,
+    document.body
   );
 }

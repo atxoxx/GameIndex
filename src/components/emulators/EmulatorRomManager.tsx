@@ -1,4 +1,5 @@
 import { useMemo, useState, memo } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -494,8 +495,9 @@ function EmulatorRomManagerBase({
       )}
 
       {/* Duplicate ROMs modal */}
-      {duplicates && (
-        <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setDuplicates(null)}>
+      {duplicates &&
+        createPortal(
+          <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setDuplicates(null)}>
           <div
             className="modal emulators-modal emu-dup-modal"
             role="dialog"
@@ -545,7 +547,8 @@ function EmulatorRomManagerBase({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

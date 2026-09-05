@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
@@ -359,7 +360,7 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
       .join(" · ");
   }
 
-  return (
+  return createPortal(
     <div
       className="modal-overlay emulators-modal-overlay"
       onMouseDown={lockClose ? undefined : onClose}
@@ -619,6 +620,7 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../context/LanguageContext";
@@ -586,7 +587,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="modal-backdrop dl-stats-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal dl-stats-modal" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
@@ -1207,6 +1208,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
           }
         }}
       />
-    </div>
+    </div>,
+    document.body
   );
 }

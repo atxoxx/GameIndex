@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
@@ -637,7 +638,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     },
   ];
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal edit-modal" onClick={(e) => e.stopPropagation()}>
         <div className="edit-modal-preview">
@@ -1586,7 +1587,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
           onClose={() => setMediaFetchSlot(null)}
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Button } from "../../ui";
 import type { CustomGameFeed } from "./gameNewsTypes";
@@ -103,7 +104,7 @@ export default function GameNewsCustomFeedsModal({
     onSaveFeeds(feeds.filter((f) => f.id !== id));
   };
 
-  return (
+  return createPortal(
     <div className="game-news-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="game-news-modal-container" onClick={(e) => e.stopPropagation()}>
         <div className="game-news-modal-header">
@@ -227,6 +228,7 @@ export default function GameNewsCustomFeedsModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

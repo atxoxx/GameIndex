@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Friend } from "./friendsTypes";
 import { PencilIcon, XIcon } from "./friendsUtils";
@@ -32,7 +33,7 @@ export default function EditNicknameModal({
     onClose();
   };
 
-  return (
+  return createPortal(
     <div className="friends-modal-backdrop" onClick={onClose}>
       <div className="friends-modal-box friends-modal-sm" onClick={(e) => e.stopPropagation()}>
         <div className="friends-modal-header">
@@ -76,6 +77,7 @@ export default function EditNicknameModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

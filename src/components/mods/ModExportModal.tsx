@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
@@ -56,7 +57,7 @@ export default function ModExportModal({
       .catch(() => showToast(t("mods.copyFailed"), "error"));
   };
 
-  return (
+  return createPortal(
     <div className="mods-modal-backdrop" onClick={onClose}>
       <div
         className="mods-modal-card mods-modal-card--lg"
@@ -125,6 +126,7 @@ export default function ModExportModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

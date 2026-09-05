@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import type { GameRecommendation, UserProfile, Friend, ReactionKind } from "./friendsTypes";
@@ -426,8 +427,9 @@ export default function FriendsRecsTab({
       )}
 
       {/* Recommend Game Modal */}
-      {showCreateModal && (
-        <div className="friends-modal-backdrop" onClick={() => setShowCreateModal(false)}>
+      {showCreateModal &&
+        createPortal(
+          <div className="friends-modal-backdrop" onClick={() => setShowCreateModal(false)}>
           <div className="friends-modal-box friends-modal-lg" onClick={(e) => e.stopPropagation()}>
             <div className="friends-modal-header">
               <h2 className="friends-modal-title">
@@ -519,8 +521,9 @@ export default function FriendsRecsTab({
               </div>
             </form>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

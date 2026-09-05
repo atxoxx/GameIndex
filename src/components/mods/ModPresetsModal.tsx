@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -157,7 +158,7 @@ export default function ModPresetsModal({
     }
   };
 
-  return (
+  return createPortal(
     <div className="mods-modal-backdrop" onClick={onClose}>
       <div
         className="mods-modal-card"
@@ -272,6 +273,7 @@ export default function ModPresetsModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

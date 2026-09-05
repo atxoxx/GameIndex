@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { StoreGameSummary } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -45,7 +46,7 @@ export default function StoreCompareModal({
     { label: t("store.compare.ratingsCount"), render: (g) => String(g.totalRatingCount ?? 0) },
   ];
 
-  return (
+  return createPortal(
     <div className="store-compare-modal-scrim" onClick={onClose}>
       <div
         className="store-compare-modal"
@@ -101,6 +102,7 @@ export default function StoreCompareModal({
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

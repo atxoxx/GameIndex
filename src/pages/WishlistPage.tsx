@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import StoreGameCard from "../components/store/StoreGameCard";
 import { useWishlistContext } from "../context/WishlistContext";
@@ -574,9 +575,10 @@ export default function WishlistPage() {
       )}
 
       {/* ── Clear confirmation dialog ──────────────────────────────── */}
-      {confirmClear && (
-        <div
-          className="wishlist-modal-overlay"
+      {confirmClear &&
+        createPortal(
+          <div
+            className="wishlist-modal-overlay"
           role="dialog"
           aria-modal="true"
           aria-label={t("wishlist.clearWishlistAria")}
@@ -607,8 +609,9 @@ export default function WishlistPage() {
             </button>
             </div>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

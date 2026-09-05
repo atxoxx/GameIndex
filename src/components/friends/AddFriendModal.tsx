@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import type { Friend } from "./friendsTypes";
@@ -46,7 +47,7 @@ export default function AddFriendModal({
     showToast(t("friendsPage.copiedToClipboard", { label }), "success");
   };
 
-  return (
+  return createPortal(
     <div className="friends-modal-backdrop" onClick={onClose}>
       <div className="friends-modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="friends-modal-header">
@@ -188,6 +189,7 @@ export default function AddFriendModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

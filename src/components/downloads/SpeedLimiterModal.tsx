@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -130,7 +131,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
     }
   };
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="dl-speed-modal-title">
       <div className="modal dl-speed-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -271,6 +272,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

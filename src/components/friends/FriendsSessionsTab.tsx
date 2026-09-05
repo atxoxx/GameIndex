@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type {
   GameSession,
@@ -549,8 +550,9 @@ export default function FriendsSessionsTab({
       )}
 
       {/* Create/Edit Session Modal */}
-      {showCreateModal && (
-        <div className="friends-modal-backdrop" onClick={() => setShowCreateModal(false)}>
+      {showCreateModal &&
+        createPortal(
+          <div className="friends-modal-backdrop" onClick={() => setShowCreateModal(false)}>
           <div className="friends-modal-box friends-modal-lg" onClick={(e) => e.stopPropagation()}>
             <div className="friends-modal-header">
               <h2 className="friends-modal-title">
@@ -756,8 +758,9 @@ export default function FriendsSessionsTab({
               </div>
             </form>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

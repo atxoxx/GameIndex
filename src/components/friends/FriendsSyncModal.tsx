@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import type { SyncLogEntry } from "./friendsTypes";
@@ -55,7 +56,7 @@ export default function FriendsSyncModal({
     showToast(t("friendsPage.copiedToClipboard", { label: t("friendsPage.syncFolder") }), "success");
   };
 
-  return (
+  return createPortal(
     <div className="friends-modal-backdrop" onClick={onClose}>
       <div className="friends-modal-box friends-sync-modal" onClick={(e) => e.stopPropagation()}>
         <div className="friends-modal-header">
@@ -172,6 +173,7 @@ export default function FriendsSyncModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

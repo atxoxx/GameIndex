@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Friend, FriendCircle } from "./friendsTypes";
 import { displayName, PlusIcon, TrashIcon, XIcon, PencilIcon } from "./friendsUtils";
@@ -63,7 +64,7 @@ export default function FriendsCirclesModal({
 
   const activeCircle = circles.find((c) => c.id === selectedCircleId) || circles[0];
 
-  return (
+  return createPortal(
     <div className="friends-modal-backdrop" onClick={onClose}>
       <div className="friends-modal-box friends-circles-modal" onClick={(e) => e.stopPropagation()}>
         <div className="friends-modal-header">
@@ -194,6 +195,7 @@ export default function FriendsCirclesModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

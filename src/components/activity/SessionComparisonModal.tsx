@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { GameSession } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
 import { formatTemp } from "../../utils/temp";
@@ -83,7 +84,7 @@ export function SessionComparisonModal({
     );
   };
 
-  return (
+  return createPortal(
     <div className="act-modal-backdrop" onClick={onClose}>
       <div
         className="act-modal act-modal--compare"
@@ -306,6 +307,7 @@ export function SessionComparisonModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

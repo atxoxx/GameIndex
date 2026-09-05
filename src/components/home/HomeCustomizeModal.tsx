@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 
 export interface HomeSectionsConfig {
@@ -91,7 +92,7 @@ export default function HomeCustomizeModal({
     { key: "news", label: t("home.customize.news") },
   ];
 
-  return (
+  return createPortal(
     <div className="home-customize-overlay" onClick={onClose} role="presentation">
       <div
         className="home-customize-modal"
@@ -158,6 +159,7 @@ export default function HomeCustomizeModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

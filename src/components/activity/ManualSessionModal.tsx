@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game, SessionMetrics } from "../../types/game";
 import { useActivity } from "../../context/ActivityContext";
@@ -145,7 +146,7 @@ export function ManualSessionModal({
     }
   };
 
-  return (
+  return createPortal(
     <div className="act-modal-backdrop" onClick={onClose}>
       <div
         className="act-modal act-modal--manual"
@@ -406,6 +407,7 @@ export function ManualSessionModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

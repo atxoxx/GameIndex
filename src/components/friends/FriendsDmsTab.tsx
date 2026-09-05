@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import type { DmThread, Friend, UserProfile, DmAttachment } from "./friendsTypes";
@@ -489,11 +490,13 @@ export default function FriendsDmsTab({
       </div>
 
       {/* Image Lightbox */}
-      {lightboxUrl && (
-        <div className="dm-lightbox" onClick={() => setLightboxUrl(null)}>
-          <img src={lightboxUrl} alt="" />
-        </div>
-      )}
+      {lightboxUrl &&
+        createPortal(
+          <div className="dm-lightbox" onClick={() => setLightboxUrl(null)}>
+            <img src={lightboxUrl} alt="" />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -8,6 +8,7 @@
 // are conditionally rendered, not idle-rendered with an `open` flag).
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -82,7 +83,7 @@ export default function ManualLinkModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={linking ? undefined : onClose}>
       <div
         className="modal ach-modal"
@@ -187,6 +188,7 @@ export default function ManualLinkModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

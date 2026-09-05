@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 import {
@@ -253,7 +254,7 @@ export default function DealDetailModal({
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop deals-modal-backdrop"
       onClick={(e) => {
@@ -480,6 +481,7 @@ export default function DealDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

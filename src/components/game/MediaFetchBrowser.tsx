@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
   extractSteamAppIdFromWebsites,
@@ -351,7 +352,7 @@ export function MediaFetchBrowser({
     );
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal lb-browser-modal media-fetch-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -461,6 +462,7 @@ export function MediaFetchBrowser({
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

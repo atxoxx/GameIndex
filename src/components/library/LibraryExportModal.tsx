@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../context/LanguageContext";
@@ -171,7 +172,7 @@ export default function LibraryExportModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay lib-export-overlay" onMouseDown={onClose}>
       <div
         className="modal lib-export-modal"
@@ -309,6 +310,7 @@ export default function LibraryExportModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

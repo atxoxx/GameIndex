@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { Game } from "../../types/game";
 import { formatSize } from "../../types/game";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
@@ -42,7 +43,7 @@ export function StorageBatchBar({
 
   const hasSelection = selectedGames.length > 0;
 
-  return (
+  return createPortal(
     <div className="storage-floating-batch-bar" role="toolbar" aria-label={t("storage.batchActions")}>
       <div className="storage-batch-summary">
         <span className="storage-batch-icon" aria-hidden="true">
@@ -131,6 +132,7 @@ export function StorageBatchBar({
           {t("common.close")}
         </Button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

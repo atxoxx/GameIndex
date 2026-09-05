@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGames } from "../context/GameContext";
 import { useDensityContext } from "../context/DensityContext";
@@ -438,18 +439,22 @@ export default function LibraryPage() {
           </LibraryFilterRail>
 
           {/* Left-side overlay for compact widths; toggled from the toolbar */}
-          <div
-            className={`lib-filter-overlay-scrim${filtersOpen ? " open" : ""}`}
-            onClick={() => setFiltersOpen(false)}
-            aria-hidden={!filtersOpen}
-          />
-          <aside
-            className={`lib-filter-overlay${filtersOpen ? " open" : ""}`}
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("store.filters")}
-            aria-hidden={!filtersOpen}
-          >
+          {createPortal(
+            <div
+              className={`lib-filter-overlay-scrim${filtersOpen ? " open" : ""}`}
+              onClick={() => setFiltersOpen(false)}
+              aria-hidden={!filtersOpen}
+            />,
+            document.body
+          )}
+          {createPortal(
+            <aside
+              className={`lib-filter-overlay${filtersOpen ? " open" : ""}`}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("store.filters")}
+              aria-hidden={!filtersOpen}
+            >
             <div className="lib-filter-overlay-header">
               <h3>{t("store.filtersTitle")}</h3>
               <button
@@ -467,7 +472,9 @@ export default function LibraryPage() {
             <div className="lib-filter-overlay-body">
               <LibraryFilterSidebar {...sidebarProps} />
             </div>
-          </aside>
+            </aside>,
+            document.body
+          )}
 
           <div className="lib-main">
             {filteredGames.length === 0 ? (

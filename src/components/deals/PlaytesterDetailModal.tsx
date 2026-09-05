@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { PlaytesterGame, PlaytesterGameDetail } from "../../types/deals";
@@ -145,7 +146,7 @@ export default function PlaytesterDetailModal({
   const primaryUrl = detail?.demoUrl ?? game.url;
   const thumbnail = detail?.thumbnail ?? game.thumbnail ?? null;
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop deals-modal-backdrop"
       onClick={(e) => {
@@ -513,6 +514,7 @@ export default function PlaytesterDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../context/LanguageContext";
@@ -88,7 +89,7 @@ export default function ModInstallModal({
     }
   };
 
-  return (
+  return createPortal(
     <div className="mods-modal-backdrop" onClick={onClose}>
       <div
         className="mods-modal-card"
@@ -162,6 +163,7 @@ export default function ModInstallModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

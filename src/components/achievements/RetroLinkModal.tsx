@@ -7,6 +7,7 @@
 // hammering the RA API on every keystroke.
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -119,7 +120,7 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={busy ? undefined : onClose}>
       <div
         className="modal ach-modal"
@@ -267,6 +268,7 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

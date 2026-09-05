@@ -4,6 +4,7 @@
 // payload, and persists via saveManualUnlocks.
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -125,7 +126,7 @@ export default function ManualUnlockEditorModal({
 
   const linkedName = link.displayName ?? link.providerId ?? "";
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={saving ? undefined : onClose}>
       <div
         className="modal ach-modal ach-modal--editor"
@@ -246,6 +247,7 @@ export default function ManualUnlockEditorModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

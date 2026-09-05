@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { PlayStatus } from "../../types/game";
 
@@ -23,7 +24,7 @@ export default function LibraryBulkBar({
   const { t } = useLanguage();
   const allSelected = selectedCount > 0 && selectedCount === totalCount;
 
-  return (
+  return createPortal(
     <div className="lib-bulk-bar" role="toolbar" aria-label="Library bulk actions">
       <div className="lib-bulk-bar-left">
         <span className="lib-bulk-badge">
@@ -114,6 +115,7 @@ export default function LibraryBulkBar({
           </svg>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSearchSuggestions } from "../../hooks/useSearchSuggestions";
 import StoreHighlightText from "./StoreHighlightText";
@@ -149,7 +150,7 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="store-search-palette-scrim"
       role="dialog"
@@ -401,6 +402,7 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
           <span style={{ marginLeft: "auto", opacity: 0.7 }}>Ctrl+K</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
