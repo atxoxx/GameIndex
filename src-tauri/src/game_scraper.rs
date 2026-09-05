@@ -3249,39 +3249,36 @@ pub async fn search_igdb(game_name: &str) -> Vec<GameMetadataResult> {
 // that way a typo'd facet on the frontend doesn't crash the catalog browse.
 
 /// IGDB genre IDs (https://api.igdb.com/v4/genres). Names match
-/// the frontend filter sidebar verbatim.
+/// the frontend filter sidebar verbatim. Ids are the live `/genres`
+/// endpoint values — the sequence is NOT contiguous (e.g. Fighting is 4,
+/// Tactical is 24, and ids 1/3/6/17–23/27–29 don't exist), so entries
+/// must mirror what the endpoint actually returns or the IGDB `where`
+/// clause matches zero games.
 fn genre_name_to_id(name: &str) -> Option<u32> {
     Some(match name {
-        "Action" => 4,
-        "Adventure" => 30,
-        "Arcade" => 32,
-        "Audio" => 38,
-        "Card & Board Game" => 33,
-        "Education" => 36,
-        "Fighting" => 6,
-        "Hobby" => 18,
-        "Horror" => 19,
-        "Indie" => 31,
-        "Metroidvania" => 39,
-        "MOBA" => 34,
+        "Point-and-click" => 2,
+        "Fighting" => 4,
+        "Shooter" => 5,
         "Music" => 7,
-        "Music-based" => 40,
-        "Pinball" => 26,
-        "Platform" => 8, // IGDB's "Platformer" genre
-        "Point-and-click" => 35,
+        "Platform" => 8,
         "Puzzle" => 9,
-        "Quiz/Trivia" => 20,
         "Racing" => 10,
         "Real Time Strategy (RTS)" => 11,
-        "Real Time Tactics (RTT)" => 37,
         "Role-playing (RPG)" => 12,
-        "Shooter" => 5,
         "Simulator" => 13,
         "Sport" => 14,
         "Strategy" => 15,
-        "Tactical" => 17,
         "Turn-based strategy (TBS)" => 16,
-        "Visual Novel" => 21,
+        "Tactical" => 24,
+        "Hack and slash/Beat 'em up" => 25,
+        "Quiz/Trivia" => 26,
+        "Pinball" => 30,
+        "Adventure" => 31,
+        "Indie" => 32,
+        "Arcade" => 33,
+        "Visual Novel" => 34,
+        "Card & Board Game" => 35,
+        "MOBA" => 36,
         _ => return None,
     })
 }

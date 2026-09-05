@@ -3,40 +3,38 @@ import { useLanguage } from "../../context/LanguageContext";
 import type { StoreGameSummary } from "../../types/game";
 import MultiSelectDropdown from "../ui/MultiSelectDropdown";
 
-// Complete IGDB genre list (https://api.igdb.com/v4/genres), using IGDB's
-// canonical names so the labels match the `genres.name` values the scraper
-// returns — that's what the per-genre match counts compare against.
+// The canonical genre set of the IGDB `/genres` endpoint, listed in the
+// endpoint's id order. Names must match the `genres.name` values the scraper
+// returns — that's what the per-genre match counts compare against — and
+// mirror the `genre_name_to_id` table on the Rust side. Entries IGDB does
+// not classify as genres (Action / Horror / Education are themes, and
+// Audio / Hobby / Metroidvania / Music-based / Real Time Tactics don't
+// exist in the endpoint) are deliberately absent: filtering on them can
+// never match a game.
 export const GENRES = [
-  "Action",
-  "Adventure",
-  "Arcade",
-  "Audio",
-  "Card & Board Game",
-  "Education",
-  "Fighting",
-  "Hobby",
-  "Horror",
-  "Indie",
-  "Metroidvania",
-  "MOBA",
-  "Music",
-  "Music-based",
-  "Pinball",
-  "Platform",
   "Point-and-click",
+  "Fighting",
+  "Shooter",
+  "Music",
+  "Platform",
   "Puzzle",
-  "Quiz/Trivia",
   "Racing",
   "Real Time Strategy (RTS)",
-  "Real Time Tactics (RTT)",
   "Role-playing (RPG)",
-  "Shooter",
   "Simulator",
   "Sport",
   "Strategy",
-  "Tactical",
   "Turn-based strategy (TBS)",
+  "Tactical",
+  "Hack and slash/Beat 'em up",
+  "Quiz/Trivia",
+  "Pinball",
+  "Adventure",
+  "Indie",
+  "Arcade",
   "Visual Novel",
+  "Card & Board Game",
+  "MOBA",
 ];
 
 const YEAR_PRESETS = [
