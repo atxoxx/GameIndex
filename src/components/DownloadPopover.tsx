@@ -330,6 +330,7 @@ export default function DownloadPopover({
   } = useDownloads();
   const { showToast } = useToast();
   const { unit } = useSizeUnit();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>("active");
   const [clearing, setClearing] = useState(false);
@@ -481,8 +482,6 @@ export default function DownloadPopover({
   const historyCount = completedDownloads.length;
   const list = tab === "active" ? activeDownloads : completedDownloads;
   const totalCount = activeCount + historyCount;
-
-  const { t } = useLanguage();
 
   return (
     <div
