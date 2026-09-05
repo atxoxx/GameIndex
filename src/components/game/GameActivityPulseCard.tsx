@@ -78,7 +78,7 @@ export default function GameActivityPulseCard({
               {formatSessionDuration(latestSession.durationMin * 60)}
             </div>
             <div className="activity-pulse__stat-sub">
-              {sessionCount} {t("gameActivity.sessionCount", { s: sessionCount > 1 ? "s" : "" })}
+              {t("gameActivity.sessionCount", { count: sessionCount, s: sessionCount > 1 ? "s" : "" })}
             </div>
           </div>
         ) : (
