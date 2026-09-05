@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState, useEffect, useMemo } from "react";
+import { useCallback, useId, useRef, useState, useEffect, useMemo, lazy, Suspense } from "react";
 import type { MouseEvent, WheelEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -33,9 +33,16 @@ import {
   clearUnseenCommunityItems,
   subscribeUnseenCommunity,
 } from "../pages/unseenCommunity";
-import DownloadPopover from "./DownloadPopover";
 import WindowControls from "./WindowControls";
-import CommandPalette from "./CommandPalette";
+// The command palette (~1.6k lines + the DownloadModal it can open) and the
+// downloads popover only ever render a portal/overlay while open. They are
+// lazy-loaded so their module graphs stay out of the entry chunk: the
+// Suspense boundary commits nothing for them (both render null when closed),
+// so first paint no longer waits for their parse. Behavior is unchanged —
+// they stay mounted once loaded, so internal state and effects keep
+// working exactly as before.
+const CommandPalette = lazy(() => import("./CommandPalette"));
+const DownloadPopover = lazy(() => import("./DownloadPopover"));
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { playTabSound } from "../utils/soundEffects";
@@ -411,15 +418,17 @@ export default function TopNav() {
                 </span>
               )}
             </button>
-            <DownloadPopover
-              open={downloadsOpen}
-              onClose={() => {
-                setDownloadsOpen(false);
-                downloadBtnRef.current?.focus();
-              }}
-              anchorRef={downloadBtnRef}
-              id={popoverId}
-            />
+            <Suspense fallback={null}>
+              <DownloadPopover
+                open={downloadsOpen}
+                onClose={() => {
+                  setDownloadsOpen(false);
+                  downloadBtnRef.current?.focus();
+                }}
+                anchorRef={downloadBtnRef}
+                id={popoverId}
+              />
+            </Suspense>
             <NavLink
               to="/settings"
               className={({ isActive }) =>
@@ -457,7 +466,9 @@ export default function TopNav() {
           <WindowControls />
         </div>
       </header>
-      <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <Suspense fallback={null}>
+        <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      </Suspense>
     </>
   );
 }
