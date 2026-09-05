@@ -3,6 +3,7 @@ import { SORT_LABELS, SORT_OPTIONS } from "../../hooks/useLibraryFilters";
 import type { LibrarySource, PlayStatus } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import FilterSection from "../filters/FilterSection";
+import MultiSelectDropdown from "../ui/MultiSelectDropdown";
 
 const STATUS_OPTIONS: readonly { value: LibraryStatus; labelKey: string }[] = [
   { value: "all", labelKey: "common.all" },
@@ -58,8 +59,9 @@ interface LibraryFilterSidebarProps {
 
 /**
  * LibraryFilterSidebar: the left-rail filter panel. Status / Play Status /
- * Source are compact segmented controls; Genres / Platforms are pill
- * toggles. Every change applies live (library filtering is local + instant).
+ * Source are compact segmented controls or selects; Genres / Platforms are
+ * multi-select dropdowns. Every change applies live (library filtering is
+ * local + instant).
  */
 export default function LibraryFilterSidebar({
   search,
@@ -86,19 +88,6 @@ export default function LibraryFilterSidebar({
   onReset,
 }: LibraryFilterSidebarProps) {
   const { t } = useLanguage();
-  const toggleGenre = (genre: string) =>
-    onGenresChange(
-      selectedGenres.includes(genre)
-        ? selectedGenres.filter((g) => g !== genre)
-        : [...selectedGenres, genre]
-    );
-
-  const togglePlatform = (platform: string) =>
-    onPlatformsChange(
-      selectedPlatforms.includes(platform)
-        ? selectedPlatforms.filter((p) => p !== platform)
-        : [...selectedPlatforms, platform]
-    );
 
   return (
     <aside className="lib-filter" aria-label={t("library.filtersAria")}>
@@ -225,23 +214,16 @@ export default function LibraryFilterSidebar({
           title={t("edit.label.genres")}
           count={selectedGenres.length}
         >
-          <div className="lib-pills">
-            {availableGenres.map((genre) => (
-              <button
-                key={genre}
-                type="button"
-                className={`lib-pill${selectedGenres.includes(genre) ? " active" : ""}`}
-                onClick={() => toggleGenre(genre)}
-              >
-                {selectedGenres.includes(genre) && (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-                {genre}
-              </button>
-            ))}
-          </div>
+          <MultiSelectDropdown
+            label={t("edit.label.genres")}
+            placeholder={t("common.all")}
+            options={availableGenres}
+            selected={selectedGenres}
+            onChange={onGenresChange}
+            clearLabel={t("common.clear")}
+            searchPlaceholder={t("store.filters.searchGenres")}
+            noResultsLabel={t("common.noResults")}
+          />
         </FilterSection>
       )}
 
@@ -256,23 +238,16 @@ export default function LibraryFilterSidebar({
           title={t("store.compare.platforms")}
           count={selectedPlatforms.length}
         >
-          <div className="lib-pills">
-            {availablePlatforms.map((platform) => (
-              <button
-                key={platform}
-                type="button"
-                className={`lib-pill${selectedPlatforms.includes(platform) ? " active" : ""}`}
-                onClick={() => togglePlatform(platform)}
-              >
-                {selectedPlatforms.includes(platform) && (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-                {platform}
-              </button>
-            ))}
-          </div>
+          <MultiSelectDropdown
+            label={t("store.compare.platforms")}
+            placeholder={t("common.all")}
+            options={availablePlatforms}
+            selected={selectedPlatforms}
+            onChange={onPlatformsChange}
+            clearLabel={t("common.clear")}
+            searchPlaceholder={t("store.filters.searchPlatforms")}
+            noResultsLabel={t("common.noResults")}
+          />
         </FilterSection>
       )}
 

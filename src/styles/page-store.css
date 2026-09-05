@@ -2047,64 +2047,8 @@
 }
 
 /* ============================================================================
-   Sidebar Filter Additions (Inline search & Year presets)
+   Sidebar Filter Additions (Year presets)
    ============================================================================ */
-.store-filter-inline-search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
-  margin-bottom: var(--space-xs);
-}
-
-.store-filter-inline-search svg {
-  width: 13px;
-  height: 13px;
-  color: var(--color-text-tertiary);
-  flex-shrink: 0;
-}
-
-.store-filter-inline-search input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
-  outline: none;
-}
-
-/* Clear (X) button inside the inline genre/platform search fields. */
-.store-filter-inline-search button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.store-filter-inline-search button:hover {
-  color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-}
-
-.store-filter-inline-search button svg {
-  width: 12px;
-  height: 12px;
-}
-
 .store-filter-presets {
   display: flex;
   flex-direction: column;

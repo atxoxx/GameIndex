@@ -1365,60 +1365,6 @@
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
-/* Pill checkboxes for genres / platforms */
-.lib-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 1px;
-}
-
-.lib-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: color var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-  font-family: inherit;
-  white-space: nowrap;
-  line-height: 1.2;
-}
-
-.lib-pill svg {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
-}
-
-.lib-pill:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-  background: var(--color-bg-hover);
-}
-
-.lib-pill:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-.lib-pill.active {
-  color: var(--color-accent-contrast);
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
-}
-
 /* Year range */
 .lib-year-row {
   display: flex;

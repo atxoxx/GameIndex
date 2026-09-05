@@ -720,10 +720,8 @@
 
 /* ── Filter Primitives (P1-6) ─────────────────────────────────────
    Shared .filter-pill / .filter-segment / .filter-slider primitives.
-   .lib-pill, .store-filter-pill, .sidebar-active-filter are layout wrappers only. */
+   .sidebar-active-filter is a layout wrapper only. */
 .filter-pill,
-.lib-pill,
-.store-filter-pill,
 .sidebar-active-filter {
   display: inline-flex;
   align-items: center;
@@ -745,16 +743,10 @@
   line-height: 1.2;
 }
 .filter-pill:hover,
-.lib-pill:hover,
-.store-filter-pill:hover,
 .sidebar-active-filter:hover { color: var(--color-text-primary); border-color: var(--color-accent); background: var(--color-bg-hover); }
 .filter-pill:focus-visible,
-.lib-pill:focus-visible,
-.store-filter-pill:focus-visible,
 .sidebar-active-filter:focus-visible { outline: none; box-shadow: var(--ring-accent); }
 .filter-pill.active,
-.lib-pill.active,
-.store-filter-pill.active,
 .sidebar-active-filter.active { color: var(--color-accent-contrast); background: var(--color-accent); border-color: var(--color-accent); box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent); }
 
 .filter-segment,
@@ -919,4 +911,292 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm, 8px);
+}
+
+/* ── MultiSelectDropdown (filter sidebars) ────────────────────────────
+   Multi-select facet control used in the Library / Store filter panels to
+   replace pill grids for Genres / Platforms. The menu is portaled to
+   <body> and positioned with inline `position: fixed`, so these rules
+   only style its visual layer. */
+.msd {
+  position: relative;
+}
+
+.msd__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.msd__trigger:hover,
+.msd__trigger.open {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.msd__trigger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.msd__summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.msd__trigger.has-value .msd__summary {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.msd__chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.msd__trigger.open .msd__chevron {
+  transform: rotate(180deg);
+}
+
+/* Portaled menu */
+.msd__menu {
+  display: flex;
+  flex-direction: column;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 94%, transparent);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), var(--elevation-3);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  overflow: hidden;
+  animation: msd-menu-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes msd-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.msd__menu.open-up {
+  animation-name: msd-menu-in-up;
+}
+
+@keyframes msd-menu-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.msd__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.msd__search > svg {
+  width: 13px;
+  height: 13px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.msd__search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  outline: none;
+  padding: 0;
+}
+
+.msd__search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.msd__search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.msd__search-clear:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.msd__search-clear svg {
+  width: 10px;
+  height: 10px;
+}
+
+.msd__list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2xs);
+}
+
+.msd__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 6px var(--space-sm);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.msd__option:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.msd__option:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
+
+.msd__option.active {
+  color: var(--color-text-primary);
+}
+
+.msd__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-border-light);
+  border-radius: 3px;
+  color: transparent;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.msd__check.checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.msd__check svg {
+  width: 9px;
+  height: 9px;
+}
+
+.msd__option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Live per-option match-count badge — mirrors .store-filter-match-count. */
+.msd__option-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 4px;
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-full);
+}
+
+.msd__option.active .msd__option-count {
+  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-text-inverse) 22%, transparent);
+}
+
+.msd__empty {
+  padding: var(--space-lg) var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+.msd__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-2xs) var(--space-sm);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.msd__clear {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text-tertiary);
+  font-family: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.msd__clear:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
 }

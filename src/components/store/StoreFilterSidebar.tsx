@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { StoreGameSummary } from "../../types/game";
+import MultiSelectDropdown from "../ui/MultiSelectDropdown";
 
 // Complete IGDB genre list (https://api.igdb.com/v4/genres), using IGDB's
 // canonical names so the labels match the `genres.name` values the scraper
@@ -135,9 +136,6 @@ export default function StoreFilterSidebar({
 }: StoreFilterSidebarProps) {
   const { t } = useLanguage();
 
-  const [genreSearch, setGenreSearch] = useState("");
-  const [platformSearch, setPlatformSearch] = useState("");
-
   // Live per-option match counts over `countSource`. Each facet's numbers
   // are computed against all OTHER active filters, so a pill's badge shows
   // how many games would remain if that option were toggled on.
@@ -229,30 +227,6 @@ export default function StoreFilterSidebar({
     ratingMin,
   ]);
 
-  const handleGenreToggle = (genre: string) => {
-    if (selectedGenres.includes(genre)) {
-      onGenresChange(selectedGenres.filter((g) => g !== genre));
-    } else {
-      onGenresChange([...selectedGenres, genre]);
-    }
-  };
-
-  const handlePlatformToggle = (platform: string) => {
-    if (selectedPlatforms.includes(platform)) {
-      onPlatformsChange(selectedPlatforms.filter((p) => p !== platform));
-    } else {
-      onPlatformsChange([...selectedPlatforms, platform]);
-    }
-  };
-
-  const filteredGenres = GENRES.filter((g) =>
-    g.toLowerCase().includes(genreSearch.toLowerCase())
-  );
-
-  const filteredPlatforms = platformNames.filter((p) =>
-    p.toLowerCase().includes(platformSearch.toLowerCase())
-  );
-
   return (
     <aside className="store-filter-sidebar" aria-label={t("store.filters")}>
       {/* Quick Presets Section */}
@@ -293,7 +267,7 @@ export default function StoreFilterSidebar({
         </div>
       </div>
 
-      {/* Genres Section with inline search */}
+      {/* Genres Section */}
       <div className="store-filter-section">
         <div className="store-filter-section-header">
           <h4 className="store-filter-heading">
@@ -302,59 +276,22 @@ export default function StoreFilterSidebar({
               <span className="store-filter-count-badge">{selectedGenres.length}</span>
             )}
           </h4>
-          {selectedGenres.length > 0 && (
-            <button
-              type="button"
-              className="store-filter-section-clear"
-              onClick={() => onGenresChange([])}
-            >
-              {t("common.clear")}
-            </button>
-          )}
         </div>
 
-        <div className="store-filter-inline-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            placeholder={t("store.filters.searchGenres")}
-            value={genreSearch}
-            onChange={(e) => setGenreSearch(e.target.value)}
-          />
-          {genreSearch && (
-            <button type="button" onClick={() => setGenreSearch("")} aria-label="Clear">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        <div className="store-filter-pills">
-          {filteredGenres.map((genre) => {
-            const count = counts.genres[genre] ?? 0;
-            return (
-              <button
-                key={genre}
-                type="button"
-                className={`store-filter-pill${selectedGenres.includes(genre) ? " active" : ""}`}
-                onClick={() => handleGenreToggle(genre)}
-              >
-                {genre}
-                {count > 0 && (
-                  <span className="store-filter-match-count">{count}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <MultiSelectDropdown
+          label={t("store.compare.genres")}
+          placeholder={t("common.all")}
+          options={GENRES}
+          selected={selectedGenres}
+          onChange={onGenresChange}
+          counts={counts.genres}
+          clearLabel={t("common.clear")}
+          searchPlaceholder={t("store.filters.searchGenres")}
+          noResultsLabel={t("common.noResults")}
+        />
       </div>
 
-      {/* Platforms Section with inline search */}
+      {/* Platforms Section */}
       <div className="store-filter-section">
         <div className="store-filter-section-header">
           <h4 className="store-filter-heading">
@@ -363,56 +300,19 @@ export default function StoreFilterSidebar({
               <span className="store-filter-count-badge">{selectedPlatforms.length}</span>
             )}
           </h4>
-          {selectedPlatforms.length > 0 && (
-            <button
-              type="button"
-              className="store-filter-section-clear"
-              onClick={() => onPlatformsChange([])}
-            >
-              {t("common.clear")}
-            </button>
-          )}
         </div>
 
-        <div className="store-filter-inline-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            placeholder={t("store.filters.searchPlatforms")}
-            value={platformSearch}
-            onChange={(e) => setPlatformSearch(e.target.value)}
-          />
-          {platformSearch && (
-            <button type="button" onClick={() => setPlatformSearch("")} aria-label="Clear">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        <div className="store-filter-pills">
-          {filteredPlatforms.map((platform) => {
-            const count = counts.platforms[platform] ?? 0;
-            return (
-              <button
-                key={platform}
-                type="button"
-                className={`store-filter-pill${selectedPlatforms.includes(platform) ? " active" : ""}`}
-                onClick={() => handlePlatformToggle(platform)}
-              >
-                {platform}
-                {count > 0 && (
-                  <span className="store-filter-match-count">{count}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <MultiSelectDropdown
+          label={t("store.compare.platforms")}
+          placeholder={t("common.all")}
+          options={platformNames}
+          selected={selectedPlatforms}
+          onChange={onPlatformsChange}
+          counts={counts.platforms}
+          clearLabel={t("common.clear")}
+          searchPlaceholder={t("store.filters.searchPlatforms")}
+          noResultsLabel={t("common.noResults")}
+        />
       </div>
 
       {/* Release Year Section */}
