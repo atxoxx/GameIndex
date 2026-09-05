@@ -11,6 +11,7 @@ import {
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "./GameContext";
+import { deferToIdle } from "../utils/idle";
 import {
   type GameSession,
   type SessionMetrics,
@@ -148,7 +149,14 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
   // Keep a ref to selectedGpu so the event listener always sees the latest value
   const selectedGpuRef = useRef<GpuInfo | null>(null);
 
-  // Initialize sessions from SQLite and detect GPUs on mount
+  // Initialize sessions from SQLite and detect GPUs after the first idle
+  // slice instead of synchronously on mount. Nothing on the default landing
+  // route (library) reads this state — sessions feed the Activity page and
+  // Home widgets, GPUs/RAM feed the Activity + Hardware surfaces — so
+  // kicking off a potentially large sessions payload parse and a slow WMI
+  // GPU probe during the boot critical path only delays the splash reveal
+  // and first paint. The idle callback (bounded ~2.5s) still hydrates
+  // before the user can realistically reach any consumer.
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
@@ -213,7 +221,9 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
         }
       }
     };
-    loadSessions();
+    deferToIdle(() => {
+      void loadSessions();
+    }, 2500);
 
     // Load GPUs — try real detection first, fall back to cached data
     const savedGpus = localStorage.getItem("gamelib-gpus");
@@ -262,7 +272,9 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
         console.error("Failed to query total RAM from backend", e);
       }
     };
-    loadGpus();
+    deferToIdle(() => {
+      void loadGpus();
+    }, 2500);
   }, []);
 
   // Sync selectedGpu to ref
