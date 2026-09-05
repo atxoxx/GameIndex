@@ -320,31 +320,21 @@ export default function ModsPage() {
                   )}
                 </div>
 
-                {/* Rail Filter Chips */}
+                {/* Rail Filter Dropdown */}
                 <div className="mods-rail-filters-row">
-                  <button
-                    type="button"
-                    className={`mods-rail-filter-pill ${railFilter === "all" ? "active" : ""}`}
-                    onClick={() => setRailFilter("all")}
+                  <select
+                    className="mods-sort-select"
+                    style={{ width: "100%" }}
+                    value={railFilter}
+                    onChange={(e) => setRailFilter(e.target.value as any)}
+                    aria-label={t("mods.rail.all")}
                   >
-                    {t("mods.rail.all")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`mods-rail-filter-pill ${railFilter === "modded" ? "active" : ""}`}
-                    onClick={() => setRailFilter("modded")}
-                  >
-                    {t("mods.rail.modded")} ({globalStats.moddedGames})
-                  </button>
-                  {globalStats.totalUpdates > 0 && (
-                    <button
-                      type="button"
-                      className={`mods-rail-filter-pill ${railFilter === "updates" ? "active" : ""}`}
-                      onClick={() => setRailFilter("updates")}
-                    >
-                      {t("mods.rail.updates")} ({globalStats.totalUpdates})
-                    </button>
-                  )}
+                    <option value="all">{t("mods.rail.all")}</option>
+                    <option value="modded">{t("mods.rail.modded")} ({globalStats.moddedGames})</option>
+                    {globalStats.totalUpdates > 0 && (
+                      <option value="updates">{t("mods.rail.updates")} ({globalStats.totalUpdates})</option>
+                    )}
+                  </select>
                 </div>
               </>
             )}

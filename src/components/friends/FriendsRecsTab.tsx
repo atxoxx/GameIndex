@@ -242,47 +242,21 @@ export default function FriendsRecsTab({
           />
         </div>
 
-        <div className="recs-filter-pills">
-          <button
-            type="button"
-            className={`filter-pill${filterMode === "all" ? " active" : ""}`}
-            onClick={() => {
-              setFilterMode("all");
+        <div className="friends-sort-wrapper">
+          <select
+            className="friends-sort-select"
+            value={filterMode}
+            onChange={(e) => {
+              setFilterMode(e.target.value as any);
               setTopGameFilter(null);
             }}
+            aria-label={t("library.filter.status")}
           >
-            {t("friends.all")}
-          </button>
-          <button
-            type="button"
-            className={`filter-pill${filterMode === "to_me" ? " active" : ""}`}
-            onClick={() => {
-              setFilterMode("to_me");
-              setTopGameFilter(null);
-            }}
-          >
-            {t("friendsPage.forYou")}
-          </button>
-          <button
-            type="button"
-            className={`filter-pill${filterMode === "by_me" ? " active" : ""}`}
-            onClick={() => {
-              setFilterMode("by_me");
-              setTopGameFilter(null);
-            }}
-          >
-            {t("friendsPage.byYou")}
-          </button>
-          <button
-            type="button"
-            className={`filter-pill${filterMode === "want" ? " active" : ""}`}
-            onClick={() => {
-              setFilterMode("want");
-              setTopGameFilter(null);
-            }}
-          >
-            <StarIcon /> {t("friendsPage.backlog")}
-          </button>
+            <option value="all">{t("friends.all")}</option>
+            <option value="to_me">{t("friendsPage.forYou")}</option>
+            <option value="by_me">{t("friendsPage.byYou")}</option>
+            <option value="want">{t("friendsPage.backlog")}</option>
+          </select>
         </div>
 
         <button

@@ -244,42 +244,19 @@ export default function FriendsListTab({
         </div>
 
         <div className="friends-list-filters">
-          <div className="friends-filter-pills">
-            <button
-              type="button"
-              className={`filter-pill${filterState === "all" ? " active" : ""}`}
-              onClick={() => setFilterState("all")}
+          <div className="friends-sort-wrapper">
+            <select
+              className="friends-sort-select"
+              value={filterState}
+              onChange={(e) => setFilterState(e.target.value as any)}
+              aria-label={t("library.filter.status")}
             >
-              {t("friends.all")}
-            </button>
-            <button
-              type="button"
-              className={`filter-pill${filterState === "online" ? " active" : ""}`}
-              onClick={() => setFilterState("online")}
-            >
-              {t("friendsPage.onlineNow")}
-            </button>
-            <button
-              type="button"
-              className={`filter-pill${filterState === "ingame" ? " active" : ""}`}
-              onClick={() => setFilterState("ingame")}
-            >
-              {t("friendsPage.inGame")}
-            </button>
-            <button
-              type="button"
-              className={`filter-pill${filterState === "pinned" ? " active" : ""}`}
-              onClick={() => setFilterState("pinned")}
-            >
-              {t("friends.pinned")}
-            </button>
-            <button
-              type="button"
-              className={`filter-pill${filterState === "blocked" ? " active" : ""}`}
-              onClick={() => setFilterState("blocked")}
-            >
-              {t("friendsPage.blocked")}
-            </button>
+              <option value="all">{t("friends.all")}</option>
+              <option value="online">{t("friendsPage.onlineNow")}</option>
+              <option value="ingame">{t("friendsPage.inGame")}</option>
+              <option value="pinned">{t("friends.pinned")}</option>
+              <option value="blocked">{t("friendsPage.blocked")}</option>
+            </select>
           </div>
 
           <div className="friends-sort-wrapper">

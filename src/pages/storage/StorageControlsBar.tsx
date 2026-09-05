@@ -201,24 +201,22 @@ export function StorageControlsBar({
           </button>
         </div>
 
-        {/* Filter Chips (Visible in list & grid view) */}
+        {/* Filter Dropdown (Visible in list & grid view) */}
         {(viewMode === "list" || viewMode === "grid") && (
-          <div className="storage-filter-chips-scroll" role="group" aria-label={t("storage.filterByStatus")}>
-            {filterChips.map(({ key, label, count }) => {
-              const isSecondary = key === "hasMods" || key === "massive" || key === "large" || key === "small";
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`storage-filter-chip ${activeFilter === key ? "storage-filter-chip--active" : ""}${isSecondary ? " ui-complete-only" : ""}`}
-                  aria-pressed={activeFilter === key}
-                  onClick={() => onFilterChange(key)}
-                >
-                  <span>{label}</span>
-                  <span className="storage-filter-chip-count">{count}</span>
-                </button>
-              );
-            })}
+          <div className="storage-tool-item">
+            <span className="storage-tool-label">{t("storage.filterByStatus")}</span>
+            <select
+              className="storage-select-control"
+              value={activeFilter}
+              onChange={(e) => onFilterChange(e.target.value as StorageFilter)}
+              aria-label={t("storage.filterByStatus")}
+            >
+              {filterChips.map(({ key, label, count }) => (
+                <option key={key} value={key}>
+                  {label} ({count})
+                </option>
+              ))}
+            </select>
           </div>
         )}
 

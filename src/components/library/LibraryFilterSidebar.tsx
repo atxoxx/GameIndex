@@ -153,18 +153,18 @@ export default function LibraryFilterSidebar({
         }
         title={t("edit.label.playStatus")}
       >
-        <div className="lib-segment">
+        <select
+          className="lib-filter-search"
+          value={playStatus}
+          onChange={(e) => onPlayStatusChange(e.target.value as PlayStatus | "all")}
+          aria-label={t("edit.label.playStatus")}
+        >
           {PLAY_STATUS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`lib-segment-option${playStatus === opt.value ? " active" : ""}`}
-              onClick={() => onPlayStatusChange(opt.value)}
-            >
+            <option key={opt.value} value={opt.value}>
               {t(opt.labelKey)}
-            </button>
+            </option>
           ))}
-        </div>
+        </select>
       </FilterSection>
 
       <FilterSection
@@ -178,18 +178,18 @@ export default function LibraryFilterSidebar({
         }
         title={t("library.filter.source")}
       >
-        <div className="lib-segment">
+        <select
+          className="lib-filter-search"
+          value={source}
+          onChange={(e) => onSourceChange(e.target.value as LibrarySource)}
+          aria-label={t("library.filter.source")}
+        >
           {SOURCE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`lib-segment-option${source === opt.value ? " active" : ""}`}
-              onClick={() => onSourceChange(opt.value)}
-            >
+            <option key={opt.value} value={opt.value}>
               {opt.labelKey ? t(opt.labelKey) : opt.label}
-            </button>
+            </option>
           ))}
-        </div>
+        </select>
       </FilterSection>
 
       <FilterSection

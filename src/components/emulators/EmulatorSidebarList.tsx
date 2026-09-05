@@ -217,34 +217,41 @@ function EmulatorSidebarListBase({
         )}
       </div>
 
-      {/* Generation / Manufacturer Category Bar */}
-      <div className="emulators-category-bar ui-complete-only" role="tablist" aria-label="Console category">
-        {categories.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            role="tab"
-            aria-selected={category === c.key}
-            className={`emu-cat-pill${category === c.key ? " is-active" : ""}`}
-            onClick={() => onCategoryChange(c.key)}
-          >
-            {c.label}
-          </button>
-        ))}
+      {/* Category & Status Filter Dropdowns */}
+      <div className="emulators-sort ui-complete-only">
+        <label className="emulators-sort-label" htmlFor="emu-category-select">
+          {t("library.groupBy.platform")}
+        </label>
+        <select
+          id="emu-category-select"
+          className="emulators-sort-select"
+          value={category}
+          onChange={(e) => onCategoryChange(e.target.value as PlatformCategory)}
+        >
+          {categories.map((c) => (
+            <option key={c.key} value={c.key}>
+              {c.label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Status Filter Chips */}
-      <div className="emulators-filters ui-complete-only">
-        {statusFilters.map((s) => (
-          <button
-            key={s.key}
-            type="button"
-            className={`emu-filter-chip${filter === s.key ? " is-active" : ""}`}
-            onClick={() => onFilterChange(s.key)}
-          >
-            {s.label}
-          </button>
-        ))}
+      <div className="emulators-sort ui-complete-only">
+        <label className="emulators-sort-label" htmlFor="emu-status-select">
+          {t("library.filter.status")}
+        </label>
+        <select
+          id="emu-status-select"
+          className="emulators-sort-select"
+          value={filter}
+          onChange={(e) => onFilterChange(e.target.value as EmuFilter)}
+        >
+          {statusFilters.map((s) => (
+            <option key={s.key} value={s.key}>
+              {s.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="emulators-sort">

@@ -52,14 +52,6 @@ export default function GamePassPanel({
     return new Set(libraryGames.map((g) => g.name.toLowerCase().trim()));
   }, [libraryGames]);
 
-  const toggleCategory = (category: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      categories: prev.categories.includes(category)
-        ? prev.categories.filter((c) => c !== category)
-        : [...prev.categories, category],
-    }));
-  };
 
   // Client-side search & filtering
   const processedGames = useMemo(() => {
@@ -214,25 +206,27 @@ export default function GamePassPanel({
               <option value="release_asc">{t("deals.sortReleaseAsc")}</option>
             </select>
           </div>
-        </div>
 
-        {/* Category chips carousel */}
-        <div className="deals-category-chips-strip">
-          <label className="deals-category-label">{t("deals.categories")}:</label>
-          <div className="deals-category-chips">
-            {GP_CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className={`deals-category-chip ${
-                  filters.categories.includes(cat) ? "active" : ""
-                }`}
-                onClick={() => toggleCategory(cat)}
-                aria-pressed={filters.categories.includes(cat)}
-              >
-                {t(GP_CATEGORY_KEYS[cat] ?? cat)}
-              </button>
-            ))}
+          <div className="deals-filter-group">
+            <label htmlFor="gp-category">{t("deals.categories")}</label>
+            <select
+              id="gp-category"
+              className="deals-filter-select"
+              value={filters.categories[0] ?? "all"}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  categories: e.target.value === "all" ? [] : [e.target.value],
+                }))
+              }
+            >
+              <option value="all">{t("common.all")} ({t("deals.categories")})</option>
+              {GP_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {t(GP_CATEGORY_KEYS[cat] ?? cat)}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

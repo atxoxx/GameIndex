@@ -788,33 +788,32 @@ export function CapturesTab({ games }: CapturesTabProps) {
               ★ {t("common.favorites")} {favorites.size > 0 && `(${favorites.size})`}
             </button>
 
-            {/* Media Type Filter */}
-            <button
-              type="button"
-              className={`stats-filter-pill${mediaTypeFilter === "images" ? " active" : ""}`}
-              onClick={() => setMediaTypeFilter((cur) => (cur === "images" ? "all" : "images"))}
+            {/* Media Type Dropdown */}
+            <select
+              className="stats-captures-select"
+              value={mediaTypeFilter}
+              onChange={(e) => setMediaTypeFilter(e.target.value as any)}
+              aria-label={t("deals.type")}
             >
-              🖼️ {t("stats.captures.screenshotsOnly")}
-            </button>
-            <button
-              type="button"
-              className={`stats-filter-pill${mediaTypeFilter === "videos" ? " active" : ""}`}
-              onClick={() => setMediaTypeFilter((cur) => (cur === "videos" ? "all" : "videos"))}
-            >
-              🎬 {t("stats.captures.clipsOnly")}
-            </button>
+              <option value="all">{t("common.all")} ({t("game.tab.media")})</option>
+              <option value="images">🖼️ {t("stats.captures.screenshotsOnly")}</option>
+              <option value="videos">🎬 {t("stats.captures.clipsOnly")}</option>
+            </select>
 
-            {/* Source Pills */}
-            {SOURCE_PILLS.map((src) => (
-              <button
-                key={src}
-                type="button"
-                className={`stats-filter-pill${sourceFilter === src ? " active" : ""}`}
-                onClick={() => setSourceFilter((cur) => (cur === src ? null : src))}
-              >
-                {sourceLabel(src)}
-              </button>
-            ))}
+            {/* Source Dropdown */}
+            <select
+              className="stats-captures-select"
+              value={sourceFilter ?? "all"}
+              onChange={(e) => setSourceFilter(e.target.value === "all" ? null : (e.target.value as any))}
+              aria-label={t("library.filter.source")}
+            >
+              <option value="all">{t("common.all")} ({t("library.filter.source")})</option>
+              {SOURCE_PILLS.map((src) => (
+                <option key={src} value={src}>
+                  {sourceLabel(src)}
+                </option>
+              ))}
+            </select>
 
             {(search || sourceFilter || showFavOnly || mediaTypeFilter !== "all") && (
               <button

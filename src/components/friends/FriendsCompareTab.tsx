@@ -332,36 +332,17 @@ export default function FriendsCompareTab({
               onChange={(e) => setSearchQuery(e.target.value)}
             />
 
-            <div className="compare-filter-pills">
-              <button
-                type="button"
-                className={`filter-pill${ownershipFilter === "all" ? " active" : ""}`}
-                onClick={() => setOwnershipFilter("all")}
-              >
-                {t("friends.all")} ({comparisonData.length})
-              </button>
-              <button
-                type="button"
-                className={`filter-pill${ownershipFilter === "shared" ? " active" : ""}`}
-                onClick={() => setOwnershipFilter("shared")}
-              >
-                {t("friendsPage.bothOwn")} ({stats.sharedCount})
-              </button>
-              <button
-                type="button"
-                className={`filter-pill${ownershipFilter === "me_only" ? " active" : ""}`}
-                onClick={() => setOwnershipFilter("me_only")}
-              >
-                {t("friendsPage.onlyYouOwn")}
-              </button>
-              <button
-                type="button"
-                className={`filter-pill${ownershipFilter === "friend_only" ? " active" : ""}`}
-                onClick={() => setOwnershipFilter("friend_only")}
-              >
-                {t("friendsPage.onlyFriendOwns", { name: friendDisplayName })}
-              </button>
-            </div>
+            <select
+              className="profile-input compare-genre-select"
+              value={ownershipFilter}
+              onChange={(e) => setOwnershipFilter(e.target.value as any)}
+              aria-label={t("library.filter.status")}
+            >
+              <option value="all">{t("friends.all")} ({comparisonData.length})</option>
+              <option value="shared">{t("friendsPage.bothOwn")} ({stats.sharedCount})</option>
+              <option value="me_only">{t("friendsPage.onlyYouOwn")}</option>
+              <option value="friend_only">{t("friendsPage.onlyFriendOwns", { name: friendDisplayName })}</option>
+            </select>
 
             <select
               className="profile-input compare-genre-select"

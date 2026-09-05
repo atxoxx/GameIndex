@@ -359,28 +359,17 @@ export default function FriendsSessionsTab({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
 
-          <div className="sessions-filter-pills">
-            <button
-              type="button"
-              className={`filter-pill${filterMode === "all" ? " active" : ""}`}
-              onClick={() => setFilterMode("all")}
+          <div className="friends-sort-wrapper">
+            <select
+              className="friends-sort-select"
+              value={filterMode}
+              onChange={(e) => setFilterMode(e.target.value as any)}
+              aria-label={t("library.filter.status")}
             >
-              {t("friends.all")}
-            </button>
-            <button
-              type="button"
-              className={`filter-pill${filterMode === "mine" ? " active" : ""}`}
-              onClick={() => setFilterMode("mine")}
-            >
-              {t("friendsPage.hostedByMe")}
-            </button>
-            <button
-              type="button"
-              className={`filter-pill${filterMode === "going" ? " active" : ""}`}
-              onClick={() => setFilterMode("going")}
-            >
-              {t("friendsPage.confirmedGoing")}
-            </button>
+              <option value="all">{t("friends.all")}</option>
+              <option value="mine">{t("friendsPage.hostedByMe")}</option>
+              <option value="going">{t("friendsPage.confirmedGoing")}</option>
+            </select>
           </div>
 
           <button

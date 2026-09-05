@@ -173,35 +173,25 @@ export default function ModsToolbar({
             <option value="size:desc">{t("mods.sort.sizeDesc")}</option>
             <option value="size:asc">{t("mods.sort.sizeAsc")}</option>
           </select>
+
+          {availableEngines.length > 0 && (
+            <select
+              className="mods-sort-select"
+              value={selectedEngine ?? "all"}
+              onChange={(e) => onEngineChange(e.target.value === "all" ? null : e.target.value)}
+              title={t("mods.engine")}
+              aria-label={t("mods.engine")}
+            >
+              <option value="all">{t("mods.engineFilter.all")}</option>
+              {availableEngines.map((eng) => (
+                <option key={eng} value={eng}>
+                  {ENGINE_LABELS[eng as ModEngine] ?? eng}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
-
-      {/* Engine chips row (when more than one engine or engine exists) */}
-      {availableEngines.length > 0 && (
-        <div className="mods-engines-filter-row">
-          <button
-            type="button"
-            className={`mods-engine-filter-chip ${selectedEngine === null ? "active" : ""}`}
-            onClick={() => onEngineChange(null)}
-          >
-            {t("mods.engineFilter.all")}
-          </button>
-          {availableEngines.map((eng) => {
-            const label = ENGINE_LABELS[eng as ModEngine] ?? eng;
-            const isSelected = selectedEngine === eng;
-            return (
-              <button
-                key={eng}
-                type="button"
-                className={`mods-engine-filter-chip mods-engine-${eng} ${isSelected ? "active" : ""}`}
-                onClick={() => onEngineChange(isSelected ? null : eng)}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* Action buttons row */}
       <div className="mods-toolbar-row mods-toolbar-row--actions">

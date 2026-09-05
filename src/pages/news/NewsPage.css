@@ -710,7 +710,55 @@
   font-weight: var(--font-weight-bold);
 }
 
-/* ─── Source Filter Pills ───────────────────────────────────────────── */
+/* ─── Source Filter Dropdown ────────────────────────────────────────── */
+
+.news-source-select-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px 0 8px;
+}
+
+.news-source-select-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.news-source-select-label svg {
+  color: var(--color-accent);
+}
+
+.news-source-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 6px 28px 6px 12px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23747e98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 11px;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.news-source-select:hover {
+  border-color: var(--color-border-light);
+  background-color: var(--color-bg-hover);
+}
+
+.news-source-select:focus {
+  border-color: var(--color-accent);
+}
 
 .news-source-pills-wrapper {
   display: flex;

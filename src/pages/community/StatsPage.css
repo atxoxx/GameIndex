@@ -1866,6 +1866,33 @@
   font-family: inherit;
 }
 
+.stats-captures-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  padding: 4px 22px 4px 8px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23747e98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 10px;
+  transition: border-color var(--duration-fast) ease;
+}
+
+.stats-captures-select:hover {
+  border-color: var(--color-text-muted);
+}
+
+.stats-captures-select:focus {
+  border-color: var(--color-accent);
+}
+
 .stats-captures-pills-row {
   display: flex;
   align-items: center;

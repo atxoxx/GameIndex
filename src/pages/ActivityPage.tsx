@@ -15,7 +15,7 @@ import { ActivitySessions } from "./activity/ActivitySessions";
 import { ActivityPerformance } from "./activity/ActivityPerformance";
 import * as Icons from "./activity/Icons";
 import { PageHeader } from "../components/ui";
-import { Segmented, RangePills, ManualSessionModal } from "../components/activity";
+import { Segmented, ManualSessionModal } from "../components/activity";
 import type { DateRangeKey } from "../components/activity";
 import { useLanguage } from "../context/LanguageContext";
 import "./activity/ActivityPage.css";
@@ -355,7 +355,17 @@ export default function ActivityPage() {
         </div>
 
         <div className="act-toolbar__right">
-          <RangePills value={dateRange} onChange={setDateRange} />
+          <select
+            className="act-toolbar__select"
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value as DateRangeKey)}
+            aria-label={t("activity.range")}
+          >
+            <option value="7d">{t("activity.7d")}</option>
+            <option value="30d">{t("activity.30d")}</option>
+            <option value="90d">{t("activity.90d")}</option>
+            <option value="all">{t("activity.allTime")}</option>
+          </select>
 
           <select
             className="act-toolbar__select"

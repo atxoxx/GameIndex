@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -24,7 +24,6 @@ export default function NewsSourcePills({
   onSourceChange,
 }: NewsSourcePillsProps) {
   const { t } = useLanguage();
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const counts = useMemo(() => {
     const map = new Map<string, { total: number; unread: number }>();
@@ -41,80 +40,35 @@ export default function NewsSourcePills({
 
   const allTotal = articles.length;
 
-  const scrollLeft = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: -240, behavior: "smooth" });
-    }
-  };
-
-  const scrollRight = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: 240, behavior: "smooth" });
-    }
-  };
-
   return (
-    <div className="news-source-pills-wrapper">
-      <button
-        type="button"
-        className="news-source-pills-scroll-btn left"
-        onClick={scrollLeft}
-        aria-label="Scroll sources left"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <polyline points="15 18 9 12 15 6" />
+    <div className="news-source-select-wrapper">
+      <label className="news-source-select-label" htmlFor="news-source-dropdown">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
         </svg>
-      </button>
-
-      <div
-        ref={scrollRef}
-        className="news-source-pills"
-        role="tablist"
+        <span>{t("news.filterBySource")}</span>
+      </label>
+      <select
+        id="news-source-dropdown"
+        className="news-source-select"
+        value={activeSource ?? "all"}
+        onChange={(e) => onSourceChange(e.target.value === "all" ? null : e.target.value)}
         aria-label={t("news.filterBySource")}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSource === null}
-          className={`news-source-pill all-pill${activeSource === null ? " active" : ""}`}
-          onClick={() => onSourceChange(null)}
-        >
-          <span className="news-source-pill-icon">🌐</span>
-          <span>{t("common.all")}</span>
-          <span className="news-source-pill-count">{allTotal}</span>
-        </button>
-
+        <option value="all">
+          {t("common.all")} ({allTotal})
+        </option>
         {sourceNames.map((name) => {
           const c = counts.get(name) ?? { total: 0, unread: 0 };
-          const firstLetter = name.charAt(0).toUpperCase();
-          const isActive = activeSource === name;
           return (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`news-source-pill${isActive ? " active" : ""}`}
-              onClick={() => onSourceChange(isActive ? null : name)}
-            >
-              <span className="news-source-pill-avatar">{firstLetter}</span>
-              <span>{name}</span>
-              <span className="news-source-pill-count">{c.total}</span>
-            </button>
+            <option key={name} value={name}>
+              {name} ({c.total}{c.unread > 0 ? ` • ${c.unread} unread` : ""})
+            </option>
           );
         })}
-      </div>
-
-      <button
-        type="button"
-        className="news-source-pills-scroll-btn right"
-        onClick={scrollRight}
-        aria-label="Scroll sources right"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </button>
+      </select>
     </div>
   );
 }

@@ -478,22 +478,18 @@ export default function SidebarFilterPopover({
          *  rail feel like the same UI expressed in two places. */}
         <section className="sidebar-filter-popover-section">
           <h4 className="sidebar-filter-popover-heading">{t("edit.label.playStatus")}</h4>
-          <div className="sidebar-filter-popover-segmented">
-            {PLAY_STATUS_OPTIONS.map((opt) => {
-              const active = playStatus === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={`sidebar-filter-popover-segment${active ? " active" : ""}`}
-                  aria-pressed={active}
-                  onClick={() => onPlayStatusChange(opt.value)}
-                >
-                  {t(opt.labelKey)}
-                </button>
-              );
-            })}
-          </div>
+          <select
+            className="sidebar-filter-popover-select"
+            value={playStatus}
+            onChange={(e) => onPlayStatusChange(e.target.value as PlayStatus | "all")}
+            aria-label={t("edit.label.playStatus")}
+          >
+            {PLAY_STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
+              </option>
+            ))}
+          </select>
         </section>
 
         {/* ── Sort: compact dropdown ── */}

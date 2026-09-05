@@ -60,40 +60,20 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
 
   return (
     <div className="dl-filter-bar-container">
-      {/* Category Pills / Segmented Status Tab Strip */}
-      <div
-        className="dl-filters-pills"
-        role="tablist"
-        aria-label={t("downloadsFilter.filterByStatus")}
-      >
-        {pills.map((pill) => {
-          // Hide 0-count pills for error/queued/seeding when not active
-          if (
-            pill.count === 0 &&
-            pill.value !== "all" &&
-            pill.value !== "downloading" &&
-            pill.value !== "completed" &&
-            statusFilter !== pill.value
-          ) {
-            return null;
-          }
-          const isActive = statusFilter === pill.value;
-          return (
-            <button
-              key={pill.value}
-              type="button"
-              role="tab"
-              className={`dl-filters-pill${isActive ? " active" : ""}`}
-              onClick={() => onStatusFilterChange(pill.value)}
-              aria-selected={isActive}
-            >
-              <span>{pill.label}</span>
-              {pill.count > 0 && (
-                <span className="dl-filters-pill-count">{pill.count}</span>
-              )}
-            </button>
-          );
-        })}
+      {/* Status Filter Dropdown */}
+      <div className="dl-filters-status-wrapper">
+        <select
+          className="dl-filters-sort-select"
+          value={statusFilter}
+          onChange={(e) => onStatusFilterChange(e.target.value as DownloadStatusFilter)}
+          aria-label={t("downloadsFilter.filterByStatus")}
+        >
+          {pills.map((pill) => (
+            <option key={pill.value} value={pill.value}>
+              {pill.label} ({pill.count})
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Right Controls: Search, Sort, and View Mode (never wraps internally) */}

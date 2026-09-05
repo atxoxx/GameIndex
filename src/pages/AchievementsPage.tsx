@@ -486,41 +486,39 @@ export default function AchievementsPage() {
 
         {/* Toolbar: Filters, Search, Sort */}
         <div className="achievements-toolbar">
-          {/* Status Filters */}
-          <div className="achievements-filters">
-            {(["all", "perfect", "in_progress", "almost_done", "not_started"] as const).map((f) => (
-              <button
-                key={f}
-                className={`achievements-filter-btn ${completionFilter === f ? "active" : ""}`}
-                onClick={() => setCompletionFilter(f)}
-              >
-                {f === "all"
-                  ? t("common.all")
-                  : f === "perfect"
-                    ? t("achievementsPage.filterPerfect")
-                    : f === "almost_done"
-                      ? t("achievementsPage.filterAlmostDone")
-                      : f === "in_progress"
-                        ? t("achievementsPage.filterInProgress")
-                        : t("achievementsPage.filterNotStarted")}
-              </button>
-            ))}
+          {/* Status Filter Dropdown */}
+          <div className="achievements-sort">
+            <label className="achievements-sort-label">{t("library.filter.status")}</label>
+            <select
+              value={completionFilter}
+              onChange={(e) => setCompletionFilter(e.target.value as CompletionFilter)}
+              className="achievements-sort-select"
+              aria-label={t("library.filter.status")}
+            >
+              <option value="all">{t("common.all")}</option>
+              <option value="perfect">{t("achievementsPage.filterPerfect")}</option>
+              <option value="in_progress">{t("achievementsPage.filterInProgress")}</option>
+              <option value="almost_done">{t("achievementsPage.filterAlmostDone")}</option>
+              <option value="not_started">{t("achievementsPage.filterNotStarted")}</option>
+            </select>
           </div>
 
-          {/* Source Filter */}
-          <div className="achievements-src-filter">
-            {(["all", ...ACHIEVEMENT_SOURCES] as const).map((src) => (
-              <button
-                key={src}
-                className={`achievements-filter-btn ${sourceFilter === src ? "active" : ""}`}
-                onClick={() => setSourceFilter(src as SourceFilter)}
-                data-source={src === "all" ? undefined : src}
-              >
-                {src === "all"
-                  ? t("achievements.source.all")
-                  : t(`achievements.source.${src}`)}
-              </button>
-            ))}
+          {/* Source Filter Dropdown */}
+          <div className="achievements-sort">
+            <label className="achievements-sort-label">{t("library.filter.source")}</label>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+              className="achievements-sort-select"
+              aria-label={t("library.filter.source")}
+            >
+              <option value="all">{t("achievements.source.all")}</option>
+              {ACHIEVEMENT_SOURCES.map((src) => (
+                <option key={src} value={src}>
+                  {t(`achievements.source.${src}`)}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Search bar */}

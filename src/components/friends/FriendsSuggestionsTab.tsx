@@ -115,35 +115,18 @@ export default function FriendsSuggestionsTab({
           />
         </div>
 
-        <div className="suggestions-filter-pills">
-          <button
-            type="button"
-            className={`filter-pill${filterMode === "all" ? " active" : ""}`}
-            onClick={() => setFilterMode("all")}
+        <div className="friends-sort-wrapper">
+          <select
+            className="friends-sort-select"
+            value={filterMode}
+            onChange={(e) => setFilterMode(e.target.value as any)}
+            aria-label={t("library.filter.status")}
           >
-            {t("friends.all")}
-          </button>
-          <button
-            type="button"
-            className={`filter-pill${filterMode === "to_me" ? " active" : ""}`}
-            onClick={() => setFilterMode("to_me")}
-          >
-            {t("friendsPage.sharedWithYou")}
-          </button>
-          <button
-            type="button"
-            className={`filter-pill${filterMode === "by_me" ? " active" : ""}`}
-            onClick={() => setFilterMode("by_me")}
-          >
-            {t("friendsPage.sharedByYou")}
-          </button>
-          <button
-            type="button"
-            className={`filter-pill${filterMode === "added" ? " active" : ""}`}
-            onClick={() => setFilterMode("added")}
-          >
-            {t("friendsPage.inWishlist")}
-          </button>
+            <option value="all">{t("friends.all")}</option>
+            <option value="to_me">{t("friendsPage.sharedWithYou")}</option>
+            <option value="by_me">{t("friendsPage.sharedByYou")}</option>
+            <option value="added">{t("friendsPage.inWishlist")}</option>
+          </select>
         </div>
 
         <button
