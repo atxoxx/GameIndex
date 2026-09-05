@@ -3440,6 +3440,19 @@
   width: 100%;
 }
 
+/* Rows below the fold are skipped by layout/paint until they scroll near
+   the viewport (the windowed list keeps the mounted count bounded, this
+   keeps the paint cost of the visible batch low too). */
+.activity-sessions-list > .activity-session-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 88px;
+}
+
+/* 1px sentinel that triggers the infinite-scroll window extension. */
+.activity-sessions-list__sentinel {
+  height: 1px;
+}
+
 .activity-sessions-list__header {
   display: flex;
   align-items: center;

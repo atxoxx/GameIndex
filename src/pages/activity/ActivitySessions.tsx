@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentProps } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useNavigate } from "react-router-dom";
 import LineChart from "../../components/charts/LineChart";
 import { ActivitySparkline } from "./ActivitySparkline";
@@ -62,6 +62,16 @@ export function ActivitySessions({
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [manualSessionOpen, setManualSessionOpen] = useState(false);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
+
+  // ── Windowed rendering ───────────────────────────────────────
+  // Session history can grow to thousands of rows, and every row mounts
+  // live components (GameThumbnail, PlayerCountBadge, per-metric hooks),
+  // so mounting all of them at once stalls the initial render even before
+  // layout. Only the first `visibleLimit` rows mount; a sentinel at the
+  // bottom extends the window as the user scrolls (IntersectionObserver,
+  // generous rootMargin so the next batch is ready before it scrolls in).
+  const [visibleLimit, setVisibleLimit] = useState(60);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const gameById = useMemo(() => {
     const map = new Map<string, Game>();
@@ -141,6 +151,34 @@ export function ActivitySessions({
     gameById,
     allNotes,
   ]);
+
+  // Any change to the filtered/sorted list (new filter, new sort, a session
+  // deleted) resets the window so the user starts back at the top batch.
+  useEffect(() => {
+    setVisibleLimit(60);
+  }, [filteredAndSortedSessions]);
+
+  const visibleSessions = useMemo(
+    () => filteredAndSortedSessions.slice(0, visibleLimit),
+    [filteredAndSortedSessions, visibleLimit]
+  );
+
+  // Extend the window when the sentinel scrolls near the viewport. Re-runs on
+  // every increase so the observer keeps watching the (still-mounted) sentinel.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleLimit((prev) => prev + 120);
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visibleLimit]);
 
   const selectedPair = useMemo(() => {
     if (selectedSessionIds.size !== 2) return null;
@@ -450,7 +488,7 @@ export function ActivitySessions({
             </span>
           </div>
 
-          {filteredAndSortedSessions.map((session) => {
+          {visibleSessions.map((session) => {
             const game = gameById.get(session.gameId);
             const isSelected = selectedSessionIds.has(session.id);
 
@@ -466,6 +504,13 @@ export function ActivitySessions({
               />
             );
           })}
+          {filteredAndSortedSessions.length > visibleLimit && (
+            <div
+              ref={sentinelRef}
+              className="activity-sessions-list__sentinel"
+              aria-hidden="true"
+            />
+          )}
         </div>
       )}
 
