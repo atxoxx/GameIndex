@@ -18,14 +18,20 @@ import {
   Play,
   Timer,
   Maximize,
+  BookOpen,
+  Tag,
+  Building2,
+  FolderOpen,
+  FileText,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import type { PaletteItem } from "./commandPaletteTypes";
-import { formatBytes, formatRelativeTime } from "./commandPaletteUtils";
+import { formatBytes, formatRelativeTime, formatSummaryParagraphs } from "./commandPaletteUtils";
 
 interface CommandPaletteInspectorProps {
   item: PaletteItem | null;
   t: (key: string, vars?: Record<string, unknown>) => string;
+  locale?: string;
   onOpenActionDrawer?: () => void;
   onOpenDownloadModal?: (target: { name: string; id?: string; poster?: string }) => void;
   isWishlisted?: (slug: string) => boolean;
@@ -36,6 +42,7 @@ interface CommandPaletteInspectorProps {
 export default function CommandPaletteInspector({
   item,
   t,
+  locale,
   onOpenActionDrawer,
   onOpenDownloadModal,
   isWishlisted,
@@ -176,7 +183,7 @@ export default function CommandPaletteInspector({
                 {t("commandPalette.inspectorLastPlayed")}
               </span>
               <span className="cmd-inspector-stat-val">
-                {formatRelativeTime(game.lastPlayed) || t("commandPalette.neverPlayed")}
+                {formatRelativeTime(game.lastPlayed, locale) || t("commandPalette.neverPlayed")}
               </span>
             </div>
           </div>
@@ -308,7 +315,7 @@ export default function CommandPaletteInspector({
   if (gameData) {
     const isRunning = item.badgeType === "success";
     const heroImage = gameData.bannerUrl || gameData.coverArtUrl;
-    const lastPlayedStr = formatRelativeTime(gameData.lastPlayed);
+    const lastPlayedStr = formatRelativeTime(gameData.lastPlayed, locale);
     const sizeStr = formatBytes(gameData.sizeBytes);
 
     return (
@@ -429,7 +436,10 @@ export default function CommandPaletteInspector({
           {/* Developer / Publisher */}
           {(gameData.developer || gameData.publisher) && (
             <div className="cmd-inspector-section">
-              <span className="cmd-inspector-label">{t("commandPalette.inspectorDeveloper")}</span>
+              <span className="cmd-inspector-label">
+                <Building2 size={11} className="cmd-inspector-label-icon" />
+                {t("commandPalette.inspectorDeveloper")}
+              </span>
               <p className="cmd-inspector-desc">
                 {[gameData.developer, gameData.publisher].filter(Boolean).join(" · ")}
               </p>
@@ -439,7 +449,10 @@ export default function CommandPaletteInspector({
           {/* Genres */}
           {gameData.genres && gameData.genres.length > 0 && (
             <div className="cmd-inspector-section">
-              <span className="cmd-inspector-label">{t("commandPalette.inspectorGenres")}</span>
+              <span className="cmd-inspector-label">
+                <Tag size={11} className="cmd-inspector-label-icon" />
+                {t("commandPalette.inspectorGenres")}
+              </span>
               <div className="cmd-inspector-tags">
                 {gameData.genres.slice(0, 6).map((genre) => (
                   <span key={genre} className="cmd-tag">
@@ -450,11 +463,29 @@ export default function CommandPaletteInspector({
             </div>
           )}
 
+          {/* Personal Notes */}
+          {gameData.notes && (
+            <div className="cmd-inspector-section">
+              <span className="cmd-inspector-label">
+                <FileText size={11} className="cmd-inspector-label-icon" />
+                {t("notes.title")}
+              </span>
+              <div className="cmd-inspector-summary">
+                {formatSummaryParagraphs(gameData.notes).map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Path info */}
           {gameData.path && (
             <div className="cmd-inspector-section">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="cmd-inspector-label">{t("commandPalette.inspectorPath")}</span>
+                <span className="cmd-inspector-label">
+                  <FolderOpen size={11} className="cmd-inspector-label-icon" />
+                  {t("commandPalette.inspectorPath")}
+                </span>
                 <button
                   type="button"
                   className="cmd-copy-btn"
@@ -473,7 +504,10 @@ export default function CommandPaletteInspector({
 
           {/* Web Links / Wiki shortcuts */}
           <div className="cmd-inspector-section">
-            <span className="cmd-inspector-label">{t("commandPalette.externalGuides")}</span>
+            <span className="cmd-inspector-label">
+              <Globe size={11} className="cmd-inspector-label-icon" />
+              {t("commandPalette.externalGuides")}
+            </span>
             <div className="cmd-inspector-web-links">
               {gameData.steamAppId && (
                 <>
@@ -595,14 +629,24 @@ export default function CommandPaletteInspector({
         <div className="cmd-inspector-body">
           {storeData.summary && (
             <div className="cmd-inspector-section">
-              <span className="cmd-inspector-label">{t("commandPalette.inspectorSummary")}</span>
-              <p className="cmd-inspector-summary">{storeData.summary}</p>
+              <span className="cmd-inspector-label">
+                <BookOpen size={11} className="cmd-inspector-label-icon" />
+                {t("commandPalette.inspectorSummary")}
+              </span>
+              <div className="cmd-inspector-summary">
+                {formatSummaryParagraphs(storeData.summary).map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
             </div>
           )}
 
           {storeData.genres && storeData.genres.length > 0 && (
             <div className="cmd-inspector-section">
-              <span className="cmd-inspector-label">{t("commandPalette.inspectorGenres")}</span>
+              <span className="cmd-inspector-label">
+                <Tag size={11} className="cmd-inspector-label-icon" />
+                {t("commandPalette.inspectorGenres")}
+              </span>
               <div className="cmd-inspector-tags">
                 {storeData.genres.map((g) => (
                   <span key={g} className="cmd-tag">
@@ -812,8 +856,15 @@ export default function CommandPaletteInspector({
       {item.description && (
         <div className="cmd-inspector-body">
           <div className="cmd-inspector-section">
-            <span className="cmd-inspector-label">{t("commandPalette.inspectorActionDesc")}</span>
-            <p className="cmd-inspector-summary">{item.description}</p>
+            <span className="cmd-inspector-label">
+              <FileText size={11} className="cmd-inspector-label-icon" />
+              {t("commandPalette.inspectorActionDesc")}
+            </span>
+            <div className="cmd-inspector-summary">
+              {formatSummaryParagraphs(item.description).map((para, i) => (
+                <p key={i}>{para}</p>
+              ))}
+            </div>
           </div>
         </div>
       )}

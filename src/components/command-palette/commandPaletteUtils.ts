@@ -41,15 +41,19 @@ const COMMON_ACRONYMS: Record<string, string[]> = {
   rdr2: ["red dead redemption 2", "red dead redemption ii"],
   cp2077: ["cyberpunk 2077", "cyberpunk"],
   bg3: ["baldur's gate 3", "baldurs gate 3", "baldur's gate iii"],
+  bg1: ["baldur's gate", "baldurs gate"],
+  bg2: ["baldur's gate ii", "baldur's gate 2"],
   gta: ["grand theft auto"],
   gta5: ["grand theft auto v", "grand theft auto 5"],
   gta4: ["grand theft auto iv", "grand theft auto 4"],
   re4: ["resident evil 4", "resident evil iv"],
   re2: ["resident evil 2", "resident evil ii"],
+  re8: ["resident evil village", "resident evil 8"],
   hl2: ["half-life 2", "half life 2"],
   botw: ["breath of the wild", "the legend of zelda: breath of the wild"],
   totk: ["tears of the kingdom", "the legend of zelda: tears of the kingdom"],
-  er: ["elden ring"],
+  er: ["elden ring", "shadow of the erdtree"],
+  sotet: ["shadow of the erdtree", "elden ring"],
   ds3: ["dark souls iii", "dark souls 3"],
   ds1: ["dark souls", "dark souls remastered"],
   ds2: ["dark souls ii", "dark souls 2"],
@@ -64,6 +68,10 @@ const COMMON_ACRONYMS: Record<string, string[]> = {
   ac: ["assassin's creed", "animal crossing", "armored core"],
   ac6: ["armored core vi", "armored core 6"],
   ff7: ["final fantasy vii", "final fantasy 7"],
+  ff14: ["final fantasy xiv", "final fantasy 14"],
+  ffxiv: ["final fantasy xiv", "final fantasy 14"],
+  ff16: ["final fantasy xvi", "final fantasy 16"],
+  ffxvi: ["final fantasy xvi", "final fantasy 16"],
   dbd: ["dead by daylight"],
   poe: ["path of exile", "pillars of eternity"],
   lol: ["league of legends"],
@@ -74,6 +82,27 @@ const COMMON_ACRONYMS: Record<string, string[]> = {
   rottr: ["rise of the tomb raider"],
   sottr: ["shadow of the tomb raider"],
   tw3: ["the witcher 3", "witcher 3"],
+  wukong: ["black myth: wukong", "black myth wukong", "wukong"],
+  bmw: ["black myth: wukong", "black myth wukong"],
+  hd2: ["helldivers 2", "helldivers ii"],
+  helldivers: ["helldivers 2", "helldivers"],
+  sf6: ["street fighter 6", "street fighter vi"],
+  tekken8: ["tekken 8"],
+  t8: ["tekken 8"],
+  p3r: ["persona 3 reload"],
+  p5r: ["persona 5 royal"],
+  palworld: ["palworld"],
+  val: ["valorant"],
+  apex: ["apex legends"],
+  d4: ["diablo iv", "diablo 4"],
+  sm2: ["space marine 2", "warhammer 40,000: space marine 2"],
+  stalker2: ["s.t.a.l.k.e.r. 2", "stalker 2"],
+  kcd: ["kingdom come: deliverance", "kingdom come deliverance"],
+  kcd2: ["kingdom come: deliverance ii", "kingdom come deliverance 2"],
+  dd2: ["dragon's dogma 2", "dragons dogma 2"],
+  tlou: ["the last of us", "the last of us part i"],
+  tlou2: ["the last of us part ii", "the last of us part 2"],
+  aw2: ["alan wake 2", "alan wake ii"],
 };
 
 /**
@@ -94,7 +123,8 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
   const filters: ParsedQueryFilters = { cleanQuery: "" };
 
   // Remove leading scope trigger characters if any (@, >, /, #, $, ?, !, ~, =)
-  if (/^[@>/#$?!~=]\s*/.test(text)) {
+  // but preserve negation filters like !installed or !fav
+  if (!/^!(?:installed|fav|unplayed|running)\b/i.test(text) && /^[@>/#$?!~=]\s*/.test(text)) {
     text = text.replace(/^[@>/#$?!~=]\s*/, "");
   }
 
@@ -105,17 +135,31 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
   for (const token of tokens) {
     const lower = token.toLowerCase();
 
-    if (lower === "is:installed" || lower === "installed:true") {
+    if (lower === "is:installed" || lower === "installed:true" || lower === "+installed") {
       filters.isInstalled = true;
-    } else if (lower === "is:cloud" || lower === "is:uninstalled" || lower === "installed:false") {
+    } else if (
+      lower === "is:cloud" ||
+      lower === "is:uninstalled" ||
+      lower === "installed:false" ||
+      lower === "!installed" ||
+      lower === "-installed"
+    ) {
       filters.isCloud = true;
     } else if (lower === "is:running" || lower === "running:true") {
       filters.isRunning = true;
     } else if (lower === "is:wishlist" || lower === "is:wishlisted" || lower === "wishlist:true") {
       filters.isWishlisted = true;
-    } else if (lower === "is:fav" || lower === "is:favorite" || lower === "fav:true" || lower === "favorite:true") {
+    } else if (
+      lower === "is:fav" ||
+      lower === "is:favorite" ||
+      lower === "fav:true" ||
+      lower === "favorite:true" ||
+      lower === "+fav"
+    ) {
       filters.isFavorite = true;
-    } else if (lower === "is:unplayed" || lower === "unplayed:true") {
+    } else if (lower === "!fav" || lower === "-fav" || lower === "fav:false") {
+      // Exclude favorites
+    } else if (lower === "is:unplayed" || lower === "unplayed:true" || lower === "is:backlog") {
       filters.isUnplayed = true;
     } else if (lower === "is:untracked" || lower === "untracked:true") {
       filters.isUntracked = true;
@@ -750,10 +794,28 @@ export function calculateLibraryStats(games: Game[]): LibraryStatsData {
 /**
  * Formats a unix timestamp into relative text ("Just now", "5m ago", "2h ago", "Yesterday", "3d ago", or date)
  */
-export function formatRelativeTime(timestamp: number | undefined): string | null {
+export function formatRelativeTime(
+  timestamp: number | undefined,
+  locale?: string
+): string | null {
   if (!timestamp) return null;
   const now = Date.now();
   const diffSec = Math.floor((now - timestamp) / 1000);
+
+  if (typeof Intl !== "undefined" && Intl.RelativeTimeFormat) {
+    try {
+      const rtf = new Intl.RelativeTimeFormat(locale || undefined, { numeric: "auto" });
+      if (diffSec < 60) return rtf.format(-Math.max(1, diffSec), "second");
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return rtf.format(-diffMin, "minute");
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return rtf.format(-diffHour, "hour");
+      const diffDays = Math.floor(diffHour / 24);
+      if (diffDays < 14) return rtf.format(-diffDays, "day");
+    } catch {
+      // Fallback below
+    }
+  }
 
   if (diffSec < 60) return "Just now";
   const diffMin = Math.floor(diffSec / 60);
@@ -764,7 +826,7 @@ export function formatRelativeTime(timestamp: number | undefined): string | null
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 14) return `${diffDays}d ago`;
 
-  return new Date(timestamp).toLocaleDateString(undefined, {
+  return new Date(timestamp).toLocaleDateString(locale || undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -842,3 +904,35 @@ export function clearRecentItems() {
     // Ignore
   }
 }
+
+/**
+ * Cleans and formats raw game synopses / descriptions into readable paragraphs:
+ * - Decodes HTML entities commonly returned by store scrapers (&quot;, &amp;, etc.)
+ * - Normalizes missing spaces after ellipses ("word...Next" -> "word... Next")
+ * - Normalizes missing spaces after sentence punctuation ("word.Next" -> "word. Next")
+ * - Splits into clean paragraphs on double newlines while collapsing excessive whitespace
+ */
+export function formatSummaryParagraphs(text?: string | null): string[] {
+  if (!text) return [];
+  const cleaned = text
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&ndash;/g, "–")
+    .replace(/&mdash;/g, "—")
+    .replace(/(\.{2,}|…)([A-Za-zÀ-ÿ0-9])/g, "$1 $2")
+    .replace(/([a-zà-ÿ]{2,}[.!?])([A-ZÀ-ÖØ-ß])/g, "$1 $2")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+
+  const paragraphs = cleaned
+    .split(/\r?\n\s*\r?\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return paragraphs.length > 0 ? paragraphs : [cleaned];
+}
+

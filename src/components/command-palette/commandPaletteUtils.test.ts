@@ -11,6 +11,8 @@ import {
   calculateLibraryStats,
   levenshteinDistance,
   formatDurationSeconds,
+  formatRelativeTime,
+  formatSummaryParagraphs,
 } from "./commandPaletteUtils";
 import type { Game } from "../../types/game";
 
@@ -267,6 +269,72 @@ describe("commandPaletteUtils", () => {
 
       clearRecentItems();
       expect(getRecentItems()).toHaveLength(0);
+    });
+  });
+
+  describe("Expanded features & localization", () => {
+    it("matches new popular gaming acronyms", () => {
+      expect(scoreMatch("wukong", "Black Myth: Wukong")).toBeGreaterThan(500);
+      expect(scoreMatch("hd2", "Helldivers 2")).toBeGreaterThan(500);
+      expect(scoreMatch("sf6", "Street Fighter 6")).toBeGreaterThan(500);
+      expect(scoreMatch("p3r", "Persona 3 Reload")).toBeGreaterThan(500);
+      expect(scoreMatch("kcd", "Kingdom Come: Deliverance")).toBeGreaterThan(500);
+    });
+
+    it("parses negation filters and backlog token", () => {
+      const p1 = parseQueryFilters("!installed cyberpunk");
+      expect(p1.isCloud).toBe(true);
+      expect(p1.cleanQuery).toBe("cyberpunk");
+
+      const p2 = parseQueryFilters("-installed witcher");
+      expect(p2.isCloud).toBe(true);
+
+      const p3 = parseQueryFilters("is:backlog");
+      expect(p3.isUnplayed).toBe(true);
+    });
+
+    it("formats relative time with localization support", () => {
+      const now = Date.now();
+      const oneDayAgo = now - 24 * 3600 * 1000;
+      const formattedFr = formatRelativeTime(oneDayAgo, "fr");
+      const formattedEn = formatRelativeTime(oneDayAgo, "en");
+
+      expect(formattedFr).toBeDefined();
+      expect(formattedEn).toBeDefined();
+      expect(typeof formattedFr).toBe("string");
+      expect(typeof formattedEn).toBe("string");
+    });
+  });
+
+  describe("formatSummaryParagraphs", () => {
+    it("returns empty array for empty or null inputs", () => {
+      expect(formatSummaryParagraphs(null)).toEqual([]);
+      expect(formatSummaryParagraphs(undefined)).toEqual([]);
+      expect(formatSummaryParagraphs("")).toEqual([]);
+    });
+
+    it("unescapes HTML entities and normalizes spaces", () => {
+      const input = "An &quot;epic&quot; story &amp; battle with aliens&#39; weapons &ndash; year 2026.";
+      const result = formatSummaryParagraphs(input);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBe('An "epic" story & battle with aliens\' weapons – year 2026.');
+    });
+
+    it("fixes missing space after ellipses before next words", () => {
+      const input = "ancient evil bent on vengeance and annihilation...the universe will never be the same.";
+      const result = formatSummaryParagraphs(input);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBe(
+        "ancient evil bent on vengeance and annihilation... the universe will never be the same."
+      );
+    });
+
+    it("splits multi-paragraph synopses cleanly", () => {
+      const input = "Paragraph one starts here.\n\nParagraph two continues the epic tale.";
+      const result = formatSummaryParagraphs(input);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBe("Paragraph one starts here.");
+      expect(result[1]).toBe("Paragraph two continues the epic tale.");
     });
   });
 });
