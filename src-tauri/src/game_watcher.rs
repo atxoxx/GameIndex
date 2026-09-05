@@ -1749,9 +1749,15 @@ fn find_session_process(
         .map(|s| s.to_lowercase())
         .filter(|s| !s.is_empty() && !SKIP_KEYWORDS.iter().any(|kw| s.contains(kw)));
 
-    // Tier 1: the session's own install dir.
+    // Tier 1: the session's own install dir. This is the only scan
+    // allowed to use the bundled-Java-runtime fallback — a Java game's
+    // real process (e.g. Songs of Syx's `jre\bin\javaw.exe`) lives in
+    // this exact folder, while a parent-level scan must never steal a
+    // sibling game's bundled runtime.
     if let Some(dir) = install_dir {
-        if let Some(p) = find_best_process_in_dir(processes, dir, expected_stem.as_deref()) {
+        if let Some(p) =
+            find_best_process_in_dir(processes, dir, expected_stem.as_deref(), true)
+        {
             return Some(p);
         }
 
@@ -1761,9 +1767,12 @@ fn find_session_process(
         for _ in 0..3 {
             match cur {
                 Some(p) if !p.as_os_str().is_empty() => {
-                    if let Some(found) =
-                        find_best_process_in_dir(processes, p, expected_stem.as_deref())
-                    {
+                    if let Some(found) = find_best_process_in_dir(
+                        processes,
+                        p,
+                        expected_stem.as_deref(),
+                        false,
+                    ) {
                         return Some(found);
                     }
                     cur = p.parent();
@@ -1856,10 +1865,22 @@ fn find_session_process(
 /// helper or a sibling game in the same folder is never picked. When the
 /// stem is unknown (pending protocol launch), only direct children of
 /// the directory qualify. Skip-keyword executables are always excluded.
+///
+/// When the strict rule finds nothing, a *bundled Java runtime* process
+/// running inside the same directory is accepted as the game (gated by
+/// `allow_bundled_java`, see `is_java_runtime_host`). This covers Java
+/// games whose launcher stub exits right after spawning the real game —
+/// Songs of Syx ships `jre\bin\javaw.exe` and its `SongsOfSyx.exe` stub
+/// hands off to it and dies, so without the fallback the session would
+/// end while the game is still running. The fallback is scoped to the
+/// game's own install dir (callers pass `false` for parent-directory
+/// scans) so a bundled runtime from a *sibling* game under a shared
+/// publisher root is never stolen.
 fn find_best_process_in_dir(
     processes: &[ProcessInfo],
     install_dir: &Path,
     expected_stem: Option<&str>,
+    allow_bundled_java: bool,
 ) -> Option<ProcessInfo> {
     let dir_lower = install_dir
         .to_string_lossy()
@@ -1874,11 +1895,105 @@ fn find_best_process_in_dir(
 
     let expected_stem = expected_stem.map(|s| s.to_lowercase());
 
+    // Strict rule — the existing stem/direct-child acceptance. Direct
+    // children qualify when the tracked exe stem is unknown (pending
+    // launch) or the child shares that stem; deeper processes qualify
+    // only on an exact stem match. A different-stem process in the
+    // folder (anti-cheat daemon, updater, sibling game) is never the
+    // game. `best_process_in_dir` already guarantees `p` lives inside
+    // `dir_lower`, so the remainder slicing here is safe.
+    let strict_match = |p: &ProcessInfo| {
+        let path_lower = p.exe_path.to_lowercase().replace('/', "\\");
+        let remainder = &path_lower[dir_lower.len()..];
+        let rel = remainder.trim_start_matches('\\');
+        if rel.is_empty() || !rel.contains('\\') {
+            return match expected_stem.as_deref() {
+                None => true,
+                Some(stem) => exe_stem_matches(p, stem),
+            };
+        }
+        match expected_stem.as_deref() {
+            Some(stem) => exe_stem_matches(p, stem),
+            None => false,
+        }
+    };
+
+    // Strict matches always win — the Java fallback must never displace
+    // a real exe-stem match that is still alive.
+    if let Some(p) = best_process_in_dir(processes, &dir_lower, strict_match) {
+        return Some(p);
+    }
+
+    // Bundled-Java-runtime fallback (launcher-stub hand-off, e.g.
+    // SongsOfSyx.exe → jre\bin\javaw.exe).
+    if allow_bundled_java {
+        if let Some(p) = best_process_in_dir(processes, &dir_lower, is_java_runtime_host) {
+            return Some(p);
+        }
+    }
+
+    None
+}
+
+/// `true` when `p` is one of the standard Java launcher executables
+/// (`java` / `javaw` / `javaws`) running from a bundled runtime
+/// directory inside the game folder (a path segment named `jre`, `jdk`,
+/// `jvm` or `jbr`). Games that ship their own JVM launch a stub exe
+/// that spawns this process and exits; the real gameplay process is the
+/// runtime host, not the stub. Scoping to the bundled-runtime path is
+/// what keeps this from matching the user's system-wide Java install.
+fn is_java_runtime_host(p: &ProcessInfo) -> bool {
+    let stem = match Path::new(&p.exe_path).file_stem().and_then(|s| s.to_str()) {
+        Some(s) => s.to_lowercase(),
+        None => return false,
+    };
+    if stem != "java" && stem != "javaw" && stem != "javaws" {
+        return false;
+    }
+    p.exe_path
+        .to_lowercase()
+        .replace('/', "\\")
+        .split('\\')
+        .any(|seg| {
+            let seg = seg.trim_end_matches(':');
+            seg.starts_with("jre") || seg.starts_with("jdk") || seg.starts_with("jvm") || seg.starts_with("jbr")
+        })
+}
+
+/// `true` when the process's exe stem (case-insensitive) equals `stem`.
+fn exe_stem_matches(p: &ProcessInfo, stem: &str) -> bool {
+    Path::new(&p.exe_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase() == stem)
+        .unwrap_or(false)
+}
+
+/// Pick the best running process inside `dir_lower` accepted by `accept`:
+/// the largest working set among non-skip-keyworded candidates, or `None`
+/// when nothing qualifies. The directory-boundary guard (inside the dir,
+/// not a sibling path that merely shares the prefix) is applied here so
+/// every `accept` predicate sees only genuinely-inside candidates.
+///
+/// Skip-keyword executables (launchers, crash handlers, Wallpaper
+/// Engine, etc.) are NEVER the game we're looking for. If every
+/// candidate matches a skip keyword we return None rather than
+/// picking one — without this guard a lone wallpaper64.exe (or
+/// similar background app) in a parent directory like
+/// `…\steamapps\common\` would be chosen as the "best process".
+fn best_process_in_dir<F>(
+    processes: &[ProcessInfo],
+    dir_lower: &str,
+    accept: F,
+) -> Option<ProcessInfo>
+where
+    F: Fn(&ProcessInfo) -> bool,
+{
     let mut candidates: Vec<ProcessInfo> = processes
         .iter()
         .filter(|p| {
             let path_lower = p.exe_path.to_lowercase().replace('/', "\\");
-            if !path_lower.starts_with(&dir_lower) {
+            if !path_lower.starts_with(dir_lower) {
                 return false;
             }
             // Make sure the match is actually inside the directory, not a
@@ -1888,29 +2003,7 @@ fn find_best_process_in_dir(
             if !remainder.is_empty() && !remainder.starts_with('\\') {
                 return false;
             }
-            // Direct child (or the dir itself): qualifies when the tracked
-            // exe stem is unknown (pending launch) or the child shares that
-            // stem. A different-stem process in the folder (anti-cheat
-            // daemon, updater, sibling game) is never the game.
-            let rel = remainder.trim_start_matches('\\');
-            if rel.is_empty() || !rel.contains('\\') {
-                return match expected_stem.as_deref() {
-                    None => true,
-                    Some(stem) => Path::new(&p.exe_path)
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .map(|s| s.to_lowercase() == stem)
-                        .unwrap_or(false),
-                };
-            }
-            match expected_stem.as_deref() {
-                Some(stem) => Path::new(&p.exe_path)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_lowercase() == stem)
-                    .unwrap_or(false),
-                None => false,
-            }
+            accept(p)
         })
         .cloned()
         .collect();
@@ -1933,12 +2026,6 @@ fn find_best_process_in_dir(
         .cloned()
         .collect();
 
-    // Skip-keyword executables (launchers, crash handlers, Wallpaper
-    // Engine, etc.) are NEVER the game we're looking for. If every
-    // candidate matches a skip keyword we return None rather than
-    // picking one — without this guard a lone wallpaper64.exe (or
-    // similar background app) in a parent directory like
-    // `…\steamapps\common\` would be chosen as the "best process".
     if skip_filtered.is_empty() {
         return None;
     }
@@ -2511,7 +2598,8 @@ mod tests {
             make_proc(2, "C:\\Games\\Foo\\game2.exe", 500),
             make_proc(3, "C:\\Games\\Foo\\helper.exe", 200),
         ];
-        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None).unwrap();
+        let best =
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None, true).unwrap();
         assert_eq!(best.pid, 2, "largest working set wins among non-skip candidates");
     }
 
@@ -2521,7 +2609,8 @@ mod tests {
             make_proc(1, "C:\\Games\\Foo\\game.exe", 100),
             make_proc(2, "C:\\Games\\Foo\\launcher.exe", 999),
         ];
-        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None).unwrap();
+        let best =
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None, true).unwrap();
         assert_eq!(best.pid, 1, "skip-keyworded exe never beats a real candidate");
     }
 
@@ -2532,7 +2621,7 @@ mod tests {
             make_proc(2, "C:\\Games\\Foo\\crashhandler.exe", 999),
         ];
         assert!(
-            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None).is_none(),
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), None, true).is_none(),
             "all-skip candidates must resolve to None — no skip-keyword fallback"
         );
     }
@@ -2546,7 +2635,8 @@ mod tests {
             make_proc(2, "C:\\Games\\Foo\\anticheatdaemon.exe", 999),
         ];
         let best =
-            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), Some("game")).unwrap();
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), Some("game"), true)
+                .unwrap();
         assert_eq!(best.pid, 1, "only the tracked exe stem qualifies when known");
     }
 
@@ -2559,7 +2649,8 @@ mod tests {
             make_proc(2, "C:\\Games\\Foo\\overlay.exe", 900),
         ];
         let best =
-            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), Some("game")).unwrap();
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), Some("game"), true)
+                .unwrap();
         assert_eq!(best.pid, 1, "deep stem match beats a larger unrelated helper");
     }
 
@@ -2567,18 +2658,104 @@ mod tests {
     fn test_find_best_process_in_dir_unknown_stem_requires_direct_child() {
         let nested = vec![make_proc(1, "C:\\Games\\Foo\\bin\\win64\\game.exe", 400)];
         assert!(
-            find_best_process_in_dir(&nested, Path::new("C:\\Games\\Foo"), None).is_none(),
+            find_best_process_in_dir(&nested, Path::new("C:\\Games\\Foo"), None, true).is_none(),
             "with an unknown stem, nested processes must not be attached"
         );
         let direct = vec![make_proc(2, "C:\\Games\\Foo\\game.exe", 400)];
-        let best = find_best_process_in_dir(&direct, Path::new("C:\\Games\\Foo"), None).unwrap();
+        let best =
+            find_best_process_in_dir(&direct, Path::new("C:\\Games\\Foo"), None, true).unwrap();
         assert_eq!(best.pid, 2, "direct child attaches for pending protocol launches");
     }
 
     #[test]
     fn test_find_best_process_in_dir_empty() {
-        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), None).is_none());
-        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), Some("game")).is_none());
+        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), None, true).is_none());
+        assert!(
+            find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), Some("game"), true)
+                .is_none()
+        );
+    }
+
+    // ── bundled-Java-runtime fallback (Songs of Syx regression) ──────
+
+    #[test]
+    fn test_find_best_process_in_dir_attaches_bundled_javaw_after_stub_exit() {
+        // Regression: Songs of Syx's `SongsOfSyx.exe` is a stub that
+        // spawns `jre\bin\javaw.exe` and exits. The re-attach must
+        // pick up the bundled JVM even though its stem (`javaw`) does
+        // not match the tracked exe stem (`songsofsyx`).
+        let procs = vec![make_proc(7, "C:\\Steam\\steamapps\\common\\Songs of Syx\\jre\\bin\\javaw.exe", 900)];
+        let dir = Path::new("C:\\Steam\\steamapps\\common\\Songs of Syx");
+        let best = find_best_process_in_dir(&procs, dir, Some("songsofsyx"), true).unwrap();
+        assert_eq!(best.pid, 7, "bundled javaw re-attaches when the stub has exited");
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_java_fallback_only_in_own_dir() {
+        // The Java fallback must be gated: a parent-level scan (shared
+        // publisher root) with `allow_bundled_java = false` must NOT
+        // grab a bundled javaw — that could steal a sibling game's
+        // runtime process.
+        let procs = vec![make_proc(
+            7,
+            "C:\\Steam\\steamapps\\common\\Songs of Syx\\jre\\bin\\javaw.exe",
+            900,
+        )];
+        let dir = Path::new("C:\\Steam\\steamapps\\common");
+        assert!(
+            find_best_process_in_dir(&procs, dir, Some("songsofsyx"), false).is_none(),
+            "Java fallback disabled for parent-directory scans"
+        );
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_prefers_strict_stem_over_java_host() {
+        // A still-alive exe with the tracked stem must always beat a
+        // bundled runtime host, regardless of working-set size.
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Foo\\game.exe", 100),
+            make_proc(2, "C:\\Games\\Foo\\jre\\bin\\javaw.exe", 9999),
+        ];
+        let best =
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), Some("game"), true)
+                .unwrap();
+        assert_eq!(best.pid, 1, "strict stem match wins over the Java fallback");
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_system_java_outside_dir_never_attaches() {
+        // A system-wide JVM (outside the install dir) is never the game,
+        // even with the fallback enabled — the directory boundary still
+        // applies.
+        let procs = vec![make_proc(
+            7,
+            "C:\\Program Files\\Java\\jre-17\\bin\\javaw.exe",
+            900,
+        )];
+        let dir = Path::new("C:\\Steam\\steamapps\\common\\Songs of Syx");
+        assert!(
+            find_best_process_in_dir(&procs, dir, Some("songsofsyx"), true).is_none(),
+            "system Java outside the install dir must not re-attach"
+        );
+    }
+
+    #[test]
+    fn test_find_session_process_tier1_attaches_bundled_javaw() {
+        // End-to-end re-attach for the Songs of Syx hand-off: the stub
+        // (tracked exe) has exited, the bundled javaw is still running.
+        let procs = vec![make_proc(
+            7,
+            "C:\\Steam\\steamapps\\common\\Songs of Syx\\jre\\bin\\javaw.exe",
+            900,
+        )];
+        let dir = PathBuf::from("C:\\Steam\\steamapps\\common\\Songs of Syx");
+        let found = find_session_process(
+            &procs,
+            Some(&dir),
+            "C:\\Steam\\steamapps\\common\\Songs of Syx\\SongsOfSyx.exe",
+        )
+        .unwrap();
+        assert_eq!(found.pid, 7, "session survives the stub→javaw hand-off");
     }
 
     // ── find_session_process ─────────────────────────────────────────
