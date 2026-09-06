@@ -49,9 +49,31 @@ pub fn delete(db: &Db, key: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn list_all(db: &Db) -> Result<Vec<(String, String, u64)>, String> {
+    let conn = db.kv().map_err(|e| format!("kv conn: {e}"))?;
+    let mut stmt = conn
+        .prepare("SELECT k, v, updated_at FROM kv_store ORDER BY k")
+        .map_err(|e| format!("kv list prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, i64>(2)? as u64,
+            ))
+        })
+        .map_err(|e| format!("kv list query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("kv row: {e}"))?);
+    }
+    Ok(out)
+}
+
 fn unix_now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
 }
+

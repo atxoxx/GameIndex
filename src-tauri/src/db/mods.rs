@@ -338,7 +338,74 @@ pub fn get_settings(db: &Db, game_id: &str) -> Result<Option<GameModSettingsRow>
     Ok(None)
 }
 
+/// Every mod across all games.
+pub fn list_all_mods(db: &Db) -> Result<Vec<ModRow>, String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(&format!("{SELECT_SQL} ORDER BY game_id, load_order"))
+        .map_err(|e| format!("mods list_all prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], row_from_row)
+        .map_err(|e| format!("mods list_all query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("mods row: {e}"))?);
+    }
+    Ok(out)
+}
+
+/// Every mod profile across all games.
+pub fn list_all_profiles(db: &Db) -> Result<Vec<ModProfileRow>, String> {
+    let conn = db.mods()?;
+    let mut stmt = conn
+        .prepare("SELECT id, game_id, name, mod_states, COALESCE(load_order, '[]'), created_at, updated_at FROM mod_profiles ORDER BY game_id, name")
+        .map_err(|e| format!("profiles list_all prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            let states: String = r.get(3)?;
+            let order: String = r.get(4)?;
+            Ok(ModProfileRow {
+                id: r.get(0)?,
+                game_id: r.get(1)?,
+                name: r.get(2)?,
+                mod_states: serde_json::from_str(&states).unwrap_or(Value::Object(Default::default())),
+                load_order: serde_json::from_str(&order).unwrap_or_default(),
+                created_at: r.get::<_, i64>(5)? as u64,
+                updated_at: r.get::<_, i64>(6)? as u64,
+            })
+        })
+        .map_err(|e| format!("profiles list_all query: {e}"))?;
+    rows.map(|r| r.map_err(|e| format!("profile row: {e}"))).collect()
+}
+
+/// Every per-game modding settings row.
+pub fn list_all_settings(db: &Db) -> Result<Vec<GameModSettingsRow>, String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT game_id, mods_root, custom_root, engine, plugins_txt, nexus_domain, updated_at FROM game_mod_settings ORDER BY game_id")
+        .map_err(|e| format!("mod settings list_all prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(GameModSettingsRow {
+                game_id: r.get(0)?,
+                mods_root: r.get(1)?,
+                custom_root: r.get(2)?,
+                engine: r.get(3)?,
+                plugins_txt: r.get(4)?,
+                nexus_domain: r.get(5)?,
+                updated_at: r.get::<_, i64>(6)? as u64,
+            })
+        })
+        .map_err(|e| format!("mod settings list_all query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("mod settings row: {e}"))?);
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
+
 mod tests {
     use super::*;
     use crate::db::schema::MODS_DDL;

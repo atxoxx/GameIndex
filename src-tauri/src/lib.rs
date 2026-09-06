@@ -5,6 +5,7 @@ use tokio::sync::Mutex;
 
 mod config;
 mod backup;
+mod backup_raw;
 mod discord_presence;
 mod crackwatch;
 mod steamgriddb;

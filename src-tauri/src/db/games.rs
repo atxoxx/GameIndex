@@ -221,13 +221,21 @@ pub struct GameRow {
 /// Bulk upsert: replace the entire library with `rows`. Wrapped in
 /// one transaction so we never have a partial library on disk.
 pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
+    upsert_batch(db, rows, true)
+}
+
+/// Bulk upsert with optional replace mode. When `replace_all` is true, deletes all
+/// existing games first. When false (merge mode), inserts or updates rows preserving existing ones.
+pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), String> {
     let mut conn = db.games().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    tx.execute("DELETE FROM games", [])
-        .map_err(|e| format!("games delete: {e}"))?;
+    if replace_all {
+        tx.execute("DELETE FROM games", [])
+            .map_err(|e| format!("games delete: {e}"))?;
+    }
     let mut stmt = tx
         .prepare(
-            "INSERT INTO games(
+            "INSERT OR REPLACE INTO games(
                  id, name, path, platform, installed, play_time, added_at,
                  cover_art_url, notes, size_bytes, size_detected_at, size_root_path,
                  icon_url, banner_url, logo_url,

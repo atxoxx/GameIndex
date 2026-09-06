@@ -13,6 +13,7 @@ import BackupProgressModal from "./BackupProgressModal";
 interface DomainStatus {
   name: string;
   sizeBytes: number;
+  itemCount?: number;
 }
 
 /** Status payload from `backup_get_status` (mirrors Rust `BackupStatus`). */
@@ -35,6 +36,8 @@ interface BackupInspect {
   createdAt: number;
   appVersion: string;
   domains: string[];
+  isRaw?: boolean;
+  counts?: Record<string, number>;
 }
 
 /** A picked .gibak file whose contents are shown in the restore gate. */
@@ -42,6 +45,8 @@ interface PickedBackup {
   path: string;
   createdAt: number;
   domains: string[];
+  isRaw?: boolean;
+  counts?: Record<string, number>;
 }
 
 /** Domain file stem → localized label key. Unknown stems fall back to raw. */
@@ -90,6 +95,7 @@ export default function BackupTab() {
   // Restore: the picked archive being reviewed + its selection.
   const [archive, setArchive] = useState<PickedBackup | null>(null);
   const [selectedRestore, setSelectedRestore] = useState<Record<string, boolean>>({});
+  const [restoreMode, setRestoreMode] = useState<"merge" | "replace">("merge");
   const [inspecting, setInspecting] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
 
@@ -162,7 +168,13 @@ export default function BackupTab() {
         const info = await invoke<BackupInspect>("backup_inspect", {
           sourcePath: picked,
         });
-        setArchive({ path: picked, createdAt: info.createdAt, domains: info.domains });
+        setArchive({
+          path: picked,
+          createdAt: info.createdAt,
+          domains: info.domains,
+          isRaw: info.isRaw,
+          counts: info.counts,
+        });
         setSelectedRestore({});
       } catch (err) {
         setReadError(t("settings.backup.readFailed", { error: String(err) }));
@@ -196,6 +208,7 @@ export default function BackupTab() {
       await invoke<BackupOutcome>("backup_restore", {
         sourcePath: archive.path,
         domains: chosen,
+        mode: restoreMode,
       });
       showToast(t("settings.backup.restoredToast"), "success");
       setArchive(null);
@@ -271,8 +284,15 @@ export default function BackupTab() {
                 <span className="settings-backup-row-name">
                   {t(BACKUP_DOMAIN_LABEL_KEYS[d.name] ?? d.name)}
                 </span>
-                <span className="settings-backup-row-size">
-                  {formatBackupBytes(d.sizeBytes)}
+                <span className="settings-backup-row-meta">
+                  {d.itemCount !== undefined && d.itemCount > 0 && (
+                    <span className="settings-backup-row-count">
+                      {t("settings.backup.itemCount", { count: d.itemCount })}
+                    </span>
+                  )}
+                  <span className="settings-backup-row-size">
+                    {formatBackupBytes(d.sizeBytes)}
+                  </span>
                 </span>
               </li>
             ))}
@@ -326,8 +346,15 @@ export default function BackupTab() {
                 <span className="settings-backup-row-name">
                   {t(BACKUP_DOMAIN_LABEL_KEYS[d.name] ?? d.name)}
                 </span>
-                <span className="settings-backup-row-size">
-                  {formatBackupBytes(d.sizeBytes)}
+                <span className="settings-backup-row-meta">
+                  {d.itemCount !== undefined && d.itemCount > 0 && (
+                    <span className="settings-backup-row-count">
+                      {t("settings.backup.itemCount", { count: d.itemCount })}
+                    </span>
+                  )}
+                  <span className="settings-backup-row-size">
+                    {formatBackupBytes(d.sizeBytes)}
+                  </span>
                 </span>
               </label>
             ))}
@@ -387,31 +414,76 @@ export default function BackupTab() {
                   })}
                 </span>
               </div>
-              {archive.domains.map((name) => (
-                <label
-                  key={name}
-                  className="settings-checkbox-label settings-backup-check-row"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isRestoreChecked(name)}
-                    onChange={(e) => toggleRestore(name, e.target.checked)}
-                  />
-                  <span className="settings-backup-row-name">
-                    {t(BACKUP_DOMAIN_LABEL_KEYS[name] ?? name)}
-                  </span>
-                </label>
-              ))}
+              {archive.domains.map((name) => {
+                const count = archive.counts?.[name];
+                return (
+                  <label
+                    key={name}
+                    className="settings-checkbox-label settings-backup-check-row"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isRestoreChecked(name)}
+                      onChange={(e) => toggleRestore(name, e.target.checked)}
+                    />
+                    <span className="settings-backup-row-name">
+                      {t(BACKUP_DOMAIN_LABEL_KEYS[name] ?? name)}
+                    </span>
+                    {count !== undefined && count > 0 && (
+                      <span className="settings-backup-row-count">
+                        {t("settings.backup.itemCount", { count })}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
+
+            {archive.isRaw && (
+              <div className="settings-backup-mode-box">
+                <span className="settings-backup-mode-title">{t("settings.backup.modeTitle")}</span>
+                <div className="settings-backup-mode-options">
+                  <label className={`settings-backup-mode-card ${restoreMode === "merge" ? "active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="restoreMode"
+                      value="merge"
+                      checked={restoreMode === "merge"}
+                      onChange={() => setRestoreMode("merge")}
+                    />
+                    <div className="settings-backup-mode-card-content">
+                      <span className="settings-backup-mode-card-title">{t("settings.backup.modeMergeTitle")}</span>
+                      <span className="settings-backup-mode-card-desc">{t("settings.backup.modeMergeDesc")}</span>
+                    </div>
+                  </label>
+                  <label className={`settings-backup-mode-card ${restoreMode === "replace" ? "active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="restoreMode"
+                      value="replace"
+                      checked={restoreMode === "replace"}
+                      onChange={() => setRestoreMode("replace")}
+                    />
+                    <div className="settings-backup-mode-card-content">
+                      <span className="settings-backup-mode-card-title">{t("settings.backup.modeReplaceTitle")}</span>
+                      <span className="settings-backup-mode-card-desc">{t("settings.backup.modeReplaceDesc")}</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+
             <p className="settings-backup-gate-warning">
-              {t("settings.backup.restoreConfirmBody")}
+              {archive.isRaw && restoreMode === "merge"
+                ? t("settings.backup.restoreConfirmBodyMerge")
+                : t("settings.backup.restoreConfirmBody")}
             </p>
             <div className="settings-backup-gate-actions">
               <Button variant="ghost" onClick={() => setArchive(null)} disabled={restoring}>
                 {t("common.cancel")}
               </Button>
               <Button
-                variant="danger"
+                variant={archive.isRaw && restoreMode === "merge" ? "primary" : "danger"}
                 onClick={() => void doRestore()}
                 isLoading={restoring}
                 disabled={restoreChoices.length === 0}

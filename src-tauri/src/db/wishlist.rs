@@ -48,6 +48,15 @@ pub fn remove(db: &Db, slug: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Delete all wishlisted games.
+pub fn clear(db: &Db) -> Result<(), String> {
+    let conn = db.wishlist().map_err(|e| format!("wishlist conn: {e}"))?;
+    conn.execute("DELETE FROM wishlist", [])
+        .map_err(|e| format!("wishlist clear: {e}"))?;
+    Ok(())
+}
+
+
 /// Return every wishlisted entry sorted by added_at desc.
 pub fn list(db: &Db) -> Result<Vec<(String, WishlistEntryJson, u64)>, String> {
     let conn = db.wishlist().map_err(|e| format!("wishlist conn: {e}"))?;

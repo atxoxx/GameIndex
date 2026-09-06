@@ -350,6 +350,72 @@ pub fn relink_game(
     Ok(n as u64)
 }
 
+/// Bulk insert/restore sessions.
+/// In `replace_all` mode, drops all existing sessions before restoring with exact IDs.
+/// In merge mode (`!replace_all`), inserts records that don't already exist for (game_id, started_at).
+pub fn insert_batch(db: &Db, records: &[SessionRecord], replace_all: bool) -> Result<(), String> {
+    let mut conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    let tx = conn.transaction().map_err(|e| format!("sessions tx: {e}"))?;
+    if replace_all {
+        tx.execute("DELETE FROM sessions", [])
+            .map_err(|e| format!("sessions delete: {e}"))?;
+        let mut stmt = tx
+            .prepare(
+                "INSERT OR REPLACE INTO sessions(
+                    id, game_id, game_name, started_at, ended_at, elapsed_seconds,
+                    avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json
+                 ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+            )
+            .map_err(|e| format!("sessions insert_batch prepare: {e}"))?;
+        for r in records {
+            stmt.execute(params![
+                r.id,
+                r.game_id,
+                r.game_name,
+                r.started_at_ms as i64,
+                r.ended_at_ms.map(|n| n as i64),
+                r.elapsed_seconds.map(|n| n as i64),
+                r.avg_fps.map(|n| n as f64),
+                r.avg_cpu.map(|n| n as f64),
+                r.avg_gpu.map(|n| n as f64),
+                r.avg_ram.map(|n| n as f64),
+                r.metrics_json,
+            ])
+            .map_err(|e| format!("sessions insert_batch execute: {e}"))?;
+        }
+    } else {
+        let mut stmt = tx
+            .prepare(
+                "INSERT INTO sessions(
+                    game_id, game_name, started_at, ended_at, elapsed_seconds,
+                    avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json
+                 )
+                 SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM sessions WHERE game_id = ?1 AND started_at = ?3
+                 )",
+            )
+            .map_err(|e| format!("sessions merge prepare: {e}"))?;
+        for r in records {
+            stmt.execute(params![
+                r.game_id,
+                r.game_name,
+                r.started_at_ms as i64,
+                r.ended_at_ms.map(|n| n as i64),
+                r.elapsed_seconds.map(|n| n as i64),
+                r.avg_fps.map(|n| n as f64),
+                r.avg_cpu.map(|n| n as f64),
+                r.avg_gpu.map(|n| n as f64),
+                r.avg_ram.map(|n| n as f64),
+                r.metrics_json,
+            ])
+            .map_err(|e| format!("sessions merge execute: {e}"))?;
+        }
+    }
+    tx.commit().map_err(|e| format!("sessions insert_batch commit: {e}"))?;
+    Ok(())
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SessionRecord {
     pub id: i64,

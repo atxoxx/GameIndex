@@ -67,7 +67,7 @@ pub const BACKUP_DOMAINS: &[&str] = &[
     "kv",
 ];
 
-/// One row of the backup overview: a domain + the live file's size.
+/// One row of the backup overview: a domain + the live file's size + item count.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DomainStatus {
@@ -75,6 +75,8 @@ pub struct DomainStatus {
     pub name: String,
     /// On-disk size of the live database file in bytes.
     pub size_bytes: u64,
+    /// Number of primary domain records.
+    pub item_count: u64,
 }
 
 /// Everything the Backup tab's overview section renders.
@@ -106,6 +108,8 @@ pub struct BackupInspect {
     pub app_version: String,
     /// Domain file stems stored in the archive, in archive order.
     pub domains: Vec<String>,
+    pub is_raw: bool,
+    pub counts: std::collections::HashMap<String, u64>,
 }
 
 // ─── Commands ─────────────────────────────────────────────────────────────────
@@ -121,9 +125,11 @@ pub fn backup_get_status(app: tauri::AppHandle) -> Result<BackupStatus, String> 
     for name in BACKUP_DOMAINS {
         let path = data_dir.join(format!("{name}.db"));
         let size_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        let item_count = crate::backup_raw::count_domain_items(db, name);
         domains.push(DomainStatus {
             name: (*name).to_string(),
             size_bytes,
+            item_count,
         });
     }
     Ok(BackupStatus {
@@ -140,8 +146,7 @@ pub fn backup_inspect(source_path: String) -> Result<BackupInspect, String> {
     inspect_archive(&source_path)
 }
 
-/// Snapshot the selected domain databases (default: every domain with a
-/// live file) into a `.gibak` zip at `target_path`.
+/// Snapshot the selected domains into a raw data `.gibak` zip at `target_path`.
 #[tauri::command]
 pub fn backup_create(
     app: tauri::AppHandle,
@@ -151,7 +156,7 @@ pub fn backup_create(
     let db = state_db(&app)?;
     let data_dir = app_data_dir(&app)?;
     let app_handle = app.clone();
-    let outcome = do_create_with_progress(
+    let outcome = crate::backup_raw::create_raw_backup(
         db,
         &data_dir,
         &target_path,
@@ -167,18 +172,36 @@ pub fn backup_create(
     Ok(outcome)
 }
 
-/// Validate a `.gibak` zip and restore the selected domains (default:
-/// every domain the archive contains) into the live databases. The
-/// frontend relaunches the app once this returns.
+/// Validate a `.gibak` zip and restore the selected domains into the live databases.
+/// Supports both raw NDJSON archives (v2) with "replace" or "merge" mode, and legacy v1 binary DB archives.
 #[tauri::command]
 pub fn backup_restore(
     app: tauri::AppHandle,
     source_path: String,
     domains: Option<Vec<String>>,
+    mode: Option<String>,
 ) -> Result<BackupOutcome, String> {
     let db = state_db(&app)?;
     let data_dir = app_data_dir(&app)?;
-    let outcome = do_restore(db, &data_dir, &source_path, domains.as_deref())?;
+    let app_handle = app.clone();
+    let manifest = load_manifest(&source_path)?;
+    let is_raw = manifest["format"].as_str() == Some(crate::backup_raw::BACKUP_RAW_MAGIC);
+
+    let outcome = if is_raw {
+        crate::backup_raw::restore_raw_backup(
+            db,
+            &data_dir,
+            &source_path,
+            domains.as_deref(),
+            mode.as_deref().unwrap_or("replace"),
+            Some(move |progress: BackupProgress| {
+                let _ = app_handle.emit("backup-progress", progress);
+            }),
+        )?
+    } else {
+        do_restore(db, &data_dir, &source_path, domains.as_deref())?
+    };
+
     let _ = kv::set(db, KV_LAST_AT, &outcome.created_at.to_string());
     let _ = kv::set(db, KV_LAST_BYTES, &outcome.size_bytes.to_string());
     Ok(outcome)
@@ -193,9 +216,21 @@ fn do_create(
     target_path: &str,
     only: Option<&[String]>,
 ) -> Result<BackupOutcome, String> {
+    crate::backup_raw::create_raw_backup::<fn(BackupProgress)>(db, data_dir, target_path, only, None)
+}
+
+#[cfg(test)]
+fn do_create_legacy(
+    db: &Db,
+    data_dir: &Path,
+    target_path: &str,
+    only: Option<&[String]>,
+) -> Result<BackupOutcome, String> {
     do_create_with_progress::<fn(BackupProgress)>(db, data_dir, target_path, only, None)
 }
 
+
+#[cfg_attr(not(test), allow(dead_code))]
 fn do_create_with_progress<F>(
     db: &Db,
     data_dir: &Path,
@@ -428,6 +463,7 @@ fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn snapshot_pool(pool: &SqlitePool, dest: &Path, name: &str) -> Result<(), String> {
     let conn = pool.get().map_err(|e| format!("acquire {name} conn: {e}"))?;
     conn.backup(DatabaseName::Main, dest, None)
@@ -468,25 +504,41 @@ fn checkpoint_all(db: &Db) -> Result<(), String> {
 /// Preview an archive: header fields + the domains stored in it.
 fn inspect_archive(source_path: &str) -> Result<BackupInspect, String> {
     let manifest = load_manifest(source_path)?;
+    let is_raw = manifest["format"].as_str() == Some(crate::backup_raw::BACKUP_RAW_MAGIC);
+    let mut counts = std::collections::HashMap::new();
+    if let Some(counts_obj) = manifest["counts"].as_object() {
+        for (k, v) in counts_obj {
+            if let Some(n) = v.as_u64() {
+                counts.insert(k.clone(), n);
+            }
+        }
+    }
     Ok(BackupInspect {
         created_at: manifest["createdAt"].as_u64().unwrap_or(0),
         app_version: manifest["appVersion"].as_str().unwrap_or_default().to_string(),
         domains: manifest_domains(&manifest),
+        is_raw,
+        counts,
     })
 }
 
 /// Read a manifest and reject anything that is not a GameIndex backup of
-/// the current format version.
+/// a supported format version (v1 binary or v2 raw).
 fn load_manifest(path: &str) -> Result<serde_json::Value, String> {
     let manifest = read_manifest(path)?;
-    if manifest["format"].as_str() != Some(BACKUP_MAGIC) {
+    let fmt = manifest["format"].as_str().unwrap_or_default();
+    let version = manifest["version"].as_u64().unwrap_or(0);
+
+    if fmt == crate::backup_raw::BACKUP_RAW_MAGIC {
+        if version != crate::backup_raw::BACKUP_RAW_FORMAT_VERSION as u64 {
+            return Err(format!("Unsupported backup version: {version}"));
+        }
+    } else if fmt == BACKUP_MAGIC {
+        if version != BACKUP_FORMAT_VERSION as u64 {
+            return Err(format!("Unsupported backup version: {version}"));
+        }
+    } else {
         return Err("Not a GameIndex backup file".into());
-    }
-    if manifest["version"].as_u64() != Some(BACKUP_FORMAT_VERSION as u64) {
-        return Err(format!(
-            "Unsupported backup version: {version}",
-            version = manifest["version"]
-        ));
     }
     Ok(manifest)
 }
@@ -523,6 +575,7 @@ fn read_manifest(path: &str) -> Result<serde_json::Value, String> {
     serde_json::from_str(&buf).map_err(|e| format!("manifest parse: {e}"))
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn write_zip(target: &Path, files: &[(String, Vec<u8>)]) -> Result<(), String> {
     let file = std::fs::File::create(target).map_err(|e| format!("create archive: {e}"))?;
     let mut zip = zip::ZipWriter::new(file);
@@ -535,6 +588,7 @@ fn write_zip(target: &Path, files: &[(String, Vec<u8>)]) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn zip_opts() -> zip::write::SimpleFileOptions {
     zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated)
@@ -569,6 +623,28 @@ mod tests {
         (dir, db)
     }
 
+    fn do_restore_test(
+        db: &Db,
+        data_dir: &Path,
+        source_path: &str,
+        only: Option<&[String]>,
+    ) -> Result<BackupOutcome, String> {
+        let manifest = load_manifest(source_path)?;
+        let is_raw = manifest["format"].as_str() == Some(crate::backup_raw::BACKUP_RAW_MAGIC);
+        if is_raw {
+            crate::backup_raw::restore_raw_backup::<fn(BackupProgress)>(
+                db,
+                data_dir,
+                source_path,
+                only,
+                "replace",
+                None,
+            )
+        } else {
+            do_restore(db, data_dir, source_path, only)
+        }
+    }
+
     #[test]
     fn backup_roundtrip_restores_domain_data() {
         let (dir, db) = prep();
@@ -581,7 +657,7 @@ mod tests {
         kv::delete(&db, "test.marker").unwrap();
         assert_eq!(kv::get(&db, "test.marker").unwrap(), None);
 
-        do_restore(&db, dir.path(), target.to_str().unwrap(), None).unwrap();
+        do_restore_test(&db, dir.path(), target.to_str().unwrap(), None).unwrap();
         assert_eq!(kv::get(&db, "test.marker").unwrap(), Some("hello-backup".into()));
     }
 
@@ -590,7 +666,7 @@ mod tests {
         let (dir, db) = prep();
         let junk = dir.path().join("not-a-backup.gibak");
         std::fs::write(&junk, b"this is not a zip file at all").unwrap();
-        let err = do_restore(&db, dir.path(), junk.to_str().unwrap(), None).unwrap_err();
+        let err = do_restore_test(&db, dir.path(), junk.to_str().unwrap(), None).unwrap_err();
         assert!(err.contains("archive") || err.contains("backup file"), "unexpected err: {err}");
     }
 
@@ -618,7 +694,7 @@ mod tests {
         .unwrap();
 
         let (restore_dir, db) = prep();
-        let err = do_restore(&db, restore_dir.path(), fake.to_str().unwrap(), None).unwrap_err();
+        let err = do_restore_test(&db, restore_dir.path(), fake.to_str().unwrap(), None).unwrap_err();
         assert!(err.contains("games"), "unexpected err: {err}");
     }
 
@@ -642,6 +718,8 @@ mod tests {
         assert_eq!(inspect.domains, vec!["games", "kv"]);
         assert!(inspect.created_at > 0);
         assert!(!inspect.app_version.is_empty());
+        assert!(inspect.is_raw);
+        assert_eq!(inspect.counts.get("kv"), Some(&1));
     }
 
     #[test]
@@ -667,7 +745,7 @@ mod tests {
 
         // Restoring only "games" must leave the kv marker untouched.
         let (dir2, db2) = prep();
-        do_restore(
+        do_restore_test(
             &db2,
             dir2.path(),
             target.to_str().unwrap(),
@@ -678,7 +756,7 @@ mod tests {
 
         // Restoring only "kv" brings the marker back.
         let (dir3, db3) = prep();
-        do_restore(
+        do_restore_test(
             &db3,
             dir3.path(),
             target.to_str().unwrap(),
@@ -701,7 +779,7 @@ mod tests {
         .unwrap();
 
         let (restore_dir, restore_db) = prep();
-        let err = do_restore(
+        let err = do_restore_test(
             &restore_db,
             restore_dir.path(),
             target.to_str().unwrap(),
@@ -718,5 +796,45 @@ mod tests {
         std::fs::write(&junk, b"definitely not a zip").unwrap();
         let err = inspect_archive(junk.to_str().unwrap()).unwrap_err();
         assert!(err.contains("archive") || err.contains("backup file"), "unexpected err: {err}");
+    }
+
+    #[test]
+    fn raw_backup_merge_mode_preserves_new_records() {
+        let (dir, db) = prep();
+        kv::set(&db, "marker.saved", "from_backup").unwrap();
+        let target = dir.path().join("merge_test.gibak");
+        do_create(&db, dir.path(), target.to_str().unwrap(), None).unwrap();
+
+        // Add a brand new record on the current machine
+        kv::set(&db, "marker.local", "keep_me").unwrap();
+
+        // Restore in merge mode
+        crate::backup_raw::restore_raw_backup::<fn(BackupProgress)>(
+            &db,
+            dir.path(),
+            target.to_str().unwrap(),
+            None,
+            "merge",
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(kv::get(&db, "marker.saved").unwrap(), Some("from_backup".into()));
+        assert_eq!(kv::get(&db, "marker.local").unwrap(), Some("keep_me".into()));
+    }
+
+    #[test]
+    fn legacy_v1_backup_still_restores() {
+        let (dir, db) = prep();
+        kv::set(&db, "test.legacy", "v1-val").unwrap();
+        let target = dir.path().join("legacy.gibak");
+        do_create_legacy(&db, dir.path(), target.to_str().unwrap(), None).unwrap();
+
+        let inspect = inspect_archive(target.to_str().unwrap()).unwrap();
+        assert!(!inspect.is_raw);
+
+        let (restore_dir, restore_db) = prep();
+        do_restore_test(&restore_db, restore_dir.path(), target.to_str().unwrap(), None).unwrap();
+        assert_eq!(kv::get(&restore_db, "test.legacy").unwrap(), Some("v1-val".into()));
     }
 }
