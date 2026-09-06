@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { parsePlayTime, formatPlayTime } from "../../types/game";
-import { useGames } from "../../context/GameContext";
+import { useGames, useLiveElapsed } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import HeroTrailer from "./HeroTrailer";
@@ -26,7 +26,8 @@ interface SpotlightItem {
 
 function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
   const navigate = useNavigate();
-  const { launchGame, runningGameIds, liveElapsed } = useGames();
+  const { launchGame, runningGameIds } = useGames();
+  const liveElapsed = useLiveElapsed();
   const { showToast } = useToast();
   const { t } = useLanguage();
 

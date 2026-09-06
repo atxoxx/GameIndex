@@ -47,9 +47,6 @@ interface GameContextType {
    *  watcher's grace period (e.g. a launcher handing off to the real game).
    *  The UI shows these as "closing" instead of flipping straight to stopped. */
   closingGameIds: string[];
-  /** Live elapsed-seconds heartbeat per running game, fed by the watcher's
-   *  periodic `game-progress` events. Keyed by game id. */
-  liveElapsed: Record<string, number>;
   launchGame: (game: Game) => void;
   /**
    * Force-terminate the running game process and record the session.
@@ -85,11 +82,29 @@ interface GameByIdValue {
   getGameSnapshot: (id: string) => Game | undefined;
 }
 
+// Narrow subscription surface for the live session-timer map. The watcher's
+// `game-progress` heartbeat refreshes this every HEARTBEAT_INTERVAL (30 s)
+// while a game runs; keeping it OUT of the main context value means those
+// ticks no longer re-render every `useGames()` consumer (TopNav, the whole
+// sidebar row set, every page) — only the two components that actually
+// render the timer (HomeHero, GameLaunchActions) re-render, and only when
+// the map identity actually changes.
+interface LiveElapsedValue {
+  subscribe: (cb: () => void) => () => void;
+  getSnapshot: () => Record<string, number>;
+}
+
+// Shared empty snapshot so consumers outside the provider (or before the
+// first heartbeat) always get a stable identity — useSyncExternalStore
+// bails out of re-renders when the snapshot reference is unchanged.
+const EMPTY_LIVE_ELAPSED: Record<string, number> = {};
+
 // Persist the React context instances across Vite HMR module re-evaluations so
 // lazy-loaded page chunks never lose their Provider instance.
 const globalGameObj = globalThis as unknown as {
   __gamelib_game_context__?: React.Context<GameContextType | null>;
   __gamelib_game_by_id_context__?: React.Context<GameByIdValue | null>;
+  __gamelib_live_elapsed_context__?: React.Context<LiveElapsedValue | null>;
 };
 const GameContext =
   globalGameObj.__gamelib_game_context__ ??
@@ -98,6 +113,10 @@ const GameContext =
 const GameByIdContext =
   globalGameObj.__gamelib_game_by_id_context__ ??
   (globalGameObj.__gamelib_game_by_id_context__ = createContext<GameByIdValue | null>(null));
+
+const LiveElapsedContext =
+  globalGameObj.__gamelib_live_elapsed_context__ ??
+  (globalGameObj.__gamelib_live_elapsed_context__ = createContext<LiveElapsedValue | null>(null));
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 
@@ -215,6 +234,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Keep the shared ref in sync with sessions state (sessions owns the Set)
   // This assignment runs every render so watcher rebuilds always see latest.
   untrackedGameIdsRef.current = sessions.untrackedGameIds;
+
+  // ── Live session timers (narrow subscription) ───────────────────
+  // The heartbeat state lives in `useSessions`; this provider only fans it
+  // out to the handful of consumers that render the running timer. The
+  // effect below fires exactly when the map identity changes (every
+  // heartbeat), notifying subscribers without touching the main context
+  // value — so a 30 s timer tick costs two small re-renders instead of a
+  // full-tree sweep.
+  const liveElapsedSubsRef = useRef(new Set<() => void>());
+
+  useEffect(() => {
+    const subs = liveElapsedSubsRef.current;
+    for (const cb of subs) cb();
+  }, [sessions.liveElapsed]);
+
+  const subscribeLiveElapsed = useCallback((cb: () => void) => {
+    liveElapsedSubsRef.current.add(cb);
+    return () => {
+      liveElapsedSubsRef.current.delete(cb);
+    };
+  }, []);
+
+  const liveElapsedValue = useMemo<LiveElapsedValue>(
+    () => ({
+      subscribe: subscribeLiveElapsed,
+      getSnapshot: () => sessions.liveElapsed,
+    }),
+    [subscribeLiveElapsed, sessions.liveElapsed]
+  );
 
   // ── Launch: launchGame / forceCloseGame / splash timers ─────────
   const { launchGame, forceCloseGame } = useLaunch({
@@ -540,7 +588,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     getGame,
     runningGameIds: sessions.runningGameIds,
     closingGameIds: sessions.closingGameIds,
-    liveElapsed: sessions.liveElapsed,
     launchGame,
     forceCloseGame,
     addStoreGame,
@@ -561,7 +608,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     getGame,
     sessions.runningGameIds,
     sessions.closingGameIds,
-    sessions.liveElapsed,
     launchGame,
     forceCloseGame,
     addStoreGame,
@@ -575,7 +621,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   return (
     <GameContext.Provider value={contextValue}>
       <GameByIdContext.Provider value={gameByIdValue}>
-        {children}
+        <LiveElapsedContext.Provider value={liveElapsedValue}>
+          {children}
+        </LiveElapsedContext.Provider>
       </GameByIdContext.Provider>
     </GameContext.Provider>
   );
@@ -593,6 +641,27 @@ export function useGames(): GameContextType {
 export function useRunningGames(): string[] {
   const { runningGameIds } = useGames();
   return runningGameIds;
+}
+
+/**
+ * Narrow selector: live elapsed-seconds per running game, fed by the
+ * watcher's `game-progress` heartbeat. Subscribes via `useSyncExternalStore`
+ * and re-renders ONLY when the timer map changes, so the 30 s heartbeat
+ * never re-renders the rest of the tree.
+ */
+export function useLiveElapsed(): Record<string, number> {
+  const value = useContext(LiveElapsedContext);
+
+  const subscribe = useCallback(
+    (cb: () => void) => (value ? value.subscribe(cb) : () => {}),
+    [value]
+  );
+  const getSnapshot = useCallback(
+    () => (value ? value.getSnapshot() : EMPTY_LIVE_ELAPSED),
+    [value]
+  );
+
+  return useSyncExternalStore(subscribe, getSnapshot);
 }
 
 /**

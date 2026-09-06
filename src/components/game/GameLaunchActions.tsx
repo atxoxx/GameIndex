@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useToast } from "../../context/ToastContext";
-import { useGames } from "../../context/GameContext";
+import { useGames, useLiveElapsed } from "../../context/GameContext";
 import { IconDownload, IconPlay } from "./icons";
 import DownloadButton from "../DownloadButton";
 import { formatPlayTime, type Game } from "../../types/game";
@@ -33,7 +33,8 @@ export default function GameLaunchActions({
   onLaunch,
   size = "md",
 }: GameLaunchActionsProps) {
-  const { runningGameIds, closingGameIds, liveElapsed, forceCloseGame } = useGames();
+  const { runningGameIds, closingGameIds, forceCloseGame } = useGames();
+  const liveElapsed = useLiveElapsed();
   const { showToast } = useToast();
   const { t } = useLanguage();
   const isRunning = runningGameIds.includes(game.id);

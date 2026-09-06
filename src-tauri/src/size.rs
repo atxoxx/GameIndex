@@ -31,9 +31,10 @@
 //!   * `size_root_path: Option<String>`
 
 use serde::{Deserialize, Serialize};
+use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 use tauri::Emitter;
 use tauri_plugin_opener::OpenerExt;
 
@@ -113,57 +114,141 @@ pub(crate) fn walk_up_find_root(exe_path: &str, game_name: &str) -> Option<PathB
     None
 }
 
-/// Recursive byte-sum helper. Skips symlinked children (their targets are
-/// already counted via the canonical path). On per-directory `read_dir`
-/// failure, logs to stderr and returns; the partial sum is kept.
-/// Recursive byte-sum helper. Skips symlinked children (their targets are
+/// Parallel byte-sum walker. Skips symlinked children (their targets are
 /// already counted via the canonical path). On per-directory `read_dir`
 /// failure, logs to stderr and returns; the partial sum is kept.
 ///
-/// A `visited` set of canonicalised paths guards against any future edge
-/// case where `is_symlink()` misses a reparse point (Windows junctions,
-/// bind mounts on Linux). If we ever see a directory we've already
-/// walked, we skip it — better to under-count (rare, recoverable via
-/// the Storage tab's per-row re-measure) than to hang the UI thread.
-fn walk_and_sum(dir: &Path, total: &mut u64, visited: &mut std::collections::HashSet<PathBuf>) {
-    // Canonicalise once per directory so the cycle guard compares
-    // real paths (e.g. "C:\Games" vs "\\?\C:\Games\..\Games"). On
-    // canonicalise failure (permission denied, dangling junction) we
-    // fall back to the unresolved path so the walker still makes
-    // progress on the rest of the tree.
-    let canonical = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
-    if !visited.insert(canonical) {
-        // Cycle — already walked this directory. Bail out.
-        return;
+/// Design
+/// ------
+/// Game installs routinely contain 50k–300k files (Unreal / Unity data
+/// dirs, shader caches), and a single-threaded metadata walk of that
+/// scale takes seconds — and it runs on every Storage auto-detect,
+/// every import, every move-verify and every store-sync measurement.
+/// This version fans the directory tree out over the machine's cores:
+///
+///   * A shared FIFO holds discovered-but-unvisited directories.
+///   * `pending` counts queued + in-flight directories. A worker only
+///     exits when the queue is empty AND `pending == 0`; because both
+///     are updated under the queue mutex, no in-flight walk can push
+///     children after the last worker has decided to leave.
+///   * The walk is iterative, so pathologically deep trees can't
+///     overflow the stack the way recursion could.
+///
+/// A shared `visited` set of canonicalised paths guards against any
+/// future edge case where `is_symlink()` misses a reparse point
+/// (Windows junctions, bind mounts on Linux). If we ever see a
+/// directory we've already walked, we skip it — better to under-count
+/// (rare, recoverable via the Storage tab's per-row re-measure) than
+/// to hang the UI thread.
+fn walk_and_sum(root: &Path) -> u64 {
+    let queue: Mutex<VecDeque<PathBuf>> = Mutex::new(VecDeque::new());
+    let pending = AtomicUsize::new(1); // the root, queued
+    let visited: Mutex<HashSet<PathBuf>> = Mutex::new(HashSet::new());
+    let total = AtomicU64::new(0);
+    let cv = Condvar::new();
+
+    {
+        // Canonicalise the root up front so the cycle guard compares
+        // real paths (e.g. "C:\Games" vs "\\?\C:\Games\..\Games"). On
+        // canonicalise failure (permission denied, dangling junction) we
+        // fall back to the unresolved path so the walk still progresses.
+        let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+        visited.lock().unwrap().insert(canonical);
+        queue.lock().unwrap().push_back(root.to_path_buf());
     }
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(e) => {
-            eprintln!("[size] read_dir failed for {}: {}", dir.display(), e);
-            return;
+
+    // Worker count: all logical cores, capped — beyond ~8 threads the
+    // metadata syscalls saturate and mutex contention eats the gains.
+    let workers = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .clamp(1, 8);
+
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| loop {
+                // Pop the next directory; block while the queue is empty
+                // but other workers still hold in-flight work.
+                let dir = {
+                    let mut q = queue.lock().unwrap();
+                    loop {
+                        if let Some(d) = q.pop_front() {
+                            break d;
+                        }
+                        if pending.load(Ordering::Relaxed) == 0 {
+                            return;
+                        }
+                        q = cv.wait(q).unwrap();
+                    }
+                };
+
+                let mut subdirs: Vec<PathBuf> = Vec::new();
+                match std::fs::read_dir(&dir) {
+                    Ok(entries) => {
+                        for entry in entries.flatten() {
+                            let meta = match entry.metadata() {
+                                Ok(m) => m,
+                                Err(_) => continue,
+                            };
+                            // Don't follow symlinks — prevents both infinite
+                            // loops and double counting the same target
+                            // bytes through multiple paths.
+                            if meta.is_symlink() {
+                                continue;
+                            }
+                            let ftype = meta.file_type();
+                            if ftype.is_dir() {
+                                // Only enqueue directories this worker is
+                                // the first to claim, so two workers can't
+                                // double-walk (or double-count) a junction.
+                                let canonical = entry
+                                    .path()
+                                    .canonicalize()
+                                    .unwrap_or_else(|_| entry.path());
+                                if visited.lock().unwrap().insert(canonical) {
+                                    subdirs.push(entry.path());
+                                }
+                            } else if ftype.is_file() {
+                                // Saturating add (CAS loop) so a maliciously
+                                // huge total can't overflow even on a
+                                // misbehaving FS — same guarantee as the
+                                // old sequential `saturating_add`.
+                                total.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |t| {
+                                    Some(t.saturating_add(meta.len()))
+                                })
+                                .ok();
+                            }
+                            // Other file kinds (sockets, FIFOs, block
+                            // devices on Linux) are ignored — they have no
+                            // meaningful file size.
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[size] read_dir failed for {}: {}", dir.display(), e);
+                    }
+                }
+
+                // Account for this dir's completion and any children it
+                // enqueued under one lock acquisition, then wake waiters
+                // if either condition changed their exit/steal eligibility.
+                let mut q = queue.lock().unwrap();
+                let child_count = subdirs.len();
+                for d in &subdirs {
+                    q.push_back(d.clone());
+                }
+                let remaining = pending.fetch_sub(1, Ordering::Relaxed) - 1;
+                if child_count > 0 {
+                    pending.fetch_add(child_count, Ordering::Relaxed);
+                }
+                drop(q);
+                if remaining == 0 || child_count > 0 {
+                    cv.notify_all();
+                }
+            });
         }
-    };
-    for entry in entries.flatten() {
-        let meta = match entry.metadata() {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-        // Don't follow symlinks — prevents both infinite loops and double
-        // counting the same target bytes through multiple paths.
-        if meta.is_symlink() {
-            continue;
-        }
-        let ftype = meta.file_type();
-        if ftype.is_dir() {
-            walk_and_sum(&entry.path(), total, visited);
-        } else if ftype.is_file() {
-            // Using `saturating_add` instead of `+= so a maliciously huge
-            // total can't overflow even on a misbehaving FS.
-            *total = total.saturating_add(meta.len());
-        }
-        // Other file kinds (sockets, FIFOs, block devices on Linux) are
-        // ignored — they have no meaningful file size.
-    }
+    });
+
+    total.load(Ordering::Relaxed)
 }
 
 /// Measure the size of an already-resolved install dir. Thin wrapper
@@ -193,9 +278,7 @@ pub(crate) fn sum_folder_size(root: &Path) -> Result<SizeDetectionResult, String
     if !root.is_dir() {
         return Err(format!("Not a directory: {}", root.display()));
     }
-    let mut total: u64 = 0;
-    let mut visited: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
-    walk_and_sum(root, &mut total, &mut visited);
+    let total = walk_and_sum(root);
     Ok(SizeDetectionResult {
         root_path: root.to_string_lossy().to_string(),
         size_bytes: total,
@@ -715,6 +798,49 @@ mod tests {
 
         // Missing folder: should return None, not Err.
         assert!(measure_folder_size(Path::new("/definitely/does/not/exist/anywhere")).is_none());
+
+        std::fs::remove_dir_all(&layout).ok();
+    }
+
+    #[test]
+    fn sum_folder_size_walks_nested_tree_across_workers() {
+        // Multi-level tree (3 levels × 4 dirs + files at every level) so the
+        // parallel walker has enough queued work to spread across its
+        // worker threads; a single-level tree can be consumed by one worker
+        // and would not exercise the queue/condvar hand-off.
+        let layout = std::env::temp_dir().join(format!(
+            "gametest-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let root = layout.join("install");
+        let mut expected: u64 = 0;
+
+        // level 0
+        let mut dirs = vec![root.clone()];
+        std::fs::create_dir_all(&root).unwrap();
+        for level in 0..3 {
+            let mut next: Vec<PathBuf> = Vec::new();
+            for d in &dirs {
+                for i in 0..4 {
+                    let sub = d.join(format!("l{level}-{i}"));
+                    std::fs::create_dir_all(&sub).unwrap();
+                    let payload = vec![b'x'; 7 + level as usize];
+                    std::fs::write(sub.join("data.bin"), &payload).unwrap();
+                    expected += payload.len() as u64;
+                    next.push(sub);
+                }
+            }
+            dirs = next;
+        }
+
+        let result = sum_folder_size(&root).expect("walk should succeed");
+        assert_eq!(
+            result.size_bytes, expected,
+            "nested walk should count every level exactly once"
+        );
 
         std::fs::remove_dir_all(&layout).ok();
     }
