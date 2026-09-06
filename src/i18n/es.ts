@@ -1509,6 +1509,8 @@ export const es: TranslationDict = {
   "downloads.expandGraph": "Expandir gráfico",
   "downloads.eyebrow": "Gestor de descargas",
   "downloads.findDownloadSource": "Buscar una fuente de descarga",
+  "downloads.updateAvailable": "Actualización disponible",
+  "downloads.upToDate": "Actualizado",
   "downloads.history": "Historial",
   "downloads.itemsSelected": "{count} seleccionado(s)",
   "downloads.knownPeersTitle": "Pares conocidos en el enjambre (aproximado; excluye los conectados actualmente)",

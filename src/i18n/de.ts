@@ -1509,6 +1509,8 @@ export const de: TranslationDict = {
   "downloads.expandGraph": "Diagramm erweitern",
   "downloads.eyebrow": "Download-Manager",
   "downloads.findDownloadSource": "Downloadquelle suchen",
+  "downloads.updateAvailable": "Update verfügbar",
+  "downloads.upToDate": "Aktuell",
   "downloads.history": "Verlauf",
   "downloads.itemsSelected": "{count} ausgewählt",
   "downloads.knownPeersTitle": "Bekannte Peers im Swarm (ungefähr; schließt aktuell verbundene aus)",

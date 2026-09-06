@@ -1509,6 +1509,8 @@ export const zhCN: TranslationDict = {
   "downloads.expandGraph": "展开图表",
   "downloads.eyebrow": "下载管理器",
   "downloads.findDownloadSource": "查找下载源",
+  "downloads.updateAvailable": "有可用更新",
+  "downloads.upToDate": "已是最新",
   "downloads.history": "历史",
   "downloads.itemsSelected": "已选 {count} 项",
   "downloads.knownPeersTitle": "群中已知的节点（大约；不包括当前已连接的节点）",

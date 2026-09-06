@@ -26,6 +26,16 @@ export interface DownloadButtonProps {
   variant?: "default" | "prominent";
   /** Optional label override. Default = "Download". */
   label?: string;
+  /**
+   * When true, the button swaps to the accent "Update available"
+   * label + styling. Set by `useGameUpdateCheck` for installed games.
+   */
+  updateAvailable?: boolean;
+  /**
+   * When true, the button keeps the default label but its tooltip says
+   * "Up to date". Set by `useGameUpdateCheck` for installed games.
+   */
+  upToDate?: boolean;
   /** Extra inline style. Useful for grid placement. */
   style?: CSSProperties;
   /** Optional className. */
@@ -39,36 +49,60 @@ export default function DownloadButton({
   steamAppId,
   variant = "default",
   label = "Download",
+  updateAvailable = false,
+  upToDate = false,
   style,
   className,
 }: DownloadButtonProps) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
+  const buttonLabel = updateAvailable ? t("downloads.updateAvailable") : label;
+  const buttonTitle = updateAvailable
+    ? t("downloads.updateAvailable")
+    : upToDate
+      ? t("downloads.upToDate")
+      : t("downloads.findDownloadSource");
+
   return (
     <>
       <button
         type="button"
-        className={`game-download-btn game-download-btn--${variant}${className ? ` ${className}` : ""}`}
+        className={`game-download-btn game-download-btn--${variant}${updateAvailable ? " game-download-btn--update" : ""}${className ? ` ${className}` : ""}`}
         onClick={() => setOpen(true)}
         style={style}
-        title={t("downloads.findDownloadSource")}
+        title={buttonTitle}
         aria-label={t("downloads.openDownloadSourcesAria")}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-        {label}
+        {updateAvailable ? (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <line x1="12" y1="19" x2="12" y2="5" />
+            <polyline points="5 12 12 5 19 12" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        )}
+        {buttonLabel}
       </button>
       {open && (
         <DownloadModal

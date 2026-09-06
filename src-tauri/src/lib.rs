@@ -12,6 +12,7 @@ mod price;
 mod protondb;
 mod db;
 mod game_scraper;
+mod game_versions;
 mod game_watcher;
 mod gpu_detector;
 mod metrics_collector;
@@ -178,6 +179,7 @@ pub fn run() {
             create_preview_webview,
             webview_eval,
             rebuild_watcher_index,
+            game_versions::get_exe_file_version,
             achievements::fetch_achievements,
             achievements::save_achievements_cache,
             achievements::load_achievements_cache,

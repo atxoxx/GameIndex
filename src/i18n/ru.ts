@@ -1509,6 +1509,8 @@ export const ru: TranslationDict = {
   "downloads.expandGraph": "Развернуть график",
   "downloads.eyebrow": "Менеджер загрузок",
   "downloads.findDownloadSource": "Найти источник загрузки",
+  "downloads.updateAvailable": "Доступно обновление",
+  "downloads.upToDate": "Актуально",
   "downloads.history": "История",
   "downloads.itemsSelected": "Выбрано: {count}",
   "downloads.knownPeersTitle": "Известные пиры в сечении (приблизительно; кроме подключенных)",

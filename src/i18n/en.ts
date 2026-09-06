@@ -1509,6 +1509,8 @@ export const en: TranslationDict = {
   "downloads.expandGraph": "Expand graph",
   "downloads.eyebrow": "Download Manager",
   "downloads.findDownloadSource": "Find a download source",
+  "downloads.updateAvailable": "Update available",
+  "downloads.upToDate": "Up to date",
   "downloads.history": "History",
   "downloads.itemsSelected": "{count} selected",
   "downloads.knownPeersTitle": "Known peers in swarm (approximate; excludes those currently connected)",

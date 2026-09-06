@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useToast } from "../../context/ToastContext";
 import { useGames, useLiveElapsed } from "../../context/GameContext";
+import { useGameUpdateCheck } from "../../hooks/useGameUpdateCheck";
 import { IconDownload, IconPlay } from "./icons";
 import DownloadButton from "../DownloadButton";
 import { formatPlayTime, type Game } from "../../types/game";
@@ -37,6 +38,10 @@ export default function GameLaunchActions({
   const liveElapsed = useLiveElapsed();
   const { showToast } = useToast();
   const { t } = useLanguage();
+  // For installed games, a background check surfaces a "Update
+  // available" label on the DownloadButton when the sources carry a
+  // newer version than the installed exe.
+  const { status: updateStatus } = useGameUpdateCheck(game);
   const isRunning = runningGameIds.includes(game.id);
   // Watcher-reported grace period (process gone, but may be a launcher
   // hand-off) — show "Closing…" instead of "Running" during the window.
@@ -147,6 +152,8 @@ export default function GameLaunchActions({
         gameId={game.id}
         gamePoster={game.coverSourceUrl ?? game.bannerUrl ?? game.coverArtUrl}
         steamAppId={game.steamAppId}
+        updateAvailable={updateStatus === "update-available"}
+        upToDate={updateStatus === "up-to-date"}
       />
     </div>
   );

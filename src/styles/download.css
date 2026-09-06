@@ -3508,6 +3508,20 @@
   transform: translateY(0);
 }
 
+/* Update-available variant — installed games with a newer version in
+ * the sources. Green-tinted so the state reads as a positive action
+ * without stealing the prominent accent used by primary CTAs. */
+.game-download-btn--update {
+  border-color: color-mix(in srgb, var(--color-success) 55%, transparent);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 8%, transparent);
+}
+
+.game-download-btn--update:hover {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  border-color: var(--color-success);
+}
+
 /* TopNav download indicator — small pill on the right side of the
  * topnav. Only visible when there are active downloads. */
 .topnav-download-indicator {
