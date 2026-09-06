@@ -46,6 +46,12 @@ interface ActivityContextType {
   /** Remove every session recorded for a game (the dashboard sidebar
    *  entry disappears with them). */
   deleteSessionsForGame: (gameId: string) => void;
+  /** Re-link every session recorded for an old gameId to a new gameId & name. */
+  relinkSessionsForGame: (
+    oldGameId: string,
+    newGameId: string,
+    newGameName: string
+  ) => Promise<number>;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -367,6 +373,31 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     [reloadSessions]
   );
 
+  const relinkSessionsForGame = useCallback(
+    async (oldGameId: string, newGameId: string, newGameName: string): Promise<number> => {
+      // Optimistic local update; reconcile from the DB on failure.
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.gameId === oldGameId ? { ...s, gameId: newGameId, gameName: newGameName } : s
+        )
+      );
+      try {
+        const updated = await invoke<number>("relink_sessions_for_game", {
+          oldGameId,
+          newGameId,
+          newGameName,
+        });
+        return updated;
+      } catch (e) {
+        console.error("Failed to relink sessions for game:", e);
+        // Reconcile so the UI reflects the real DB state.
+        await reloadSessions();
+        throw e;
+      }
+    },
+    [reloadSessions]
+  );
+
   const getGameSessions = useCallback(
     (gameId: string) => sessions.filter((s) => s.gameId === gameId),
     [sessions]
@@ -422,6 +453,7 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     recordSession,
     deleteSession,
     deleteSessionsForGame,
+    relinkSessionsForGame,
   }), [
     sessions,
     selectedGpu,
@@ -435,6 +467,7 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     recordSession,
     deleteSession,
     deleteSessionsForGame,
+    relinkSessionsForGame,
   ]);
 
   return (

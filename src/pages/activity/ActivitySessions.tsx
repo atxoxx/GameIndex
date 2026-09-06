@@ -25,7 +25,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useToast } from "../../context/ToastContext";
 import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import { generateEstimatedTimeline } from "./performance/perfData";
-import { EmptyState, ManualSessionModal, SessionComparisonModal } from "../../components/activity";
+import { EmptyState, ManualSessionModal, SessionComparisonModal, LinkGameModal, AddActivityGameModal } from "../../components/activity";
 import * as Icons from "./Icons";
 
 export interface ActivitySessionsProps {
@@ -62,6 +62,8 @@ export function ActivitySessions({
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [manualSessionOpen, setManualSessionOpen] = useState(false);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [linkModalTarget, setLinkModalTarget] = useState<{ id: string; title: string } | null>(null);
+  const [addModalTarget, setAddModalTarget] = useState<{ id: string; title: string } | null>(null);
 
   // ── Windowed rendering ───────────────────────────────────────
   // Session history can grow to thousands of rows, and every row mounts
@@ -501,6 +503,8 @@ export function ActivitySessions({
                 onToggleSelect={() => toggleSelectSession(session.id)}
                 onRequestDelete={(s) => setPendingDeleteSession(s)}
                 onLaunchGame={onLaunchGame}
+                onRequestLink={(id, title) => setLinkModalTarget({ id, title })}
+                onRequestAdd={(id, title) => setAddModalTarget({ id, title })}
               />
             );
           })}
@@ -563,6 +567,25 @@ export function ActivitySessions({
         initialSessionAId={selectedPair?.a}
         initialSessionBId={selectedPair?.b}
       />
+
+      {linkModalTarget && (
+        <LinkGameModal
+          isOpen={true}
+          onClose={() => setLinkModalTarget(null)}
+          unlinkedGameId={linkModalTarget.id}
+          unlinkedGameTitle={linkModalTarget.title}
+          games={games}
+        />
+      )}
+
+      {addModalTarget && (
+        <AddActivityGameModal
+          isOpen={true}
+          onClose={() => setAddModalTarget(null)}
+          unlinkedGameId={addModalTarget.id}
+          unlinkedGameTitle={addModalTarget.title}
+        />
+      )}
     </div>
   );
 }
@@ -574,6 +597,8 @@ interface SessionItemProps {
   onToggleSelect: () => void;
   onRequestDelete: (session: GameSession) => void;
   onLaunchGame?: (game: Game) => void;
+  onRequestLink?: (gameId: string, gameTitle: string) => void;
+  onRequestAdd?: (gameId: string, gameTitle: string) => void;
 }
 
 function ActivitySessionItem({
@@ -583,6 +608,8 @@ function ActivitySessionItem({
   onToggleSelect,
   onRequestDelete,
   onLaunchGame,
+  onRequestLink,
+  onRequestAdd,
 }: SessionItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<"usage" | "temps" | "ram" | "fps">("usage");
@@ -1064,7 +1091,7 @@ function ActivitySessionItem({
           </div>
 
           {/* Quick Actions Footer */}
-          {game && (
+          {game ? (
             <div className="activity-session-item__actions-footer">
               <button
                 type="button"
@@ -1080,6 +1107,29 @@ function ActivitySessionItem({
                   onClick={() => onLaunchGame(game)}
                 >
                   <Icons.Play size={12} /> {t("game.play")}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="activity-session-item__actions-footer">
+              {onRequestLink && (
+                <button
+                  type="button"
+                  className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                  onClick={() => onRequestLink(session.gameId, session.gameName)}
+                  title={t("activity.linkToLibrary")}
+                >
+                  <Icons.Link2 size={12} /> {t("activity.linkToLibrary")}
+                </button>
+              )}
+              {onRequestAdd && (
+                <button
+                  type="button"
+                  className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                  onClick={() => onRequestAdd(session.gameId, session.gameName)}
+                  title={t("activity.addToLibrary")}
+                >
+                  <Icons.Plus size={12} /> {t("activity.addToLibrary")}
                 </button>
               )}
             </div>

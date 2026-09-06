@@ -332,6 +332,24 @@ pub fn delete_for_game(db: &Db, game_id: &str) -> Result<u64, String> {
     Ok(n as u64)
 }
 
+/// Re-link all session rows for a game to another game_id and game_name.
+/// Used by the Activity view to associate unlinked sessions with a library game.
+pub fn relink_game(
+    db: &Db,
+    old_game_id: &str,
+    new_game_id: &str,
+    new_game_name: &str,
+) -> Result<u64, String> {
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    let n = conn
+        .execute(
+            "UPDATE sessions SET game_id = ?1, game_name = ?2 WHERE game_id = ?3",
+            params![new_game_id, new_game_name, old_game_id],
+        )
+        .map_err(|e| format!("sessions relink_game: {e}"))?;
+    Ok(n as u64)
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SessionRecord {
     pub id: i64,
@@ -435,5 +453,30 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].game_id, "a");
         assert_eq!(rows[0].ended_at_ms, Some(1000 + 90 * 1000));
+    }
+
+    #[test]
+    fn relink_game_updates_sessions() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        insert(&db, "old_id", "Old Name", 1000, 2000, 10, None, None, None, None, None).unwrap();
+        insert(&db, "old_id", "Old Name", 3000, 4000, 20, None, None, None, None, None).unwrap();
+        insert(&db, "other", "Other", 5000, 6000, 30, None, None, None, None, None).unwrap();
+
+        let updated = relink_game(&db, "old_id", "new_id", "New Name").unwrap();
+        assert_eq!(updated, 2);
+
+        let old_sessions = list_for_game(&db, "old_id").unwrap();
+        assert_eq!(old_sessions.len(), 0);
+
+        let new_sessions = list_for_game(&db, "new_id").unwrap();
+        assert_eq!(new_sessions.len(), 2);
+        assert_eq!(new_sessions[0].game_name, Some("New Name".to_string()));
+
+        // Edge case: relinking an ID with 0 rows returns 0
+        let zero = relink_game(&db, "nonexistent", "new_id", "New Name").unwrap();
+        assert_eq!(zero, 0);
     }
 }

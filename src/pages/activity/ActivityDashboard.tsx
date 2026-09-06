@@ -19,6 +19,8 @@ import {
   BacklogCompletionHub,
   GamerPersonaCard,
   TimeToBeatProgress,
+  LinkGameModal,
+  AddActivityGameModal,
   buildPeriodComparison,
   buildRecords,
   buildMilestoneLadders,
@@ -68,6 +70,8 @@ export function ActivityDashboard({
   const [sidebarSort, setSidebarSort] = useState<SidebarSort>("playtime");
   const [chartMode, setChartMode] = useState<ChartMode>("periodic");
   const [pendingDeleteGameId, setPendingDeleteGameId] = useState<string | null>(null);
+  const [linkModalTarget, setLinkModalTarget] = useState<{ id: string; title: string } | null>(null);
+  const [addModalTarget, setAddModalTarget] = useState<{ id: string; title: string } | null>(null);
 
   const filteredSessions = useMemo(() => {
     return sessions.filter((s) => {
@@ -464,6 +468,7 @@ export function ActivityDashboard({
                   maxMinutes={maxSidebarMinutes}
                   onSelect={setSelectedGameId}
                   onRequestDelete={setPendingDeleteGameId}
+                  onRequestLink={(id, title) => setLinkModalTarget({ id, title })}
                 />
               );
             })}
@@ -502,6 +507,38 @@ export function ActivityDashboard({
                   >
                     <Icons.Play size={11} /> {t("game.play")}
                   </button>
+                )}
+                {selectedGameId && !selectedGame && (
+                  <>
+                    <button
+                      type="button"
+                      className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                      onClick={() => {
+                        const title =
+                          gameIsolatedSessions[0]?.gameName ||
+                          sidebarGamesList.find((g) => g.id === selectedGameId)?.title ||
+                          t("activityDash.unknownGame");
+                        setLinkModalTarget({ id: selectedGameId, title });
+                      }}
+                      title={t("activity.linkToLibrary")}
+                    >
+                      <Icons.Link2 size={11} /> {t("activity.linkToLibrary")}
+                    </button>
+                    <button
+                      type="button"
+                      className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                      onClick={() => {
+                        const title =
+                          gameIsolatedSessions[0]?.gameName ||
+                          sidebarGamesList.find((g) => g.id === selectedGameId)?.title ||
+                          t("activityDash.unknownGame");
+                        setAddModalTarget({ id: selectedGameId, title });
+                      }}
+                      title={t("activity.addToLibrary")}
+                    >
+                      <Icons.Plus size={11} /> {t("activity.addToLibrary")}
+                    </button>
+                  </>
                 )}
               </div>
               <div className="activity-main-chart__header-tools">
@@ -669,6 +706,33 @@ export function ActivityDashboard({
           setPendingDeleteGameId(null);
         }}
       />
+
+      {linkModalTarget && (
+        <LinkGameModal
+          isOpen={true}
+          onClose={() => setLinkModalTarget(null)}
+          unlinkedGameId={linkModalTarget.id}
+          unlinkedGameTitle={linkModalTarget.title}
+          games={games}
+          onLinked={(targetGame) => {
+            setSelectedGameId(targetGame.id);
+            setLinkModalTarget(null);
+          }}
+        />
+      )}
+
+      {addModalTarget && (
+        <AddActivityGameModal
+          isOpen={true}
+          onClose={() => setAddModalTarget(null)}
+          unlinkedGameId={addModalTarget.id}
+          unlinkedGameTitle={addModalTarget.title}
+          onAdded={(newGame) => {
+            setSelectedGameId(newGame.id);
+            setAddModalTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -680,6 +744,7 @@ function ActivitySidebarGameButton({
   maxMinutes,
   onSelect,
   onRequestDelete,
+  onRequestLink,
 }: {
   summary: {
     id: string;
@@ -696,6 +761,7 @@ function ActivitySidebarGameButton({
   maxMinutes: number;
   onSelect: (id: string) => void;
   onRequestDelete: (gameId: string) => void;
+  onRequestLink?: (gameId: string, gameTitle: string) => void;
 }) {
   const { t } = useLanguage();
   const { appId: resolvedSteamAppId } = useSteamAppId(game);
@@ -707,7 +773,7 @@ function ActivitySidebarGameButton({
   const barWidth = maxMinutes > 0 ? (summary.minutes / maxMinutes) * 100 : 0;
 
   return (
-    <div className="activity-game-sidebar__row">
+    <div className={`activity-game-sidebar__row ${!game ? "activity-game-sidebar__row--unlinked" : ""}`}>
       <button
         type="button"
         className={`activity-game-sidebar__item ${
@@ -737,18 +803,35 @@ function ActivitySidebarGameButton({
           </span>
         </div>
       </button>
-      <button
-        type="button"
-        className="activity-game-sidebar__delete-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRequestDelete(summary.id);
-        }}
-        title={t("activityDash.deleteEntry")}
-        aria-label={t("activityDash.deleteEntry")}
-      >
-        <Icons.Trash2 size={13} />
-      </button>
+
+      <div className="activity-game-sidebar__actions">
+        {!game && onRequestLink && (
+          <button
+            type="button"
+            className="activity-game-sidebar__action-btn activity-game-sidebar__link-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRequestLink(summary.id, summary.title);
+            }}
+            title={t("activity.linkToLibrary")}
+            aria-label={t("activity.linkToLibrary")}
+          >
+            <Icons.Link2 size={13} />
+          </button>
+        )}
+        <button
+          type="button"
+          className="activity-game-sidebar__action-btn activity-game-sidebar__delete-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRequestDelete(summary.id);
+          }}
+          title={t("activityDash.deleteEntry")}
+          aria-label={t("activityDash.deleteEntry")}
+        >
+          <Icons.Trash2 size={13} />
+        </button>
+      </div>
     </div>
   );
 }

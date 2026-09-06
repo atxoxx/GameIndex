@@ -56,6 +56,19 @@ pub fn delete_sessions_for_game(app: tauri::AppHandle, game_id: String) -> Resul
     db::sessions::delete_for_game(db_state.inner(), &game_id)
 }
 
+/// Re-link all session rows for a game to another game_id and game_name
+/// (used to associate unlinked activity entries with a library game).
+#[tauri::command]
+pub fn relink_sessions_for_game(
+    app: tauri::AppHandle,
+    old_game_id: String,
+    new_game_id: String,
+    new_game_name: String,
+) -> Result<u64, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::sessions::relink_game(db_state.inner(), &old_game_id, &new_game_id, &new_game_name)
+}
+
 /// Insert one session row. Used by the one-time migration that imports
 /// the legacy `sessions.json` history into SQLite; not called during
 /// normal play (the watcher's `finish_session` is the live writer).
