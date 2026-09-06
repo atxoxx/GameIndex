@@ -1579,7 +1579,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-info));
+  background: var(--color-accent);
 }
 
 .act-persona__main {
