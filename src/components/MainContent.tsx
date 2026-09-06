@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -24,6 +25,16 @@ import ErrorBoundary from "./ErrorBoundary";
  */
 export default function MainContent() {
   const location = useLocation();
+
+  // Every route change starts the page at the top. The desktop shell
+  // scrolls `.app-main` (not the window), so without this a page mounts
+  // at whatever scroll offset the previous route left behind — opening a
+  // game from a scrolled-down library lands mid-page.
+  useEffect(() => {
+    document.querySelector(".app-main")?.scrollTo({ top: 0 });
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   return (
     <main className="main-content">
       <ErrorBoundary key={location.pathname}>

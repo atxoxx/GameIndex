@@ -184,13 +184,17 @@ export default function GameMediaSpotlight({
   const safeIndex = items.length > 0 ? Math.min(activeIndex, items.length - 1) : 0;
   const activeItem = items[safeIndex] ?? null;
 
-  // Scroll active thumbnail into view
+  // Center the active thumbnail in the filmstrip without touching ancestor
+  // scroll positions. scrollIntoView also scrolls .app-main, which drags
+  // the whole page down to the media section on mount.
   useEffect(() => {
-    if (!filmstripRef.current) return;
-    const activeEl = filmstripRef.current.children[safeIndex] as HTMLElement | undefined;
-    if (activeEl) {
-      activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    }
+    const el = filmstripRef.current;
+    if (!el) return;
+    const activeEl = el.children[safeIndex] as HTMLElement | undefined;
+    if (!activeEl) return;
+    const elRect = el.getBoundingClientRect();
+    const thumbRect = activeEl.getBoundingClientRect();
+    el.scrollLeft += thumbRect.left - elRect.left - elRect.width / 2 + thumbRect.width / 2;
   }, [safeIndex]);
 
   // Keyboard navigation
