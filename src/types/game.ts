@@ -534,6 +534,10 @@ export interface RichAboutPayload {
   aboutHtml?: string;
   /** Plain-text fallback (Steam `short_description` or IGDB summary). */
   aboutText?: string;
+  /** Localized concise short description from Steam store page. */
+  shortDescription?: string;
+  /** Steam storefront release date string (e.g. "27 Feb, 2025" or "Coming Soon"). */
+  releaseDate?: string;
   /** Steam trailers / gameplay videos. */
   movies: MovieEntry[];
   /** Unix-seconds timestamp of the last successful fetch. */

@@ -805,6 +805,12 @@ pub struct RichAboutPayload {
     pub about_html: Option<String>,
     /// Plain-text fallback (Steam short_description or IGDB summary).
     pub about_text: Option<String>,
+    /// Localized concise short description (Steam short_description).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub short_description: Option<String>,
+    /// Steam storefront release date string (e.g. "27 Feb, 2025" or "Coming Soon").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_date: Option<String>,
     /// Trailers / gameplay videos from Steam `movies[]`. IGDB
     /// YouTube videos are intentionally not surfaced here — the
     /// existing `VideosSection` already handles YouTube embeds.
@@ -1301,8 +1307,6 @@ async fn fetch_steam_requirements_cached(app_id: u32) -> Option<PcRequirementsPa
 /// About section still has content in the user's UI language when Steam
 /// lacks a translation (no redundant IGDB calls).
 ///
-/// The whole bundle is cached in-process for `ABOUT_CACHE_TTL` keyed by
-/// `(steam_app_id, game_name)` so re-opening a game page is instant.
 pub async fn fetch_about_bundle(
     steam_app_id: Option<u32>,
     game_name: Option<&str>,
@@ -1342,7 +1346,7 @@ pub async fn fetch_about_bundle(
     let mut missing: Vec<String> = Vec::new();
     for (lang, payload) in entries.drain(..) {
         match payload {
-            Some(p) if p.about_html.is_some() || !p.movies.is_empty() => {
+            Some(p) if p.about_html.is_some() || p.about_text.is_some() || p.short_description.is_some() || !p.movies.is_empty() => {
                 by_language.insert(lang, p);
             }
             _ => missing.push(lang),
@@ -1375,7 +1379,6 @@ pub async fn fetch_about_bundle(
 
     bundle
 }
-
 
 /// Steam-specific fetch + cache. The cache key is the Steam appid;
 /// the TTL is `ABOUT_CACHE_TTL`. Returns `None` on any failure
@@ -1429,6 +1432,10 @@ async fn fetch_steam_about_for_lang_cached(app_id: u32, lang: &str) -> Option<Ri
         #[serde(default)]
         about_the_game: Option<String>,
         #[serde(default)]
+        short_description: Option<String>,
+        #[serde(default)]
+        release_date: Option<SteamReleaseDate>,
+        #[serde(default)]
         movies: Vec<SteamMovie>,
     }
 
@@ -1475,11 +1482,20 @@ async fn fetch_steam_about_for_lang_cached(app_id: u32, lang: &str) -> Option<Ri
         })
         .collect();
 
-    let about_text = data
-        .about_the_game
+    let short_desc = data
+        .short_description
         .as_deref()
         .map(strip_html_for_preview)
         .filter(|s| !s.is_empty());
+
+    let about_text = short_desc.clone().or_else(|| {
+        data.about_the_game
+            .as_deref()
+            .map(strip_html_for_preview)
+            .filter(|s| !s.is_empty())
+    });
+
+    let release_date = data.release_date.as_ref().and_then(|r| r.date.clone());
 
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -1492,13 +1508,15 @@ async fn fetch_steam_about_for_lang_cached(app_id: u32, lang: &str) -> Option<Ri
         source_name: Some("Steam".to_string()),
         about_html: data.about_the_game.clone(),
         about_text,
+        short_description: short_desc,
+        release_date,
         movies,
         fetched_at: now,
     };
 
     // 4. Cache + return. Only positive results are cached so a
     //    transient Steam hiccup doesn't poison subsequent renders.
-    if payload.about_html.is_some() || !payload.movies.is_empty() {
+    if payload.about_html.is_some() || payload.about_text.is_some() || !payload.movies.is_empty() {
         if let Some(cache) = ABOUT_CACHE.get() {
             if let Ok(mut guard) = cache.lock() {
                 guard.insert((app_id, lang.to_string()), (Instant::now(), payload.clone()));
@@ -1541,6 +1559,8 @@ async fn fetch_igdb_about(game_name: &str) -> Option<RichAboutPayload> {
         source_name: Some("IGDB".to_string()),
         about_html: None,
         about_text: Some(about_text),
+        short_description: best.description.clone(),
+        release_date: best.release_date.clone(),
         movies: Vec::new(),
         fetched_at: now,
     })
@@ -2655,8 +2675,12 @@ struct IgdbLanguageSupport {
 }
 
 fn format_unix_timestamp(ts: i64) -> String {
+    if ts < 0 {
+        return String::new();
+    }
     let seconds_in_day = 86400;
     let days = ts / seconds_in_day;
+    let rem_seconds = ts % seconds_in_day;
     
     let mut year = 1970;
     let mut day_count = days;
@@ -2688,7 +2712,14 @@ fn format_unix_timestamp(ts: i64) -> String {
     }
     
     let day = day_count + 1;
-    format!("{:04}-{:02}-{:02}", year, month, day)
+    if rem_seconds > 0 {
+        let hours = rem_seconds / 3600;
+        let minutes = (rem_seconds % 3600) / 60;
+        let seconds = rem_seconds % 60;
+        format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hours, minutes, seconds)
+    } else {
+        format!("{:04}-{:02}-{:02}", year, month, day)
+    }
 }
 
 fn map_game_category(game_type: u32) -> String {
@@ -3381,7 +3412,7 @@ fn category_where_sort(category: &str) -> (String, String) {
             "total_rating_count > 5".to_string(),
             "total_rating_count desc".to_string(),
         ),
-        "top" => (
+        "top" | "top_rated" => (
             "aggregated_rating > 70".to_string(),
             "aggregated_rating desc".to_string(),
         ),
@@ -4228,7 +4259,7 @@ pub async fn fetch_spotlight_games(
                 }
             }
         }
-        "weekly" => {
+        "weekly" | "top_sellers" => {
             // Steam Weekly Top Sellers (current best-selling titles of the week)
             if let Ok(resp) = client
                 .get("https://store.steampowered.com/search/results/?query=&start=0&count=50&filter=topsellers&infinite=1")
@@ -4342,6 +4373,119 @@ pub async fn fetch_spotlight_games(
             }
             if results.is_empty() {
                 if let Ok(fallback) = fetch_store_games("trending", 0, limit, None, None, None, None, None, None).await {
+                    results = fallback;
+                }
+            }
+        }
+        "top_rated" => {
+            // IGDB Critically Acclaimed Games (highest rated games with robust review counts)
+            if let Ok(token) = get_twitch_token().await {
+                let client_id = crate::config::get_twitch_client_id();
+                let body = format!(
+                    "fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url; where aggregated_rating >= 85 & total_rating_count >= 20 & cover != null; sort aggregated_rating desc; limit {}; offset 0;",
+                    limit
+                );
+                let _guard = igdb_acquire().await;
+                if let Ok(resp) = client
+                    .post("https://api.igdb.com/v4/games")
+                    .header("Client-ID", &client_id)
+                    .header("Authorization", format!("Bearer {}", token))
+                    .header("Content-Type", "text/plain")
+                    .body(body)
+                    .send()
+                    .await
+                {
+                    if let Ok(text) = resp.text().await {
+                        if let Ok(games) = serde_json::from_str::<Vec<IgdbGameSummary>>(&text) {
+                            results = games.into_iter().map(map_igdb_summary).collect();
+                        }
+                    }
+                }
+            }
+
+            // Fallback: Steam highest user reviews search
+            if results.is_empty() {
+                if let Ok(resp) = client
+                    .get("https://store.steampowered.com/search/results/?query=&start=0&count=50&sort_by=Reviews_DESC&category1=998&infinite=1")
+                    .send()
+                    .await
+                {
+                    #[derive(Deserialize)]
+                    struct SearchResult {
+                        results_html: String,
+                    }
+                    if let Ok(data) = resp.json::<SearchResult>().await {
+                        let appids = extract_steam_search_appids(&data.results_html);
+                        if let Ok(enriched) = enrich_steam_appids_to_summaries(&appids, limit_usize).await {
+                            if !enriched.is_empty() {
+                                results = enriched;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if results.is_empty() {
+                if let Ok(fallback) = fetch_store_games("top", 0, limit, None, None, None, None, None, None).await {
+                    results = fallback;
+                }
+            }
+        }
+        "coming_soon" => {
+            // Steam Most Wishlisted & Anticipated Upcoming Releases
+            if let Ok(resp) = client
+                .get("https://store.steampowered.com/search/results/?query=&start=0&count=50&filter=popularwishlist&infinite=1")
+                .send()
+                .await
+            {
+                #[derive(Deserialize)]
+                struct SearchResult {
+                    results_html: String,
+                }
+                if let Ok(data) = resp.json::<SearchResult>().await {
+                    let appids = extract_steam_search_appids(&data.results_html);
+                    if let Ok(enriched) = enrich_steam_appids_to_summaries(&appids, limit_usize).await {
+                        if !enriched.is_empty() {
+                            results = enriched;
+                        }
+                    }
+                }
+            }
+
+            // Fallback: upcoming releases sorted by IGDB hypes
+            if results.is_empty() {
+                let now = chrono::Utc::now().timestamp();
+                let fallback_where = format!(
+                    "first_release_date > {} & hypes > 0 & cover != null",
+                    now
+                );
+                if let Ok(token) = get_twitch_token().await {
+                    let client_id = crate::config::get_twitch_client_id();
+                    let body = format!(
+                        "fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url; where {}; sort hypes desc; limit {}; offset 0;",
+                        fallback_where, limit
+                    );
+                    let _guard = igdb_acquire().await;
+                    if let Ok(resp) = client
+                        .post("https://api.igdb.com/v4/games")
+                        .header("Client-ID", &client_id)
+                        .header("Authorization", format!("Bearer {}", token))
+                        .header("Content-Type", "text/plain")
+                        .body(body)
+                        .send()
+                        .await
+                    {
+                        if let Ok(text) = resp.text().await {
+                            if let Ok(games) = serde_json::from_str::<Vec<IgdbGameSummary>>(&text) {
+                                results = games.into_iter().map(map_igdb_summary).collect();
+                            }
+                        }
+                    }
+                }
+            }
+
+            if results.is_empty() {
+                if let Ok(fallback) = fetch_store_games("coming_soon", 0, limit, None, None, None, None, None, None).await {
                     results = fallback;
                 }
             }
