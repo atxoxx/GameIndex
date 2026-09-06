@@ -273,6 +273,20 @@ export function IconTag({ size, ...p }: IconProps) {
 }
 
 /**
+ * Rotate-cw glyph used by the InfoKpiCard's "Check for updates"
+ * button. Spins via CSS (`.info-refresh-btn__icon--spin`) while the
+ * per-game version check is in flight.
+ */
+export function IconRefresh({ size, ...p }: IconProps) {
+  return (
+    <BaseIcon size={size} {...p}>
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+    </BaseIcon>
+  );
+}
+
+/**
  * Folder glyph used by the executable-path click target inside the
  * InfoKpiCard. Paired with IconExternalLink to nudge the user toward
  * "click to open in OS file manager" rather than "click to launch".

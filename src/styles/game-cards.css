@@ -303,6 +303,51 @@
 .info-dl-value-tag--warning { color: var(--color-warning); border-color: color-mix(in srgb, var(--color-warning) 30%, var(--color-border)); }
 .info-dl-value-tag--default { color: var(--color-text-secondary); }
 
+/* InfoKpiCard → "Check for updates" header button (installed-game version check).
+ * Sits at the far right of the section title, opposite the icon. */
+.info-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.info-refresh-btn:hover:not(:disabled) {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.info-refresh-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Override the global .game-section-title svg sizing for this small button. */
+.info-refresh-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.info-refresh-btn__icon--spin {
+  animation: info-refresh-spin 0.9s linear infinite;
+}
+
+@keyframes info-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .info-dl-empty {
   display: flex;
   align-items: center;

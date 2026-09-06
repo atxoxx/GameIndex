@@ -11,12 +11,14 @@ import {
   IconBuilding,
   IconCalendar,
   IconCheck,
+  IconDownload,
   IconExternalLink,
   IconFolder,
   IconHardDrive,
   IconInfo,
   IconPencil,
   IconPlatform,
+  IconRefresh,
   IconStar,
   IconTag,
   IconUser,
@@ -24,6 +26,7 @@ import {
   IconClock,
   IconX,
 } from "./icons";
+import { useGameUpdateCheck } from "../../hooks/useGameUpdateCheck";
 import GameStatusDropdown from "./GameStatusDropdown";
 import { useSteamGameStats, formatSteamPrice } from "../../hooks/useSteamGameStats";
 import { useToast } from "../../context/ToastContext";
@@ -81,6 +84,14 @@ export default function InfoKpiCard({
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { updateGame } = useGames();
+
+  // Installed-version detection + download-source update check. The hero
+  // DownloadButton runs the same hook for this game; the module-level
+  // in-flight dedupe keeps it to one source search per page visit.
+  const update = useGameUpdateCheck(game);
+  const { status: updateStatus, installedVersion, latestVersion, refresh } = update;
+  // A manual re-check only makes sense when there is an exe to read.
+  const canCheckForUpdates = game.installed && !!(game.path || game.detectedExe);
 
   const { data: steamStats } = useSteamGameStats(game.steamAppId);
 
@@ -235,6 +246,28 @@ export default function InfoKpiCard({
       { label: t("hero.added"), value: addedDate, icon: <IconCalendar size={12} /> },
     ];
 
+    // Installed exe version (read from the file-version resource) and,
+    // when the download sources carry a newer build, the newest version
+    // found there. Both only render once the check produced data.
+    if (installedVersion) {
+      out.push({
+        label: t("info.version"),
+        value: (
+          <span className="info-dl-value-tag info-dl-value-tag--default">{installedVersion}</span>
+        ),
+        icon: <IconTag size={12} />,
+      });
+    }
+    if (updateStatus === "update-available" && latestVersion) {
+      out.push({
+        label: t("info.latestVersion"),
+        value: (
+          <span className="info-dl-value-tag info-dl-value-tag--warning">{latestVersion}</span>
+        ),
+        icon: <IconDownload size={12} />,
+      });
+    }
+
     if (game.steamAppId) {
       out.push({
         label: "Steam AppID",
@@ -322,7 +355,7 @@ export default function InfoKpiCard({
       });
     }
     return out;
-  }, [game, t, handleCopyAppId]);
+  }, [game, t, handleCopyAppId, updateStatus, installedVersion, latestVersion]);
 
   return (
     <section className="game-section info-kpi-card">
@@ -331,6 +364,21 @@ export default function InfoKpiCard({
           <IconInfo size={16} />
         </span>
         {t("info.title")}
+        {canCheckForUpdates && (
+          <button
+            type="button"
+            className="info-refresh-btn"
+            onClick={refresh}
+            disabled={updateStatus === "checking"}
+            title={t("info.checkForUpdates")}
+            aria-label={t("info.checkForUpdates")}
+          >
+            <IconRefresh
+              size={14}
+              className={updateStatus === "checking" ? "info-refresh-btn__icon--spin" : undefined}
+            />
+          </button>
+        )}
       </h2>
 
       {kpis.length > 0 && <div className="kpi-row">{kpis}</div>}
