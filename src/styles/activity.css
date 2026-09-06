@@ -1512,10 +1512,8 @@
   margin-top: var(--space-xs);
 }
 
+.activity__persona-container,
 .activity__persona-records-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-md);
   width: 100%;
 }
 
@@ -1558,103 +1556,6 @@
   }
 }
 
-/* ══ Gamer Persona Card ──────────────────────────────────────────────── */
-.act-persona {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
-  padding: var(--space-md) var(--space-lg);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  position: relative;
-  overflow: hidden;
-}
-
-.act-persona::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--color-accent);
-}
-
-.act-persona__main {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.act-persona__icon-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
-.act-persona__badge-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: 2px;
-}
-
-.act-persona__badge {
-  font-size: var(--font-size-2xs);
-  text-transform: uppercase;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-}
-
-.act-persona__title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-}
-
-.act-persona__desc {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-.act-persona__stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.act-persona__stat-value {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
-}
-
-.act-persona__stat-label {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-}
-
-@media (max-width: 640px) {
-  .act-persona {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .act-persona__stat {
-    align-items: flex-start;
-  }
-}
 
 /* ══ Time of Day Distribution ────────────────────────────────────────── */
 .act-tod {
@@ -2087,6 +1988,17 @@
   overflow: hidden;
   box-shadow: var(--elevation-1);
   transition: transform var(--transition-normal, 200ms), border-color var(--transition-normal, 200ms), box-shadow var(--transition-normal, 200ms);
+  width: 100%;
+}
+
+.act-persona::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--persona-accent, var(--color-accent));
 }
 
 .act-persona:hover {
@@ -2168,9 +2080,10 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
-  padding-left: var(--space-md);
+  padding-left: var(--space-lg);
   border-left: 1px solid var(--color-border);
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .act-persona__highlight-label {
@@ -2198,6 +2111,25 @@
 .act-persona--genreSpecialist { --persona-accent: #ffd166; }
 .act-persona--explorer { --persona-accent: #118ab2; }
 .act-persona--casual { --persona-accent: var(--color-accent); }
+
+@media (max-width: 640px) {
+  .act-persona {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+    padding: var(--space-md);
+  }
+
+  .act-persona__highlight {
+    align-items: flex-start;
+    padding-left: 0;
+    border-left: none;
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--color-border);
+    width: 100%;
+    margin-left: 0;
+  }
+}
 
 /* ══ Time of Day Distribution ────────────────────────────────────────── */
 .act-tod {

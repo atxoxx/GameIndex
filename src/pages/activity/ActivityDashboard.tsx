@@ -381,7 +381,7 @@ export function ActivityDashboard({
       </StatBand>
 
       {!selectedGameId && (
-        <div className="activity__persona-records-grid">
+        <div className="activity__persona-container">
           <GamerPersonaCard persona={gamerPersona} />
         </div>
       )}
