@@ -163,6 +163,13 @@
   backdrop-filter: blur(12px);
   position: relative;
   z-index: 5;
+  gap: 12px;
+}
+
+.store-spotlight-top-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .store-spotlight-tablist {
@@ -679,7 +686,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: 8px;
   padding: 4px 10px;
   border-radius: var(--radius-full);
   background: var(--scrim-dark-mid);
@@ -790,15 +796,33 @@
   border-top: 1px solid var(--scrim-border);
   background: rgba(7, 9, 14, 0.85);
   backdrop-filter: blur(16px);
-  padding: 10px 20px;
+  padding: 10px 20px 8px;
   overflow-x: auto;
-  scrollbar-width: none;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrim-border-strong) transparent;
   position: relative;
   z-index: 5;
 }
 
 .store-spotlight-dock::-webkit-scrollbar {
-  display: none;
+  height: 6px;
+}
+
+.store-spotlight-dock::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--scrim-dark-mid) 50%, transparent);
+  border-radius: var(--radius-full);
+  margin: 0 20px;
+}
+
+.store-spotlight-dock::-webkit-scrollbar-thumb {
+  background: var(--scrim-border-strong);
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-fast);
+}
+
+.store-spotlight-dock::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
 }
 
 .store-spotlight-dock-reel {

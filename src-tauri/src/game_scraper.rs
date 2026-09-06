@@ -3720,13 +3720,11 @@ pub async fn resolve_steam_to_igdb(
     let client_id = crate::config::get_twitch_client_id();
 
     let list: Vec<String> = appids.iter().map(|a| format!("\"{}\"", a)).collect();
-    // NOTE: do NOT add `& category = 1` here — IGDB returns an
-    // empty set when `uid = (...) & category = 1` are combined
-    // (the `category` filter excludes the matching rows). The `uid`
-    // alone already uniquely identifies the Steam appid, so we just
-    // read back the IGDB `game` id it maps to.
+    // In IGDB v4, Steam is external_game_source = 1 (or category = 1 in legacy rows).
+    // Filtering by external_game_source avoids collisions with GiantBomb (source 3),
+    // Twitch (source 14), or Utomik (source 29) when numeric IDs match.
     let body = format!(
-        "fields game; where uid = ({}); limit 500; offset 0;",
+        "fields game,uid,external_game_source; where uid = ({}) & (external_game_source = 1 | category = 1); limit 500; offset 0;",
         list.join(",")
     );
 
@@ -3759,14 +3757,18 @@ pub async fn resolve_steam_to_igdb(
     struct Eg {
         game: u64,
         uid: String,
+        #[serde(default)]
+        external_game_source: Option<u32>,
     }
     let rows: Vec<Eg> =
         serde_json::from_str(&text).map_err(|e| format!("IGDB external_games parse error: {}", e))?;
 
     let mut map = HashMap::new();
     for r in rows {
-        if let Ok(appid) = r.uid.parse::<u32>() {
-            map.insert(appid, r.game);
+        if r.external_game_source.unwrap_or(1) == 1 {
+            if let Ok(appid) = r.uid.parse::<u32>() {
+                map.insert(appid, r.game);
+            }
         }
     }
     Ok(map)
@@ -4055,6 +4057,311 @@ pub async fn get_random_store_games(limit: u32) -> Result<Vec<StoreGameSummary>,
         .take(want)
         .map(map_igdb_summary)
         .collect())
+}
+
+/// Extract unique Steam AppIDs from Steam Store search results HTML.
+fn extract_steam_search_appids(html: &str) -> Vec<u32> {
+    static RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let re = RE.get_or_init(|| regex::Regex::new(r#"data-ds-appid="(\d+)""#).unwrap());
+    let mut appids = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for cap in re.captures_iter(html) {
+        if let Some(m) = cap.get(1) {
+            if let Ok(id) = m.as_str().parse::<u32>() {
+                if seen.insert(id) {
+                    appids.push(id);
+                }
+            }
+        }
+    }
+    appids
+}
+
+/// Enrich an ordered list of Steam AppIDs into full `StoreGameSummary` objects via IGDB,
+/// preserving the exact ranking order of the incoming appids.
+async fn enrich_steam_appids_to_summaries(
+    appids: &[u32],
+    limit: usize,
+) -> Result<Vec<StoreGameSummary>, String> {
+    if appids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let id_map = resolve_steam_to_igdb(appids).await?;
+    let mut ordered_igdb_ids = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for aid in appids {
+        if let Some(&gid) = id_map.get(aid) {
+            if seen.insert(gid) {
+                ordered_igdb_ids.push(gid);
+            }
+        }
+    }
+
+    if ordered_igdb_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Take enough candidate IDs to fulfill the target limit with buffer
+    let take_count = (limit + 5).min(ordered_igdb_ids.len());
+    let target_ids = &ordered_igdb_ids[..take_count];
+
+    let token = get_twitch_token().await?;
+    let client = http_client();
+    let client_id = crate::config::get_twitch_client_id();
+
+    let ids_str: Vec<String> = target_ids.iter().map(|id| id.to_string()).collect();
+    let body = format!(
+        "fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url; where id = ({}); limit 50; offset 0;",
+        ids_str.join(",")
+    );
+
+    let _guard = igdb_acquire().await;
+    let resp = client
+        .post("https://api.igdb.com/v4/games")
+        .header("Client-ID", &client_id)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "text/plain")
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| format!("IGDB batch games request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let err = resp.text().await.unwrap_or_default();
+        return Err(format!("IGDB batch games request failed with status {}: {}", status, err));
+    }
+
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read IGDB batch response: {}", e))?;
+
+    let igdb_games: Vec<IgdbGameSummary> =
+        serde_json::from_str(&text).map_err(|e| format!("IGDB batch games parse error: {}", e))?;
+
+    let mut map: HashMap<u64, StoreGameSummary> = HashMap::new();
+    for g in igdb_games {
+        let gid = g.id;
+        map.insert(gid, map_igdb_summary(g));
+    }
+
+    let mut results = Vec::new();
+    for &gid in target_ids {
+        if let Some(summary) = map.remove(&gid) {
+            results.push(summary);
+            if results.len() >= limit {
+                break;
+            }
+        }
+    }
+
+    Ok(results)
+}
+
+/// Fetch spotlight games for the Store hero carousel (Hot Now, Game of the Week, Trending).
+/// Backed by real-time Steam concurrent player metrics and store search feeds, mapped to rich
+/// IGDB game metadata with an in-memory 15-minute TTL cache and graceful IGDB fallbacks.
+pub async fn fetch_spotlight_games(
+    category: &str,
+    limit: u32,
+) -> Result<Vec<StoreGameSummary>, String> {
+    let limit_usize = (limit.max(1) as usize).min(30);
+
+    // In-memory cache for spotlight carousel data with a 15-minute TTL
+    static SPOTLIGHT_CACHE: std::sync::OnceLock<tokio::sync::Mutex<HashMap<String, (Instant, Vec<StoreGameSummary>)>>> =
+        std::sync::OnceLock::new();
+    let cache_mutex = SPOTLIGHT_CACHE.get_or_init(|| tokio::sync::Mutex::new(HashMap::new()));
+    {
+        let cache = cache_mutex.lock().await;
+        if let Some((inserted_at, items)) = cache.get(category) {
+            if inserted_at.elapsed() < Duration::from_secs(15 * 60) && items.len() >= limit_usize {
+                return Ok(items.iter().take(limit_usize).cloned().collect());
+            }
+        }
+    }
+
+    let client = http_client();
+    let mut results = Vec::new();
+
+    match category {
+        "hot" => {
+            // Live Steam concurrent player rankings (most played right now on PC)
+            if let Ok(resp) = client
+                .get("https://api.steampowered.com/ISteamChartsService/GetGamesByConcurrentPlayers/v1/")
+                .send()
+                .await
+            {
+                #[derive(Deserialize)]
+                struct Rank {
+                    appid: u32,
+                }
+                #[derive(Deserialize)]
+                struct RespData {
+                    ranks: Vec<Rank>,
+                }
+                #[derive(Deserialize)]
+                struct Wrapper {
+                    response: RespData,
+                }
+                if let Ok(data) = resp.json::<Wrapper>().await {
+                    let appids: Vec<u32> = data
+                        .response
+                        .ranks
+                        .into_iter()
+                        .take(50)
+                        .map(|r| r.appid)
+                        .collect();
+                    if let Ok(enriched) = enrich_steam_appids_to_summaries(&appids, limit_usize).await {
+                        if !enriched.is_empty() {
+                            results = enriched;
+                        }
+                    }
+                }
+            }
+
+            // Fallback: IGDB popular ranking
+            if results.is_empty() {
+                if let Ok(fallback) = fetch_store_games("popular", 0, limit, None, None, None, None, None, None).await {
+                    results = fallback;
+                }
+            }
+        }
+        "weekly" => {
+            // Steam Weekly Top Sellers (current best-selling titles of the week)
+            if let Ok(resp) = client
+                .get("https://store.steampowered.com/search/results/?query=&start=0&count=50&filter=topsellers&infinite=1")
+                .send()
+                .await
+            {
+                #[derive(Deserialize)]
+                struct SearchResult {
+                    results_html: String,
+                }
+                if let Ok(data) = resp.json::<SearchResult>().await {
+                    let appids = extract_steam_search_appids(&data.results_html);
+                    if let Ok(enriched) = enrich_steam_appids_to_summaries(&appids, limit_usize).await {
+                        if !enriched.is_empty() {
+                            results = enriched;
+                        }
+                    }
+                }
+            }
+
+            // Fallback: recent high-rated releases from the last 60 days
+            if results.is_empty() {
+                let now = chrono::Utc::now().timestamp();
+                let sixty_days_ago = now - 60 * 24 * 3600;
+                let fallback_where = format!(
+                    "first_release_date > {} & first_release_date <= {} & (rating > 70 | aggregated_rating > 70) & cover != null",
+                    sixty_days_ago, now
+                );
+                if let Ok(token) = get_twitch_token().await {
+                    let client_id = crate::config::get_twitch_client_id();
+                    let body = format!(
+                        "fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url; where {}; sort rating desc; limit {}; offset 0;",
+                        fallback_where, limit
+                    );
+                    let _guard = igdb_acquire().await;
+                    if let Ok(resp) = client
+                        .post("https://api.igdb.com/v4/games")
+                        .header("Client-ID", &client_id)
+                        .header("Authorization", format!("Bearer {}", token))
+                        .header("Content-Type", "text/plain")
+                        .body(body)
+                        .send()
+                        .await
+                    {
+                        if let Ok(text) = resp.text().await {
+                            if let Ok(games) = serde_json::from_str::<Vec<IgdbGameSummary>>(&text) {
+                                results = games.into_iter().map(map_igdb_summary).collect();
+                            }
+                        }
+                    }
+                }
+            }
+            if results.is_empty() {
+                if let Ok(fallback) = fetch_store_games("top", 0, limit, None, None, None, None, None, None).await {
+                    results = fallback;
+                }
+            }
+        }
+        "trending" => {
+            // Steam Popular New Releases / Trending (breakout new titles and expansions)
+            if let Ok(resp) = client
+                .get("https://store.steampowered.com/search/results/?query=&start=0&count=50&filter=popularnew&infinite=1")
+                .send()
+                .await
+            {
+                #[derive(Deserialize)]
+                struct SearchResult {
+                    results_html: String,
+                }
+                if let Ok(data) = resp.json::<SearchResult>().await {
+                    let appids = extract_steam_search_appids(&data.results_html);
+                    if let Ok(enriched) = enrich_steam_appids_to_summaries(&appids, limit_usize).await {
+                        if !enriched.is_empty() {
+                            results = enriched;
+                        }
+                    }
+                }
+            }
+
+            // Fallback: recent releases with hype or ratings from the last 90 days
+            if results.is_empty() {
+                let now = chrono::Utc::now().timestamp();
+                let ninety_days_ago = now - 90 * 24 * 3600;
+                let fallback_where = format!(
+                    "first_release_date > {} & (hypes > 0 | total_rating_count > 10) & cover != null",
+                    ninety_days_ago
+                );
+                if let Ok(token) = get_twitch_token().await {
+                    let client_id = crate::config::get_twitch_client_id();
+                    let body = format!(
+                        "fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url; where {}; sort hypes desc; limit {}; offset 0;",
+                        fallback_where, limit
+                    );
+                    let _guard = igdb_acquire().await;
+                    if let Ok(resp) = client
+                        .post("https://api.igdb.com/v4/games")
+                        .header("Client-ID", &client_id)
+                        .header("Authorization", format!("Bearer {}", token))
+                        .header("Content-Type", "text/plain")
+                        .body(body)
+                        .send()
+                        .await
+                    {
+                        if let Ok(text) = resp.text().await {
+                            if let Ok(games) = serde_json::from_str::<Vec<IgdbGameSummary>>(&text) {
+                                results = games.into_iter().map(map_igdb_summary).collect();
+                            }
+                        }
+                    }
+                }
+            }
+            if results.is_empty() {
+                if let Ok(fallback) = fetch_store_games("trending", 0, limit, None, None, None, None, None, None).await {
+                    results = fallback;
+                }
+            }
+        }
+        _ => {
+            return fetch_store_games("all", 0, limit, None, None, None, None, None, None).await;
+        }
+    }
+
+    if results.is_empty() {
+        return fetch_store_games("all", 0, limit, None, None, None, None, None, None).await;
+    }
+
+    // Cache successful fetch
+    {
+        let mut cache = cache_mutex.lock().await;
+        cache.insert(category.to_string(), (Instant::now(), results.clone()));
+    }
+
+    Ok(results.into_iter().take(limit_usize).collect())
 }
 
 /// Fetch full metadata for a single IGDB game by its slug.

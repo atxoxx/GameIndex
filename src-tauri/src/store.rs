@@ -248,6 +248,16 @@ pub async fn get_random_store_games(limit: u32) -> Result<Vec<StoreGameSummary>,
     game_scraper::get_random_store_games(limit).await
 }
 
+/// Fetch games for the store spotlight hero (Hot Now, Game of the Week, Trending)
+/// backed by live Steam charts / search rankings enriched with full IGDB metadata.
+#[tauri::command]
+pub async fn fetch_spotlight_games(
+    category: String,
+    limit: Option<u32>,
+) -> Result<Vec<StoreGameSummary>, String> {
+    game_scraper::fetch_spotlight_games(&category, limit.unwrap_or(15)).await
+}
+
 /// Fetch every game that belongs to a given IGDB collection, sorted
 /// by release date ascending. Used by the frontend Game Relations
 /// card to populate the "Other in Collection" group on the Store

@@ -58,16 +58,8 @@ const TABS: {
   },
 ];
 
-const HERO_LIMIT = 8;
+const HERO_LIMIT = 15;
 const SLIDE_DURATION_MS = 8000;
-
-function isoWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}
 
 function renderPlatformIcon(platform: string): ReactElement | null {
   const p = platform.toLowerCase();
@@ -119,6 +111,19 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const reqRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Scroll active dock thumbnail into view
+  useEffect(() => {
+    const activeEl = itemRefs.current[currentIndex];
+    if (activeEl) {
+      activeEl.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  }, [currentIndex]);
 
   // Fetch games for the current category tab
   useEffect(() => {
@@ -137,39 +142,25 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
       try {
         let results: StoreGameSummary[] = [];
 
-        if (tab === "hot") {
-          results = await invoke<StoreGameSummary[]>("fetch_store_games", {
-            category: "trending",
-            offset: 0,
+        try {
+          results = await invoke<StoreGameSummary[]>("fetch_spotlight_games", {
+            category: tab,
             limit: HERO_LIMIT,
           });
-        } else if (tab === "weekly") {
-          const now = new Date();
-          const seed = now.getFullYear() * 100 + isoWeekNumber(now);
-          const raw = await invoke<StoreGameSummary[]>("fetch_store_games", {
-            category: "top",
-            offset: 0,
-            limit: 24,
-          });
-          const pool = raw.filter((g) => (g.rating ?? 0) >= 80);
-          const source = pool.length >= HERO_LIMIT ? pool : raw;
-          let s = seed;
-          const rng = () => {
-            s = (s * 9301 + 49297) % 233280;
-            return s / 233280;
-          };
-          const shuffled = [...source].sort(() => rng() - 0.5);
-          results = shuffled.slice(0, HERO_LIMIT);
-        } else if (tab === "trending") {
+        } catch (fetchErr) {
+          console.warn("fetch_spotlight_games failed, attempting fallback:", fetchErr);
+        }
+
+        // Graceful fallback if category returned empty list
+        if (!results || results.length === 0) {
+          const fallbackCat = tab === "weekly" ? "top" : tab === "hot" ? "popular" : "trending";
           results = await invoke<StoreGameSummary[]>("fetch_store_games", {
-            category: "all",
-            sort: "follows",
+            category: fallbackCat,
             offset: 0,
             limit: HERO_LIMIT,
           });
         }
 
-        // Graceful fallback if category returned empty list
         if (!results || results.length === 0) {
           results = await invoke<StoreGameSummary[]>("fetch_store_games", {
             category: "all",
@@ -340,6 +331,12 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
 
   const openSurprise = () => setSurpriseOpen(true);
 
+  const handleDockWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY !== 0) {
+      e.currentTarget.scrollLeft += e.deltaY;
+    }
+  }, []);
+
   const isWishlisted = activeGame && wishlistCtx ? wishlistCtx.isWishlisted(activeGame.slug) : false;
   const [coverUrl] = useProgressiveImage(activeGame?.coverUrl);
   const [backdropLoadedUrl] = useProgressiveImage(backdropArtUrl);
@@ -394,29 +391,62 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
           ))}
         </div>
 
-        <button
-          type="button"
-          className="store-featured-surprise"
-          onClick={openSurprise}
-          title={t("store.surpriseTitle")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        <div className="store-spotlight-top-right">
+          {games.length > 1 && (
+            <div className="store-spotlight-quick-nav">
+              <span className="store-spotlight-counter">
+                <strong>{String(currentIndex + 1).padStart(2, "0")}</strong>
+                <small>/{String(games.length).padStart(2, "0")}</small>
+              </span>
+              <div className="store-spotlight-nav-arrows">
+                <button
+                  type="button"
+                  className="store-spotlight-arrow-btn"
+                  onClick={handlePrev}
+                  aria-label={t("store.spotlight.prev")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="store-spotlight-arrow-btn"
+                  onClick={handleNext}
+                  aria-label={t("store.spotlight.next")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="store-featured-surprise"
+            onClick={openSurprise}
+            title={t("store.surpriseTitle")}
           >
-            <polyline points="16 3 21 3 21 8" />
-            <line x1="4" y1="20" x2="21" y2="3" />
-            <polyline points="21 16 21 21 16 21" />
-            <line x1="15" y1="15" x2="21" y2="21" />
-            <line x1="4" y1="4" x2="9" y2="9" />
-          </svg>
-          <span>{t("store.surpriseMe")}</span>
-        </button>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="16 3 21 3 21 8" />
+              <line x1="4" y1="20" x2="21" y2="3" />
+              <polyline points="21 16 21 21 16 21" />
+              <line x1="15" y1="15" x2="21" y2="21" />
+              <line x1="4" y1="4" x2="9" y2="9" />
+            </svg>
+            <span>{t("store.surpriseMe")}</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Spotlight Showcase */}
@@ -595,38 +625,6 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
                   <span>{isWishlisted ? t("store.spotlight.wishlisted") : t("store.spotlight.addToWishlist")}</span>
                 </button>
               )}
-
-              {/* Slide Counter & Arrow controls */}
-              {games.length > 1 && (
-                <div className="store-spotlight-quick-nav">
-                  <span className="store-spotlight-counter">
-                    <strong>{String(currentIndex + 1).padStart(2, "0")}</strong>
-                    <small>/{String(games.length).padStart(2, "0")}</small>
-                  </span>
-                  <div className="store-spotlight-nav-arrows">
-                    <button
-                      type="button"
-                      className="store-spotlight-arrow-btn"
-                      onClick={handlePrev}
-                      aria-label={t("store.spotlight.prev")}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
-                        <polyline points="15 18 9 12 15 6" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      className="store-spotlight-arrow-btn"
-                      onClick={handleNext}
-                      aria-label={t("store.spotlight.next")}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -646,13 +644,21 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
 
       {/* Thumbnails reel spanning bottom dock */}
       {games.length > 1 && (
-        <div className="store-spotlight-dock" role="tablist" aria-label={t("store.spotlight.slideIndicator", { current: currentIndex + 1, total: games.length })}>
+        <div
+          className="store-spotlight-dock"
+          onWheel={handleDockWheel}
+          role="tablist"
+          aria-label={t("store.spotlight.slideIndicator", { current: currentIndex + 1, total: games.length })}
+        >
           <div className="store-spotlight-dock-reel">
             {games.map((game, idx) => {
               const isActive = idx === currentIndex;
               return (
                 <button
                   key={game.id}
+                  ref={(el) => {
+                    itemRefs.current[idx] = el;
+                  }}
                   type="button"
                   role="tab"
                   aria-selected={isActive}
