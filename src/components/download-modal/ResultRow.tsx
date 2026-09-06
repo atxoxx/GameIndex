@@ -15,11 +15,13 @@ export function ResultRow({
   selected,
   onSelect,
   isDownloaded,
+  installedVersion,
 }: {
   match: DisplayMatch;
   selected: boolean;
   onSelect: (id: string) => void;
   isDownloaded: (title: string) => boolean;
+  installedVersion?: string | null;
 }) {
   const { t, language } = useLanguage();
   const isPlugin = match.provider === "plugin";
@@ -48,7 +50,10 @@ export function ResultRow({
           ? t("downloadModal.typeDirect")
           : null;
 
-  const meta = useMemo(() => parseReleaseMetadata(match.title), [match.title]);
+  const meta = useMemo(
+    () => parseReleaseMetadata(match.title, installedVersion),
+    [match.title, installedVersion],
+  );
   const mirrorCount = match.uris ? match.uris.length : 0;
 
   const copyText = async (e: React.MouseEvent, text: string, label: string) => {
@@ -108,10 +113,51 @@ export function ResultRow({
               </span>
             )}
 
-            {/* Version Badge */}
+            {/* Version Badge with Relative Comparison */}
             {meta.version && (
-              <span className="dl-badge dl-badge--version" title={`Version: ${meta.version}`}>
-                {meta.version}
+              <span
+                className={`dl-badge dl-badge--version${
+                  meta.versionComparison === "newer"
+                    ? " dl-badge--version-newer"
+                    : meta.versionComparison === "same"
+                      ? " dl-badge--version-same"
+                      : meta.versionComparison === "older"
+                        ? " dl-badge--version-older"
+                        : ""
+                }`}
+                title={
+                  meta.versionComparison === "newer"
+                    ? `${meta.version} (${t("downloadModal.versionNewer")})`
+                    : meta.versionComparison === "same"
+                      ? `${meta.version} (${t("downloadModal.versionCurrent")})`
+                      : meta.versionComparison === "older"
+                        ? `${meta.version} (${t("downloadModal.versionOlder")})`
+                        : `Version: ${meta.version}`
+                }
+              >
+                {meta.versionComparison === "newer" && (
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="10"
+                    height="10"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                )}
+                <span>{meta.version}</span>
+                {meta.versionComparison === "newer" && (
+                  <span className="dl-version-status-pill">{t("downloadModal.versionNewer")}</span>
+                )}
+                {meta.versionComparison === "same" && (
+                  <span className="dl-version-status-pill">{t("downloadModal.versionCurrent")}</span>
+                )}
               </span>
             )}
 

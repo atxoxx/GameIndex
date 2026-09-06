@@ -73,6 +73,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
   const [editName, setEditName] = useState(game.name);
   const [editPlatform, setEditPlatform] = useState(game.platform);
+  const [editVersion, setEditVersion] = useState(game.version || "");
+  const [detectingVersion, setDetectingVersion] = useState(false);
   const [editPlayStatus, setEditPlayStatus] = useState<PlayStatus>(game.playStatus || "backlog");
   const [editUntracked, setEditUntracked] = useState(game.untracked ?? isGameUntracked(game.id));
   const [editDeveloper, setEditDeveloper] = useState(game.developer || "");
@@ -400,6 +402,51 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     setEditSizeRootPath(undefined);
   }
 
+  async function handleDetectVersion() {
+    if (detectingVersion) return;
+    setDetectingVersion(true);
+    try {
+      let detected: string | null = null;
+      try {
+        const res = await invoke<{ version: string; source: string } | string | null>("detect_game_version", {
+          query: {
+            gameId: game.id,
+            path: editPath || game.path,
+            detectedExe: game.detectedExe,
+            installDir: editSizeRootPath || game.sizeRootPath,
+            platform: editPlatform || game.platform,
+            steamAppId: game.steamAppId,
+          },
+        });
+        if (typeof res === "string" && res.trim()) {
+          detected = res.trim();
+        } else if (res && typeof res === "object" && "version" in res && res.version) {
+          detected = res.version.trim();
+        }
+      } catch {
+        // Fall back to get_exe_file_version
+      }
+
+      if (!detected) {
+        const exe = (editPath || game.path || game.detectedExe || "").trim();
+        if (exe) {
+          detected = await invoke<string | null>("get_exe_file_version", { path: exe }).catch(() => null);
+        }
+      }
+
+      if (detected) {
+        setEditVersion(detected);
+        showToast(t("edit.versionDetected", { version: detected }), "success");
+      } else {
+        showToast(t("edit.versionDetectNotFound"), "info");
+      }
+    } catch {
+      showToast(t("edit.versionDetectNotFound"), "info");
+    } finally {
+      setDetectingVersion(false);
+    }
+  }
+
   async function handlePickExecutable() {
     try {
       const filePath = await open({
@@ -566,6 +613,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       languageSupports: newLanguageSupports,
       metadataSource: editMetadataSource ? editMetadataSource : undefined,
       metadataUrl: editMetadataUrl ? editMetadataUrl : undefined,
+      version: editVersion.trim() || undefined,
       path: editPath.trim() || undefined,
       // Attaching an executable means the game is present on disk — flip
       // it to installed. One-way only: clearing a path never downgrades
@@ -819,6 +867,45 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-platform">{t("edit.label.platform")}</label>
                     <input id="edit-platform" className="edit-input" type="text" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} placeholder="e.g., Steam, GOG, Epic, Local" />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-version">{t("edit.label.version")}</label>
+                    <div className="version-edit-row">
+                      <input
+                        id="edit-version"
+                        className="edit-input"
+                        type="text"
+                        value={editVersion}
+                        onChange={(e) => setEditVersion(e.target.value)}
+                        placeholder={t("edit.versionPlaceholder")}
+                      />
+                      <button
+                        type="button"
+                        className="edit-btn edit-btn-secondary"
+                        onClick={handleDetectVersion}
+                        disabled={detectingVersion}
+                        title={t("edit.autoDetectVersionTitle")}
+                      >
+                        {detectingVersion ? (
+                          <>
+                            <div className="edit-slot-spinner" style={{ width: 12, height: 12 }} />
+                            <span>{t("community.detecting") || "Detecting..."}</span>
+                          </>
+                        ) : (
+                          t("edit.autoDetect") || "Auto-detect"
+                        )}
+                      </button>
+                      {editVersion && (
+                        <button
+                          type="button"
+                          className="edit-btn edit-btn-ghost"
+                          onClick={() => setEditVersion("")}
+                          title={t("common.clear")}
+                        >
+                          {t("common.clear")}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-release-date">{t("edit.label.releaseDate")}</label>

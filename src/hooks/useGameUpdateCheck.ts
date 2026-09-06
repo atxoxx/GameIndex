@@ -75,14 +75,12 @@ function saveCache(cache: Record<string, UpdateCacheEntry>) {
   }
 }
 
-/** Matches a plain dotted-numeric version (e.g. "1.2.3"). Unreal/Unity
- *  exes often tag version strings like "UE5-CL-0" or "2020.3.49f1 …" that
- *  can't be compared component-wise — treat those as unknown instead of
- *  silently reporting "up-to-date". */
-const NUMERIC_VERSION_RE = /^\d+(\.\d+)*$/;
+const COMPARABLE_VERSION_RE =
+  /^(?:v|ver\.?|version|build|update|patch|hotfix)?\s*(\d+(?:[._\-]\d+)*(?:[a-zA-Z])?)$/i;
 
-function isComparableVersion(v: string): boolean {
-  return NUMERIC_VERSION_RE.test(v.trim());
+export function isComparableVersion(v: string): boolean {
+  const trimmed = v.trim();
+  return COMPARABLE_VERSION_RE.test(trimmed);
 }
 
 /**
@@ -117,9 +115,12 @@ export function deriveUpdateStatus(
 interface UpdateCheckTarget {
   id: string;
   name: string;
+  version?: string;
   steamAppId?: number;
   path?: string;
   detectedExe?: string;
+  platform?: string;
+  installDir?: string;
 }
 
 /** Module-level in-flight dedupe: hero + Info card mount the hook for the
@@ -133,10 +134,44 @@ const inflightChecks = new Map<string, Promise<UpdateCacheEntry>>();
 type RefreshListener = () => void;
 const refreshListeners = new Set<RefreshListener>();
 
-async function runUpdateCheck(game: UpdateCheckTarget): Promise<UpdateCacheEntry> {
+interface DetectedVersionResponse {
+  version: string;
+  source: string;
+}
+
+async function detectInstalledVersion(game: UpdateCheckTarget): Promise<string | null> {
+  // If the user manually set a version on the game record, prioritize it
+  if (game.version && game.version.trim()) {
+    return game.version.trim();
+  }
+
+  try {
+    const res = await invoke<DetectedVersionResponse | string | null>("detect_game_version", {
+      query: {
+        gameId: game.id,
+        path: game.path,
+        detectedExe: game.detectedExe,
+        installDir: game.installDir,
+        platform: game.platform,
+        steamAppId: game.steamAppId,
+      },
+    });
+    if (typeof res === "string" && res.trim()) return res.trim();
+    if (res && typeof res === "object" && "version" in res && res.version) {
+      return res.version.trim();
+    }
+  } catch {
+    // Fall back to get_exe_file_version
+  }
+
   const exePath = game.path || game.detectedExe;
+  if (!exePath) return null;
+  return invoke<string | null>("get_exe_file_version", { path: exePath }).catch(() => null);
+}
+
+async function runUpdateCheck(game: UpdateCheckTarget): Promise<UpdateCacheEntry> {
   const [installedVersion, results] = await Promise.all([
-    invoke<string | null>("get_exe_file_version", { path: exePath }),
+    detectInstalledVersion(game),
     // The source search is best-effort — a failed fetch just means
     // no titles to compare against (treated as "unknown").
     searchDownloads(game.name, game.steamAppId).catch(() => []),
@@ -178,8 +213,8 @@ export function useGameUpdateCheck(game: Game | null | undefined): GameUpdateRes
       setResult({ status: "idle", installedVersion: null, latestVersion: null });
       return;
     }
-    const exePath = game.path || game.detectedExe;
-    if (!exePath) {
+    const hasLocation = !!(game.version || game.path || game.detectedExe || game.sizeRootPath || game.steamAppId);
+    if (!hasLocation) {
       setResult({ status: "unknown", installedVersion: null, latestVersion: null });
       return;
     }
@@ -187,9 +222,11 @@ export function useGameUpdateCheck(game: Game | null | undefined): GameUpdateRes
     const gameId = game.id;
     let cancelled = false;
 
-    // Serve a still-fresh cached result instead of re-running the search.
+    // Serve a still-fresh cached result instead of re-running the search,
+    // provided the cached installedVersion matches any explicit game version.
     const cached = loadCache()[gameId];
-    if (cached && Date.now() - cached.checkedAt < UPDATE_CACHE_TTL_MS) {
+    const versionMismatch = game.version && cached && cached.installedVersion !== game.version.trim();
+    if (cached && !versionMismatch && Date.now() - cached.checkedAt < UPDATE_CACHE_TTL_MS) {
       setResult(cached);
       return;
     }
@@ -201,9 +238,12 @@ export function useGameUpdateCheck(game: Game | null | undefined): GameUpdateRes
       promise = runUpdateCheck({
         id: gameId,
         name: game.name,
+        version: game.version,
         steamAppId: game.steamAppId,
         path: game.path,
         detectedExe: game.detectedExe,
+        platform: game.platform,
+        installDir: game.sizeRootPath,
       });
       inflightChecks.set(gameId, promise);
     }
@@ -232,7 +272,7 @@ export function useGameUpdateCheck(game: Game | null | undefined): GameUpdateRes
     // Keyed by identity fields only — a re-render with the same game
     // must not re-run the check (and cache hits already short-circuit).
     // `refreshKey` re-runs the effect deliberately, after clearing the cache.
-  }, [game?.id, game?.installed, game?.name, game?.steamAppId, game?.path, game?.detectedExe, refreshKey]);
+  }, [game?.id, game?.installed, game?.name, game?.version, game?.steamAppId, game?.path, game?.detectedExe, refreshKey]);
 
   const refresh = useCallback(() => {
     if (!game?.id) return;

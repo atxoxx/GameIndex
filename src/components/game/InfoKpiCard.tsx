@@ -90,8 +90,9 @@ export default function InfoKpiCard({
   // in-flight dedupe keeps it to one source search per page visit.
   const update = useGameUpdateCheck(game);
   const { status: updateStatus, installedVersion, latestVersion, refresh } = update;
-  // A manual re-check only makes sense when there is an exe to read.
-  const canCheckForUpdates = game.installed && !!(game.path || game.detectedExe);
+  // A manual re-check makes sense when a version, exe, install root or Steam AppID is available.
+  const canCheckForUpdates =
+    game.installed && !!(game.version || game.path || game.detectedExe || game.sizeRootPath || game.steamAppId);
 
   const { data: steamStats } = useSteamGameStats(game.steamAppId);
 

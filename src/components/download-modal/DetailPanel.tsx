@@ -21,6 +21,7 @@ export function DetailPanel({
   match,
   selectedMirrorIndex = 0,
   onSelectMirror,
+  installedVersion,
   savePath,
   gameName,
   onPickPath,
@@ -43,6 +44,7 @@ export function DetailPanel({
   match: DisplayMatch | null;
   selectedMirrorIndex?: number;
   onSelectMirror?: (idx: number) => void;
+  installedVersion?: string | null;
   isDownloaded: (title: string) => boolean;
   savePath: string | null;
   gameName: string;
@@ -66,7 +68,7 @@ export function DetailPanel({
   const { t } = useLanguage();
 
   const mirrors = useMemo(() => extractMirrors(match), [match]);
-  const meta = useMemo(() => parseReleaseMetadata(match?.title ?? ""), [match?.title]);
+  const meta = useMemo(() => parseReleaseMetadata(match?.title ?? "", installedVersion), [match?.title, installedVersion]);
 
   if (!match) {
     return (
@@ -139,7 +141,19 @@ export function DetailPanel({
               <span className="dl-badge dl-badge--group">{meta.group}</span>
             )}
             {meta.version && (
-              <span className="dl-badge dl-badge--version">{meta.version}</span>
+              <span
+                className={`dl-badge dl-badge--version${
+                  meta.versionComparison === "newer"
+                    ? " dl-badge--version-newer"
+                    : meta.versionComparison === "same"
+                      ? " dl-badge--version-same"
+                      : meta.versionComparison === "older"
+                        ? " dl-badge--version-older"
+                        : ""
+                }`}
+              >
+                {meta.version}
+              </span>
             )}
             {meta.edition && (
               <span className="dl-badge dl-badge--edition">{meta.edition}</span>
@@ -153,6 +167,52 @@ export function DetailPanel({
         <h5 className="dl-spotlight-title" title={match.title}>
           {match.title}
         </h5>
+
+        {/* Side-by-side installed vs release version comparison */}
+        {installedVersion && (
+          <div className="dl-version-comparison-box">
+            <div className="dl-version-compare-header">
+              <span className="dl-version-compare-title">
+                {t("downloadModal.versionComparison")}
+              </span>
+              {meta.versionComparison === "newer" && (
+                <span className="dl-badge dl-badge--version-newer">
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                  {t("downloadModal.versionNewer")}
+                </span>
+              )}
+              {meta.versionComparison === "same" && (
+                <span className="dl-badge dl-badge--version-same">
+                  {t("downloadModal.versionCurrent")}
+                </span>
+              )}
+              {meta.versionComparison === "older" && (
+                <span className="dl-badge dl-badge--version-older">
+                  {t("downloadModal.versionOlder")}
+                </span>
+              )}
+            </div>
+            <div className="dl-version-compare-flow">
+              <div className="dl-version-compare-col">
+                <span className="dl-version-compare-label">{t("downloadModal.installedVersionLabel")}</span>
+                <span className="dl-version-compare-val">{installedVersion}</span>
+              </div>
+              <div className="dl-version-compare-arrow" aria-hidden>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </div>
+              <div className="dl-version-compare-col">
+                <span className="dl-version-compare-label">{t("downloadModal.releaseVersionLabel")}</span>
+                <span className="dl-version-compare-val">{meta.version || t("downloadModal.unknownVersion")}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="dl-spotlight-metrics">
           <span className="dl-spotlight-metric">

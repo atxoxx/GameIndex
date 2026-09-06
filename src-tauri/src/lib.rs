@@ -180,6 +180,7 @@ pub fn run() {
             webview_eval,
             rebuild_watcher_index,
             game_versions::get_exe_file_version,
+            game_versions::detect_game_version,
             achievements::fetch_achievements,
             achievements::save_achievements_cache,
             achievements::load_achievements_cache,

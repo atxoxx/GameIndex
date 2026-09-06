@@ -489,6 +489,101 @@
   font-weight: 500;
 }
 
+.dl-toolbar-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dl-installed-version-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info) 30%, transparent);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.dl-installed-version-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-info);
+  flex-shrink: 0;
+}
+
+.dl-installed-version-label {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.dl-installed-version-text {
+  color: var(--color-info);
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+}
+
+.dl-update-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.dl-update-filter-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-hover);
+}
+
+.dl-update-filter-btn.active {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+  color: var(--color-success);
+}
+
+.dl-update-filter-btn svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.dl-update-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--color-success);
+  color: var(--color-bg-primary);
+}
+
+.dl-update-filter-btn:not(.active) .dl-update-filter-count {
+  background: color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+  color: var(--color-text-secondary);
+}
+
 /* Row 2: Filter Controls (Segments, Dropdowns, Sort) */
 .dl-modal-toolbar-filters {
   display: flex;
@@ -775,6 +870,37 @@
   color: var(--color-info);
   background: color-mix(in srgb, var(--color-info) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-info) 35%, transparent);
+}
+
+.dl-badge--version-newer {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+.dl-badge--version-same {
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
+}
+
+.dl-badge--version-older {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.dl-version-status-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .dl-badge--edition {
@@ -1184,6 +1310,69 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Version Comparison Box inside Spotlight Card */
+.dl-version-comparison-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.dl-version-compare-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.dl-version-compare-title {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dl-version-compare-flow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dl-version-compare-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.dl-version-compare-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.dl-version-compare-val {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, monospace);
+}
+
+.dl-version-compare-arrow {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
+.dl-version-compare-arrow svg {
+  width: 14px;
+  height: 14px;
 }
 
 .dl-spotlight-metrics {

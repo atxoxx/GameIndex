@@ -37,6 +37,8 @@ export interface Game {
   coverSourceUrl?: string;
   iconUrl?: string; // base64 data URL for small square icon (used in sidebar)
   notes?: string; // user notes about the game
+  /** Game version string (e.g. "1.0.4", "v2.1", "Build 14820"). Can be user-edited in EditGameModal. */
+  version?: string;
   /** Total disk footprint of the game's root folder in bytes (undefined = not yet measured). */
   sizeBytes?: number;
   /** ISO-8601 timestamp of the last successful size detection, used for the "Last seen" staleness UI. */

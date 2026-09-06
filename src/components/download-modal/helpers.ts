@@ -9,6 +9,11 @@ import type {
   MirrorOption,
   SortKey,
 } from "./types";
+import {
+  compareReleaseToInstalled,
+  compareVersions,
+  parseVersionFromTitle,
+} from "../../utils/gameVersions";
 
 /**
  * Single source of truth for "which URI does the user actually want to
@@ -244,7 +249,10 @@ const KNOWN_EDITIONS = [
 ];
 
 /** Extract intelligent release metadata (scene group, version, edition, multi-part, etc.). */
-export function parseReleaseMetadata(rawTitle: string): ParsedReleaseMeta {
+export function parseReleaseMetadata(
+  rawTitle: string,
+  installedVersion?: string | null
+): ParsedReleaseMeta {
   if (!rawTitle) return { cleanTitle: "" };
 
   const clean = rawTitle.trim();
@@ -274,10 +282,17 @@ export function parseReleaseMetadata(rawTitle: string): ParsedReleaseMeta {
   }
 
   // 3. Detect Version (e.g. v1.0.4, Build 14820, Update 3, v20240812)
-  const verMatch = clean.match(/(?:v|version|ver|build|update|patch)[ ._-]?([0-9]+(?:\.[0-9a-zA-Z]+)*)/i);
-  if (verMatch) {
-    detectedVersion = verMatch[0];
+  const parsedVer = parseVersionFromTitle(clean);
+  if (parsedVer) {
+    const namedMatch = clean.match(/(?:build|update|patch|hotfix)\s*(?:#|v)?\s*[0-9]+[a-zA-Z0-9._\-]*/i);
+    if (namedMatch) {
+      detectedVersion = namedMatch[0].trim();
+    } else {
+      detectedVersion = parsedVer.startsWith("v") || parsedVer.startsWith("V") ? parsedVer : `v${parsedVer}`;
+    }
   }
+
+  const versionComparison = compareReleaseToInstalled(parsedVer, installedVersion);
 
   // 4. Detect Multi-language / Multi-part
   const multiLangMatch = clean.match(/MULTi\d+|ENG(?:\/FRA|\/GER|\/ESP|\/RUS|\/JPN|\/ITA|\/KOR|\/ZHO)*/i);
@@ -297,6 +312,7 @@ export function parseReleaseMetadata(rawTitle: string): ParsedReleaseMeta {
     cleanTitle: clean,
     group: detectedGroup,
     version: detectedVersion,
+    versionComparison,
     edition: detectedEdition,
     languages: detectedLanguages.length > 0 ? detectedLanguages : undefined,
     isMultiPart,
@@ -503,7 +519,7 @@ export function matchDownloadTypes(
   return types;
 }
 
-/** Filter a list of matches by active source filter, platform class, download type, group filter, and search text. */
+/** Filter a list of matches by active source filter, platform class, download type, group filter, search text, and updates-only toggle. */
 export function filterMatches(
   matches: DisplayMatch[],
   sourceFilter: string,
@@ -511,6 +527,8 @@ export function filterMatches(
   platformFilter: PlatformFilter = "all",
   typeFilter: DownloadTypeFilter = "all",
   groupFilter = "all",
+  updatesOnly = false,
+  installedVersion?: string | null,
 ): DisplayMatch[] {
   let list = matches;
 
@@ -545,6 +563,13 @@ export function filterMatches(
     list = list.filter((m) => {
       const meta = parseReleaseMetadata(m.title);
       return meta.group?.toLowerCase() === groupFilter.toLowerCase();
+    });
+  }
+
+  if (updatesOnly && installedVersion) {
+    list = list.filter((m) => {
+      const ver = parseVersionFromTitle(m.title);
+      return ver ? compareVersions(ver, installedVersion) > 0 : false;
     });
   }
 

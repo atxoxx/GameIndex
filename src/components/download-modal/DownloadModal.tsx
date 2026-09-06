@@ -33,6 +33,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useDownloads } from "../../context/DownloadContext";
 import { searchDownloadsStream } from "../../context/SourceContext";
 import { useGames } from "../../context/GameContext";
+import { useGameUpdateCheck } from "../../hooks/useGameUpdateCheck";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
@@ -106,6 +107,12 @@ export default function DownloadModal({
   const { games } = useGames();
   const { showToast } = useToast();
   const { t } = useLanguage();
+
+  const currentGame = useMemo(() => {
+    return games.find((g) => g.id === gameId || (gameName && g.name.toLowerCase() === gameName.toLowerCase())) ?? null;
+  }, [games, gameId, gameName]);
+  const { installedVersion } = useGameUpdateCheck(currentGame);
+  const [updatesOnly, setUpdatesOnly] = useState(false);
 
   const [step, setStep] = useState<DownloadStep>("checking");
   const [ownership, setOwnership] = useState<OwnershipResult | null>(null);
@@ -186,10 +193,29 @@ export default function DownloadModal({
     [matches, t],
   );
 
-  // Filter raw matches by selected source, platform, type, scene group and search query
+  // Filter raw matches by selected source, platform, type, scene group, updates only and search query
   const filteredMatches = useMemo(
-    () => filterMatches(matches, sourceFilter, searchQuery, platformFilter, typeFilter, groupFilter),
-    [matches, sourceFilter, searchQuery, platformFilter, typeFilter, groupFilter],
+    () =>
+      filterMatches(
+        matches,
+        sourceFilter,
+        searchQuery,
+        platformFilter,
+        typeFilter,
+        groupFilter,
+        updatesOnly,
+        installedVersion,
+      ),
+    [
+      matches,
+      sourceFilter,
+      searchQuery,
+      platformFilter,
+      typeFilter,
+      groupFilter,
+      updatesOnly,
+      installedVersion,
+    ],
   );
 
   const isSingleSourceFiltered =
@@ -266,6 +292,7 @@ export default function DownloadModal({
     setSearchQuery("");
     setPlatformFilter("all");
     setTypeFilter("all");
+    setUpdatesOnly(false);
   }, []);
 
   // Whether an AllDebrid/TorBox key is configured in Settings. Read once
@@ -1355,6 +1382,9 @@ export default function DownloadModal({
                   onPlatformFilterChange={setPlatformFilter}
                   typeFilter={typeFilter}
                   onTypeFilterChange={setTypeFilter}
+                  installedVersion={installedVersion}
+                  updatesOnly={updatesOnly}
+                  onUpdatesOnlyChange={setUpdatesOnly}
                 />
               ) : (
                 <>
@@ -1417,6 +1447,9 @@ export default function DownloadModal({
                         onPlatformFilterChange={setPlatformFilter}
                         typeFilter={typeFilter}
                         onTypeFilterChange={setTypeFilter}
+                        installedVersion={installedVersion}
+                        updatesOnly={updatesOnly}
+                        onUpdatesOnlyChange={setUpdatesOnly}
                       />
                     </div>
                     <DetailPanel
@@ -1424,6 +1457,7 @@ export default function DownloadModal({
                       match={selectedMatch}
                       selectedMirrorIndex={selectedMirrorIndex}
                       onSelectMirror={setSelectedMirrorIndex}
+                      installedVersion={installedVersion}
                       isDownloaded={isDownloaded}
                       savePath={savePath}
                       gameName={gameName}

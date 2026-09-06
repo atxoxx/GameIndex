@@ -229,6 +229,9 @@ pub(crate) struct GameData {
     /// Per-ROM launch profile overrides.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) rom_profile: Option<RomProfile>,
+    /// Game version string (user-edited or auto-detected).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) version: Option<String>,
 }
 
 /// Per-ROM emulator launch profile. Every field is optional — an

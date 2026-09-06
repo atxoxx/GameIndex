@@ -125,7 +125,16 @@ describe("useGameUpdateCheck", () => {
     expect(result.current.installedVersion).toBe("1.3.0");
     expect(result.current.latestVersion).toBe("1.4.0");
     expect(mockedInvoke).toHaveBeenCalledTimes(1);
-    expect(mockedInvoke).toHaveBeenCalledWith("get_exe_file_version", { path: game.path });
+    expect(mockedInvoke).toHaveBeenCalledWith("detect_game_version", {
+      query: {
+        gameId: game.id,
+        path: game.path,
+        detectedExe: undefined,
+        installDir: undefined,
+        platform: game.platform,
+        steamAppId: game.steamAppId,
+      },
+    });
     expect(mockedSearch).toHaveBeenCalledWith(game.name, game.steamAppId);
   });
 

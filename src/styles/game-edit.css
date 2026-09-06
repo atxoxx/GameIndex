@@ -437,6 +437,18 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+/* Horizontal row inside the Version field: input + Auto-detect / Clear buttons */
+.version-edit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.version-edit-row .edit-input {
+  flex: 1;
+  min-width: 0;
+}
+
 .size-edit-hint {
   display: inline-flex;
   align-items: center;

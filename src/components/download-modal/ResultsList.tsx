@@ -9,6 +9,7 @@ import type {
 import { ResultRow } from "./ResultRow";
 import { useLanguage } from "../../context/LanguageContext";
 import { extractReleaseGroups } from "./helpers";
+import { compareVersions, parseVersionFromTitle } from "../../utils/gameVersions";
 
 export function ResultsList({
   matches,
@@ -33,6 +34,9 @@ export function ResultsList({
   totalRawMatchesCount,
   onClearFilters,
   searchProgress,
+  installedVersion,
+  updatesOnly = false,
+  onUpdatesOnlyChange,
 }: {
   matches: DisplayMatch[];
   selectedId: string | null;
@@ -61,6 +65,9 @@ export function ResultsList({
     activeSource: string;
     isDone: boolean;
   } | null;
+  installedVersion?: string | null;
+  updatesOnly?: boolean;
+  onUpdatesOnlyChange?: (val: boolean) => void;
 }) {
   const { t } = useLanguage();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -80,6 +87,15 @@ export function ResultsList({
 
   // Extract available scene/repack groups from raw matches
   const availableGroups = useMemo(() => extractReleaseGroups(matches), [matches]);
+
+  // Calculate count of releases newer than the installed version
+  const newerCount = useMemo(() => {
+    if (!installedVersion) return 0;
+    return matches.filter((m) => {
+      const ver = parseVersionFromTitle(m.title);
+      return ver ? compareVersions(ver, installedVersion) > 0 : false;
+    }).length;
+  }, [matches, installedVersion]);
 
   // Global / shortcut to focus search input
   useEffect(() => {
@@ -188,6 +204,7 @@ export function ResultsList({
     groupFilter !== "all" ||
     platformFilter !== "all" ||
     typeFilter !== "all" ||
+    Boolean(updatesOnly) ||
     Boolean(searchQuery.trim());
 
   const showControls = totalRawMatchesCount > 1;
@@ -241,12 +258,24 @@ export function ResultsList({
               )}
             </div>
 
-            {/* Total Badge */}
-            <div className="dl-results-count-badge">
-              <span>{matches.length}</span>
-              {matches.length !== totalRawMatchesCount && (
-                <span className="dl-results-count-total">/{totalRawMatchesCount}</span>
+            <div className="dl-toolbar-top-right">
+              {installedVersion && (
+                <div
+                  className="dl-installed-version-chip"
+                  title={t("downloadModal.installedVersion", { version: installedVersion })}
+                >
+                  <span className="dl-installed-version-dot" aria-hidden />
+                  <span className="dl-installed-version-label">{t("downloadModal.installedVersionLabel")}:</span>
+                  <span className="dl-installed-version-text">{installedVersion}</span>
+                </div>
               )}
+              {/* Total Badge */}
+              <div className="dl-results-count-badge">
+                <span>{matches.length}</span>
+                {matches.length !== totalRawMatchesCount && (
+                  <span className="dl-results-count-total">/{totalRawMatchesCount}</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -321,6 +350,34 @@ export function ResultsList({
                   ))}
                 </select>
               </div>
+            )}
+
+            {/* Updates Only Toggle */}
+            {installedVersion && onUpdatesOnlyChange && (
+              <button
+                type="button"
+                className={`dl-update-filter-btn${updatesOnly ? " active" : ""}`}
+                onClick={() => onUpdatesOnlyChange(!updatesOnly)}
+                title={t("downloadModal.filterUpdatesOnlyTitle")}
+                aria-pressed={Boolean(updatesOnly)}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <line x1="12" y1="19" x2="12" y2="5" />
+                  <polyline points="5 12 12 5 19 12" />
+                </svg>
+                <span>{t("downloadModal.filterUpdatesOnly")}</span>
+                {newerCount > 0 && (
+                  <span className="dl-update-filter-count">{newerCount}</span>
+                )}
+              </button>
             )}
 
             {/* Sort Dropdown */}
@@ -408,6 +465,7 @@ export function ResultsList({
                   selected={selectedId === (match.id ?? null)}
                   onSelect={onSelect}
                   isDownloaded={isDownloaded}
+                  installedVersion={installedVersion}
                 />
               </Fragment>
             );

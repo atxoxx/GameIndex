@@ -30,6 +30,7 @@ export type PlatformFilter = "all" | "pc" | "console";
 export type DownloadTypeFilter = "all" | "torrent" | "magnet" | "direct";
 
 import type { DownloadSearchResult } from "../../types/plugins";
+import type { VersionComparisonResult } from "../../utils/gameVersions";
 
 /** A search match (source or plugin) plus a stable id (assigned per
  *  search) so selection survives re-sorting of the list. Plugin items
@@ -49,6 +50,7 @@ export interface ParsedReleaseMeta {
   cleanTitle: string;
   group?: string;
   version?: string;
+  versionComparison?: VersionComparisonResult;
   edition?: string;
   languages?: string[];
   isMultiPart?: boolean;

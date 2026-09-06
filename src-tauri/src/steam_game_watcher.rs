@@ -24,6 +24,7 @@ pub struct AppManifest {
     pub install_dir: String,
     /// Library root where this app lives (e.g. `D:\SteamLibrary`).
     pub library_root: PathBuf,
+    pub build_id: Option<String>,
 }
 
 /// Normalize a raw `SteamPath` registry string into a candidate install
@@ -220,6 +221,7 @@ pub fn find_app_install_dir(app_id: u32) -> Option<AppManifest> {
                     name: parsed.name,
                     install_dir: parsed.install_dir,
                     library_root: lib_root,
+                    build_id: parsed.build_id,
                 });
             }
         }
@@ -252,6 +254,7 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
     let mut name: Option<String> = None;
     let mut installdir: Option<String> = None;
     let mut state_flags: Option<u32> = None;
+    let mut build_id: Option<String> = None;
 
     // Walk odd indices (1, 3, 5, …) and look two slots ahead for the
     // value. `split('"')` on `"appid" "440"` yields `["", "appid",
@@ -268,6 +271,7 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
             "name" => name = Some(value.to_string()),
             "installdir" => installdir = Some(value.to_string()),
             "StateFlags" => state_flags = value.trim().parse::<u32>().ok(),
+            "buildid" => build_id = Some(value.trim().to_string()),
             _ => {}
         }
         i += 2;
@@ -281,6 +285,7 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
         name: name.unwrap_or_default(),
         install_dir: installdir?,
         state_flags,
+        build_id,
     })
 }
 
@@ -290,6 +295,7 @@ pub struct AppManifestFields {
     pub name: String,
     pub install_dir: String,
     pub state_flags: Option<u32>,
+    pub build_id: Option<String>,
 }
 
 impl AppManifestFields {
@@ -361,12 +367,14 @@ mod tests {
     "LastUpdated"  "1700000000"
     "UpdateScheduled"  "0"
     "SizeOnDisk"  "12345678"
+    "buildid"  "15432901"
 }
 "#;
         let m = parse_appmanifest(raw, 570).unwrap();
         assert_eq!(m.app_id, 570);
         assert_eq!(m.install_dir, "dota 2 beta");
         assert_eq!(m.name, "Dota 2");
+        assert_eq!(m.build_id.as_deref(), Some("15432901"));
     }
 
     #[test]
