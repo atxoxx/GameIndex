@@ -10,10 +10,10 @@ import type { SgdbAllAssets } from "../../types/steamgriddb";
 import { Button } from "../ui";
 import "./EditGameModal.css";
 
-type MediaSlot = "icon" | "cover" | "hero" | "logo";
-type FormatFilter = "all" | "jpg" | "jpeg" | "png" | "webp" | "ico";
+export type MediaSlot = "icon" | "cover" | "hero" | "logo";
+export type FormatFilter = "all" | "jpg" | "jpeg" | "png" | "webp" | "ico";
 
-interface Candidate {
+export interface Candidate {
   url: string;
   source: string;
   mime?: string | null;
@@ -60,7 +60,7 @@ function isAnimated(c: Candidate): boolean {
 
 /** Normalize a candidate's format to a filter bucket. JPEG covers both the
  *  `jpg` and `jpeg` extensions (they're the same container). */
-function formatOf(c: Candidate): "jpg" | "png" | "webp" | "ico" | "other" {
+export function formatOf(c: Candidate): "jpg" | "png" | "webp" | "ico" | "other" {
   const m = (c.mime || "").toLowerCase();
   if (m.includes("jpeg")) return "jpg";
   if (m.includes("png") || m.includes("apng")) return "png";
@@ -72,6 +72,47 @@ function formatOf(c: Candidate): "jpg" | "png" | "webp" | "ico" | "other" {
   if (ext === "webp") return "webp";
   if (ext === "ico") return "ico";
   return "other";
+}
+
+export function toggleFormatFilter(
+  current: FormatFilter,
+  clicked: FormatFilter
+): FormatFilter {
+  if (clicked === "all" || current === clicked) {
+    return "all";
+  }
+  return clicked;
+}
+
+export function countCandidatesByFormat(
+  candidates: Candidate[]
+): Record<FormatFilter, number> {
+  const counts: Record<FormatFilter, number> = {
+    all: candidates.length,
+    jpg: 0,
+    jpeg: 0,
+    png: 0,
+    webp: 0,
+    ico: 0,
+  };
+  for (const c of candidates) {
+    const fmt = formatOf(c);
+    if (fmt in counts) {
+      counts[fmt as FormatFilter]++;
+    }
+  }
+  return counts;
+}
+
+export function filterCandidatesByFormat(
+  candidates: Candidate[],
+  filter: FormatFilter
+): Candidate[] {
+  if (filter === "all") return candidates;
+  if (filter === "jpg" || filter === "jpeg") {
+    return candidates.filter((c) => formatOf(c) === "jpg");
+  }
+  return candidates.filter((c) => formatOf(c) === filter);
 }
 
 function metadataUrlsForSlot(slot: MediaSlot, img: GameMetadataResult["images"]): string[] {
@@ -244,7 +285,6 @@ async function collectLaunchboxCandidates(
 const FORMAT_FILTERS: { key: FormatFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "jpg", label: "JPG" },
-  { key: "jpeg", label: "JPEG" },
   { key: "png", label: "PNG" },
   { key: "webp", label: "WebP" },
   { key: "ico", label: "ICO" },
@@ -293,13 +333,15 @@ export function MediaFetchBrowser({
     [candidates, launchboxCandidates]
   );
 
-  const filteredCandidates = useMemo(() => {
-    if (formatFilter === "all") return allCandidates;
-    if (formatFilter === "jpg" || formatFilter === "jpeg") {
-      return allCandidates.filter((c) => formatOf(c) === "jpg");
-    }
-    return allCandidates.filter((c) => formatOf(c) === formatFilter);
-  }, [allCandidates, formatFilter]);
+  const filteredCandidates = useMemo(
+    () => filterCandidatesByFormat(allCandidates, formatFilter),
+    [allCandidates, formatFilter]
+  );
+
+  const formatCounts = useMemo(
+    () => countCandidatesByFormat(allCandidates),
+    [allCandidates]
+  );
 
   const grouped = useMemo(() => {
     const order = ["Steam", "IGDB", "SteamGridDB", "LaunchBox"];
@@ -383,18 +425,24 @@ export function MediaFetchBrowser({
         </div>
 
         <div className="lb-browser-body media-fetch-body">
-          {!loading && filteredCandidates.length > 0 && (
+          {!loading && allCandidates.length > 0 && (
             <div className="media-fetch-toolbar">
-              {FORMAT_FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  className={`media-fetch-filter-chip${formatFilter === f.key ? " active" : ""}`}
-                  onClick={() => setFormatFilter(f.key)}
-                >
-                  {f.label}
-                </button>
-              ))}
+              {FORMAT_FILTERS.map((f) => {
+                const count = formatCounts[f.key] ?? 0;
+                const isActive = formatFilter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    className={`media-fetch-filter-chip${isActive ? " active" : ""}${count === 0 && f.key !== "all" ? " is-empty" : ""}`}
+                    onClick={() => setFormatFilter((curr) => toggleFormatFilter(curr, f.key))}
+                    title={isActive && f.key !== "all" ? `Click to unselect ${f.label}` : undefined}
+                  >
+                    <span>{f.label}</span>
+                    <span className="media-fetch-filter-chip-count">{count}</span>
+                  </button>
+                );
+              })}
               <span className="media-fetch-filter-count">
                 {filteredCandidates.length} of {allCandidates.length}
               </span>
@@ -406,10 +454,18 @@ export function MediaFetchBrowser({
               <div className="metadata-spinner" />
               <p>Searching for {SLOT_LABEL[slot].toLowerCase()} media…</p>
             </div>
-          ) : grouped.length === 0 ? (
+          ) : allCandidates.length === 0 ? (
             <div className="metadata-empty">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
               <p>No {SLOT_LABEL[slot].toLowerCase()} images found for this title.</p>
+            </div>
+          ) : filteredCandidates.length === 0 ? (
+            <div className="metadata-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+              <p>No {formatFilter.toUpperCase()} images found for this title.</p>
+              <Button variant="secondary" size="sm" onClick={() => setFormatFilter("all")}>
+                Show all images ({allCandidates.length})
+              </Button>
             </div>
           ) : (
             grouped.map(([source, list]) => (
@@ -429,6 +485,7 @@ export function MediaFetchBrowser({
         <div className="modal-footer">
           <span className="modal-footer-count">
             {filteredCandidates.length} candidate{filteredCandidates.length === 1 ? "" : "s"}
+            {formatFilter !== "all" && ` (${allCandidates.length} total)`}
           </span>
           <div className="modal-footer-actions">
             <Button variant="secondary" onClick={onClose}>Done</Button>

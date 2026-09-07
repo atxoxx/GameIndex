@@ -1658,6 +1658,9 @@
 }
 
 .media-fetch-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
   padding: var(--space-xs) var(--space-md);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -1678,6 +1681,24 @@
   color: var(--color-accent-contrast);
   background: color-mix(in srgb, var(--color-accent) 78%, var(--color-text-inverse) 22%);
   border-color: color-mix(in srgb, var(--color-accent) 90%, var(--color-text-inverse) 10%);
+}
+
+.media-fetch-filter-chip.is-empty {
+  opacity: 0.55;
+}
+
+.media-fetch-filter-chip.is-empty:hover {
+  opacity: 0.85;
+}
+
+.media-fetch-filter-chip-count {
+  font-size: var(--font-size-2xs);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.media-fetch-filter-chip.active .media-fetch-filter-chip-count {
+  opacity: 0.95;
 }
 
 .media-fetch-filter-count {
