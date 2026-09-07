@@ -346,24 +346,67 @@ export default function Sidebar() {
       set.add(/^[A-Z]$/.test(first) ? first : "#");
     }
     return Array.from(set).sort((a, b) => {
-      if (a === "#") return 1;
-      if (b === "#") return -1;
+      if (a === "#") return -1;
+      if (b === "#") return 1;
       return a.localeCompare(b);
     });
   }, [processedFilteredGames]);
 
-  const handleSelectLetter = useCallback((letter: string) => {
-    const target = processedFilteredGames.find((g) => {
-      const first = (g.name || "").trim().charAt(0).toUpperCase();
-      return letter === "#" ? !/^[A-Z]$/.test(first) : first === letter;
-    });
-    if (target) {
-      const el = document.querySelector<HTMLElement>(
-        `[data-sidebar-game-id="${CSS.escape(target.id)}"]`
-      );
-      el?.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
-  }, [processedFilteredGames]);
+  const handleSelectLetter = useCallback(
+    (letter: string) => {
+      const target = processedFilteredGames.find((g) => {
+        const first = (g.name || "").trim().charAt(0).toUpperCase();
+        return letter === "#" ? !/^[A-Z]$/.test(first) : first === letter;
+      });
+      if (!target) return;
+
+      // If the target is inside a collapsed group or pinned section, expand it
+      if (groupBy !== "none") {
+        const containingGroup = dynamicGroups.find((g) =>
+          g.games.some((gm) => gm.id === target.id)
+        );
+        if (containingGroup && collapsedSections[containingGroup.key]) {
+          setCollapsedSections((prev) => {
+            const next = { ...prev, [containingGroup.key]: false };
+            saveCollapsedSections(next);
+            return next;
+          });
+        }
+      } else if (pinnedIds.has(target.id) && collapsedSections.pinned) {
+        setCollapsedSections((prev) => {
+          const next = { ...prev, pinned: false };
+          saveCollapsedSections(next);
+          return next;
+        });
+      }
+
+      requestAnimationFrame(() => {
+        try {
+          const el = document.querySelector<HTMLElement>(
+            `[data-sidebar-game-id="${CSS.escape(target.id)}"]`
+          );
+          if (!el) return;
+          const listEl = el.closest<HTMLElement>(".sidebar-list");
+          if (listEl) {
+            const listRect = listEl.getBoundingClientRect();
+            const elRect = el.getBoundingClientRect();
+            const offset =
+              elRect.top -
+              listRect.top +
+              listEl.scrollTop -
+              listRect.height / 2 +
+              elRect.height / 2;
+            listEl.scrollTo({ top: Math.max(0, offset), behavior: "smooth" });
+          } else {
+            el.scrollIntoView({ block: "center", behavior: "smooth" });
+          }
+        } catch {
+          /* ignore scroll errors */
+        }
+      });
+    },
+    [processedFilteredGames, groupBy, dynamicGroups, collapsedSections, pinnedIds]
+  );
 
   // ── Random Game Roll ("Surprise Me") ──────────────────────────────
   const handleRandomGame = useCallback(() => {

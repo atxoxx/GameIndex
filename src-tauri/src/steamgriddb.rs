@@ -1,9 +1,9 @@
 //! SteamGridDB artwork service (steamgriddb.com).
 //!
 //! Fetches community grid (poster), hero (wide banner), icon (square) and
-//! logo (clear logo) artwork for a Steam AppID, preferring ANIMATED assets
-//! (APNG / animated WebP) for grid/hero when the community has uploaded
-//! them, and falling back to static art otherwise. Icons and logos are
+//! logo (clear logo) artwork for a Steam AppID or game name, preferring
+//! ANIMATED assets (APNG / animated WebP) for grid/hero when the community has
+//! uploaded them, and falling back to static art otherwise. Icons and logos are
 //! fetched static-only (flat art — animated uploads are rare).
 //!
 //! The service:
@@ -12,17 +12,15 @@
 //!   the binary at build time in production — see `crate::config`). When no
 //!   key is present the service is a silent no-op and games keep their
 //!   existing art.
-//! - Queries the v2 API per kind (`/grids/steam/{appid}`,
-//!   `/heroes/steam/{appid}`, `/icons/steam/{appid}`, `/logos/steam/{appid}`)
-//!   with `types=animated` first, then `types=static`, so "animated when
+//! - Queries the v2 API per kind (`/grids/...`, `/heroes/...`, `/icons/...`,
+//!   `/logos/...`) by Steam AppID or resolved SteamGridDB game ID.
+//!   Uses `types=animated` first, then `types=static`, so "animated when
 //!   possible" is decided by the API rather than sniffed from file
 //!   extensions.
-//! - Caches per-AppID results (including negatives — games with no
-//!   community art) in the SQLite KV store with a 7-day TTL, keyed
-//!   `sgdb:v3:{appid}`, so a large library is only fetched once per week.
-//! - The batch command coalesces a store/library grid's many per-card
-//!   requests into a single round-trip with bounded concurrency (same
-//!   pattern as `crackwatch`'s batch command).
+//! - Supports .ico artwork across icons and media picker candidates.
+//! - Caches per-target results (including negatives — games with no
+//!   community art) in the SQLite KV store with a 7-day TTL,
+//!   keyed `sgdb:v3:{target}`, so library artwork is only fetched once per week.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, OnceLock};
@@ -35,18 +33,16 @@ use crate::db::Db;
 
 /// Base URL of the SteamGridDB v2 API.
 const API_BASE: &str = "https://www.steamgriddb.com/api/v2";
-/// KV key prefix for cached per-AppID results.
-///
-/// Bumped `v1` → `v2` because the old version cached negatives from a
-/// period when the API rejected the `nsfw=no` filter values (the correct
-/// values are `false`); `v2` → `v3` because the payload schema grew
-/// icon/logo fields. Each bump discards stale entries so fixed lookups
-/// actually run again.
+/// KV key prefix for cached per-target results.
 const CACHE_KEY_PREFIX: &str = "sgdb:v3:";
-/// Cache TTL for both hits and negatives (7 days — community art rarely churns).
+/// KV key prefix for full gallery results.
+const ALL_CACHE_KEY_PREFIX: &str = "sgdb:all:v1:";
+/// KV key prefix for resolved game IDs from autocomplete search.
+const SEARCH_CACHE_PREFIX: &str = "sgdb:gameid:v1:";
+/// Cache TTL for hits and negatives (7 days — community art rarely churns).
 const CACHE_TTL_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 
-/// The artwork kinds we consume. `path()` maps to the v2 API route.
+/// The artwork kinds we consume. `path_prefix()` maps to the v2 API route.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SgdbKind {
     Grid,
@@ -56,12 +52,42 @@ enum SgdbKind {
 }
 
 impl SgdbKind {
-    fn path(self) -> &'static str {
+    fn path_prefix(self) -> &'static str {
         match self {
-            SgdbKind::Grid => "grids/steam",
-            SgdbKind::Hero => "heroes/steam",
-            SgdbKind::Icon => "icons/steam",
-            SgdbKind::Logo => "logos/steam",
+            SgdbKind::Grid => "grids",
+            SgdbKind::Hero => "heroes",
+            SgdbKind::Icon => "icons",
+            SgdbKind::Logo => "logos",
+        }
+    }
+}
+
+/// Lookup target: either a Steam AppID or an internal SteamGridDB game ID.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SgdbTarget {
+    Steam(u32),
+    Game(u64),
+}
+
+impl SgdbTarget {
+    fn endpoint_path(self, kind: SgdbKind) -> String {
+        match self {
+            SgdbTarget::Steam(id) => format!("{}/steam/{id}", kind.path_prefix()),
+            SgdbTarget::Game(id) => format!("{}/game/{id}", kind.path_prefix()),
+        }
+    }
+
+    fn best_cache_key(self) -> String {
+        match self {
+            SgdbTarget::Steam(id) => format!("{CACHE_KEY_PREFIX}{id}"),
+            SgdbTarget::Game(id) => format!("{CACHE_KEY_PREFIX}game:{id}"),
+        }
+    }
+
+    fn all_cache_key(self) -> String {
+        match self {
+            SgdbTarget::Steam(id) => format!("{ALL_CACHE_KEY_PREFIX}{id}"),
+            SgdbTarget::Game(id) => format!("{ALL_CACHE_KEY_PREFIX}game:{id}"),
         }
     }
 }
@@ -77,7 +103,7 @@ pub struct SgdbArtworkItem {
     pub score: f64,
 }
 
-/// All artwork SteamGridDB has for one AppID, grouped by kind. The media
+/// All artwork SteamGridDB has for one target, grouped by kind. The media
 /// picker shows every item (not just the single "best" one from
 /// [`SgdbAssets`]), so the user can choose any community upload.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -89,13 +115,9 @@ pub struct SgdbAllAssets {
     pub logos: Vec<SgdbArtworkItem>,
 }
 
-/// Combined artwork for one Steam AppID. Every field is optional: the
+/// Combined artwork for one game. Every field is optional: the
 /// community may have grids but no heroes (or vice versa), and a game may
 /// have no artwork at all (everything `None`).
-///
-/// Each kind is split into a **static** version (the poster/banner shown by
-/// default) and an **animated** version (WebP/APNG, used on hover / in the
-/// hero backdrop). A game typically has either both or only one of the two.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SgdbAssets {
@@ -108,10 +130,10 @@ pub struct SgdbAssets {
     /// Best static wide hero / banner (460×215-style community art).
     pub hero_url: Option<String>,
     pub hero_mime: Option<String>,
-    /// Best animated hero — shown as the hero background.
+    /// Best animated hero — shown as the hero backdrop.
     pub hero_animated_url: Option<String>,
     pub hero_animated_mime: Option<String>,
-    /// Best square icon (flat community icon art).
+    /// Best square icon (flat community icon art, supports png/webp/ico).
     pub icon_url: Option<String>,
     pub icon_mime: Option<String>,
     /// Best clear logo (flat transparent logo art).
@@ -119,8 +141,7 @@ pub struct SgdbAssets {
     pub logo_mime: Option<String>,
 }
 
-/// One artwork item from the v2 API `data` array. Unknown fields are
-/// ignored; optional fields degrade gracefully if the API shape drifts.
+/// One artwork item from the v2 API `data` array.
 #[derive(Debug, Deserialize, Clone, Default)]
 struct SgdbArtwork {
     #[serde(default)]
@@ -147,6 +168,20 @@ struct SgdbApiResponse {
     errors: Vec<String>,
 }
 
+#[derive(Debug, Deserialize, Clone, Default)]
+struct SgdbSearchItem {
+    id: u64,
+    name: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct SgdbSearchResponse {
+    #[serde(default)]
+    success: bool,
+    #[serde(default)]
+    data: Vec<SgdbSearchItem>,
+}
+
 /// Cache envelope stored in the KV store.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct CachedSgdbAssets {
@@ -156,10 +191,29 @@ struct CachedSgdbAssets {
     updated_at: u64,
 }
 
-/// MIME types the frontend can render in an `<img>` tag. The icon endpoint
-/// mixes `.ico` uploads (image/vnd.microsoft.icon) with png/webp; those
-/// aren't displayed by the media picker (it only shows jpg/jpeg/png/webp),
-/// so we prefer web-renderable art whenever the community uploaded any.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct CachedGameId {
+    id: Option<u64>,
+    updated_at: u64,
+}
+
+fn normalize_title(title: &str) -> String {
+    title
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn search_cache_key(norm_name: &str) -> String {
+    format!("{SEARCH_CACHE_PREFIX}{norm_name}")
+}
+
+/// MIME types the frontend can render in an `<img>` tag or download as artwork.
+/// Includes png, webp, jpeg, gif, avif, svg, and ico (vnd.microsoft.icon / x-icon).
 fn is_renderable_mime(mime: Option<&str>) -> bool {
     let Some(m) = mime else { return true; };
     m.starts_with("image/png")
@@ -169,20 +223,36 @@ fn is_renderable_mime(mime: Option<&str>) -> bool {
         || m.starts_with("image/gif")
         || m.starts_with("image/avif")
         || m.starts_with("image/svg+xml")
+        || m.starts_with("image/x-icon")
+        || m.starts_with("image/vnd.microsoft.icon")
+        || m.starts_with("image/ico")
 }
 
-/// Pick the highest-quality artwork from a kind's returned list: score
-/// (community votes) first, then download count. Items whose MIME the
-/// frontend can't render (e.g. `.ico`) are deprioritized so a best-pick
-/// icon/logo is always displayable. Keeps the item's mime so the frontend
-/// can tell whether it is animated (APNG / WebP) vs static.
+fn is_renderable_art(art: &SgdbArtwork) -> bool {
+    if is_renderable_mime(art.mime.as_deref()) {
+        return true;
+    }
+    if let Some(u) = art.url.as_deref() {
+        let clean = u.split('?').next().unwrap_or(u).to_ascii_lowercase();
+        if clean.ends_with(".png")
+            || clean.ends_with(".jpg")
+            || clean.ends_with(".jpeg")
+            || clean.ends_with(".webp")
+            || clean.ends_with(".gif")
+            || clean.ends_with(".ico")
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Pick the highest-quality artwork from a kind's returned list: renderable
+/// formats first, then score (community votes), then download count.
 fn pick_best(mut items: Vec<SgdbArtwork>) -> Option<SgdbArtwork> {
     items.sort_by(|a, b| {
-        // Renderable art (png/jpg/webp) outranks unrenderable (ico), then
-        // score, then download count — a single stable ordering so a
-        // best-pick icon/logo is always displayable in the media picker.
-        is_renderable_mime(b.mime.as_deref())
-            .cmp(&is_renderable_mime(a.mime.as_deref()))
+        is_renderable_art(b)
+            .cmp(&is_renderable_art(a))
             .then(
                 b.score
                     .unwrap_or(0.0)
@@ -194,9 +264,7 @@ fn pick_best(mut items: Vec<SgdbArtwork>) -> Option<SgdbArtwork> {
     items.into_iter().next()
 }
 
-/// Minimum gap between SteamGridDB request starts. The free tier rate-limits
-/// hard, so the media picker's "fetch ALL images" pagination throttles page
-/// requests through this global lock instead of firing a burst.
+/// Minimum gap between SteamGridDB request starts.
 const MIN_REQUEST_GAP_MS: u64 = 300;
 /// Max pages fetched per kind in the "all images" path (50/page → 300 max).
 const MAX_ALL_PAGES: u32 = 6;
@@ -206,11 +274,6 @@ const PAGE_SIZE: usize = 50;
 /// Process-wide request throttle shared by every SGDB HTTP call.
 static SGDB_RATE_LOCK: OnceLock<Mutex<Instant>> = OnceLock::new();
 
-/// Sleep only as long as needed to keep `MIN_REQUEST_GAP_MS` between request
-/// starts. The wait is computed under the lock but the lock is dropped before
-/// the sleep so the future stays `Send` (a `std::sync::Mutex` guard must not
-/// cross an `.await`). A `tokio::sync::Mutex` would be cleaner but drags in a
-/// tokio feature; the small race (two callers both sleeping once) is harmless.
 async fn throttle_request() {
     let lock = SGDB_RATE_LOCK.get_or_init(|| Mutex::new(Instant::now()));
     let mut wait_ms = 0u64;
@@ -244,53 +307,39 @@ impl SgdbService {
         Self { client }
     }
 
-    /// Fetch the best static AND animated artwork of a kind for an AppID in
-    /// parallel, so the frontend can show the static version by default and
-    /// swap in the animated one on hover / in the hero.
-    ///
-    /// NSFW / humor / epilepsy-tagged uploads are excluded so posters stay
-    /// family-friendly. Returns `(animated, static)`.
     async fn fetch_kind(
         &self,
         api_key: &str,
-        app_id: u32,
+        target: SgdbTarget,
         kind: SgdbKind,
     ) -> (Option<SgdbArtwork>, Option<SgdbArtwork>) {
         tokio::join!(
-            self.fetch_kind_with_types(api_key, app_id, kind, "animated"),
-            self.fetch_kind_with_types(api_key, app_id, kind, "static"),
+            self.fetch_kind_with_types(api_key, target, kind, "animated"),
+            self.fetch_kind_with_types(api_key, target, kind, "static"),
         )
     }
 
-    /// Fetch just the static variant of a kind (used for icons/logos,
-    /// which are flat art where animated uploads are rare).
     async fn fetch_kind_static(
         &self,
         api_key: &str,
-        app_id: u32,
+        target: SgdbTarget,
         kind: SgdbKind,
     ) -> Option<SgdbArtwork> {
-        self.fetch_kind_with_types(api_key, app_id, kind, "static").await
+        self.fetch_kind_with_types(api_key, target, kind, "static").await
     }
 
-    /// Fetch ALL pages of a kind/types combo, throttled to respect the API's
-    /// rate limit. Stops at the first short page (fewer than `PAGE_SIZE`
-    /// items) or `MAX_ALL_PAGES`, whichever comes first — so a game with
-    /// hundreds of community uploads still resolves within a bounded number
-    /// of requests instead of hammering the endpoint.
     async fn fetch_kind_all_pages(
         &self,
         api_key: &str,
-        app_id: u32,
+        target: SgdbTarget,
         kind: SgdbKind,
         types: &str,
     ) -> Vec<SgdbArtwork> {
         let mut all = Vec::new();
         for page in 0..MAX_ALL_PAGES {
             let url = format!(
-                "{API_BASE}/{}/{}?types={types}&nsfw=false&humor=false&epilepsy=false&page={page}",
-                kind.path(),
-                app_id
+                "{API_BASE}/{}?types={types}&nsfw=false&humor=false&epilepsy=false&page={page}",
+                target.endpoint_path(kind)
             );
             throttle_request().await;
             let resp = match self
@@ -325,15 +374,15 @@ impl SgdbService {
     async fn fetch_kind_with_types(
         &self,
         api_key: &str,
-        app_id: u32,
+        target: SgdbTarget,
         kind: SgdbKind,
         types: &str,
     ) -> Option<SgdbArtwork> {
         let url = format!(
-            "{API_BASE}/{}/{}?types={types}&nsfw=false&humor=false&epilepsy=false",
-            kind.path(),
-            app_id
+            "{API_BASE}/{}?types={types}&nsfw=false&humor=false&epilepsy=false",
+            target.endpoint_path(kind)
         );
+        throttle_request().await;
         let resp = self
             .client
             .get(&url)
@@ -347,7 +396,7 @@ impl SgdbService {
         let body: SgdbApiResponse = resp.json().await.ok()?;
         if !body.success {
             if let Some(err) = body.errors.first() {
-                eprintln!("[steamgriddb] API error for app {app_id} ({types}): {err}");
+                eprintln!("[steamgriddb] API error for {:?} ({types}): {err}", target);
             }
             return None;
         }
@@ -356,16 +405,63 @@ impl SgdbService {
         }
         pick_best(body.data)
     }
+
+    async fn search_game_id(&self, api_key: &str, game_name: &str) -> Option<u64> {
+        let norm_query = normalize_title(game_name);
+        if norm_query.is_empty() {
+            return None;
+        }
+
+        let encoded = urlencoding::encode(&norm_query);
+        let url = format!("{API_BASE}/search/autocomplete/{encoded}");
+        throttle_request().await;
+        let resp = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {api_key}"))
+            .send()
+            .await
+            .ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+        let body: SgdbSearchResponse = resp.json().await.ok()?;
+        if !body.success || body.data.is_empty() {
+            return None;
+        }
+
+        // 1. Exact normalized match
+        if let Some(m) = body.data.iter().find(|i| normalize_title(&i.name) == norm_query) {
+            return Some(m.id);
+        }
+
+        // 2. Item starts with query or query starts with item
+        if let Some(m) = body.data.iter().find(|i| {
+            let n = normalize_title(&i.name);
+            n.starts_with(&norm_query) || norm_query.starts_with(&n)
+        }) {
+            return Some(m.id);
+        }
+
+        // 3. Item contains query or query contains item
+        if let Some(m) = body.data.iter().find(|i| {
+            let n = normalize_title(&i.name);
+            n.contains(&norm_query) || norm_query.contains(&n)
+        }) {
+            return Some(m.id);
+        }
+
+        // 4. Default to top result
+        body.data.first().map(|i| i.id)
+    }
 }
 
-/// Process-wide singleton (same pattern as `crackwatch`'s service).
 static SGDB_SERVICE: std::sync::OnceLock<SgdbService> = std::sync::OnceLock::new();
 
 fn service() -> &'static SgdbService {
     SGDB_SERVICE.get_or_init(SgdbService::new)
 }
 
-/// Whether a SteamGridDB API key is configured (compile-time bake or `.env`).
 fn has_api_key() -> bool {
     !crate::config::get_steamgriddb_api_key().is_empty()
 }
@@ -377,32 +473,56 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-fn cache_key(app_id: u32) -> String {
-    format!("{CACHE_KEY_PREFIX}{app_id}")
-}
-
-fn persist(db: &Db, app_id: u32, assets: &SgdbAssets) {
+fn persist(db: &Db, target: SgdbTarget, assets: &SgdbAssets) {
     let envelope = CachedSgdbAssets {
         data: Some(assets.clone()),
         updated_at: now_ms(),
     };
     if let Ok(json) = serde_json::to_string(&envelope) {
-        let key = cache_key(app_id);
+        let key = target.best_cache_key();
         if let Err(e) = crate::db::kv::set(db, &key, &json) {
             eprintln!("[steamgriddb] cache write failed for {key}: {e}");
         }
     }
 }
 
-/// Fetch all four artwork kinds for one AppID in parallel. Grid + hero pull
-/// both animated and static variants (the animated art plays on hover / as
-/// the hero backdrop); icon + logo are fetched static-only.
-async fn fetch_assets(api_key: &str, app_id: u32) -> SgdbAssets {
+fn read_cache(db: &Db, target: SgdbTarget) -> Option<Option<SgdbAssets>> {
+    let raw = crate::db::kv::get(db, &target.best_cache_key()).ok().flatten()?;
+    let cached = serde_json::from_str::<CachedSgdbAssets>(&raw).ok()?;
+    (cached.updated_at + CACHE_TTL_MS > now_ms()).then_some(cached.data)
+}
+
+async fn resolve_game_id(db: &Db, api_key: &str, game_name: &str) -> Option<u64> {
+    let norm = normalize_title(game_name);
+    if norm.is_empty() {
+        return None;
+    }
+    let key = search_cache_key(&norm);
+    if let Ok(Some(raw)) = crate::db::kv::get(db, &key) {
+        if let Ok(cached) = serde_json::from_str::<CachedGameId>(&raw) {
+            if cached.updated_at + CACHE_TTL_MS > now_ms() {
+                return cached.id;
+            }
+        }
+    }
+
+    let resolved_id = service().search_game_id(api_key, game_name).await;
+    let envelope = CachedGameId {
+        id: resolved_id,
+        updated_at: now_ms(),
+    };
+    if let Ok(json) = serde_json::to_string(&envelope) {
+        let _ = crate::db::kv::set(db, &key, &json);
+    }
+    resolved_id
+}
+
+async fn fetch_assets(api_key: &str, target: SgdbTarget) -> SgdbAssets {
     let (grid, hero, icon, logo) = tokio::join!(
-        service().fetch_kind(api_key, app_id, SgdbKind::Grid),
-        service().fetch_kind(api_key, app_id, SgdbKind::Hero),
-        service().fetch_kind_static(api_key, app_id, SgdbKind::Icon),
-        service().fetch_kind_static(api_key, app_id, SgdbKind::Logo),
+        service().fetch_kind(api_key, target, SgdbKind::Grid),
+        service().fetch_kind(api_key, target, SgdbKind::Hero),
+        service().fetch_kind_static(api_key, target, SgdbKind::Icon),
+        service().fetch_kind_static(api_key, target, SgdbKind::Logo),
     );
     let (grid_animated, grid_static) = grid;
     let (hero_animated, hero_static) = hero;
@@ -422,8 +542,6 @@ async fn fetch_assets(api_key: &str, app_id: u32) -> SgdbAssets {
     }
 }
 
-/// Convert raw API items into picker items, keeping only renderable MIMEs
-/// (png/jpg/webp) and sorting by community score so the best uploads lead.
 fn to_all_artwork_items(mut items: Vec<SgdbArtwork>) -> Vec<SgdbArtworkItem> {
     items.sort_by(|a, b| {
         b.score
@@ -434,7 +552,7 @@ fn to_all_artwork_items(mut items: Vec<SgdbArtwork>) -> Vec<SgdbArtworkItem> {
     });
     items
         .into_iter()
-        .filter(|a| is_renderable_mime(a.mime.as_deref()))
+        .filter(is_renderable_art)
         .filter_map(|a| {
             let url = a.url?;
             Some(SgdbArtworkItem {
@@ -448,42 +566,39 @@ fn to_all_artwork_items(mut items: Vec<SgdbArtwork>) -> Vec<SgdbArtworkItem> {
         .collect()
 }
 
-/// Fetch EVERY upload SteamGridDB has for an AppID — every page of every
-/// kind — so the media picker can show the full gallery instead of just the
-/// single best grid/hero. Pages are throttled via [`throttle_request`].
-async fn fetch_all_assets(api_key: &str, app_id: u32) -> SgdbAllAssets {
+async fn fetch_all_assets(api_key: &str, target: SgdbTarget) -> SgdbAllAssets {
     let (grids, heroes, icons, logos) = tokio::join!(
         async {
             let mut v = service()
-                .fetch_kind_all_pages(api_key, app_id, SgdbKind::Grid, "static")
+                .fetch_kind_all_pages(api_key, target, SgdbKind::Grid, "static")
                 .await;
             v.extend(
                 service()
-                    .fetch_kind_all_pages(api_key, app_id, SgdbKind::Grid, "animated")
+                    .fetch_kind_all_pages(api_key, target, SgdbKind::Grid, "animated")
                     .await,
             );
             to_all_artwork_items(v)
         },
         async {
             let mut v = service()
-                .fetch_kind_all_pages(api_key, app_id, SgdbKind::Hero, "static")
+                .fetch_kind_all_pages(api_key, target, SgdbKind::Hero, "static")
                 .await;
             v.extend(
                 service()
-                    .fetch_kind_all_pages(api_key, app_id, SgdbKind::Hero, "animated")
+                    .fetch_kind_all_pages(api_key, target, SgdbKind::Hero, "animated")
                     .await,
             );
             to_all_artwork_items(v)
         },
         async {
             let v = service()
-                .fetch_kind_all_pages(api_key, app_id, SgdbKind::Icon, "static")
+                .fetch_kind_all_pages(api_key, target, SgdbKind::Icon, "static")
                 .await;
             to_all_artwork_items(v)
         },
         async {
             let v = service()
-                .fetch_kind_all_pages(api_key, app_id, SgdbKind::Logo, "static")
+                .fetch_kind_all_pages(api_key, target, SgdbKind::Logo, "static")
                 .await;
             to_all_artwork_items(v)
         },
@@ -496,7 +611,6 @@ async fn fetch_all_assets(api_key: &str, app_id: u32) -> SgdbAllAssets {
     }
 }
 
-/// Whether a stored result carries any artwork (negatives are cached too).
 fn has_art(assets: &SgdbAssets) -> bool {
     assets.grid_url.is_some()
         || assets.grid_animated_url.is_some()
@@ -506,38 +620,60 @@ fn has_art(assets: &SgdbAssets) -> bool {
         || assets.logo_url.is_some()
 }
 
-/// Read a fresh cache entry for an AppID, if present and unexpired.
-fn read_cache(db: &Db, app_id: u32) -> Option<Option<SgdbAssets>> {
-    let raw = crate::db::kv::get(db, &cache_key(app_id)).ok().flatten()?;
-    let cached = serde_json::from_str::<CachedSgdbAssets>(&raw).ok()?;
-    (cached.updated_at + CACHE_TTL_MS > now_ms()).then_some(cached.data)
+fn has_any_all_assets(assets: &SgdbAllAssets) -> bool {
+    !(assets.grids.is_empty()
+        && assets.heroes.is_empty()
+        && assets.icons.is_empty()
+        && assets.logos.is_empty())
 }
 
-/// Fetch SteamGridDB grid + hero artwork for a single Steam AppID.
-///
-/// Returns `None` when no API key is configured, the game has no community
-/// artwork, or the request failed. Results (including negatives) are cached
-/// in the KV store with a 7-day TTL.
+/// Fetch SteamGridDB grid + hero + icon + logo artwork for a single game.
+/// Looks up by Steam AppID first (if provided) and falls back to searching
+/// SteamGridDB by game name (e.g. for Minecraft or non-Steam games).
 #[tauri::command]
-pub async fn sgdb_get_assets(app: tauri::AppHandle, steam_app_id: u32) -> Option<SgdbAssets> {
+pub async fn sgdb_get_assets(
+    app: tauri::AppHandle,
+    steam_app_id: Option<u32>,
+    game_name: Option<String>,
+) -> Option<SgdbAssets> {
     let db = app.state::<Db>().inner().clone();
 
-    if let Some(cached) = read_cache(&db, steam_app_id) {
-        return cached.filter(has_art);
+    // 1. Try steam_app_id if provided
+    if let Some(app_id) = steam_app_id {
+        let target = SgdbTarget::Steam(app_id);
+        if let Some(cached) = read_cache(&db, target) {
+            if let Some(assets) = cached.filter(has_art) {
+                return Some(assets);
+            }
+        } else if has_api_key() {
+            let api_key = crate::config::get_steamgriddb_api_key();
+            let assets = fetch_assets(&api_key, target).await;
+            persist(&db, target, &assets);
+            if has_art(&assets) {
+                return Some(assets);
+            }
+        }
     }
 
+    // 2. Fall back to search by game_name if provided
+    let name = game_name.as_deref().map(str::trim).filter(|s| !s.is_empty())?;
     if !has_api_key() {
         return None;
     }
     let api_key = crate::config::get_steamgriddb_api_key();
 
-    let assets = fetch_assets(&api_key, steam_app_id).await;
-    persist(&db, steam_app_id, &assets);
+    let game_id = resolve_game_id(&db, &api_key, name).await?;
+    let target = SgdbTarget::Game(game_id);
+
+    if let Some(cached) = read_cache(&db, target) {
+        return cached.filter(has_art);
+    }
+
+    let assets = fetch_assets(&api_key, target).await;
+    persist(&db, target, &assets);
     has_art(&assets).then_some(assets)
 }
 
-/// Cache envelope for the full-gallery payload (kept separate from the
-/// best-art cache so the two shapes never collide).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct CachedSgdbAllAssets {
     #[serde(default)]
@@ -545,71 +681,72 @@ struct CachedSgdbAllAssets {
     updated_at: u64,
 }
 
-const ALL_CACHE_KEY_PREFIX: &str = "sgdb:all:v1:";
-
-fn all_cache_key(app_id: u32) -> String {
-    format!("{ALL_CACHE_KEY_PREFIX}{app_id}")
-}
-
-/// Fetch every SteamGridDB upload for a Steam AppID (all pages of grids,
-/// heroes, icons and logos), for the edit-modal media picker. Returns `None`
-/// when no API key is configured or the game has no community artwork.
-///
-/// Unlike [`sgdb_get_assets`] (which returns one best grid + hero), this
-/// returns the full gallery so the user can browse every community upload.
-/// The paginated fetch is throttled to respect the API's rate limit, and the
-/// result is cached for 7 days under its own key.
-#[tauri::command]
-pub async fn sgdb_get_all_assets(
-    app: tauri::AppHandle,
-    steam_app_id: u32,
-) -> Option<SgdbAllAssets> {
-    let db = app.state::<Db>().inner().clone();
-
-    // Cache hit? Return the full gallery (or None if the cached negative).
-    if let Ok(Some(raw)) = crate::db::kv::get(&db, &all_cache_key(steam_app_id)) {
-        if let Ok(cached) = serde_json::from_str::<CachedSgdbAllAssets>(&raw) {
-            if cached.updated_at + CACHE_TTL_MS > now_ms() {
-                return cached.data.filter(|a| {
-                    !(a.grids.is_empty()
-                        && a.heroes.is_empty()
-                        && a.icons.is_empty()
-                        && a.logos.is_empty())
-                });
-            }
-        }
-    }
-
-    if !has_api_key() {
-        return None;
-    }
-    let api_key = crate::config::get_steamgriddb_api_key();
-
-    let assets = fetch_all_assets(&api_key, steam_app_id).await;
+fn persist_all(db: &Db, target: SgdbTarget, assets: &SgdbAllAssets) {
     let envelope = CachedSgdbAllAssets {
         data: Some(assets.clone()),
         updated_at: now_ms(),
     };
     if let Ok(json) = serde_json::to_string(&envelope) {
-        let key = all_cache_key(steam_app_id);
-        if let Err(e) = crate::db::kv::set(&db, &key, &json) {
+        let key = target.all_cache_key();
+        if let Err(e) = crate::db::kv::set(db, &key, &json) {
             eprintln!("[steamgriddb] all-assets cache write failed for {key}: {e}");
         }
     }
-
-    let has_any = !(assets.grids.is_empty()
-        && assets.heroes.is_empty()
-        && assets.icons.is_empty()
-        && assets.logos.is_empty());
-    has_any.then_some(assets)
 }
 
-/// Batch variant of [`sgdb_get_assets`]: a store/library grid of many cards
-/// makes a single Tauri round-trip instead of one invoke per card.
-///
-/// Cache hits resolve synchronously; cold AppIDs are fetched with bounded
-/// concurrency and persisted (same per-AppID KV keys and TTL as the single
-/// command). AppIDs without any artwork are omitted from the returned map.
+fn read_all_cache(db: &Db, target: SgdbTarget) -> Option<Option<SgdbAllAssets>> {
+    let raw = crate::db::kv::get(db, &target.all_cache_key()).ok().flatten()?;
+    let cached = serde_json::from_str::<CachedSgdbAllAssets>(&raw).ok()?;
+    (cached.updated_at + CACHE_TTL_MS > now_ms()).then_some(cached.data)
+}
+
+/// Fetch every SteamGridDB upload for a Steam AppID or game name (all pages of
+/// grids, heroes, icons and logos), for the edit-modal media picker.
+#[tauri::command]
+pub async fn sgdb_get_all_assets(
+    app: tauri::AppHandle,
+    steam_app_id: Option<u32>,
+    game_name: Option<String>,
+) -> Option<SgdbAllAssets> {
+    let db = app.state::<Db>().inner().clone();
+
+    // 1. Try steam_app_id if provided
+    if let Some(app_id) = steam_app_id {
+        let target = SgdbTarget::Steam(app_id);
+        if let Some(cached) = read_all_cache(&db, target) {
+            if let Some(assets) = cached.filter(has_any_all_assets) {
+                return Some(assets);
+            }
+        } else if has_api_key() {
+            let api_key = crate::config::get_steamgriddb_api_key();
+            let assets = fetch_all_assets(&api_key, target).await;
+            persist_all(&db, target, &assets);
+            if has_any_all_assets(&assets) {
+                return Some(assets);
+            }
+        }
+    }
+
+    // 2. Fall back to search by game_name if provided
+    let name = game_name.as_deref().map(str::trim).filter(|s| !s.is_empty())?;
+    if !has_api_key() {
+        return None;
+    }
+    let api_key = crate::config::get_steamgriddb_api_key();
+
+    let game_id = resolve_game_id(&db, &api_key, name).await?;
+    let target = SgdbTarget::Game(game_id);
+
+    if let Some(cached) = read_all_cache(&db, target) {
+        return cached.filter(has_any_all_assets);
+    }
+
+    let assets = fetch_all_assets(&api_key, target).await;
+    persist_all(&db, target, &assets);
+    has_any_all_assets(&assets).then_some(assets)
+}
+
+/// Batch variant of [`sgdb_get_assets`] for store/library grids.
 #[tauri::command]
 pub async fn sgdb_get_assets_batch(
     app: tauri::AppHandle,
@@ -621,7 +758,6 @@ pub async fn sgdb_get_assets_batch(
 
     let db = app.state::<Db>().inner().clone();
 
-    // Dedupe + split cache hits from cold AppIDs.
     let mut resolved: HashMap<u32, SgdbAssets> = HashMap::new();
     let mut cold: Vec<u32> = Vec::new();
     let mut seen: HashSet<u32> = HashSet::new();
@@ -629,11 +765,12 @@ pub async fn sgdb_get_assets_batch(
         if !seen.insert(app_id) {
             continue;
         }
-        match read_cache(&db, app_id) {
+        let target = SgdbTarget::Steam(app_id);
+        match read_cache(&db, target) {
             Some(Some(assets)) if has_art(&assets) => {
                 resolved.insert(app_id, assets);
             }
-            Some(_) => continue, // fresh negative — nothing to fetch
+            Some(_) => continue,
             None => cold.push(app_id),
         }
     }
@@ -651,7 +788,7 @@ pub async fn sgdb_get_assets_batch(
         .map(|app_id| {
             let api_key = api_key.clone();
             async move {
-                let assets = fetch_assets(&api_key, app_id).await;
+                let assets = fetch_assets(&api_key, SgdbTarget::Steam(app_id)).await;
                 (app_id, assets)
             }
         })
@@ -660,7 +797,7 @@ pub async fn sgdb_get_assets_batch(
         .await;
 
     for (app_id, assets) in fetched {
-        persist(&db, app_id, &assets);
+        persist(&db, SgdbTarget::Steam(app_id), &assets);
         if has_art(&assets) {
             resolved.insert(app_id, assets);
         }
@@ -697,16 +834,24 @@ mod tests {
     }
 
     #[test]
-    fn pick_best_prefers_renderable_mime_over_ico() {
-        // The icon endpoint mixes .ico (image/vnd.microsoft.icon) with
-        // png; the picker can't render .ico, so png must win even with a
-        // lower score.
+    fn pick_best_prefers_renderable_mime_over_unrenderable() {
         let items = vec![
-            art("icon.ico", "image/vnd.microsoft.icon", 9.0, 500),
+            art("file.bin", "application/octet-stream", 9.0, 500),
             art("icon.png", "image/png", 1.0, 10),
         ];
         let best = pick_best(items).expect("should pick one");
         assert_eq!(best.url.as_deref(), Some("icon.png"));
+    }
+
+    #[test]
+    fn pick_best_accepts_ico() {
+        let items = vec![
+            art("file.bin", "application/octet-stream", 10.0, 500),
+            art("icon.ico", "image/vnd.microsoft.icon", 9.0, 500),
+            art("icon.png", "image/png", 1.0, 10),
+        ];
+        let best = pick_best(items).expect("should pick one");
+        assert_eq!(best.url.as_deref(), Some("icon.ico"));
     }
 
     #[test]
@@ -741,8 +886,8 @@ mod tests {
             hero_mime: Some("image/png".into()),
             hero_animated_url: None,
             hero_animated_mime: None,
-            icon_url: Some("https://cdn/icon.png".into()),
-            icon_mime: Some("image/png".into()),
+            icon_url: Some("https://cdn/icon.ico".into()),
+            icon_mime: Some("image/vnd.microsoft.icon".into()),
             logo_url: None,
             logo_mime: None,
         };
@@ -754,7 +899,7 @@ mod tests {
         assert!(json.get("heroAnimatedUrl").is_some());
         assert_eq!(json.get("heroAnimatedUrl").unwrap().as_str(), None);
         assert!(json.get("iconUrl").is_some());
-        assert_eq!(json.get("iconUrl").unwrap().as_str(), Some("https://cdn/icon.png"));
+        assert_eq!(json.get("iconUrl").unwrap().as_str(), Some("https://cdn/icon.ico"));
         assert!(json.get("logoUrl").is_some());
         assert_eq!(json.get("logoUrl").unwrap().as_str(), None);
     }
@@ -790,7 +935,7 @@ mod tests {
         assert!(has_art(&static_hero_only));
 
         let icon_only = SgdbAssets {
-            icon_url: Some("https://cdn/i.png".into()),
+            icon_url: Some("https://cdn/i.ico".into()),
             ..none
         };
         assert!(has_art(&icon_only));
@@ -810,21 +955,26 @@ mod tests {
         let items = vec![
             art("low.png", "image/png", 0.2, 10),
             art("top.webp", "image/webp", 5.0, 3),
-            art("bad.ico", "image/vnd.microsoft.icon", 9.0, 500),
+            art("good.ico", "image/vnd.microsoft.icon", 9.0, 500),
+            art("bad.bin", "application/octet-stream", 9.0, 500),
         ];
         let converted = to_all_artwork_items(items);
-        // The picker shows the FULL gallery: both renderable uploads survive
-        // (unlike pick_best, which collapses to one), and ico is dropped.
-        assert_eq!(converted.len(), 2);
-        // Highest score leads.
-        assert_eq!(converted[0].url, "top.webp");
+        assert_eq!(converted.len(), 3);
+        assert_eq!(converted[0].url, "good.ico");
         assert_eq!(converted[0].width, 600);
         assert_eq!(converted[0].height, 900);
     }
 
     #[test]
     fn all_artwork_items_drops_unrenderable_uploads() {
-        let converted = to_all_artwork_items(vec![art("a.ico", "image/vnd.microsoft.icon", 1.0, 1)]);
+        let converted = to_all_artwork_items(vec![art("a.bin", "application/octet-stream", 1.0, 1)]);
         assert!(converted.is_empty());
+    }
+
+    #[test]
+    fn normalize_title_strips_punctuation_and_spaces() {
+        assert_eq!(normalize_title("Minecraft"), "minecraft");
+        assert_eq!(normalize_title("Minecraft: Java Edition"), "minecraft java edition");
+        assert_eq!(normalize_title("  The   Witcher 3:  Wild Hunt  "), "the witcher 3 wild hunt");
     }
 }

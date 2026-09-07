@@ -35,13 +35,17 @@ export default function ModsPage() {
   const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const { setModsGameName } = usePresence();
 
-  // Installed games with a real on-disk path are moddable candidates.
+  // Installed games with a real on-disk path or games that already have mods
   const candidates = useMemo(
     () =>
       games
-        .filter((g) => g.installed !== false && !!g.path)
+        .filter(
+          (g) =>
+            (g.installed !== false && !!g.path) ||
+            (overview.get(g.id)?.total ?? 0) > 0
+        )
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [games]
+    [games, overview]
   );
 
   const refreshOverview = () => {
@@ -89,7 +93,11 @@ export default function ModsPage() {
 
   // Filtered & ordered games list for the rail
   const ordered = useMemo(() => {
-    let list = candidates;
+    const q = search.trim().toLowerCase();
+
+    // When searching, search across all library games so users can find any game.
+    // Otherwise, start from candidate games.
+    let list = q ? games : candidates;
 
     // Filter by rail status
     if (railFilter === "modded") {
@@ -99,7 +107,6 @@ export default function ModsPage() {
     }
 
     // Filter by search query (name, platform, or detected engine)
-    const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((g) => {
         if (g.name.toLowerCase().includes(q)) return true;
@@ -109,24 +116,27 @@ export default function ModsPage() {
       });
     }
 
-    // Games with known mods float to top, then alphabetical
+    // Games with known mods float to top, then installed games with paths, then alphabetical
     return [...list].sort((a, b) => {
       const am = overview.get(a.id)?.total ?? 0;
       const bm = overview.get(b.id)?.total ?? 0;
       if ((am > 0) !== (bm > 0)) return am > 0 ? -1 : 1;
+      const ai = a.installed !== false && !!a.path;
+      const bi = b.installed !== false && !!b.path;
+      if (ai !== bi) return ai ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [candidates, overview, search, railFilter]);
+  }, [candidates, games, overview, search, railFilter]);
 
-  // Default selection: first game with mods, else first candidate
+  // Default selection: first game with mods, else first candidate or library game
   useEffect(() => {
-    if (selectedGameId && candidates.some((g) => g.id === selectedGameId)) return;
+    if (selectedGameId && games.some((g) => g.id === selectedGameId)) return;
     const withMods = candidates.find((g) => (overview.get(g.id)?.total ?? 0) > 0);
-    setSelectedGameId((withMods ?? candidates[0])?.id ?? null);
-  }, [candidates, overview, selectedGameId]);
+    setSelectedGameId((withMods ?? candidates[0] ?? games[0])?.id ?? null);
+  }, [candidates, games, overview, selectedGameId]);
 
   const selectedGame: Game | null =
-    candidates.find((g) => g.id === selectedGameId) ?? null;
+    games.find((g) => g.id === selectedGameId) ?? null;
 
   useEffect(() => {
     setModsGameName(selectedGame?.name ?? null);

@@ -54,12 +54,14 @@ export default function BigScreenModsPage() {
   const [overview, setOverview] = useState<Map<string, ModsOverviewEntry>>(new Map());
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
-  // Installed games with a real on-disk path are moddable candidates —
-  // mirrors the desktop ModsPage candidate filter. Games that already
-  // have mods float to the top (same ordering as the desktop rail).
+  // Games that are installed with a path, or already have mods configured,
+  // are moddable candidates. If none match, fall back to all games.
   const candidates = useMemo(() => {
-    const list = games.filter((g) => g.installed !== false && !!g.path);
-    return [...list].sort((a, b) => {
+    const list = games.filter(
+      (g) => (g.installed !== false && !!g.path) || (overview.get(g.id)?.total ?? 0) > 0
+    );
+    const pool = list.length > 0 ? list : games;
+    return [...pool].sort((a, b) => {
       const am = overview.get(a.id)?.total ?? 0;
       const bm = overview.get(b.id)?.total ?? 0;
       if ((am > 0) !== (bm > 0)) return am > 0 ? -1 : 1;
@@ -75,7 +77,7 @@ export default function BigScreenModsPage() {
 
   useEffect(refreshOverview, [refreshOverview]);
 
-  const selectedGame = candidates.find((g) => g.id === selectedGameId) ?? null;
+  const selectedGame = games.find((g) => g.id === selectedGameId) ?? null;
 
   // ── Phase 1: pick a game from the grid ─────────────────────────
   if (!selectedGame) {

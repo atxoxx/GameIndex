@@ -2653,7 +2653,7 @@ html[data-game-accent] .sidebar {
 /* ── Alphabet Quick Scrubber Rail ── */
 .sidebar-alphabet-scrubber {
   position: absolute;
-  right: 2px;
+  right: 8px;
   top: 140px;
   bottom: 48px;
   display: flex;

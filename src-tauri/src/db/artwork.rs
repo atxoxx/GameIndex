@@ -28,6 +28,10 @@ fn extension_from_data_url(data_url: &str) -> &'static str {
     if data_url.starts_with("data:image/png") { "png" }
     else if data_url.starts_with("data:image/webp") { "webp" }
     else if data_url.starts_with("data:image/gif") { "gif" }
+    else if data_url.starts_with("data:image/x-icon")
+        || data_url.starts_with("data:image/vnd.microsoft.icon")
+        || data_url.starts_with("data:image/ico")
+    { "ico" }
     else { "jpg" }
 }
 
@@ -53,7 +57,11 @@ pub fn store_file(app_data_dir: &Path, game_id: &str, slot: &str, source: &Path)
     if !source.is_file() { return Ok(None); }
     let bytes = std::fs::read(source).map_err(|e| format!("read artwork source: {e}"))?;
     let ext = MimeGuess::from_path(source).first().map(|m| m.subtype().as_str().to_string()).unwrap_or_else(|| "jpg".to_string());
-    let ext = match ext.as_str() { "jpeg" => "jpg", "x-icon" => "ico", other => other };
+    let ext = match ext.as_str() {
+        "jpeg" => "jpg",
+        "x-icon" | "vnd.microsoft.icon" | "ico" => "ico",
+        other => other,
+    };
     let dir = artwork_root(app_data_dir).join(safe_component(game_id));
     std::fs::create_dir_all(&dir).map_err(|e| format!("create artwork directory: {e}"))?;
     let relative = format!("{ARTWORK_DIR}/{}/{}.{}", safe_component(game_id), safe_component(slot), ext);
@@ -91,3 +99,19 @@ pub fn cleanup_unreferenced_artwork(app_data_dir: &Path, library_ids: &HashSet<S
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extension_from_data_url_detects_ico_variants() {
+        assert_eq!(extension_from_data_url("data:image/x-icon;base64,AA=="), "ico");
+        assert_eq!(extension_from_data_url("data:image/vnd.microsoft.icon;base64,AA=="), "ico");
+        assert_eq!(extension_from_data_url("data:image/ico;base64,AA=="), "ico");
+        assert_eq!(extension_from_data_url("data:image/png;base64,AA=="), "png");
+        assert_eq!(extension_from_data_url("data:image/webp;base64,AA=="), "webp");
+        assert_eq!(extension_from_data_url("data:image/jpeg;base64,AA=="), "jpg");
+    }
+}
+

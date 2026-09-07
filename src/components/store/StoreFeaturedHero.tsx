@@ -134,17 +134,21 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const reqRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Scroll active dock thumbnail into view
+  // Keep active dock thumbnail visible horizontally inside the dock reel without
+  // touching ancestor scroll positions (scrollIntoView would drag .app-main back to top).
   useEffect(() => {
+    const dock = dockRef.current;
     const activeEl = itemRefs.current[currentIndex];
-    if (activeEl) {
-      activeEl.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "nearest",
-      });
+    if (!dock || !activeEl) return;
+    const dockRect = dock.getBoundingClientRect();
+    const itemRect = activeEl.getBoundingClientRect();
+    if (itemRect.left < dockRect.left) {
+      dock.scrollLeft += itemRect.left - dockRect.left - 12;
+    } else if (itemRect.right > dockRect.right) {
+      dock.scrollLeft += itemRect.right - dockRect.right + 12;
     }
   }, [currentIndex]);
 
@@ -772,6 +776,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
       {/* Thumbnails reel spanning bottom dock */}
       {games.length > 1 && (
         <div
+          ref={dockRef}
           className="store-spotlight-dock"
           onWheel={handleDockWheel}
           role="tablist"

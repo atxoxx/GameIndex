@@ -238,10 +238,11 @@ export function useEnrich(options: {
       // side, so repeat enrichments resolve from SQLite).
       let sgdbIconUrl: string | undefined;
       let sgdbLogoUrl: string | undefined;
-      if (resolvedSteamAppId) {
+      if (resolvedSteamAppId || gameName) {
         try {
           const sgdb = await invoke<SgdbAssets | null>("sgdb_get_assets", {
-            steamAppId: resolvedSteamAppId,
+            steamAppId: resolvedSteamAppId ?? null,
+            gameName: gameName || undefined,
           });
           if (sgdb) {
             if (!images.logoUrl && sgdb.logoUrl) {

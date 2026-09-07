@@ -11,7 +11,7 @@ import { Button } from "../ui";
 import "./EditGameModal.css";
 
 type MediaSlot = "icon" | "cover" | "hero" | "logo";
-type FormatFilter = "all" | "jpg" | "jpeg" | "png" | "webp";
+type FormatFilter = "all" | "jpg" | "jpeg" | "png" | "webp" | "ico";
 
 interface Candidate {
   url: string;
@@ -36,8 +36,8 @@ const SLOT_LABEL: Record<MediaSlot, string> = {
   logo: "Logo",
 };
 
-const ALLOWED_EXT = /\.(jpe?g|png|webp)(\?|$)/i;
-const ALLOWED_MIME = /^image\/(jpe?g|png|webp)$/i;
+const ALLOWED_EXT = /\.(jpe?g|png|webp|ico)(\?|$)/i;
+const ALLOWED_MIME = /^image\/(jpe?g|png|webp|x-icon|vnd\.microsoft\.icon|ico)$/i;
 
 function allowed(url: string, mime?: string | null): boolean {
   if (mime && ALLOWED_MIME.test(mime)) return true;
@@ -60,15 +60,17 @@ function isAnimated(c: Candidate): boolean {
 
 /** Normalize a candidate's format to a filter bucket. JPEG covers both the
  *  `jpg` and `jpeg` extensions (they're the same container). */
-function formatOf(c: Candidate): "jpg" | "png" | "webp" | "other" {
+function formatOf(c: Candidate): "jpg" | "png" | "webp" | "ico" | "other" {
   const m = (c.mime || "").toLowerCase();
   if (m.includes("jpeg")) return "jpg";
   if (m.includes("png") || m.includes("apng")) return "png";
   if (m.includes("webp")) return "webp";
+  if (m.includes("icon") || m.includes("ico")) return "ico";
   const ext = (c.url.split("?")[0].split(".").pop() || "").toLowerCase();
   if (ext === "jpg" || ext === "jpeg") return "jpg";
   if (ext === "png" || ext === "apng") return "png";
   if (ext === "webp") return "webp";
+  if (ext === "ico") return "ico";
   return "other";
 }
 
@@ -170,12 +172,18 @@ async function collectCandidates(
   const sgdbAppId = steamAppId ?? extractSteamAppIdFromWebsites(steamUrlsFromMetadata(results));
 
   // Official Steam CDN art first (poster must come from Steam when we have
-  // an AppID), then the full SteamGridDB gallery for this slot's kind.
+  // an AppID).
   if (sgdbAppId) {
     push(steamCdnUrlsForSlot(slot, sgdbAppId), "Steam");
+  }
+
+  // Full SteamGridDB gallery for this slot's kind. Queries by Steam AppID
+  // when available, or falls back to searching by game name (e.g. Minecraft).
+  if (sgdbAppId || gameName) {
     try {
       const assets = await invoke<SgdbAllAssets | null>("sgdb_get_all_assets", {
-        steamAppId: sgdbAppId,
+        steamAppId: sgdbAppId ?? null,
+        gameName: gameName || undefined,
       });
       if (assets) {
         const items =
@@ -239,6 +247,7 @@ const FORMAT_FILTERS: { key: FormatFilter; label: string }[] = [
   { key: "jpeg", label: "JPEG" },
   { key: "png", label: "PNG" },
   { key: "webp", label: "WebP" },
+  { key: "ico", label: "ICO" },
 ];
 
 /** Modal media browser for the edit-game image slots. Opened from a slot's
@@ -286,6 +295,9 @@ export function MediaFetchBrowser({
 
   const filteredCandidates = useMemo(() => {
     if (formatFilter === "all") return allCandidates;
+    if (formatFilter === "jpg" || formatFilter === "jpeg") {
+      return allCandidates.filter((c) => formatOf(c) === "jpg");
+    }
     return allCandidates.filter((c) => formatOf(c) === formatFilter);
   }, [allCandidates, formatFilter]);
 
