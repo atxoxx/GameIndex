@@ -8,7 +8,7 @@
 
 <p><strong>A unified, cross-store game launcher and library manager.</strong></p>
 
-Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a single, fast, native experience — with discovery, sync, activity tracking, a social layer, and a controller-first 10-foot UI.
+Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a single, fast, native experience — with discovery, deals & news, activity tracking, achievements, a social layer, and a controller-first 10-foot UI.
 
 <br />
 
@@ -16,8 +16,23 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-informational)](#platforms)
 [![Stack](https://img.shields.io/badge/stack-Tauri%20%7C%20Rust%20%7C%20React%20%7C%20TypeScript-orange)](#tech-stack)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](#license)
+[![Demo](https://img.shields.io/badge/demo-watch%20on%20YouTube-red)](https://youtu.be/1PnELFTXH4g)
 
 </div>
+
+---
+
+## 🎬 Demo Video
+
+A quick guided tour of GameIndex — the launcher, unified library, game pages, and more:
+
+<p align="center">
+  <a href="https://youtu.be/1PnELFTXH4g">
+    <img src="https://img.youtube.com/vi/1PnELFTXH4g/hqdefault.jpg" width="75%" loading="lazy" alt="GameIndex demo video on YouTube" />
+  </a>
+</p>
+
+<p align="center">▶️ <a href="https://youtu.be/1PnELFTXH4g">Watch the presentation on YouTube</a></p>
 
 ---
 
@@ -25,6 +40,7 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 
 - [✨ Features](#-features)
 - [📸 Screenshots](#-screenshots)
+- [🎬 Demo Video](#demo-video)
 - [💡 Inspiration](#-inspiration)
 - [🛠️ Tech Stack](#️-tech-stack)
 - [🚀 Getting Started](#-getting-started)
@@ -44,19 +60,25 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 |---------|-------------|
 | **Unified Library** | Steam, GOG Galaxy, Epic Games Store, Rockstar, Ubisoft Connect, Humble Bundle, and manual imports in one cohesive grid. |
 | **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, web links, HowLongToBeat, Crackwatch, ProtonDB, and live player counts. |
+| **Achievements Hub** | Cross-platform achievement tracking and analytics — sync Steam, GOG, Epic, RetroAchievements, and manual lists, with gamerscore totals, rarity & unlock-activity charts, and per-game completion shelves. |
 | **Emulators & ROMs** | Integrated emulator manager: launch emulator executables, catalog multi-system platforms, and manage ROMs with bulk actions. |
 | **Mod Manager** | Dual-pane mod manager for Steam Workshop & Nexus Mods with bulk multi-select (enable/disable/delete), stat cards, and mod size tracking. |
 | **IGDB Storefront** | IGDB-powered catalog browsing (search, filters, rails, price badges, comparisons). |
+| **Deals Hub** | Real-time price deals across Steam, GOG, Epic, Humble, Fanatical, and more — plus an Xbox Game Pass catalog, giveaways with live countdowns, and playtester listings. |
+| **Wishlist** | Dedicated wishlist tab with release-date countdowns, per-game notes, genre/platform filters, and share-with-friends cards. |
+| **News Reader** | Built-in RSS reader on a dedicated News page — curated gaming feeds, regional feeds and feed packs, with article reading that stays in the app. |
 | **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS, with interactive timeline, Gantt, performance, and sparkline views. |
 | **Downloads** | Unified concurrent download engine with seeding, HTTP direct, debrid (Real-Debrid / AllDebrid / TorBox), browser-resolver captures, and torrents via `librqbit`. |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
+| **Backup & Restore** | Selectable, cancellable backups with live progress — raw NDJSON export plus merge/replace restore modes from the Settings backup tab. |
 | **Community & Friends** | Local-first social layer: profiles, friend sync, shared recommendations, and a community feed. |
 | **Discord Rich Presence** | Playing *and* browsing presence — platform/playtime context, dynamic game poster, and a launcher toggle. |
-| **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across Library, Store, News, Deals, Activity, Friends, and Community. |
+| **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs). |
 | **Live Player Counts** | Steam player counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
-| **i18n & Privacy** | Multi-language translation support (`LanguageContext`), theme gallery with custom accent picker, and a Privacy & Data tab to view/wipe local storage. |
+| **Command Palette** | Global `Ctrl/Cmd+K` launcher for navigation, search, and system actions — recents, calculator, cheat sheet, random-game picker, and power filters — with synthesized UI sounds and a live now-playing chip. |
+| **Themes, i18n & Privacy** | Adaptive theming that samples the active game's artwork into chrome accents, dark/light + alternate themes with a custom accent picker, six-language support (`LanguageContext`), and a Privacy & Data tab to view/wipe local storage. |
 
-> 🚧 **Planned / in progress:** Linux + Steam Deck support · theme editor and community themes · broader plugin hooks and marketplace.
+> 🚧 **Planned / in progress:** Linux + Steam Deck support · per-game environment variables, compatibility & performance profiles, tags · theme editor and community themes · broader plugin hooks and marketplace.
 
 ---
 
@@ -251,9 +273,9 @@ npx tsc --noEmit
 ```
 .
 ├── src/                 React + TypeScript frontend
-│   ├── pages/           Top-level route components (Library, Store, News, Deals,
-│   │                   Activity, Achievements, Downloads, Storage, Community,
-│   │                   Friends, Wishlist, Emulators, Mods, Settings)
+│   ├── pages/           Top-level route components (Home, Library, Store, Deals,
+│   │                   News, Wishlist, Emulators, Mods, Activity, Achievements,
+│   │                   Storage, Downloads, Community, Friends, Settings, Docs)
 │   ├── components/      Feature-scoped UI (game/, library/, store/, downloads/,
 │   │                   news/, activity/, charts/, bigscreen/, ui/)
 │   ├── context/         Cross-cutting providers (Game, Activity, Theme, Language, ...)
@@ -294,6 +316,11 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Theme gallery + custom accent picker
 - ✅ Steam reviews & multi-source ratings
 - ✅ Sandboxed plugin system for search/download sources
+- ✅ Deals hub — real-time store deals, Xbox Game Pass catalog, giveaways, and playtester listings
+- ✅ Multi-source Achievements dashboard with analytics
+- ✅ Wishlist tab with release countdowns and notes
+- ✅ Backup & restore with merge/replace NDJSON modes
+- ✅ Command palette, adaptive game-art theming, and now-playing HUD
 - 🚧 Per-game environment variables, compatibility profiles, performance profiles, and tags
 - ⏳ Linux + Steam Deck support
 - ⏳ Theme editor & community themes
