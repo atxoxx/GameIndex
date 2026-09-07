@@ -6,6 +6,7 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { getCachedInstalledVersion } from "../../hooks/useGameUpdateCheck";
 import {
   type Game,
   type GameMetadataResult,
@@ -73,7 +74,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
   const [editName, setEditName] = useState(game.name);
   const [editPlatform, setEditPlatform] = useState(game.platform);
-  const [editVersion, setEditVersion] = useState(game.version || "");
+  const cachedVersion = getCachedInstalledVersion(game.id);
+  const [editVersion, setEditVersion] = useState(game.version || cachedVersion || "");
   const [detectingVersion, setDetectingVersion] = useState(false);
   const [editPlayStatus, setEditPlayStatus] = useState<PlayStatus>(game.playStatus || "backlog");
   const [editUntracked, setEditUntracked] = useState(game.untracked ?? isGameUntracked(game.id));
@@ -404,6 +406,10 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
   async function handleDetectVersion() {
     if (detectingVersion) return;
+    const cached = getCachedInstalledVersion(game.id);
+    if (cached && !editVersion) {
+      setEditVersion(cached);
+    }
     setDetectingVersion(true);
     try {
       let detected: string | null = null;
@@ -434,14 +440,20 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         }
       }
 
-      if (detected) {
-        setEditVersion(detected);
-        showToast(t("edit.versionDetected", { version: detected }), "success");
+      const finalDetected = detected || cached;
+      if (finalDetected) {
+        setEditVersion(finalDetected);
+        showToast(t("edit.versionDetected", { version: finalDetected }), "success");
       } else {
         showToast(t("edit.versionDetectNotFound"), "info");
       }
     } catch {
-      showToast(t("edit.versionDetectNotFound"), "info");
+      if (cached) {
+        setEditVersion(cached);
+        showToast(t("edit.versionDetected", { version: cached }), "success");
+      } else {
+        showToast(t("edit.versionDetectNotFound"), "info");
+      }
     } finally {
       setDetectingVersion(false);
     }
@@ -877,7 +889,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                         type="text"
                         value={editVersion}
                         onChange={(e) => setEditVersion(e.target.value)}
-                        placeholder={t("edit.versionPlaceholder")}
+                        placeholder={cachedVersion || t("edit.versionPlaceholder")}
                       />
                       <button
                         type="button"

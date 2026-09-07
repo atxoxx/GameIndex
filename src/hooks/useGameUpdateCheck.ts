@@ -139,6 +139,14 @@ interface DetectedVersionResponse {
   source: string;
 }
 
+export function getCachedInstalledVersion(gameId: string): string | null {
+  try {
+    return loadCache()[gameId]?.installedVersion ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function detectInstalledVersion(game: UpdateCheckTarget): Promise<string | null> {
   // If the user manually set a version on the game record, prioritize it
   if (game.version && game.version.trim()) {
@@ -169,9 +177,17 @@ async function detectInstalledVersion(game: UpdateCheckTarget): Promise<string |
   return invoke<string | null>("get_exe_file_version", { path: exePath }).catch(() => null);
 }
 
-async function runUpdateCheck(game: UpdateCheckTarget): Promise<UpdateCacheEntry> {
+async function runUpdateCheck(
+  game: UpdateCheckTarget,
+  onLocalDetected?: (detected: string | null) => void
+): Promise<UpdateCacheEntry> {
+  const localPromise = detectInstalledVersion(game).then((ver) => {
+    if (onLocalDetected) onLocalDetected(ver);
+    return ver;
+  });
+
   const [installedVersion, results] = await Promise.all([
-    detectInstalledVersion(game),
+    localPromise,
     // The source search is best-effort — a failed fetch just means
     // no titles to compare against (treated as "unknown").
     searchDownloads(game.name, game.steamAppId).catch(() => []),
@@ -222,49 +238,98 @@ export function useGameUpdateCheck(game: Game | null | undefined): GameUpdateRes
     const gameId = game.id;
     let cancelled = false;
 
-    // Serve a still-fresh cached result instead of re-running the search,
-    // provided the cached installedVersion matches any explicit game version.
+    const explicitVersion = game.version?.trim() || null;
     const cached = loadCache()[gameId];
-    const versionMismatch = game.version && cached && cached.installedVersion !== game.version.trim();
-    if (cached && !versionMismatch && Date.now() - cached.checkedAt < UPDATE_CACHE_TTL_MS) {
+    const isCacheFresh = cached && Date.now() - cached.checkedAt < UPDATE_CACHE_TTL_MS;
+
+    // Fast path: if the user changed the explicit version on the game record in settings,
+    // and we already have cached search results (latestVersion) that are fresh,
+    // update installedVersion and re-derive update status instantly (0ms) without re-scraping!
+    if (explicitVersion && cached && cached.installedVersion !== explicitVersion && isCacheFresh) {
+      const newStatus = deriveUpdateStatus(explicitVersion, cached.latestVersion);
+      const updatedEntry: UpdateCacheEntry = {
+        ...cached,
+        installedVersion: explicitVersion,
+        status: newStatus,
+        checkedAt: Date.now(),
+      };
+      const next = loadCache();
+      next[gameId] = updatedEntry;
+      saveCache(next);
+      setResult(updatedEntry);
+      return;
+    }
+
+    // Standard cache hit
+    const versionMismatch = explicitVersion && cached && cached.installedVersion !== explicitVersion;
+    if (cached && !versionMismatch && isCacheFresh) {
       setResult(cached);
       return;
     }
 
-    setResult({ status: "checking", installedVersion: null, latestVersion: null });
+    // Optimistic initial state: preserve any known version (explicit or cached) immediately
+    const optimisticInstalled = explicitVersion || cached?.installedVersion || null;
+    const optimisticLatest = cached?.latestVersion || null;
+    const optimisticStatus: GameUpdateStatus =
+      optimisticInstalled && optimisticLatest
+        ? deriveUpdateStatus(optimisticInstalled, optimisticLatest)
+        : "checking";
+
+    setResult({
+      status: optimisticStatus,
+      installedVersion: optimisticInstalled,
+      latestVersion: optimisticLatest,
+    });
 
     let promise = inflightChecks.get(gameId);
     if (!promise) {
-      promise = runUpdateCheck({
-        id: gameId,
-        name: game.name,
-        version: game.version,
-        steamAppId: game.steamAppId,
-        path: game.path,
-        detectedExe: game.detectedExe,
-        platform: game.platform,
-        installDir: game.sizeRootPath,
-      });
+      promise = runUpdateCheck(
+        {
+          id: gameId,
+          name: game.name,
+          version: game.version,
+          steamAppId: game.steamAppId,
+          path: game.path,
+          detectedExe: game.detectedExe,
+          platform: game.platform,
+          installDir: game.sizeRootPath,
+        },
+        (detectedVer) => {
+          // Surfaced locally before searchDownloads completes
+          if (!cancelled && detectedVer) {
+            setResult((prev) => {
+              const effective = explicitVersion || detectedVer;
+              return {
+                status: prev.latestVersion ? deriveUpdateStatus(effective, prev.latestVersion) : prev.status,
+                installedVersion: effective,
+                latestVersion: prev.latestVersion,
+              };
+            });
+          }
+        }
+      );
       inflightChecks.set(gameId, promise);
     }
-    promise.then(
-      (entry) => {
-        if (!cancelled) {
-          setResult({
-            status: entry.status,
-            installedVersion: entry.installedVersion,
-            latestVersion: entry.latestVersion,
-          });
+    promise
+      .then(
+        (entry) => {
+          if (!cancelled) {
+            setResult({
+              status: entry.status,
+              installedVersion: entry.installedVersion,
+              latestVersion: entry.latestVersion,
+            });
+          }
+        },
+        () => {
+          if (!cancelled) {
+            setResult({ status: "unknown", installedVersion: null, latestVersion: null });
+          }
         }
-      },
-      () => {
-        if (!cancelled) {
-          setResult({ status: "unknown", installedVersion: null, latestVersion: null });
-        }
-      }
-    ).finally(() => {
-      inflightChecks.delete(gameId);
-    });
+      )
+      .finally(() => {
+        inflightChecks.delete(gameId);
+      });
 
     return () => {
       cancelled = true;

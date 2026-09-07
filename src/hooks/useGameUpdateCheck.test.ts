@@ -215,4 +215,65 @@ describe("useGameUpdateCheck", () => {
     expect(mockedInvoke).not.toHaveBeenCalled();
     expect(mockedSearch).not.toHaveBeenCalled();
   });
+
+  it("instantly updates status and installed version without re-searching when explicit game version changes", async () => {
+    const game = makeGame({ version: "1.0.0" });
+    localStorage.setItem(
+      UPDATE_CACHE_KEY,
+      JSON.stringify({
+        [game.id]: {
+          status: "update-available",
+          installedVersion: "1.0.0",
+          latestVersion: "1.2.0",
+          checkedAt: Date.now(),
+        },
+      })
+    );
+
+    const { result, rerender } = renderHook(
+      (g: Game) => useGameUpdateCheck(g),
+      { initialProps: game }
+    );
+    await waitFor(() => expect(result.current.status).toBe("update-available"));
+    expect(result.current.installedVersion).toBe("1.0.0");
+    expect(result.current.latestVersion).toBe("1.2.0");
+
+    // Simulate changing version in settings to 1.2.0 (matches latest)
+    rerender(makeGame({ version: "1.2.0" }));
+
+    // Status is immediately re-derived as up-to-date in 0ms without running network search
+    expect(result.current.installedVersion).toBe("1.2.0");
+    expect(result.current.status).toBe("up-to-date");
+    expect(mockedInvoke).not.toHaveBeenCalled();
+    expect(mockedSearch).not.toHaveBeenCalled();
+  });
+
+  it("surfaces locally detected installed version before searchDownloads completes", async () => {
+    const game = makeGame();
+    mockedInvoke.mockResolvedValue("2.0.0");
+
+    // Create a delayed searchDownloads promise
+    let resolveSearch: (res: DownloadSearchResult[]) => void;
+    mockedSearch.mockImplementation(
+      () =>
+        new Promise<DownloadSearchResult[]>((resolve) => {
+          resolveSearch = resolve;
+        })
+    );
+
+    const { result } = renderHook(() => useGameUpdateCheck(game));
+
+    // Local detection should surface 2.0.0 before search resolves
+    await waitFor(() => expect(result.current.installedVersion).toBe("2.0.0"));
+    expect(result.current.status).toBe("checking");
+
+    // Later when search resolves, latestVersion and status update
+    act(() => {
+      resolveSearch!([makeResult("Test Game v2.1.0")]);
+    });
+
+    await waitFor(() => expect(result.current.status).toBe("update-available"));
+    expect(result.current.installedVersion).toBe("2.0.0");
+    expect(result.current.latestVersion).toBe("2.1.0");
+  });
 });

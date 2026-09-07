@@ -247,14 +247,22 @@ export default function InfoKpiCard({
       { label: t("hero.added"), value: addedDate, icon: <IconCalendar size={12} /> },
     ];
 
-    // Installed exe version (read from the file-version resource) and,
+    // Installed exe version (read from the file-version resource or explicit game record) and,
     // when the download sources carry a newer build, the newest version
-    // found there. Both only render once the check produced data.
-    if (installedVersion) {
+    // found there. Both render immediately when available.
+    const displayVersion = game.version?.trim() || installedVersion;
+    if (displayVersion) {
       out.push({
         label: t("info.version"),
         value: (
-          <span className="info-dl-value-tag info-dl-value-tag--default">{installedVersion}</span>
+          <span
+            className="info-dl-value-tag info-dl-value-tag--default"
+            onClick={onEditSize}
+            style={onEditSize ? { cursor: "pointer" } : undefined}
+            title={onEditSize ? t("edit.label.version") : undefined}
+          >
+            {displayVersion}
+          </span>
         ),
         icon: <IconTag size={12} />,
       });
@@ -356,7 +364,7 @@ export default function InfoKpiCard({
       });
     }
     return out;
-  }, [game, t, handleCopyAppId, updateStatus, installedVersion, latestVersion]);
+  }, [game, t, handleCopyAppId, updateStatus, installedVersion, latestVersion, onEditSize]);
 
   return (
     <section className="game-section info-kpi-card">

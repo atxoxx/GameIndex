@@ -15,6 +15,8 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::Instant;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -297,7 +299,7 @@ fn is_launcher_or_helper(name: &str) -> bool {
 
 /// Scan a directory and common subdirectories for candidate game binaries.
 fn find_candidate_game_exes(root: &Path) -> Vec<PathBuf> {
-    let mut exes = Vec::new();
+    let mut exes: Vec<(PathBuf, u64)> = Vec::new();
     let mut dirs_to_check = vec![root.to_path_buf()];
     for sub in &[
         "bin", "binaries", "bin/x64", "bin/win64", "x64", "x86_64", "bin/x86_64", "game",
@@ -319,7 +321,8 @@ fn find_candidate_game_exes(root: &Path) -> Vec<PathBuf> {
                 {
                     if let Some(file_name) = p.file_name().and_then(|n| n.to_str()) {
                         if !is_launcher_or_helper(file_name) {
-                            exes.push(p);
+                            let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                            exes.push((p, size));
                         }
                     }
                 }
@@ -327,12 +330,8 @@ fn find_candidate_game_exes(root: &Path) -> Vec<PathBuf> {
         }
     }
     // Sort descending by file size (the actual game binary is almost always the largest PE file)
-    exes.sort_by(|a, b| {
-        let size_a = a.metadata().map(|m| m.len()).unwrap_or(0);
-        let size_b = b.metadata().map(|m| m.len()).unwrap_or(0);
-        size_b.cmp(&size_a)
-    });
-    exes
+    exes.sort_by(|a, b| b.1.cmp(&a.1));
+    exes.into_iter().map(|(p, _)| p).collect()
 }
 
 /// Check for GOG `goggame-*.info` manifests in candidate directories.
@@ -368,8 +367,25 @@ fn check_gog_manifest(candidate_dirs: &[PathBuf]) -> Option<String> {
     None
 }
 
-/// Check for Epic Games launcher manifests in ProgramData.
-fn check_epic_manifest(candidate_dirs: &[PathBuf], candidate_ids: &[&str]) -> Option<String> {
+#[derive(Debug, Clone)]
+struct CachedEpicItem {
+    install_location: Option<PathBuf>,
+    catalog_item_id: Option<String>,
+    app_name: Option<String>,
+    version: Option<String>,
+}
+
+static EPIC_MANIFEST_CACHE: Mutex<Option<(Instant, Vec<CachedEpicItem>)>> = Mutex::new(None);
+const EPIC_CACHE_TTL_SECS: u64 = 60;
+
+fn get_cached_epic_manifests() -> Vec<CachedEpicItem> {
+    let mut cache_guard = EPIC_MANIFEST_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((cached_at, ref items)) = *cache_guard {
+        if cached_at.elapsed().as_secs() < EPIC_CACHE_TTL_SECS {
+            return items.clone();
+        }
+    }
+
     let program_data =
         std::env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".to_string());
     let manifests_dir = PathBuf::from(program_data)
@@ -378,49 +394,71 @@ fn check_epic_manifest(candidate_dirs: &[PathBuf], candidate_ids: &[&str]) -> Op
         .join("Data")
         .join("Manifests");
 
-    if !manifests_dir.is_dir() {
-        return None;
-    }
+    let mut items = Vec::new();
+    if manifests_dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(&manifests_dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.extension().and_then(|e| e.to_str()) == Some("item") {
+                    if let Ok(content) = fs::read_to_string(&p) {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            let install_location = json
+                                .get("InstallLocation")
+                                .and_then(|s| s.as_str())
+                                .map(PathBuf::from);
+                            let catalog_item_id = json
+                                .get("CatalogItemId")
+                                .and_then(|s| s.as_str())
+                                .map(|s| s.to_string());
+                            let app_name = json
+                                .get("AppName")
+                                .and_then(|s| s.as_str())
+                                .map(|s| s.to_string());
 
-    if let Ok(entries) = fs::read_dir(&manifests_dir) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.extension().and_then(|e| e.to_str()) == Some("item") {
-                if let Ok(content) = fs::read_to_string(&p) {
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                        let matches_dir = json
-                            .get("InstallLocation")
-                            .and_then(|s| s.as_str())
-                            .map(|inst| {
-                                let inst_path = PathBuf::from(inst);
-                                candidate_dirs.iter().any(|d| {
-                                    d == &inst_path
-                                        || d.starts_with(&inst_path)
-                                        || inst_path.starts_with(d)
-                                })
-                            })
-                            .unwrap_or(false);
+                            let version = json
+                                .get("AppVersionString")
+                                .and_then(|s| s.as_str())
+                                .and_then(normalize_version)
+                                .or_else(|| {
+                                    json.get("BuildVersion")
+                                        .and_then(|s| s.as_str())
+                                        .and_then(normalize_version)
+                                });
 
-                        let matches_id = candidate_ids.iter().any(|&cid| {
-                            json.get("CatalogItemId").and_then(|s| s.as_str()) == Some(cid)
-                                || json.get("AppName").and_then(|s| s.as_str()) == Some(cid)
-                        });
-
-                        if matches_dir || matches_id {
-                            if let Some(v) = json.get("AppVersionString").and_then(|s| s.as_str()) {
-                                if let Some(norm) = normalize_version(v) {
-                                    return Some(norm);
-                                }
-                            }
-                            if let Some(v) = json.get("BuildVersion").and_then(|s| s.as_str()) {
-                                if let Some(norm) = normalize_version(v) {
-                                    return Some(norm);
-                                }
-                            }
+                            items.push(CachedEpicItem {
+                                install_location,
+                                catalog_item_id,
+                                app_name,
+                                version,
+                            });
                         }
                     }
                 }
             }
+        }
+    }
+
+    *cache_guard = Some((Instant::now(), items.clone()));
+    items
+}
+
+/// Check for Epic Games launcher manifests in ProgramData (cached).
+fn check_epic_manifest(candidate_dirs: &[PathBuf], candidate_ids: &[&str]) -> Option<String> {
+    let items = get_cached_epic_manifests();
+    for item in items {
+        let matches_dir = item.install_location.as_ref().map(|inst_path| {
+            candidate_dirs.iter().any(|d| {
+                d == inst_path || d.starts_with(inst_path) || inst_path.starts_with(d)
+            })
+        }).unwrap_or(false);
+
+        let matches_id = candidate_ids.iter().any(|&cid| {
+            item.catalog_item_id.as_deref() == Some(cid)
+                || item.app_name.as_deref() == Some(cid)
+        });
+
+        if (matches_dir || matches_id) && item.version.is_some() {
+            return item.version;
         }
     }
     None
@@ -538,21 +576,90 @@ pub fn detect_game_version(query: GameVersionQuery) -> Option<GameVersionInfo> {
         });
     }
 
-    // 2. Epic manifest check
+    // 2. Direct executable PE version fast-path (instant Win32 version check)
+    let direct_exe = query
+        .detected_exe
+        .as_deref()
+        .map(PathBuf::from)
+        .filter(|p| {
+            p.is_file()
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| !is_launcher_or_helper(n))
+                    .unwrap_or(false)
+        })
+        .or_else(|| {
+            query
+                .path
+                .as_deref()
+                .map(PathBuf::from)
+                .filter(|p| {
+                    p.is_file()
+                        && p.file_name()
+                            .and_then(|n| n.to_str())
+                            .map(|n| !is_launcher_or_helper(n))
+                            .unwrap_or(false)
+                })
+        });
+
+    if let Some(ref exe) = direct_exe {
+        if let Some(v) = get_exe_file_version(exe.to_string_lossy().to_string()) {
+            if v != "0.0.0.0" {
+                return Some(GameVersionInfo {
+                    version: v,
+                    source: "exe".to_string(),
+                });
+            }
+        }
+    }
+
+    // 3. Early Steam manifest buildid check (if Steam game without a direct exe version)
+    let is_steam = query
+        .platform
+        .as_deref()
+        .map(|p| p.eq_ignore_ascii_case("steam"))
+        .unwrap_or(false);
+
+    if (is_steam || query.steam_app_id.is_some()) && query.steam_app_id.is_some() {
+        let app_id = query.steam_app_id.unwrap();
+        if let Some(manifest) = crate::steam_game_watcher::find_app_install_dir(app_id) {
+            if let Some(build_id) = manifest.build_id {
+                return Some(GameVersionInfo {
+                    version: build_id,
+                    source: "steam_manifest".to_string(),
+                });
+            }
+        }
+    }
+
+    // 4. Epic manifest check (gated to Epic platform, Epic ID, or Epic install directory)
     let is_epic = query
         .platform
         .as_deref()
-        .map(|p| p.eq_ignore_ascii_case("epic"))
+        .map(|p| p.eq_ignore_ascii_case("epic") || p.eq_ignore_ascii_case("epic games"))
         .unwrap_or(false);
 
-    let mut epic_ids = Vec::new();
-    if let Some(ref gid) = query.game_id {
-        if let Some(stripped) = gid.strip_prefix("epic-") {
-            epic_ids.push(stripped);
+    let has_epic_id = query
+        .game_id
+        .as_deref()
+        .map(|gid| gid.starts_with("epic-"))
+        .unwrap_or(false);
+
+    let has_epic_path = candidate_dirs.iter().any(|d| {
+        let s = d.to_string_lossy().to_ascii_lowercase();
+        s.contains("epic games") || s.contains("epicgames")
+    });
+
+    if is_epic || has_epic_id || has_epic_path {
+        let mut epic_ids = Vec::new();
+        if let Some(ref gid) = query.game_id {
+            if let Some(stripped) = gid.strip_prefix("epic-") {
+                epic_ids.push(stripped);
+            }
+            if is_epic || has_epic_id {
+                epic_ids.push(gid.as_str());
+            }
         }
-        epic_ids.push(gid.as_str());
-    }
-    if is_epic || !epic_ids.is_empty() {
         if let Some(v) = check_epic_manifest(&candidate_dirs, &epic_ids) {
             return Some(GameVersionInfo {
                 version: v,
@@ -561,7 +668,7 @@ pub fn detect_game_version(query: GameVersionQuery) -> Option<GameVersionInfo> {
         }
     }
 
-    // 3. Generic folder manifests
+    // 5. Generic folder manifests
     if let Some(v) = check_folder_manifests(&candidate_dirs) {
         return Some(GameVersionInfo {
             version: v,
@@ -569,7 +676,7 @@ pub fn detect_game_version(query: GameVersionQuery) -> Option<GameVersionInfo> {
         });
     }
 
-    // 4. Executable version check with launcher bypass
+    // 6. Executable version check with launcher bypass and candidate scanning
     let mut exes_to_try = Vec::new();
     if let Some(ref de) = query.detected_exe {
         let p = PathBuf::from(de);
@@ -631,7 +738,7 @@ pub fn detect_game_version(query: GameVersionQuery) -> Option<GameVersionInfo> {
         }
     }
 
-    // 5. Steam manifest buildid check
+    // 7. Fallback Steam manifest buildid check
     if let Some(app_id) = query.steam_app_id {
         if let Some(manifest) = crate::steam_game_watcher::find_app_install_dir(app_id) {
             if let Some(build_id) = manifest.build_id {
