@@ -88,25 +88,39 @@ export default function GameQuickStatsBar({
       ? "quick-stats__score--mid"
       : "quick-stats__score--low";
 
+  const hasAnyStat =
+    ratingScore != null ||
+    steamPositivePercent != null ||
+    storyHours != null ||
+    completionistHours != null ||
+    formattedSize != null ||
+    (showDeckVerified && effectiveSteamAppId != null) ||
+    !isStoreMode;
+
+  if (!hasAnyStat) return null;
+
   return (
     <div className="game-quick-stats-bar" aria-label="Game Quick Stats">
       {/* 1. Reception Tile */}
       {(ratingScore != null || steamPositivePercent != null) && (
         <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap">
-            <IconStar size={16} className="quick-stats-tile__icon" />
+          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--reception">
+            <IconStar size={18} className="quick-stats-tile__icon" />
           </div>
           <div className="quick-stats-tile__content">
             <div className="quick-stats-tile__label">{t("game.quickStats.reception")}</div>
             <div className="quick-stats-tile__value-row">
               {ratingScore != null && (
-                <span className={`quick-stats__score-pill ${scoreClass}`}>
+                <span className={`quick-stats__score-pill ${scoreClass}`} title={`Rating: ${Math.round(ratingScore)}/100`}>
                   {Math.round(ratingScore)}
                 </span>
               )}
+              {ratingScore != null && steamPositivePercent != null && (
+                <span className="quick-stats__divider-dot">•</span>
+              )}
               {steamPositivePercent != null && (
                 <span className="quick-stats__sub-badge" title="Steam Positive Reviews">
-                  {steamPositivePercent}% {t("review.positive")}
+                  <span className="quick-stats__steam-pct">{steamPositivePercent}%</span> {t("review.positive")}
                 </span>
               )}
             </div>
@@ -117,8 +131,8 @@ export default function GameQuickStatsBar({
       {/* 2. Time to Beat Tile */}
       {(storyHours != null || completionistHours != null) && (
         <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap">
-            <IconClock size={16} className="quick-stats-tile__icon" />
+          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--time">
+            <IconClock size={18} className="quick-stats-tile__icon" />
           </div>
           <div className="quick-stats-tile__content">
             <div className="quick-stats-tile__label">{t("game.quickStats.timeToBeat")}</div>
@@ -128,8 +142,8 @@ export default function GameQuickStatsBar({
                   {storyHours}h <span className="quick-stats__hint">({t("game.quickStats.story")})</span>
                 </span>
               )}
-              {completionistHours != null && (
-                <span className="quick-stats__divider">•</span>
+              {completionistHours != null && storyHours != null && (
+                <span className="quick-stats__divider-dot">•</span>
               )}
               {completionistHours != null && (
                 <span className="quick-stats-tile__value">
@@ -152,16 +166,23 @@ export default function GameQuickStatsBar({
       {/* 3. Storage Footprint Tile */}
       {formattedSize && (
         <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap">
-            <IconHardDrive size={16} className="quick-stats-tile__icon" />
+          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--storage">
+            <IconHardDrive size={18} className="quick-stats-tile__icon" />
           </div>
           <div className="quick-stats-tile__content">
             <div className="quick-stats-tile__label">{t("game.quickStats.storage")}</div>
             <div className="quick-stats-tile__value-row">
               <span className="quick-stats-tile__value">{formattedSize}</span>
-              <span className="quick-stats__hint">
-                {game.installed ? t("filter.installed") : t("game.quickStats.storage")}
-              </span>
+              {game.installed ? (
+                <span className="quick-stats__status-badge quick-stats__status-badge--installed">
+                  <span className="quick-stats__status-dot" />
+                  {t("filter.installed")}
+                </span>
+              ) : (
+                <span className="quick-stats__status-badge">
+                  {t("game.quickStats.storage")}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -170,8 +191,8 @@ export default function GameQuickStatsBar({
       {/* 4. Compatibility / Platform Readiness */}
       {showDeckVerified && effectiveSteamAppId != null && (
         <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap">
-            <IconShield size={16} className="quick-stats-tile__icon" />
+          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--compat">
+            <IconShield size={18} className="quick-stats-tile__icon" />
           </div>
           <div className="quick-stats-tile__content">
             <div className="quick-stats-tile__label">{t("game.quickStats.compatibility")}</div>
@@ -190,17 +211,20 @@ export default function GameQuickStatsBar({
       {/* 5. Last Played (Library Only) */}
       {!isStoreMode && (
         <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap">
-            <IconCalendar size={16} className="quick-stats-tile__icon" />
+          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--session">
+            <IconCalendar size={18} className="quick-stats-tile__icon" />
           </div>
           <div className="quick-stats-tile__content">
             <div className="quick-stats-tile__label">{t("game.quickStats.lastPlayed")}</div>
             <div className="quick-stats-tile__value-row">
               <span className="quick-stats-tile__value">{lastPlayedRelative}</span>
               {currentHours > 0 && (
-                <span className="quick-stats__hint">
-                  {currentHours}h {t("hero.playTime").toLowerCase()}
-                </span>
+                <>
+                  <span className="quick-stats__divider-dot">•</span>
+                  <span className="quick-stats__hint">
+                    {currentHours}h {t("hero.playTime").toLowerCase()}
+                  </span>
+                </>
               )}
             </div>
           </div>
