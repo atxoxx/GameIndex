@@ -3,6 +3,7 @@ import type { Game, SizeUnit } from "../../types/game";
 import { formatSize, parsePlayTime } from "../../types/game";
 import { useSteamGameStats } from "../../hooks/useSteamGameStats";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSettings } from "../../context/SettingsContext";
 import { IconClock, IconHardDrive, IconStar, IconShield, IconCalendar } from "./icons";
 
 interface GameQuickStatsBarProps {
@@ -47,6 +48,7 @@ export default function GameQuickStatsBar({
   isStoreMode = false,
 }: GameQuickStatsBarProps) {
   const { t } = useLanguage();
+  const { showDeckVerified } = useSettings();
   const effectiveSteamAppId = steamAppIdProp !== undefined ? steamAppIdProp : game.steamAppId;
   const { data: steamStats } = useSteamGameStats(effectiveSteamAppId ?? undefined);
 
@@ -166,7 +168,7 @@ export default function GameQuickStatsBar({
       )}
 
       {/* 4. Compatibility / Platform Readiness */}
-      {effectiveSteamAppId != null && (
+      {showDeckVerified && effectiveSteamAppId != null && (
         <div className="quick-stats-tile">
           <div className="quick-stats-tile__icon-wrap">
             <IconShield size={16} className="quick-stats-tile__icon" />

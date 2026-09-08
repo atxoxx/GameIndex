@@ -90,8 +90,13 @@ const LS_SHOW_GAME_ART_BACKDROP = "gamelib.show_game_art_backdrop";
 const LS_SHOW_NAVBAR_NOW_PLAYING = "gamelib.show_navbar_now_playing";
 // Game & Store detail-page section visibility (Settings → Appearance).
 const LS_DETAIL_SECTIONS_VISIBLE = "gamelib.detail_sections_visible";
+// Linux & Steam Deck support level (Settings → General)
+const LS_LINUX_SUPPORT_LEVEL = "gamelib.linux_support_level";
 
 // ── Public shape ─────────────────────────────────────────────────────────────
+
+export type HostPlatform = "windows" | "linux" | "macos" | "unknown";
+export type LinuxSupportLevel = "disabled" | "deck_verified" | "full";
 
 export type LandingPage =
   | "home"
@@ -244,6 +249,15 @@ export interface SettingsContextValue {
   detailSectionVisible: DetailSectionVisibility;
   setDetailSectionVisible: (key: DetailSectionKey, visible: boolean) => void;
 
+  // ── Linux & Steam Deck Support ──────────────────────────────────
+  hostPlatform: HostPlatform;
+  isLinuxHost: boolean;
+  isWindowsHost: boolean;
+  linuxSupportLevel: LinuxSupportLevel;
+  setLinuxSupportLevel: (next: LinuxSupportLevel) => void;
+  showDeckVerified: boolean;
+  showFullLinuxUi: boolean;
+
   // True until the very first Rust-side fetch has resolved. Mirrors
   // SettingsPage's existing `steamAuthReady` gating pattern so a
   // remount doesn't show form-state with hydrated values before the
@@ -316,9 +330,56 @@ const DEFAULT_DETAIL_SECTION_VISIBILITY: DetailSectionVisibility = {
   news: true,
 };
 
+/** Detect initial platform from user agent before Tauri bridge resolves. */
+function detectInitialPlatform(): HostPlatform {
+  if (typeof navigator === "undefined") return "windows";
+  const ua = (navigator.userAgent || "").toLowerCase();
+  const plat = (navigator.platform || "").toLowerCase();
+  if (plat.includes("win") || ua.includes("windows")) return "windows";
+  if (plat.includes("linux") || ua.includes("linux")) return "linux";
+  if (plat.includes("mac") || ua.includes("macintosh") || ua.includes("macos")) return "macos";
+  return "windows";
+}
+
 // ── Provider ────────────────────────────────────────────────────────────────
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  // Host platform & Linux support level ─────────────────────────────────────
+  const [hostPlatform, setHostPlatform] = useState<HostPlatform>(detectInitialPlatform);
+
+  useEffect(() => {
+    let cancelled = false;
+    invoke<string>("get_platform")
+      .then((p) => {
+        if (!cancelled && (p === "windows" || p === "linux" || p === "macos" || p === "unknown")) {
+          setHostPlatform(p as HostPlatform);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isLinuxHost = hostPlatform === "linux";
+  const isWindowsHost = hostPlatform === "windows";
+
+  const [linuxSupportLevel, setLinuxSupportLevelState] = useState<LinuxSupportLevel>(() => {
+    const stored = lsGet(LS_LINUX_SUPPORT_LEVEL);
+    if (stored === "disabled" || stored === "deck_verified" || stored === "full") {
+      return stored;
+    }
+    return detectInitialPlatform() === "linux" ? "full" : "disabled";
+  });
+
+  const setLinuxSupportLevel = useCallback((next: LinuxSupportLevel) => {
+    setLinuxSupportLevelState(next);
+    lsSet(LS_LINUX_SUPPORT_LEVEL, next);
+  }, []);
+
+  const showDeckVerified = isLinuxHost || linuxSupportLevel === "deck_verified" || linuxSupportLevel === "full";
+  const showFullLinuxUi = isLinuxHost || linuxSupportLevel === "full";
+
   // Rust-backed state ──────────────────────────────────────────────────────
   const [closeToTray, setCloseToTrayState] = useState(false);
   const [minimizeOnLaunch, setMinimizeOnLaunchState] = useState(false);
@@ -1007,6 +1068,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowNavbarNowPlaying,
       detailSectionVisible,
       setDetailSectionVisible,
+      hostPlatform,
+      isLinuxHost,
+      isWindowsHost,
+      linuxSupportLevel,
+      setLinuxSupportLevel,
+      showDeckVerified,
+      showFullLinuxUi,
       ready,
     }),
     [
@@ -1086,6 +1154,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowNavbarNowPlaying,
       detailSectionVisible,
       setDetailSectionVisible,
+      hostPlatform,
+      isLinuxHost,
+      isWindowsHost,
+      linuxSupportLevel,
+      setLinuxSupportLevel,
+      showDeckVerified,
+      showFullLinuxUi,
       ready,
     ],
   );

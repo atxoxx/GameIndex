@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { PaletteItem, PaletteSecondaryAction } from "./commandPaletteTypes";
 import { invoke } from "@tauri-apps/api/core";
+import { useSettings } from "../../context/SettingsContext";
 
 interface CommandPaletteActionDrawerProps {
   item: PaletteItem | null;
@@ -53,6 +54,7 @@ export default function CommandPaletteActionDrawer({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { showDeckVerified } = useSettings();
 
   // Build secondary actions list for the selected item
   const allActions: PaletteSecondaryAction[] = useMemo(() => {
@@ -176,18 +178,20 @@ export default function CommandPaletteActionDrawer({
           },
         });
 
-        acts.push({
-          id: "act-protondb",
-          title: "ProtonDB Compatibility",
-          description: `https://www.protondb.com/app/${game.steamAppId}`,
-          icon: <ExternalLink size={15} />,
-          badge: "ProtonDB",
-          onExecute: () => {
-            invoke("open_url", { url: `https://www.protondb.com/app/${game.steamAppId}` }).catch(() => {
-              window.open(`https://www.protondb.com/app/${game.steamAppId}`, "_blank");
-            });
-          },
-        });
+        if (showDeckVerified) {
+          acts.push({
+            id: "act-protondb",
+            title: "ProtonDB Compatibility",
+            description: `https://www.protondb.com/app/${game.steamAppId}`,
+            icon: <ExternalLink size={15} />,
+            badge: "ProtonDB",
+            onExecute: () => {
+              invoke("open_url", { url: `https://www.protondb.com/app/${game.steamAppId}` }).catch(() => {
+                window.open(`https://www.protondb.com/app/${game.steamAppId}`, "_blank");
+              });
+            },
+          });
+        }
       }
 
       // PCGamingWiki search link
@@ -333,6 +337,7 @@ export default function CommandPaletteActionDrawer({
     toggleWishlist,
     isWishlisted,
     onOpenDownloadModal,
+    showDeckVerified,
   ]);
 
   // Filter actions based on drawer search input

@@ -66,23 +66,35 @@ const TAB_ORDER: SettingsTab[] = [
 
 export const SETTINGS_TABS: readonly SettingsTab[] = TAB_ORDER;
 
-export function isSettingsTab(value: string | undefined): value is SettingsTab {
-  return value !== undefined && (TAB_ORDER as string[]).includes(value);
+export function isSettingsTab(
+  value: string | undefined,
+  options?: { showFullLinuxUi?: boolean },
+): value is SettingsTab {
+  if (value === undefined) return false;
+  if (value === "compatibility" && !options?.showFullLinuxUi) return false;
+  return (TAB_ORDER as string[]).includes(value);
 }
 
 /** Build the per-tab meta (localized). Memoize on `t` so the index only
  *  rebuilds when the language changes. */
-export function useSettingsCatalog(t: (key: string, vars?: Record<string, unknown>) => string) {
-  return useMemo(() => buildSettingsCatalog(t), [t]);
+export function useSettingsCatalog(
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  options?: { showFullLinuxUi?: boolean },
+) {
+  return useMemo(() => buildSettingsCatalog(t, options), [t, options?.showFullLinuxUi]);
 }
 
-export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unknown>) => string) {
+export function buildSettingsCatalog(
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  options?: { showFullLinuxUi?: boolean },
+) {
+  const showFullLinuxUi = options?.showFullLinuxUi ?? false;
   const meta: Record<SettingsTab, TabMeta> = {
     general: {
       tab: "general",
       labelKey: "settings.general",
       descKey: "settings.general.desc",
-      keywords: "language locale interface display update controller gamepad",
+      keywords: "language locale interface display update controller gamepad linux proton steam deck wine",
       icon: <GlobeIcon />,
       sections: [
         {
@@ -99,6 +111,11 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
           id: "general-gamepad",
           labelKey: "settings.section.gamepad",
           keywords: "gamepad controller deadzone stick sensitivity big screen couch",
+        },
+        {
+          id: "general-linux",
+          labelKey: "settings.linux.title",
+          keywords: "linux steam deck proton protondb wine compatibility verified deck verified runners prefix",
         },
       ],
     },
@@ -452,7 +469,9 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
       label: t("settings.group.system"),
       items: [
         { tab: "launcher", label: t("settings.tab.launcher"), icon: <RocketIcon /> },
-        { tab: "compatibility", label: t("settings.tab.compatibility"), icon: <CompatibilityIcon /> },
+        ...(showFullLinuxUi
+          ? [{ tab: "compatibility" as const, label: t("settings.tab.compatibility"), icon: <CompatibilityIcon /> }]
+          : []),
         { tab: "privacy", label: t("settings.tab.privacy"), icon: <TrashIcon /> },
         { tab: "backup", label: t("settings.tab.backup"), icon: <BackupIcon /> },
       ],
@@ -492,7 +511,11 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
     }
   }
 
-  return { meta, groups, searchIndex, tabOrder: TAB_ORDER };
+  const tabOrder: SettingsTab[] = showFullLinuxUi
+    ? TAB_ORDER
+    : TAB_ORDER.filter((t) => t !== "compatibility");
+
+  return { meta, groups, searchIndex, tabOrder };
 }
 
 export type SettingsCatalog = ReturnType<typeof buildSettingsCatalog>;

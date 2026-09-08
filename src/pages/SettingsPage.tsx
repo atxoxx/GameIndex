@@ -4,6 +4,7 @@ import { PageHeader } from "../components/ui";
 import "../styles/page-settings.css";
 import "../styles/settings-tabs-b.css";
 
+import { useSettings } from "../context/SettingsContext";
 import { useIntegrations } from "./settings/useIntegrations";
 import { isSettingsTab, useSettingsCatalog } from "./settings/settingsCatalog";
 import { useSectionScroll } from "./settings/useSectionScroll";
@@ -34,12 +35,13 @@ import type { SettingsTab } from "./settings/types";
 export default function SettingsPage() {
   const { t } = useLanguage();
   const { tab } = useParams<{ tab?: string }>();
+  const { showFullLinuxUi } = useSettings();
 
   // All hooks run unconditionally — the redirect below must not change
   // the hook order between renders.
   const integrations = useIntegrations();
-  const catalog = useSettingsCatalog(t);
-  const validTab = isSettingsTab(tab);
+  const catalog = useSettingsCatalog(t, { showFullLinuxUi });
+  const validTab = isSettingsTab(tab, { showFullLinuxUi });
   const activeTab: SettingsTab = validTab ? tab : "general";
   const meta = catalog.meta[activeTab];
 
@@ -106,7 +108,7 @@ export default function SettingsPage() {
         {activeTab === "launcher" && <LauncherTab />}
         {activeTab === "privacy" && <PrivacyTab />}
         {activeTab === "backup" && <BackupTab />}
-        {activeTab === "compatibility" && <CompatibilityTab />}
+        {activeTab === "compatibility" && showFullLinuxUi && <CompatibilityTab />}
       </main>
     </div>
   );

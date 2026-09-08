@@ -3,6 +3,7 @@ import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useGames } from "../../context/GameContext";
+import { useSettings } from "../../context/SettingsContext";
 import type { Game } from "../../types/game";
 
 export interface GameQuickActionsProps {
@@ -33,6 +34,7 @@ export default function GameQuickActions({
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { isGameUntracked, toggleGameTracking } = useGames();
+  const { showDeckVerified, showFullLinuxUi } = useSettings();
 
   const isUntracked = game ? (game.untracked ?? isGameUntracked(game.id)) : false;
 
@@ -151,19 +153,21 @@ export default function GameQuickActions({
                 <span className="game-quick-actions__shortcut">↗</span>
               </button>
 
-              <button
-                type="button"
-                className="game-quick-actions__item"
-                role="menuitem"
-                onClick={() => handleOpenExternal(`https://www.protondb.com/app/${steamAppId}`)}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="m4.93 4.93 4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M4.93 19.07l4.24-4.24" />
-                </svg>
-                <span>{t("gamePage.protonDbReports")}</span>
-                <span className="game-quick-actions__shortcut">↗</span>
-              </button>
+              {showDeckVerified && (
+                <button
+                  type="button"
+                  className="game-quick-actions__item"
+                  role="menuitem"
+                  onClick={() => handleOpenExternal(`https://www.protondb.com/app/${steamAppId}`)}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="m4.93 4.93 4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M4.93 19.07l4.24-4.24" />
+                  </svg>
+                  <span>{t("gamePage.protonDbReports")}</span>
+                  <span className="game-quick-actions__shortcut">↗</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -256,7 +260,7 @@ export default function GameQuickActions({
             </button>
           )}
 
-          {onOpenWineLogs && (
+          {showFullLinuxUi && onOpenWineLogs && (
             <button
               type="button"
               className="game-quick-actions__item"

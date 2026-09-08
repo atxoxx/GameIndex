@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSettings } from "../../context/SettingsContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { getCachedInstalledVersion } from "../../hooks/useGameUpdateCheck";
 import {
@@ -71,8 +72,10 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const { updateGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { t } = useLanguage();
+  const { showFullLinuxUi } = useSettings();
 
   const [editTab, setEditTab] = useState<EditTab>("details");
+  const activeEditTab = editTab === "compatibility" && !showFullLinuxUi ? "details" : editTab;
 
   const [editName, setEditName] = useState(game.name);
   const [editPlatform, setEditPlatform] = useState(game.platform);
@@ -1048,16 +1051,20 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         </svg>
       ),
     },
-    {
-      key: "compatibility",
-      label: t("edit.tab.compatibility") || "Proton / Wine",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 6v6l4 2" />
-        </svg>
-      ),
-    },
+    ...(showFullLinuxUi
+      ? [
+          {
+            key: "compatibility" as const,
+            label: t("edit.tab.compatibility") || "Proton / Wine",
+            icon: (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return createPortal(
@@ -1120,8 +1127,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               key={tab.key}
               type="button"
               role="tab"
-              aria-selected={editTab === tab.key}
-              className={`edit-modal-tab ${editTab === tab.key ? "active" : ""}`}
+              aria-selected={activeEditTab === tab.key}
+              className={`edit-modal-tab ${activeEditTab === tab.key ? "active" : ""}`}
               onClick={() => setEditTab(tab.key)}
             >
               <span className="edit-modal-tab-icon">{tab.icon}</span>
@@ -1131,7 +1138,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         </div>
 
         <div className="edit-modal-body">
-          {editTab === "details" && (
+          {activeEditTab === "details" && (
             <div className="edit-form">
               {showMetadataPanel && (
                 <div className="metadata-panel">
@@ -1537,7 +1544,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             </div>
           )}
 
-          {editTab === "media" && (
+          {activeEditTab === "media" && (
             <div className="edit-form">
               <div className="edit-media-header-block">
                 <h4 className="edit-modal-section-title">
@@ -1548,8 +1555,10 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   </svg>
                   {t("edit.images")}
                 </h4>
+                <p className="edit-modal-section-desc">
+                  {t("edit.imagesDesc")}
+                </p>
               </div>
-
               <div className="edit-images-grid">
                 <EditImageSlot
                   label={t("edit.label.icon")}
@@ -1643,8 +1652,10 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 emptyText="No official links added yet."
               />
             </div>
-          )}          {/* ── LAUNCH SUBTAB ── */}
-          {editTab === "launch" && (
+          )}
+
+          {/* ── LAUNCH SUBTAB ── */}
+          {activeEditTab === "launch" && (
             <div className="edit-form edit-launch-form">
               {/* Primary Executable Card */}
               <div className="edit-launch-card">
@@ -2026,7 +2037,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
           )}
 
           {/* ── COMPATIBILITY SUBTAB ── */}
-          {editTab === "compatibility" && (
+          {activeEditTab === "compatibility" && showFullLinuxUi && (
             <div className="edit-form edit-launch-form">
               {/* Top Banner: Compatibility Toggle */}
               <div className="edit-compat-banner">

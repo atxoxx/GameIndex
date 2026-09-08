@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { type ReviewItem } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { useSettings } from "../../context/SettingsContext";
 import { BbCodeRenderer } from "./BbCodeRenderer";
 import { getHardwareLines } from "./hardwareParser";
 import {
@@ -156,6 +157,7 @@ function formatShortDate(ts?: number): string {
 export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { showDeckVerified } = useSettings();
   const [expanded, setExpanded] = useState(false);
 
   const isSteam = review.source === "steam";
@@ -232,7 +234,7 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
                 {review.steamPurchase ? "☑ " + t("review.steamPurchase") : "☐ " + t("review.otherSources")}
               </span>
             )}
-            {review.primarilySteamDeck && (
+            {showDeckVerified && review.primarilySteamDeck && (
               <span className="rv-context-badge rv-context-badge-info" title={t("reviews.playedMostlySteamDeck")}>
                 🎮 {t("review.playedOnSteamDeck")}
               </span>

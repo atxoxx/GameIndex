@@ -120,7 +120,7 @@ export default function StoreGameDetail() {
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { unit: sizeUnit } = useSizeUnit();
-  const { isSimpleUi, detailSectionVisible } = useSettings();
+  const { isSimpleUi, detailSectionVisible, showDeckVerified } = useSettings();
 
   const [data, setData] = useState<GameMetadataResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -578,7 +578,7 @@ export default function StoreGameDetail() {
               </div>
               <div className="side-group ui-complete-only">
                 <SpecsCard game={mockGame} />
-                {detailSectionVisible.protonDb && (
+                {showDeckVerified && detailSectionVisible.protonDb && (
                   <ProtonDBCard steamAppId={steamAppId} />
                 )}
                 <CrackWatchCard gameName={data.title} appId={steamAppId} />

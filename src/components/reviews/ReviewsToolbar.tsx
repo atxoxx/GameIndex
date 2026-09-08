@@ -9,6 +9,7 @@ import {
   type SourceFilter,
 } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSettings } from "../../context/SettingsContext";
 import { STEAM_LANGUAGES } from "../../types/game";
 import { FlagIcon } from "../ui";
 
@@ -156,6 +157,7 @@ export function ReviewsToolbar({
   onResetFilters,
 }: ReviewsToolbarProps) {
   const { t } = useLanguage();
+  const { showDeckVerified } = useSettings();
 
   const isCriticSource =
     sourceFilter === "metacritic" || sourceFilter === "opencritic";
@@ -165,7 +167,7 @@ export function ReviewsToolbar({
     purchaseType !== "all" ||
     languageFilter !== "all" ||
     playtimePreset !== "none" ||
-    playtimeDevice !== "all" ||
+    (showDeckVerified && playtimeDevice !== "all") ||
     useHelpfulSystem ||
     Boolean(searchQuery.trim());
 
@@ -386,15 +388,17 @@ export function ReviewsToolbar({
             )}
 
             {/* Device */}
-            <Dropdown
-              label={t("review.device")}
-              value={playtimeDevice}
-              onChange={(v) => onPlaytimeDeviceChange(v as PlaytimeDeviceFilter)}
-              items={[
-                { value: "all", label: t("review.allDevices") },
-                { value: "deck", label: t("review.steamDeck") },
-              ]}
-            />
+            {showDeckVerified && (
+              <Dropdown
+                label={t("review.device")}
+                value={playtimeDevice}
+                onChange={(v) => onPlaytimeDeviceChange(v as PlaytimeDeviceFilter)}
+                items={[
+                  { value: "all", label: t("review.allDevices") },
+                  { value: "deck", label: t("review.steamDeck") },
+                ]}
+              />
+            )}
 
             {/* Helpfulness System Toggle */}
             <label className="rv-toggle-label" title={t("reviewsTab.helpfulSystemTooltip")}>
@@ -461,7 +465,7 @@ export function ReviewsToolbar({
               ✕
             </button>
           )}
-          {playtimeDevice !== "all" && (
+          {showDeckVerified && playtimeDevice !== "all" && (
             <button className="rv-chip" onClick={() => onPlaytimeDeviceChange("all")}>
               {t("review.steamDeck")} ✕
             </button>

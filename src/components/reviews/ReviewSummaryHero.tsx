@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { type ReviewItem } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSettings } from "../../context/SettingsContext";
 
 interface ReviewSummaryHeroProps {
   reviews: ReviewItem[];
@@ -71,6 +72,7 @@ export function ReviewSummaryHero({
   activeSentimentFilter = "all",
 }: ReviewSummaryHeroProps) {
   const { t } = useLanguage();
+  const { showDeckVerified } = useSettings();
 
   const ratings = reviews.filter((r) => r.rating !== null);
   const steamReviews = reviews.filter((r) => r.source === "steam");
@@ -243,7 +245,7 @@ export function ReviewSummaryHero({
               {t("reviewsTab.playtimeAvg", { hours: avgPlaytimeHours })}
             </span>
           )}
-          {deckReviewsCount > 0 && (
+          {showDeckVerified && deckReviewsCount > 0 && (
             <span className="rv-kpi-pill" title="Reviewers who primarily played on Steam Deck">
               🎮 {t("reviewsTab.deckVerifiedRatio", { pct: Math.round((deckReviewsCount / reviews.length) * 100) })}
             </span>

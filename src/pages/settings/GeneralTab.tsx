@@ -3,10 +3,11 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useAppVersion } from "../../hooks/useAppVersion";
 import { useUpdate, formatBytes } from "../../context/UpdateContext";
 import { useSettings } from "../../context/SettingsContext";
+import { useToast } from "../../context/ToastContext";
 import { FlagIcon, Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
-import { GamepadIcon, GlobeIcon, RefreshIcon } from "./settingsIcons";
+import { CompatibilityIcon, GamepadIcon, GlobeIcon, RefreshIcon } from "./settingsIcons";
 
 /**
  * GeneralTab — app-wide preferences. Hosts the display
@@ -14,6 +15,7 @@ import { GamepadIcon, GlobeIcon, RefreshIcon } from "./settingsIcons";
  */
 export default function GeneralTab() {
   const { language, setLanguage, languages, t } = useLanguage();
+  const { showToast } = useToast();
   const version = useAppVersion();
   const {
     autoCheckUpdates,
@@ -34,6 +36,9 @@ export default function GeneralTab() {
     setGamepadLeftDeadzone,
     gamepadRightDeadzone,
     setGamepadRightDeadzone,
+    isLinuxHost,
+    linuxSupportLevel,
+    setLinuxSupportLevel,
   } = useSettings();
 
   // Custom-language-picker state. The native <select> was replaced with
@@ -436,7 +441,194 @@ export default function GeneralTab() {
           </div>
         </div>
       </SettingsSection>
+
+      {/* ── Linux & Steam Deck Support ────────────────────────── */}
+      <SettingsSection
+        id="general-linux"
+        icon={<CompatibilityIcon />}
+        title={t("settings.linux.title")}
+        desc={t("settings.linux.desc")}
+      >
+        {isLinuxHost ? (
+          <div
+            className="settings-behavior-card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "16px 20px",
+            }}
+          >
+            <span style={{ fontSize: "20px" }}>🐧</span>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "2px" }}>
+                {t("settings.linux.modeFull")}
+              </div>
+              <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                {t("settings.linux.nativeLinuxNotice")}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <SettingsToggleCard
+              title={t("settings.linux.enableTitle")}
+              desc={t("settings.linux.enableDesc")}
+              checked={linuxSupportLevel !== "disabled"}
+              onChange={(checked) => {
+                const nextLevel = checked ? "deck_verified" : "disabled";
+                setLinuxSupportLevel(nextLevel);
+                showToast(
+                  t("settings.linux.levelChanged", {
+                    mode: checked
+                      ? t("settings.linux.modeDeckVerified")
+                      : t("settings.linux.modeDisabled"),
+                  }),
+                  "info",
+                );
+              }}
+            />
+
+            {linuxSupportLevel !== "disabled" && (
+              <div className="hw-duo">
+                {/* Choice 1: Show Proton / Steam Deck verified */}
+                <div
+                  className={`hw-card ${linuxSupportLevel === "deck_verified" ? "active" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setLinuxSupportLevel("deck_verified");
+                    showToast(
+                      t("settings.linux.levelChanged", {
+                        mode: t("settings.linux.modeDeckVerified"),
+                      }),
+                      "success",
+                    );
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setLinuxSupportLevel("deck_verified");
+                    }
+                  }}
+                  style={{
+                    cursor: "pointer",
+                    borderColor:
+                      linuxSupportLevel === "deck_verified"
+                        ? "var(--color-accent)"
+                        : undefined,
+                    background:
+                      linuxSupportLevel === "deck_verified"
+                        ? "color-mix(in srgb, var(--color-accent) 8%, var(--color-surface))"
+                        : undefined,
+                  }}
+                >
+                  <div className="hw-card-head">
+                    <span className="hw-card-label" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span
+                        style={{
+                          width: "14px",
+                          height: "14px",
+                          borderRadius: "50%",
+                          border: `2px solid ${linuxSupportLevel === "deck_verified" ? "var(--color-accent)" : "var(--color-border)"}`,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {linuxSupportLevel === "deck_verified" && (
+                          <span
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              background: "var(--color-accent)",
+                            }}
+                          />
+                        )}
+                      </span>
+                      {t("settings.linux.modeDeckVerified")}
+                    </span>
+                    <span className="hw-card-value">
+                      {t("settings.linux.badgeDeck")}
+                    </span>
+                  </div>
+                  <p className="hw-card-help">
+                    {t("settings.linux.modeDeckVerifiedDesc")}
+                  </p>
+                </div>
+
+                {/* Choice 2: Full Linux-related UI */}
+                <div
+                  className={`hw-card ${linuxSupportLevel === "full" ? "active" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setLinuxSupportLevel("full");
+                    showToast(
+                      t("settings.linux.levelChanged", {
+                        mode: t("settings.linux.modeFull"),
+                      }),
+                      "success",
+                    );
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setLinuxSupportLevel("full");
+                    }
+                  }}
+                  style={{
+                    cursor: "pointer",
+                    borderColor:
+                      linuxSupportLevel === "full"
+                        ? "var(--color-accent)"
+                        : undefined,
+                    background:
+                      linuxSupportLevel === "full"
+                        ? "color-mix(in srgb, var(--color-accent) 8%, var(--color-surface))"
+                        : undefined,
+                  }}
+                >
+                  <div className="hw-card-head">
+                    <span className="hw-card-label" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span
+                        style={{
+                          width: "14px",
+                          height: "14px",
+                          borderRadius: "50%",
+                          border: `2px solid ${linuxSupportLevel === "full" ? "var(--color-accent)" : "var(--color-border)"}`,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {linuxSupportLevel === "full" && (
+                          <span
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              background: "var(--color-accent)",
+                            }}
+                          />
+                        )}
+                      </span>
+                      {t("settings.linux.modeFull")}
+                    </span>
+                    <span className="hw-card-value">
+                      {t("settings.linux.badgeFull")}
+                    </span>
+                  </div>
+                  <p className="hw-card-help">
+                    {t("settings.linux.modeFullDesc")}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </SettingsSection>
     </div>
   );
 }
-

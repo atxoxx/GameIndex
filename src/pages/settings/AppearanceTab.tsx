@@ -108,6 +108,7 @@ export default function AppearanceTab() {
     setShowNavbarNowPlaying,
     detailSectionVisible,
     setDetailSectionVisible,
+    showDeckVerified,
   } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -128,67 +129,77 @@ export default function AppearanceTab() {
   }
 
   // Game & Store detail-page sections that can be individually hidden.
-  const detailSections: {
-    key: DetailSectionKey;
-    titleKey: string;
-    descKey: string;
-  }[] = [
-    {
-      key: "systemRequirements",
-      titleKey: "settings.detailSections.systemRequirements.title",
-      descKey: "settings.detailSections.systemRequirements.desc",
-    },
-    {
-      key: "gameRelations",
-      titleKey: "settings.detailSections.gameRelations.title",
-      descKey: "settings.detailSections.gameRelations.desc",
-    },
-    {
-      key: "timeToBeat",
-      titleKey: "settings.detailSections.timeToBeat.title",
-      descKey: "settings.detailSections.timeToBeat.desc",
-    },
-    {
-      key: "protonDb",
-      titleKey: "settings.detailSections.protonDb.title",
-      descKey: "settings.detailSections.protonDb.desc",
-    },
-    {
-      key: "releases",
-      titleKey: "settings.detailSections.releases.title",
-      descKey: "settings.detailSections.releases.desc",
-    },
-    {
-      key: "reviews",
-      titleKey: "settings.detailSections.reviews.title",
-      descKey: "settings.detailSections.reviews.desc",
-    },
-    {
-      key: "activity",
-      titleKey: "settings.detailSections.activity.title",
-      descKey: "settings.detailSections.activity.desc",
-    },
-    {
-      key: "achievements",
-      titleKey: "settings.detailSections.achievements.title",
-      descKey: "settings.detailSections.achievements.desc",
-    },
-    {
-      key: "mods",
-      titleKey: "settings.detailSections.mods.title",
-      descKey: "settings.detailSections.mods.desc",
-    },
-    {
-      key: "weblinks",
-      titleKey: "settings.detailSections.weblinks.title",
-      descKey: "settings.detailSections.weblinks.desc",
-    },
-    {
-      key: "news",
-      titleKey: "settings.detailSections.news.title",
-      descKey: "settings.detailSections.news.desc",
-    },
-  ];
+  const detailSections = useMemo(() => {
+    const list: {
+      key: DetailSectionKey;
+      titleKey: string;
+      descKey: string;
+    }[] = [
+      {
+        key: "systemRequirements",
+        titleKey: "settings.detailSections.systemRequirements.title",
+        descKey: "settings.detailSections.systemRequirements.desc",
+      },
+      {
+        key: "gameRelations",
+        titleKey: "settings.detailSections.gameRelations.title",
+        descKey: "settings.detailSections.gameRelations.desc",
+      },
+      {
+        key: "timeToBeat",
+        titleKey: "settings.detailSections.timeToBeat.title",
+        descKey: "settings.detailSections.timeToBeat.desc",
+      },
+    ];
+
+    if (showDeckVerified) {
+      list.push({
+        key: "protonDb",
+        titleKey: "settings.detailSections.protonDb.title",
+        descKey: "settings.detailSections.protonDb.desc",
+      });
+    }
+
+    list.push(
+      {
+        key: "releases",
+        titleKey: "settings.detailSections.releases.title",
+        descKey: "settings.detailSections.releases.desc",
+      },
+      {
+        key: "reviews",
+        titleKey: "settings.detailSections.reviews.title",
+        descKey: "settings.detailSections.reviews.desc",
+      },
+      {
+        key: "activity",
+        titleKey: "settings.detailSections.activity.title",
+        descKey: "settings.detailSections.activity.desc",
+      },
+      {
+        key: "achievements",
+        titleKey: "settings.detailSections.achievements.title",
+        descKey: "settings.detailSections.achievements.desc",
+      },
+      {
+        key: "mods",
+        titleKey: "settings.detailSections.mods.title",
+        descKey: "settings.detailSections.mods.desc",
+      },
+      {
+        key: "weblinks",
+        titleKey: "settings.detailSections.weblinks.title",
+        descKey: "settings.detailSections.weblinks.desc",
+      },
+      {
+        key: "news",
+        titleKey: "settings.detailSections.news.title",
+        descKey: "settings.detailSections.news.desc",
+      }
+    );
+
+    return list;
+  }, [showDeckVerified]);
 
   return (
     <>

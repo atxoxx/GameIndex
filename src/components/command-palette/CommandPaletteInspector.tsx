@@ -27,6 +27,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import type { PaletteItem } from "./commandPaletteTypes";
 import { formatBytes, formatRelativeTime, formatSummaryParagraphs } from "./commandPaletteUtils";
+import { useSettings } from "../../context/SettingsContext";
 
 interface CommandPaletteInspectorProps {
   item: PaletteItem | null;
@@ -50,6 +51,7 @@ export default function CommandPaletteInspector({
   onLaunchGame,
 }: CommandPaletteInspectorProps) {
   const [copied, setCopied] = useState(false);
+  const { showDeckVerified } = useSettings();
 
   if (!item) {
     return (
@@ -527,14 +529,16 @@ export default function CommandPaletteInspector({
                     <ExternalLink size={11} />
                     <span>SteamDB</span>
                   </button>
-                  <button
-                    type="button"
-                    className="cmd-web-link-btn"
-                    onClick={() => openExternalUrl(`https://www.protondb.com/app/${gameData.steamAppId}`)}
-                  >
-                    <ExternalLink size={11} />
-                    <span>ProtonDB</span>
-                  </button>
+                  {showDeckVerified && (
+                    <button
+                      type="button"
+                      className="cmd-web-link-btn"
+                      onClick={() => openExternalUrl(`https://www.protondb.com/app/${gameData.steamAppId}`)}
+                    >
+                      <ExternalLink size={11} />
+                      <span>ProtonDB</span>
+                    </button>
+                  )}
                 </>
               )}
               <button

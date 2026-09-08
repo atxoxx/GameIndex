@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProtonDBStatus, ProtonDBTier } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 
 interface ProtonDBCardProps {
   /** Steam appid, e.g. 730 for CS2. When undefined the card is hidden. */
@@ -83,12 +84,13 @@ async function fetchProtonDB(appId: number): Promise<ProtonDBStatus> {
 
 export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
   const { t } = useLanguage();
+  const { showDeckVerified } = useSettings();
   const [data, setData] = useState<ProtonDBStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!steamAppId) return;
+    if (!showDeckVerified || !steamAppId) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -107,10 +109,10 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
     return () => {
       cancelled = true;
     };
-  }, [steamAppId]);
+  }, [steamAppId, showDeckVerified]);
 
-  // Hide when there's no appid, while loading, or on error.
-  if (!steamAppId || loading || error || !data) return null;
+  // Hide when disabled, there's no appid, while loading, or on error.
+  if (!showDeckVerified || !steamAppId || loading || error || !data) return null;
 
   // A game with no reports yet is not worth a full card — keep the side
   // column uncluttered.
