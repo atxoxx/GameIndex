@@ -68,6 +68,7 @@ pub mod achievement_links;
 pub mod artwork;
 pub mod achievements;
 pub mod atomic;
+pub mod compatibility;
 pub mod download_history;
 pub mod emulators;
 pub mod games;
@@ -96,6 +97,7 @@ pub fn init(app_data_dir: &std::path::Path) -> Result<Db, String> {
     let db = Db::open(app_data_dir)?;
     migrate::run_migrations(&db)?;
     split_migrate::run(&db, app_data_dir)?;
+    split_migrate::migrate_compatibility_domain(&db)?;
     legacy::auto_import(&db, app_data_dir)?;
     Ok(db)
 }

@@ -132,6 +132,10 @@ pub const PLUGINS_DDL: &str = include_str!("schema_plugins.sql");
 /// v2: adds `platform_category` so results can be filtered PC/console.
 pub const PLUGINS_V2_DDL: &str = include_str!("schema_plugins_v2.sql");
 
+/// DDL for the `compatibility` domain: isolated Wine/Proton/Linux runner
+/// settings, per-game runner overrides, and runner cache.
+pub const COMPATIBILITY_DDL: &str = include_str!("schema_compatibility.sql");
+
 /// Bootstrap the schema-meta table on a fresh domain DB. This table is
 /// itself part of v1, but we need to read `schema_version` *before*
 /// applying v1, so bootstrap is logically a separate step.
@@ -207,5 +211,9 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     DomainSchema {
         label: "plugins",
         versions: &[("v1", PLUGINS_DDL), ("v2", PLUGINS_V2_DDL)],
+    },
+    DomainSchema {
+        label: "compatibility",
+        versions: &[("v1", COMPATIBILITY_DDL)],
     },
 ];

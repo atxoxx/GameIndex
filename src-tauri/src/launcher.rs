@@ -810,10 +810,9 @@ pub fn launch_game(
 
         // Query per-game compatibility profile if available
         let db_state: tauri::State<'_, db::Db> = app.state();
-        let game_profile = db::games::get(db_state.inner(), &game_id)
+        let game_profile = db::compatibility::get_for_game(db_state.inner(), &game_id)
             .ok()
-            .flatten()
-            .and_then(|row| row.compatibility_json);
+            .flatten();
 
         let has_custom_runner = game_profile
             .as_ref()

@@ -331,7 +331,12 @@ pub fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), Str
     let db_state: tauri::State<'_, db::Db> = app.state();
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let mut rows: Vec<db::games::GameRow> = Vec::with_capacity(games.len());
+    let mut compat_items: Vec<(String, serde_json::Value)> = Vec::new();
+
     for g in games {
+        if let Some(ref c) = g.compatibility {
+            compat_items.push((g.id.clone(), c.clone()));
+        }
         let value = serde_json::to_value(&g).map_err(|e| format!("to_value: {e}"))?;
         let row: db::games::GameRow = serde_json::from_value(value)
             .map_err(|e| format!("to GameRow: {e}"))?;
@@ -339,6 +344,7 @@ pub fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), Str
     }
     let result = db::games::upsert_all(db_state.inner(), &rows);
     if result.is_ok() {
+        let _ = db::compatibility::upsert_batch_for_games(db_state.inner(), &compat_items);
         let ids = rows.iter().map(|row| row.id.clone()).collect();
         db::artwork::cleanup_unreferenced_artwork(&app_data_dir, &ids);
     }
@@ -353,6 +359,8 @@ pub fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), Str
 #[tauri::command]
 pub fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
+    let compat_opt = game.compatibility.clone();
+    let game_id = game.id.clone();
     let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
     let row: db::games::GameRow =
         serde_json::from_value(value).map_err(|e| format!("to GameRow: {e}"))?;
@@ -360,7 +368,15 @@ pub fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
     // during a library scroll, and pruning cache dirs on that hot path
     // walks the filesystem for every fetched cover. Both cleanups now run
     // once per session from a background thread spawned in `load_games`.
-    db::games::upsert_one(db_state.inner(), &row)
+    let res = db::games::upsert_one(db_state.inner(), &row);
+    if res.is_ok() {
+        if let Some(ref c) = compat_opt {
+            let _ = db::compatibility::upsert_for_game(db_state.inner(), &game_id, c);
+        } else {
+            let _ = db::compatibility::delete_for_game(db_state.inner(), &game_id);
+        }
+    }
+    res
 }
 
 /// Load the game library. Returns every row in Continue-Playing order
@@ -392,6 +408,16 @@ pub fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
             }
         }
     }
+
+    // Enrich games with isolated compatibility profiles from compatibility.db
+    if let Ok(mut compat_map) = db::compatibility::list_all_for_games(db_state.inner()) {
+        for g in &mut out {
+            if let Some(c) = compat_map.remove(&g.id) {
+                g.compatibility = Some(c);
+            }
+        }
+    }
+
     let ids: HashSet<String> = out.iter().map(|game| game.id.clone()).collect();
     // Referenced-artwork + stale non-library cache cleanup used to run
     // synchronously here (and on every `save_game`), walking the artwork

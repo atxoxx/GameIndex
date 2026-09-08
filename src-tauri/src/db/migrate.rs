@@ -68,8 +68,12 @@ fn migrate_domain(conn: &mut PooledConn, dom: &DomainSchema) -> Result<(), Strin
         return Ok(());
     }
 
+    let mut applying = current.is_none();
     for (version, ddl) in dom.versions {
-        if Some(*version) == current.as_deref() {
+        if !applying {
+            if Some(*version) == current.as_deref() {
+                applying = true;
+            }
             continue;
         }
         eprintln!("[db::migrate] {}: applying {version}", dom.label);

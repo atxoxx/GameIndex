@@ -80,6 +80,7 @@ pub struct Db {
     pub emulators: SqlitePool,
     pub mods: SqlitePool,
     pub plugins: SqlitePool,
+    pub compatibility: SqlitePool,
 }
 
 impl Db {
@@ -110,6 +111,7 @@ impl Db {
             emulators: mk("emulators")?,
             mods: mk("mods")?,
             plugins: mk("plugins")?,
+            compatibility: mk("compatibility")?,
         })
     }
 
@@ -169,6 +171,12 @@ impl Db {
     pub fn plugins(&self) -> Result<PooledConn, String> {
         self.plugins.get().map_err(|e| format!("acquire plugins conn: {e}"))
     }
+    /// Borrow a connection from the `compatibility` pool.
+    pub fn compatibility(&self) -> Result<PooledConn, String> {
+        self.compatibility
+            .get()
+            .map_err(|e| format!("acquire compatibility conn: {e}"))
+    }
 
     /// Return the pool backing a domain `label` (used by the migration
     /// runner). Returns `None` for unknown labels.
@@ -186,6 +194,7 @@ impl Db {
             "emulators" => Some(&self.emulators),
             "mods" => Some(&self.mods),
             "plugins" => Some(&self.plugins),
+            "compatibility" => Some(&self.compatibility),
             _ => None,
         }
     }
@@ -229,6 +238,7 @@ mod tests {
             Db::emulators,
             Db::mods,
             Db::plugins,
+            Db::compatibility,
         ] {
             let conn = acquire(&db).unwrap();
             let mode: String = conn
