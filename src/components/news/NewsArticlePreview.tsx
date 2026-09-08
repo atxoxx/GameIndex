@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Webview } from "@tauri-apps/api/webview";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
 import { formatArticleDate, estimateReadingTime } from "../../hooks/useNewsFeeds";
@@ -208,7 +208,8 @@ export default function NewsArticlePreview({
           const allWebviews = await Webview.getAll();
           for (const wv of allWebviews) {
             if (wv.label.startsWith("news-preview-")) {
-              await wv.close();
+              await invoke("close_preview_webview", { label: wv.label }).catch(() => {});
+              await wv.close().catch(() => {});
             }
           }
         } catch { /* ignore */ }
@@ -221,8 +222,8 @@ export default function NewsArticlePreview({
         const uniqueLabel = "news-preview-" + Math.random().toString(36).substring(2, 9);
 
         try {
-          const appWindow = getCurrentWindow();
-          const webview = new Webview(appWindow, uniqueLabel, {
+          await invoke("create_preview_webview", {
+            label: uniqueLabel,
             url: article.link,
             x: rect.left,
             y: rect.top,
@@ -230,7 +231,11 @@ export default function NewsArticlePreview({
             height: rect.height,
           });
 
+          const webview = await Webview.getByLabel(uniqueLabel);
+          if (!webview) throw new Error("preview webview was not created");
+
           if (!active) {
+            invoke("close_preview_webview", { label: uniqueLabel }).catch(() => {});
             webview.close().catch(() => {});
             return;
           }
@@ -261,11 +266,13 @@ export default function NewsArticlePreview({
       const wv = webviewInstRef.current;
       webviewInstRef.current = null;
       if (wv) {
+        invoke("close_preview_webview", { label: wv.label }).catch(() => {});
         wv.close().catch(() => {});
       } else {
         Webview.getAll().then((all) => {
           for (const w of all) {
             if (w.label.startsWith("news-preview-")) {
+              invoke("close_preview_webview", { label: w.label }).catch(() => {});
               w.close().catch(() => {});
             }
           }
@@ -288,6 +295,13 @@ export default function NewsArticlePreview({
 
       wv.setPosition(new LogicalPosition(rect.left, rect.top)).catch(() => {});
       wv.setSize(new LogicalSize(rect.width, rect.height)).catch(() => {});
+      invoke("reposition_preview_webview", {
+        label: wv.label,
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      }).catch(() => {});
     };
 
     syncGeometry();

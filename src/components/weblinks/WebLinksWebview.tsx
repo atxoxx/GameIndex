@@ -84,6 +84,13 @@ export default function WebLinksWebview({
       webviewInst
         .setSize(new LogicalSize(rect.width, rect.height))
         .catch((e) => console.error("Error setting webview size:", e));
+      invoke("reposition_preview_webview", {
+        label: webviewInst.label,
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      }).catch(() => {});
     };
 
     handleResize();
@@ -107,7 +114,12 @@ export default function WebLinksWebview({
   // since native webviews composite above DOM content and z-index can't win.
   useEffect(() => {
     if (!webviewInst) return;
-    if (visible && !menuOpen) {
+    const isVis = visible && !menuOpen;
+    invoke("set_preview_webview_visible", {
+      label: webviewInst.label,
+      visible: isVis,
+    }).catch(() => {});
+    if (isVis) {
       webviewInst.show().catch((e) => console.error("Error showing webview:", e));
     } else {
       webviewInst.hide().catch((e) => console.error("Error hiding webview:", e));
@@ -174,7 +186,8 @@ export default function WebLinksWebview({
           const allWebviews = await Webview.getAll();
           for (const wv of allWebviews) {
             if (wv.label.startsWith("weblinks-preview-")) {
-              await wv.close();
+              await invoke("close_preview_webview", { label: wv.label }).catch(() => {});
+              await wv.close().catch(() => {});
             }
           }
         } catch {
@@ -188,7 +201,8 @@ export default function WebLinksWebview({
         const allWebviews = await Webview.getAll();
         for (const wv of allWebviews) {
           if (wv.label.startsWith("weblinks-preview-")) {
-            await wv.close();
+            await invoke("close_preview_webview", { label: wv.label }).catch(() => {});
+            await wv.close().catch(() => {});
           }
         }
       } catch {
@@ -213,6 +227,7 @@ export default function WebLinksWebview({
         if (!webview) throw new Error("preview webview was not created");
 
         if (!active) {
+          invoke("close_preview_webview", { label: webview.label }).catch(() => {});
           webview.close().catch(() => {});
           return;
         }
@@ -251,12 +266,14 @@ export default function WebLinksWebview({
         pollTimer = null;
       }
       if (localWebview) {
+        invoke("close_preview_webview", { label: localWebview.label }).catch(() => {});
         localWebview.close().catch(() => {});
       } else {
         Webview.getAll()
           .then((all) => {
             for (const wv of all) {
               if (wv.label.startsWith("weblinks-preview-")) {
+                invoke("close_preview_webview", { label: wv.label }).catch(() => {});
                 wv.close().catch(() => {});
               }
             }

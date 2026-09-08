@@ -1839,6 +1839,7 @@ dependencies = [
  "chrono",
  "discord-rich-presence",
  "futures",
+ "gtk",
  "igd-next",
  "keyring",
  "libc",
