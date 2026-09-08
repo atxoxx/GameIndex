@@ -245,6 +245,20 @@ npm run dev            # Vite at http://localhost:1420
 npm run tauri build    # tsc + vite build + native bundles
 ```
 
+### ❄️ Nix & NixOS
+
+If you use Nix or NixOS, a `flake.nix` is included providing all Tauri v2 runtime libraries (WebKitGTK 4.1, GTK3, D-Bus, Clang for bindgen) and toolchains:
+
+```bash
+# Enter the isolated development shell
+nix develop
+
+# Or with direnv:
+direnv allow
+```
+
+Inside the shell, run the standard `npm install` and `npm run tauri dev`.
+
 ### 🔎 VirusTotal scans
 
 Independent antivirus scans of the latest release artifacts:
