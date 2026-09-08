@@ -29,6 +29,7 @@ import { UrlListEditor } from "./UrlListEditor";
 import { TagInput } from "../../components/ui/TagInput";
 import { ArrayEditor } from "../../components/ui/ArrayEditor";
 import { toWebviewAssetUrl } from "../../utils/artworkUrl";
+import type { CompatibilitySettings } from "../../pages/settings/CompatibilityTab";
 import "./EditGameModal.css";
 
 const GENRE_SUGGESTIONS = [
@@ -189,6 +190,33 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [compatNvapi, setCompatNvapi] = useState<boolean | null>(
     game.compatibility?.enableDxvkNvapi ?? null
   );
+  const [compatNtsync, setCompatNtsync] = useState<boolean | null>(
+    game.compatibility?.enableNtsync ?? null
+  );
+  const [compatDxvkAsync, setCompatDxvkAsync] = useState<boolean | null>(
+    game.compatibility?.enableDxvkAsync ?? null
+  );
+  const [compatWayland, setCompatWayland] = useState<boolean | null>(
+    game.compatibility?.enableWayland ?? null
+  );
+  const [compatWow64, setCompatWow64] = useState<boolean | null>(
+    game.compatibility?.enableWow64 ?? null
+  );
+  const [compatLargeAddress, setCompatLargeAddress] = useState<boolean | null>(
+    game.compatibility?.enableLargeAddressAware ?? null
+  );
+  const [compatWineDebug, setCompatWineDebug] = useState(
+    game.compatibility?.wineDebug ?? ""
+  );
+  const [compatAudioDriver, setCompatAudioDriver] = useState(
+    game.compatibility?.audioDriver ?? ""
+  );
+  const [compatVirtualDesktop, setCompatVirtualDesktop] = useState<boolean | null>(
+    game.compatibility?.virtualDesktop ?? null
+  );
+  const [compatVirtualDesktopRes, setCompatVirtualDesktopRes] = useState(
+    game.compatibility?.virtualDesktopRes ?? ""
+  );
   const [compatDxvkHud, setCompatDxvkHud] = useState(
     game.compatibility?.dxvkHud ?? ""
   );
@@ -204,6 +232,45 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [compatGamescopeArgs, setCompatGamescopeArgs] = useState(
     game.compatibility?.gamescopeArgs ?? ""
   );
+  const [compatGamescopeMode, setCompatGamescopeMode] = useState<"fullscreen" | "borderless" | "windowed" | "">(
+    (game.compatibility?.gamescopeMode as "fullscreen" | "borderless" | "windowed") || ""
+  );
+  const [compatGamescopeGameWidth, setCompatGamescopeGameWidth] = useState<number | undefined>(
+    game.compatibility?.gamescopeGameWidth ?? undefined
+  );
+  const [compatGamescopeGameHeight, setCompatGamescopeGameHeight] = useState<number | undefined>(
+    game.compatibility?.gamescopeGameHeight ?? undefined
+  );
+  const [compatGamescopeWindowWidth, setCompatGamescopeWindowWidth] = useState<number | undefined>(
+    game.compatibility?.gamescopeWindowWidth ?? undefined
+  );
+  const [compatGamescopeWindowHeight, setCompatGamescopeWindowHeight] = useState<number | undefined>(
+    game.compatibility?.gamescopeWindowHeight ?? undefined
+  );
+  const [compatGamescopeFilter, setCompatGamescopeFilter] = useState<"fsr" | "nis" | "linear" | "nearest" | "integer" | "">(
+    (game.compatibility?.gamescopeFilter as "fsr" | "nis" | "linear" | "nearest" | "integer") || ""
+  );
+  const [compatGamescopeFsrSharpness, setCompatGamescopeFsrSharpness] = useState<number | undefined>(
+    game.compatibility?.gamescopeFsrSharpness ?? undefined
+  );
+  const [compatGamescopeFpsLimit, setCompatGamescopeFpsLimit] = useState<number | undefined>(
+    game.compatibility?.gamescopeFpsLimit ?? undefined
+  );
+  const [compatGamescopeRefreshRate, setCompatGamescopeRefreshRate] = useState<number | undefined>(
+    game.compatibility?.gamescopeRefreshRate ?? undefined
+  );
+  const [compatGamescopeAdaptiveSync, setCompatGamescopeAdaptiveSync] = useState<boolean | null>(
+    game.compatibility?.gamescopeAdaptiveSync ?? null
+  );
+  const [compatGamescopeHdr, setCompatGamescopeHdr] = useState<boolean | null>(
+    game.compatibility?.gamescopeHdr ?? null
+  );
+  const [compatGamescopeStretch, setCompatGamescopeStretch] = useState<boolean | null>(
+    game.compatibility?.gamescopeStretch ?? null
+  );
+  const [compatGamescopeForceWindowsFullscreen, setCompatGamescopeForceWindowsFullscreen] = useState<boolean | null>(
+    game.compatibility?.gamescopeForceWindowsFullscreen ?? null
+  );
   const [compatPrime, setCompatPrime] = useState<boolean | null>(
     game.compatibility?.primeRenderOffload ?? null
   );
@@ -218,14 +285,72 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     if (!game.compatibility?.dllOverrides) return [];
     return Object.entries(game.compatibility.dllOverrides).map(([k, v]) => ({ dll: k, mode: v }));
   });
+  const [excludedGlobalEnv, setExcludedGlobalEnv] = useState<string[]>(
+    game.compatibility?.excludedGlobalEnv ?? []
+  );
+  const [excludedGlobalDlls, setExcludedGlobalDlls] = useState<string[]>(
+    game.compatibility?.excludedGlobalDlls ?? []
+  );
+  const [globalCompatSettings, setGlobalCompatSettings] = useState<CompatibilitySettings | null>(null);
   const [availableRunners, setAvailableRunners] = useState<Array<{ id: string; name: string; path: string; kind: string }>>([]);
   const [runningTool, setRunningTool] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<Array<{ id: string; name: string; path: string; kind: string }>>("get_compatibility_runners")
+    invoke<Array<{ id: string; name: string; path: string; kind: string }>>("list_compatibility_runners")
       .then((r) => setAvailableRunners(r || []))
       .catch(() => {});
+    invoke<CompatibilitySettings>("get_compatibility_settings")
+      .then((s) => setGlobalCompatSettings(s || null))
+      .catch(() => {});
   }, []);
+
+  const handleToggleExcludeGlobalEnv = (key: string) => {
+    setExcludedGlobalEnv((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
+  const handleToggleExcludeGlobalDll = (dll: string) => {
+    setExcludedGlobalDlls((prev) =>
+      prev.includes(dll) ? prev.filter((d) => d !== dll) : [...prev, dll]
+    );
+  };
+
+  const handleRemoveFromGlobalEnv = async (key: string) => {
+    if (!globalCompatSettings) return;
+    const updatedEnv = { ...globalCompatSettings.customEnvironmentVariables };
+    delete updatedEnv[key];
+    const updatedSettings: CompatibilitySettings = {
+      ...globalCompatSettings,
+      customEnvironmentVariables: updatedEnv,
+    };
+    try {
+      await invoke("set_compatibility_settings", { settings: updatedSettings });
+      setGlobalCompatSettings(updatedSettings);
+      setExcludedGlobalEnv((prev) => prev.filter((k) => k !== key));
+      showToast(t("gameEdit.compatibility.globalEnvRemoved", { key }) || `Removed ${key} from global environment`, "success");
+    } catch (err) {
+      showToast(`Failed to update global settings: ${err}`, "error");
+    }
+  };
+
+  const handleRemoveFromGlobalDll = async (dll: string) => {
+    if (!globalCompatSettings) return;
+    const updatedDlls = { ...globalCompatSettings.customDllOverrides };
+    delete updatedDlls[dll];
+    const updatedSettings: CompatibilitySettings = {
+      ...globalCompatSettings,
+      customDllOverrides: updatedDlls,
+    };
+    try {
+      await invoke("set_compatibility_settings", { settings: updatedSettings });
+      setGlobalCompatSettings(updatedSettings);
+      setExcludedGlobalDlls((prev) => prev.filter((d) => d !== dll));
+      showToast(t("gameEdit.compatibility.globalDllRemoved", { dll }) || `Removed ${dll} from global DLL overrides`, "success");
+    } catch (err) {
+      showToast(`Failed to update global settings: ${err}`, "error");
+    }
+  };
 
   const handlePickRunner = async () => {
     try {
@@ -795,15 +920,39 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         compatEsync !== null ||
         compatFsync !== null ||
         compatNvapi !== null ||
+        compatNtsync !== null ||
+        compatDxvkAsync !== null ||
+        compatWayland !== null ||
+        compatWow64 !== null ||
+        compatLargeAddress !== null ||
+        compatWineDebug.trim() ||
+        compatAudioDriver.trim() ||
+        compatVirtualDesktop !== null ||
+        compatVirtualDesktopRes.trim() ||
         compatDxvkHud.trim() ||
         compatMangoHud !== null ||
         compatGameMode !== null ||
         compatGamescope !== null ||
         compatGamescopeArgs.trim() ||
+        compatGamescopeMode.trim() ||
+        compatGamescopeGameWidth !== undefined ||
+        compatGamescopeGameHeight !== undefined ||
+        compatGamescopeWindowWidth !== undefined ||
+        compatGamescopeWindowHeight !== undefined ||
+        compatGamescopeFilter.trim() ||
+        compatGamescopeFsrSharpness !== undefined ||
+        compatGamescopeFpsLimit !== undefined ||
+        compatGamescopeRefreshRate !== undefined ||
+        compatGamescopeAdaptiveSync !== null ||
+        compatGamescopeHdr !== null ||
+        compatGamescopeStretch !== null ||
+        compatGamescopeForceWindowsFullscreen !== null ||
         compatPrime !== null ||
         compatPreLaunch.trim() ||
         compatEnvPairs.length > 0 ||
-        compatDllPairs.length > 0
+        compatDllPairs.length > 0 ||
+        excludedGlobalEnv.length > 0 ||
+        excludedGlobalDlls.length > 0
           ? {
               enabled: compatEnabled,
               runnerType: compatRunnerType,
@@ -816,11 +965,33 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               enableEsync: compatEsync,
               enableFsync: compatFsync,
               enableDxvkNvapi: compatNvapi,
+              enableNtsync: compatNtsync,
+              enableDxvkAsync: compatDxvkAsync,
+              enableWayland: compatWayland,
+              enableWow64: compatWow64,
+              enableLargeAddressAware: compatLargeAddress,
+              wineDebug: compatWineDebug.trim() || undefined,
+              audioDriver: compatAudioDriver.trim() || undefined,
+              virtualDesktop: compatVirtualDesktop,
+              virtualDesktopRes: compatVirtualDesktopRes.trim() || undefined,
               dxvkHud: compatDxvkHud.trim() || undefined,
               enableMangoHud: compatMangoHud,
               enableGameMode: compatGameMode,
               enableGamescope: compatGamescope,
               gamescopeArgs: compatGamescopeArgs.trim() || undefined,
+              gamescopeMode: compatGamescopeMode ? compatGamescopeMode : undefined,
+              gamescopeGameWidth: compatGamescopeGameWidth,
+              gamescopeGameHeight: compatGamescopeGameHeight,
+              gamescopeWindowWidth: compatGamescopeWindowWidth,
+              gamescopeWindowHeight: compatGamescopeWindowHeight,
+              gamescopeFilter: compatGamescopeFilter ? compatGamescopeFilter : undefined,
+              gamescopeFsrSharpness: compatGamescopeFsrSharpness,
+              gamescopeFpsLimit: compatGamescopeFpsLimit,
+              gamescopeRefreshRate: compatGamescopeRefreshRate,
+              gamescopeAdaptiveSync: compatGamescopeAdaptiveSync,
+              gamescopeHdr: compatGamescopeHdr,
+              gamescopeStretch: compatGamescopeStretch,
+              gamescopeForceWindowsFullscreen: compatGamescopeForceWindowsFullscreen,
               primeRenderOffload: compatPrime,
               preLaunchWrapper: compatPreLaunch.trim() || undefined,
               environmentVariables: compatEnvPairs.reduce((acc, { key, value }) => {
@@ -831,6 +1002,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 if (dll.trim()) acc[dll.trim()] = mode;
                 return acc;
               }, {} as Record<string, string>),
+              excludedGlobalEnv: excludedGlobalEnv.length > 0 ? excludedGlobalEnv : undefined,
+              excludedGlobalDlls: excludedGlobalDlls.length > 0 ? excludedGlobalDlls : undefined,
             }
           : undefined,
     });
@@ -2075,6 +2248,66 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                       </div>
                     </div>
                   </div>
+
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.waylandTitle") || "Wineland (Native Wayland Driver)"}
+                    desc={t("gameEdit.compatibility.waylandDesc") || "Uses the native Wine Wayland driver (WINE_ENABLE_WAYLAND=1), bypassing XWayland for lower latency."}
+                    value={compatWayland}
+                    onChange={setCompatWayland}
+                  />
+
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.wow64Title") || "New WoW64 Mode (Pure 64-bit)"}
+                    desc={t("gameEdit.compatibility.wow64Desc") || "Runs 32-bit Windows code on a pure 64-bit Unix host without 32-bit Unix libraries (WINE_NEW_WOW64=1)."}
+                    value={compatWow64}
+                    onChange={setCompatWow64}
+                  />
+
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.largeAddressTitle") || "Large Address Aware (4GB for 32-bit)"}
+                    desc={t("gameEdit.compatibility.largeAddressDesc") || "Enables 32-bit Windows applications to allocate up to 4 GB of virtual memory instead of 2 GB."}
+                    value={compatLargeAddress}
+                    onChange={setCompatLargeAddress}
+                  />
+
+                  {/* Audio Driver & Debug Channels */}
+                  <div className="edit-fieldset-grid">
+                    <div className="edit-launch-card">
+                      <div className="edit-launch-card-header">
+                        <div className="edit-launch-card-header-text">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.audioDriver") || "Audio Driver"}</h4>
+                          <p className="edit-launch-card-desc">{t("gameEdit.compatibility.audioDriverDesc") || "Backend sound driver override for the runner."}</p>
+                        </div>
+                      </div>
+                      <select
+                        className="edit-input"
+                        value={compatAudioDriver}
+                        onChange={(e) => setCompatAudioDriver(e.target.value)}
+                      >
+                        <option value="">{t("gameEdit.compatibility.audioDriverGlobal") || "Global Default (from Settings)"}</option>
+                        <option value="auto">Auto (Default Wine detection)</option>
+                        <option value="pulse">PulseAudio</option>
+                        <option value="alsa">ALSA</option>
+                        <option value="oss">OSS</option>
+                      </select>
+                    </div>
+
+                    <div className="edit-launch-card">
+                      <div className="edit-launch-card-header">
+                        <div className="edit-launch-card-header-text">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.wineDebug") || "Wine Debug Channels"}</h4>
+                          <p className="edit-launch-card-desc">{t("gameEdit.compatibility.wineDebugDesc") || "Logging channels override (WINEDEBUG, e.g. -all, fixme-all)."}</p>
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        className="edit-input"
+                        value={compatWineDebug}
+                        onChange={(e) => setCompatWineDebug(e.target.value)}
+                        placeholder="Leave blank for global default (-all)"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -2092,6 +2325,18 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.vkd3dDesc") || "Vulkan-based translation layer for Direct3D 12."}
                     value={compatVkd3d}
                     onChange={setCompatVkd3d}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.dxvkAsyncTitle") || "DXVK Async (Asynchronous Shader Compilation)"}
+                    desc={t("gameEdit.compatibility.dxvkAsyncDesc") || "Compiles shaders asynchronously in the background to eliminate in-game stuttering."}
+                    value={compatDxvkAsync}
+                    onChange={setCompatDxvkAsync}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.ntsyncTitle") || "NTsync / WineSync (Kernel Synchronization Engine)"}
+                    desc={t("gameEdit.compatibility.ntsyncDesc") || "True kernel-level Windows NT synchronization driver (/dev/ntsync) for near-native CPU lock performance."}
+                    value={compatNtsync}
+                    onChange={setCompatNtsync}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.esyncTitle") || "Esync (Eventfd Synchronization)"}
@@ -2142,6 +2387,45 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                       </div>
                     </div>
                   </div>
+
+                  {/* Virtual Desktop */}
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.virtualDesktopTitle") || "Virtual Desktop Window"}
+                    desc={t("gameEdit.compatibility.virtualDesktopDesc") || "Confines the game within a virtual desktop window (useful for older titles with resolution-switching bugs)."}
+                    value={compatVirtualDesktop}
+                    onChange={setCompatVirtualDesktop}
+                  />
+                  {compatVirtualDesktop === true && (
+                    <div className="edit-launch-card">
+                      <div className="edit-launch-card-header">
+                        <div className="edit-launch-card-header-text">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.virtualDesktopRes") || "Virtual Desktop Resolution"}</h4>
+                          <p className="edit-launch-card-desc">{t("gameEdit.compatibility.virtualDesktopResDesc") || "Dimensions for the virtual desktop window (e.g. 1920x1080)."}</p>
+                        </div>
+                      </div>
+                      <div className="edit-launch-input-row">
+                        <input
+                          type="text"
+                          className="edit-input"
+                          value={compatVirtualDesktopRes}
+                          onChange={(e) => setCompatVirtualDesktopRes(e.target.value)}
+                          placeholder="1920x1080"
+                        />
+                        <div className="edit-args-pills">
+                          {["1280x720", "1920x1080", "2560x1440", "3840x2160"].map((res) => (
+                            <button
+                              key={res}
+                              type="button"
+                              className="edit-arg-pill"
+                              onClick={() => setCompatVirtualDesktopRes(res)}
+                            >
+                              {res}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2161,65 +2445,379 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     onChange={setCompatGameMode}
                   />
                   <TriStateCard
+                    title={t("gameEdit.compatibility.primeTitle") || "Discrete GPU (PRIME Offload)"}
+                    desc={t("gameEdit.compatibility.primeDesc") || "Forces render offload to the dedicated GPU on laptops with hybrid graphics."}
+                    value={compatPrime}
+                    onChange={setCompatPrime}
+                  />
+                  <TriStateCard
                     title={t("gameEdit.compatibility.gamescopeTitle") || "Gamescope Micro-Compositor"}
                     desc={t("gameEdit.compatibility.gamescopeDesc") || "Runs the game inside an isolated nested Wayland session with upscaling & integer scaling."}
                     value={compatGamescope}
                     onChange={setCompatGamescope}
                   />
 
-                  {/* Gamescope Arguments */}
-                  <div className="edit-launch-card">
-                    <div className="edit-launch-card-header">
-                      <div className="edit-launch-card-header-text">
-                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.gamescopeArgs") || "Gamescope Arguments"}</h4>
-                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.gamescopeArgsDesc") || "Arguments passed to gamescope (e.g. -w 1920 -h 1080 -F fsr -f)."}</p>
-                      </div>
-                    </div>
-                    <div className="edit-launch-input-row">
-                      <input
-                        type="text"
-                        className="edit-input"
-                        value={compatGamescopeArgs}
-                        onChange={(e) => setCompatGamescopeArgs(e.target.value)}
-                        placeholder="-w 1920 -h 1080 -F fsr -f"
-                      />
-                      <div className="edit-args-pills">
-                        {[
-                          { label: "1080p FSR", val: "-w 1920 -h 1080 -F fsr -f" },
-                          { label: "1440p FSR", val: "-w 2560 -h 1440 -F fsr -f" },
-                          { label: "4K FSR", val: "-w 3840 -h 2160 -F fsr -f" },
-                          { label: "Integer Scale", val: "-S integer -f" },
-                        ].map((p) => (
-                          <button
-                            key={p.label}
-                            type="button"
-                            className="edit-arg-pill"
-                            onClick={() => setCompatGamescopeArgs(p.val)}
+                  {compatGamescope !== false && (
+                    <>
+                      {/* Gamescope Mode & Upscaling Filter */}
+                      <div className="edit-fieldset-grid">
+                        <div className="edit-launch-card">
+                          <div className="edit-launch-card-header">
+                            <div className="edit-launch-card-header-text">
+                              <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.gamescopeWindowMode") || "Gamescope Display Mode"}</h4>
+                              <p className="edit-launch-card-desc">{t("gameEdit.compatibility.gamescopeWindowModeDesc") || "Fullscreen, borderless, or windowed presentation."}</p>
+                            </div>
+                          </div>
+                          <select
+                            className="edit-input"
+                            value={compatGamescopeMode}
+                            onChange={(e) => setCompatGamescopeMode(e.target.value as "fullscreen" | "borderless" | "windowed" | "")}
                           >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                            <option value="">{t("gameEdit.compatibility.globalDefault") || "Global Default"}</option>
+                            <option value="fullscreen">Fullscreen (-f)</option>
+                            <option value="borderless">Borderless Fullscreen (-b)</option>
+                            <option value="windowed">Windowed</option>
+                          </select>
+                        </div>
 
-                  <TriStateCard
-                    title={t("gameEdit.compatibility.primeTitle") || "Discrete GPU (PRIME Offload)"}
-                    desc={t("gameEdit.compatibility.primeDesc") || "Forces render offload to the dedicated GPU on laptops with hybrid graphics."}
-                    value={compatPrime}
-                    onChange={setCompatPrime}
-                  />
+                        <div className="edit-launch-card">
+                          <div className="edit-launch-card-header">
+                            <div className="edit-launch-card-header-text">
+                              <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.upscalingFilter") || "Upscaling Filter"}</h4>
+                              <p className="edit-launch-card-desc">{t("gameEdit.compatibility.upscalingFilterDesc") || "FSR, NIS, linear, or integer scaling algorithm."}</p>
+                            </div>
+                          </div>
+                          <select
+                            className="edit-input"
+                            value={compatGamescopeFilter}
+                            onChange={(e) => setCompatGamescopeFilter(e.target.value as "fsr" | "nis" | "linear" | "nearest" | "integer" | "")}
+                          >
+                            <option value="">{t("gameEdit.compatibility.globalDefault") || "Global Default"}</option>
+                            <option value="auto">Auto</option>
+                            <option value="fsr">AMD FidelityFX Super Resolution (FSR)</option>
+                            <option value="nis">NVIDIA Image Scaling (NIS)</option>
+                            <option value="linear">Bilinear (Smooth)</option>
+                            <option value="nearest">Nearest Neighbor (Sharp)</option>
+                            <option value="integer">Integer Scaling (Pixel Art)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Render vs Output Resolutions */}
+                      <div className="edit-fieldset-grid">
+                        <div className="edit-launch-card">
+                          <div className="edit-launch-card-header">
+                            <div className="edit-launch-card-header-text">
+                              <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.renderRes") || "Game Render Resolution (-w -h)"}</h4>
+                              <p className="edit-launch-card-desc">{t("gameEdit.compatibility.renderResDesc") || "Internal game canvas before upscaling."}</p>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: "var(--space-xs)", marginBottom: "var(--space-xs)" }}>
+                            <input
+                              type="number"
+                              className="edit-input"
+                              placeholder="Width (e.g. 1920)"
+                              value={compatGamescopeGameWidth ?? ""}
+                              onChange={(e) => setCompatGamescopeGameWidth(e.target.value ? Number(e.target.value) : undefined)}
+                            />
+                            <input
+                              type="number"
+                              className="edit-input"
+                              placeholder="Height (e.g. 1080)"
+                              value={compatGamescopeGameHeight ?? ""}
+                              onChange={(e) => setCompatGamescopeGameHeight(e.target.value ? Number(e.target.value) : undefined)}
+                            />
+                          </div>
+                          <div className="edit-args-pills">
+                            {[
+                              { label: "720p", w: 1280, h: 720 },
+                              { label: "900p", w: 1600, h: 900 },
+                              { label: "1080p", w: 1920, h: 1080 },
+                              { label: "1440p", w: 2560, h: 1440 },
+                            ].map((p) => (
+                              <button
+                                key={p.label}
+                                type="button"
+                                className="edit-arg-pill"
+                                onClick={() => {
+                                  setCompatGamescopeGameWidth(p.w);
+                                  setCompatGamescopeGameHeight(p.h);
+                                }}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="edit-launch-card">
+                          <div className="edit-launch-card-header">
+                            <div className="edit-launch-card-header-text">
+                              <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.outputRes") || "Display Output Resolution (-W -H)"}</h4>
+                              <p className="edit-launch-card-desc">{t("gameEdit.compatibility.outputResDesc") || "Final monitor display canvas size."}</p>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: "var(--space-xs)", marginBottom: "var(--space-xs)" }}>
+                            <input
+                              type="number"
+                              className="edit-input"
+                              placeholder="Width (e.g. 2560)"
+                              value={compatGamescopeWindowWidth ?? ""}
+                              onChange={(e) => setCompatGamescopeWindowWidth(e.target.value ? Number(e.target.value) : undefined)}
+                            />
+                            <input
+                              type="number"
+                              className="edit-input"
+                              placeholder="Height (e.g. 1440)"
+                              value={compatGamescopeWindowHeight ?? ""}
+                              onChange={(e) => setCompatGamescopeWindowHeight(e.target.value ? Number(e.target.value) : undefined)}
+                            />
+                          </div>
+                          <div className="edit-args-pills">
+                            {[
+                              { label: "1080p", w: 1920, h: 1080 },
+                              { label: "1440p", w: 2560, h: 1440 },
+                              { label: "4K", w: 3840, h: 2160 },
+                            ].map((p) => (
+                              <button
+                                key={p.label}
+                                type="button"
+                                className="edit-arg-pill"
+                                onClick={() => {
+                                  setCompatGamescopeWindowWidth(p.w);
+                                  setCompatGamescopeWindowHeight(p.h);
+                                }}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* FSR Sharpness & FPS Limit */}
+                      <div className="edit-fieldset-grid">
+                        <div className="edit-launch-card">
+                          <div className="edit-launch-card-header">
+                            <div className="edit-launch-card-header-text">
+                              <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.fsrSharpness") || "FSR Sharpness (0-20)"}</h4>
+                              <p className="edit-launch-card-desc">{t("gameEdit.compatibility.fsrSharpnessDesc") || "Higher values produce crisper edges when FSR is active."}</p>
+                            </div>
+                            <span style={{ fontWeight: 600, fontFamily: "var(--font-family-mono, monospace)" }}>
+                              {compatGamescopeFsrSharpness ?? "Default (5)"}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={20}
+                            value={compatGamescopeFsrSharpness ?? 5}
+                            onChange={(e) => setCompatGamescopeFsrSharpness(Number(e.target.value))}
+                            style={{ width: "100%" }}
+                          />
+                        </div>
+
+                        <div className="edit-launch-card">
+                          <div className="edit-launch-card-header">
+                            <div className="edit-launch-card-header-text">
+                              <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.fpsLimiter") || "Frame Rate Limit (-r)"}</h4>
+                              <p className="edit-launch-card-desc">{t("gameEdit.compatibility.fpsLimiterDesc") || "Target framerate cap for Gamescope."}</p>
+                            </div>
+                          </div>
+                          <div className="edit-launch-input-row">
+                            <input
+                              type="number"
+                              className="edit-input"
+                              placeholder="e.g. 60 or 144"
+                              value={compatGamescopeFpsLimit ?? ""}
+                              onChange={(e) => setCompatGamescopeFpsLimit(e.target.value ? Number(e.target.value) : undefined)}
+                            />
+                            <div className="edit-args-pills">
+                              {[30, 60, 90, 120, 144, 165].map((fps) => (
+                                <button
+                                  key={fps}
+                                  type="button"
+                                  className="edit-arg-pill"
+                                  onClick={() => setCompatGamescopeFpsLimit(fps)}
+                                >
+                                  {fps}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Display Refresh Rate */}
+                      <div className="edit-launch-card">
+                        <div className="edit-launch-card-header">
+                          <div className="edit-launch-card-header-text">
+                            <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.refreshRate") || "Display Refresh Rate (-o)"}</h4>
+                            <p className="edit-launch-card-desc">{t("gameEdit.compatibility.refreshRateDesc") || "Force compositor display refresh rate."}</p>
+                          </div>
+                        </div>
+                        <div className="edit-launch-input-row">
+                          <input
+                            type="number"
+                            className="edit-input"
+                            placeholder="e.g. 60, 120, 144, 165, 240"
+                            value={compatGamescopeRefreshRate ?? ""}
+                            onChange={(e) => setCompatGamescopeRefreshRate(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                          <div className="edit-args-pills">
+                            {[60, 120, 144, 165, 240].map((hz) => (
+                              <button
+                                key={hz}
+                                type="button"
+                                className="edit-arg-pill"
+                                onClick={() => setCompatGamescopeRefreshRate(hz)}
+                              >
+                                {hz}Hz
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Additional Gamescope Toggles */}
+                      <TriStateCard
+                        title={t("gameEdit.compatibility.vrrTitle") || "Adaptive Sync (VRR / G-Sync / FreeSync)"}
+                        desc={t("gameEdit.compatibility.vrrDesc") || "Passes --adaptive-sync to gamescope to match monitor refresh rate."}
+                        value={compatGamescopeAdaptiveSync}
+                        onChange={setCompatGamescopeAdaptiveSync}
+                      />
+                      <TriStateCard
+                        title={t("gameEdit.compatibility.hdrTitle") || "HDR Output (--hdr-enabled)"}
+                        desc={t("gameEdit.compatibility.hdrDesc") || "Enables high dynamic range color output if supported by display."}
+                        value={compatGamescopeHdr}
+                        onChange={setCompatGamescopeHdr}
+                      />
+                      <TriStateCard
+                        title={t("gameEdit.compatibility.stretchTitle") || "Stretch Aspect Ratio (-s)"}
+                        desc={t("gameEdit.compatibility.stretchDesc") || "Stretches non-native aspect ratios to fill the entire output area without letterboxing."}
+                        value={compatGamescopeStretch}
+                        onChange={setCompatGamescopeStretch}
+                      />
+                      <TriStateCard
+                        title={t("gameEdit.compatibility.forceFullscreenTitle") || "Force Windows Fullscreen"}
+                        desc={t("gameEdit.compatibility.forceFullscreenDesc") || "Forces applications into fake fullscreen mode (--force-windows-fullscreen)."}
+                        value={compatGamescopeForceWindowsFullscreen}
+                        onChange={setCompatGamescopeForceWindowsFullscreen}
+                      />
+
+                      {/* Gamescope Arguments */}
+                      <div className="edit-launch-card">
+                        <div className="edit-launch-card-header">
+                          <div className="edit-launch-card-header-text">
+                            <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.gamescopeArgs") || "Additional Manual Gamescope Arguments"}</h4>
+                            <p className="edit-launch-card-desc">{t("gameEdit.compatibility.gamescopeArgsDesc") || "Raw command flags appended directly to gamescope invocation."}</p>
+                          </div>
+                        </div>
+                        <div className="edit-launch-input-row">
+                          <input
+                            type="text"
+                            className="edit-input"
+                            value={compatGamescopeArgs}
+                            onChange={(e) => setCompatGamescopeArgs(e.target.value)}
+                            placeholder="-w 1920 -h 1080 -F fsr -f"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
               {/* Subtab 4: Environment & DLL Overrides */}
               {compatSubtab === "env" && (
                 <div className="edit-compat-subtab-content">
-                  {/* Environment Variables */}
+                  {/* Inherited Global Environment Variables */}
                   <div className="edit-launch-card">
-                    <div className="edit-compat-table-header">
-                      <div>
-                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.envVars") || "Environment Variables"}</h4>
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-icon edit-launch-icon-global">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="2" y1="12" x2="22" y2="12" />
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-card-header-text">
+                        <div className="edit-launch-card-title-row">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.inheritedGlobalEnv") || "Inherited Global Environment Variables"}</h4>
+                          {globalCompatSettings && Object.keys(globalCompatSettings.customEnvironmentVariables || {}).length > 0 && (
+                            <span className="edit-launch-card-counter">
+                              {Object.keys(globalCompatSettings.customEnvironmentVariables).length}
+                            </span>
+                          )}
+                        </div>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.inheritedGlobalEnvDesc") || "Configured globally in Settings. You can exclude them for this game or remove them from global configuration."}</p>
+                      </div>
+                    </div>
+                    {!globalCompatSettings || Object.keys(globalCompatSettings.customEnvironmentVariables || {}).length === 0 ? (
+                      <div className="edit-form-empty-state">
+                        <div className="edit-form-empty-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                          </svg>
+                        </div>
+                        <p className="edit-form-empty-text">{t("gameEdit.compatibility.noGlobalEnv") || "No global environment variables configured in Settings."}</p>
+                      </div>
+                    ) : (
+                      Object.entries(globalCompatSettings.customEnvironmentVariables).map(([key, val]) => {
+                        const isExcluded = excludedGlobalEnv.includes(key);
+                        return (
+                          <div key={key} className={`edit-global-item-row ${isExcluded ? "is-excluded" : ""}`}>
+                            <div className="edit-global-item-info">
+                              <code>{key}</code>
+                              <span className="edit-global-item-val">= {String(val || `""`)}</span>
+                              {isExcluded && <span className="edit-global-badge-excluded">{t("gameEdit.compatibility.excluded") || "Excluded for this game"}</span>}
+                            </div>
+                            <div className="edit-global-item-actions">
+                              <button
+                                type="button"
+                                className={`edit-global-action-btn ${isExcluded ? "is-active" : ""}`}
+                                onClick={() => handleToggleExcludeGlobalEnv(key)}
+                                title={isExcluded ? t("gameEdit.compatibility.includeForGame") || "Re-include for this game" : t("gameEdit.compatibility.excludeForGame") || "Exclude for this game"}
+                              >
+                                {isExcluded ? (t("gameEdit.compatibility.restoreForGame") || "Restore") : (t("gameEdit.compatibility.excludeForGame") || "Exclude")}
+                              </button>
+                              <button
+                                type="button"
+                                className="edit-global-action-btn edit-global-action-btn--danger"
+                                onClick={() => handleRemoveFromGlobalEnv(key)}
+                                title={t("gameEdit.compatibility.removeFromGlobal") || "Delete from global settings"}
+                              >
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <line x1="18" y1="6" x2="6" y2="18" />
+                                  <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                                <span>{t("gameEdit.compatibility.removeFromGlobalBtn") || "Remove from Global"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Game-Specific Environment Variables */}
+                  <div className="edit-launch-card">
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-icon edit-launch-icon-env">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="4 17 10 11 4 5" />
+                          <line x1="12" y1="19" x2="20" y2="19" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-card-header-text">
+                        <div className="edit-launch-card-title-row">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.envVars") || "Game Environment Variables"}</h4>
+                          {compatEnvPairs.length > 0 && (
+                            <span className="edit-launch-card-counter">{compatEnvPairs.length}</span>
+                          )}
+                        </div>
                         <p className="edit-launch-card-desc">{t("gameEdit.compatibility.envVarsDesc") || "Custom environment variables injected into the runner process."}</p>
                       </div>
                       <Button
@@ -2227,12 +2825,24 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                         size="sm"
                         onClick={() => setCompatEnvPairs([...compatEnvPairs, { key: "", value: "" }])}
                       >
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
                         {t("gameEdit.compatibility.addEnv") || "Add Variable"}
                       </Button>
                     </div>
 
                     {compatEnvPairs.length === 0 ? (
-                      <p className="edit-form-empty-text">{t("gameEdit.compatibility.noEnv") || "No custom environment variables defined."}</p>
+                      <div className="edit-form-empty-state">
+                        <div className="edit-form-empty-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="4 17 10 11 4 5" />
+                            <line x1="12" y1="19" x2="20" y2="19" />
+                          </svg>
+                        </div>
+                        <p className="edit-form-empty-text">{t("gameEdit.compatibility.noEnv") || "No custom environment variables defined."}</p>
+                      </div>
                     ) : (
                       compatEnvPairs.map((pair, idx) => (
                         <div key={idx} className="edit-compat-pair-row">
@@ -2260,7 +2870,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                           />
                           <button
                             type="button"
-                            className="edit-launch-input-clear"
+                            className="edit-compat-pair-remove"
                             onClick={() => setCompatEnvPairs(compatEnvPairs.filter((_, i) => i !== idx))}
                             title="Remove variable"
                           >
@@ -2274,11 +2884,92 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     )}
                   </div>
 
+                  {/* Inherited Global DLL Overrides */}
+                  <div className="edit-launch-card">
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-icon edit-launch-icon-global">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                          <polyline points="2 17 12 22 22 17" />
+                          <polyline points="2 12 12 17 22 12" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-card-header-text">
+                        <div className="edit-launch-card-title-row">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.inheritedGlobalDll") || "Inherited Global DLL Overrides"}</h4>
+                          {globalCompatSettings && Object.keys(globalCompatSettings.customDllOverrides || {}).length > 0 && (
+                            <span className="edit-launch-card-counter">
+                              {Object.keys(globalCompatSettings.customDllOverrides).length}
+                            </span>
+                          )}
+                        </div>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.inheritedGlobalDllDesc") || "Configured globally in Settings. You can exclude them for this game or remove them from global configuration."}</p>
+                      </div>
+                    </div>
+                    {!globalCompatSettings || Object.keys(globalCompatSettings.customDllOverrides || {}).length === 0 ? (
+                      <div className="edit-form-empty-state">
+                        <div className="edit-form-empty-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                            <polyline points="2 17 12 22 22 17" />
+                            <polyline points="2 12 12 17 22 12" />
+                          </svg>
+                        </div>
+                        <p className="edit-form-empty-text">{t("gameEdit.compatibility.noGlobalDll") || "No global DLL overrides configured in Settings."}</p>
+                      </div>
+                    ) : (
+                      Object.entries(globalCompatSettings.customDllOverrides).map(([dll, mode]) => {
+                        const isExcluded = excludedGlobalDlls.includes(dll);
+                        return (
+                          <div key={dll} className={`edit-global-item-row ${isExcluded ? "is-excluded" : ""}`}>
+                            <div className="edit-global-item-info">
+                              <code>{dll}.dll</code>
+                              <span className="edit-global-item-val">({String(mode)})</span>
+                              {isExcluded && <span className="edit-global-badge-excluded">{t("gameEdit.compatibility.excluded") || "Excluded for this game"}</span>}
+                            </div>
+                            <div className="edit-global-item-actions">
+                              <button
+                                type="button"
+                                className={`edit-global-action-btn ${isExcluded ? "is-active" : ""}`}
+                                onClick={() => handleToggleExcludeGlobalDll(dll)}
+                                title={isExcluded ? t("gameEdit.compatibility.includeForGame") || "Re-include for this game" : t("gameEdit.compatibility.excludeForGame") || "Exclude for this game"}
+                              >
+                                {isExcluded ? (t("gameEdit.compatibility.restoreForGame") || "Restore") : (t("gameEdit.compatibility.excludeForGame") || "Exclude")}
+                              </button>
+                              <button
+                                type="button"
+                                className="edit-global-action-btn edit-global-action-btn--danger"
+                                onClick={() => handleRemoveFromGlobalDll(dll)}
+                                title={t("gameEdit.compatibility.removeFromGlobal") || "Delete from global settings"}
+                              >
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <line x1="18" y1="6" x2="6" y2="18" />
+                                  <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                                <span>{t("gameEdit.compatibility.removeFromGlobalBtn") || "Remove from Global"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
                   {/* DLL Overrides */}
                   <div className="edit-launch-card">
-                    <div className="edit-compat-table-header">
-                      <div>
-                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.dllOverrides") || "DLL Overrides"}</h4>
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-icon edit-launch-icon-dll">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-card-header-text">
+                        <div className="edit-launch-card-title-row">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.dllOverrides") || "Game DLL Overrides"}</h4>
+                          {compatDllPairs.length > 0 && (
+                            <span className="edit-launch-card-counter">{compatDllPairs.length}</span>
+                          )}
+                        </div>
                         <p className="edit-launch-card-desc">{t("gameEdit.compatibility.dllOverridesDesc") || "Override library loading mode (WINEDLLOVERRIDES)."}</p>
                       </div>
                       <Button
@@ -2286,12 +2977,23 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                         size="sm"
                         onClick={() => setCompatDllPairs([...compatDllPairs, { dll: "", mode: "n,b" }])}
                       >
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
                         {t("gameEdit.compatibility.addDll") || "Add DLL Override"}
                       </Button>
                     </div>
 
                     {compatDllPairs.length === 0 ? (
-                      <p className="edit-form-empty-text">{t("gameEdit.compatibility.noDll") || "No DLL overrides defined."}</p>
+                      <div className="edit-form-empty-state">
+                        <div className="edit-form-empty-icon">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                          </svg>
+                        </div>
+                        <p className="edit-form-empty-text">{t("gameEdit.compatibility.noDll") || "No DLL overrides defined."}</p>
+                      </div>
                     ) : (
                       compatDllPairs.map((pair, idx) => (
                         <div key={idx} className="edit-compat-pair-row">
@@ -2323,7 +3025,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                           </select>
                           <button
                             type="button"
-                            className="edit-launch-input-clear"
+                            className="edit-compat-pair-remove"
                             onClick={() => setCompatDllPairs(compatDllPairs.filter((_, i) => i !== idx))}
                             title="Remove override"
                           >
@@ -2340,19 +3042,40 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   {/* Pre-launch command wrapper */}
                   <div className="edit-launch-card">
                     <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-icon edit-launch-icon-args">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="4 17 10 11 4 5" />
+                          <line x1="12" y1="19" x2="20" y2="19" />
+                        </svg>
+                      </div>
                       <div className="edit-launch-card-header-text">
                         <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.preLaunchCommand") || "Pre-Launch Wrapper Command"}</h4>
                         <p className="edit-launch-card-desc">{t("gameEdit.compatibility.preLaunchCommandDesc") || "Command or wrapper prefix (e.g. taskset -c 0-7 or prime-run)."}</p>
                       </div>
                     </div>
                     <div className="edit-launch-input-row">
-                      <input
-                        type="text"
-                        className="edit-input"
-                        value={compatPreLaunch}
-                        onChange={(e) => setCompatPreLaunch(e.target.value)}
-                        placeholder="e.g. taskset -c 0-7"
-                      />
+                      <div className="edit-launch-input-wrapper">
+                        <input
+                          type="text"
+                          className="edit-input edit-launch-path-input"
+                          value={compatPreLaunch}
+                          onChange={(e) => setCompatPreLaunch(e.target.value)}
+                          placeholder="e.g. taskset -c 0-7 or prime-run"
+                        />
+                        {compatPreLaunch && (
+                          <button
+                            type="button"
+                            className="edit-launch-input-clear"
+                            onClick={() => setCompatPreLaunch("")}
+                            title="Clear"
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2614,7 +3337,7 @@ function TriStateCard({
   icon?: ReactNode;
 }) {
   return (
-    <div className="edit-launch-card">
+    <div className="edit-launch-card edit-tristate-card">
       <div className="edit-launch-card-header">
         {icon && (
           <div className="edit-launch-card-icon edit-launch-icon-secondary">

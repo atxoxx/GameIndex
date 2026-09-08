@@ -376,17 +376,27 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
         {
           id: "compat-runners",
           labelKey: "settings.compatibility.sectionRunners",
-          keywords: "runner wine proton default path prefix directory custom scan version",
+          keywords: "runner wine proton default path prefix directory custom scan version wow64",
         },
         {
           id: "compat-graphics",
           labelKey: "settings.compatibility.sectionGraphics",
-          keywords: "dxvk vkd3d directx vulkan esync fsync nvapi dlss hud graphics d3d",
+          keywords: "dxvk vkd3d directx vulkan nvapi dlss hud graphics d3d async virtual desktop",
+        },
+        {
+          id: "compat-sync-engine",
+          labelKey: "compatibility.subtabSyncEngine",
+          keywords: "sync esync fsync ntsync winesync wineland wayland native wow64 large address debug audio driver",
+        },
+        {
+          id: "compat-gamescope",
+          labelKey: "compatibility.subtabGamescope",
+          keywords: "gamescope microcompositor resolution fsr nis scaling filter sharpness fps refresh rate hdr vrr adaptive sync",
         },
         {
           id: "compat-tools",
           labelKey: "settings.compatibility.sectionTools",
-          keywords: "mangohud gamemode gamescope fps overlay governor resolution prime offload discrete gpu",
+          keywords: "mangohud gamemode overlay governor prime offload discrete gpu",
         },
         {
           id: "compat-env",
@@ -396,7 +406,7 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
         {
           id: "compat-system",
           labelKey: "settings.compatibility.sectionSystem",
-          keywords: "system diagnostics linux wayland x11 vulkan winetricks kill wineserver processes",
+          keywords: "system diagnostics linux wayland x11 vulkan winetricks kill wineserver processes winecfg regedit taskmgr",
         },
       ],
     },

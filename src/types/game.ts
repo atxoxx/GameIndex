@@ -255,10 +255,29 @@ export interface CompatibilityProfile {
   enableEsync?: boolean | null;
   /** Fsync (futex-based synchronization) override */
   enableFsync?: boolean | null;
+  /** NTsync / WineSync (fast kernel synchronization driver) override */
+  enableNtsync?: boolean | null;
   /** DXVK-NVAPI / DLSS support override */
   enableDxvkNvapi?: boolean | null;
+  /** DXVK Async (asynchronous shader compiling) override */
+  enableDxvkAsync?: boolean | null;
   /** DXVK HUD options (e.g. "fps", "devinfo", "compiler") */
   dxvkHud?: string;
+
+  /** Wineland (native Wayland driver without XWayland) override */
+  enableWayland?: boolean | null;
+  /** Pure 64-bit Wine new WoW64 architecture mode override */
+  enableWow64?: boolean | null;
+  /** Large Address Aware (4GB virtual address space for 32-bit apps) */
+  enableLargeAddressAware?: boolean | null;
+  /** Wine debug channels override (e.g. "-all", "warn+all") */
+  wineDebug?: string | null;
+  /** Audio driver override ("auto", "pulse", "pipewire", "alsa") */
+  audioDriver?: string | null;
+  /** Wine virtual desktop override */
+  virtualDesktop?: boolean | null;
+  /** Wine virtual desktop resolution (e.g. "1920x1080") */
+  virtualDesktopRes?: string | null;
 
   /** MangoHud performance HUD overlay override */
   enableMangoHud?: boolean | null;
@@ -266,6 +285,32 @@ export interface CompatibilityProfile {
   enableGameMode?: boolean | null;
   /** Gamescope micro-compositor override */
   enableGamescope?: boolean | null;
+  /** Gamescope mode ("fullscreen" | "borderless" | "windowed") */
+  gamescopeMode?: "fullscreen" | "borderless" | "windowed" | null;
+  /** Gamescope internal game render width */
+  gamescopeGameWidth?: number | null;
+  /** Gamescope internal game render height */
+  gamescopeGameHeight?: number | null;
+  /** Gamescope output window width */
+  gamescopeWindowWidth?: number | null;
+  /** Gamescope output window height */
+  gamescopeWindowHeight?: number | null;
+  /** Gamescope upscaler filter */
+  gamescopeFilter?: "fsr" | "nis" | "linear" | "nearest" | "integer" | null;
+  /** Gamescope FSR sharpness (0 to 20) */
+  gamescopeFsrSharpness?: number | null;
+  /** Gamescope frame rate limit */
+  gamescopeFpsLimit?: number | null;
+  /** Gamescope display refresh rate */
+  gamescopeRefreshRate?: number | null;
+  /** Gamescope adaptive sync (VRR) */
+  gamescopeAdaptiveSync?: boolean | null;
+  /** Gamescope HDR mode */
+  gamescopeHdr?: boolean | null;
+  /** Gamescope stretch to aspect ratio */
+  gamescopeStretch?: boolean | null;
+  /** Gamescope force windows fullscreen */
+  gamescopeForceWindowsFullscreen?: boolean | null;
   /** Custom arguments for Gamescope (e.g. "-w 1920 -h 1080 -F fsr -f") */
   gamescopeArgs?: string;
   /** Prime render offload (discrete GPU on hybrid laptops) */
@@ -275,6 +320,10 @@ export interface CompatibilityProfile {
   environmentVariables?: Record<string, string>;
   /** Custom DLL overrides (e.g. "dinput8": "n,b") */
   dllOverrides?: Record<string, string>;
+  /** Global environment variables excluded for this game */
+  excludedGlobalEnv?: string[];
+  /** Global DLL overrides excluded for this game */
+  excludedGlobalDlls?: string[];
   /** Custom command wrapper prefix (e.g. "taskset -c 0-7") */
   preLaunchWrapper?: string;
 }

@@ -87,7 +87,7 @@ export default function SettingsPage() {
           }
         />
 
-        {meta.sections.length > 1 && (
+        {meta.sections.length > 1 && activeTab !== "compatibility" && (
           <SettingsJumpBar sections={meta.sections} t={t} />
         )}
 

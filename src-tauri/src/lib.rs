@@ -313,6 +313,7 @@ pub fn run() {
             compatibility::get_compatibility_settings,
             compatibility::set_compatibility_settings,
             compatibility::list_compatibility_runners,
+            compatibility::get_compatibility_runners,
             compatibility::get_compatibility_system_status,
             compatibility::get_game_wine_logs,
             compatibility::clear_game_wine_logs,

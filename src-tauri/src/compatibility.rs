@@ -55,6 +55,54 @@ pub struct CompatibilitySettings {
     pub custom_environment_variables: HashMap<String, String>,
     pub custom_dll_overrides: HashMap<String, String>,
     pub winetricks_path: Option<String>,
+
+    // Wine sync, architecture & engine additions
+    #[serde(default)]
+    pub enable_ntsync: bool,
+    #[serde(default)]
+    pub enable_dxvk_async: bool,
+    #[serde(default)]
+    pub enable_wayland: bool,
+    #[serde(default)]
+    pub enable_wow64: bool,
+    #[serde(default)]
+    pub enable_large_address_aware: bool,
+    #[serde(default)]
+    pub wine_debug: Option<String>,
+    #[serde(default)]
+    pub audio_driver: Option<String>,
+    #[serde(default)]
+    pub virtual_desktop: bool,
+    #[serde(default)]
+    pub virtual_desktop_res: Option<String>,
+
+    // Structured Gamescope settings
+    #[serde(default)]
+    pub gamescope_mode: Option<String>,
+    #[serde(default)]
+    pub gamescope_game_width: Option<u32>,
+    #[serde(default)]
+    pub gamescope_game_height: Option<u32>,
+    #[serde(default)]
+    pub gamescope_window_width: Option<u32>,
+    #[serde(default)]
+    pub gamescope_window_height: Option<u32>,
+    #[serde(default)]
+    pub gamescope_filter: Option<String>,
+    #[serde(default)]
+    pub gamescope_fsr_sharpness: Option<u32>,
+    #[serde(default)]
+    pub gamescope_fps_limit: Option<u32>,
+    #[serde(default)]
+    pub gamescope_refresh_rate: Option<u32>,
+    #[serde(default)]
+    pub gamescope_adaptive_sync: bool,
+    #[serde(default)]
+    pub gamescope_hdr: bool,
+    #[serde(default)]
+    pub gamescope_stretch: bool,
+    #[serde(default)]
+    pub gamescope_force_windows_fullscreen: bool,
 }
 
 impl Default for CompatibilitySettings {
@@ -75,6 +123,30 @@ impl Default for CompatibilitySettings {
             custom_environment_variables: HashMap::new(),
             custom_dll_overrides: HashMap::new(),
             winetricks_path: None,
+
+            enable_ntsync: false,
+            enable_dxvk_async: false,
+            enable_wayland: false,
+            enable_wow64: false,
+            enable_large_address_aware: false,
+            wine_debug: Some("-all".to_string()),
+            audio_driver: None,
+            virtual_desktop: false,
+            virtual_desktop_res: Some("1920x1080".to_string()),
+
+            gamescope_mode: Some("fullscreen".to_string()),
+            gamescope_game_width: Some(1920),
+            gamescope_game_height: Some(1080),
+            gamescope_window_width: None,
+            gamescope_window_height: None,
+            gamescope_filter: Some("fsr".to_string()),
+            gamescope_fsr_sharpness: Some(5),
+            gamescope_fps_limit: None,
+            gamescope_refresh_rate: None,
+            gamescope_adaptive_sync: false,
+            gamescope_hdr: false,
+            gamescope_stretch: false,
+            gamescope_force_windows_fullscreen: false,
         }
     }
 }
@@ -90,16 +162,39 @@ pub struct WineLogResult {
     pub log_path: String,
 }
 
-/// Helper: check if a command executable is available in PATH.
+static COMMAND_CACHE: std::sync::Mutex<Option<HashMap<String, bool>>> = std::sync::Mutex::new(None);
+
+/// Helper: check if a command executable is available in PATH (cached & fast on Windows).
 pub fn is_command_available(cmd: &str) -> bool {
-    #[cfg(windows)]
-    {
-        Command::new("where").arg(cmd).output().map(|o| o.status.success()).unwrap_or(false)
+    if let Ok(mut lock) = COMMAND_CACHE.lock() {
+        if lock.is_none() {
+            *lock = Some(HashMap::new());
+        }
+        if let Some(map) = lock.as_mut() {
+            if let Some(&cached) = map.get(cmd) {
+                return cached;
+            }
+            #[cfg(windows)]
+            let avail = {
+                let path_var = std::env::var("PATH").unwrap_or_default();
+                let has_ext = cmd.ends_with(".exe") || cmd.ends_with(".cmd") || cmd.ends_with(".bat");
+                let exts = [".exe", ".cmd", ".bat"];
+                std::env::split_paths(&path_var).any(|dir| {
+                    if has_ext {
+                        dir.join(cmd).is_file()
+                    } else {
+                        exts.iter().any(|ext| dir.join(format!("{}{}", cmd, ext)).is_file())
+                    }
+                })
+            };
+            #[cfg(not(windows))]
+            let avail = Command::new("which").arg(cmd).output().map(|o| o.status.success()).unwrap_or(false);
+
+            map.insert(cmd.to_string(), avail);
+            return avail;
+        }
     }
-    #[cfg(not(windows))]
-    {
-        Command::new("which").arg(cmd).output().map(|o| o.status.success()).unwrap_or(false)
-    }
+    false
 }
 
 /// Locate system and user Steam installation folders.
@@ -180,8 +275,8 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
             h.join(".local/share/wine/runners"),
             h.join(".config/heroic/tools/wine"),
             h.join(".config/heroic/tools/proton"),
-            h.join(".local/share/lutris/runners/wine"),
-            h.join(".local/share/bottles/runners"),
+            h.join(".local/share/proton-runners"),
+            h.join(".local/share/wine-custom"),
         ];
 
         for dir in &runner_dirs {
@@ -377,6 +472,11 @@ pub fn list_compatibility_runners() -> Vec<CompatibilityRunner> {
 }
 
 #[tauri::command]
+pub fn get_compatibility_runners() -> Vec<CompatibilityRunner> {
+    detect_compatibility_runners()
+}
+
+#[tauri::command]
 pub fn get_compatibility_system_status() -> LinuxSystemStatus {
     get_linux_system_status()
 }
@@ -567,6 +667,7 @@ pub fn launch_with_compatibility(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
     let arch = game_profile.and_then(|p| p.get("arch")).and_then(|v| v.as_str());
+
     let enable_dxvk = game_profile
         .and_then(|p| p.get("enableDxvk").or_else(|| p.get("dxvk")))
         .and_then(|v| v.as_bool())
@@ -583,10 +684,50 @@ pub fn launch_with_compatibility(
         .and_then(|p| p.get("enableFsync").or_else(|| p.get("fsync")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.enable_fsync);
+    let enable_ntsync = game_profile
+        .and_then(|p| p.get("enableNtsync").or_else(|| p.get("ntsync")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_ntsync);
     let enable_dxvk_nvapi = game_profile
         .and_then(|p| p.get("enableDxvkNvapi").or_else(|| p.get("enableNvapi")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.enable_dxvk_nvapi);
+    let enable_dxvk_async = game_profile
+        .and_then(|p| p.get("enableDxvkAsync").or_else(|| p.get("dxvkAsync")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_dxvk_async);
+    let enable_wayland = game_profile
+        .and_then(|p| p.get("enableWayland").or_else(|| p.get("wineland")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_wayland);
+    let enable_wow64 = game_profile
+        .and_then(|p| p.get("enableWow64").or_else(|| p.get("wow64")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_wow64);
+    let enable_large_address_aware = game_profile
+        .and_then(|p| p.get("enableLargeAddressAware").or_else(|| p.get("largeAddressAware")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_large_address_aware);
+    let wine_debug = game_profile
+        .and_then(|p| p.get("wineDebug"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| settings.wine_debug.clone());
+    let audio_driver = game_profile
+        .and_then(|p| p.get("audioDriver"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| settings.audio_driver.clone());
+    let virtual_desktop = game_profile
+        .and_then(|p| p.get("virtualDesktop"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.virtual_desktop);
+    let virtual_desktop_res = game_profile
+        .and_then(|p| p.get("virtualDesktopRes"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| settings.virtual_desktop_res.clone());
+
     let dxvk_hud = game_profile.and_then(|p| p.get("dxvkHud")).and_then(|v| v.as_str());
     let enable_mangohud = game_profile
         .and_then(|p| p.get("enableMangoHud").or_else(|| p.get("mangohud")))
@@ -600,12 +741,89 @@ pub fn launch_with_compatibility(
         .and_then(|p| p.get("enableGamescope").or_else(|| p.get("gamescope")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.enable_gamescope);
-    let gamescope_args = game_profile.and_then(|p| p.get("gamescopeArgs")).and_then(|v| v.as_str()).map(|s| s.to_string())
+
+    let gamescope_mode = game_profile
+        .and_then(|p| p.get("gamescopeMode"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| settings.gamescope_mode.clone());
+    let gamescope_game_width = game_profile
+        .and_then(|p| p.get("gamescopeGameWidth"))
+        .and_then(|v| v.as_u64())
+        .map(|n| n as u32)
+        .or(settings.gamescope_game_width);
+    let gamescope_game_height = game_profile
+        .and_then(|p| p.get("gamescopeGameHeight"))
+        .and_then(|v| v.as_u64())
+        .map(|n| n as u32)
+        .or(settings.gamescope_game_height);
+    let gamescope_window_width = game_profile
+        .and_then(|p| p.get("gamescopeWindowWidth"))
+        .and_then(|v| v.as_u64())
+        .map(|n| n as u32)
+        .or(settings.gamescope_window_width);
+    let gamescope_window_height = game_profile
+        .and_then(|p| p.get("gamescopeWindowHeight"))
+        .and_then(|v| v.as_u64())
+        .map(|n| n as u32)
+        .or(settings.gamescope_window_height);
+    let gamescope_filter = game_profile
+        .and_then(|p| p.get("gamescopeFilter"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| settings.gamescope_filter.clone());
+    let gamescope_fsr_sharpness = game_profile
+        .and_then(|p| p.get("gamescopeFsrSharpness"))
+        .and_then(|v| v.as_u64())
+        .map(|n| n as u32)
+        .or(settings.gamescope_fsr_sharpness);
+    let gamescope_fps_limit = game_profile
+        .and_then(|p| p.get("gamescopeFpsLimit"))
+        .and_then(|v| v.as_u64())
+        .map(|n| n as u32)
+        .or(settings.gamescope_fps_limit);
+    let gamescope_refresh_rate = game_profile
+        .and_then(|p| p.get("gamescopeRefreshRate"))
+        .and_then(|v| v.as_u64())
+        .map(|n| n as u32)
+        .or(settings.gamescope_refresh_rate);
+    let gamescope_adaptive_sync = game_profile
+        .and_then(|p| p.get("gamescopeAdaptiveSync"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.gamescope_adaptive_sync);
+    let gamescope_hdr = game_profile
+        .and_then(|p| p.get("gamescopeHdr"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.gamescope_hdr);
+    let gamescope_stretch = game_profile
+        .and_then(|p| p.get("gamescopeStretch"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.gamescope_stretch);
+    let gamescope_force_windows_fullscreen = game_profile
+        .and_then(|p| p.get("gamescopeForceWindowsFullscreen"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.gamescope_force_windows_fullscreen);
+
+    let gamescope_args = game_profile
+        .and_then(|p| p.get("gamescopeArgs"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
         .or_else(|| settings.gamescope_args.clone());
     let prime_render_offload = game_profile
         .and_then(|p| p.get("primeRenderOffload").or_else(|| p.get("primeOffload")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.prime_render_offload);
+
+    let excluded_global_env: Vec<String> = game_profile
+        .and_then(|p| p.get("excludedGlobalEnv"))
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default();
+    let excluded_global_dlls: Vec<String> = game_profile
+        .and_then(|p| p.get("excludedGlobalDlls"))
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default();
 
     // Resolve runner
     let runner_path = if let Some(r) = custom_runner_path.filter(|s| !s.trim().is_empty()) {
@@ -644,17 +862,69 @@ pub fn launch_with_compatibility(
     let _ = writeln!(log_file, "Executable: {}", exe_path.display());
     let _ = writeln!(log_file, "Runner: {}", runner_path);
     let _ = writeln!(log_file, "Prefix: {}", prefix.display());
-    let _ = writeln!(log_file, "ESync: {}, FSync: {}, DXVK: {}, VKD3D: {}", enable_esync, enable_fsync, enable_dxvk, enable_vkd3d);
+    let _ = writeln!(log_file, "ESync: {}, FSync: {}, NTSync: {}, DXVK: {}, VKD3D: {}", enable_esync, enable_fsync, enable_ntsync, enable_dxvk, enable_vkd3d);
+    let _ = writeln!(log_file, "Wineland: {}, WoW64: {}, LargeAddress: {}", enable_wayland, enable_wow64, enable_large_address_aware);
     let _ = writeln!(log_file, "MangoHud: {}, GameMode: {}, Gamescope: {}", enable_mangohud, enable_gamemode, enable_gamescope);
     let _ = writeln!(log_file, "==================================================");
     let _ = log_file.flush();
 
     // Build the command chain.
-    // Order: [gamescope [args] --] [gamemoderun] [mangohud] runner [run] exe [args]
+    // Order: [gamescope [args] --] [gamemoderun] [mangohud] runner [run] [virtual desktop / exe] [args]
     let mut tokens: Vec<String> = Vec::new();
 
     if enable_gamescope && is_command_available("gamescope") {
         tokens.push("gamescope".to_string());
+        if let Some(mode) = gamescope_mode.as_deref() {
+            if mode == "fullscreen" {
+                tokens.push("-f".to_string());
+            } else if mode == "borderless" {
+                tokens.push("-b".to_string());
+            }
+        }
+        if let (Some(w), Some(h)) = (gamescope_game_width, gamescope_game_height) {
+            tokens.push("-w".to_string());
+            tokens.push(w.to_string());
+            tokens.push("-h".to_string());
+            tokens.push(h.to_string());
+        }
+        if let (Some(w), Some(h)) = (gamescope_window_width, gamescope_window_height) {
+            tokens.push("-W".to_string());
+            tokens.push(w.to_string());
+            tokens.push("-H".to_string());
+            tokens.push(h.to_string());
+        }
+        if let Some(flt) = gamescope_filter.as_deref() {
+            if flt == "integer" {
+                tokens.push("-i".to_string());
+            } else {
+                tokens.push("-F".to_string());
+                tokens.push(flt.to_string());
+            }
+        }
+        if let Some(sharp) = gamescope_fsr_sharpness {
+            tokens.push("--fsr-sharpness".to_string());
+            tokens.push(sharp.to_string());
+        }
+        if let Some(lim) = gamescope_fps_limit {
+            tokens.push("-r".to_string());
+            tokens.push(lim.to_string());
+        }
+        if let Some(ref_rate) = gamescope_refresh_rate {
+            tokens.push("-o".to_string());
+            tokens.push(ref_rate.to_string());
+        }
+        if gamescope_adaptive_sync {
+            tokens.push("--adaptive-sync".to_string());
+        }
+        if gamescope_hdr {
+            tokens.push("--hdr-enabled".to_string());
+        }
+        if gamescope_stretch {
+            tokens.push("-s".to_string());
+        }
+        if gamescope_force_windows_fullscreen {
+            tokens.push("--force-windows-fullscreen".to_string());
+        }
         if let Some(args_str) = gamescope_args.as_ref() {
             for arg in args_str.split_whitespace() {
                 tokens.push(arg.to_string());
@@ -674,6 +944,12 @@ pub fn launch_with_compatibility(
     tokens.push(runner_path.clone());
     if is_proton {
         tokens.push("run".to_string());
+    }
+
+    if virtual_desktop {
+        tokens.push("explorer.exe".to_string());
+        let res = virtual_desktop_res.as_deref().unwrap_or("1920x1080");
+        tokens.push(format!("/desktop=GameIndex,{}", res));
     }
 
     tokens.push(exe_path.to_string_lossy().to_string());
@@ -698,9 +974,33 @@ pub fn launch_with_compatibility(
     }
     cmd.env("WINEESYNC", if enable_esync { "1" } else { "0" });
     cmd.env("WINEFSYNC", if enable_fsync { "1" } else { "0" });
+    if enable_ntsync {
+        cmd.env("WINESYNC", "1");
+        cmd.env("WINENTSYNC", "1");
+    }
 
     if enable_dxvk_nvapi {
         cmd.env("DXVK_ENABLE_NVAPI", "1");
+    }
+    if enable_dxvk_async {
+        cmd.env("DXVK_ASYNC", "1");
+    }
+    if enable_wayland {
+        cmd.env("WINE_ENABLE_WAYLAND", "1");
+    }
+    if enable_wow64 {
+        cmd.env("WINE_NEW_WOW64", "1");
+    }
+    if enable_large_address_aware {
+        cmd.env("WINE_LARGE_ADDRESS_AWARE", "1");
+    }
+    if let Some(dbg) = wine_debug.as_deref() {
+        cmd.env("WINEDEBUG", dbg);
+    }
+    if let Some(aud) = audio_driver.as_deref() {
+        if aud != "auto" {
+            cmd.env("WINEAUDIODRIVER", aud);
+        }
     }
     if let Some(hud) = dxvk_hud {
         if !hud.trim().is_empty() {
@@ -710,6 +1010,11 @@ pub fn launch_with_compatibility(
 
     // Build DLL overrides
     let mut dll_map = settings.custom_dll_overrides.clone();
+    // Exclude global DLLs if designated by game profile
+    for exc in &excluded_global_dlls {
+        dll_map.remove(exc);
+    }
+
     if let Some(game_dlls) = game_profile.and_then(|p| p.get("dllOverrides")).and_then(|v| v.as_object()) {
         for (k, val) in game_dlls {
             if let Some(s) = val.as_str() {
@@ -752,9 +1057,11 @@ pub fn launch_with_compatibility(
         }
     }
 
-    // User environment variables
+    // User environment variables (filtered for exclusions)
     for (k, v) in &settings.custom_environment_variables {
-        cmd.env(k, v);
+        if !excluded_global_env.contains(k) {
+            cmd.env(k, v);
+        }
     }
     if let Some(game_envs) = game_profile
         .and_then(|p| p.get("environmentVariables").or_else(|| p.get("customEnv")))
