@@ -26,8 +26,11 @@ function getAudioContext(): AudioContext | null {
   return audioCtx;
 }
 
-// Global cached sound settings (synced with SettingsContext / localStorage)
-let soundEnabled = true;
+// Global cached sound settings (synced with SettingsContext / localStorage).
+// Default OFF: first-launch users are bootstrapped into a silent UI, and
+// SettingsContext pushes the persisted choice here on mount, so returning
+// users who enabled sounds get them back immediately.
+let soundEnabled = false;
 let soundVolume = 0.25;
 
 export function updateSoundConfig(enabled: boolean, volume: number): void {

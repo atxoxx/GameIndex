@@ -81,8 +81,10 @@ const LS_NAVBAR_MODE = "gamelib.navbar_mode";
 const LS_UI_DENSITY_MODE = "gamelib.ui_density_mode";
 const LS_UI_SCALE = "gamelib.ui_scale";
 // Set on the very first launch so brand-new users can be defaulted into
-// Simple UI mode for approachability, while anyone who has ever run the
-// app keeps whatever they last chose. Append-only, like every other key.
+// the approachable out-of-the-box state (Simple UI mode, only the
+// Store / Library / Community navbar tabs, UI sounds off), while anyone
+// who has ever run the app keeps whatever they last chose.
+// Append-only, like every other key.
 const LS_FIRST_LAUNCH = "gamelib.first_launch";
 const LS_REDUCE_MOTION = "gamelib.reduce_motion";
 const LS_SHOW_CARD_BADGES = "gamelib.show_card_badges";
@@ -404,6 +406,40 @@ function parseDeadzoneSetting(raw: string | null): number | null {
   return Number.isFinite(value) ? clampDeadzone(value) : null;
 }
 
+/** First-launch navbar overrides: only Store, Library and Community are
+ *  shown; every other tab starts hidden. Persisted as OFF entries only
+ *  (same overrides-object pattern as the Interface settings tab), so
+ *  returning installs — which never write this blob — keep all tabs. */
+const FIRST_LAUNCH_INTERFACE_OVERRIDES: Partial<InterfaceVisibility> = {
+  navHome: false,
+  navWishlist: false,
+  navDeals: false,
+  navNews: false,
+  navEmulators: false,
+  navMods: false,
+  navActivity: false,
+  navAchievements: false,
+  navStorage: false,
+  navFriends: false,
+};
+
+/**
+ * One-time first-launch bootstrap. Writes the out-of-the-box defaults
+ * explicitly so every consumer — including StrictMode remounts, which
+ * re-run state initializers — reads the same values: Simple UI mode,
+ * only Store / Library / Community navbar tabs, and UI sounds OFF.
+ * Returning installs already have `gamelib.first_launch` set, so this
+ * is a no-op for them and they keep whatever they last chose.
+ */
+function bootstrapFirstLaunchDefaults(): void {
+  if (lsGet(LS_FIRST_LAUNCH) !== null) return;
+  lsSet(LS_FIRST_LAUNCH, "1");
+  lsSet(LS_UI_DENSITY_MODE, "simple");
+  lsSet(LS_UI_SOUND_ENABLED, "false");
+  lsSetJSON(LS_INTERFACE_VISIBILITY, FIRST_LAUNCH_INTERFACE_OVERRIDES);
+}
+bootstrapFirstLaunchDefaults();
+
 /** Default state: every detail-page section starts visible so existing
  *  users see nothing change. Individual sections can be switched off. */
 const DEFAULT_DETAIL_SECTION_VISIBILITY: DetailSectionVisibility = {
@@ -662,9 +698,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_AUTO_GAME_ACCENT, String(next));
   }, []);
 
-  const [uiSoundEnabled, setUiSoundEnabledState] = useState<boolean>(() =>
-    lsGet(LS_UI_SOUND_ENABLED) !== "false",
-  );
+  const [uiSoundEnabled, setUiSoundEnabledState] = useState<boolean>(() => {
+    const stored = lsGet(LS_UI_SOUND_ENABLED);
+    if (stored !== null) return stored === "true";
+    // Nothing persisted: brand-new installs are bootstrapped to OFF;
+    // returning installs (first-launch flag already set) keep the
+    // legacy ON default so the upgrade is silent for them.
+    return lsGet(LS_FIRST_LAUNCH) !== null;
+  });
   const [uiSoundVolume, setUiSoundVolumeState] = useState<number>(() => {
     const raw = Number(lsGet(LS_UI_SOUND_VOLUME) ?? "25");
     return Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 25;
@@ -946,14 +987,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [uiDensityMode, setUiDensityModeState] = useState<UiDensityMode>(() => {
     const stored = lsGet(LS_UI_DENSITY_MODE);
     if (stored === "simple" || stored === "complete") return stored;
-    // No explicit choice persisted. On the very first launch of the app
-    // we default a brand-new user into Simple mode so the UI reads
-    // approachable out of the box; returning installs keep Complete.
-    if (lsGet(LS_FIRST_LAUNCH) === null) {
-      lsSet(LS_UI_DENSITY_MODE, "simple");
-      lsSet(LS_FIRST_LAUNCH, "1");
-      return "simple";
-    }
+    // No explicit choice persisted. The first-launch bootstrap writes
+    // "simple"; returning installs that never touched the setting keep
+    // Complete.
     return "complete";
   });
   const setUiDensityMode = useCallback((next: UiDensityMode) => {
