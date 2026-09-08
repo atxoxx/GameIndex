@@ -6,12 +6,44 @@
   padding: 0;
 }
 
+:root {
+  --app-h: 100vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-h: 100dvh;
+  }
+}
+
 html,
 body,
 #root {
   height: 100%;
+  min-height: var(--app-h);
   width: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Tauri window drag region helpers (crucial for Linux WebKitGTK) */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+[data-tauri-drag-region="false"],
+[data-tauri-drag-region="false"] * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Paused animations when window is minimized or hidden */
+.animations-paused *,
+.animations-paused *::before,
+.animations-paused *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
 }
 
 body {

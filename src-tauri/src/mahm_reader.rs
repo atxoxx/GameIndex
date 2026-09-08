@@ -1,7 +1,10 @@
+#[cfg(windows)]
 use windows::core::PCSTR;
+#[cfg(windows)]
 use windows::Win32::System::Memory::{
     MapViewOfFile, OpenFileMappingA, UnmapViewOfFile, FILE_MAP_READ,
 };
+#[cfg(windows)]
 use windows::Win32::Foundation::{CloseHandle, HANDLE, BOOL};
 use std::ffi::CString;
 use std::sync::Mutex;
@@ -65,8 +68,10 @@ pub struct MahmMetrics {
     pub fps: Option<f32>,
 }
 
+#[cfg(windows)]
 static CACHED_MAHM_HANDLE: Mutex<Option<isize>> = Mutex::new(None);
 
+#[cfg(windows)]
 unsafe fn try_open_mahm() -> Option<isize> {
     if let Ok(cache) = CACHED_MAHM_HANDLE.lock() {
         if let Some(handle) = *cache {
@@ -99,6 +104,7 @@ unsafe fn try_open_mahm() -> Option<isize> {
 /// Used when `MapViewOfFile` fails against a stale handle (Afterburner
 /// restarted and recreated the shared-memory section); without this the
 /// reader would keep returning `None` until the app restarts.
+#[cfg(windows)]
 fn clear_mahm_handle() {
     if let Ok(mut cache) = CACHED_MAHM_HANDLE.lock() {
         *cache = None;
@@ -106,6 +112,7 @@ fn clear_mahm_handle() {
 }
 
 /// Extract a null-terminated ASCII string from raw memory at `ptr` with max `len` bytes.
+#[cfg(windows)]
 unsafe fn read_str_at(ptr: *const u8, len: usize) -> String {
     let slice = std::slice::from_raw_parts(ptr, len);
     let end = slice.iter().position(|&b| b == 0).unwrap_or(len);
@@ -196,6 +203,12 @@ fn matches_system_ram(name: &str) -> bool {
 ///
 /// These are the standard English names that MSI Afterburner uses in its shared memory.
 /// The matching is case-insensitive.
+#[cfg(not(windows))]
+pub fn read_mahm_metrics(_gpu_idx: u32, _gpu_name: Option<&str>) -> Option<MahmMetrics> {
+    None
+}
+
+#[cfg(windows)]
 pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMetrics> {
     unsafe {
         let handle_raw = try_open_mahm()?;

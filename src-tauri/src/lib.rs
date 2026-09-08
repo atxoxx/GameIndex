@@ -93,18 +93,18 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        // L4: autostart-on-boot. Pass an empty args vec â€” we don't
+        // L4: autostart-on-boot. Pass an empty args vec — we don't
         // currently ship a `--minimized` flag, so the binary just
         // launches into the regular window. The plugin also writes
         // the right per-OS artifact (LaunchAgent on macOS,
-        // `HKCU\â€¦\Run` regkey on Windows, .desktop autostart on
+        // `HKCU\…\Run` regkey on Windows, .desktop autostart on
         // Linux) so calling `enable()` is the only API surface the
         // frontend needs.
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, scan_folders_for_exes, cancel_scan_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, download_artwork, store_artwork_file, artwork_asset_url, cleanup_artwork_cache, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, relink_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, refresh_hardware, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, fetch_spotlight_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_recommended_config,
+        .invoke_handler(tauri::generate_handler![get_platform, scan_folder_for_exes, scan_folders_for_exes, cancel_scan_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, download_artwork, store_artwork_file, artwork_asset_url, cleanup_artwork_cache, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, relink_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, refresh_hardware, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, fetch_spotlight_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_recommended_config,
             get_language, set_language, get_theme, set_theme, get_accent_color, set_accent_color, get_adaptive_palette, set_adaptive_palette, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url, deals::fetch_playtester_games, deals::fetch_playtester_game_detail,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,
@@ -345,6 +345,17 @@ pub fn run() {
                         let _ = win.show();
                         let _ = win.unminimize();
                     }
+                }
+            }
+
+            #[cfg(target_os = "linux")]
+            if let WindowEvent::Resized(_) = event {
+                if window.label() == "main" {
+                    let win = window.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        let _ = win.eval("window.dispatchEvent(new Event('resize'))");
+                    });
                 }
             }
         })
@@ -598,6 +609,17 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 start_internet_sync_loop(app_handle).await;
             });
+
+            #[cfg(target_os = "linux")]
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    if let Some(win) = handle.get_webview_window("main") {
+                        let _ = win.set_focus();
+                    }
+                });
+            }
 
             Ok(())
         })

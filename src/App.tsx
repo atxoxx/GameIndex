@@ -1,8 +1,9 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import TopNav from "./components/TopNav";
 import Sidebar from "./components/Sidebar";
 import MainContent from "./components/MainContent";
+import ResizeHandles from "./components/ResizeHandles";
 // BigScreenLayout is huge (controller shell + search overlay + virtual
 // cursor) and only ever mounted when the user is actually in Big Screen
 // mode, so it is lazy-loaded to keep it — and its transitive deps — out of
@@ -113,8 +114,22 @@ function AppShell() {
   useTrayNavigation();
   useTrayStrings();
   const { isBigScreen } = useBigScreen();
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        document.documentElement.classList.add("animations-paused");
+      } else {
+        document.documentElement.classList.remove("animations-paused");
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
   return (
     <GamepadProvider enabled={isBigScreen}>
+      <ResizeHandles />
       <Suspense fallback={<PageLoadingFallback />}>
         <Routes>
           <Route element={<AppLayout />}>

@@ -1,4 +1,5 @@
 use serde::Serialize;
+#[cfg(windows)]
 use wmi::{COMLibrary, WMIConnection};
 
 /// Serializable GPU info matching the frontend GpuInfo type.
@@ -13,6 +14,7 @@ pub struct GpuInfo {
 
 /// WMI video controller struct for deserialization.
 /// WMI returns PascalCase properties — serde maps them to snake_case.
+#[cfg(windows)]
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct WmiVideoController {
@@ -24,6 +26,7 @@ struct WmiVideoController {
 /// Detect GPUs on the system using WMI (Windows Management Instrumentation).
 /// Spawns a dedicated thread to avoid COM apartment threading conflicts (0x80010106).
 /// Falls back to an empty list if WMI is unavailable (e.g., non-Windows platforms).
+#[cfg(windows)]
 pub fn detect_gpus() -> Vec<GpuInfo> {
     std::thread::spawn(|| {
         let mut gpus = Vec::new();
@@ -91,6 +94,107 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
     })
     .join()
     .unwrap_or_default()
+}
+
+/// Detect GPUs on Linux via /sys/class/drm/card*/device.
+#[cfg(target_os = "linux")]
+pub fn detect_gpus() -> Vec<GpuInfo> {
+    use std::fs;
+    use std::path::Path;
+
+    let mut gpus = Vec::new();
+    let drm = Path::new("/sys/class/drm");
+    if !drm.exists() {
+        return gpus;
+    }
+    let Ok(entries) = fs::read_dir(drm) else {
+        return gpus;
+    };
+    let mut idx = 0u32;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !name.starts_with("card") || name.contains('-') {
+            continue;
+        }
+        let dev = entry.path().join("device");
+        if !dev.exists() {
+            continue;
+        }
+        let vendor_id = fs::read_to_string(dev.join("vendor"))
+            .map(|s| s.trim().to_lowercase())
+            .unwrap_or_default();
+        let uevent = fs::read_to_string(dev.join("uevent")).unwrap_or_default();
+        let pci_slot = uevent
+            .lines()
+            .find(|l| l.starts_with("PCI_SLOT_NAME="))
+            .map(|l| l.trim_start_matches("PCI_SLOT_NAME=").to_string())
+            .unwrap_or_default();
+        let vendor = match vendor_id.as_str() {
+            "0x10de" => "NVIDIA",
+            "0x1002" => "AMD",
+            "0x8086" => "Intel",
+            _ => "Unknown",
+        };
+        let gpu_name = if vendor == "NVIDIA" {
+            nvidia_name_linux(&pci_slot)
+        } else {
+            format!("{} GPU ({})", vendor, pci_slot)
+        };
+        let vram_mb = if vendor == "NVIDIA" {
+            nvidia_vram_linux()
+        } else {
+            estimate_vram_from_name(&gpu_name)
+        };
+        gpus.push(GpuInfo {
+            id: format!("gpu-{}", idx),
+            name: gpu_name,
+            vendor: vendor.to_string(),
+            vram_mb,
+        });
+        idx += 1;
+    }
+    gpus
+}
+
+#[cfg(target_os = "linux")]
+fn nvidia_name_linux(_pci: &str) -> String {
+    let base = std::path::Path::new("/proc/driver/nvidia/gpus");
+    if let Ok(entries) = std::fs::read_dir(base) {
+        for e in entries.flatten() {
+            if let Ok(info) = std::fs::read_to_string(e.path().join("information")) {
+                if let Some(line) = info.lines().find(|l| l.starts_with("Model:")) {
+                    let m = line.trim_start_matches("Model:").trim().to_string();
+                    if !m.is_empty() {
+                        return m;
+                    }
+                }
+            }
+        }
+    }
+    "NVIDIA GPU".to_string()
+}
+
+#[cfg(target_os = "linux")]
+fn nvidia_vram_linux() -> u64 {
+    let base = std::path::Path::new("/proc/driver/nvidia/gpus");
+    if let Ok(entries) = std::fs::read_dir(base) {
+        for e in entries.flatten() {
+            if let Ok(info) = std::fs::read_to_string(e.path().join("information")) {
+                if let Some(line) = info.lines().find(|l| l.contains("Total Memory:")) {
+                    let digits: String = line.chars().filter(|c| c.is_ascii_digit()).collect();
+                    if let Ok(mb) = digits.parse::<u64>() {
+                        return mb;
+                    }
+                }
+            }
+        }
+    }
+    0
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+pub fn detect_gpus() -> Vec<GpuInfo> {
+    Vec::new()
 }
 
 /// Try to infer the vendor from the GPU name when WMI doesn't report it.

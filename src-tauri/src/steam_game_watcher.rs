@@ -101,6 +101,26 @@ pub fn find_steam_install_dir() -> Option<PathBuf> {
             }
         }
     }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            let home_path = Path::new(&home);
+            let candidates = [
+                home_path.join(".local/share/Steam"),
+                home_path.join(".steam/steam"),
+                home_path.join(".steam/root"),
+                home_path.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"),
+                home_path.join(".var/app/com.valvesoftware.Steam/.steam/steam"),
+                home_path.join("snap/steam/common/.local/share/Steam"),
+            ];
+            for p in &candidates {
+                if p.join("steamapps").is_dir() {
+                    return Some(p.clone());
+                }
+            }
+        }
+    }
     None
 }
 

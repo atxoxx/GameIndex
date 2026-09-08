@@ -66,18 +66,22 @@ export default function WindowControls() {
     // unlisten is still undefined when cleanup runs. Without the
     // post-await teardown, that first listener would leak across the
     // StrictMode double-mount. Both paths are needed.
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       try {
         const win = getCurrentWindow();
         const initial = await win.isMaximized();
         if (!cancelled) setIsMaximized(initial);
-        unlisten = await win.onResized(async () => {
+        unlisten = await win.onResized(() => {
           if (cancelled) return;
-          try {
-            setIsMaximized(await win.isMaximized());
-          } catch {
-            /* browser-mode: noop */
-          }
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(async () => {
+            try {
+              setIsMaximized(await win.isMaximized());
+            } catch {
+              /* browser-mode: noop */
+            }
+          }, 150);
         });
         if (cancelled && unlisten) {
           try {
@@ -94,6 +98,7 @@ export default function WindowControls() {
 
     return () => {
       cancelled = true;
+      if (resizeTimer) clearTimeout(resizeTimer);
       if (unlisten) {
         try {
           unlisten();
@@ -159,6 +164,7 @@ export default function WindowControls() {
       className="window-controls"
       role="group"
       aria-label={t("window.controls")}
+      data-tauri-drag-region="false"
     >
       <button
         type="button"

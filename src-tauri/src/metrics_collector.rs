@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+#[cfg(windows)]
 use wmi::{COMLibrary, WMIConnection};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -99,12 +100,14 @@ struct MetricsSample {
 }
 
 /// WMI structs for deserializing performance data.
+#[cfg(windows)]
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct WmiProcessor {
     percent_processor_time: Option<u64>,
 }
 
+#[cfg(windows)]
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct WmiOS {
@@ -112,12 +115,14 @@ struct WmiOS {
     free_physical_memory: Option<u64>,
 }
 
+#[cfg(windows)]
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct WmiGpuEngine {
     utilization_percentage: Option<u64>,
 }
 
+#[cfg(windows)]
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct WmiSensor {
@@ -173,6 +178,19 @@ pub fn start_metrics_collection(
     (stop_tx, result_rx)
 }
 
+#[cfg(not(windows))]
+fn collect_metrics_loop(
+    _config: &MetricsConfig,
+    stop_rx: mpsc::Receiver<()>,
+    _game_pid: u32,
+    _gpu_id: Option<String>,
+    _gpu_name: Option<String>,
+) -> Vec<MetricsSample> {
+    let _ = stop_rx.recv();
+    Vec::new()
+}
+
+#[cfg(windows)]
 fn collect_metrics_loop(
     config: &MetricsConfig,
     stop_rx: mpsc::Receiver<()>,
@@ -291,6 +309,7 @@ fn collect_metrics_loop(
     samples
 }
 
+#[cfg(windows)]
 fn collect_single_sample(
     wmi_con: &WMIConnection,
     lhm_con: Option<&WMIConnection>,
@@ -459,6 +478,7 @@ fn collect_single_sample(
     }
 }
 
+#[cfg(windows)]
 fn get_cpu_usage(wmi_con: &WMIConnection) -> u32 {
     let query = "SELECT PercentProcessorTime FROM Win32_PerfFormattedData_PerfOS_Processor WHERE Name = '_Total'";
     match wmi_con.raw_query::<WmiProcessor>(query) {
@@ -476,6 +496,7 @@ fn get_cpu_usage(wmi_con: &WMIConnection) -> u32 {
 /// Get GPU usage via WMI GPU Performance Counters.
 /// Uses the MAX of all 3D engine instances (not average), because each 3D engine
 /// reports its own utilization and there is typically one dominant engine.
+#[cfg(windows)]
 fn get_gpu_usage_wmi(wmi_con: &WMIConnection, gpu_idx: u32) -> u32 {
     // Approach 1: 3D engines for selected GPU — take the MAX value
     let query = format!(
@@ -525,6 +546,7 @@ fn get_gpu_usage_wmi(wmi_con: &WMIConnection, gpu_idx: u32) -> u32 {
 /// Total physical system memory in MB. WMI exposes `TotalVisibleMemorySize`
 /// in KB; we convert inside so callers never need to know about KB units.
 /// Defaults to 16 GB when WMI is unavailable or yields no rows.
+#[cfg(windows)]
 fn get_total_ram_mb(wmi_con: &WMIConnection) -> u64 {
     // 16 GB expressed in KB (the unit WMI reports).
     const DEFAULT_KB: u64 = 16 * 1024 * 1024;
@@ -613,6 +635,7 @@ fn resolve_mahm_ram_pct(raw_ram: f32, units: &str, total_ram_mb: u64) -> Option<
 /// ratio is independent of total RAM size. We use f64 to preserve precision
 /// (integer `* 100` over `total` loses sub-percent detail) and clamp before
 /// rounding so partial WMI replies cannot push the value above 100%.
+#[cfg(windows)]
 fn get_ram_usage_pct(wmi_con: &WMIConnection) -> u32 {
     let query = "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem";
     match wmi_con.raw_query::<WmiOS>(query) {
@@ -634,6 +657,7 @@ fn get_ram_usage_pct(wmi_con: &WMIConnection) -> u32 {
     }
 }
 
+#[cfg(windows)]
 fn open_hwmon(namespace: &str) -> Option<WMIConnection> {
     // See collect_metrics_loop for why we try without_security as a
     // fallback — once security is set, COMLibrary::new() can fail.
@@ -645,6 +669,7 @@ fn open_hwmon(namespace: &str) -> Option<WMIConnection> {
 
 /// Read the Temperature + Load sensors from an already-open LHM/OHM
 /// connection. Returns (cpu_temp, gpu_temp, cpu_load, gpu_load).
+#[cfg(windows)]
 fn query_hwmon(wmi_con: &WMIConnection) -> Option<(f32, f32, f32, f32)> {
     // Fetch both Temperature and Load sensors in a single query
     let query = "SELECT Name, Value, SensorType FROM Sensor WHERE SensorType = 'Temperature' OR SensorType = 'Load'";
@@ -817,11 +842,7 @@ fn aggregate_metrics(samples: &[MetricsSample], config: &MetricsConfig) -> Optio
 }
 
 /// Helper to get the total system RAM in GB.
-///
-/// Prefers the Win32 `GlobalMemoryStatusEx` API, which reports the real
-/// installed physical memory and has no dependency on COM/WMI init (so it
-/// still works on background threads where `CoInitializeSecurity` has already
-/// been called). Falls back to a WMI query, then to `0` if both fail.
+#[cfg(windows)]
 pub fn get_system_ram_gb() -> u32 {
     if let Some(gb) = get_phys_ram_gb_windows_api() {
         return gb;
@@ -830,6 +851,29 @@ pub fn get_system_ram_gb() -> u32 {
     if let Some(gb) = get_phys_ram_gb_wmi() {
         return gb;
     }
+    0
+}
+
+#[cfg(target_os = "linux")]
+pub fn get_system_ram_gb() -> u32 {
+    if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
+        for line in meminfo.lines() {
+            if line.starts_with("MemTotal:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    if let Ok(kb) = parts[1].parse::<u64>() {
+                        let gb = (kb as f64 / (1024.0 * 1024.0)).round() as u32;
+                        return gb;
+                    }
+                }
+            }
+        }
+    }
+    0
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+pub fn get_system_ram_gb() -> u32 {
     0
 }
 
@@ -861,6 +905,7 @@ fn get_phys_ram_gb_windows_api() -> Option<u32> {
 
 /// Read total physical RAM via WMI (`Win32_OperatingSystem`). Returns `None`
 /// when COM/WMI is unavailable or the query yields nothing.
+#[cfg(windows)]
 fn get_phys_ram_gb_wmi() -> Option<u32> {
     let com_lib = match COMLibrary::new() {
         Ok(lib) => lib,
@@ -880,9 +925,7 @@ fn get_phys_ram_gb_wmi() -> Option<u32> {
 }
 
 /// Query the CPU model name (e.g. "AMD Ryzen 7 5800X 8-Core Processor").
-///
-/// Tries WMI (`Win32_Processor`) first, then falls back to the registry
-/// `ProcessorNameString` value, returning "Unknown CPU" only if both fail.
+#[cfg(windows)]
 pub fn get_cpu_name() -> String {
     if let Some(name) = get_cpu_name_wmi() {
         return name;
@@ -893,7 +936,30 @@ pub fn get_cpu_name() -> String {
     "Unknown CPU".to_string()
 }
 
+#[cfg(target_os = "linux")]
+pub fn get_cpu_name() -> String {
+    if let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo") {
+        for line in cpuinfo.lines() {
+            if line.starts_with("model name") {
+                if let Some((_, name)) = line.split_once(':') {
+                    let trimmed = name.trim();
+                    if !trimmed.is_empty() {
+                        return trimmed.to_string();
+                    }
+                }
+            }
+        }
+    }
+    "Unknown CPU".to_string()
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+pub fn get_cpu_name() -> String {
+    "Unknown CPU".to_string()
+}
+
 /// Read the CPU name from WMI `Win32_Processor`.
+#[cfg(windows)]
 fn get_cpu_name_wmi() -> Option<String> {
     let com_lib = match COMLibrary::new() {
         Ok(lib) => lib,

@@ -214,7 +214,7 @@ export default function TopNav() {
         data-tauri-drag-region
       >
         {/* Left cluster: app brand identity + nav items */}
-        <div className="topnav-left">
+        <div className="topnav-left" data-tauri-drag-region="false">
           <NavLink
             to="/home"
             className="topnav-logo"
@@ -374,8 +374,8 @@ export default function TopNav() {
 
         {/* Right cluster: page actions (downloads, settings, docs,
          * big-screen) + window controls. */}
-        <div className="topnav-right-cluster">
-          <div className="topnav-right">
+        <div className="topnav-right-cluster" data-tauri-drag-region="false">
+          <div className="topnav-right" data-tauri-drag-region="false">
             {/* Live "Now Playing" HUD Chip */}
             {runningGame && showNavbarNowPlaying && (
               <button

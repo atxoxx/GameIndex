@@ -1,7 +1,10 @@
+#[cfg(windows)]
 use windows::core::PCSTR;
+#[cfg(windows)]
 use windows::Win32::System::Memory::{
     MapViewOfFile, OpenFileMappingA, UnmapViewOfFile, FILE_MAP_READ,
 };
+#[cfg(windows)]
 use windows::Win32::Foundation::{CloseHandle, HANDLE, BOOL};
 use std::ffi::CString;
 use std::sync::Mutex;
@@ -18,9 +21,10 @@ pub struct RtssMetrics {
     pub stat_fps_max: f64,
 }
 
-/// Cached handle value stored as an integer to satisfy `Sync` for the static Mutex.
+#[cfg(windows)]
 static CACHED_HANDLE: Mutex<Option<isize>> = Mutex::new(None);
 
+#[cfg(windows)]
 unsafe fn try_open() -> Option<isize> {
     if let Ok(cache) = CACHED_HANDLE.lock() {
         if let Some(handle) = *cache {
@@ -53,6 +57,7 @@ unsafe fn try_open() -> Option<isize> {
 /// Used when `MapViewOfFile` fails against a stale handle (RTSS restarted
 /// and recreated the shared-memory section); without this the reader would
 /// keep returning `None` until the app restarts.
+#[cfg(windows)]
 fn clear_rtss_handle() {
     if let Ok(mut cache) = CACHED_HANDLE.lock() {
         *cache = None;
@@ -65,6 +70,7 @@ fn clear_rtss_handle() {
 /// - RTSS is not running (shared memory not found)
 /// - The specified PID is not in the RTSS app list
 /// - The shared memory data is invalid
+#[cfg(windows)]
 pub fn read_rtss_metrics(pid: u32) -> Option<RtssMetrics> {
     unsafe {
         let handle_raw = try_open()?;
@@ -195,6 +201,7 @@ pub fn read_rtss_metrics(pid: u32) -> Option<RtssMetrics> {
 
 /// Release the cached RTSS shared memory handle (call on shutdown).
 #[allow(dead_code)]
+#[cfg(windows)]
 pub fn release_rtss() {
     if let Ok(mut cache) = CACHED_HANDLE.lock() {
         if let Some(handle) = cache.take() {
@@ -204,3 +211,12 @@ pub fn release_rtss() {
         }
     }
 }
+
+#[cfg(not(windows))]
+pub fn read_rtss_metrics(_pid: u32) -> Option<RtssMetrics> {
+    None
+}
+
+#[allow(dead_code)]
+#[cfg(not(windows))]
+pub fn release_rtss() {}

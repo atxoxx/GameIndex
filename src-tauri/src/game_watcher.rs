@@ -1146,52 +1146,40 @@ pub struct ForceCloseData {
 /// with at least three path components (drive + two levels) is
 /// specific enough to be a single game's folder.
 fn is_install_dir_sweep_safe(dir_lower: &str) -> bool {
-    let components: Vec<&str> = dir_lower.split('\\').filter(|c| !c.is_empty()).collect();
-    // "c:" counts as one component; require drive + at least two levels.
+    let components: Vec<&str> = dir_lower.split(['\\', '/']).filter(|c| !c.is_empty()).collect();
+    // "c:" or root counts as one component; require drive/root + at least two levels.
     components.len() >= 3
 }
 
 /// Whether a running process at `proc_path_lower` may be force-killed by
 /// an install-dir sweep.
-///
-/// Guards:
-///   1. The path must really live inside `dir_lower` — not a sibling
-///      path that happens to share the prefix (e.g. "FooBar" when the
-///      dir is "Foo").
-///   2. A direct child qualifies when the tracked exe stem is unknown
-///      (pending protocol launch) or when it shares that stem. At any
-///      depth, a known tracked exe requires a stem match. This is what
-///      keeps a sweep over a broad directory (publisher root,
-///      `steamapps\common`) from terminating unrelated processes: only
-///      the game itself qualifies.
 fn is_sweep_candidate(proc_path_lower: &str, dir_lower: &str, expected_exe_lower: &str) -> bool {
-    if !proc_path_lower.starts_with(dir_lower) {
+    let proc_norm = proc_path_lower.replace('\\', "/");
+    let dir_norm = dir_lower.replace('\\', "/");
+    let exe_norm = expected_exe_lower.replace('\\', "/");
+
+    if !proc_norm.starts_with(&dir_norm) {
         return false;
     }
-    let remainder = &proc_path_lower[dir_lower.len()..];
-    if !remainder.is_empty() && !remainder.starts_with('\\') {
+    let remainder = &proc_norm[dir_norm.len()..];
+    if !remainder.is_empty() && !remainder.starts_with('/') {
         return false;
     }
-    let expected_stem = Path::new(expected_exe_lower)
+    let expected_stem = Path::new(&exe_norm)
         .file_stem()
         .and_then(|s| s.to_str())
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
-    let stem_matches = Path::new(proc_path_lower)
+    let stem_matches = Path::new(&proc_norm)
         .file_stem()
         .and_then(|s| s.to_str())
         .map(|s| s.to_lowercase() == expected_stem)
         .unwrap_or(false);
 
-    let rel = remainder.trim_start_matches('\\');
-    if rel.is_empty() || !rel.contains('\\') {
-        // Direct child (or the dir itself): qualifies when the tracked exe
-        // stem is unknown (pending launch) or the child shares that stem.
-        // A helper sitting beside the game is never swept just because it
-        // shares the folder.
+    let rel = remainder.trim_start_matches('/');
+    if rel.is_empty() || !rel.contains('/') {
         return expected_stem.is_empty() || stem_matches;
     }
-    // Deeper in the tree: only the tracked game's own exe stem qualifies.
     if expected_stem.is_empty() {
         return false;
     }
@@ -1276,6 +1264,63 @@ pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Opti
     }
 
     killed_any
+}
+
+#[cfg(target_os = "linux")]
+pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Option<&str>) -> bool {
+    let processes = query_running_processes();
+    if processes.is_empty() {
+        return false;
+    }
+
+    let mut killed_any = false;
+
+    // 1. Exact tracked-exe match (fast, no install-dir assumption).
+    if !expected_exe_lower.is_empty() {
+        for proc in &processes {
+            let path_lower = proc.exe_path.to_lowercase();
+            if path_lower == expected_exe_lower {
+                unsafe {
+                    if libc::kill(proc.pid as i32, libc::SIGTERM) == 0 {
+                        killed_any = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Install-dir match
+    if let Some(dir) = install_dir_lower {
+        if is_install_dir_sweep_safe(dir) {
+            for proc in &processes {
+                let path_lower = proc.exe_path.to_lowercase();
+                if !is_sweep_candidate(&path_lower, dir, expected_exe_lower) {
+                    continue;
+                }
+                if let Some(stem) = std::path::Path::new(&proc.exe_path)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                {
+                    let lower = stem.to_lowercase();
+                    if SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
+                        continue;
+                    }
+                }
+                unsafe {
+                    if libc::kill(proc.pid as i32, libc::SIGTERM) == 0 {
+                        killed_any = true;
+                    }
+                }
+            }
+        }
+    }
+
+    killed_any
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+pub fn kill_matching_processes(_expected_exe_lower: &str, _install_dir_lower: Option<&str>) -> bool {
+    false
 }
 
 /// Outcome of `GameWatcher::force_close`. Serialised via serde so the
@@ -1648,7 +1693,41 @@ fn query_running_processes() -> Vec<ProcessInfo> {
     result
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+fn query_running_processes() -> Vec<ProcessInfo> {
+    let mut result = Vec::new();
+    if let Ok(all_procs) = procfs::process::all_processes() {
+        for proc_res in all_procs {
+            if let Ok(proc) = proc_res {
+                let pid = proc.pid as u32;
+                let exe_path = if let Ok(path) = proc.exe() {
+                    path.to_string_lossy().into_owned()
+                } else if let Ok(cmdline) = proc.cmdline() {
+                    cmdline.first().cloned().unwrap_or_default()
+                } else {
+                    String::new()
+                };
+
+                if exe_path.is_empty() {
+                    continue;
+                }
+
+                let working_set_size = proc.stat()
+                    .map(|s| (s.rss as u64) * 4096)
+                    .unwrap_or(0);
+
+                result.push(ProcessInfo {
+                    pid,
+                    exe_path,
+                    working_set_size,
+                });
+            }
+        }
+    }
+    result
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn query_running_processes() -> Vec<ProcessInfo> {
     Vec::new()
 }
