@@ -1825,7 +1825,7 @@ export default function FriendsPage() {
       />
 
       {/* Hero Stats Summary */}
-      <div className="ui-complete-only">
+      <div className="ui-complete-only ui-item-kpis">
         <FriendsHeroStats friends={friends} sessions={sessions} myGameIds={myGameIds} />
       </div>
 

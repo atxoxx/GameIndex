@@ -116,7 +116,7 @@ export default function LibraryToolbar({
 
         {/* Group By selector */}
         {onGroupByChange && (
-          <div className="lib-groupby-wrap ui-complete-only">
+          <div className="lib-groupby-wrap ui-complete-only ui-item-filters">
             <label htmlFor="lib-groupby-select" className="lib-groupby-label" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                 <rect x="3" y="3" width="7" height="7" />

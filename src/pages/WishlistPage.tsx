@@ -427,7 +427,7 @@ export default function WishlistPage() {
 
             <div className="wishlist-toolbar-end">
               {(availableGenres.length > 0 || availablePlatforms.length > 0) && (
-                <div className="wishlist-filter-wrap ui-complete-only" ref={filtersRef}>
+                <div className="wishlist-filter-wrap ui-complete-only ui-item-filters" ref={filtersRef}>
                   <button
                     type="button"
                     className={`wishlist-filter-btn${activeFacetCount > 0 ? " active" : ""}`}

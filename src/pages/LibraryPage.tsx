@@ -320,7 +320,7 @@ export default function LibraryPage() {
 
   return (
     <div className="lib-page">
-      <div className="ui-complete-only">
+      <div className="ui-complete-only ui-item-hero">
         <LibraryHero
           games={games}
           activeStatus={filters.status}
@@ -380,7 +380,7 @@ export default function LibraryPage() {
       {/* Saved Presets — minimal chip row using existing styles */}
       {!isLibraryEmpty && (
         <div
-          className="lib-chips ui-complete-only"
+          className="lib-chips ui-complete-only ui-item-filters"
           style={{ marginTop: "8px", flexWrap: "wrap" } as React.CSSProperties}
           aria-label={t("library.presets.title")}
         >

@@ -32,6 +32,7 @@ const SECTION_IDS = [
   "mods",
   "community",
   "settings",
+  "interface",
   "bigscreen",
   "shortcuts",
   "tips",

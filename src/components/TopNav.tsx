@@ -44,7 +44,7 @@ import WindowControls from "./WindowControls";
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const DownloadPopover = lazy(() => import("./DownloadPopover"));
 import { useLanguage } from "../context/LanguageContext";
-import { useSettings } from "../context/SettingsContext";
+import { useSettings, type InterfaceItemKey } from "../context/SettingsContext";
 import { playTabSound } from "../utils/soundEffects";
 import { preloadRoute } from "../utils/routePreload";
 
@@ -93,6 +93,24 @@ const overflowNavTabs: Tab[] = [
   { path: "/friends", labelKey: "nav.friends", icon: Users },
 ];
 
+// Maps each tab path to its Interface-tab visibility key so hidden tabs
+// disappear from both the flat bar and the 'More' dropdown.
+const TAB_VISIBILITY_KEY: Record<string, InterfaceItemKey> = {
+  "/home": "navHome",
+  "/store": "navStore",
+  "/library": "navLibrary",
+  "/wishlist": "navWishlist",
+  "/deals": "navDeals",
+  "/news": "navNews",
+  "/emulators": "navEmulators",
+  "/mods": "navMods",
+  "/activity": "navActivity",
+  "/achievements": "navAchievements",
+  "/storage": "navStorage",
+  "/community": "navCommunity",
+  "/friends": "navFriends",
+};
+
 // All pages live as flat tabs in full navbar mode
 const allNavTabs: Tab[] = [
   { path: "/home", labelKey: "nav.home", icon: Home },
@@ -118,7 +136,7 @@ export default function TopNav() {
   const activeDownloads = useActiveDownloadCount();
   const version = useAppVersion();
   const { isBigScreen, setBigScreen } = useBigScreen();
-  const { navbarMode, showNavbarNowPlaying } = useSettings();
+  const { navbarMode, showNavbarNowPlaying, interfaceVisibility } = useSettings();
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [unseenCommunity, setUnseenCommunity] = useState<number>(() => getUnseenCommunityItems());
@@ -201,10 +219,17 @@ export default function TopNav() {
     }
   }, []);
 
-  // Responsive Navbar style selection
+  // Responsive Navbar style selection. Tabs hidden via the Interface
+  // settings are dropped from the bar AND the overflow menu entirely.
   const isCompactNavbar = navbarMode === "compact";
-  const displayedTabs = isCompactNavbar ? coreNavTabs : allNavTabs;
-  const isOverflowActive = overflowNavTabs.some((tab) => location.pathname.startsWith(tab.path));
+  const tabVisible = (path: string) => interfaceVisibility[TAB_VISIBILITY_KEY[path]];
+  const visibleOverflowTabs = overflowNavTabs.filter((tab) => tabVisible(tab.path));
+  const displayedTabs = (isCompactNavbar ? coreNavTabs : allNavTabs).filter(
+    (tab) => tabVisible(tab.path),
+  );
+  const isOverflowActive = visibleOverflowTabs.some((tab) =>
+    location.pathname.startsWith(tab.path),
+  );
 
   return (
     <>
@@ -307,7 +332,7 @@ export default function TopNav() {
           </div>
 
           {/* Compact Mode: 'More' Dropdown Menu */}
-          {isCompactNavbar && (
+          {isCompactNavbar && visibleOverflowTabs.length > 0 && (
             <div ref={moreRef} className="topnav-more-container">
               <button
                 type="button"
@@ -338,7 +363,7 @@ export default function TopNav() {
 
               {moreOpen && (
                 <div className="topnav-more-dropdown" role="menu">
-                  {overflowNavTabs.map((tab) => {
+                  {visibleOverflowTabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = location.pathname.startsWith(tab.path);
                     const showBadge = tab.path === "/friends" && unseenCommunity > 0;
@@ -394,30 +419,32 @@ export default function TopNav() {
               </button>
             )}
 
-            <button
-              ref={downloadBtnRef}
-              type="button"
-              className={`topnav-btn topnav-btn-downloads${downloadsOpen || location.pathname.startsWith("/downloads") ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
-              onClick={() => setDownloadsOpen((o) => !o)}
-              onMouseEnter={() => preloadRoute("/downloads")}
-              onFocus={() => preloadRoute("/downloads")}
-              aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
-              aria-expanded={downloadsOpen}
-              aria-haspopup="dialog"
-              aria-controls={popoverId}
-              title={t("nav.downloads")}
-            >
-              <Download />
-              {activeDownloads > 0 && (
-                <span
-                  className="topnav-btn-badge"
-                  role="status"
-                  aria-label={t("topnav.activeDownloads", { count: activeDownloads })}
-                >
-                  {activeDownloads}
-                </span>
-              )}
-            </button>
+            {interfaceVisibility.btnDownloads && (
+              <button
+                ref={downloadBtnRef}
+                type="button"
+                className={`topnav-btn topnav-btn-downloads${downloadsOpen || location.pathname.startsWith("/downloads") ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
+                onClick={() => setDownloadsOpen((o) => !o)}
+                onMouseEnter={() => preloadRoute("/downloads")}
+                onFocus={() => preloadRoute("/downloads")}
+                aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
+                aria-expanded={downloadsOpen}
+                aria-haspopup="dialog"
+                aria-controls={popoverId}
+                title={t("nav.downloads")}
+              >
+                <Download />
+                {activeDownloads > 0 && (
+                  <span
+                    className="topnav-btn-badge"
+                    role="status"
+                    aria-label={t("topnav.activeDownloads", { count: activeDownloads })}
+                  >
+                    {activeDownloads}
+                  </span>
+                )}
+              </button>
+            )}
             <Suspense fallback={null}>
               <DownloadPopover
                 open={downloadsOpen}
@@ -429,39 +456,45 @@ export default function TopNav() {
                 id={popoverId}
               />
             </Suspense>
-            <NavLink
-              to="/settings"
-              className={({ isActive }) =>
-                `topnav-btn topnav-btn-settings${isActive ? " active" : ""}`
-              }
-              onMouseEnter={() => preloadRoute("/settings")}
-              onFocus={() => preloadRoute("/settings")}
-              aria-label={t("nav.settings")}
-              title={t("nav.settings")}
-            >
-              <Settings />
-            </NavLink>
-            <NavLink
-              to="/docs"
-              className={({ isActive }) =>
-                `topnav-btn topnav-btn-docs${isActive ? " active" : ""} ui-complete-only`
-              }
-              onMouseEnter={() => preloadRoute("/docs")}
-              onFocus={() => preloadRoute("/docs")}
-              aria-label={t("nav.docs")}
-              title={t("nav.docs")}
-            >
-              <BookOpen />
-            </NavLink>
-            <button
-              type="button"
-              className={`topnav-btn topnav-btn-bigscreen${isBigScreen ? " active" : ""}`}
-              onClick={() => setBigScreen(!isBigScreen)}
-              aria-label={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
-              title={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
-            >
-              <MonitorPlay />
-            </button>
+            {interfaceVisibility.btnSettings && (
+              <NavLink
+                to="/settings"
+                className={({ isActive }) =>
+                  `topnav-btn topnav-btn-settings${isActive ? " active" : ""}`
+                }
+                onMouseEnter={() => preloadRoute("/settings")}
+                onFocus={() => preloadRoute("/settings")}
+                aria-label={t("nav.settings")}
+                title={t("nav.settings")}
+              >
+                <Settings />
+              </NavLink>
+            )}
+            {interfaceVisibility.btnDocs && (
+              <NavLink
+                to="/docs"
+                className={({ isActive }) =>
+                  `topnav-btn topnav-btn-docs${isActive ? " active" : ""} ui-complete-only`
+                }
+                onMouseEnter={() => preloadRoute("/docs")}
+                onFocus={() => preloadRoute("/docs")}
+                aria-label={t("nav.docs")}
+                title={t("nav.docs")}
+              >
+                <BookOpen />
+              </NavLink>
+            )}
+            {interfaceVisibility.btnBigScreen && (
+              <button
+                type="button"
+                className={`topnav-btn topnav-btn-bigscreen${isBigScreen ? " active" : ""}`}
+                onClick={() => setBigScreen(!isBigScreen)}
+                aria-label={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
+                title={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
+              >
+                <MonitorPlay />
+              </button>
+            )}
           </div>
           <WindowControls />
         </div>

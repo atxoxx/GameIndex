@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 export type SettingsTab =
   | "general"
   | "appearance"
+  | "interface"
   | "hardware"
   | "integrations"
   | "discord"

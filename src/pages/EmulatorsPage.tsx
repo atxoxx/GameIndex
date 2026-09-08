@@ -676,7 +676,7 @@ export default function EmulatorsPage() {
         }
       />
 
-      <div className="ui-complete-only">
+      <div className="ui-complete-only ui-item-dashboard">
         <EmulatorStatsHeader
           stats={stats}
           activeFilter={filter}

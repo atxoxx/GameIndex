@@ -576,14 +576,14 @@ export default function StoreGameDetail() {
                 <RatingsKpiCard game={mockGame} />
                 {detailSectionVisible.timeToBeat && <TimeToBeatCard game={mockGame} />}
               </div>
-              <div className="side-group ui-complete-only">
+              <div className="side-group ui-complete-only ui-item-kpis">
                 <SpecsCard game={mockGame} />
                 {showDeckVerified && detailSectionVisible.protonDb && (
                   <ProtonDBCard steamAppId={steamAppId} />
                 )}
                 <CrackWatchCard gameName={data.title} appId={steamAppId} />
               </div>
-              <div className="side-group ui-complete-only">
+              <div className="side-group ui-complete-only ui-item-kpis">
                 {detailSectionVisible.releases && <ReleasesCard game={mockGame} />}
                 <LanguagesSection game={mockGame} />
               </div>

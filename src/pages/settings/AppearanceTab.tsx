@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { useTheme, type ThemeDescriptor } from "../../context/ThemeContext";
-import { useSettings, type DetailSectionKey } from "../../context/SettingsContext";
+import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2, Layout, Zap, LayoutList } from "lucide-react";
+import { Volume2, Zap } from "lucide-react";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import AccentPreview from "./AccentPreview";
@@ -90,25 +90,8 @@ export default function AppearanceTab() {
     setUiSoundEnabled,
     uiSoundVolume,
     setUiSoundVolume,
-    commandPaletteMode,
-    setCommandPaletteMode,
-    navbarMode,
-    setNavbarMode,
-    uiDensityMode,
-    setUiDensityMode,
-    uiScale,
-    setUiScale,
     reduceMotion,
     setReduceMotion,
-    showCardBadges,
-    setShowCardBadges,
-    showGameArtBackdrop,
-    setShowGameArtBackdrop,
-    showNavbarNowPlaying,
-    setShowNavbarNowPlaying,
-    detailSectionVisible,
-    setDetailSectionVisible,
-    showDeckVerified,
   } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -128,456 +111,245 @@ export default function AppearanceTab() {
     showToast(t("settings.themeChanged", { theme: themeMeta?.name ?? themeId }), "success");
   }
 
-  // Game & Store detail-page sections that can be individually hidden.
-  const detailSections = useMemo(() => {
-    const list: {
-      key: DetailSectionKey;
-      titleKey: string;
-      descKey: string;
-    }[] = [
-      {
-        key: "systemRequirements",
-        titleKey: "settings.detailSections.systemRequirements.title",
-        descKey: "settings.detailSections.systemRequirements.desc",
-      },
-      {
-        key: "gameRelations",
-        titleKey: "settings.detailSections.gameRelations.title",
-        descKey: "settings.detailSections.gameRelations.desc",
-      },
-      {
-        key: "timeToBeat",
-        titleKey: "settings.detailSections.timeToBeat.title",
-        descKey: "settings.detailSections.timeToBeat.desc",
-      },
-    ];
-
-    if (showDeckVerified) {
-      list.push({
-        key: "protonDb",
-        titleKey: "settings.detailSections.protonDb.title",
-        descKey: "settings.detailSections.protonDb.desc",
-      });
-    }
-
-    list.push(
-      {
-        key: "releases",
-        titleKey: "settings.detailSections.releases.title",
-        descKey: "settings.detailSections.releases.desc",
-      },
-      {
-        key: "reviews",
-        titleKey: "settings.detailSections.reviews.title",
-        descKey: "settings.detailSections.reviews.desc",
-      },
-      {
-        key: "activity",
-        titleKey: "settings.detailSections.activity.title",
-        descKey: "settings.detailSections.activity.desc",
-      },
-      {
-        key: "achievements",
-        titleKey: "settings.detailSections.achievements.title",
-        descKey: "settings.detailSections.achievements.desc",
-      },
-      {
-        key: "mods",
-        titleKey: "settings.detailSections.mods.title",
-        descKey: "settings.detailSections.mods.desc",
-      },
-      {
-        key: "weblinks",
-        titleKey: "settings.detailSections.weblinks.title",
-        descKey: "settings.detailSections.weblinks.desc",
-      },
-      {
-        key: "news",
-        titleKey: "settings.detailSections.news.title",
-        descKey: "settings.detailSections.news.desc",
-      }
-    );
-
-    return list;
-  }, [showDeckVerified]);
-
   return (
     <>
       <SettingsSection
         id="appearance-themes"
-      icon={<PaletteIcon />}
-      title={t("settings.section.appearanceThemes")}
-      desc={t("settings.appearance.desc")}
-    >
-      <div className="theme-grid">
-        {themes.map((theme) => {
-          const isActive = currentTheme === theme.id;
-          const colors = THEME_PREVIEW_COLORS[theme.id] ?? THEME_PREVIEW_COLORS.dark;
-          const descriptorLabel = getDescriptorLabel(theme.meta.descriptor, t);
-          return (
-            <div
-              key={theme.id}
-              className={`theme-card${isActive ? " active" : ""}`}
-              onClick={() => handleThemeChange(theme.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleThemeChange(theme.id);
-                }
-              }}
-              aria-pressed={isActive}
-            >
+        icon={<PaletteIcon />}
+        title={t("settings.section.appearanceThemes")}
+        desc={t("settings.appearance.desc")}
+      >
+        <div className="theme-grid">
+          {themes.map((theme) => {
+            const isActive = currentTheme === theme.id;
+            const colors = THEME_PREVIEW_COLORS[theme.id] ?? THEME_PREVIEW_COLORS.dark;
+            const descriptorLabel = getDescriptorLabel(theme.meta.descriptor, t);
+            return (
               <div
-                className="theme-card-preview"
-                style={
-                  {
-                    "--miniBg": colors.bg,
-                    "--miniText": colors.text,
-                    "--miniAccent": colors.accent,
-                  } as React.CSSProperties
-                }
+                key={theme.id}
+                className={`theme-card${isActive ? " active" : ""}`}
+                onClick={() => handleThemeChange(theme.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleThemeChange(theme.id);
+                  }
+                }}
+                aria-pressed={isActive}
               >
-                <div className="theme-preview-bar">
-                  <div className="theme-preview-color" style={{ backgroundColor: colors.bg }} />
-                  <div className="theme-preview-color" style={{ backgroundColor: colors.text }} />
-                  <div className="theme-preview-color" style={{ backgroundColor: colors.accent }} />
-                </div>
-                <div className="theme-preview-mini">
-                  <div className="theme-preview-mini-sidebar" />
-                  <div className="theme-preview-mini-main">
-                    <div className="theme-preview-mini-row">
-                      <span className="theme-preview-mini-dot" />
-                      <span className="theme-preview-mini-bar" />
-                    </div>
-                    <div className="theme-preview-mini-card">
-                      <span className="theme-preview-mini-accent" />
+                <div
+                  className="theme-card-preview"
+                  style={
+                    {
+                      "--miniBg": colors.bg,
+                      "--miniText": colors.text,
+                      "--miniAccent": colors.accent,
+                    } as React.CSSProperties
+                  }
+                >
+                  <div className="theme-preview-bar">
+                    <div className="theme-preview-color" style={{ backgroundColor: colors.bg }} />
+                    <div className="theme-preview-color" style={{ backgroundColor: colors.text }} />
+                    <div className="theme-preview-color" style={{ backgroundColor: colors.accent }} />
+                  </div>
+                  <div className="theme-preview-mini">
+                    <div className="theme-preview-mini-sidebar" />
+                    <div className="theme-preview-mini-main">
+                      <div className="theme-preview-mini-row">
+                        <span className="theme-preview-mini-dot" />
+                        <span className="theme-preview-mini-bar" />
+                      </div>
+                      <div className="theme-preview-mini-card">
+                        <span className="theme-preview-mini-accent" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="theme-card-info">
-                <div className="theme-card-text">
-                  <span className="theme-card-name">{theme.meta.name}</span>
-                  {descriptorLabel && (
-                    <span className="theme-card-descriptor">{descriptorLabel}</span>
-                  )}
+                <div className="theme-card-info">
+                  <div className="theme-card-text">
+                    <span className="theme-card-name">{theme.meta.name}</span>
+                    {descriptorLabel && (
+                      <span className="theme-card-descriptor">{descriptorLabel}</span>
+                    )}
+                  </div>
+                  {isActive && <span className="theme-active-dot" aria-hidden />}
                 </div>
-                {isActive && <span className="theme-active-dot" aria-hidden />}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {/* System theme sync */}
-      <label className="settings-checkbox-label theme-sync">
-        <input
-          type="checkbox"
-          checked={systemSync}
-          onChange={(e) => setSystemSync(e.target.checked)}
-        />
-        <span>{t("settings.label.syncSystemTheme")}</span>
-      </label>
+        {/* System theme sync */}
+        <label className="settings-checkbox-label theme-sync">
+          <input
+            type="checkbox"
+            checked={systemSync}
+            onChange={(e) => setSystemSync(e.target.checked)}
+          />
+          <span>{t("settings.label.syncSystemTheme")}</span>
+        </label>
 
-      {/* Auto game palette accent override */}
-      <label className="settings-checkbox-label auto-game-accent">
-        <input
-          type="checkbox"
-          checked={autoGameAccent}
-          onChange={(e) => setAutoGameAccent(e.target.checked)}
-        />
-        <span>{t("settings.label.autoGameAccent")}</span>
-      </label>
+        {/* Auto game palette accent override */}
+        <label className="settings-checkbox-label auto-game-accent">
+          <input
+            type="checkbox"
+            checked={autoGameAccent}
+            onChange={(e) => setAutoGameAccent(e.target.checked)}
+          />
+          <span>{t("settings.label.autoGameAccent")}</span>
+        </label>
 
-      {/* Per-theme accent color override */}
-      <div id="appearance-accent" className="settings-row settings-row--accent">
-        <div className="settings-control">
-          <label className="settings-label">{t("settings.label.accent")}</label>
-          <p className="settings-helper-lead">
-            {t("settings.accent.desc")}
-          </p>
-          {autoGameAccent && (
-            <p className="settings-helper-lead accent-locked-notice" style={{ color: "var(--color-text-secondary)", marginTop: 6, display: "flex", alignItems: "center", gap: 6, fontStyle: "italic" }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2" style={{ width: 14, height: 14, flexShrink: 0 }}>
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              {t("settings.accent.lockedByAuto")}
+        {/* Per-theme accent color override */}
+        <div id="appearance-accent" className="settings-row settings-row--accent">
+          <div className="settings-control">
+            <label className="settings-label">{t("settings.label.accent")}</label>
+            <p className="settings-helper-lead">
+              {t("settings.accent.desc")}
             </p>
-          )}
-          <div
-            className={`accent-picker${autoGameAccent ? " accent-picker--locked" : ""}`}
-            role="group"
-            aria-label={t("settings.aria.presetAccentColors")}
-            style={autoGameAccent ? { opacity: 0.5, pointerEvents: "none" } : undefined}
-          >
-            {accentSwatches.map((swatch) => {
-              const isActive = accentColor?.toLowerCase() === swatch.value;
-              return (
-                <button
-                  key={swatch.value}
-                  type="button"
-                  className={`accent-swatch${isActive ? " active" : ""}`}
-                  style={{ backgroundColor: swatch.value }}
-                  disabled={autoGameAccent}
-                  onClick={() => {
-                    setAccentColor(isActive ? null : swatch.value);
-                  }}
-                  aria-label={t("settings.accent.useSwatch", { name: swatch.name })}
-                  aria-pressed={isActive}
-                  title={swatch.name}
-                />
-              );
-            })}
-            <label
-              className={`accent-swatch accent-swatch--custom${
-                accentColor && !PRESET_VALUE_SET.has(accentColor.toLowerCase())
-                  ? " active"
-                  : ""
-              }`}
-              style={accentColor ? { backgroundColor: accentColor } : undefined}
-              title={t("settings.customColor")}
-            >
-              <input
-                type="color"
-                value={
-                  accentColor && /^#[0-9a-fA-F]{6}$/.test(accentColor)
-                    ? accentColor
-                    : "#7c66ff"
-                }
-                disabled={autoGameAccent}
-                onChange={(e) => setAccentColor(e.target.value)}
-                aria-label={t("settings.aria.customAccent")}
-              />
-              <span aria-hidden>🎨</span>
-            </label>
-            {accentColor && (
-               <button
-                 type="button"
-                 className="accent-clear"
-                 disabled={autoGameAccent}
-                 onClick={() => setAccentColor(null)}
-               >
-                 {t("common.reset")}
-               </button>
+            {autoGameAccent && (
+              <p className="settings-helper-lead accent-locked-notice" style={{ color: "var(--color-text-secondary)", marginTop: 6, display: "flex", alignItems: "center", gap: 6, fontStyle: "italic" }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2" style={{ width: 14, height: 14, flexShrink: 0 }}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                {t("settings.accent.lockedByAuto")}
+              </p>
             )}
-          </div>
-
-          {/* Live preview of the accent family — shows the chosen preset,
-              custom pick, or the active game's palette under auto mode. */}
-          <AccentPreview accentColor={accentColor} autoGameAccent={autoGameAccent} />
-        </div>
-      </div>
-    </SettingsSection>
-
-    <SettingsSection
-      id="appearance-interface"
-      icon={<Layout className="settings-section-icon" />}
-      title={t("settings.appearance.interfaceTitle")}
-      desc={t("settings.appearance.interfaceDesc")}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-        {/* UI Scale Presets */}
-        <div className="settings-row" style={{ padding: "var(--space-md) var(--space-lg)", background: "var(--color-bg-secondary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: "var(--space-md)", flexWrap: "wrap" }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontWeight: "var(--font-weight-semibold)", color: "var(--color-text-primary)", fontSize: "var(--font-size-md)" }}>
-                {t("settings.appearance.uiScaleTitle")}
-              </div>
-              <div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)", marginTop: "2px" }}>
-                {t("settings.appearance.uiScaleDesc")}
-              </div>
-            </div>
-            <select
-              value={uiScale}
-              onChange={(e) => {
-                setUiScale(e.target.value as any);
-                if (uiSoundEnabled) playActionSound();
-              }}
-              style={{
-                minWidth: "160px",
-                background: "var(--color-bg-tertiary)",
-                color: "var(--color-text-primary)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-md)",
-                padding: "6px 12px",
-                fontSize: "var(--font-size-sm)",
-                fontWeight: "var(--font-weight-medium)",
-                cursor: "pointer",
-              }}
+            <div
+              className={`accent-picker${autoGameAccent ? " accent-picker--locked" : ""}`}
+              role="group"
+              aria-label={t("settings.aria.presetAccentColors")}
+              style={autoGameAccent ? { opacity: 0.5, pointerEvents: "none" } : undefined}
             >
-              <option value="auto">{t("settings.appearance.uiScaleAuto")}</option>
-              <option value="85">85% (Compact)</option>
-              <option value="100">100% (Default)</option>
-              <option value="110">110% (Medium)</option>
-              <option value="125">125% (Large)</option>
-              <option value="150">150% (Extra Large)</option>
-              <option value="175">175% (2K / 4K)</option>
-              <option value="200">200% (4K TV / 10-foot)</option>
-            </select>
+              {accentSwatches.map((swatch) => {
+                const isActive = accentColor?.toLowerCase() === swatch.value;
+                return (
+                  <button
+                    key={swatch.value}
+                    type="button"
+                    className={`accent-swatch${isActive ? " active" : ""}`}
+                    style={{ backgroundColor: swatch.value }}
+                    disabled={autoGameAccent}
+                    onClick={() => {
+                      setAccentColor(isActive ? null : swatch.value);
+                    }}
+                    aria-label={t("settings.accent.useSwatch", { name: swatch.name })}
+                    aria-pressed={isActive}
+                    title={swatch.name}
+                  />
+                );
+              })}
+              <label
+                className={`accent-swatch accent-swatch--custom${
+                  accentColor && !PRESET_VALUE_SET.has(accentColor.toLowerCase())
+                    ? " active"
+                    : ""
+                }`}
+                style={accentColor ? { backgroundColor: accentColor } : undefined}
+                title={t("settings.customColor")}
+              >
+                <input
+                  type="color"
+                  value={
+                    accentColor && /^#[0-9a-fA-F]{6}$/.test(accentColor)
+                      ? accentColor
+                      : "#7c66ff"
+                  }
+                  disabled={autoGameAccent}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  aria-label={t("settings.aria.customAccent")}
+                />
+                <span aria-hidden>🎨</span>
+              </label>
+              {accentColor && (
+                 <button
+                   type="button"
+                   className="accent-clear"
+                   disabled={autoGameAccent}
+                   onClick={() => setAccentColor(null)}
+                 >
+                   {t("common.reset")}
+                 </button>
+              )}
+            </div>
+
+            {/* Live preview of the accent family — shows the chosen preset,
+                custom pick, or the active game's palette under auto mode. */}
+            <AccentPreview accentColor={accentColor} autoGameAccent={autoGameAccent} />
           </div>
         </div>
+      </SettingsSection>
 
-        {/* Simple / Full Command Palette */}
-        <SettingsToggleCard
-          title={t("settings.appearance.cmdPaletteSimpleTitle")}
-          desc={t("settings.appearance.cmdPaletteSimpleDesc")}
-          checked={commandPaletteMode === "simple"}
-          onChange={(checked) => {
-            setCommandPaletteMode(checked ? "simple" : "full");
-            if (uiSoundEnabled) playActionSound();
-          }}
-        />
-
-        {/* Full or Compact Navbar */}
-        <SettingsToggleCard
-          title={t("settings.appearance.navbarCompactTitle")}
-          desc={t("settings.appearance.navbarCompactDesc")}
-          checked={navbarMode === "compact"}
-          onChange={(checked) => {
-            setNavbarMode(checked ? "compact" : "full");
-            if (uiSoundEnabled) playActionSound();
-          }}
-        />
-
-        {/* Simple / Complete UI for all pages */}
-        <SettingsToggleCard
-          title={t("settings.appearance.simpleUiTitle")}
-          desc={t("settings.appearance.simpleUiDesc")}
-          checked={uiDensityMode === "simple"}
-          onChange={(checked) => {
-            setUiDensityMode(checked ? "simple" : "complete");
-            if (uiSoundEnabled) playActionSound();
-          }}
-        />
-
-        {/* Show Card Badges */}
-        <SettingsToggleCard
-          title={t("settings.appearance.cardBadgesTitle")}
-          desc={t("settings.appearance.cardBadgesDesc")}
-          checked={showCardBadges}
-          onChange={(checked) => {
-            setShowCardBadges(checked);
-            if (uiSoundEnabled) playActionSound();
-          }}
-        />
-
-        {/* Dynamic Game Art Backdrops */}
-        <SettingsToggleCard
-          title={t("settings.appearance.artBackdropTitle")}
-          desc={t("settings.appearance.artBackdropDesc")}
-          checked={showGameArtBackdrop}
-          onChange={(checked) => {
-            setShowGameArtBackdrop(checked);
-            if (uiSoundEnabled) playActionSound();
-          }}
-        />
-
-        {/* Navbar Now Playing Indicator */}
-        <SettingsToggleCard
-          title={t("settings.appearance.navbarNowPlayingTitle")}
-          desc={t("settings.appearance.navbarNowPlayingDesc")}
-          checked={showNavbarNowPlaying}
-          onChange={(checked) => {
-            setShowNavbarNowPlaying(checked);
-            if (uiSoundEnabled) playActionSound();
-          }}
-        />
-      </div>
-    </SettingsSection>
-
-    <SettingsSection
-      id="appearance-detail-sections"
-      icon={<LayoutList className="settings-section-icon" />}
-      title={t("settings.detailSections.title")}
-      desc={t("settings.detailSections.desc")}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-        {detailSections.map((section) => (
+      <SettingsSection
+        id="appearance-motion"
+        icon={<Zap className="settings-section-icon" />}
+        title={t("settings.appearance.motionTitle")}
+        desc={t("settings.appearance.motionDesc")}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+          {/* Reduce Motion */}
           <SettingsToggleCard
-            key={section.key}
-            title={t(section.titleKey)}
-            desc={t(section.descKey)}
-            checked={detailSectionVisible[section.key]}
+            title={t("settings.appearance.reduceMotionTitle")}
+            desc={t("settings.appearance.reduceMotionDesc")}
+            checked={reduceMotion}
             onChange={(checked) => {
-              setDetailSectionVisible(section.key, checked);
+              setReduceMotion(checked);
               if (uiSoundEnabled) playActionSound();
             }}
           />
-        ))}
-      </div>
-    </SettingsSection>
+        </div>
+      </SettingsSection>
 
-    <SettingsSection
-      id="appearance-motion"
-      icon={<Zap className="settings-section-icon" />}
-      title={t("settings.appearance.motionTitle")}
-      desc={t("settings.appearance.motionDesc")}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-        {/* Reduce Motion */}
-        <SettingsToggleCard
-          title={t("settings.appearance.reduceMotionTitle")}
-          desc={t("settings.appearance.reduceMotionDesc")}
-          checked={reduceMotion}
-          onChange={(checked) => {
-            setReduceMotion(checked);
-            if (uiSoundEnabled) playActionSound();
-          }}
-        />
-      </div>
-    </SettingsSection>
+      <SettingsSection
+        id="appearance-sound"
+        icon={<Volume2 className="settings-section-icon" />}
+        title={t("settings.sound.sectionTitle")}
+        desc={t("settings.sound.sectionDesc")}
+      >
+        <div className="settings-sound-container" style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+          <SettingsToggleCard
+            title={t("settings.sound.enableTitle")}
+            desc={t("settings.sound.enableDesc")}
+            checked={uiSoundEnabled}
+            onChange={(checked) => {
+              setUiSoundEnabled(checked);
+              if (checked) playActionSound();
+            }}
+          />
 
-    <SettingsSection
-      id="appearance-sound"
-      icon={<Volume2 className="settings-section-icon" />}
-      title={t("settings.sound.sectionTitle")}
-      desc={t("settings.sound.sectionDesc")}
-    >
-      <div className="settings-sound-container" style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-        <SettingsToggleCard
-          title={t("settings.sound.enableTitle")}
-          desc={t("settings.sound.enableDesc")}
-          checked={uiSoundEnabled}
-          onChange={(checked) => {
-            setUiSoundEnabled(checked);
-            if (checked) playActionSound();
-          }}
-        />
-
-        {uiSoundEnabled && (
-          <div
-            className="settings-behavior-card"
-            style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)", padding: "var(--space-md) var(--space-lg)" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="settings-checkbox-title" style={{ fontSize: "var(--font-size-sm)", fontWeight: 600 }}>
-                {t("settings.sound.volumeTitle")}
-              </span>
-              <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-accent)", fontWeight: 700 }}>
-                {uiSoundVolume}%
-              </span>
+          {uiSoundEnabled && (
+            <div
+              className="settings-behavior-card"
+              style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)", padding: "var(--space-md) var(--space-lg)" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="settings-checkbox-title" style={{ fontSize: "var(--font-size-sm)", fontWeight: 600 }}>
+                  {t("settings.sound.volumeTitle")}
+                </span>
+                <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-accent)", fontWeight: 700 }}>
+                  {uiSoundVolume}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={uiSoundVolume}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setUiSoundVolume(val);
+                }}
+                onMouseUp={() => playActionSound()}
+                className="filter-slider"
+                aria-label={t("settings.sound.volumeTitle")}
+              />
             </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="5"
-              value={uiSoundVolume}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setUiSoundVolume(val);
-              }}
-              onMouseUp={() => playActionSound()}
-              className="filter-slider"
-              aria-label={t("settings.sound.volumeTitle")}
-            />
-          </div>
-        )}
-      </div>
-    </SettingsSection>
-  </>
+          )}
+        </div>
+      </SettingsSection>
+    </>
   );
 }

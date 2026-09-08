@@ -306,7 +306,7 @@ export default function ActivityPage() {
               </span>
             </div>
 
-            <div className="activity__export-actions ui-complete-only">
+            <div className="activity__export-actions ui-complete-only ui-item-filters">
               <button
                 type="button"
                 className="activity__icon-btn activity__icon-btn--primary"
@@ -382,7 +382,7 @@ export default function ActivityPage() {
           </select>
 
           {effectiveTab === "dashboard" && (
-            <div className="ui-complete-only" style={{ display: "contents" }}>
+            <div className="ui-complete-only ui-item-subtabs" style={{ display: "contents" }}>
               <Segmented<AggregationType>
                 ariaLabel={t("activity.interval")}
                 value={aggregation}

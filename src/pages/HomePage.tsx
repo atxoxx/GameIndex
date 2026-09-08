@@ -123,13 +123,13 @@ export default function HomePage() {
 
       {/* 2. Glanceable Quick Stats Bar */}
       {sectionsConfig.quickStats && !isEmpty && (
-        <div className="ui-complete-only">
+        <div className="ui-complete-only ui-item-dashboard">
           <HomeQuickStats />
         </div>
       )}
 
       {/* 3. Dashboard Grid Header with Customization Trigger */}
-      <div className="home-dashboard-header ui-complete-only">
+      <div className="home-dashboard-header ui-complete-only ui-item-dashboard">
         <h2 className="home-dashboard-title">{t("stats.tab.overview")}</h2>
         <button
           type="button"
@@ -151,7 +151,7 @@ export default function HomePage() {
         {/* Left Sidebar: Quick Launch, Activity, Achievements, Friends */}
         <aside className="home-dashboard__sidebar">
           {sectionsConfig.quickLaunch && !isEmpty && <HomeQuickLaunch />}
-          <div className="ui-complete-only">
+          <div className="ui-complete-only ui-item-dashboard">
             {sectionsConfig.activity && <HomeActivityRecap />}
             {sectionsConfig.achievements && <HomeAchievements />}
             {sectionsConfig.friends && <HomeFriendsFeed />}
@@ -167,7 +167,7 @@ export default function HomePage() {
             <RecentlyAddedRail games={games} onCardClick={openGame} />
           )}
           {sectionsConfig.downloads && <HomeDownloads />}
-          <div className="ui-complete-only">
+          <div className="ui-complete-only ui-item-dashboard">
             {sectionsConfig.wishlist && <HomeWishlistRail />}
             {sectionsConfig.deals && <HomeDealsRail onInspect={handleInspectDeal} />}
             {sectionsConfig.news && <HomeNewsRail onSelectArticle={handleSelectArticle} />}

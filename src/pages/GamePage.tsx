@@ -402,14 +402,14 @@ function GameDetail({ game }: { game: Game }) {
                 <RatingsKpiCard game={game} />
                 {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
               </div>
-              <div className="side-group ui-complete-only">
+              <div className="side-group ui-complete-only ui-item-kpis">
                 <SpecsCard game={game} />
                 {showDeckVerified && detailSectionVisible.protonDb && (
                   <ProtonDBCard steamAppId={game.steamAppId} />
                 )}
                 <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
               </div>
-              <div className="side-group ui-complete-only">
+              <div className="side-group ui-complete-only ui-item-kpis">
                 {detailSectionVisible.releases && <ReleasesCard game={game} />}
                 <LanguagesSection game={game} />
               </div>

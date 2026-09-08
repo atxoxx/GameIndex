@@ -47,7 +47,7 @@ function LibraryGameCardBase({
 }: LibraryGameCardProps) {
   const { enrichGameMetadata, launchGame } = useGames();
   const { t } = useLanguage();
-  const { showCardBadges, isSimpleUi } = useSettings();
+  const { showCardBadges, isSimpleUi, interfaceVisibility } = useSettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -158,7 +158,7 @@ function LibraryGameCardBase({
           )}
         </div>
 
-        {showCardBadges && (
+        {showCardBadges && interfaceVisibility.badgePlatform && (
           <div className="lib-card-list-platform">
             <Badge variant="info" size="sm" className="lib-card-platform">
               {game.platform}
@@ -171,7 +171,7 @@ function LibraryGameCardBase({
           </div>
         )}
 
-        {showCardBadges && !isSimpleUi && (
+        {showCardBadges && interfaceVisibility.badgeInstall && !isSimpleUi && (
           <div className="lib-card-list-status">
             <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
               {t(statusMeta.labelKey)}
@@ -179,7 +179,7 @@ function LibraryGameCardBase({
           </div>
         )}
 
-        {showCardBadges && (
+        {showCardBadges && interfaceVisibility.badgePlaytime && (
           <div className="lib-card-list-playtime">
             <Badge variant="default" size="sm" className="lib-card-badge--playtime">
               <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -191,7 +191,7 @@ function LibraryGameCardBase({
           </div>
         )}
 
-        {showCardBadges && !isSimpleUi && (
+        {showCardBadges && interfaceVisibility.badgeRating && !isSimpleUi && (
           <div className="lib-card-list-rating">
             {rating != null && rating > 0 ? (
               <Badge variant="accent" size="sm" className="lib-card-rating">
@@ -297,21 +297,24 @@ function LibraryGameCardBase({
           </div>
         )}
 
-        {showCardBadges && (
+        {showCardBadges &&
+          (interfaceVisibility.badgeInstall || interfaceVisibility.badgePlaytime) && (
           <div className="lib-card-badges">
-            {isRunning && (
+            {isRunning && interfaceVisibility.badgeInstall && (
               <Badge variant="success" size="sm" dot className="lib-card-badge lib-card-badge--running">
                 <span className="lib-card-running-pulse" aria-hidden="true" />
                 {t("library.running")}
               </Badge>
             )}
-            <Badge variant="default" size="sm" className="lib-card-badge lib-card-badge--playtime">
-              <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <span>{game.playTime}</span>
-            </Badge>
+            {interfaceVisibility.badgePlaytime && (
+              <Badge variant="default" size="sm" className="lib-card-badge lib-card-badge--playtime">
+                <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span>{game.playTime}</span>
+              </Badge>
+            )}
           </div>
         )}
 
@@ -332,30 +335,33 @@ function LibraryGameCardBase({
         <h3 className="lib-card-name" title={game.name}>
           {game.name}
         </h3>
-        {showCardBadges && (
+        {showCardBadges &&
+          (interfaceVisibility.badgePlatform ||
+            interfaceVisibility.badgeInstall ||
+            interfaceVisibility.badgeRating) && (
           <div className="lib-card-meta">
-            <Badge variant="info" size="sm" className="lib-card-platform">
-              {game.platform}
-            </Badge>
-            {!isSimpleUi && (
-              <>
-                <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
-                  {t(statusMeta.labelKey)}
-                </Badge>
-                {rating != null && rating > 0 && (
-                  <Badge
-                    variant="accent"
-                    size="sm"
-                    className="lib-card-rating"
-                    title={`${t(game.igdbRating != null ? "gameInfo.igdbRating" : "gameInfo.criticRating")}: ${Math.round(rating)}%`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" style={{ marginRight: 3 }} aria-hidden="true">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                    <span>{Math.round(rating)}%</span>
-                  </Badge>
-                )}
-              </>
+            {interfaceVisibility.badgePlatform && (
+              <Badge variant="info" size="sm" className="lib-card-platform">
+                {game.platform}
+              </Badge>
+            )}
+            {interfaceVisibility.badgeInstall && !isSimpleUi && (
+              <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
+                {t(statusMeta.labelKey)}
+              </Badge>
+            )}
+            {interfaceVisibility.badgeRating && !isSimpleUi && rating != null && rating > 0 && (
+              <Badge
+                variant="accent"
+                size="sm"
+                className="lib-card-rating"
+                title={`${t(game.igdbRating != null ? "gameInfo.igdbRating" : "gameInfo.criticRating")}: ${Math.round(rating)}%`}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" style={{ marginRight: 3 }} aria-hidden="true">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                <span>{Math.round(rating)}%</span>
+              </Badge>
             )}
           </div>
         )}

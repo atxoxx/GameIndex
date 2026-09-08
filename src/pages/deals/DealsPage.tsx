@@ -364,7 +364,7 @@ export default function DealsPage() {
       />
 
       {/* Hero Spotlight */}
-      <div className="ui-complete-only">
+      <div className="ui-complete-only ui-item-hero">
         <DealsHeroSpotlight
           deals={deals}
           giveaways={giveaways}

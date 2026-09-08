@@ -302,7 +302,7 @@ export function StorageControlsBar({
           </div>
 
           {/* Group-by Segmented Control */}
-          <div className="storage-tool-item ui-complete-only">
+          <div className="storage-tool-item ui-complete-only ui-item-filters">
             <span className="storage-tool-label">{t("storage.groupBy")}</span>
             <div className="storage-groupby-segment" role="group" aria-label={t("storage.groupBy")}>
               {(["none", "drive", "platform", "sizeTier"] as GroupKey[]).map((k) => (
@@ -361,7 +361,7 @@ export function StorageControlsBar({
             </Button>
 
             {/* Export Report Menu */}
-            <div className="storage-export-dropdown ui-complete-only" ref={exportRef}>
+            <div className="storage-export-dropdown ui-complete-only ui-item-filters" ref={exportRef}>
               <Button
                 variant="ghost"
                 size="sm"

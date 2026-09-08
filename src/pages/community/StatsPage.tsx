@@ -176,7 +176,7 @@ export default function StatsPage() {
           type="button"
           role="tab"
           aria-selected={effectiveTab === "trends"}
-          className={`stats-subtab-btn ui-complete-only${effectiveTab === "trends" ? " active" : ""}`}
+          className={`stats-subtab-btn ui-complete-only ui-item-subtabs${effectiveTab === "trends" ? " active" : ""}`}
           onClick={() => handleTabChange("trends")}
         >
           <span className="stats-subtab-icon">📈</span>
@@ -198,7 +198,7 @@ export default function StatsPage() {
           type="button"
           role="tab"
           aria-selected={effectiveTab === "captures"}
-          className={`stats-subtab-btn ui-complete-only${effectiveTab === "captures" ? " active" : ""}`}
+          className={`stats-subtab-btn ui-complete-only ui-item-subtabs${effectiveTab === "captures" ? " active" : ""}`}
           onClick={() => handleTabChange("captures")}
         >
           <span className="stats-subtab-icon">📸</span>
@@ -209,7 +209,7 @@ export default function StatsPage() {
           type="button"
           role="tab"
           aria-selected={effectiveTab === "milestones"}
-          className={`stats-subtab-btn ui-complete-only${effectiveTab === "milestones" ? " active" : ""}`}
+          className={`stats-subtab-btn ui-complete-only ui-item-subtabs${effectiveTab === "milestones" ? " active" : ""}`}
           onClick={() => handleTabChange("milestones")}
         >
           <span className="stats-subtab-icon">🎖️</span>

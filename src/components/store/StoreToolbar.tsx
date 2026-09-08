@@ -70,7 +70,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
 
         <button
           type="button"
-          className={`store-toolbar-toggle ui-complete-only${c.bulkMode ? " active" : ""}`}
+          className={`store-toolbar-toggle ui-complete-only ui-item-filters${c.bulkMode ? " active" : ""}`}
           onClick={() => {
             c.setBulkMode(!c.bulkMode);
             c.clearSelection();

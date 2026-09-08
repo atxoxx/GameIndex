@@ -662,6 +662,38 @@ html[data-ui-mode="simple"] .home-dashboard {
   margin-top: var(--space-md);
 }
 
+/* Extra Simple-mode decluttering — chrome that isn't widget-marked. */
+html[data-ui-mode="simple"] .topnav-logo__version,
+html[data-ui-mode="simple"] .settings-header-summary {
+  display: none;
+}
+
+/* ── Per-item visibility toggles (Settings → Interface) ───────────────
+   Individual show/hide keys refine the Complete UI. SettingsContext
+   mirrors each OFF toggle to a `data-ui-hide-<item>` attribute on
+   <html>; these rules do the hiding. In Simple mode the same elements
+   are already hidden via .ui-complete-only above (plus the .ui-item-*
+   sweep below), so these toggles only matter in Complete mode. */
+html[data-ui-hide-widget-kpis="true"] .ui-item-kpis,
+html[data-ui-hide-widget-filters="true"] .ui-item-filters,
+html[data-ui-hide-widget-subtabs="true"] .ui-item-subtabs,
+html[data-ui-hide-widget-hero="true"] .ui-item-hero,
+html[data-ui-hide-widget-dashboard="true"] .ui-item-dashboard,
+html[data-ui-hide-badge-crackwatch="true"] .store-card-cw-badge,
+html[data-ui-hide-badge-compare="true"] .store-card-compare,
+html[data-ui-hide-badge-compare="true"] .store-card__compare-btn {
+  display: none !important;
+}
+
+/* Simple mode hides every widget category at once (master "all off"). */
+html[data-ui-mode="simple"] .ui-item-kpis,
+html[data-ui-mode="simple"] .ui-item-filters,
+html[data-ui-mode="simple"] .ui-item-subtabs,
+html[data-ui-mode="simple"] .ui-item-hero,
+html[data-ui-mode="simple"] .ui-item-dashboard {
+  display: none !important;
+}
+
 /* ── Progressive Disclosure (Simple mode) ────────────────────────────
    Advanced/secondary content collapses behind a small toggle in Simple
    mode so the default view stays clean; in Complete mode the wrapper

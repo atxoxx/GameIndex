@@ -366,7 +366,7 @@ export default function AchievementsPage() {
       <AchievementsSummaryHero gamerscore={gamerscore} stats={stats} />
 
       {/* Visual Analytics Grid: Rarity Distribution + Monthly Activity + Source Breakdown + Shelves */}
-      <div className="ui-complete-only">
+      <div className="ui-complete-only ui-item-dashboard">
         {stats.totalAchievements > 0 && (
           <div className="achievements-analytics-grid">
             <AchievementsRarityChart

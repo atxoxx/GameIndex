@@ -356,7 +356,7 @@ export default function GameHero({
           </div>
 
           <div className="game-hero__footer">
-            <div className="game-hero__kpis">{kpis}</div>
+            <div className="game-hero__kpis ui-item-kpis">{kpis}</div>
             <div className="game-hero__actions">
               {actions ??
                 (isGame ? <GameLaunchActions game={game!} onLaunch={onLaunch!} size="sm" /> : null)}

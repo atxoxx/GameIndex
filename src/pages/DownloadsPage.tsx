@@ -311,7 +311,7 @@ export default function DownloadsPage() {
 
       {/* Hero Control Center & Network Sparkline */}
       <BandwidthHero onOpenStats={() => setStatsModalOpen(true)} />
-      <div className="ui-complete-only">
+      <div className="ui-complete-only ui-item-dashboard">
         <BandwidthSparkline />
       </div>
 

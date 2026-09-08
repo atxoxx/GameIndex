@@ -12,6 +12,7 @@ import SettingsSidebar from "./settings/SettingsSidebar";
 import SettingsJumpBar from "./settings/SettingsJumpBar";
 import GeneralTab from "./settings/GeneralTab";
 import AppearanceTab from "./settings/AppearanceTab";
+import InterfaceTab from "./settings/InterfaceTab";
 import HardwareTab from "./settings/HardwareTab";
 import IntegrationsTab from "./settings/IntegrationsTab";
 import DiscordTab from "./settings/DiscordTab";
@@ -95,6 +96,7 @@ export default function SettingsPage() {
 
         {activeTab === "general" && <GeneralTab />}
         {activeTab === "appearance" && <AppearanceTab />}
+        {activeTab === "interface" && <InterfaceTab />}
         {activeTab === "hardware" && <HardwareTab />}
         {activeTab === "integrations" && (
           <IntegrationsTab

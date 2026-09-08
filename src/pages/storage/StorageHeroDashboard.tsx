@@ -235,7 +235,7 @@ export function StorageHeroDashboard({
 
         {/* KPI 4: Storage Health / Cleanup Opportunity */}
         <div
-          className={`storage-kpi-card storage-kpi-card--interactive ui-complete-only ${
+          className={`storage-kpi-card storage-kpi-card--interactive ui-complete-only ui-item-kpis ${
             staleCount > 0 ? "storage-kpi-card--alert" : ""
           }`}
           onClick={() => onNavigateToCleanup?.()}
@@ -415,7 +415,7 @@ export function StorageHeroDashboard({
 
       {/* ── Platform Distribution Strip ──────────────────────────────── */}
       {platforms.length > 1 && (
-        <div className="storage-platform-strip ui-complete-only">
+        <div className="storage-platform-strip ui-complete-only ui-item-dashboard">
           <div className="storage-platform-title">{t("storageHeader.byPlatform")}</div>
           <div className="storage-platform-chips">
             {platforms.map((p) => {

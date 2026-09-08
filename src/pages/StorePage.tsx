@@ -113,7 +113,7 @@ export default function StorePage() {
       <StoreHeader catalogue={c} />
 
       {/* Featured Spotlight Showcase */}
-      <div className="fade-up ui-complete-only" style={{ "--d": "120ms" } as CSSProperties}>
+      <div className="fade-up ui-complete-only ui-item-hero" style={{ "--d": "120ms" } as CSSProperties}>
         <StoreFeaturedHero onPickGame={c.onCardClick} />
       </div>
 

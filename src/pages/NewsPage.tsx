@@ -559,7 +559,7 @@ export default function NewsPage() {
       />
 
       {/* Hero Spotlight Section */}
-      <div className="ui-complete-only">
+      <div className="ui-complete-only ui-item-hero">
         {activeCategory === "all" && !searchQuery && !activeTag && (
           <NewsHeroSpotlight
             articles={allArticles}
@@ -596,7 +596,7 @@ export default function NewsPage() {
       />
 
       {/* Source filter pills */}
-      <div className="ui-complete-only">
+      <div className="ui-complete-only ui-item-filters">
         <NewsSourcePills
           sourceNames={sourceNames}
           activeSource={activeSource}

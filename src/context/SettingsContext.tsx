@@ -90,6 +90,9 @@ const LS_SHOW_GAME_ART_BACKDROP = "gamelib.show_game_art_backdrop";
 const LS_SHOW_NAVBAR_NOW_PLAYING = "gamelib.show_navbar_now_playing";
 // Game & Store detail-page section visibility (Settings → Appearance).
 const LS_DETAIL_SECTIONS_VISIBLE = "gamelib.detail_sections_visible";
+// Per-item UI visibility (Settings → Interface tab). Same overrides-object
+// pattern as detail sections: only OFF entries are persisted.
+const LS_INTERFACE_VISIBILITY = "gamelib.interface_visibility";
 // Linux & Steam Deck support level (Settings → General)
 const LS_LINUX_SUPPORT_LEVEL = "gamelib.linux_support_level";
 
@@ -154,6 +157,88 @@ export type DetailSectionKey =
   | "news";
 
 export type DetailSectionVisibility = Record<DetailSectionKey, boolean>;
+
+/** Individual UI elements that can be shown/hidden from the Interface
+ *  settings tab. Keys are camelCase; the HTML attribute applied to
+ *  `<html>` is the kebab-case form (`data-ui-hide-<key>`).
+ *  - nav*: top navbar tabs
+ *  - btn*: top-right cluster buttons
+ *  - badge*: card badges & overlays
+ *  - widget*: per-page widgets (KPI cards, filters, sub-tabs, hero, dashboards)
+ *  All default to ON; Simple UI mode hides everything at once and these
+ *  toggles only refine visibility in Complete mode. */
+export type InterfaceItemKey =
+  // Top navbar tabs
+  | "navHome"
+  | "navStore"
+  | "navLibrary"
+  | "navWishlist"
+  | "navDeals"
+  | "navNews"
+  | "navEmulators"
+  | "navMods"
+  | "navActivity"
+  | "navAchievements"
+  | "navStorage"
+  | "navCommunity"
+  | "navFriends"
+  // Right-cluster navbar buttons
+  | "btnDownloads"
+  | "btnSettings"
+  | "btnDocs"
+  | "btnBigScreen"
+  // Card badges & overlays
+  | "badgePlatform"
+  | "badgePlaytime"
+  | "badgeInstall"
+  | "badgeRating"
+  | "badgeCrackwatch"
+  | "badgeCompare"
+  // Page widgets
+  | "widgetKpis"
+  | "widgetFilters"
+  | "widgetSubtabs"
+  | "widgetHero"
+  | "widgetDashboard";
+
+export type InterfaceVisibility = Record<InterfaceItemKey, boolean>;
+
+/** All interface items default to visible so existing users see no change. */
+export const DEFAULT_INTERFACE_VISIBILITY: InterfaceVisibility = {
+  navHome: true,
+  navStore: true,
+  navLibrary: true,
+  navWishlist: true,
+  navDeals: true,
+  navNews: true,
+  navEmulators: true,
+  navMods: true,
+  navActivity: true,
+  navAchievements: true,
+  navStorage: true,
+  navCommunity: true,
+  navFriends: true,
+  btnDownloads: true,
+  btnSettings: true,
+  btnDocs: true,
+  btnBigScreen: true,
+  badgePlatform: true,
+  badgePlaytime: true,
+  badgeInstall: true,
+  badgeRating: true,
+  badgeCrackwatch: true,
+  badgeCompare: true,
+  widgetKpis: true,
+  widgetFilters: true,
+  widgetSubtabs: true,
+  widgetHero: true,
+  widgetDashboard: true,
+};
+
+/** Map an InterfaceItemKey to its `data-ui-hide-*` attribute name. */
+export function interfaceAttrKey(key: InterfaceItemKey): string {
+  return key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
 
 export interface SettingsContextValue {
   // ── Launcher (Rust-backed) ───────────────────────────────────────
@@ -248,6 +333,11 @@ export interface SettingsContextValue {
   /** Per-section visibility for the game detail and store pages. */
   detailSectionVisible: DetailSectionVisibility;
   setDetailSectionVisible: (key: DetailSectionKey, visible: boolean) => void;
+  /** Per-item visibility for the Interface tab (navbar tabs, buttons,
+   *  card badges, page widgets). Simple mode hides everything at once;
+   *  these refine visibility in Complete mode. */
+  interfaceVisibility: InterfaceVisibility;
+  setInterfaceVisibility: (key: InterfaceItemKey, visible: boolean) => void;
 
   // ── Linux & Steam Deck Support ──────────────────────────────────
   hostPlatform: HostPlatform;
@@ -990,6 +1080,48 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // Per-item UI visibility (Settings → Interface). Same overrides-object
+  // pattern as detail sections: defaults all ON, only OFF entries are
+  // persisted, and each OFF entry is mirrored to a `data-ui-hide-<key>`
+  // attribute on <html> so the CSS rules in theme.css do the hiding.
+  const [interfaceVisibility, setInterfaceVisibilityState] =
+    useState<InterfaceVisibility>(() => {
+      const stored = lsGetJSON<Partial<InterfaceVisibility>>(
+        LS_INTERFACE_VISIBILITY,
+        {},
+      );
+      return {
+        ...DEFAULT_INTERFACE_VISIBILITY,
+        ...stored,
+      };
+    });
+  const setInterfaceVisibility = useCallback(
+    (key: InterfaceItemKey, visible: boolean) => {
+      setInterfaceVisibilityState((prev) => {
+        const next = { ...prev, [key]: visible };
+        const overrides: Partial<InterfaceVisibility> = {};
+        for (const k of Object.keys(next) as InterfaceItemKey[]) {
+          if (next[k] === false) overrides[k] = false;
+        }
+        lsSetJSON(LS_INTERFACE_VISIBILITY, overrides);
+        return next;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    for (const key of Object.keys(interfaceVisibility) as InterfaceItemKey[]) {
+      const attr = `data-ui-hide-${interfaceAttrKey(key)}`;
+      if (interfaceVisibility[key] === false) {
+        document.documentElement.setAttribute(attr, "true");
+      } else {
+        document.documentElement.removeAttribute(attr);
+      }
+    }
+  }, [interfaceVisibility]);
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -1068,6 +1200,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowNavbarNowPlaying,
       detailSectionVisible,
       setDetailSectionVisible,
+      interfaceVisibility,
+      setInterfaceVisibility,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1154,6 +1288,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowNavbarNowPlaying,
       detailSectionVisible,
       setDetailSectionVisible,
+      interfaceVisibility,
+      setInterfaceVisibility,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,

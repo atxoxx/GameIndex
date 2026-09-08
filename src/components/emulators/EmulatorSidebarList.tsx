@@ -218,7 +218,7 @@ function EmulatorSidebarListBase({
       </div>
 
       {/* Category & Status Filter Dropdowns */}
-      <div className="emulators-sort ui-complete-only">
+      <div className="emulators-sort ui-complete-only ui-item-filters">
         <label className="emulators-sort-label" htmlFor="emu-category-select">
           {t("library.groupBy.platform")}
         </label>
@@ -236,7 +236,7 @@ function EmulatorSidebarListBase({
         </select>
       </div>
 
-      <div className="emulators-sort ui-complete-only">
+      <div className="emulators-sort ui-complete-only ui-item-filters">
         <label className="emulators-sort-label" htmlFor="emu-status-select">
           {t("library.filter.status")}
         </label>

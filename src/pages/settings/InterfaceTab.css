@@ -1,0 +1,83 @@
+/* =============================================================================
+ * Interface Settings Tab — subtab pill navigation
+ * ========================================================================== */
+
+.interface-tab-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+}
+
+/* ── Top Subtab Navigation Bar (horizontally scrollable) ─────────────── */
+
+.interface-subtab-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.interface-subtab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.interface-subtab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.interface-subtab-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.interface-subtab-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.interface-subtab-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* ── Active Panel Container ───────────────────────────────────────────── */
+
+.interface-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  animation: interfaceFadeIn 160ms var(--ease-standard);
+}
+
+@keyframes interfaceFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

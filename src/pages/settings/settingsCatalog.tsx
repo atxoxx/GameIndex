@@ -53,6 +53,7 @@ interface TabMeta {
 const TAB_ORDER: SettingsTab[] = [
   "general",
   "appearance",
+  "interface",
   "hardware",
   "integrations",
   "discord",
@@ -119,6 +120,45 @@ export function buildSettingsCatalog(
         },
       ],
     },
+    interface: {
+      tab: "interface",
+      labelKey: "settings.interface",
+      descKey: "settings.interface.desc",
+      keywords: "interface visibility show hide navbar tabs buttons badges overlays widgets kpi filters subtabs clutter declutter simple complete layout scale density detail sections",
+      icon: <ListIcon />,
+      sections: [
+        {
+          id: "interface-layout",
+          labelKey: "settings.appearance.interfaceTitle",
+          keywords: "interface layout scale zoom density simple complete mode navbar compact command palette backdrop art declutter",
+        },
+        {
+          id: "interface-nav-tabs",
+          labelKey: "settings.section.interfaceNavTabs",
+          keywords: "navbar top tabs show hide home store library wishlist deals news emulators mods activity achievements storage community friends navigation",
+        },
+        {
+          id: "interface-nav-buttons",
+          labelKey: "settings.section.interfaceNavButtons",
+          keywords: "downloads settings docs big screen buttons top right cluster now playing visibility",
+        },
+        {
+          id: "interface-badges",
+          labelKey: "settings.section.interfaceBadges",
+          keywords: "card badges overlays platform playtime install rating crackwatch compare pills",
+        },
+        {
+          id: "interface-widgets",
+          labelKey: "settings.section.interfaceWidgets",
+          keywords: "kpi stat cards filters sort bars subtabs hero collage dashboard widgets clutter",
+        },
+        {
+          id: "interface-detail-sections",
+          labelKey: "settings.detailSections.title",
+          keywords: "game detail store sections show hide system requirements relations time to beat protondb release reviews activity achievements mods weblinks news visibility",
+        },
+      ],
+    },
     appearance: {
       tab: "appearance",
       labelKey: "settings.appearance",
@@ -135,16 +175,6 @@ export function buildSettingsCatalog(
           id: "appearance-accent",
           labelKey: "settings.label.accent",
           keywords: "accent color custom swatch tint highlight preset",
-        },
-        {
-          id: "appearance-interface",
-          labelKey: "settings.appearance.interfaceTitle",
-          keywords: "interface layout navigation navbar command palette density simple complete compact badges backdrop",
-        },
-        {
-          id: "appearance-detail-sections",
-          labelKey: "settings.detailSections.title",
-          keywords: "game detail store sections show hide system requirements relations time to beat protondb release reviews activity achievements mods weblinks news visibility",
         },
         {
           id: "appearance-motion",
@@ -437,6 +467,7 @@ export function buildSettingsCatalog(
       items: [
         { tab: "general", label: t("settings.general"), icon: <GlobeIcon /> },
         { tab: "appearance", label: t("settings.appearance"), icon: <PaletteIcon /> },
+        { tab: "interface", label: t("settings.interface"), icon: <ListIcon /> },
         { tab: "hardware", label: t("settings.tab.hardware"), icon: <HardwareIcon /> },
       ],
     },
