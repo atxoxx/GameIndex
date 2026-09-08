@@ -136,6 +136,17 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dockRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const containerRef = useRef<HTMLElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isInView, setIsInView] = useState(true);
+  const [manualVideoPaused, setManualVideoPaused] = useState(false);
+
+  const reduceMotion = useMemo(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    []
+  );
 
   // Keep active dock thumbnail visible horizontally inside the dock reel without
   // touching ancestor scroll positions (scrollIntoView would drag .app-main back to top).
@@ -246,9 +257,41 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     setCurrentIndex((prev) => (prev - 1 + games.length) % games.length);
   }, [games.length]);
 
-  // Autoplay carousel timer
+  // Observe hero visibility to pause video and auto-advance when scrolled out of view or tab hidden
   useEffect(() => {
-    if (isPaused || games.length <= 1) {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting && entry.intersectionRatio > 0.05);
+      },
+      { threshold: [0, 0.05, 0.2] }
+    );
+
+    observer.observe(el);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setIsInView(false);
+      } else {
+        const rect = el.getBoundingClientRect();
+        const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
+        setIsInView(inViewport);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  // Autoplay carousel timer — pause when hovered, user-paused, or scrolled out of view
+  useEffect(() => {
+    if (isPaused || !isInView || games.length <= 1) {
       if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
@@ -260,7 +303,9 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isPaused, games.length, handleNext]);
+  }, [isPaused, isInView, games.length, handleNext]);
+
+
 
   const activeGame = games[currentIndex];
 
@@ -351,6 +396,18 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     return null;
   }, [videoFailed, activeGame, steamAppId]);
 
+  // Synchronize video element playback with visibility and user pause state
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!isInView || isPaused || manualVideoPaused || reduceMotion) {
+      video.pause();
+    } else {
+      video.play().catch(() => {});
+    }
+  }, [isInView, isPaused, manualVideoPaused, reduceMotion, trailerVideoSrc]);
+
   // Subtle pointer parallax for the hero backdrop + poster. Normalized
   // pointer position (0..1) is published as --spot-x / --spot-y on the
   // stage; the CSS translates the artwork by a few pixels against the
@@ -373,10 +430,6 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     stage.style.setProperty("--spot-y", "0.5");
   }, []);
 
-  const reduceMotion = useMemo(
-    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    []
-  );
 
   const openSurprise = () => setSurpriseOpen(true);
 
@@ -403,8 +456,13 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`
     : null;
   const posterSrc = coverUrl ?? sgdb?.gridUrl ?? null;
+  const staticBackdrop =
+    steamCdnHero ?? sgdb?.heroUrl ?? backdropLoadedUrl ?? coverUrl;
   const spotlightBackdrop =
-    sgdb?.heroAnimatedUrl ?? steamCdnHero ?? sgdb?.heroUrl ?? backdropLoadedUrl ?? coverUrl;
+    reduceMotion
+      ? staticBackdrop
+      : (sgdb?.heroAnimatedUrl ?? staticBackdrop);
+  const trailerPoster = staticBackdrop || undefined;
 
 
   const descriptiveText = useMemo(() => {
@@ -484,6 +542,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
 
   return (
     <section
+      ref={containerRef}
       className="store-spotlight"
       aria-label={t("store.highlightsAria")}
       onMouseEnter={() => setIsPaused(true)}
@@ -596,19 +655,20 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
         >
           {/* Animated Background Mesh, Backdrop & Silent Video Trailer */}
           <div className="store-spotlight-bg" aria-hidden="true">
-            {trailerVideoSrc ? (
+            {trailerVideoSrc && isInView && !reduceMotion ? (
               <video
+                ref={videoRef}
                 key={trailerVideoSrc}
                 src={trailerVideoSrc}
-                poster={spotlightBackdrop || undefined}
-                autoPlay
+                poster={trailerPoster}
+                autoPlay={!manualVideoPaused}
                 muted
                 loop
                 playsInline
                 className="store-spotlight-bg-video"
                 onError={() => setVideoFailed(true)}
               />
-            ) : spotlightBackdrop ? (
+            ) : spotlightBackdrop && isInView ? (
               <img
                 key={`${activeGame.id}-${spotlightBackdrop}`}
                 src={spotlightBackdrop}
@@ -631,12 +691,27 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
               </span>
 
               {trailerVideoSrc && !videoFailed && (
-                <span className="store-spotlight-trailer-pill">
+                <button
+                  type="button"
+                  className={`store-spotlight-trailer-pill${manualVideoPaused ? " is-paused" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setManualVideoPaused((p) => !p);
+                  }}
+                  title={manualVideoPaused ? "Play trailer video" : "Pause trailer video"}
+                >
                   <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" aria-hidden="true">
-                    <polygon points="5 3 19 12 5 21 5 3" />
+                    {manualVideoPaused ? (
+                      <polygon points="5 3 19 12 5 21 5 3" />
+                    ) : (
+                      <>
+                        <rect x="6" y="4" width="4" height="16" />
+                        <rect x="14" y="4" width="4" height="16" />
+                      </>
+                    )}
                   </svg>
-                  <span>Trailer</span>
-                </span>
+                  <span>{manualVideoPaused ? "Play Trailer" : "Trailer"}</span>
+                </button>
               )}
 
               {activeGame.rating != null && (

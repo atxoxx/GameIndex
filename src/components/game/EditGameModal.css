@@ -1749,8 +1749,31 @@
   opacity: 0.95;
 }
 
-.media-fetch-filter-count {
+.media-fetch-anim-toggle-wrap {
+  display: flex;
+  align-items: center;
   margin-left: auto;
+}
+
+.media-fetch-anim-chip {
+  font-size: var(--font-size-2xs);
+  padding: 4px 10px;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.media-fetch-anim-chip:hover {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-color: var(--color-accent);
+}
+
+.media-fetch-anim-chip.active {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-color: var(--color-accent);
+}
+
+.media-fetch-filter-count {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
@@ -1778,11 +1801,13 @@
   overflow: hidden;
 }
 
-.media-fetch-thumb-btn img {
+.media-fetch-thumb-btn img,
+.media-fetch-thumb-btn video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  pointer-events: none;
 }
 
 .media-fetch-thumb-btn.transparent,
@@ -1836,7 +1861,8 @@
   overflow: hidden;
 }
 
-.media-fetch-preview-img img {
+.media-fetch-preview-img img,
+.media-fetch-preview-img video {
   max-width: 100%;
   max-height: 60vh;
   object-fit: contain;
@@ -1921,6 +1947,15 @@
   background: color-mix(in srgb, var(--color-accent) 80%, transparent);
   border-radius: var(--radius-full);
   padding: 2px 7px;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.media-fetch-badge.is-playing {
+  background: var(--color-success);
+  color: #fff;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
 }
 
 .media-fetch-card-meta {

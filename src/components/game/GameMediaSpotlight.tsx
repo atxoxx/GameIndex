@@ -17,10 +17,16 @@ type SpotlightItem =
   | { id: string; kind: "video"; url: string; label: string; thumbUrl: string | null }
   | { id: string; kind: "screenshot"; src: string; label: string; index: number };
 
-function HlsPlayer({ movie }: { movie: MovieEntry }) {
+function HlsPlayer({ movie, isInView }: { movie: MovieEntry; isInView?: boolean }) {
   const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const label = movie.name || t("game.mediaSpotlight.trailer");
+
+  useEffect(() => {
+    if (isInView === false && videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+  }, [isInView]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -66,10 +72,18 @@ function HlsPlayer({ movie }: { movie: MovieEntry }) {
   );
 }
 
-function SteamPlayer({ movie }: { movie: MovieEntry }) {
+function SteamPlayer({ movie, isInView }: { movie: MovieEntry; isInView?: boolean }) {
   const { t } = useLanguage();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (isInView === false && videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+  }, [isInView]);
+
   if (movie.hlsH264 && !movie.webm && !movie.mp4) {
-    return <HlsPlayer movie={movie} />;
+    return <HlsPlayer movie={movie} isInView={isInView} />;
   }
   const sources: { src: string; type: string }[] = [];
   if (movie.webm) sources.push({ src: movie.webm, type: "video/webm" });
@@ -78,6 +92,7 @@ function SteamPlayer({ movie }: { movie: MovieEntry }) {
 
   return (
     <video
+      ref={videoRef}
       controls
       poster={movie.thumbnail || undefined}
       playsInline
@@ -101,7 +116,40 @@ export default function GameMediaSpotlight({
   const [movies, setMovies] = useState<MovieEntry[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const filmstripRef = useRef<HTMLDivElement | null>(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
   const movieFetchRef = useRef(0);
+  const [isInView, setIsInView] = useState(true);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting && entry.intersectionRatio > 0.05);
+      },
+      { threshold: [0, 0.05, 0.2] }
+    );
+
+    observer.observe(el);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setIsInView(false);
+      } else {
+        const rect = el.getBoundingClientRect();
+        const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
+        setIsInView(inViewport);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   const effectiveSteamAppId = steamAppIdProp !== undefined ? steamAppIdProp : game.steamAppId;
 
@@ -223,6 +271,7 @@ export default function GameMediaSpotlight({
 
   return (
     <section
+      ref={sectionRef}
       className="game-section game-media-spotlight"
       aria-label={t("game.mediaSpotlight.title")}
       onKeyDown={handleKeyDown}
@@ -281,7 +330,7 @@ export default function GameMediaSpotlight({
       <div className="media-spotlight__theater">
         {activeItem.kind === "movie" && (
           <div className="media-spotlight__video-container">
-            <SteamPlayer movie={activeItem.movie} />
+            <SteamPlayer movie={activeItem.movie} isInView={isInView} />
           </div>
         )}
 

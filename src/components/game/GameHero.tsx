@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { KpiTile } from "../ui";
 import { type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
@@ -136,19 +136,61 @@ export default function GameHero({
     document.documentElement.dataset.gameAccent = "true";
   }, [isAdaptive, autoGameAccent, gamePalette]);
 
-  // Ambient background ladder — animated SteamGridDB hero leads, then the
-  // Steam CDN banner, then the SteamGridDB banner, then the game's own
-  // hero/cover as last resorts.
+  const heroRef = useRef<HTMLDivElement | null>(null);
+  const [isInView, setIsInView] = useState(true);
+
+  const reduceMotion = useMemo(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    []
+  );
+
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting && entry.intersectionRatio > 0.05);
+      },
+      { threshold: [0, 0.05, 0.2] }
+    );
+
+    observer.observe(el);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setIsInView(false);
+      } else {
+        const rect = el.getBoundingClientRect();
+        const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
+        setIsInView(inViewport);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  // Ambient background ladder — animated SteamGridDB hero leads (unless reduced
+  // motion is requested), then Steam CDN banner, SteamGridDB banner, and game cover.
   const steamCdnBanner =
     isGame && steamAppId != null
       ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`
       : null;
   const ambientCandidates = useMemo(
-    () =>
-      [sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl].filter(
-        (u): u is string => !!u
-      ),
-    [sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl]
+    () => {
+      const preferred = reduceMotion
+        ? [steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl]
+        : [sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl];
+      return preferred.filter((u): u is string => !!u);
+    },
+    [reduceMotion, sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl]
   );
   const ambientSrc =
     ambientStep < ambientCandidates.length ? ambientCandidates[ambientStep] : null;
@@ -267,6 +309,7 @@ export default function GameHero({
 
   return (
     <div
+      ref={heroRef}
       className={heroClassName}
       style={
         gamePalette
@@ -279,7 +322,7 @@ export default function GameHero({
       }
     >
       {/* Background art: a blurred copy of the banner/cover with glow */}
-      {ambientSrc && showGameArtBackdrop ? (
+      {ambientSrc && showGameArtBackdrop && isInView ? (
         <>
           <img
             src={ambientSrc}

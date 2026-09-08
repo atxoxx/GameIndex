@@ -97,10 +97,14 @@ impl SgdbTarget {
 #[serde(rename_all = "camelCase")]
 pub struct SgdbArtworkItem {
     pub url: String,
+    #[serde(default)]
+    pub thumb_url: Option<String>,
     pub mime: String,
     pub width: u32,
     pub height: u32,
     pub score: f64,
+    #[serde(default)]
+    pub animated: bool,
 }
 
 /// All artwork SteamGridDB has for one target, grouped by kind. The media
@@ -146,6 +150,8 @@ pub struct SgdbAssets {
 struct SgdbArtwork {
     #[serde(default)]
     url: Option<String>,
+    #[serde(default)]
+    thumb: Option<String>,
     #[serde(default)]
     mime: Option<String>,
     #[serde(default)]
@@ -542,65 +548,82 @@ async fn fetch_assets(api_key: &str, target: SgdbTarget) -> SgdbAssets {
     }
 }
 
-fn to_all_artwork_items(mut items: Vec<SgdbArtwork>) -> Vec<SgdbArtworkItem> {
-    items.sort_by(|a, b| {
-        b.score
-            .unwrap_or(0.0)
-            .partial_cmp(&a.score.unwrap_or(0.0))
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(b.downloads.unwrap_or(0).cmp(&a.downloads.unwrap_or(0)))
-    });
+fn to_all_artwork_items(items: Vec<SgdbArtwork>, animated: bool) -> Vec<SgdbArtworkItem> {
     items
         .into_iter()
         .filter(is_renderable_art)
         .filter_map(|a| {
             let url = a.url?;
+            let is_anim = animated
+                || a.mime.as_deref().map(|m| m.contains("apng") || m.contains("gif")).unwrap_or(false)
+                || url.ends_with(".apng") || url.ends_with(".gif")
+                || a.thumb.as_deref().map(|t| t.ends_with(".webm") || t.ends_with(".mp4")).unwrap_or(false);
             Some(SgdbArtworkItem {
                 url,
+                thumb_url: a.thumb,
                 mime: a.mime.unwrap_or_default(),
                 width: a.width.unwrap_or(0),
                 height: a.height.unwrap_or(0),
                 score: a.score.unwrap_or(0.0),
+                animated: is_anim,
             })
         })
         .collect()
 }
 
+fn sort_all_artwork_items(items: &mut [SgdbArtworkItem]) {
+    items.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+}
+
 async fn fetch_all_assets(api_key: &str, target: SgdbTarget) -> SgdbAllAssets {
     let (grids, heroes, icons, logos) = tokio::join!(
         async {
-            let mut v = service()
+            let statics = service()
                 .fetch_kind_all_pages(api_key, target, SgdbKind::Grid, "static")
                 .await;
-            v.extend(
-                service()
-                    .fetch_kind_all_pages(api_key, target, SgdbKind::Grid, "animated")
-                    .await,
-            );
-            to_all_artwork_items(v)
+            let animated = service()
+                .fetch_kind_all_pages(api_key, target, SgdbKind::Grid, "animated")
+                .await;
+            let mut all = to_all_artwork_items(statics, false);
+            all.extend(to_all_artwork_items(animated, true));
+            sort_all_artwork_items(&mut all);
+            all
         },
         async {
-            let mut v = service()
+            let statics = service()
                 .fetch_kind_all_pages(api_key, target, SgdbKind::Hero, "static")
                 .await;
-            v.extend(
+            let animated = service()
+                .fetch_kind_all_pages(api_key, target, SgdbKind::Hero, "animated")
+                .await;
+            let mut all = to_all_artwork_items(statics, false);
+            all.extend(to_all_artwork_items(animated, true));
+            sort_all_artwork_items(&mut all);
+            all
+        },
+        async {
+            let mut v = to_all_artwork_items(
                 service()
-                    .fetch_kind_all_pages(api_key, target, SgdbKind::Hero, "animated")
+                    .fetch_kind_all_pages(api_key, target, SgdbKind::Icon, "static")
                     .await,
+                false,
             );
-            to_all_artwork_items(v)
+            sort_all_artwork_items(&mut v);
+            v
         },
         async {
-            let v = service()
-                .fetch_kind_all_pages(api_key, target, SgdbKind::Icon, "static")
-                .await;
-            to_all_artwork_items(v)
-        },
-        async {
-            let v = service()
-                .fetch_kind_all_pages(api_key, target, SgdbKind::Logo, "static")
-                .await;
-            to_all_artwork_items(v)
+            let mut v = to_all_artwork_items(
+                service()
+                    .fetch_kind_all_pages(api_key, target, SgdbKind::Logo, "static")
+                    .await,
+                false,
+            );
+            sort_all_artwork_items(&mut v);
+            v
         },
     );
     SgdbAllAssets {

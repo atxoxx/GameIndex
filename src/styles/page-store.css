@@ -509,6 +509,19 @@
   color: var(--scrim-text);
   border: 1px solid var(--color-accent);
   letter-spacing: 0.6px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.store-spotlight-trailer-pill:hover {
+  background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  transform: scale(1.04);
+}
+
+.store-spotlight-trailer-pill.is-paused {
+  background: color-mix(in srgb, var(--color-bg-secondary) 80%, transparent);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
 }
 
 .store-spotlight-rating {

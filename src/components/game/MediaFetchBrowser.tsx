@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -15,10 +15,12 @@ export type FormatFilter = "all" | "jpg" | "jpeg" | "png" | "webp" | "ico";
 
 export interface Candidate {
   url: string;
+  thumbUrl?: string | null;
   source: string;
   mime?: string | null;
   resolution?: string;
   region?: string | null;
+  animated?: boolean;
 }
 
 interface MediaFetchBrowserProps {
@@ -50,11 +52,23 @@ function isTransparentSlot(slot: MediaSlot): boolean {
   return slot === "icon" || slot === "logo";
 }
 
-function isAnimated(c: Candidate): boolean {
+function isVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const clean = url.split("?")[0].toLowerCase();
   return (
-    (c.mime && (c.mime.includes("apng") || c.mime.includes("webp"))) ||
-    /\.apng$/i.test(c.url) ||
-    /\.webp$/i.test(c.url)
+    clean.endsWith(".webm") ||
+    clean.endsWith(".mp4") ||
+    clean.endsWith(".mkv") ||
+    clean.endsWith(".ogg")
+  );
+}
+
+function isAnimated(c: Candidate): boolean {
+  if (isVideoUrl(c.thumbUrl) || isVideoUrl(c.url)) return true;
+  if (c.animated !== undefined) return c.animated;
+  return (
+    (c.mime != null && (c.mime.includes("apng") || c.mime.includes("gif"))) ||
+    /\.(apng|gif)$/i.test(c.url)
   );
 }
 
@@ -241,6 +255,8 @@ async function collectCandidates(
               item.width > 0 && item.height > 0
                 ? `${item.width}x${item.height}`
                 : undefined,
+            thumbUrl: item.thumbUrl,
+            animated: item.animated,
           });
         }
       }
@@ -307,6 +323,7 @@ export function MediaFetchBrowser({
   const [launchboxCandidates, setLaunchboxCandidates] = useState<Candidate[]>([]);
   const [applyingUrl, setApplyingUrl] = useState<string | null>(null);
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
+  const [animationMode, setAnimationMode] = useState<"hover" | "always">("hover");
   const [previewCandidate, setPreviewCandidate] = useState<Candidate | null>(null);
 
   useEffect(() => {
@@ -368,43 +385,142 @@ export function MediaFetchBrowser({
     }
   }
 
-  function renderThumb(c: Candidate) {
-    return (
-      <div key={c.url} className="media-fetch-card">
-        <button
-          type="button"
-          className={`media-fetch-thumb-btn${isTransparentSlot(slot) ? " transparent" : ""}`}
-          onClick={() => setPreviewCandidate(c)}
-          title="Click to preview"
-        >
+interface CandidateCardProps {
+  candidate: Candidate;
+  slot: MediaSlot;
+  isApplying: boolean;
+  animationMode: "hover" | "always";
+  onApply: (url: string) => void;
+  onPreview: (candidate: Candidate) => void;
+}
+
+function CandidateCard({
+  candidate,
+  slot,
+  isApplying,
+  animationMode,
+  onApply,
+  onPreview,
+}: CandidateCardProps) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const animated = isAnimated(candidate);
+  const shouldAnimate = animated && (animationMode === "always" || hovered || focused);
+
+  const isThumbVideo = isVideoUrl(candidate.thumbUrl);
+  const isUrlVideo = isVideoUrl(candidate.url);
+  const hasVideo = !videoFailed && (isThumbVideo || isUrlVideo);
+  const videoSrc = isThumbVideo ? candidate.thumbUrl! : candidate.url;
+
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid || !hasVideo) return;
+    if (shouldAnimate) {
+      const p = vid.play();
+      if (p !== undefined) {
+        p.catch(() => {});
+      }
+    } else {
+      vid.pause();
+    }
+  }, [shouldAnimate, hasVideo]);
+
+  const staticThumbUrl = !isThumbVideo && candidate.thumbUrl ? candidate.thumbUrl : candidate.url;
+
+  return (
+    <div
+      className={`media-fetch-card${isApplying ? " is-applying" : ""}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        type="button"
+        className={`media-fetch-thumb-btn${isTransparentSlot(slot) ? " transparent" : ""}`}
+        onClick={() => onPreview(candidate)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        title="Click to preview"
+      >
+        {hasVideo ? (
+          <video
+            ref={videoRef}
+            src={`${videoSrc}#t=0.001`}
+            muted
+            playsInline
+            loop
+            preload="auto"
+            className={`media-fetch-video ${shouldAnimate ? "media-fetch-img-active" : "media-fetch-img-static"}`}
+            onLoadedData={(e) => {
+              if (!shouldAnimate && e.currentTarget.currentTime === 0) {
+                e.currentTarget.currentTime = 0.001;
+              }
+            }}
+            onError={() => setVideoFailed(true)}
+          />
+        ) : animated ? (
+          shouldAnimate ? (
+            <img
+              src={candidate.url}
+              alt={`${candidate.source} ${SLOT_LABEL[slot]}`}
+              decoding="async"
+              className="media-fetch-img-active"
+            />
+          ) : (
+            <img
+              src={staticThumbUrl}
+              alt={`${candidate.source} ${SLOT_LABEL[slot]}`}
+              loading="lazy"
+              decoding="async"
+              className="media-fetch-img-static"
+              onError={(e) => {
+                if (candidate.thumbUrl && e.currentTarget.src !== candidate.url) {
+                  e.currentTarget.src = candidate.url;
+                }
+              }}
+            />
+          )
+        ) : (
           <img
-            src={c.url}
-            alt={`${c.source} ${SLOT_LABEL[slot]}`}
+            src={staticThumbUrl}
+            alt={`${candidate.source} ${SLOT_LABEL[slot]}`}
             loading="lazy"
             decoding="async"
-            fetchPriority={c.source === "Steam" ? "high" : "low"}
+            fetchPriority={candidate.source === "Steam" ? "high" : "low"}
+            onError={(e) => {
+              if (candidate.thumbUrl && e.currentTarget.src !== candidate.url) {
+                e.currentTarget.src = candidate.url;
+              }
+            }}
           />
-          {isAnimated(c) && <span className="media-fetch-badge">animated</span>}
-        </button>
-        <div className="media-fetch-card-meta">
-          <span className="media-fetch-fmt">
-            {c.mime ? c.mime.replace("image/", "") : (c.url.split("?")[0].split(".").pop() || "img")}
+        )}
+        {animated && (
+          <span className={`media-fetch-badge${shouldAnimate ? " is-playing" : ""}`}>
+            {shouldAnimate ? "playing" : "animated"}
           </span>
-          {c.resolution && <span className="media-fetch-res"> · {c.resolution}</span>}
-          {c.region && <span className="media-fetch-res"> · {c.region}</span>}
-        </div>
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={applyingUrl !== null}
-          isLoading={applyingUrl === c.url}
-          onClick={() => handleApply(c.url)}
-        >
-          Set as {SLOT_LABEL[slot]}
-        </Button>
+        )}
+      </button>
+      <div className="media-fetch-card-meta">
+        <span className="media-fetch-fmt">
+          {candidate.mime ? candidate.mime.replace("image/", "") : (candidate.url.split("?")[0].split(".").pop() || "img")}
+        </span>
+        {candidate.resolution && <span className="media-fetch-res"> · {candidate.resolution}</span>}
+        {candidate.region && <span className="media-fetch-res"> · {candidate.region}</span>}
       </div>
-    );
-  }
+      <Button
+        variant="primary"
+        size="sm"
+        disabled={isApplying}
+        isLoading={isApplying}
+        onClick={() => onApply(candidate.url)}
+      >
+        Set as {SLOT_LABEL[slot]}
+      </Button>
+    </div>
+  );
+}
 
   return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
@@ -443,6 +559,16 @@ export function MediaFetchBrowser({
                   </button>
                 );
               })}
+              <div className="media-fetch-anim-toggle-wrap">
+                <button
+                  type="button"
+                  className={`media-fetch-filter-chip media-fetch-anim-chip${animationMode === "always" ? " active" : ""}`}
+                  onClick={() => setAnimationMode((m) => (m === "hover" ? "always" : "hover"))}
+                  title={animationMode === "hover" ? "Hover card to play animation (fast & smooth). Click to play all continuously." : "Playing all animations. Click to play on hover only."}
+                >
+                  <span>{animationMode === "hover" ? "▶ Play: On Hover" : "▶ Play: All"}</span>
+                </button>
+              </div>
               <span className="media-fetch-filter-count">
                 {filteredCandidates.length} of {allCandidates.length}
               </span>
@@ -475,7 +601,17 @@ export function MediaFetchBrowser({
                   <span className="media-fetch-source-count">{list.length}</span>
                 </div>
                 <div className="media-fetch-grid">
-                  {list.map((c) => renderThumb(c))}
+                  {list.map((c) => (
+                    <CandidateCard
+                      key={c.url}
+                      candidate={c}
+                      slot={slot}
+                      isApplying={applyingUrl === c.url}
+                      animationMode={animationMode}
+                      onApply={handleApply}
+                      onPreview={setPreviewCandidate}
+                    />
+                  ))}
                 </div>
               </div>
             ))
@@ -509,7 +645,11 @@ export function MediaFetchBrowser({
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
             <div className={`media-fetch-preview-img${isTransparentSlot(slot) ? " transparent" : ""}`}>
-              <img src={previewCandidate.url} alt={`${previewCandidate.source} ${SLOT_LABEL[slot]} preview`} decoding="async" />
+              {isVideoUrl(previewCandidate.url) ? (
+                <video src={previewCandidate.url} controls autoPlay loop muted playsInline />
+              ) : (
+                <img src={previewCandidate.url} alt={`${previewCandidate.source} ${SLOT_LABEL[slot]} preview`} decoding="async" />
+              )}
             </div>
             <div className="media-fetch-preview-meta">
               <span className="media-fetch-preview-source">{previewCandidate.source}</span>

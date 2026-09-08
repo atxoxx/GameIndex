@@ -44,7 +44,7 @@
 // enough that it never feels rushed. If feedback proves otherwise,
 // add a `paused` prop and have the parent bubble focus state.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface BigScreenHeroBackgroundProps {
   bannerUrl?: string;
@@ -139,7 +139,7 @@ export default function BigScreenHeroBackground({
   }, [reducedMotion, videos, screenshots, bannerUrl, coverArtUrl]);
 
   if (mode === "video") {
-    return <VideoBackground src={videos![0]} />;
+    return <VideoBackground src={videos![0]} paused={paused} />;
   }
 
   if (mode === "cycle") {
@@ -170,19 +170,61 @@ export default function BigScreenHeroBackground({
 
 // ── Video ────────────────────────────────────────────────────
 
-function VideoBackground({ src }: { src: string }) {
+function VideoBackground({ src, paused }: { src: string; paused?: boolean }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isInView, setIsInView] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting && entry.intersectionRatio > 0.05);
+      },
+      { threshold: [0, 0.05, 0.2] }
+    );
+
+    observer.observe(el);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setIsInView(false);
+      } else {
+        const rect = el.getBoundingClientRect();
+        const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
+        setIsInView(inViewport);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (paused || !isInView) {
+      video.pause();
+    } else {
+      video.play().catch(() => {});
+    }
+  }, [paused, isInView]);
+
   return (
-    <div className="bigscreen-gamepage-hero-bg-video" aria-hidden>
+    <div ref={containerRef} className="bigscreen-gamepage-hero-bg-video" aria-hidden>
       <video
+        ref={videoRef}
         src={src}
-        autoPlay
+        autoPlay={!paused}
         muted
         loop
         playsInline
-        // The hero is above-the-fold and the entire BG layer is
-        // expected to be visible immediately on mount. `auto`
-        // preloads the whole file so the first paint already shows
-        // motion; a 1–2 MB trailer is fine.
         preload="auto"
       />
     </div>

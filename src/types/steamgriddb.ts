@@ -33,10 +33,12 @@ export interface SgdbAssets {
 /** One image item in the full SteamGridDB gallery for a game. */
 export interface SgdbArtworkItem {
   url: string;
+  thumbUrl?: string | null;
   mime: string;
   width: number;
   height: number;
   score: number;
+  animated?: boolean;
 }
 
 /** Every SteamGridDB upload for a game, grouped by kind. Returned by the

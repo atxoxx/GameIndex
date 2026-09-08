@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
@@ -64,6 +64,9 @@ export default function HeroTrailer({
   const { t } = useLanguage();
   const parsed = useMemo(() => parseSource(src), [src]);
   const [activated, setActivated] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isInView, setIsInView] = useState(true);
 
   const reduceMotion = useMemo(
     () =>
@@ -72,15 +75,61 @@ export default function HeroTrailer({
     []
   );
 
-  if (!parsed) return null;
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting && entry.intersectionRatio > 0.05);
+      },
+      { threshold: [0, 0.05, 0.2] }
+    );
+
+    observer.observe(el);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setIsInView(false);
+      } else {
+        const rect = el.getBoundingClientRect();
+        const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
+        setIsInView(inViewport);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   const shouldAutoplay = autoplay && !reduceMotion;
   const playing = shouldAutoplay || activated;
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!isInView) {
+      video.pause();
+    } else if (shouldAutoplay) {
+      video.play().catch(() => {});
+    }
+  }, [isInView, shouldAutoplay]);
+
+  if (!parsed) return null;
+
   if (parsed.kind === "file") {
     return (
-      <div className={`hero-trailer${className ? ` ${className}` : ""}`} aria-hidden={!playing}>
+      <div
+        ref={containerRef}
+        className={`hero-trailer${className ? ` ${className}` : ""}`}
+        aria-hidden={!playing}
+      >
         <video
+          ref={videoRef}
           className="hero-trailer__video"
           src={parsed.src}
           poster={poster ?? undefined}
