@@ -178,7 +178,478 @@ pub fn start_metrics_collection(
     (stop_tx, result_rx)
 }
 
-#[cfg(not(windows))]
+/// Linux per-second sampler: `/proc/stat` CPU, `/proc/meminfo` RAM, sysfs
+/// GPU load (amdgpu `gpu_busy_percent`) + temperatures (hwmon with an
+/// nvidia-smi fallback), and best-effort FPS from an active MangoHud log.
+/// Mirrors the Windows loop's shape so `aggregate_metrics` and the frontend
+/// pipeline are shared unchanged.
+#[cfg(target_os = "linux")]
+fn collect_metrics_loop(
+    config: &MetricsConfig,
+    stop_rx: mpsc::Receiver<()>,
+    _game_pid: u32,
+    gpu_id: Option<String>,
+    _gpu_name: Option<String>,
+) -> Vec<MetricsSample> {
+    let mut samples: Vec<MetricsSample> = Vec::new();
+    let loop_start = Instant::now();
+    let interval = Duration::from_millis(config.interval_ms.max(250));
+
+    // Resolve GPU sensor sources once per session (sysfs paths are stable;
+    // only the values change). Mirrors the Windows loop opening its WMI
+    // connections once instead of per sample.
+    let gpu_source = LinuxGpuSource::detect(gpu_id.as_deref());
+
+    // MangoHud CSV candidates are re-listed per sample, but each file is
+    // head-checked only once (the checked set) and known-good logs are
+    // kept, so the freshness scan stays cheap.
+    let mut mangohud_known: Vec<std::path::PathBuf> = Vec::new();
+    let mut mangohud_checked: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::new();
+
+    // Previous /proc/stat counters for the CPU% delta. Seeded before the
+    // loop so the very first sample already has a real interval.
+    let mut prev_total: u64 = 0;
+    let mut prev_idle: u64 = 0;
+    if config.capture_cpu {
+        if let Some((total, idle)) = read_proc_stat_cpu() {
+            prev_total = total;
+            prev_idle = idle;
+        }
+    }
+
+    let mut first_logged = false;
+
+    loop {
+        if stop_rx.try_recv().is_ok() {
+            break;
+        }
+
+        // ── CPU % — delta over the aggregate `cpu ` line ────────────────
+        let mut cpu_usage = 0.0f32;
+        if config.capture_cpu {
+            if let Some((total, idle)) = read_proc_stat_cpu() {
+                if prev_total > 0 && total > prev_total {
+                    let idle_delta = idle.saturating_sub(prev_idle);
+                    let total_delta = total - prev_total;
+                    cpu_usage = ((total_delta - idle_delta) as f32 / total_delta as f32) * 100.0;
+                }
+                prev_total = total;
+                prev_idle = idle;
+            }
+        }
+
+        // ── RAM % — used / total from /proc/meminfo ─────────────────────
+        let ram_usage = if config.capture_ram {
+            read_meminfo_usage_pct().unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
+        // ── GPU load + temperature (one sysfs / nvidia-smi read) ────────
+        let mut gpu_usage = 0.0f32;
+        let mut gpu_temp = 0.0f32;
+        if config.capture_gpu || config.capture_gpu_temp {
+            let (u, t) = gpu_source.sample();
+            if config.capture_gpu {
+                gpu_usage = u;
+            }
+            if config.capture_gpu_temp {
+                gpu_temp = t;
+            }
+        }
+
+        // ── CPU temperature — coretemp / k10temp / zenpower hwmon ───────
+        let cpu_temp = if config.capture_cpu_temp {
+            read_cpu_temp_celsius().unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
+        // ── FPS — best-effort from an active MangoHud log ───────────────
+        let fps = if config.capture_fps {
+            read_mangohud_fps(&mut mangohud_known, &mut mangohud_checked)
+        } else {
+            None
+        };
+
+        let mut sample = MetricsSample {
+            cpu_usage: cpu_usage.clamp(0.0, 100.0).round() as u32,
+            gpu_usage: gpu_usage.clamp(0.0, 100.0).round() as u32,
+            ram_usage: ram_usage.clamp(0.0, 100.0).round() as u32,
+            cpu_temp: cpu_temp.round() as u32,
+            gpu_temp: gpu_temp.round() as u32,
+            rtss_fps: fps,
+            t: 0.0,
+        };
+        sample.t = loop_start.elapsed().as_secs_f64();
+        samples.push(sample);
+
+        if !first_logged {
+            first_logged = true;
+            eprintln!(
+                "[metrics] First Linux sample: cpu={}% gpu={}% ram={}% cpu_t={}°C gpu_t={}°C fps={:?}",
+                sample.cpu_usage, sample.gpu_usage, sample.ram_usage,
+                sample.cpu_temp, sample.gpu_temp, sample.rtss_fps
+            );
+        }
+
+        // Sleep for the poll interval, checking for the stop signal.
+        let start = Instant::now();
+        while start.elapsed() < interval {
+            if stop_rx.try_recv().is_ok() {
+                return samples;
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+    }
+
+    samples
+}
+
+/// Read the aggregate `cpu ` line from /proc/stat as (total, idle) ticks.
+#[cfg(target_os = "linux")]
+fn read_proc_stat_cpu() -> Option<(u64, u64)> {
+    let stat = std::fs::read_to_string("/proc/stat").ok()?;
+    let line = stat.lines().find(|l| l.starts_with("cpu "))?;
+    let fields: Vec<u64> = line
+        .split_whitespace()
+        .skip(1)
+        .filter_map(|f| f.parse().ok())
+        .collect();
+    // user nice system idle iowait irq softirq steal — guest/guest_nice
+    // are already counted inside user/nice, so only the first 8 count.
+    if fields.len() < 5 {
+        return None;
+    }
+    let idle = fields[3] + fields[4]; // idle + iowait
+    let total: u64 = fields.iter().take(8).sum();
+    Some((total, idle))
+}
+
+/// RAM used% from /proc/meminfo. Prefers MemAvailable (kernel 3.14+);
+/// falls back to free + buffers + cached on older kernels.
+#[cfg(target_os = "linux")]
+fn read_meminfo_usage_pct() -> Option<f32> {
+    let meminfo = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let mut total_kb: f64 = 0.0;
+    let mut available_kb: Option<f64> = None;
+    let mut free_kb: f64 = 0.0;
+    let mut buffers_kb: f64 = 0.0;
+    let mut cached_kb: f64 = 0.0;
+    for line in meminfo.lines() {
+        if let Some(rest) = line.strip_prefix("MemTotal:") {
+            total_kb = parse_kb_value(rest);
+        } else if let Some(rest) = line.strip_prefix("MemAvailable:") {
+            available_kb = Some(parse_kb_value(rest));
+        } else if let Some(rest) = line.strip_prefix("MemFree:") {
+            free_kb = parse_kb_value(rest);
+        } else if let Some(rest) = line.strip_prefix("Buffers:") {
+            buffers_kb = parse_kb_value(rest);
+        } else if let Some(rest) = line.strip_prefix("Cached:") {
+            cached_kb = parse_kb_value(rest);
+        }
+    }
+    if total_kb <= 0.0 {
+        return None;
+    }
+    let available = available_kb.unwrap_or(free_kb + buffers_kb + cached_kb);
+    let used_kb = (total_kb - available).max(0.0);
+    Some((used_kb / total_kb * 100.0) as f32)
+}
+
+/// First whitespace-delimited number on a /proc/meminfo line (in kB).
+#[cfg(target_os = "linux")]
+fn parse_kb_value(rest: &str) -> f64 {
+    rest.split_whitespace()
+        .next()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.0)
+}
+
+/// Highest temperature across coretemp / k10temp / zenpower hwmon chips, in
+/// °C. These are the standard Linux CPU temperature providers; other hwmon
+/// chips (NVMe, motherboard, GPU) are deliberately ignored.
+#[cfg(target_os = "linux")]
+fn read_cpu_temp_celsius() -> Option<f32> {
+    let hwmon = std::path::Path::new("/sys/class/hwmon");
+    let entries = std::fs::read_dir(hwmon).ok()?;
+    for entry in entries.flatten() {
+        let Ok(chip_raw) = std::fs::read_to_string(entry.path().join("name")) else {
+            continue;
+        };
+        let chip = chip_raw.trim();
+        if chip != "coretemp" && chip != "k10temp" && chip != "zenpower" {
+            continue;
+        }
+        let mut max_milli: f64 = 0.0;
+        if let Ok(sensors) = std::fs::read_dir(entry.path()) {
+            for s in sensors.flatten() {
+                let fname = s.file_name().to_string_lossy().to_string();
+                if !fname.starts_with("temp") || !fname.ends_with("_input") {
+                    continue;
+                }
+                if let Ok(raw) = std::fs::read_to_string(s.path()) {
+                    if let Ok(v) = raw.trim().parse::<f64>() {
+                        if v > max_milli {
+                            max_milli = v;
+                        }
+                    }
+                }
+            }
+        }
+        if max_milli > 0.0 {
+            return Some((max_milli / 1000.0) as f32);
+        }
+    }
+    None
+}
+
+/// DRM cards in the same order/filter as `gpu_detector::detect_gpus`, so a
+/// frontend-supplied `gpu-N` id maps to the same card here.
+#[cfg(target_os = "linux")]
+fn linux_drm_cards() -> Vec<std::path::PathBuf> {
+    let mut cards = Vec::new();
+    if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !name.starts_with("card") || name.contains('-') {
+                continue;
+            }
+            if entry.path().join("device").exists() {
+                cards.push(entry.path());
+            }
+        }
+    }
+    cards
+}
+
+/// Sysfs-backed GPU load + temperature source for the selected card.
+#[cfg(target_os = "linux")]
+struct LinuxGpuSource {
+    /// amdgpu `gpu_busy_percent` (0-100), when the card is amdgpu.
+    gpu_busy_file: Option<std::path::PathBuf>,
+    /// `temp1_input` (millidegrees C) exposed under the card's hwmon.
+    gpu_temp_file: Option<std::path::PathBuf>,
+    /// NVIDIA card with nvidia-smi on PATH → query utilization there.
+    use_nvidia_smi: bool,
+}
+
+#[cfg(target_os = "linux")]
+impl LinuxGpuSource {
+    fn detect(gpu_id: Option<&str>) -> Self {
+        let cards = linux_drm_cards();
+        let idx = gpu_id
+            .and_then(|id| id.strip_prefix("gpu-"))
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(0);
+        let Some(card) = cards.get(idx).or_else(|| cards.first()) else {
+            return LinuxGpuSource {
+                gpu_busy_file: None,
+                gpu_temp_file: None,
+                use_nvidia_smi: false,
+            };
+        };
+
+        let dev = card.join("device");
+        let uevent = std::fs::read_to_string(dev.join("uevent")).unwrap_or_default();
+        let driver = uevent
+            .lines()
+            .find(|l| l.starts_with("DRIVER="))
+            .map(|l| l.trim_start_matches("DRIVER=").to_string())
+            .unwrap_or_default();
+
+        let gpu_busy_file = if driver == "amdgpu" {
+            let p = dev.join("gpu_busy_percent");
+            p.is_file().then_some(p)
+        } else {
+            None
+        };
+        let gpu_temp_file = linux_gpu_temp_file(&dev);
+        let use_nvidia_smi = driver == "nvidia"
+            && crate::compatibility::is_command_available("nvidia-smi");
+
+        LinuxGpuSource {
+            gpu_busy_file,
+            gpu_temp_file,
+            use_nvidia_smi,
+        }
+    }
+
+    /// Returns (gpu_usage%, gpu_temp°C).
+    fn sample(&self) -> (f32, f32) {
+        let mut usage = 0.0f32;
+        if let Some(busy) = &self.gpu_busy_file {
+            if let Ok(raw) = std::fs::read_to_string(busy) {
+                usage = raw.trim().parse::<f32>().unwrap_or(0.0);
+            }
+        } else if self.use_nvidia_smi {
+            if let Some((u, t)) = linux_nvidia_smi_sample() {
+                if self.gpu_temp_file.is_none() {
+                    return (u, t);
+                }
+                usage = u;
+            }
+        }
+
+        let temp = self
+            .gpu_temp_file
+            .as_ref()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|s| s.trim().parse::<f64>().ok())
+            .map(|milli| (milli / 1000.0) as f32)
+            .unwrap_or(0.0);
+        (usage, temp)
+    }
+}
+
+/// First `hwmon*/temp1_input` under a DRM card's device directory.
+#[cfg(target_os = "linux")]
+fn linux_gpu_temp_file(dev: &std::path::Path) -> Option<std::path::PathBuf> {
+    let entries = std::fs::read_dir(dev.join("hwmon")).ok()?;
+    for e in entries.flatten() {
+        let t = e.path().join("temp1_input");
+        if t.is_file() {
+            return Some(t);
+        }
+    }
+    None
+}
+
+/// NVIDIA utilization + temperature via nvidia-smi (no sysfs equivalent).
+#[cfg(target_os = "linux")]
+fn linux_nvidia_smi_sample() -> Option<(f32, f32)> {
+    let out = std::process::Command::new("nvidia-smi")
+        .args([
+            "--query-gpu=utilization.gpu,temperature.gpu",
+            "--format=csv,noheader,nounits",
+        ])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let mut parts = text.trim().split(',').map(|p| p.trim().parse::<f32>().ok());
+    match (parts.next().flatten(), parts.next().flatten()) {
+        (Some(u), Some(t)) => Some((u, t)),
+        _ => None,
+    }
+}
+
+/// Enumerate candidate MangoHud CSV logs under $HOME (MangoHud's default
+/// `output_folder`) and the legacy ~/.local/share/MangoHud directory.
+#[cfg(target_os = "linux")]
+fn linux_mangohud_candidates() -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() {
+        let dirs = [
+            std::path::PathBuf::from(&home),
+            std::path::PathBuf::from(&home).join(".local/share/MangoHud"),
+        ];
+        for dir in dirs {
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for e in entries.flatten() {
+                    let p = e.path();
+                    if p.extension().map(|x| x == "csv").unwrap_or(false) {
+                        out.push(p);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Best-effort FPS for the active session: the newest MangoHud log written
+/// within the last 90 seconds. Stale logs from previous sessions are ignored
+/// so we never report FPS for a game that isn't running anymore.
+#[cfg(target_os = "linux")]
+fn read_mangohud_fps(
+    known: &mut Vec<std::path::PathBuf>,
+    checked: &mut std::collections::HashSet<std::path::PathBuf>,
+) -> Option<f64> {
+    for p in linux_mangohud_candidates() {
+        if checked.insert(p.clone()) && linux_looks_like_mangohud(&p) {
+            known.push(p);
+        }
+    }
+
+    let now = std::time::SystemTime::now();
+    let mut best: Option<(std::path::PathBuf, u64)> = None;
+    for p in known.iter() {
+        let Ok(meta) = std::fs::metadata(p) else { continue };
+        let Ok(modified) = meta.modified() else { continue };
+        let Ok(age) = now.duration_since(modified) else { continue };
+        if age.as_secs() > 90 {
+            continue;
+        }
+        let age_ms = age.as_millis() as u64;
+        if best.as_ref().map(|(_, a)| age_ms < *a).unwrap_or(true) {
+            best = Some((p.clone(), age_ms));
+        }
+    }
+
+    let (path, _) = best?;
+    linux_last_fps_from_log(&path)
+}
+
+/// True when the file starts like a MangoHud frame log: either the system
+/// info header (`os,cpu,...`) or the frame header (`fps,frametime,...`).
+#[cfg(target_os = "linux")]
+fn linux_looks_like_mangohud(path: &std::path::Path) -> bool {
+    use std::io::Read;
+    let Ok(mut f) = std::fs::File::open(path) else { return false };
+    let mut head = Vec::new();
+    if f.take(4096).read_to_end(&mut head).is_err() {
+        return false;
+    }
+    let head = String::from_utf8_lossy(&head);
+    head.lines()
+        .any(|l| l.starts_with("os,cpu,") || l.starts_with("fps,frametime,"))
+}
+
+/// FPS from the newest data line of a MangoHud log. MangoHud appends one
+/// line per poll and can reach tens of MB over a long session, so only the
+/// tail is read. The first CSV field is always FPS.
+#[cfg(target_os = "linux")]
+fn linux_last_fps_from_log(path: &std::path::Path) -> Option<f64> {
+    use std::io::{Read, Seek, SeekFrom};
+    let meta = std::fs::metadata(path).ok()?;
+    let len = meta.len();
+    if len == 0 {
+        return None;
+    }
+    const TAIL: u64 = 64 * 1024;
+    let start = len.saturating_sub(TAIL);
+    let mut f = std::fs::File::open(path).ok()?;
+    f.seek(SeekFrom::Start(start)).ok()?;
+    let mut buf = Vec::new();
+    f.read_to_end(&mut buf).ok()?;
+    parse_mangohud_log_fps(&String::from_utf8_lossy(&buf))
+}
+
+/// Pure parser: newest data line's FPS from MangoHud CSV text. Data lines
+/// start with the FPS value; headers (`fps,frametime,...`) and the system
+/// info row (`os,cpu,...`) don't parse as a sane FPS. Shared with tests.
+#[cfg(any(target_os = "linux", test))]
+fn parse_mangohud_log_fps(text: &str) -> Option<f64> {
+    for line in text.lines().rev() {
+        let first = line.split(',').next().unwrap_or("");
+        if let Ok(v) = first.trim().parse::<f64>() {
+            // Sane FPS range: excludes headers, zero/hitch frames, and the
+            // huge nanosecond `elapsed` column that can lead a truncated
+            // first line of a tail read.
+            if v > 0.0 && v <= 2000.0 {
+                return Some(v);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn collect_metrics_loop(
     _config: &MetricsConfig,
     stop_rx: mpsc::Receiver<()>,
@@ -1169,5 +1640,46 @@ mod tests {
         let samples: Vec<MetricsSample> = (0..50).map(sample).collect();
         assert!(downsample_samples(&samples, true).iter().all(|p| p.fps.is_some()));
         assert!(downsample_samples(&samples, false).iter().all(|p| p.fps.is_none()));
+    }
+
+    // ─────────── tests for the MangoHud log FPS parser ───────────
+
+    #[test]
+    fn mangohud_log_parses_fps_from_newest_line() {
+        let log = "\
+os,cpu,gpu,ram,kernel,driver,cpuscheduler
+Arch Linux,AMD Ryzen 7 5800X,AMD Radeon RX 6700 XT,32985904,6.8.1-arch1-1,Mesa 24.1.0,scaling_governor
+fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_mem_clock,gpu_vram_used,gpu_power,ram_used,swap_used,process_rss,cpu_mhz,elapsed
+58.926502,16.9704,12.4,0,41.3,51.2,54.6,2450,2000,5120,180,8320,120,2048,4400,173180582
+59.511902,16.8027,13.1,0,44.7,52.0,55.1,2475,2000,5160,182,8440,128,2100,4400,178000000
+";
+        assert_eq!(parse_mangohud_log_fps(log), Some(59.511902));
+    }
+
+    #[test]
+    fn mangohud_log_skips_header_and_info_lines() {
+        // Data lines begin with a float; header/info lines don't.
+        let log = "fps,frametime,cpu_load\n0.000000,0.0,0.0\n120.5,8.3,50.0\n";
+        assert_eq!(parse_mangohud_log_fps(log), Some(120.5));
+    }
+
+    #[test]
+    fn mangohud_log_returns_none_when_no_frame_data() {
+        assert_eq!(parse_mangohud_log_fps("os,cpu,gpu\n"), None);
+        assert_eq!(parse_mangohud_log_fps(""), None);
+    }
+
+    #[test]
+    fn mangohud_log_rejects_absurd_fps_values() {
+        // A tail read can start mid-line; the `elapsed` column is huge
+        // (nanoseconds) and must never be mistaken for FPS.
+        let log = "fps,frametime\n60.0,16.6\n1234567890123,16.6\n";
+        assert_eq!(parse_mangohud_log_fps(log), Some(60.0));
+    }
+
+    #[test]
+    fn mangohud_log_tolerates_crlf_line_endings() {
+        let log = "fps,frametime\r\n30.0,33.3\r\n144.0,6.9\r\n";
+        assert_eq!(parse_mangohud_log_fps(log), Some(144.0));
     }
 }
