@@ -805,8 +805,43 @@ pub fn launch_game(
         }
         let cwd = path.parent().unwrap_or_else(|| Path::new("."));
 
-        // Check if we need to force run as admin
-        let child = if run_as_admin.unwrap_or(false) {
+        let is_exe = game_path.to_lowercase().ends_with(".exe");
+        let is_linux = cfg!(target_os = "linux");
+
+        // Query per-game compatibility profile if available
+        let db_state: tauri::State<'_, db::Db> = app.state();
+        let game_profile = db::games::get(db_state.inner(), &game_id)
+            .ok()
+            .flatten()
+            .and_then(|row| row.compatibility_json);
+
+        let has_custom_runner = game_profile
+            .as_ref()
+            .and_then(|p| p.get("customRunnerPath").or_else(|| p.get("runner")))
+            .and_then(|v| v.as_str())
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+
+        let compat_enabled = game_profile
+            .as_ref()
+            .and_then(|p| p.get("enabled"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        // Check if we launch through Wine/Proton compatibility layer
+        let child = if (is_linux && is_exe) || has_custom_runner || compat_enabled {
+            emit_launch_progress(&app, &game_id, "compatibilityRunner");
+            initial_pid = crate::compatibility::launch_with_compatibility(
+                &app,
+                &game_id,
+                &game_name,
+                path,
+                cwd,
+                launch_arguments.as_deref(),
+                game_profile.as_ref(),
+            )?;
+            None
+        } else if run_as_admin.unwrap_or(false) {
             #[cfg(windows)]
             {
                 emit_launch_progress(&app, &game_id, "elevating");

@@ -45,6 +45,7 @@ mod system_screenshots;
 mod emulator_install;
 mod plugins;
 mod retro;
+pub mod compatibility;
 use game_watcher::GameWatcher;
 use epic::auth::{epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_is_authenticated, epic_logout};
 use epic::sync::epic_sync_library;
@@ -308,7 +309,14 @@ pub fn run() {
             updater::updater_install_mode,
             updater::portable_update_download,
             updater::portable_update_cancel,
-            updater::portable_update_apply])
+            updater::portable_update_apply,
+            compatibility::get_compatibility_settings,
+            compatibility::set_compatibility_settings,
+            compatibility::list_compatibility_runners,
+            compatibility::get_compatibility_system_status,
+            compatibility::get_game_wine_logs,
+            compatibility::clear_game_wine_logs,
+            compatibility::run_wine_tool])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since

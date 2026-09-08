@@ -232,6 +232,9 @@ pub(crate) struct GameData {
     /// Game version string (user-edited or auto-detected).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) version: Option<String>,
+    /// Wine / Proton compatibility profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) compatibility: Option<serde_json::Value>,
 }
 
 /// Per-ROM emulator launch profile. Every field is optional — an

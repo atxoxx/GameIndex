@@ -57,7 +57,8 @@ const COMMON_LAUNCH_ARGS = [
   { label: "-high", desc: "High CPU priority" },
 ];
 
-type EditTab = "details" | "media" | "launch";
+type EditTab = "details" | "media" | "launch" | "compatibility";
+type CompatSubtab = "runner" | "graphics" | "tools" | "env" | "maintenance";
 
 interface EditGameModalProps {
   game: Game;
@@ -154,6 +155,134 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       ? game.companionApps.map((c) => ({ ...c }))
       : []
   );
+
+  // ── Compatibility / Proton / Wine State ──────────────────────────
+  const [compatSubtab, setCompatSubtab] = useState<CompatSubtab>("runner");
+  const [compatEnabled, setCompatEnabled] = useState(game.compatibility?.enabled ?? false);
+  const [compatRunnerType, setCompatRunnerType] = useState<"default" | "proton" | "wine" | "custom">(
+    game.compatibility?.runnerType ?? "default"
+  );
+  const [compatCustomRunner, setCompatCustomRunner] = useState(
+    game.compatibility?.customRunnerPath ?? ""
+  );
+  const [compatPrefix, setCompatPrefix] = useState(
+    game.compatibility?.customWinePrefix ?? ""
+  );
+  const [compatArch, setCompatArch] = useState<"win64" | "win32">(
+    game.compatibility?.arch ?? "win64"
+  );
+  const [compatWorkingDir, setCompatWorkingDir] = useState(
+    game.compatibility?.workingDir ?? ""
+  );
+  const [compatDxvk, setCompatDxvk] = useState<boolean | null>(
+    game.compatibility?.enableDxvk ?? null
+  );
+  const [compatVkd3d, setCompatVkd3d] = useState<boolean | null>(
+    game.compatibility?.enableVkd3d ?? null
+  );
+  const [compatEsync, setCompatEsync] = useState<boolean | null>(
+    game.compatibility?.enableEsync ?? null
+  );
+  const [compatFsync, setCompatFsync] = useState<boolean | null>(
+    game.compatibility?.enableFsync ?? null
+  );
+  const [compatNvapi, setCompatNvapi] = useState<boolean | null>(
+    game.compatibility?.enableDxvkNvapi ?? null
+  );
+  const [compatDxvkHud, setCompatDxvkHud] = useState(
+    game.compatibility?.dxvkHud ?? ""
+  );
+  const [compatMangoHud, setCompatMangoHud] = useState<boolean | null>(
+    game.compatibility?.enableMangoHud ?? null
+  );
+  const [compatGameMode, setCompatGameMode] = useState<boolean | null>(
+    game.compatibility?.enableGameMode ?? null
+  );
+  const [compatGamescope, setCompatGamescope] = useState<boolean | null>(
+    game.compatibility?.enableGamescope ?? null
+  );
+  const [compatGamescopeArgs, setCompatGamescopeArgs] = useState(
+    game.compatibility?.gamescopeArgs ?? ""
+  );
+  const [compatPrime, setCompatPrime] = useState<boolean | null>(
+    game.compatibility?.primeRenderOffload ?? null
+  );
+  const [compatPreLaunch, setCompatPreLaunch] = useState(
+    game.compatibility?.preLaunchWrapper ?? ""
+  );
+  const [compatEnvPairs, setCompatEnvPairs] = useState<{ key: string; value: string }[]>(() => {
+    if (!game.compatibility?.environmentVariables) return [];
+    return Object.entries(game.compatibility.environmentVariables).map(([k, v]) => ({ key: k, value: v }));
+  });
+  const [compatDllPairs, setCompatDllPairs] = useState<{ dll: string; mode: string }[]>(() => {
+    if (!game.compatibility?.dllOverrides) return [];
+    return Object.entries(game.compatibility.dllOverrides).map(([k, v]) => ({ dll: k, mode: v }));
+  });
+  const [availableRunners, setAvailableRunners] = useState<Array<{ id: string; name: string; path: string; kind: string }>>([]);
+  const [runningTool, setRunningTool] = useState<string | null>(null);
+
+  useEffect(() => {
+    invoke<Array<{ id: string; name: string; path: string; kind: string }>>("get_compatibility_runners")
+      .then((r) => setAvailableRunners(r || []))
+      .catch(() => {});
+  }, []);
+
+  const handlePickRunner = async () => {
+    try {
+      const picked = await open({ multiple: false, title: t("gameEdit.compatibility.pickRunner") || "Select Wine/Proton runner" });
+      if (picked && typeof picked === "string") {
+        setCompatCustomRunner(picked);
+        setCompatRunnerType("custom");
+      }
+    } catch (err) {
+      console.error("Failed to pick runner", err);
+    }
+  };
+
+  const handlePickPrefix = async () => {
+    try {
+      const picked = await open({ directory: true, multiple: false, title: t("gameEdit.compatibility.pickPrefix") || "Select WINEPREFIX directory" });
+      if (picked && typeof picked === "string") {
+        setCompatPrefix(picked);
+      }
+    } catch (err) {
+      console.error("Failed to pick prefix", err);
+    }
+  };
+
+  const handlePickWorkingDir = async () => {
+    try {
+      const picked = await open({ directory: true, multiple: false, title: t("gameEdit.compatibility.pickWorkingDir") || "Select Working Directory" });
+      if (picked && typeof picked === "string") {
+        setCompatWorkingDir(picked);
+      }
+    } catch (err) {
+      console.error("Failed to pick working dir", err);
+    }
+  };
+
+  const handleRunWineTool = async (tool: string, args?: string[]) => {
+    setRunningTool(tool);
+    try {
+      const effectivePrefix = compatPrefix.trim() || undefined;
+      const effectiveRunner = compatRunnerType === "custom" && compatCustomRunner.trim()
+        ? compatCustomRunner.trim()
+        : undefined;
+
+      await invoke("run_wine_tool", {
+        gameId: game.id,
+        prefixPath: effectivePrefix,
+        runnerPath: effectiveRunner,
+        tool,
+        args,
+      });
+      showToast(t("gameEdit.compatibility.toolStarted", { tool }) || `Launched ${tool}`, "success");
+    } catch (err) {
+      showToast(t("gameEdit.compatibility.toolError", { error: String(err) }) || `Failed to run ${tool}: ${err}`, "error");
+    } finally {
+      setRunningTool(null);
+    }
+  };
 
   const [steamLaunchOptions, setSteamLaunchOptions] = useState<SteamLaunchOption[] | null>(null);
   useEffect(() => {
@@ -654,6 +783,56 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         Math.max(0, Math.floor(editPlaytimeHours)) * 60 +
         Math.max(0, Math.min(59, Math.floor(editPlaytimeMinutes)))
       ),
+      compatibility:
+        compatEnabled ||
+        compatRunnerType !== "default" ||
+        compatCustomRunner.trim() ||
+        compatPrefix.trim() ||
+        compatArch !== "win64" ||
+        compatWorkingDir.trim() ||
+        compatDxvk !== null ||
+        compatVkd3d !== null ||
+        compatEsync !== null ||
+        compatFsync !== null ||
+        compatNvapi !== null ||
+        compatDxvkHud.trim() ||
+        compatMangoHud !== null ||
+        compatGameMode !== null ||
+        compatGamescope !== null ||
+        compatGamescopeArgs.trim() ||
+        compatPrime !== null ||
+        compatPreLaunch.trim() ||
+        compatEnvPairs.length > 0 ||
+        compatDllPairs.length > 0
+          ? {
+              enabled: compatEnabled,
+              runnerType: compatRunnerType,
+              customRunnerPath: compatCustomRunner.trim() || undefined,
+              customWinePrefix: compatPrefix.trim() || undefined,
+              arch: compatArch,
+              workingDir: compatWorkingDir.trim() || undefined,
+              enableDxvk: compatDxvk,
+              enableVkd3d: compatVkd3d,
+              enableEsync: compatEsync,
+              enableFsync: compatFsync,
+              enableDxvkNvapi: compatNvapi,
+              dxvkHud: compatDxvkHud.trim() || undefined,
+              enableMangoHud: compatMangoHud,
+              enableGameMode: compatGameMode,
+              enableGamescope: compatGamescope,
+              gamescopeArgs: compatGamescopeArgs.trim() || undefined,
+              primeRenderOffload: compatPrime,
+              preLaunchWrapper: compatPreLaunch.trim() || undefined,
+              environmentVariables: compatEnvPairs.reduce((acc, { key, value }) => {
+                if (key.trim()) acc[key.trim()] = value;
+                return acc;
+              }, {} as Record<string, string>),
+              dllOverrides: compatDllPairs.reduce((acc, { dll, mode }) => {
+                if (dll.trim()) acc[dll.trim()] = mode;
+                return acc;
+              }, {} as Record<string, string>),
+            }
+          : undefined,
     });
     if (editUntracked !== (game.untracked ?? isGameUntracked(game.id))) {
       toggleGameTracking(game.id, editUntracked);
@@ -693,6 +872,16 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+      ),
+    },
+    {
+      key: "compatibility",
+      label: t("edit.tab.compatibility") || "Proton / Wine",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6l4 2" />
         </svg>
       ),
     },
@@ -1662,6 +1851,640 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               </div>
             </div>
           )}
+
+          {/* ── COMPATIBILITY SUBTAB ── */}
+          {editTab === "compatibility" && (
+            <div className="edit-form edit-launch-form">
+              {/* Top Banner: Compatibility Toggle */}
+              <div className="edit-compat-banner">
+                <div className="edit-compat-banner-info">
+                  <span className="edit-compat-banner-title">
+                    {t("gameEdit.compatibility.bannerTitle") || "Wine / Proton Compatibility Layer"}
+                  </span>
+                  <p className="edit-compat-banner-desc">
+                    {t("gameEdit.compatibility.bannerDesc") || "Enable Windows-to-Linux compatibility translation for this title and override global settings."}
+                  </p>
+                </div>
+                <div
+                  className={`edit-toggle-switch ${compatEnabled ? "active" : ""}`}
+                  onClick={() => setCompatEnabled(!compatEnabled)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setCompatEnabled(!compatEnabled); } }}
+                  aria-label={t("gameEdit.compatibility.toggleLabel") || "Toggle compatibility layer"}
+                >
+                  <div className="edit-toggle-knob" />
+                </div>
+              </div>
+
+              {/* Categorised Subtab Navigation */}
+              <div className="edit-compat-subtabs">
+                {[
+                  {
+                    key: "runner" as const,
+                    label: t("gameEdit.compatibility.subtab.runner") || "Runner & Prefix",
+                    icon: (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: "graphics" as const,
+                    label: t("gameEdit.compatibility.subtab.graphics") || "Graphics & Direct3D",
+                    icon: (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                        <polyline points="2 17 12 22 22 17" />
+                        <polyline points="2 12 12 17 22 12" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: "tools" as const,
+                    label: t("gameEdit.compatibility.subtab.tools") || "Tools & Overlays",
+                    icon: (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: "env" as const,
+                    label: t("gameEdit.compatibility.subtab.env") || "Environment & Overrides",
+                    icon: (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="4 17 10 11 4 5" />
+                        <line x1="12" y1="19" x2="20" y2="19" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    key: "maintenance" as const,
+                    label: t("gameEdit.compatibility.subtab.maintenance") || "Maintenance & Prefix Tools",
+                    icon: (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                      </svg>
+                    ),
+                  },
+                ].map((sub) => (
+                  <button
+                    key={sub.key}
+                    type="button"
+                    className={`edit-compat-subtab-btn ${compatSubtab === sub.key ? "is-active" : ""}`}
+                    onClick={() => setCompatSubtab(sub.key)}
+                  >
+                    {sub.icon}
+                    <span>{sub.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Subtab 1: Runner & Prefix */}
+              {compatSubtab === "runner" && (
+                <div className="edit-compat-subtab-content">
+                  {/* Runner Selection Card */}
+                  <div className="edit-launch-card">
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-icon edit-launch-icon-primary">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                          <line x1="8" y1="21" x2="16" y2="21" />
+                          <line x1="12" y1="17" x2="12" y2="21" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-card-header-text">
+                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.runnerSelection") || "Runner Selection"}</h4>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.runnerSelectionDesc") || "Select the compatibility runner or provide a custom binary path."}</p>
+                      </div>
+                    </div>
+                    <div className="edit-launch-input-row">
+                      <select
+                        className="edit-input"
+                        value={compatRunnerType === "custom" ? "custom" : (compatCustomRunner ? compatCustomRunner : compatRunnerType)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "default") {
+                            setCompatRunnerType("default");
+                            setCompatCustomRunner("");
+                          } else if (val === "custom") {
+                            setCompatRunnerType("custom");
+                          } else {
+                            setCompatRunnerType("custom");
+                            setCompatCustomRunner(val);
+                          }
+                        }}
+                      >
+                        <option value="default">{t("gameEdit.compatibility.runnerGlobal") || "Global Default (from Settings)"}</option>
+                        {availableRunners.map((r) => (
+                          <option key={r.id} value={r.path}>
+                            {r.name} ({r.kind})
+                          </option>
+                        ))}
+                        <option value="custom">{t("gameEdit.compatibility.runnerCustom") || "Custom Runner Path..."}</option>
+                      </select>
+                    </div>
+                    {compatRunnerType === "custom" && (
+                      <div className="edit-launch-input-row" style={{ marginTop: "var(--space-sm)" }}>
+                        <div className="edit-launch-input-wrapper">
+                          <input
+                            type="text"
+                            className="edit-input edit-launch-path-input"
+                            value={compatCustomRunner}
+                            onChange={(e) => setCompatCustomRunner(e.target.value)}
+                            placeholder="/path/to/wine or /path/to/proton"
+                          />
+                        </div>
+                        <Button variant="secondary" onClick={handlePickRunner}>
+                          {t("edit.browse") || "Browse..."}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom Wine Prefix */}
+                  <div className="edit-launch-card">
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-icon edit-launch-icon-secondary">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-card-header-text">
+                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.winePrefix") || "Custom WINEPREFIX Directory"}</h4>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.winePrefixDesc") || "Leave blank to use the game's isolated default prefix."}</p>
+                      </div>
+                    </div>
+                    <div className="edit-launch-input-row">
+                      <div className="edit-launch-input-wrapper">
+                        <input
+                          type="text"
+                          className="edit-input edit-launch-path-input"
+                          value={compatPrefix}
+                          onChange={(e) => setCompatPrefix(e.target.value)}
+                          placeholder="e.g. /home/user/.wine or custom prefix directory"
+                        />
+                      </div>
+                      <Button variant="secondary" onClick={handlePickPrefix}>
+                        {t("edit.browse") || "Browse..."}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Architecture & Working Directory */}
+                  <div className="edit-fieldset-grid">
+                    <div className="edit-launch-card">
+                      <div className="edit-launch-card-header">
+                        <div className="edit-launch-card-header-text">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.architecture") || "Wine Architecture"}</h4>
+                          <p className="edit-launch-card-desc">{t("gameEdit.compatibility.architectureDesc") || "64-bit is standard for modern games."}</p>
+                        </div>
+                      </div>
+                      <select
+                        className="edit-input"
+                        value={compatArch}
+                        onChange={(e) => setCompatArch(e.target.value as "win64" | "win32")}
+                      >
+                        <option value="win64">64-bit (win64, Recommended)</option>
+                        <option value="win32">32-bit (win32, Legacy titles)</option>
+                      </select>
+                    </div>
+
+                    <div className="edit-launch-card">
+                      <div className="edit-launch-card-header">
+                        <div className="edit-launch-card-header-text">
+                          <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.workingDir") || "Working Directory"}</h4>
+                          <p className="edit-launch-card-desc">{t("gameEdit.compatibility.workingDirDesc") || "Working directory override for the executable."}</p>
+                        </div>
+                      </div>
+                      <div className="edit-launch-input-row">
+                        <input
+                          type="text"
+                          className="edit-input"
+                          value={compatWorkingDir}
+                          onChange={(e) => setCompatWorkingDir(e.target.value)}
+                          placeholder="Default: game folder"
+                        />
+                        <Button variant="secondary" size="sm" onClick={handlePickWorkingDir}>
+                          {t("edit.browse") || "Browse..."}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Subtab 2: Graphics & Direct3D */}
+              {compatSubtab === "graphics" && (
+                <div className="edit-compat-subtab-content">
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.dxvkTitle") || "DXVK (Direct3D 9, 10, 11 to Vulkan)"}
+                    desc={t("gameEdit.compatibility.dxvkDesc") || "Vulkan-based translation layer for Direct3D 9/10/11."}
+                    value={compatDxvk}
+                    onChange={setCompatDxvk}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.vkd3dTitle") || "VKD3D-Proton (Direct3D 12 to Vulkan)"}
+                    desc={t("gameEdit.compatibility.vkd3dDesc") || "Vulkan-based translation layer for Direct3D 12."}
+                    value={compatVkd3d}
+                    onChange={setCompatVkd3d}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.esyncTitle") || "Esync (Eventfd Synchronization)"}
+                    desc={t("gameEdit.compatibility.esyncDesc") || "Reduces CPU overhead in multi-threaded games."}
+                    value={compatEsync}
+                    onChange={setCompatEsync}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.fsyncTitle") || "Fsync (Futex Synchronization)"}
+                    desc={t("gameEdit.compatibility.fsyncDesc") || "Kernel futex-based sync for low-latency synchronization."}
+                    value={compatFsync}
+                    onChange={setCompatFsync}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.nvapiTitle") || "DXVK-NVAPI / DLSS Support"}
+                    desc={t("gameEdit.compatibility.nvapiDesc") || "Exposes NVIDIA NVAPI to Direct3D applications for DLSS and Reflex."}
+                    value={compatNvapi}
+                    onChange={setCompatNvapi}
+                  />
+
+                  {/* DXVK HUD */}
+                  <div className="edit-launch-card">
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-header-text">
+                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.dxvkHud") || "DXVK HUD"}</h4>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.dxvkHudDesc") || "On-screen display for Vulkan/DXVK metrics (fps, devinfo, drawcalls)."}</p>
+                      </div>
+                    </div>
+                    <div className="edit-launch-input-row">
+                      <input
+                        type="text"
+                        className="edit-input"
+                        value={compatDxvkHud}
+                        onChange={(e) => setCompatDxvkHud(e.target.value)}
+                        placeholder="e.g. fps,devinfo or full"
+                      />
+                      <div className="edit-args-pills">
+                        {["fps", "devinfo", "fps,devinfo", "full"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            className="edit-arg-pill"
+                            onClick={() => setCompatDxvkHud(preset)}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Subtab 3: Gaming Tools & Overlays */}
+              {compatSubtab === "tools" && (
+                <div className="edit-compat-subtab-content">
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.mangohudTitle") || "MangoHud Performance HUD"}
+                    desc={t("gameEdit.compatibility.mangohudDesc") || "Vulkan and OpenGL overlay for monitoring FPS, frametimes, temperatures, and hardware load."}
+                    value={compatMangoHud}
+                    onChange={setCompatMangoHud}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.gamemodeTitle") || "Feral GameMode Optimizer"}
+                    desc={t("gameEdit.compatibility.gamemodeDesc") || "Requests temporary CPU governor, scheduler, and GPU power performance states."}
+                    value={compatGameMode}
+                    onChange={setCompatGameMode}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.gamescopeTitle") || "Gamescope Micro-Compositor"}
+                    desc={t("gameEdit.compatibility.gamescopeDesc") || "Runs the game inside an isolated nested Wayland session with upscaling & integer scaling."}
+                    value={compatGamescope}
+                    onChange={setCompatGamescope}
+                  />
+
+                  {/* Gamescope Arguments */}
+                  <div className="edit-launch-card">
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-header-text">
+                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.gamescopeArgs") || "Gamescope Arguments"}</h4>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.gamescopeArgsDesc") || "Arguments passed to gamescope (e.g. -w 1920 -h 1080 -F fsr -f)."}</p>
+                      </div>
+                    </div>
+                    <div className="edit-launch-input-row">
+                      <input
+                        type="text"
+                        className="edit-input"
+                        value={compatGamescopeArgs}
+                        onChange={(e) => setCompatGamescopeArgs(e.target.value)}
+                        placeholder="-w 1920 -h 1080 -F fsr -f"
+                      />
+                      <div className="edit-args-pills">
+                        {[
+                          { label: "1080p FSR", val: "-w 1920 -h 1080 -F fsr -f" },
+                          { label: "1440p FSR", val: "-w 2560 -h 1440 -F fsr -f" },
+                          { label: "4K FSR", val: "-w 3840 -h 2160 -F fsr -f" },
+                          { label: "Integer Scale", val: "-S integer -f" },
+                        ].map((p) => (
+                          <button
+                            key={p.label}
+                            type="button"
+                            className="edit-arg-pill"
+                            onClick={() => setCompatGamescopeArgs(p.val)}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.primeTitle") || "Discrete GPU (PRIME Offload)"}
+                    desc={t("gameEdit.compatibility.primeDesc") || "Forces render offload to the dedicated GPU on laptops with hybrid graphics."}
+                    value={compatPrime}
+                    onChange={setCompatPrime}
+                  />
+                </div>
+              )}
+
+              {/* Subtab 4: Environment & DLL Overrides */}
+              {compatSubtab === "env" && (
+                <div className="edit-compat-subtab-content">
+                  {/* Environment Variables */}
+                  <div className="edit-launch-card">
+                    <div className="edit-compat-table-header">
+                      <div>
+                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.envVars") || "Environment Variables"}</h4>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.envVarsDesc") || "Custom environment variables injected into the runner process."}</p>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setCompatEnvPairs([...compatEnvPairs, { key: "", value: "" }])}
+                      >
+                        {t("gameEdit.compatibility.addEnv") || "Add Variable"}
+                      </Button>
+                    </div>
+
+                    {compatEnvPairs.length === 0 ? (
+                      <p className="edit-form-empty-text">{t("gameEdit.compatibility.noEnv") || "No custom environment variables defined."}</p>
+                    ) : (
+                      compatEnvPairs.map((pair, idx) => (
+                        <div key={idx} className="edit-compat-pair-row">
+                          <input
+                            type="text"
+                            className="edit-input edit-compat-pair-input"
+                            placeholder="VARIABLE_NAME"
+                            value={pair.key}
+                            onChange={(e) => {
+                              const updated = [...compatEnvPairs];
+                              updated[idx].key = e.target.value;
+                              setCompatEnvPairs(updated);
+                            }}
+                          />
+                          <input
+                            type="text"
+                            className="edit-input edit-compat-pair-input"
+                            placeholder="Value"
+                            value={pair.value}
+                            onChange={(e) => {
+                              const updated = [...compatEnvPairs];
+                              updated[idx].value = e.target.value;
+                              setCompatEnvPairs(updated);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="edit-launch-input-clear"
+                            onClick={() => setCompatEnvPairs(compatEnvPairs.filter((_, i) => i !== idx))}
+                            title="Remove variable"
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* DLL Overrides */}
+                  <div className="edit-launch-card">
+                    <div className="edit-compat-table-header">
+                      <div>
+                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.dllOverrides") || "DLL Overrides"}</h4>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.dllOverridesDesc") || "Override library loading mode (WINEDLLOVERRIDES)."}</p>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setCompatDllPairs([...compatDllPairs, { dll: "", mode: "n,b" }])}
+                      >
+                        {t("gameEdit.compatibility.addDll") || "Add DLL Override"}
+                      </Button>
+                    </div>
+
+                    {compatDllPairs.length === 0 ? (
+                      <p className="edit-form-empty-text">{t("gameEdit.compatibility.noDll") || "No DLL overrides defined."}</p>
+                    ) : (
+                      compatDllPairs.map((pair, idx) => (
+                        <div key={idx} className="edit-compat-pair-row">
+                          <input
+                            type="text"
+                            className="edit-input edit-compat-pair-input"
+                            placeholder="e.g. dsound, xinput1_3, d3d11"
+                            value={pair.dll}
+                            onChange={(e) => {
+                              const updated = [...compatDllPairs];
+                              updated[idx].dll = e.target.value;
+                              setCompatDllPairs(updated);
+                            }}
+                          />
+                          <select
+                            className="edit-input edit-compat-pair-select"
+                            value={pair.mode}
+                            onChange={(e) => {
+                              const updated = [...compatDllPairs];
+                              updated[idx].mode = e.target.value;
+                              setCompatDllPairs(updated);
+                            }}
+                          >
+                            <option value="n,b">Native then Builtin (n,b)</option>
+                            <option value="b,n">Builtin then Native (b,n)</option>
+                            <option value="n">Native only (n)</option>
+                            <option value="b">Builtin only (b)</option>
+                            <option value="">Disabled</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="edit-launch-input-clear"
+                            onClick={() => setCompatDllPairs(compatDllPairs.filter((_, i) => i !== idx))}
+                            title="Remove override"
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Pre-launch command wrapper */}
+                  <div className="edit-launch-card">
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-header-text">
+                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.preLaunchCommand") || "Pre-Launch Wrapper Command"}</h4>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.preLaunchCommandDesc") || "Command or wrapper prefix (e.g. taskset -c 0-7 or prime-run)."}</p>
+                      </div>
+                    </div>
+                    <div className="edit-launch-input-row">
+                      <input
+                        type="text"
+                        className="edit-input"
+                        value={compatPreLaunch}
+                        onChange={(e) => setCompatPreLaunch(e.target.value)}
+                        placeholder="e.g. taskset -c 0-7"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Subtab 5: Maintenance & Prefix Tools */}
+              {compatSubtab === "maintenance" && (
+                <div className="edit-compat-subtab-content">
+                  <div className="edit-launch-card">
+                    <div className="edit-launch-card-header">
+                      <div className="edit-launch-card-icon edit-launch-icon-secondary">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="3" />
+                          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-card-header-text">
+                        <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.maintenanceTools") || "Prefix Maintenance Utilities"}</h4>
+                        <p className="edit-launch-card-desc">{t("gameEdit.compatibility.maintenanceDesc") || "Execute configuration and troubleshooting utilities inside this prefix."}</p>
+                      </div>
+                    </div>
+
+                    <div className="edit-maintenance-grid">
+                      <button
+                        type="button"
+                        className="edit-maintenance-btn"
+                        onClick={() => handleRunWineTool("winecfg")}
+                        disabled={runningTool !== null}
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="3" />
+                          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        </svg>
+                        <span>Wine Configuration (winecfg)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="edit-maintenance-btn"
+                        onClick={() => handleRunWineTool("winetricks")}
+                        disabled={runningTool !== null}
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="16 18 22 12 16 6" />
+                          <polyline points="8 6 2 12 8 18" />
+                        </svg>
+                        <span>Winetricks</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="edit-maintenance-btn"
+                        onClick={() => handleRunWineTool("regedit")}
+                        disabled={runningTool !== null}
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+                        </svg>
+                        <span>Registry Editor (regedit)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="edit-maintenance-btn"
+                        onClick={() => handleRunWineTool("control")}
+                        disabled={runningTool !== null}
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="7" height="7" />
+                          <rect x="14" y="3" width="7" height="7" />
+                          <rect x="14" y="14" width="7" height="7" />
+                          <rect x="3" y="14" width="7" height="7" />
+                        </svg>
+                        <span>Control Panel</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="edit-maintenance-btn"
+                        onClick={() => handleRunWineTool("taskmgr")}
+                        disabled={runningTool !== null}
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                        </svg>
+                        <span>Task Manager</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="edit-maintenance-btn"
+                        onClick={() => handleRunWineTool("cmd")}
+                        disabled={runningTool !== null}
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="4 17 10 11 4 5" />
+                          <line x1="12" y1="19" x2="20" y2="19" />
+                        </svg>
+                        <span>Command Prompt (cmd)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="edit-maintenance-btn"
+                        onClick={() => handleRunWineTool("browse_prefix")}
+                        disabled={runningTool !== null}
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span>Open Prefix Folder</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="edit-maintenance-btn edit-maintenance-btn--danger"
+                        onClick={() => handleRunWineTool("kill")}
+                        disabled={runningTool !== null}
+                      >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                        <span>Kill Wine Processes (wineserver -k)</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="modal-footer">
@@ -1669,6 +2492,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             {editTab === "details" && (t("edit.footerHint.details") || "Configure metadata, tags, and playtime")}
             {editTab === "media" && (t("edit.footerHint.media") || "Manage artworks, screenshots, and videos")}
             {editTab === "launch" && (t("edit.footerHint.launch") || "Setup execution paths, arguments, and scripts")}
+            {editTab === "compatibility" && (t("edit.footerHint.compatibility") || "Proton, Wine, graphics engines, and runner overrides")}
           </span>
           <div className="modal-footer-actions">
             <Button variant="secondary" onClick={onClose}>{t("common.cancel")}</Button>
@@ -1771,6 +2595,59 @@ function LaunchScriptCard({
             Configured
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function TriStateCard({
+  title,
+  desc,
+  value,
+  onChange,
+  icon,
+}: {
+  title: string;
+  desc: string;
+  value: boolean | null;
+  onChange: (val: boolean | null) => void;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="edit-launch-card">
+      <div className="edit-launch-card-header">
+        {icon && (
+          <div className="edit-launch-card-icon edit-launch-icon-secondary">
+            {icon}
+          </div>
+        )}
+        <div className="edit-launch-card-header-text">
+          <span className="edit-launch-card-title">{title}</span>
+          <p className="edit-launch-card-desc">{desc}</p>
+        </div>
+        <div className="edit-tristate-group">
+          <button
+            type="button"
+            className={`edit-tristate-btn ${value === null ? "is-active" : ""}`}
+            onClick={() => onChange(null)}
+          >
+            Global
+          </button>
+          <button
+            type="button"
+            className={`edit-tristate-btn is-on ${value === true ? "is-active" : ""}`}
+            onClick={() => onChange(true)}
+          >
+            On
+          </button>
+          <button
+            type="button"
+            className={`edit-tristate-btn is-off ${value === false ? "is-active" : ""}`}
+            onClick={() => onChange(false)}
+          >
+            Off
+          </button>
+        </div>
       </div>
     </div>
   );

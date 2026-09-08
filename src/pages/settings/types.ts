@@ -11,7 +11,8 @@ export type SettingsTab =
   | "plugins"
   | "launcher"
   | "privacy"
-  | "backup";
+  | "backup"
+  | "compatibility";
 
 /** One destination in the sidebar (always a whole tab — never an in-tab anchor). */
 export interface SettingsNavItem {

@@ -23,6 +23,7 @@ import {
   BellIcon,
   DiscordIcon,
   BackupIcon,
+  CompatibilityIcon,
 } from "./settingsIcons";
 
 /**
@@ -60,6 +61,7 @@ const TAB_ORDER: SettingsTab[] = [
   "launcher",
   "privacy",
   "backup",
+  "compatibility",
 ];
 
 export const SETTINGS_TABS: readonly SettingsTab[] = TAB_ORDER;
@@ -364,6 +366,40 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
         },
       ],
     },
+    compatibility: {
+      tab: "compatibility",
+      labelKey: "settings.tab.compatibility",
+      descKey: "settings.compatibility.desc",
+      keywords: "linux wine proton dxvk vkd3d esync fsync mangohud gamemode gamescope runner prefix compatibility dll overrides",
+      icon: <CompatibilityIcon />,
+      sections: [
+        {
+          id: "compat-runners",
+          labelKey: "settings.compatibility.sectionRunners",
+          keywords: "runner wine proton default path prefix directory custom scan version",
+        },
+        {
+          id: "compat-graphics",
+          labelKey: "settings.compatibility.sectionGraphics",
+          keywords: "dxvk vkd3d directx vulkan esync fsync nvapi dlss hud graphics d3d",
+        },
+        {
+          id: "compat-tools",
+          labelKey: "settings.compatibility.sectionTools",
+          keywords: "mangohud gamemode gamescope fps overlay governor resolution prime offload discrete gpu",
+        },
+        {
+          id: "compat-env",
+          labelKey: "settings.compatibility.sectionEnv",
+          keywords: "environment variables dll overrides custom prefix wrapper env key value",
+        },
+        {
+          id: "compat-system",
+          labelKey: "settings.compatibility.sectionSystem",
+          keywords: "system diagnostics linux wayland x11 vulkan winetricks kill wineserver processes",
+        },
+      ],
+    },
   };
 
   /** Sidebar groups — tabs only. */
@@ -406,6 +442,7 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
       label: t("settings.group.system"),
       items: [
         { tab: "launcher", label: t("settings.tab.launcher"), icon: <RocketIcon /> },
+        { tab: "compatibility", label: t("settings.tab.compatibility"), icon: <CompatibilityIcon /> },
         { tab: "privacy", label: t("settings.tab.privacy"), icon: <TrashIcon /> },
         { tab: "backup", label: t("settings.tab.backup"), icon: <BackupIcon /> },
       ],

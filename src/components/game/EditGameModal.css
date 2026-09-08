@@ -1892,3 +1892,189 @@
 .media-fetch-card > button {
   margin: 0 var(--space-sm) var(--space-sm);
 }
+
+/* ============================================================
+   Compatibility / Proton / Wine Subtabs & Controls
+   ============================================================ */
+
+.edit-compat-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-md);
+  gap: var(--space-md);
+}
+
+.edit-compat-banner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.edit-compat-banner-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.edit-compat-banner-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.edit-compat-subtabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+  overflow-x: auto;
+}
+
+.edit-compat-subtab-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 14px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.edit-compat-subtab-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.edit-compat-subtab-btn.is-active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Tri-state override buttons (Global / On / Off) */
+.edit-tristate-group {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+
+.edit-tristate-btn {
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.edit-tristate-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.edit-tristate-btn.is-active {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.edit-tristate-btn.is-on.is-active {
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+}
+
+.edit-tristate-btn.is-off.is-active {
+  background: color-mix(in srgb, var(--color-danger) 20%, transparent);
+  color: var(--color-danger);
+}
+
+/* Key-Value / Overrides Table */
+.edit-compat-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.edit-compat-pair-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.edit-compat-pair-input {
+  flex: 1;
+}
+
+.edit-compat-pair-select {
+  flex: 0 0 160px;
+}
+
+/* Maintenance Action Buttons Grid */
+.edit-maintenance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.edit-maintenance-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 14px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.edit-maintenance-btn:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  transform: translateY(-1px);
+}
+
+.edit-maintenance-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit-maintenance-btn--danger {
+  color: var(--color-danger);
+}
+
+.edit-maintenance-btn--danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-danger) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+

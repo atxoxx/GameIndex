@@ -206,6 +206,8 @@ export interface Game {
   playStatus?: PlayStatus;
   /** When true, the game is excluded from playtime tracking and passive process detection. */
   untracked?: boolean;
+  /** Wine / Proton / Linux compatibility profile and overrides */
+  compatibility?: CompatibilityProfile;
 }
 
 /** Remove repeated library records while preserving the first record for each stable id. */
@@ -228,6 +230,62 @@ export interface CompanionApp {
   delayMs: number;
   /** Run with UAC elevation (Windows). */
   runAsAdmin?: boolean;
+}
+
+/** Per-game Wine / Proton / Linux compatibility profile overrides */
+export interface CompatibilityProfile {
+  /** Explicitly toggle compatibility layer on or off for this game */
+  enabled?: boolean;
+  /** Runner choice override: default (use global settings), proton, wine, or custom */
+  runnerType?: "default" | "proton" | "wine" | "custom";
+  /** Path to custom runner executable/script (when runnerType === "custom" or specific) */
+  customRunnerPath?: string;
+  /** Custom WINEPREFIX folder override */
+  customWinePrefix?: string;
+  /** Wine architecture override */
+  arch?: "win64" | "win32";
+  /** Override working directory */
+  workingDir?: string;
+
+  /** DXVK (DirectX 9/10/11 -> Vulkan) override (null = use global) */
+  enableDxvk?: boolean | null;
+  /** VKD3D-Proton (DirectX 12 -> Vulkan) override */
+  enableVkd3d?: boolean | null;
+  /** Esync (eventfd-based synchronization) override */
+  enableEsync?: boolean | null;
+  /** Fsync (futex-based synchronization) override */
+  enableFsync?: boolean | null;
+  /** DXVK-NVAPI / DLSS support override */
+  enableDxvkNvapi?: boolean | null;
+  /** DXVK HUD options (e.g. "fps", "devinfo", "compiler") */
+  dxvkHud?: string;
+
+  /** MangoHud performance HUD overlay override */
+  enableMangoHud?: boolean | null;
+  /** GameMode (Feral GameMode CPU/GPU governor) override */
+  enableGameMode?: boolean | null;
+  /** Gamescope micro-compositor override */
+  enableGamescope?: boolean | null;
+  /** Custom arguments for Gamescope (e.g. "-w 1920 -h 1080 -F fsr -f") */
+  gamescopeArgs?: string;
+  /** Prime render offload (discrete GPU on hybrid laptops) */
+  primeRenderOffload?: boolean | null;
+
+  /** Custom environment variables (KEY -> VALUE) */
+  environmentVariables?: Record<string, string>;
+  /** Custom DLL overrides (e.g. "dinput8": "n,b") */
+  dllOverrides?: Record<string, string>;
+  /** Custom command wrapper prefix (e.g. "taskset -c 0-7") */
+  preLaunchWrapper?: string;
+}
+
+export interface WineLogResult {
+  gameId: string;
+  logContent: string;
+  exists: boolean;
+  lastModified?: number;
+  sizeBytes: number;
+  logPath: string;
 }
 
 export interface TimeToBeat {
