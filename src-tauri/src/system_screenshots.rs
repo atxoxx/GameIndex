@@ -54,20 +54,40 @@ fn list_image_files_flat(dir: &std::path::Path) -> Vec<String> {
 
 /// Auto-detect screenshots from non-Steam capture tools.
 ///
-/// Scans well-known default directories for:
-/// - NVIDIA ShadowPlay / GeForce Experience (%USERPROFILE%\Videos, game subfolders)
-/// - AMD Radeon ReLive (%USERPROFILE%\Videos\Radeon ReLive)
-/// - OBS Studio (%USERPROFILE%\Videos)
-///
-/// Each source is returned as a separate folder group so the frontend
-/// can badge them distinctly (NVIDIA green, AMD red, OBS white).
-/// Returns an empty Vec when none of the known folders exist or contain images.
+/// Dispatches to the platform implementation: Windows capture tools
+/// (NVIDIA ShadowPlay, AMD ReLive, Xbox Game Bar, OBS) live under
+/// `%USERPROFILE%\Videos`; POSIX desktops (Linux/macOS) write GNOME/KDE
+/// screenshots and OBS captures under `~/Pictures` / `~/Videos`.
+/// Returns an empty Vec when none of the known folders exist or contain
+/// images.
 #[tauri::command]
 pub fn detect_system_screenshot_folders() -> Vec<SystemScreenshotFolder> {
+    #[cfg(windows)]
+    {
+        detect_windows_screenshot_folders()
+    }
+    #[cfg(not(windows))]
+    {
+        detect_posix_screenshot_folders()
+    }
+}
+
+/// Windows capture-tool folders (NVIDIA ShadowPlay / GeForce Experience,
+/// AMD Radeon ReLive, Xbox Game Bar captures, OBS).
+#[cfg(windows)]
+fn detect_windows_screenshot_folders() -> Vec<SystemScreenshotFolder> {
     let userprofile = match std::env::var("USERPROFILE") {
         Ok(p) => std::path::PathBuf::from(p),
         Err(_) => return Vec::new(),
     };
+    detect_windows_screenshot_folders_inner(&userprofile)
+}
+
+#[cfg(windows)]
+fn detect_windows_screenshot_folders_inner(
+    userprofile: &std::path::Path,
+) -> Vec<SystemScreenshotFolder> {
+    let userprofile = userprofile.to_path_buf();
 
     let mut results: Vec<SystemScreenshotFolder> = Vec::new();
 
@@ -225,6 +245,116 @@ pub fn detect_system_screenshot_folders() -> Vec<SystemScreenshotFolder> {
                     screenshots: images,
                 });
             }
+        }
+    }
+
+    results
+}
+
+/// Resolve an XDG user dir (e.g. `XDG_PICTURES_DIR`), falling back to
+/// `$HOME/<fallback>` when unset or empty.
+#[cfg(not(windows))]
+fn posix_user_dir(env: &str, home: &std::path::Path, fallback: &str) -> std::path::PathBuf {
+    std::env::var(env)
+        .ok()
+        .filter(|p| !p.is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| home.join(fallback))
+}
+
+/// POSIX (Linux/macOS) capture-folder detection.
+///
+/// Desktop screenshot tools (GNOME/KDE screenshots, Spectacle, OBS,
+/// Flameshot, …) write to the user's Pictures / Videos directories.
+/// Known tool folders are grouped on their own (`OBS`, `Screenshots`);
+/// every other subfolder of Pictures / Videos that contains images is
+/// returned as a per-game / per-tool group, mirroring the Windows scan.
+#[cfg(not(windows))]
+fn detect_posix_screenshot_folders() -> Vec<SystemScreenshotFolder> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    if home.is_empty() {
+        return Vec::new();
+    }
+    let home_path = std::path::PathBuf::from(&home);
+    let pictures = posix_user_dir("XDG_PICTURES_DIR", &home_path, "Pictures");
+    let videos = posix_user_dir("XDG_VIDEOS_DIR", &home_path, "Videos");
+
+    let mut results: Vec<SystemScreenshotFolder> = Vec::new();
+    let mut seen: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::new();
+
+    // 1. Known tool folders, grouped under their own source badge.
+    let tool_folders: Vec<(String, std::path::PathBuf)> = vec![
+        ("obs".to_string(), videos.join("OBS")),
+        ("linux".to_string(), pictures.join("Screenshots")),
+        ("linux".to_string(), videos.join("Screenshots")),
+    ];
+    for (source, folder) in tool_folders {
+        if !folder.is_dir() {
+            continue;
+        }
+        seen.insert(folder.clone());
+        let images = list_image_files_flat(&folder);
+        if images.is_empty() {
+            continue;
+        }
+        let game_name = folder
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Screenshots")
+            .to_string();
+        results.push(SystemScreenshotFolder {
+            source: source.clone(),
+            game_name,
+            folder_path: folder.to_string_lossy().to_string(),
+            screenshots: images,
+        });
+    }
+
+    // 2. Other subfolders under Pictures / Videos (per-game captures,
+    //    Steam-tool layouts, custom OBS per-game folders, ...).
+    for root in [&pictures, &videos] {
+        let Ok(entries) = std::fs::read_dir(root) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if !p.is_dir() || seen.contains(&p) {
+                continue;
+            }
+            seen.insert(p.clone());
+            let name = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("Unknown")
+                .to_string();
+            let lower = name.to_lowercase();
+            if [
+                "desktop",
+                "captures",
+                "radeon relive",
+                "obs",
+                "recordings",
+                "screenshots",
+                "template",
+                "templates",
+                "wallpapers",
+                "webcam",
+            ]
+            .contains(&lower.as_str())
+            {
+                continue;
+            }
+            let images = list_image_files_flat(&p);
+            if images.is_empty() {
+                continue;
+            }
+            results.push(SystemScreenshotFolder {
+                source: "linux".to_string(),
+                game_name: name,
+                folder_path: p.to_string_lossy().to_string(),
+                screenshots: images,
+            });
         }
     }
 

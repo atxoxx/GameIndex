@@ -270,21 +270,25 @@ pub fn delete_archives_for_download(
 }
 
 fn find_7z() -> Option<std::path::PathBuf> {
-    let paths_to_try = [
-        PathBuf::from("7z"),
-        PathBuf::from("C:\\Program Files\\7-Zip\\7z.exe"),
-        PathBuf::from("C:\\Program Files (x86)\\7-Zip\\7z.exe"),
-    ];
-    for p in &paths_to_try {
-        if p.to_string_lossy() == "7z" {
-            if std::process::Command::new("7z").arg("-h").output().is_ok() {
-                return Some(p.clone());
-            }
-        } else if p.exists() {
-            return Some(p.clone());
+    // Common 7-Zip binary names, resolved on PATH first (Linux distros
+    // ship `7z`, `7za` or `7zr`; newer releases also `7zz`).
+    for name in ["7z", "7zz", "7za", "7zr"] {
+        if std::process::Command::new(name).arg("-h").output().is_ok() {
+            return Some(PathBuf::from(name));
         }
     }
-    None
+    // Well-known absolute install locations per platform (Windows
+    // Program Files, Linux /usr/bin + snap).
+    let paths_to_try = [
+        PathBuf::from("C:\\Program Files\\7-Zip\\7z.exe"),
+        PathBuf::from("C:\\Program Files (x86)\\7-Zip\\7z.exe"),
+        PathBuf::from("/usr/bin/7z"),
+        PathBuf::from("/usr/bin/7zz"),
+        PathBuf::from("/usr/bin/7za"),
+        PathBuf::from("/usr/bin/7zr"),
+        PathBuf::from("/snap/bin/7z"),
+    ];
+    paths_to_try.into_iter().find(|p| p.exists())
 }
 
 fn extract_archive(

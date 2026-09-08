@@ -634,11 +634,30 @@ fn filter_owned_games(
         .collect()
 }
 
+/// Detect locally installed Epic games.
+///
+/// On Windows this scans the official launcher's manifest files
+/// (`%PROGRAMDATA%/Epic/EpicGamesLauncher/Data/Manifests/*.item`); on
+/// Linux it also reads Legendary / Heroic's `installed.json` (the
+/// standard Linux Epic clients).
+fn detect_installed_epic_games() -> Vec<EpicGame> {
+    #[cfg(target_os = "linux")]
+    {
+        let mut games = detect_installed_epic_games_egl();
+        games.extend(detect_installed_epic_games_linux());
+        games
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        detect_installed_epic_games_egl()
+    }
+}
+
 /// Detect locally installed Epic games by scanning launcher manifest files.
 ///
 /// Epic stores install info in:
 /// `%PROGRAMDATA%/Epic/EpicGamesLauncher/Data/Manifests/*.item`
-fn detect_installed_epic_games() -> Vec<EpicGame> {
+fn detect_installed_epic_games_egl() -> Vec<EpicGame> {
     let program_data = std::env::var("PROGRAMDATA")
         .unwrap_or_else(|_| "C:\\ProgramData".to_string());
 
@@ -719,12 +738,140 @@ fn parse_epic_manifest(content: &str) -> Option<EpicGame> {
     })
 }
 
+/// Candidate paths to Legendary's `installed.json` on Linux.
+///
+/// Legendary keeps its state in `~/.config/legendary/installed.json` for
+/// standalone installs, and in `~/.config/heroic/legendaryConfig/legendary/
+/// installed.json` when Heroic drives it with a custom config dir (plus the
+/// Flatpak-sandboxed variant under `~/.var/app/...`).
+#[cfg(target_os = "linux")]
+fn legendary_installed_json_paths() -> Vec<PathBuf> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    if home.is_empty() {
+        return Vec::new();
+    }
+    let h = PathBuf::from(&home);
+    let flatpak = h.join(".var/app/com.heroicgameslauncher.hgl/config");
+    vec![
+        h.join(".config/legendary/installed.json"),
+        h.join(".config/heroic/legendaryConfig/legendary/installed.json"),
+        flatpak.join("legendary/installed.json"),
+        flatpak.join("heroic/legendaryConfig/legendary/installed.json"),
+    ]
+}
+
+/// Detect locally installed Epic games on Linux from Legendary / Heroic's
+/// `installed.json`.
+///
+/// The file is a JSON object keyed by Epic app name, e.g.
+/// `{ "<appName>": { "title", "install_path", "executable", "is_dlc",
+/// "version", "install_size", ... } }`. Legendary does not record the
+/// namespace / catalog-item id, so entries are matched back to the cloud
+/// library by `app_name` in [`merge_game_data`].
+#[cfg(target_os = "linux")]
+fn detect_installed_epic_games_linux() -> Vec<EpicGame> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+
+    for path in legendary_installed_json_paths() {
+        let Ok(content) = fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(json) = serde_json::from_str::<Value>(&content) else {
+            continue;
+        };
+        let Some(obj) = json.as_object() else {
+            continue;
+        };
+
+        for (app_name, entry) in obj {
+            // One app per file scan; a duplicate across paths is a stale
+            // mirror (e.g. moved prefix), not a second install.
+            if !seen.insert(app_name.clone()) {
+                continue;
+            }
+            // Entries can be explicit `false` after an uninstall.
+            if entry.get("is_installed").and_then(|v| v.as_bool()) == Some(false) {
+                continue;
+            }
+            if entry.get("is_dlc").and_then(|v| v.as_bool()).unwrap_or(false) {
+                continue;
+            }
+            let Some(install_dir) = entry
+                .get("install_path")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .filter(|p| !p.is_empty())
+            else {
+                continue;
+            };
+            if !std::path::Path::new(&install_dir).is_dir() {
+                continue;
+            }
+            let title = entry
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or(app_name)
+                .to_string();
+            let executable = entry
+                .get("executable")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            let full_install_path = if executable.is_empty() {
+                install_dir.clone()
+            } else {
+                std::path::Path::new(&install_dir)
+                    .join(executable)
+                    .to_string_lossy()
+                    .to_string()
+            };
+            let version = entry
+                .get("version")
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
+
+            out.push(EpicGame {
+                id: format!("epic-{app_name}"),
+                app_name: app_name.clone(),
+                title,
+                namespace: String::new(),
+                catalog_item_id: String::new(),
+                build_version: version,
+                is_owned: true,
+                is_installed: true,
+                install_path: Some(full_install_path),
+                install_dir: Some(install_dir),
+                launch_url: None,
+                categories: vec!["applications".to_string()],
+                sandbox_type: None,
+                playtime_minutes: None,
+                last_played: None,
+                cover_url: None,
+            });
+        }
+    }
+
+    out
+}
+
 /// Merge library data with installed game data.
 fn merge_game_data(library: Vec<EpicGame>, installed: &[EpicGame]) -> Vec<EpicGame> {
     library
         .into_iter()
         .map(|mut game| {
-            if let Some(inst) = installed.iter().find(|i| i.id == game.id) {
+            // Prefer an exact id match (Windows EGL manifests carry the
+            // namespace + catalog id); fall back to an app-name match so
+            // Legendary/Heroic entries (which don't record namespace /
+            // catalog ids) still mark the game installed on Linux.
+            let inst = installed
+                .iter()
+                .find(|i| i.id == game.id)
+                .or_else(|| {
+                    installed
+                        .iter()
+                        .find(|i| !i.app_name.is_empty() && i.app_name == game.app_name)
+                });
+            if let Some(inst) = inst {
                 game.is_installed = true;
                 game.install_path = inst.install_path.clone();
                 game.playtime_minutes = inst.playtime_minutes.or(game.playtime_minutes);

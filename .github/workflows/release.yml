@@ -16,6 +16,8 @@ jobs:
         include:
           - platform: "windows-latest"
             args: ""
+          - platform: "ubuntu-latest"
+            args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -34,8 +36,15 @@ jobs:
       - name: install frontend dependencies
         run: npm ci
 
+      - name: install Linux dependencies
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
       - name: generate release changelog
         id: changelog
+        if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
           git fetch --tags --force
@@ -91,9 +100,16 @@ jobs:
           # the updater keeps working.
           uploadUpdaterSignatures: false
 
-      # Explicitly clean up any .sig signature asset files from the GitHub draft release.
+      # The steps below are Windows-only: the portable exe + NSIS latest.json
+      # rewrite only apply to the windows-latest job. tauri-action itself
+      # merges the updater latest.json across the matrix, so the Linux job's
+      # appimage/deb entries and the Windows portable/setup entries all end up
+      # in the same manifest.
+
+      # Explicitly clean up any .sig signature file assets from the GitHub draft release.
       # latest.json still embeds the signature inline, so auto-updates work without standalone .sig files.
       - name: remove .sig files from release assets
+        if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
           $sigAssets = (gh release view "${{ github.ref_name }}" --json assets -q '.assets[].name') | Where-Object { $_ -like "*.sig" }
@@ -111,6 +127,7 @@ jobs:
       # finally uploaded together with the corrected latest.json so that the
       # NSIS setup AND the portable exe both get updater support.
       - name: prepare portable executable
+        if: matrix.platform == 'windows-latest'
         run: |
           $version = node -p "require('./package.json').version"
           Copy-Item src-tauri/target/release/GameIndex.exe "GameIndex_${version}_x64_portable.exe"
@@ -122,6 +139,7 @@ jobs:
       # NOTE: `tauri signer sign` takes the file as a POSITIONAL argument in
       # the CLI version pinned by package-lock.json (2.x); --file is not valid.
       - name: sign portable executable
+        if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
           $version = node -p "require('./package.json').version"
@@ -136,8 +154,10 @@ jobs:
       # tauri-action's latest.json points windows-x86_64 at the setup exe, so
       # rewrite it to the signed portable exe and keep windows-x86_64-nsis ->
       # setup exe (tauri-action's entry is already correct; only create it if
-      # missing).
+      # missing). The read-modify-write preserves the Linux (appimage/deb)
+      # entries merged in by the ubuntu-latest job.
       - name: rewrite latest.json for portable updater support
+        if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
           $version = node -p "require('./package.json').version"
@@ -227,6 +247,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: upload portable executable
+        if: matrix.platform == 'windows-latest'
         run: |
           $version = node -p "require('./package.json').version"
           gh release upload "${{ github.ref_name }}" "GameIndex_${version}_x64_portable.exe" --clobber
@@ -234,8 +255,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # All assets are uploaded above while the release is still a draft;
-      # publish it with the generated changelog (including commit links).
+      # publish it once (from the Windows job) with the generated changelog
+      # (including commit links).
       - name: publish release
+        if: matrix.platform == 'windows-latest'
         run: gh release edit "${{ github.ref_name }}" --notes-file release_notes.md --draft=false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

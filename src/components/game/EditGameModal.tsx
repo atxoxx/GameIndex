@@ -72,7 +72,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const { updateGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { t } = useLanguage();
-  const { showFullLinuxUi } = useSettings();
+  const { showFullLinuxUi, isWindowsHost } = useSettings();
 
   const [editTab, setEditTab] = useState<EditTab>("details");
   const activeEditTab = editTab === "compatibility" && !showFullLinuxUi ? "details" : editTab;
@@ -1773,34 +1773,37 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
               {/* Execution Privileges & Steam Integration Grid */}
               <div className="edit-launch-grid-cards">
-                {/* Run as Admin Card */}
-                <div
-                  className={`edit-launch-card edit-launch-toggle-card ${editRunAsAdmin ? "is-enabled" : ""}`}
-                  onClick={() => setEditRunAsAdmin(!editRunAsAdmin)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setEditRunAsAdmin(!editRunAsAdmin); } }}
-                >
-                  <div className="edit-launch-toggle-main">
-                    <div className="edit-launch-card-icon edit-launch-icon-admin">
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      </svg>
-                    </div>
-                    <div className="edit-launch-toggle-text">
-                      <div className="edit-launch-toggle-title-row">
-                        <h4 className="edit-launch-card-title">{t("edit.runAsAdmin")}</h4>
-                        <span className={`edit-launch-badge ${editRunAsAdmin ? "active" : "muted"}`}>
-                          {editRunAsAdmin ? "Elevated" : "Normal"}
-                        </span>
+                {/* Run as Admin Card (Windows-only: elevation is a UAC
+                    concept; the backend errors on other platforms) */}
+                {isWindowsHost && (
+                  <div
+                    className={`edit-launch-card edit-launch-toggle-card ${editRunAsAdmin ? "is-enabled" : ""}`}
+                    onClick={() => setEditRunAsAdmin(!editRunAsAdmin)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setEditRunAsAdmin(!editRunAsAdmin); } }}
+                  >
+                    <div className="edit-launch-toggle-main">
+                      <div className="edit-launch-card-icon edit-launch-icon-admin">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
                       </div>
-                      <p className="edit-launch-card-desc">{t("edit.runAsAdminHint")}</p>
+                      <div className="edit-launch-toggle-text">
+                        <div className="edit-launch-toggle-title-row">
+                          <h4 className="edit-launch-card-title">{t("edit.runAsAdmin")}</h4>
+                          <span className={`edit-launch-badge ${editRunAsAdmin ? "active" : "muted"}`}>
+                            {editRunAsAdmin ? "Elevated" : "Normal"}
+                          </span>
+                        </div>
+                        <p className="edit-launch-card-desc">{t("edit.runAsAdminHint")}</p>
+                      </div>
+                    </div>
+                    <div className={`edit-toggle-switch ${editRunAsAdmin ? "active" : ""}`} aria-hidden="true">
+                      <div className="edit-toggle-knob" />
                     </div>
                   </div>
-                  <div className={`edit-toggle-switch ${editRunAsAdmin ? "active" : ""}`} aria-hidden="true">
-                    <div className="edit-toggle-knob" />
-                  </div>
-                </div>
+                )}
 
                 {/* Do Not Track Game Card */}
                 <div
@@ -2007,19 +2010,21 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                               <span className="companion-app-delay-tag">ms</span>
                             </div>
                           </div>
-                          <label className="companion-app-admin-toggle">
-                            <input
-                              type="checkbox"
-                              checked={app.runAsAdmin || false}
-                              onChange={(e) => updateCompanionApp(idx, { runAsAdmin: e.target.checked })}
-                            />
-                            <span className="companion-app-admin-label">
-                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                              </svg>
-                              Admin
-                            </span>
-                          </label>
+                          {isWindowsHost && (
+                            <label className="companion-app-admin-toggle">
+                              <input
+                                type="checkbox"
+                                checked={app.runAsAdmin || false}
+                                onChange={(e) => updateCompanionApp(idx, { runAsAdmin: e.target.checked })}
+                              />
+                              <span className="companion-app-admin-label">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                </svg>
+                                Admin
+                              </span>
+                            </label>
+                          )}
                         </div>
                       </div>
                     ))}

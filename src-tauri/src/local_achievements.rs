@@ -6,7 +6,9 @@
 //! Razor1911, 3DM, …) that write local achievement state files under
 //! well-known folders (`%APPDATA%`, `C:\Users\Public\Documents`,
 //! `C:\ProgramData`, …), keyed by the game's **Steam appid**
-//! (`objectId`).
+//! (`objectId`). On Linux/macOS those Windows folders are resolved
+//! inside each detected Wine prefix's `drive_c`, so cracked games
+//! launched through Wine/Proton/Lutris/Bottles are picked up too.
 //!
 //! This module locates those files for a given appid and parses them
 //! into `UnlockedAchievement { name, unlock_time }`. `unlock_time` is
@@ -57,34 +59,167 @@ pub struct AchievementFile {
     pub path: PathBuf,
 }
 
-// ── Base directories (Windows only) ─────────────────────────────────────
+// ── Base directories ────────────────────────────────────────────────────
 
+/// Logical Windows root folder. Resolved to real paths per-platform:
+/// natively via env vars on Windows, inside each detected Wine prefix
+/// (`drive_c`) elsewhere.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WinRoot {
+    AppData,
+    LocalAppData,
+    ProgramData,
+    Documents,
+    PublicDocuments,
+}
+
+#[cfg(target_os = "windows")]
 fn app_data() -> PathBuf {
     std::env::var("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_default()
 }
 
+#[cfg(target_os = "windows")]
 fn local_app_data() -> PathBuf {
     std::env::var("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_default()
 }
 
+#[cfg(target_os = "windows")]
 fn program_data() -> PathBuf {
     std::env::var("ProgramData")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from(r"C:\ProgramData"))
 }
 
+#[cfg(target_os = "windows")]
 fn documents() -> PathBuf {
     std::env::var("USERPROFILE")
         .map(|p| PathBuf::from(p).join("Documents"))
         .unwrap_or_default()
 }
 
+#[cfg(target_os = "windows")]
 fn public_documents() -> PathBuf {
     PathBuf::from(r"C:\Users\Public\Documents")
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_win_root(root: WinRoot) -> Vec<PathBuf> {
+    let p = match root {
+        WinRoot::AppData => app_data(),
+        WinRoot::LocalAppData => local_app_data(),
+        WinRoot::ProgramData => program_data(),
+        WinRoot::Documents => documents(),
+        WinRoot::PublicDocuments => public_documents(),
+    };
+    vec![p]
+}
+
+/// Reduce candidate prefix roots (single prefixes or containers of
+/// prefixes) to the `drive_c` dirs that actually exist.
+#[cfg(not(target_os = "windows"))]
+fn collect_drive_roots(candidates: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    for root in candidates {
+        let drive = root.join("drive_c");
+        if drive.is_dir() {
+            out.push(drive);
+            continue;
+        }
+        // A container of prefixes: each child dir may hold a `drive_c`.
+        if let Ok(entries) = std::fs::read_dir(&root) {
+            for entry in entries.flatten() {
+                let drive = entry.path().join("drive_c");
+                if drive.is_dir() {
+                    out.push(drive);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Wine prefix roots that can contain a `drive_c` (Linux/macOS). Covers
+/// the `WINEPREFIX` env var, the default `~/.wine`, `~/.wineprefixes`,
+/// Flatpak Wine, Bottles, PlayOnLinux, and Lutris game folders under
+/// `~/Games` (which are prefixes themselves).
+#[cfg(not(target_os = "windows"))]
+fn wine_drive_roots() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(p) = std::env::var("WINEPREFIX") {
+        if !p.trim().is_empty() {
+            candidates.push(PathBuf::from(p));
+        }
+    }
+
+    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        candidates.push(home.join(".wine"));
+        candidates.push(home.join(".wineprefixes"));
+        candidates.push(home.join(".var/app/org.winehq.Wine/data/wineprefixes"));
+        candidates.push(home.join(".var/app/org.winehq.wine/data/wineprefixes"));
+        candidates.push(home.join(".var/app/com.usebottles.bottles/data/bottles/bottles"));
+        candidates.push(home.join(".PlayOnLinux/wineprefix"));
+        candidates.push(home.join("Games"));
+    }
+
+    collect_drive_roots(candidates)
+}
+
+/// Map a logical Windows root onto one Wine `drive_c` (Linux/macOS).
+/// User-profile folders (`AppData`, `Documents`) are expanded for every
+/// user dir under `drive_c/users`, skipping `Public` / `Default`.
+#[cfg(not(target_os = "windows"))]
+fn resolve_root_in_drive(drive: &Path, root: WinRoot) -> Vec<PathBuf> {
+    match root {
+        WinRoot::ProgramData => vec![drive.join("ProgramData")],
+        WinRoot::PublicDocuments => {
+            vec![drive.join("users").join("Public").join("Documents")]
+        }
+        WinRoot::AppData | WinRoot::LocalAppData | WinRoot::Documents => {
+            let mut out = Vec::new();
+            let users = drive.join("users");
+            let Ok(entries) = std::fs::read_dir(&users) else {
+                return out;
+            };
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.eq_ignore_ascii_case("Public")
+                    || name_str.eq_ignore_ascii_case("Default")
+                {
+                    continue;
+                }
+                let path = match root {
+                    WinRoot::AppData => entry.path().join("AppData").join("Roaming"),
+                    WinRoot::LocalAppData => entry.path().join("AppData").join("Local"),
+                    _ => entry.path().join("Documents"),
+                };
+                out.push(path);
+            }
+            out
+        }
+    }
+}
+
+/// Resolve a logical Windows root to the real folders that can hold
+/// cracker state: the native path on Windows, and every matching folder
+/// inside each detected Wine prefix elsewhere.
+fn resolve_roots(root: WinRoot) -> Vec<PathBuf> {
+    #[cfg(target_os = "windows")]
+    return resolve_win_root(root);
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut out = Vec::new();
+        for drive in wine_drive_roots() {
+            out.extend(resolve_root_in_drive(&drive, root));
+        }
+        out
+    }
 }
 
 /// The set of crackers we scan for, in priority order.
@@ -102,11 +237,12 @@ const CRACKERS: &[Cracker] = &[
     Cracker::Rle,
 ];
 
-/// A folder to scan + the file location template inside each
-/// `<objectId>` subfolder. `<objectId>` placeholders are substituted
-/// with the game's Steam appid.
+/// A folder to scan (logical Windows root + relative subfolders) plus
+/// the file location template inside each `<objectId>` subfolder.
+/// `<objectId>` placeholders are substituted with the game's Steam appid.
 struct CrackerPath {
-    folder: PathBuf,
+    root: WinRoot,
+    rel: Vec<&'static str>,
     file_location: Vec<&'static str>,
 }
 
@@ -114,63 +250,76 @@ fn paths_for_cracker(cracker: Cracker) -> Vec<CrackerPath> {
     match cracker {
         Cracker::Codex => vec![
             CrackerPath {
-                folder: public_documents().join("Steam").join("CODEX"),
+                root: WinRoot::PublicDocuments,
+                rel: vec!["Steam", "CODEX"],
                 file_location: vec!["<objectId>", "achievements.ini"],
             },
             CrackerPath {
-                folder: app_data().join("Steam").join("CODEX"),
+                root: WinRoot::AppData,
+                rel: vec!["Steam", "CODEX"],
                 file_location: vec!["<objectId>", "achievements.ini"],
             },
         ],
         Cracker::Rune => vec![CrackerPath {
-            folder: public_documents().join("Steam").join("RUNE"),
+            root: WinRoot::PublicDocuments,
+            rel: vec!["Steam", "RUNE"],
             file_location: vec!["<objectId>", "achievements.ini"],
         }],
         Cracker::OnlineFix => vec![
             CrackerPath {
-                folder: public_documents().join("OnlineFix"),
+                root: WinRoot::PublicDocuments,
+                rel: vec!["OnlineFix"],
                 file_location: vec!["<objectId>", "Stats", "Achievements.ini"],
             },
             CrackerPath {
-                folder: public_documents().join("OnlineFix"),
+                root: WinRoot::PublicDocuments,
+                rel: vec!["OnlineFix"],
                 file_location: vec!["<objectId>", "Achievements.ini"],
             },
         ],
         Cracker::Goldberg => vec![
             CrackerPath {
-                folder: app_data().join("Goldberg SteamEmu Saves"),
+                root: WinRoot::AppData,
+                rel: vec!["Goldberg SteamEmu Saves"],
                 file_location: vec!["<objectId>", "achievements.json"],
             },
             CrackerPath {
-                folder: app_data().join("GSE Saves"),
+                root: WinRoot::AppData,
+                rel: vec!["GSE Saves"],
                 file_location: vec!["<objectId>", "achievements.json"],
             },
         ],
         Cracker::Rld => vec![
             CrackerPath {
-                folder: program_data().join("RLD!"),
+                root: WinRoot::ProgramData,
+                rel: vec!["RLD!"],
                 file_location: vec!["<objectId>", "achievements.ini"],
             },
             CrackerPath {
-                folder: program_data().join("Steam").join("Player"),
+                root: WinRoot::ProgramData,
+                rel: vec!["Steam", "Player"],
                 file_location: vec!["<objectId>", "stats", "achievements.ini"],
             },
             CrackerPath {
-                folder: program_data().join("Steam").join("RLD!"),
+                root: WinRoot::ProgramData,
+                rel: vec!["Steam", "RLD!"],
                 file_location: vec!["<objectId>", "stats", "achievements.ini"],
             },
             CrackerPath {
-                folder: program_data().join("Steam").join("dodi"),
+                root: WinRoot::ProgramData,
+                rel: vec!["Steam", "dodi"],
                 file_location: vec!["<objectId>", "stats", "achievements.ini"],
             },
         ],
         Cracker::Empress => vec![
             CrackerPath {
-                folder: app_data().join("EMPRESS").join("remote"),
+                root: WinRoot::AppData,
+                rel: vec!["EMPRESS", "remote"],
                 file_location: vec!["<objectId>", "achievements.json"],
             },
             CrackerPath {
-                folder: public_documents().join("EMPRESS"),
+                root: WinRoot::PublicDocuments,
+                rel: vec!["EMPRESS"],
                 file_location: vec![
                     "<objectId>",
                     "remote",
@@ -181,38 +330,46 @@ fn paths_for_cracker(cracker: Cracker) -> Vec<CrackerPath> {
         ],
         Cracker::Skidrow => vec![
             CrackerPath {
-                folder: documents().join("SKIDROW"),
+                root: WinRoot::Documents,
+                rel: vec!["SKIDROW"],
                 file_location: vec!["<objectId>", "SteamEmu", "UserStats", "achiev.ini"],
             },
             CrackerPath {
-                folder: documents().join("Player"),
+                root: WinRoot::Documents,
+                rel: vec!["Player"],
                 file_location: vec!["<objectId>", "SteamEmu", "UserStats", "achiev.ini"],
             },
             CrackerPath {
-                folder: local_app_data().join("SKIDROW"),
+                root: WinRoot::LocalAppData,
+                rel: vec!["SKIDROW"],
                 file_location: vec!["<objectId>", "SteamEmu", "UserStats", "achiev.ini"],
             },
         ],
         Cracker::CreamApi => vec![CrackerPath {
-            folder: app_data().join("CreamAPI"),
+            root: WinRoot::AppData,
+            rel: vec!["CreamAPI"],
             file_location: vec!["<objectId>", "stats", "CreamAPI.Achievements.cfg"],
         }],
         Cracker::SmartSteamEmu => vec![CrackerPath {
-            folder: app_data().join("SmartSteamEmu"),
+            root: WinRoot::AppData,
+            rel: vec!["SmartSteamEmu"],
             file_location: vec!["<objectId>", "User", "Achievements.ini"],
         }],
         Cracker::Rle => vec![
             CrackerPath {
-                folder: app_data().join("RLE"),
+                root: WinRoot::AppData,
+                rel: vec!["RLE"],
                 file_location: vec!["<objectId>", "achievements.ini"],
             },
             CrackerPath {
-                folder: app_data().join("RLE"),
+                root: WinRoot::AppData,
+                rel: vec!["RLE"],
                 file_location: vec!["<objectId>", "Achievements.ini"],
             },
         ],
         Cracker::Razor1911 => vec![CrackerPath {
-            folder: app_data().join(".1911"),
+            root: WinRoot::AppData,
+            rel: vec![".1911"],
             file_location: vec!["<objectId>", "achievement"],
         }],
         // No folder-based discovery: located via the executable dir
@@ -244,16 +401,22 @@ pub fn find_achievement_files(steam_app_id: u32, exe_path: Option<&str>) -> Vec<
 
     for &cracker in CRACKERS {
         for cp in paths_for_cracker(cracker) {
-            for object_id in get_alternative_object_ids(&steam_app_id.to_string()) {
-                let mut file_path = cp.folder.clone();
-                for seg in map_file_location(&cp.file_location, &object_id) {
-                    file_path.push(seg);
+            for root in resolve_roots(cp.root) {
+                let mut folder = root.clone();
+                for seg in &cp.rel {
+                    folder.push(seg);
                 }
-                if file_path.exists() {
-                    out.push(AchievementFile {
-                        cracker,
-                        path: file_path,
-                    });
+                for object_id in get_alternative_object_ids(&steam_app_id.to_string()) {
+                    let mut file_path = folder.clone();
+                    for seg in map_file_location(&cp.file_location, &object_id) {
+                        file_path.push(seg);
+                    }
+                    if file_path.exists() {
+                        out.push(AchievementFile {
+                            cracker,
+                            path: file_path,
+                        });
+                    }
                 }
             }
         }
@@ -304,22 +467,28 @@ pub fn find_all_achievement_files() -> HashMap<String, Vec<AchievementFile>> {
 
     for &cracker in CRACKERS {
         for cp in paths_for_cracker(cracker) {
-            let Ok(entries) = std::fs::read_dir(&cp.folder) else {
-                continue;
-            };
-            for entry in entries.flatten() {
-                let object_id = entry.file_name().to_string_lossy().to_string();
-                let mut file_path = cp.folder.clone();
-                for seg in map_file_location(&cp.file_location, &object_id) {
-                    file_path.push(seg);
+            for root in resolve_roots(cp.root) {
+                let mut folder = root.clone();
+                for seg in &cp.rel {
+                    folder.push(seg);
                 }
-                if !file_path.exists() {
+                let Ok(entries) = std::fs::read_dir(&folder) else {
                     continue;
+                };
+                for entry in entries.flatten() {
+                    let object_id = entry.file_name().to_string_lossy().to_string();
+                    let mut file_path = folder.clone();
+                    for seg in map_file_location(&cp.file_location, &object_id) {
+                        file_path.push(seg);
+                    }
+                    if !file_path.exists() {
+                        continue;
+                    }
+                    map.entry(object_id).or_default().push(AchievementFile {
+                        cracker,
+                        path: file_path,
+                    });
                 }
-                map.entry(object_id).or_default().push(AchievementFile {
-                    cracker,
-                    path: file_path,
-                });
             }
         }
     }
@@ -698,4 +867,80 @@ fn process_flt(path: &Path) -> Vec<UnlockedAchievement> {
             unlock_time: now,
         })
         .collect()
+}
+
+#[cfg(all(test, not(target_os = "windows")))]
+mod tests {
+    use super::*;
+
+    /// A fake `drive_c` layout, mirroring what Wine creates.
+    fn fake_drive(root: &Path) {
+        std::fs::create_dir_all(root.join("users/alice/AppData/Roaming")).unwrap();
+        std::fs::create_dir_all(root.join("users/alice/AppData/Local")).unwrap();
+        std::fs::create_dir_all(root.join("users/alice/Documents")).unwrap();
+        std::fs::create_dir_all(root.join("users/Public/Documents")).unwrap();
+        std::fs::create_dir_all(root.join("users/Default/AppData/Roaming")).unwrap();
+        std::fs::create_dir_all(root.join("ProgramData")).unwrap();
+    }
+
+    #[test]
+    fn maps_windows_roots_inside_wine_drive() {
+        let drive = tempfile::tempdir().unwrap();
+        fake_drive(drive.path());
+
+        let app = resolve_root_in_drive(drive.path(), WinRoot::AppData);
+        assert_eq!(app.len(), 1);
+        assert_eq!(app[0], drive.path().join("users/alice/AppData/Roaming"));
+
+        let local = resolve_root_in_drive(drive.path(), WinRoot::LocalAppData);
+        assert_eq!(local, vec![drive.path().join("users/alice/AppData/Local")]);
+
+        let docs = resolve_root_in_drive(drive.path(), WinRoot::Documents);
+        assert_eq!(docs, vec![drive.path().join("users/alice/Documents")]);
+
+        let prog = resolve_root_in_drive(drive.path(), WinRoot::ProgramData);
+        assert_eq!(prog, vec![drive.path().join("ProgramData")]);
+
+        let pubd = resolve_root_in_drive(drive.path(), WinRoot::PublicDocuments);
+        assert_eq!(pubd, vec![drive.path().join("users/Public/Documents")]);
+    }
+
+    #[test]
+    fn resolves_single_prefix_and_container_of_prefixes() {
+        let base = tempfile::tempdir().unwrap();
+        let single = base.path().join("myprefix");
+        std::fs::create_dir_all(single.join("drive_c")).unwrap();
+        let container = base.path().join("wineprefixes");
+        std::fs::create_dir_all(container.join("p1/drive_c")).unwrap();
+        std::fs::create_dir_all(container.join("p2/drive_c")).unwrap();
+        std::fs::create_dir_all(container.join("p3/not_drive")).unwrap();
+        std::fs::create_dir_all(base.path().join("empty")).unwrap();
+
+        let mut drives = collect_drive_roots(vec![
+            single.clone(),
+            container.clone(),
+            base.path().join("empty"),
+        ]);
+        drives.sort();
+
+        let mut expected = vec![
+            single.join("drive_c"),
+            container.join("p1/drive_c"),
+            container.join("p2/drive_c"),
+        ];
+        expected.sort();
+        assert_eq!(drives, expected);
+    }
+
+    #[test]
+    fn codex_paths_use_public_documents_and_appdata_roots() {
+        let paths = paths_for_cracker(Cracker::Codex);
+        let roots: Vec<WinRoot> = paths.iter().map(|cp| cp.root).collect();
+        assert_eq!(
+            roots,
+            vec![WinRoot::PublicDocuments, WinRoot::AppData]
+        );
+        assert_eq!(paths[0].rel, vec!["Steam", "CODEX"]);
+        assert_eq!(paths[0].file_location, vec!["<objectId>", "achievements.ini"]);
+    }
 }

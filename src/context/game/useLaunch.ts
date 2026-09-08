@@ -7,6 +7,18 @@ import { isSplashEnabled } from "../SplashContext";
 import type { SplashContextType } from "../SplashContext";
 import type { ToastType } from "../ToastContext";
 
+// Windows-only: elevated launches error out on other platforms, so never
+// forward a persisted `runAsAdmin` flag there (it can leak in from a
+// library synced on Windows). Computed from the user agent instead of
+// useSettings() because useLaunch runs under GameProvider, which sits
+// above SettingsProvider in the tree.
+const IS_WINDOWS_HOST = (() => {
+  if (typeof navigator === "undefined") return true;
+  const ua = (navigator.userAgent || "").toLowerCase();
+  const plat = (navigator.platform || "").toLowerCase();
+  return plat.includes("win") || ua.includes("windows");
+})();
+
 interface GameStartedEvent {
   gameId: string;
   gameName: string;
@@ -219,7 +231,7 @@ export function useLaunch(options: {
         gpuId,
         gpuName,
         launchArguments: launchArgs,
-        runAsAdmin: game.runAsAdmin || null,
+        runAsAdmin: IS_WINDOWS_HOST ? (game.runAsAdmin || null) : null,
         showSteamLaunchSelection: game.showSteamLaunchSelection || null,
         preLaunchScript: game.preLaunchScript || null,
         preLaunchAdmin: game.preLaunchAdmin || null,

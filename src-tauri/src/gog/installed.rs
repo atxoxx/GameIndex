@@ -195,7 +195,13 @@ fn gog_install_roots() -> Vec<PathBuf> {
     #[cfg(target_os = "linux")]
     {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
-        vec![PathBuf::from(format!("{home}/GOG Games"))]
+        vec![
+            PathBuf::from(format!("{home}/GOG Games")),
+            // Default install root used by Heroic / gogdl (the standard
+            // Linux GOG clients). Non-GOG subfolders are filtered out by
+            // the `goggame-<id>.info` manifest check in the walker.
+            PathBuf::from(format!("{home}/Games")),
+        ]
     }
     #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     {

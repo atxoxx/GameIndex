@@ -29,6 +29,7 @@ export default function LauncherTab() {
     setRestoreOnExit,
     disableElevationPrompts,
     setDisableElevationPrompts,
+    isWindowsHost,
     autoStartEnabled,
     setAutoStartEnabled,
     landingPage,
@@ -163,28 +164,32 @@ export default function LauncherTab() {
           }}
         />
 
-        {/* ── System access ───────────────────────────────────── */}
-        <p className="settings-toggles-title settings-launcher-group-title" id="launcher-elevation">
-          {t("settings.launcher.groupSystem")}
-        </p>
+        {/* ── System access (Windows-only UAC elevation) ──────── */}
+        {isWindowsHost && (
+          <>
+            <p className="settings-toggles-title settings-launcher-group-title" id="launcher-elevation">
+              {t("settings.launcher.groupSystem")}
+            </p>
 
-        {/* Disable UAC elevation prompts */}
-        <SettingsToggleCard
-          title={t("settings.launcher.uacTitle")}
-          desc={t("settings.launcher.uacDesc")}
-          checked={disableElevationPrompts}
-          disabled={!ready}
-          warn
-          onChange={(v) => {
-            void setDisableElevationPrompts(v);
-            showToast(
-              v
-                ? t("settings.launcher.uacDisabled")
-                : t("settings.launcher.uacEnabled"),
-              "info",
-            );
-          }}
-        />
+            {/* Disable UAC elevation prompts */}
+            <SettingsToggleCard
+              title={t("settings.launcher.uacTitle")}
+              desc={t("settings.launcher.uacDesc")}
+              checked={disableElevationPrompts}
+              disabled={!ready}
+              warn
+              onChange={(v) => {
+                void setDisableElevationPrompts(v);
+                showToast(
+                  v
+                    ? t("settings.launcher.uacDisabled")
+                    : t("settings.launcher.uacEnabled"),
+                  "info",
+                );
+              }}
+            />
+          </>
+        )}
 
       </div>
     </SettingsSection>

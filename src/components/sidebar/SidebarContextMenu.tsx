@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSettings } from "../../context/SettingsContext";
 import { PLAY_STATUS_DETAILS, type PlayStatus } from "../../types/game";
 import type { SidebarContextMenuProps } from "./types";
 
@@ -31,6 +32,8 @@ export default function SidebarContextMenu({
   onRefreshMetadata,
 }: SidebarContextMenuProps) {
   const { t } = useLanguage();
+  // Run-as-administrator is Windows-only (UAC); hide the entry elsewhere.
+  const { isWindowsHost } = useSettings();
   const menuWidth = 230;
   const menuHeight = 420;
   const adjustedX = window.innerWidth - x < menuWidth ? Math.max(8, x - menuWidth) : x;
@@ -88,7 +91,7 @@ export default function SidebarContextMenu({
         {isRunning ? t("game.running") : t("game.playGame")}
       </button>
 
-      {onLaunchAdmin && !isRunning && game.path && (
+      {isWindowsHost && onLaunchAdmin && !isRunning && game.path && (
         <button
           type="button"
           className="context-menu-item"
