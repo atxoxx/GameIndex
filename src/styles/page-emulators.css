@@ -20,6 +20,10 @@
   .emulators-page { animation: none; }
 }
 
+.emulators-page .page-header {
+  margin-bottom: var(--space-xl);
+}
+
 /* ── Stats strip ────────────────────────────────────────────────── */
 
 .emulators-stats {
