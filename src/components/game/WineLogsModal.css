@@ -131,6 +131,99 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* Live updates toggle — pulsing dot while tailing */
+.wine-logs-live-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+  user-select: none;
+}
+
+.wine-logs-live-btn:hover {
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.wine-logs-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.wine-logs-live-btn.is-live {
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+  background: color-mix(in srgb, var(--color-success) 10%, var(--color-bg-tertiary));
+}
+
+.wine-logs-live-btn.is-live .wine-logs-live-dot {
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 20%, transparent);
+  animation: wine-logs-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes wine-logs-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 25%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-success) 5%, transparent);
+  }
+}
+
+/* Verbose level selector */
+.wine-logs-verbose-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.wine-logs-verbose-select {
+  min-height: 26px;
+  padding: 0 28px 0 10px;
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  max-width: 190px;
+}
+
+.wine-logs-verbose-select:hover {
+  border-color: var(--color-border);
+}
+
+.wine-logs-verbose-select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .wine-logs-autoscroll-label {

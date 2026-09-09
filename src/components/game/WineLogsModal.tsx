@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { useGames, useGameById } from "../../context/GameContext";
 import { Button, Badge } from "../ui";
 import { formatSize, type WineLogResult } from "../../types/game";
 import "./WineLogsModal.css";
@@ -14,33 +15,65 @@ interface WineLogsModalProps {
   onClose: () => void;
 }
 
+/** Poll interval for live log tailing (ms). */
+const LIVE_POLL_MS = 1500;
+
+const VERBOSE_OPTIONS: { value: string; labelKey: string }[] = [
+  { value: "-all", labelKey: "compatibility.debugDisabled" },
+  { value: "warn+all", labelKey: "compatibility.debugWarnOnly" },
+  { value: "fixme-all", labelKey: "compatibility.debugFixmeOnly" },
+  { value: "+loaddll", labelKey: "compatibility.debugDllLoads" },
+  { value: "all", labelKey: "compatibility.debugAllVerbose" },
+];
+
 export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { updateGame } = useGames();
+  const game = useGameById(gameId);
 
   const [loading, setLoading] = useState(true);
   const [logData, setLogData] = useState<WineLogResult | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
   const [clearing, setClearing] = useState(false);
+  const [live, setLive] = useState(true);
 
   const logBodyRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
+  const lastSigRef = useRef<string>("");
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      const res = await invoke<WineLogResult>("get_game_wine_logs", { gameId });
-      setLogData(res);
-    } catch (err) {
-      showToast(t("wineLogs.fetchError", { error: String(err) }) || `Failed to read logs: ${err}`, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchLogs = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const res = await invoke<WineLogResult>("get_game_wine_logs", { gameId });
+        // Only swap state when the file actually changed so the live poll
+        // doesn't re-render the whole log body every tick.
+        const sig = `${res.sizeBytes}:${res.lastModified ?? 0}`;
+        if (sig !== lastSigRef.current) {
+          lastSigRef.current = sig;
+          setLogData(res);
+        }
+      } catch (err) {
+        if (!silent) {
+          showToast(t("wineLogs.fetchError", { error: String(err) }) || `Failed to read logs: ${err}`, "error");
+        }
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [gameId, showToast, t]
+  );
 
+  // Initial load + live tailing. Polling stops while paused or unmounted.
   useEffect(() => {
+    lastSigRef.current = "";
     fetchLogs();
-  }, [gameId]);
+    if (!live) return;
+    const id = setInterval(() => fetchLogs(true), LIVE_POLL_MS);
+    return () => clearInterval(id);
+  }, [gameId, live, fetchLogs]);
 
   // Handle escape key
   useEffect(() => {
@@ -65,12 +98,42 @@ export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps)
     return lines.filter((l) => l.toLowerCase().includes(q));
   }, [lines, searchQuery]);
 
-  // Auto-scroll to bottom when logs load
+  // Auto-scroll to bottom only when the user is already at/near the bottom,
+  // so live updates never yank the viewport away while they're reading up.
+  const handleBodyScroll = () => {
+    const el = logBodyRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    stickToBottomRef.current = nearBottom;
+  };
+
   useEffect(() => {
-    if (autoScroll && logBodyRef.current) {
+    if (autoScroll && stickToBottomRef.current && logBodyRef.current) {
       logBodyRef.current.scrollTop = logBodyRef.current.scrollHeight;
     }
   }, [filteredLines, autoScroll]);
+
+  const handleAutoScrollToggle = (checked: boolean) => {
+    setAutoScroll(checked);
+    if (checked) {
+      stickToBottomRef.current = true;
+      requestAnimationFrame(() => {
+        if (logBodyRef.current) {
+          logBodyRef.current.scrollTop = logBodyRef.current.scrollHeight;
+        }
+      });
+    }
+  };
+
+  const handleVerboseChange = (value: string) => {
+    updateGame(gameId, {
+      compatibility: {
+        ...(game?.compatibility ?? {}),
+        wineDebug: value || undefined,
+      },
+    });
+    showToast(t("wineLogs.verboseSaved") || "Verbose level saved — applies on next launch", "success");
+  };
 
   const handleCopyLogs = async () => {
     if (!logData?.logContent) return;
@@ -126,6 +189,7 @@ export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps)
     try {
       await invoke("clear_game_wine_logs", { gameId });
       showToast(t("wineLogs.clearedToast") || "Log file cleared", "success");
+      lastSigRef.current = "";
       await fetchLogs();
     } catch (err) {
       showToast(t("wineLogs.clearError", { error: String(err) }) || `Failed to clear logs: ${err}`, "error");
@@ -150,6 +214,9 @@ export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps)
     }
     return "";
   };
+
+  const currentVerbose = game?.compatibility?.wineDebug ?? "";
+  const hasCustomVerbose = currentVerbose !== "" && !VERBOSE_OPTIONS.some((o) => o.value === currentVerbose);
 
   return createPortal(
     <div className="modal-backdrop" onMouseDown={onClose} role="presentation">
@@ -230,11 +297,39 @@ export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps)
           </div>
 
           <div className="wine-logs-toolbar-actions">
+            <button
+              type="button"
+              className={`wine-logs-live-btn ${live ? "is-live" : ""}`}
+              onClick={() => setLive((v) => !v)}
+              title={live ? t("wineLogs.pauseLive") || "Pause live updates" : t("wineLogs.resumeLive") || "Resume live updates"}
+            >
+              <span className="wine-logs-live-dot" />
+              <span>{live ? t("wineLogs.live") || "Live" : t("wineLogs.paused") || "Paused"}</span>
+            </button>
+
+            <label className="wine-logs-verbose-label">
+              <span>{t("wineLogs.verbose") || "Verbose"}</span>
+              <select
+                className="wine-logs-verbose-select"
+                value={currentVerbose}
+                onChange={(e) => handleVerboseChange(e.target.value)}
+                title={t("wineLogs.verboseDesc") || "Wine log verbosity (WINEDEBUG) for the next launch of this game"}
+              >
+                <option value="">{t("wineLogs.verboseGlobal") || "Global default (from Settings)"}</option>
+                {hasCustomVerbose && <option value={currentVerbose}>{currentVerbose}</option>}
+                {VERBOSE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {t(o.labelKey) || o.value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label className="wine-logs-autoscroll-label">
               <input
                 type="checkbox"
                 checked={autoScroll}
-                onChange={(e) => setAutoScroll(e.target.checked)}
+                onChange={(e) => handleAutoScrollToggle(e.target.checked)}
               />
               <span>{t("wineLogs.autoScroll") || "Auto-scroll"}</span>
             </label>
@@ -267,7 +362,7 @@ export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps)
         )}
 
         {/* Log Viewer Terminal Box */}
-        <div className="wine-logs-body" ref={logBodyRef}>
+        <div className="wine-logs-body" ref={logBodyRef} onScroll={handleBodyScroll}>
           {loading ? (
             <div className="wine-logs-loading">
               <div className="wine-logs-spinner" />
@@ -310,7 +405,7 @@ export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps)
             <Button
               variant="secondary"
               size="sm"
-              onClick={fetchLogs}
+              onClick={() => fetchLogs()}
               disabled={loading}
               leftIcon={
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
