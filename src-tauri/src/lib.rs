@@ -320,7 +320,12 @@ pub fn run() {
             compatibility::get_compatibility_system_status,
             compatibility::get_game_wine_logs,
             compatibility::clear_game_wine_logs,
-            compatibility::run_wine_tool])
+            compatibility::run_wine_tool,
+            compatibility::delete_compatibility_runner,
+            compatibility::fetch_available_runners,
+            compatibility::install_compatibility_runner,
+            compatibility::cancel_runner_install,
+            compatibility::install_runner_from_archive])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since

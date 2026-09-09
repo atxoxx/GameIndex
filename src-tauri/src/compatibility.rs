@@ -5,9 +5,12 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::SystemTime;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime};
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use crate::db;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +23,278 @@ pub struct CompatibilityRunner {
     pub kind: String,
     pub version: Option<String>,
     pub is_proton: bool,
+    #[serde(default)]
+    pub size_bytes: Option<u64>,
+    #[serde(default)]
+    pub is_deletable: bool,
+    #[serde(default)]
+    pub install_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteRunnerRelease {
+    pub id: String,
+    pub name: String,
+    pub tag: String,
+    pub source: String,
+    pub release_date: String,
+    pub download_url: String,
+    pub filename: String,
+    pub size_bytes: Option<u64>,
+    pub body: Option<String>,
+    pub html_url: Option<String>,
+    pub is_installed: bool,
+    #[serde(default)]
+    pub target_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunnerInstallProgress {
+    pub runner_name: String,
+    pub status: String, // "downloading" | "extracting" | "completed" | "failed" | "cancelled"
+    pub downloaded_bytes: u64,
+    pub total_bytes: Option<u64>,
+    pub percent: f32,
+    pub speed_bytes_per_sec: u64,
+    pub error: Option<String>,
+}
+
+static ACTIVE_INSTALL_CANCELS: Mutex<Option<HashMap<String, Arc<AtomicBool>>>> = Mutex::new(None);
+
+#[derive(Clone)]
+struct RunnerCacheEntry {
+    fetched_at: Instant,
+    releases: Vec<RemoteRunnerRelease>,
+}
+static RUNNER_RELEASES_CACHE: Mutex<Option<HashMap<String, RunnerCacheEntry>>> = Mutex::new(None);
+
+#[derive(Deserialize)]
+struct GhAsset {
+    name: String,
+    size: u64,
+    browser_download_url: String,
+}
+
+#[derive(Deserialize)]
+struct GhRelease {
+    tag_name: String,
+    name: Option<String>,
+    published_at: Option<String>,
+    body: Option<String>,
+    html_url: Option<String>,
+    assets: Vec<GhAsset>,
+}
+
+/// Recursively compute the disk size of a directory in bytes (ignoring symlinks to prevent cycles).
+pub fn dir_size_bytes(path: &Path) -> Option<u64> {
+    if !path.exists() {
+        return None;
+    }
+    if path.is_file() {
+        return fs::metadata(path).ok().map(|m| m.len());
+    }
+    let mut total: u64 = 0;
+    let mut stack = vec![path.to_path_buf()];
+    let mut visited_dirs = 0;
+    while let Some(current) = stack.pop() {
+        visited_dirs += 1;
+        if visited_dirs > 25_000 {
+            break;
+        }
+        if let Ok(entries) = fs::read_dir(&current) {
+            for entry in entries.flatten() {
+                if let Ok(ft) = entry.file_type() {
+                    if ft.is_symlink() {
+                        continue;
+                    }
+                    if ft.is_dir() {
+                        stack.push(entry.path());
+                    } else if ft.is_file() {
+                        if let Ok(meta) = entry.metadata() {
+                            total = total.saturating_add(meta.len());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Some(total)
+}
+
+/// Locate or resolve the preferred Steam compatibility tools directory (`compatibilitytools.d`).
+pub fn steam_compat_tools_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() {
+        let h = PathBuf::from(&home);
+        let candidates = [
+            h.join(".steam/root/compatibilitytools.d"),
+            h.join(".local/share/Steam/compatibilitytools.d"),
+            h.join(".steam/steam/compatibilitytools.d"),
+            h.join(".var/app/com.valvesoftware.Steam/.local/share/Steam/compatibilitytools.d"),
+        ];
+        for c in &candidates {
+            if c.exists() || c.parent().map(|p| p.exists()).unwrap_or(false) {
+                return c.clone();
+            }
+        }
+        return h.join(".local/share/Steam/compatibilitytools.d");
+    }
+
+    if let Ok(app_data) = std::env::var("APPDATA") {
+        return PathBuf::from(app_data).join("GameIndex").join("compatibilitytools.d");
+    }
+    PathBuf::from("compatibilitytools.d")
+}
+
+/// Locate or resolve GameIndex's custom runner directory.
+pub fn gameindex_runners_dir(kind: &str) -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() {
+        let h = PathBuf::from(&home);
+        if kind == "wine" {
+            let lutris = h.join(".local/share/lutris/runners/wine");
+            if lutris.exists() {
+                return lutris;
+            }
+        }
+        return h.join(".local/share/GameIndex/runners").join(kind);
+    }
+
+    if let Ok(app_data) = std::env::var("APPDATA") {
+        return PathBuf::from(app_data).join("GameIndex").join("runners").join(kind);
+    }
+    PathBuf::from("runners").join(kind)
+}
+
+/// Extract an archive file (.tar.gz, .tar.xz, .zip, etc.) into a target directory.
+pub fn extract_runner_archive(archive_path: &Path, dest_root: &Path) -> Result<PathBuf, String> {
+    let _ = fs::create_dir_all(dest_root);
+    let ext = archive_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let name_lower = archive_path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let is_tar = name_lower.ends_with(".tar.gz")
+        || name_lower.ends_with(".tgz")
+        || name_lower.ends_with(".tar.xz")
+        || name_lower.ends_with(".txz")
+        || name_lower.ends_with(".tar.zst")
+        || name_lower.ends_with(".tar.bz2")
+        || ext == "tar";
+
+    if is_tar {
+        let tar_bin = if cfg!(windows) { "tar.exe" } else { "tar" };
+        let output = Command::new(tar_bin)
+            .arg("-xf")
+            .arg(archive_path)
+            .arg("-C")
+            .arg(dest_root)
+            .output()
+            .map_err(|e| format!("Failed to run {}: {}", tar_bin, e))?;
+
+        if !output.status.success() {
+            let err_msg = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Extraction command failed: {}", err_msg));
+        }
+
+        ensure_exec_permissions(dest_root);
+        return Ok(dest_root.to_path_buf());
+    }
+
+    if ext == "zip" {
+        let tar_bin = if cfg!(windows) { "tar.exe" } else { "tar" };
+        if let Ok(out) = Command::new(tar_bin)
+            .arg("-xf")
+            .arg(archive_path)
+            .arg("-C")
+            .arg(dest_root)
+            .output()
+        {
+            if out.status.success() {
+                ensure_exec_permissions(dest_root);
+                return Ok(dest_root.to_path_buf());
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            let out = Command::new("unzip")
+                .arg("-q")
+                .arg("-o")
+                .arg(archive_path)
+                .arg("-d")
+                .arg(dest_root)
+                .output()
+                .map_err(|e| format!("Failed to run unzip: {}", e))?;
+            if !out.status.success() {
+                return Err(format!("unzip failed: {}", String::from_utf8_lossy(&out.stderr)));
+            }
+            ensure_exec_permissions(dest_root);
+            return Ok(dest_root.to_path_buf());
+        }
+        #[cfg(windows)]
+        {
+            let out = Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-Command",
+                    &format!(
+                        "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
+                        archive_path.to_string_lossy(),
+                        dest_root.to_string_lossy()
+                    ),
+                ])
+                .output()
+                .map_err(|e| format!("Powershell extraction failed: {}", e))?;
+            if !out.status.success() {
+                return Err(format!("Powershell extraction failed: {}", String::from_utf8_lossy(&out.stderr)));
+            }
+            return Ok(dest_root.to_path_buf());
+        }
+    }
+
+    Err(format!("Unsupported archive format for file: {}", archive_path.display()))
+}
+
+fn ensure_exec_permissions(_root: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut stack = vec![root.to_path_buf()];
+        while let Some(dir) = stack.pop() {
+            if let Ok(entries) = fs::read_dir(&dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if let Ok(ft) = entry.file_type() {
+                        if ft.is_dir() {
+                            stack.push(p);
+                        } else if ft.is_file() {
+                            let name = entry.file_name().to_string_lossy().to_string();
+                            let is_bin = name == "proton"
+                                || name == "wine"
+                                || name == "wineserver"
+                                || name == "wine64"
+                                || p.to_string_lossy().contains("/bin/");
+                            if is_bin {
+                                if let Ok(meta) = entry.metadata() {
+                                    let mut perms = meta.permissions();
+                                    perms.set_mode(perms.mode() | 0o755);
+                                    let _ = fs::set_permissions(&p, perms);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -252,7 +527,8 @@ fn parse_library_folders_vdf(raw: &str) -> Vec<PathBuf> {
             let val = parts[i + 2].trim();
             if !val.is_empty() {
                 let p = PathBuf::from(val);
-                if p.is_absolute() && !out.contains(&p) {
+                let is_abs = p.is_absolute() || val.starts_with('/') || val.starts_with('\\');
+                if is_abs && !out.contains(&p) {
                     out.push(p);
                 }
             }
@@ -334,6 +610,8 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                             .trim_start_matches("Proton ")
                             .trim_start_matches("Proton-")
                             .to_string();
+                        let install_dir_path = e.path();
+                        let size = dir_size_bytes(&install_dir_path);
                         runners.push(CompatibilityRunner {
                             id: format!("steam-{}", name.to_lowercase().replace(' ', "-")),
                             name: format!("Steam {}", name),
@@ -341,6 +619,9 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                             kind: "proton".to_string(),
                             version: Some(ver),
                             is_proton: true,
+                            size_bytes: size,
+                            is_deletable: false,
+                            install_dir: Some(install_dir_path.to_string_lossy().to_string()),
                         });
                     }
                 }
@@ -351,6 +632,7 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
     // 2. Compatibility tools in `compatibilitytools.d` — user Steam
     //    roots plus the system-wide distro directory (CachyOS ships
     //    proton-cachyos to /usr/share/steam/compatibilitytools.d).
+    #[allow(unused_mut)]
     let mut compat_dirs: Vec<PathBuf> = steam_roots
         .iter()
         .map(|r| r.join("compatibilitytools.d"))
@@ -358,17 +640,27 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
     #[cfg(target_os = "linux")]
     compat_dirs.push(PathBuf::from("/usr/share/steam/compatibilitytools.d"));
 
+    // Also include user steam compatibility tools dir if not already present
+    let default_compat = steam_compat_tools_dir();
+    if !compat_dirs.contains(&default_compat) {
+        compat_dirs.push(default_compat);
+    }
+
     for dir in &compat_dirs {
         let Ok(entries) = fs::read_dir(dir) else { continue };
+        let is_system_dir = dir.starts_with("/usr") || dir.starts_with("/var");
         for e in entries.flatten() {
             let name = e.file_name().to_string_lossy().to_string();
             let base_name = name.trim_end_matches(".vdf");
+            let install_dir_path = e.path();
+            let is_del = !is_system_dir && install_dir_path.is_dir();
+            let size = dir_size_bytes(&install_dir_path);
 
             // System-package layout: a bare VDF at the top of
             // compatibilitytools.d whose `install_path` points at the
             // real tool directory (used by newer CachyOS packaging).
             let script = if name.ends_with(".vdf") {
-                fs::read_to_string(e.path())
+                fs::read_to_string(&install_dir_path)
                     .ok()
                     .and_then(|raw| {
                         vdf_key_values(&raw, "install_path")
@@ -377,7 +669,7 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                             .map(|p| PathBuf::from(p).join("proton"))
                     })
             } else {
-                Some(e.path().join("proton"))
+                Some(install_dir_path.join("proton"))
             };
 
             let Some(script) = script else { continue };
@@ -400,6 +692,9 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                     kind: "cachyos".to_string(),
                     version: if ver.is_empty() { None } else { Some(ver) },
                     is_proton: true,
+                    size_bytes: size,
+                    is_deletable: is_del,
+                    install_dir: Some(install_dir_path.to_string_lossy().to_string()),
                 });
             } else {
                 runners.push(CompatibilityRunner {
@@ -409,6 +704,9 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                     kind: "ge-proton".to_string(),
                     version: Some(base_name.to_string()),
                     is_proton: true,
+                    size_bytes: size,
+                    is_deletable: is_del,
+                    install_dir: Some(install_dir_path.to_string_lossy().to_string()),
                 });
             }
         }
@@ -421,10 +719,13 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
         let runner_dirs = [
             h.join(".local/share/runners/wine"),
             h.join(".local/share/wine/runners"),
+            h.join(".local/share/lutris/runners/wine"),
             h.join(".config/heroic/tools/wine"),
             h.join(".config/heroic/tools/proton"),
             h.join(".local/share/proton-runners"),
             h.join(".local/share/wine-custom"),
+            h.join(".local/share/GameIndex/runners/proton"),
+            h.join(".local/share/GameIndex/runners/wine"),
         ];
 
         for dir in &runner_dirs {
@@ -433,6 +734,8 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                     let name = e.file_name().to_string_lossy().to_string();
                     let wine_bin = e.path().join("bin/wine");
                     let proton_bin = e.path().join("proton");
+                    let install_dir_path = e.path();
+                    let size = dir_size_bytes(&install_dir_path);
 
                     if proton_bin.exists() {
                         let p_str = proton_bin.to_string_lossy().to_string();
@@ -444,6 +747,9 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                                 kind: "proton".to_string(),
                                 version: Some(name),
                                 is_proton: true,
+                                size_bytes: size,
+                                is_deletable: true,
+                                install_dir: Some(install_dir_path.to_string_lossy().to_string()),
                             });
                         }
                     } else if wine_bin.exists() {
@@ -456,8 +762,64 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                                 kind: "wine".to_string(),
                                 version: Some(name),
                                 is_proton: false,
+                                size_bytes: size,
+                                is_deletable: true,
+                                install_dir: Some(install_dir_path.to_string_lossy().to_string()),
                             });
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback runner directories (Windows / custom standalone path)
+    let fallback_dirs = [
+        gameindex_runners_dir("proton"),
+        gameindex_runners_dir("wine"),
+    ];
+    for dir in &fallback_dirs {
+        if !dir.exists() {
+            continue;
+        }
+        if let Ok(entries) = fs::read_dir(dir) {
+            for e in entries.flatten() {
+                let name = e.file_name().to_string_lossy().to_string();
+                let wine_bin = e.path().join("bin/wine");
+                let proton_bin = e.path().join("proton");
+                let install_dir_path = e.path();
+                let size = dir_size_bytes(&install_dir_path);
+
+                if proton_bin.exists() {
+                    let p_str = proton_bin.to_string_lossy().to_string();
+                    if seen_paths.insert(p_str.clone()) {
+                        let kind = if name.to_lowercase().contains("ge") { "ge-proton" } else { "proton" };
+                        runners.push(CompatibilityRunner {
+                            id: format!("custom-proton-{}", name.to_lowercase().replace(' ', "-")),
+                            name: name.clone(),
+                            path: p_str,
+                            kind: kind.to_string(),
+                            version: Some(name),
+                            is_proton: true,
+                            size_bytes: size,
+                            is_deletable: true,
+                            install_dir: Some(install_dir_path.to_string_lossy().to_string()),
+                        });
+                    }
+                } else if wine_bin.exists() {
+                    let p_str = wine_bin.to_string_lossy().to_string();
+                    if seen_paths.insert(p_str.clone()) {
+                        runners.push(CompatibilityRunner {
+                            id: format!("custom-wine-{}", name.to_lowercase().replace(' ', "-")),
+                            name: name.clone(),
+                            path: p_str,
+                            kind: "wine".to_string(),
+                            version: Some(name),
+                            is_proton: false,
+                            size_bytes: size,
+                            is_deletable: true,
+                            install_dir: Some(install_dir_path.to_string_lossy().to_string()),
+                        });
                     }
                 }
             }
@@ -483,6 +845,9 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                     kind: "wine".to_string(),
                     version: ver,
                     is_proton: false,
+                    size_bytes: None,
+                    is_deletable: false,
+                    install_dir: None,
                 });
             }
         }
@@ -647,11 +1012,11 @@ pub fn steam_launch_env(
         .or_else(|| settings.audio_driver.clone());
     let arch = game_profile.and_then(|p| p.get("arch")).and_then(|v| v.as_str());
     let dxvk_hud = game_profile.and_then(|p| p.get("dxvkHud")).and_then(|v| v.as_str());
-    let enable_mangohud = game_profile
+    let _enable_mangohud = game_profile
         .and_then(|p| p.get("enableMangoHud").or_else(|| p.get("mangohud")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.enable_mangohud);
-    let mangohud_hidden = game_profile
+    let _mangohud_hidden = game_profile
         .and_then(|p| p.get("mangohudHidden"))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.mangohud_hidden);
@@ -1004,6 +1369,461 @@ pub fn clear_game_wine_logs(app: tauri::AppHandle, game_id: String) -> Result<()
         let _ = fs::remove_file(p);
     }
     Ok(())
+}
+
+/// Safely delete a user-installed compatibility runner directory.
+#[tauri::command]
+pub fn delete_compatibility_runner(
+    app: tauri::AppHandle,
+    runner_id: String,
+    path: String,
+) -> Result<(), String> {
+    let runners = detect_compatibility_runners();
+    let runner = runners
+        .iter()
+        .find(|r| r.id == runner_id || r.path == path)
+        .ok_or_else(|| format!("Runner not found: {}", runner_id))?;
+
+    if !runner.is_deletable {
+        return Err("This runner is managed by Steam or your system package manager and cannot be removed here.".to_string());
+    }
+
+    let install_dir_str = runner
+        .install_dir
+        .as_ref()
+        .ok_or_else(|| "No install directory associated with this runner.".to_string())?;
+    let install_dir = PathBuf::from(install_dir_str);
+
+    // Strict safety check: Never delete root, home, system paths
+    let canon = install_dir.canonicalize().unwrap_or_else(|_| install_dir.clone());
+    let path_str = canon.to_string_lossy().to_string();
+
+    let is_safe = path_str.contains("compatibilitytools.d")
+        || path_str.contains("runners")
+        || path_str.contains("proton-runners")
+        || path_str.contains("GameIndex");
+
+    if !is_safe || path_str == "/" || path_str == "/usr" || path_str == "/home" {
+        return Err(format!("Unsafe deletion target: {}", path_str));
+    }
+
+    if install_dir.is_dir() {
+        fs::remove_dir_all(&install_dir)
+            .map_err(|e| format!("Failed to delete runner directory: {}", e))?;
+    } else if install_dir.is_file() {
+        fs::remove_file(&install_dir)
+            .map_err(|e| format!("Failed to delete runner file: {}", e))?;
+    }
+
+    // If this was the active default runner, reset it
+    let mut settings = get_compatibility_settings_internal(&app).unwrap_or_default();
+    if settings.default_runner_path.as_deref() == Some(&runner.path)
+        || settings.default_runner_path.as_deref() == Some(&path)
+    {
+        settings.default_runner_path = None;
+        let _ = set_compatibility_settings(app, settings);
+    }
+
+    Ok(())
+}
+
+/// Fetch available runner releases from GitHub (GE-Proton, Wine-GE, Kron4ek, Lutris).
+#[tauri::command]
+pub async fn fetch_available_runners(
+    source: String,
+    force_refresh: Option<bool>,
+) -> Result<Vec<RemoteRunnerRelease>, String> {
+    let force = force_refresh.unwrap_or(false);
+    let cache_key = source.to_lowercase();
+
+    if !force {
+        if let Ok(guard) = RUNNER_RELEASES_CACHE.lock() {
+            if let Some(cache) = guard.as_ref() {
+                if let Some(entry) = cache.get(&cache_key) {
+                    if entry.fetched_at.elapsed() < Duration::from_secs(15 * 60) {
+                        let detected = detect_compatibility_runners();
+                        let mut res = entry.releases.clone();
+                        for r in &mut res {
+                            r.is_installed = is_release_installed(&detected, &r.tag, &r.name);
+                        }
+                        return Ok(res);
+                    }
+                }
+            }
+        }
+    }
+
+    let repo = match cache_key.as_str() {
+        "ge-proton" => "GloriousEggroll/proton-ge-custom",
+        "wine-ge" => "GloriousEggroll/wine-ge-custom",
+        "kron4ek" => "Kron4ek/Wine-Builds",
+        "lutris" => "lutris/wine",
+        _ => return Err(format!("Unknown runner source: {}", source)),
+    };
+
+    let url = format!("https://api.github.com/repos/{}/releases?per_page=25", repo);
+    let client = reqwest::Client::builder()
+        .user_agent("GameIndex-App/1.0")
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
+        .get(&url)
+        .header("Accept", "application/vnd.github.v3+json")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch releases from GitHub ({}): {}", repo, e))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "GitHub API responded with status {}: {}",
+            response.status(),
+            repo
+        ));
+    }
+
+    let gh_releases: Vec<GhRelease> = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse GitHub releases JSON: {}", e))?;
+
+    let detected = detect_compatibility_runners();
+    let mut out = Vec::new();
+
+    for gh in gh_releases {
+        let best_asset = gh.assets.into_iter().find(|a| {
+            let n = a.name.to_lowercase();
+            if n.ends_with(".sha512sum") || n.ends_with(".sum") || n.ends_with(".sha256") || n.ends_with(".txt") {
+                return false;
+            }
+            match cache_key.as_str() {
+                "ge-proton" => n.ends_with(".tar.gz"),
+                "wine-ge" => n.ends_with(".tar.xz"),
+                "kron4ek" => (n.contains("amd64") || n.contains("x86_64")) && n.ends_with(".tar.xz"),
+                "lutris" => n.ends_with(".tar.xz") || n.ends_with(".tar.gz"),
+                _ => false,
+            }
+        });
+
+        if let Some(asset) = best_asset {
+            let tag = gh.tag_name;
+            let name = gh.name.unwrap_or_else(|| tag.clone());
+            let is_inst = is_release_installed(&detected, &tag, &name);
+            let target_type = if cache_key == "ge-proton" { "proton" } else { "wine" }.to_string();
+
+            out.push(RemoteRunnerRelease {
+                id: format!("{}-{}", cache_key, tag),
+                name,
+                tag,
+                source: cache_key.clone(),
+                release_date: gh.published_at.unwrap_or_default(),
+                download_url: asset.browser_download_url,
+                filename: asset.name,
+                size_bytes: Some(asset.size),
+                body: gh.body,
+                html_url: gh.html_url,
+                is_installed: is_inst,
+                target_type,
+            });
+        }
+    }
+
+    if let Ok(mut guard) = RUNNER_RELEASES_CACHE.lock() {
+        if guard.is_none() {
+            *guard = Some(HashMap::new());
+        }
+        if let Some(cache) = guard.as_mut() {
+            cache.insert(
+                cache_key,
+                RunnerCacheEntry {
+                    fetched_at: Instant::now(),
+                    releases: out.clone(),
+                },
+            );
+        }
+    }
+
+    Ok(out)
+}
+
+fn is_release_installed(detected: &[CompatibilityRunner], tag: &str, name: &str) -> bool {
+    let tag_lower = tag.to_lowercase();
+    let name_lower = name.to_lowercase();
+    detected.iter().any(|r| {
+        let r_name = r.name.to_lowercase();
+        let r_path = r.path.to_lowercase();
+        let r_ver = r.version.as_deref().unwrap_or("").to_lowercase();
+        r_name.contains(&tag_lower)
+            || r_path.contains(&tag_lower)
+            || (!r_ver.is_empty() && r_ver == tag_lower)
+            || r_name == name_lower
+    })
+}
+
+/// Download and install a runner from a remote archive URL.
+#[tauri::command]
+pub async fn install_compatibility_runner(
+    app: tauri::AppHandle,
+    download_url: String,
+    filename: String,
+    runner_name: String,
+    target_type: String, // "steam_compat_tool" | "wine_runner"
+) -> Result<(), String> {
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    {
+        let mut guard = ACTIVE_INSTALL_CANCELS.lock().unwrap();
+        if guard.is_none() {
+            *guard = Some(HashMap::new());
+        }
+        if let Some(map) = guard.as_mut() {
+            map.insert(runner_name.clone(), cancel_flag.clone());
+        }
+    }
+
+    let dest_dir = if target_type == "steam_compat_tool" || target_type == "proton" {
+        steam_compat_tools_dir()
+    } else {
+        gameindex_runners_dir("wine")
+    };
+    let _ = fs::create_dir_all(&dest_dir);
+
+    let temp_dir = dest_dir.join(".temp_downloads");
+    let _ = fs::create_dir_all(&temp_dir);
+    let ts = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+    let temp_file_path = temp_dir.join(format!("download_{}_{}", ts, filename));
+
+    // Emit initial progress
+    let _ = app.emit(
+        "runner-install-progress",
+        RunnerInstallProgress {
+            runner_name: runner_name.clone(),
+            status: "downloading".to_string(),
+            downloaded_bytes: 0,
+            total_bytes: None,
+            percent: 0.0,
+            speed_bytes_per_sec: 0,
+            error: None,
+        },
+    );
+
+    let client = reqwest::Client::builder()
+        .user_agent("GameIndex-App/1.0")
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let res = client
+        .get(&download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to initiate download: {}", e))?;
+
+    if !res.status().is_success() {
+        let err = format!("Download failed with status: {}", res.status());
+        let _ = app.emit(
+            "runner-install-progress",
+            RunnerInstallProgress {
+                runner_name: runner_name.clone(),
+                status: "failed".to_string(),
+                downloaded_bytes: 0,
+                total_bytes: None,
+                percent: 0.0,
+                speed_bytes_per_sec: 0,
+                error: Some(err.clone()),
+            },
+        );
+        return Err(err);
+    }
+
+    let total_bytes = res.content_length();
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&temp_file_path)
+        .map_err(|e| format!("Failed to create temporary download file: {}", e))?;
+
+    let mut stream = res.bytes_stream();
+    let mut downloaded: u64 = 0;
+    let mut last_emit = Instant::now();
+    let mut last_bytes = 0u64;
+
+    while let Some(chunk) = stream.next().await {
+        if cancel_flag.load(Ordering::Relaxed) {
+            drop(file);
+            let _ = fs::remove_file(&temp_file_path);
+            let _ = app.emit(
+                "runner-install-progress",
+                RunnerInstallProgress {
+                    runner_name: runner_name.clone(),
+                    status: "cancelled".to_string(),
+                    downloaded_bytes: downloaded,
+                    total_bytes,
+                    percent: 0.0,
+                    speed_bytes_per_sec: 0,
+                    error: None,
+                },
+            );
+            return Err("Download cancelled by user".to_string());
+        }
+
+        let chunk = chunk.map_err(|e| format!("Error during download stream: {}", e))?;
+        file.write_all(&chunk)
+            .map_err(|e| format!("Failed to write chunk to disk: {}", e))?;
+        downloaded += chunk.len() as u64;
+
+        if last_emit.elapsed() >= Duration::from_millis(200) {
+            let elapsed_sec = last_emit.elapsed().as_secs_f64();
+            let bytes_diff = downloaded.saturating_sub(last_bytes);
+            let speed = if elapsed_sec > 0.0 {
+                (bytes_diff as f64 / elapsed_sec) as u64
+            } else {
+                0
+            };
+            let pct = if let Some(tot) = total_bytes {
+                if tot > 0 {
+                    (downloaded as f32 / tot as f32) * 100.0
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+
+            let _ = app.emit(
+                "runner-install-progress",
+                RunnerInstallProgress {
+                    runner_name: runner_name.clone(),
+                    status: "downloading".to_string(),
+                    downloaded_bytes: downloaded,
+                    total_bytes,
+                    percent: pct,
+                    speed_bytes_per_sec: speed,
+                    error: None,
+                },
+            );
+
+            last_emit = Instant::now();
+            last_bytes = downloaded;
+        }
+    }
+
+    drop(file);
+
+    // Extraction phase
+    let _ = app.emit(
+        "runner-install-progress",
+        RunnerInstallProgress {
+            runner_name: runner_name.clone(),
+            status: "extracting".to_string(),
+            downloaded_bytes: downloaded,
+            total_bytes,
+            percent: 100.0,
+            speed_bytes_per_sec: 0,
+            error: None,
+        },
+    );
+
+    let extract_res = extract_runner_archive(&temp_file_path, &dest_dir);
+    let _ = fs::remove_file(&temp_file_path);
+
+    // Clean up cancellation handle
+    if let Ok(mut guard) = ACTIVE_INSTALL_CANCELS.lock() {
+        if let Some(map) = guard.as_mut() {
+            map.remove(&runner_name);
+        }
+    }
+
+    match extract_res {
+        Ok(_) => {
+            let _ = app.emit(
+                "runner-install-progress",
+                RunnerInstallProgress {
+                    runner_name: runner_name.clone(),
+                    status: "completed".to_string(),
+                    downloaded_bytes: downloaded,
+                    total_bytes,
+                    percent: 100.0,
+                    speed_bytes_per_sec: 0,
+                    error: None,
+                },
+            );
+            Ok(())
+        }
+        Err(e) => {
+            let _ = app.emit(
+                "runner-install-progress",
+                RunnerInstallProgress {
+                    runner_name: runner_name.clone(),
+                    status: "failed".to_string(),
+                    downloaded_bytes: downloaded,
+                    total_bytes,
+                    percent: 100.0,
+                    speed_bytes_per_sec: 0,
+                    error: Some(e.clone()),
+                },
+            );
+            Err(format!("Extraction error: {}", e))
+        }
+    }
+}
+
+/// Cancel an ongoing runner download or install.
+#[tauri::command]
+pub fn cancel_runner_install(runner_name: String) -> Result<(), String> {
+    if let Ok(guard) = ACTIVE_INSTALL_CANCELS.lock() {
+        if let Some(map) = guard.as_ref() {
+            if let Some(cancel) = map.get(&runner_name) {
+                cancel.store(true, Ordering::Relaxed);
+                return Ok(());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Install a runner by extracting an existing archive from disk.
+#[tauri::command]
+pub fn install_runner_from_archive(
+    app: tauri::AppHandle,
+    archive_path: String,
+    target_type: String,
+) -> Result<String, String> {
+    let p = PathBuf::from(&archive_path);
+    if !p.exists() || !p.is_file() {
+        return Err(format!("Archive file not found: {}", archive_path));
+    }
+
+    let dest_dir = if target_type == "steam_compat_tool" {
+        steam_compat_tools_dir()
+    } else {
+        gameindex_runners_dir("wine")
+    };
+    let _ = fs::create_dir_all(&dest_dir);
+
+    extract_runner_archive(&p, &dest_dir)?;
+
+    let name = p
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("Custom-Runner")
+        .trim_end_matches(".tar")
+        .to_string();
+
+    let _ = app.emit(
+        "runner-install-progress",
+        RunnerInstallProgress {
+            runner_name: name.clone(),
+            status: "completed".to_string(),
+            downloaded_bytes: 0,
+            total_bytes: None,
+            percent: 100.0,
+            speed_bytes_per_sec: 0,
+            error: None,
+        },
+    );
+
+    Ok(name)
 }
 
 /// Run common Wine/Proton maintenance utilities for a game or prefix.
@@ -1816,7 +2636,7 @@ mod tests {
         // CachyOS Proton (directory layout).
         let cachy_dir = runners
             .iter()
-            .find(|r| r.path.ends_with("CachyOS-Proton-9.0/proton"))
+            .find(|r| r.path.replace('\\', "/").ends_with("CachyOS-Proton-9.0/proton"))
             .expect("CachyOS Proton directory runner");
         assert_eq!(cachy_dir.kind, "cachyos");
         assert_eq!(cachy_dir.version.as_deref(), Some("9.0"));
@@ -1825,7 +2645,7 @@ mod tests {
         // CachyOS Proton (bare-VDF indirection).
         let cachy_vdf = runners
             .iter()
-            .find(|r| r.path.ends_with("proton-cachyos-10.0-20251222-slr/proton"))
+            .find(|r| r.path.replace('\\', "/").ends_with("proton-cachyos-10.0-20251222-slr/proton"))
             .expect("CachyOS Proton VDF runner");
         assert_eq!(cachy_vdf.kind, "cachyos");
         assert_eq!(
@@ -1975,5 +2795,51 @@ mod tests {
         assert_eq!(map.get("MANGOHUD"), Some(&"1"));
         let config = map.get("MANGOHUD_CONFIG").expect("mangohud config set");
         assert!(config.contains("autostart_log=1") && config.contains(",hide"));
+    }
+
+    #[test]
+    fn dir_size_bytes_calculates_accurately() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("subdir");
+        fs::create_dir_all(&sub).unwrap();
+
+        fs::write(dir.path().join("file1.bin"), b"12345").unwrap(); // 5 bytes
+        fs::write(sub.join("file2.bin"), b"1234567890").unwrap(); // 10 bytes
+
+        let size = dir_size_bytes(dir.path()).expect("computes size");
+        assert_eq!(size, 15);
+    }
+
+    #[test]
+    fn is_release_installed_matches_tags_and_names() {
+        let detected = vec![
+            CompatibilityRunner {
+                id: "compat-ge-proton9-25".to_string(),
+                name: "GE-Proton9-25".to_string(),
+                path: "/path/to/GE-Proton9-25/proton".to_string(),
+                kind: "ge-proton".to_string(),
+                version: Some("GE-Proton9-25".to_string()),
+                is_proton: true,
+                size_bytes: Some(1024),
+                is_deletable: true,
+                install_dir: Some("/path/to/GE-Proton9-25".to_string()),
+            },
+            CompatibilityRunner {
+                id: "runner-wine-lutris-ge".to_string(),
+                name: "lutris-GE-Proton8-26-x86_64".to_string(),
+                path: "/path/to/lutris-GE-Proton8-26-x86_64/bin/wine".to_string(),
+                kind: "wine".to_string(),
+                version: Some("lutris-GE-Proton8-26-x86_64".to_string()),
+                is_proton: false,
+                size_bytes: Some(2048),
+                is_deletable: true,
+                install_dir: Some("/path/to/lutris-GE-Proton8-26-x86_64".to_string()),
+            },
+        ];
+
+        assert!(is_release_installed(&detected, "GE-Proton9-25", "GE-Proton9-25"));
+        assert!(is_release_installed(&detected, "GE-Proton9-25", "Release 9-25"));
+        assert!(is_release_installed(&detected, "lutris-GE-Proton8-26", "lutris-GE-Proton8-26-x86_64"));
+        assert!(!is_release_installed(&detected, "GE-Proton9-26", "GE-Proton9-26"));
     }
 }
