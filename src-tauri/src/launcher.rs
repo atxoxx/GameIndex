@@ -24,12 +24,12 @@ use crate::steam::launch_options::SteamLaunchOption;
 ///
 /// On Windows, terminates via `TerminateProcess` after verifying the
 /// PID still belongs to the session's tracked exe (PID-recycling
-/// guard; see `kill_pid_if_exe_matches`). On every other target the
-/// watcher doesn't track processes at all (the cross-platform
-/// `query_running_processes()` returns empty on non-Windows), so
-/// there is nothing to terminate â€” but we still run the full
-/// session cleanup so the running indicator clears and the activity
-/// session is recorded.
+/// guard; see `kill_pid_if_exe_matches`). On Linux the same
+/// sweep terminates each matching process with `SIGTERM` and
+/// escalates to `SIGKILL` for survivors (see
+/// `game_watcher::kill_matching_processes`). The session cleanup
+/// (running indicator clear + activity session record) always runs
+/// regardless of which platform the kill happened on.
 ///
 /// **Lock discipline**: this command used to acquire the watcher
 /// mutex once and hold it through both the `kill_matching_processes`
@@ -61,19 +61,18 @@ pub fn force_close_game(
     }; // <-- watcher mutex released here.
 
     // Phase 2 — kill matching processes WITHOUT the lock. May spawn
-    // `taskkill.exe` and calls `query_running_processes()`, which opens
-    // a Win32 handle on every running PID. Doing this outside the
-    // mutex was the missing piece behind the "second click crash":
-    // a stuck WaitForSingleObject on a system process could block the
-    // lock for seconds, during which the forced-close button's click
-    // handler queued a second IPC.
-    #[cfg(windows)]
+    // `taskkill.exe` / send POSIX signals and calls
+    // `query_running_processes()`, which opens a handle on every running
+    // PID. Doing this outside the mutex was the missing piece behind the
+    // "second click crash": a stuck WaitForSingleObject on a system
+    // process could block the lock for seconds, during which the
+    // forced-close button's click handler queued a second IPC. On
+    // non-Windows targets the function still exists (Linux sends
+    // SIGTERM/SIGKILL; other targets no-op and return false).
     let killed = game_watcher::kill_matching_processes(
         &kill_data.expected_exe_lower,
         kill_data.install_dir_lower.as_deref(),
     );
-    #[cfg(not(windows))]
-    let killed = false;
 
     // Phase 3 — compute the wall-clock finish stamp OUTSIDE the lock so the
     // session finalization below can record it. (The Discord presence

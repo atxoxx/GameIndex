@@ -176,6 +176,38 @@ fn now_unix_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// Normalize a path string for case-insensitive matching.
+///
+/// Windows paths are lowercased with `/` converted to the canonical `\`
+/// separator. POSIX paths keep forward slashes — converting them to
+/// backslashes would break install-dir prefix matching on Linux/macOS,
+/// where both library exe paths and Wine/Proton `/proc/<pid>/cmdline`
+/// argv use `/` — and stray backslashes (e.g. Windows-style paths passed
+/// to Wine) are folded to `/` so every comparison sees one separator
+/// style. Used for index keys and comparisons only; stored exe paths are
+/// never rewritten.
+#[cfg(windows)]
+fn normalize_path_lower(s: &str) -> String {
+    s.to_lowercase().replace('/', "\\")
+}
+
+#[cfg(not(windows))]
+fn normalize_path_lower(s: &str) -> String {
+    s.to_lowercase().replace('\\', "/")
+}
+
+/// `true` when `c` is a path separator in either style. Normalized paths
+/// use only the platform separator, but matching both keeps Windows-style
+/// test fixtures (and mixed-separator Wine argv) working on every target.
+fn is_path_sep(c: char) -> bool {
+    c == '\\' || c == '/'
+}
+
+/// Trim trailing path separators (either style) from a normalized path.
+fn trim_path_separators(s: &str) -> &str {
+    s.trim_end_matches(is_path_sep)
+}
+
 /// Serializable info about a candidate exe found during resolution.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -282,13 +314,15 @@ impl GameWatcher {
 
         for game in games {
             if let Some(ref exe) = game.exe_path {
-                let norm = exe.to_lowercase().replace('/', "\\");
+                let norm = normalize_path_lower(exe);
                 index.entry(norm).or_default().push(game.clone());
             }
 
             if let Some(ref install_dir) = game.install_dir {
-                let dir_key = install_dir.to_string_lossy().to_lowercase().replace('/', "\\");
-                let dir_key = dir_key.trim_end_matches('\\');
+                let dir_key = trim_path_separators(&normalize_path_lower(
+                    &install_dir.to_string_lossy(),
+                ))
+                .to_string();
                 let prefixed_key = format!("__dir__{}", dir_key);
                 index.entry(prefixed_key).or_default().push(game.clone());
             }
@@ -506,26 +540,21 @@ impl GameWatcher {
         // after spawning the real game), we look for any still-running
         // process inside the game's install directory and continue the
         // same session.
-        // PID → exe-path lookup built from the same poll's process
-        // snapshot. Liveness by PID alone is not enough: between 5 s polls
-        // the OS can recycle a PID to an unrelated process, which would
-        // keep a dead session "running" against a foreign exe — inflated
+        // Liveness is checked against this same poll's process snapshot.
+        // Liveness by PID alone is not enough: between 5 s polls the OS
+        // can recycle a PID to an unrelated process, which would keep a
+        // dead session "running" against a foreign exe — inflated
         // playtime, metrics sampling the wrong process, and `game-exited`
         // never firing until that foreign process exits. A session is only
-        // currently running when its PID is alive AND still resolves to
-        // the tracked exe.
-        let exe_by_pid: std::collections::HashMap<u32, &str> = processes
-            .iter()
-            .map(|p| (p.pid, p.exe_path.as_str()))
-            .collect();
-
+        // currently running when its PID (or a descendant — wrapper chains
+        // like gamescope → wine) still resolves to the tracked exe.
         let mut ended_ids: Vec<String> = Vec::new();
         let mut transitions: Vec<(String, ProcessInfo)> = Vec::new();
 
         for (gid, session) in &mut self.active_sessions {
             let is_pending = session.last_pid == 0;
             let is_currently_running =
-                is_currently_running(&exe_by_pid, session.last_pid, &session.matched_exe);
+                is_currently_running(&processes, session.last_pid, &session.matched_exe);
 
             if is_currently_running {
                 // The same PID reappeared in the snapshot after a gap —
@@ -718,7 +747,7 @@ impl GameWatcher {
         let mut new_matches: Vec<(GameRef, ProcessInfo)> = Vec::new();
 
         for proc in &processes {
-            let norm = proc.exe_path.to_lowercase().replace('/', "\\");
+            let norm = normalize_path_lower(&proc.exe_path);
 
             // Blacklist: never treat known non-game processes (launchers,
             // crash handlers, Wallpaper Engine's wallpaper64.exe, etc.) as a
@@ -754,7 +783,7 @@ impl GameWatcher {
                         // sibling path that happens to share the prefix (e.g. "FooBar"
                         // when looking for "Foo").
                         let remainder = &norm[dir.len()..];
-                        if remainder.starts_with('\\') || remainder.is_empty() {
+                        if remainder.is_empty() || remainder.starts_with(is_path_sep) {
                             for game in games {
                                 if !tracked.contains(&game.game_id)
                                     && !claimed_pids.contains(&proc.pid)
@@ -945,11 +974,11 @@ impl GameWatcher {
     ///     tracked (race between button click and watcher cleanup).
     ///     Frontend = error toast.
     ///
-    /// `non_windows` always returns `killed: false`: the
-    /// cross-platform process poll in `query_running_processes()`
-    /// returns an empty list on every non-Windows target today, so we
-    /// have nothing to `kill` even if we pulled in `libc`. The session
-    /// is still cleaned up via `finalize_session`.
+    /// `killed` reflects whether the process sweep actually terminated
+    /// something: Windows uses TerminateProcess/taskkill, Linux sends
+    /// SIGTERM then SIGKILL, and other targets (where
+    /// `query_running_processes()` returns empty) always report `false`.
+    /// The session is still cleaned up via `finalize_session` either way.
     /// Atomically remove the active session for `game_id` from
     /// `active_sessions` and return it alongside the (Option<String>)
     /// name of any *other* currently-active session.
@@ -990,13 +1019,9 @@ impl GameWatcher {
         let session = self.active_sessions.get(game_id)?;
         Some(ForceCloseData {
             pid: session.last_pid,
-            expected_exe_lower: session.matched_exe.to_lowercase().replace('/', "\\"),
+            expected_exe_lower: normalize_path_lower(&session.matched_exe),
             install_dir_lower: session.install_dir.as_ref().map(|d| {
-                d.to_string_lossy()
-                    .to_lowercase()
-                    .replace('/', "\\")
-                    .trim_end_matches('\\')
-                    .to_string()
+                trim_path_separators(&normalize_path_lower(&d.to_string_lossy())).to_string()
             }),
         })
     }
@@ -1266,37 +1291,40 @@ pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Opti
     killed_any
 }
 
+/// Collect the PIDs of every currently-running process belonging to a
+/// game, using the same exact-exe / install-dir-sweep matching as the
+/// Windows path (see [`kill_matching_processes`] docs). Re-used both for
+/// the initial SIGTERM pass and, against a FRESH snapshot, to re-verify
+/// survivors before the SIGKILL pass so a recycled PID is never hard-
+/// killed.
 #[cfg(target_os = "linux")]
-pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Option<&str>) -> bool {
+fn linux_force_close_targets(expected_exe_lower: &str, install_dir_lower: Option<&str>) -> Vec<u32> {
     let processes = query_running_processes();
-    if processes.is_empty() {
-        return false;
-    }
-
-    let mut killed_any = false;
+    let mut targets: Vec<u32> = Vec::new();
 
     // 1. Exact tracked-exe match (fast, no install-dir assumption).
     if !expected_exe_lower.is_empty() {
         for proc in &processes {
-            let path_lower = proc.exe_path.to_lowercase();
-            if path_lower == expected_exe_lower {
-                unsafe {
-                    if libc::kill(proc.pid as i32, libc::SIGTERM) == 0 {
-                        killed_any = true;
-                    }
-                }
+            if normalize_path_lower(&proc.exe_path) == expected_exe_lower {
+                targets.push(proc.pid);
             }
         }
     }
 
-    // 2. Install-dir match
+    // 2. Install-dir match — covers pending launches, wrapper hand-offs
+    //    and re-parented game processes that don't share the tracked exe
+    //    path exactly. Bounded so it can never sweep an entire drive or
+    //    shared root (see `is_install_dir_sweep_safe`).
     if let Some(dir) = install_dir_lower {
         if is_install_dir_sweep_safe(dir) {
             for proc in &processes {
-                let path_lower = proc.exe_path.to_lowercase();
+                let path_lower = normalize_path_lower(&proc.exe_path);
                 if !is_sweep_candidate(&path_lower, dir, expected_exe_lower) {
                     continue;
                 }
+                // Skip known non-game binaries (launchers, crash
+                // handlers, redistributables) so we don't nuke a
+                // harmless sibling.
                 if let Some(stem) = std::path::Path::new(&proc.exe_path)
                     .file_stem()
                     .and_then(|s| s.to_str())
@@ -1306,15 +1334,60 @@ pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Opti
                         continue;
                     }
                 }
-                unsafe {
-                    if libc::kill(proc.pid as i32, libc::SIGTERM) == 0 {
-                        killed_any = true;
-                    }
-                }
+                targets.push(proc.pid);
             }
         }
     }
 
+    targets.sort_unstable();
+    targets.dedup();
+    targets
+}
+
+/// Terminate every currently-running process belonging to a game on
+/// Linux, mirroring the Windows sweep semantics (exact exe match, then
+/// a bounded install-dir sweep). Wine/Proton games are covered because
+/// `query_running_processes` resolves the game's `.exe` from each
+/// process's argv.
+///
+/// Two-phase termination: a graceful `SIGTERM` first so the game can
+/// flush saves and tear down cleanly (Wine writes prefix state on clean
+/// exit), then — after a short window — `SIGKILL` for anything that is
+/// still alive. The hard-kill pass re-verifies every survivor against a
+/// fresh process snapshot first: within the grace window a dying
+/// process's PID can be recycled to an unrelated process, and only
+/// processes that still match the game may be force-killed.
+///
+/// Returns `true` if at least one matching process was terminated (or
+/// was already gone by the time the hard pass ran).
+#[cfg(target_os = "linux")]
+pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Option<&str>) -> bool {
+    let targets = linux_force_close_targets(expected_exe_lower, install_dir_lower);
+    if targets.is_empty() {
+        return false;
+    }
+
+    for pid in &targets {
+        unsafe {
+            let _ = libc::kill(*pid as i32, libc::SIGTERM);
+        }
+    }
+    std::thread::sleep(std::time::Duration::from_millis(2000));
+
+    let survivors = linux_force_close_targets(expected_exe_lower, install_dir_lower);
+    let mut killed_any = false;
+    for pid in targets {
+        if survivors.contains(&pid) {
+            unsafe {
+                if libc::kill(pid as i32, libc::SIGKILL) == 0 {
+                    killed_any = true;
+                }
+            }
+        } else {
+            // Already gone — SIGTERM worked, or the process exited on its own.
+            killed_any = true;
+        }
+    }
     killed_any
 }
 
@@ -1606,6 +1679,11 @@ pub struct GameSessionLostPayload {
 #[derive(Debug, Clone)]
 struct ProcessInfo {
     pid: u32,
+    /// Parent PID. Lets `is_currently_running` walk the process tree so a
+    /// session tracked on a wrapper process (gamescope / gamemoderun /
+    /// mangohud / a launcher) stays alive while the actual game runs as
+    /// one of its descendants.
+    ppid: u32,
     exe_path: String,
     /// Working set size in bytes; used to pick the dominant process
     /// when multiple candidates live inside the same install directory.
@@ -1674,6 +1752,7 @@ fn query_running_processes() -> Vec<ProcessInfo> {
 
                             result.push(ProcessInfo {
                                 pid,
+                                ppid: entry.th32ParentProcessID,
                                 exe_path: path,
                                 working_set_size: working_set,
                             });
@@ -1696,35 +1775,92 @@ fn query_running_processes() -> Vec<ProcessInfo> {
 #[cfg(target_os = "linux")]
 fn query_running_processes() -> Vec<ProcessInfo> {
     let mut result = Vec::new();
-    if let Ok(all_procs) = procfs::process::all_processes() {
-        for proc_res in all_procs {
-            if let Ok(proc) = proc_res {
-                let pid = proc.pid as u32;
-                let exe_path = if let Ok(path) = proc.exe() {
-                    path.to_string_lossy().into_owned()
-                } else if let Ok(cmdline) = proc.cmdline() {
-                    cmdline.first().cloned().unwrap_or_default()
-                } else {
-                    String::new()
-                };
+    let procs: Vec<procfs::process::Process> = match procfs::process::all_processes() {
+        Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
+        Err(_) => return result,
+    };
 
-                if exe_path.is_empty() {
-                    continue;
-                }
+    for proc in &procs {
+        let pid = proc.pid as u32;
+        // Wine/Proton (and wrapper chains like gamescope → gamemoderun →
+        // mangohud → wine) keep the game's `.exe` in the process argv —
+        // `/proc/<pid>/exe` points at the wine loader / wrapper binary
+        // (`wine64-preloader`, `gamescope`, …), not the game. Resolve the
+        // argv first so process matching sees the actual game executable.
+        let exe_path = cmdline_game_exe(proc).unwrap_or_else(|| {
+            proc.exe()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        });
 
-                let working_set_size = proc.stat()
-                    .map(|s| (s.rss as u64) * 4096)
-                    .unwrap_or(0);
-
-                result.push(ProcessInfo {
-                    pid,
-                    exe_path,
-                    working_set_size,
-                });
-            }
+        if exe_path.is_empty() {
+            continue;
         }
+
+        let stat = proc.stat().ok();
+        let working_set_size = stat
+            .as_ref()
+            .map(|s| (s.rss as u64) * 4096)
+            .unwrap_or(0);
+
+        result.push(ProcessInfo {
+            pid,
+            ppid: stat.map(|s| s.ppid as u32).unwrap_or(0),
+            exe_path,
+            working_set_size,
+        });
     }
     result
+}
+
+/// Pick the Windows executable a Wine/Proton process is running from its
+/// argv, if any. Wine passes the game's `.exe` as a command-line argument
+/// (the `/proc/<pid>/exe` symlink only names the wine loader), and wrapper
+/// chains (gamescope, gamemoderun, mangohud, proton scripts) forward the
+/// whole command line, so the game path is always in argv.
+///
+/// Of the argv entries ending in `.exe`, prefer one that resolves to a
+/// real file on disk (relative entries are resolved against the process
+/// cwd) — this skips Wine's virtual `explorer.exe` desktop host and
+/// built-in tools like `winecfg.exe` that have no host file. When none
+/// resolve (e.g. the prefix lives on a path we can't read), fall back to
+/// the last `.exe` argument, which is the game in every supported
+/// command layout (`[gamescope … --] [gamemoderun] [mangohud] runner [run]
+/// [explorer.exe …] game.exe [args]`).
+#[cfg(target_os = "linux")]
+fn cmdline_game_exe(proc: &procfs::process::Process) -> Option<String> {
+    let cmdline = proc.cmdline().ok()?;
+    pick_wine_exe_arg(&cmdline, proc.cwd().ok().as_deref())
+}
+
+/// Pure argv-scan used by [`cmdline_game_exe`]; split out so it can be
+/// unit-tested without a live `/proc`.
+#[cfg(target_os = "linux")]
+fn pick_wine_exe_arg(cmdline: &[String], cwd: Option<&std::path::Path>) -> Option<String> {
+    let mut last: Option<String> = None;
+    let mut existing: Option<String> = None;
+    for arg in cmdline {
+        if !arg.to_lowercase().ends_with(".exe") {
+            continue;
+        }
+        last = Some(arg.clone());
+        let abs = if std::path::Path::new(arg).is_absolute() {
+            std::path::PathBuf::from(arg)
+        } else if let Some(c) = cwd {
+            c.join(arg)
+        } else {
+            continue;
+        };
+        if abs.is_file() {
+            // Return the cleaned absolute path (relative argv like
+            // `./game.exe` is resolved against the process cwd, with `.`
+            // components stripped) so exact/prefix matching against the
+            // library's stored exe path works.
+            let clean: std::path::PathBuf = abs.components().collect();
+            existing = Some(clean.to_string_lossy().into_owned());
+        }
+    }
+    existing.or(last)
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
@@ -1772,21 +1908,35 @@ fn get_game_root_dir(exe_path: &Path) -> Option<PathBuf> {
 /// present PID always has a queryable path here — no PID-only fallback
 /// needed.
 fn is_currently_running(
-    exe_by_pid: &std::collections::HashMap<u32, &str>,
+    processes: &[ProcessInfo],
     last_pid: u32,
     matched_exe: &str,
 ) -> bool {
     if last_pid == 0 {
         return false;
     }
-    let matched_norm = matched_exe.to_lowercase().replace('/', "\\");
-    exe_by_pid
-        .get(&last_pid)
-        .map(|proc_exe| {
-            matched_norm.is_empty()
-                || proc_exe.to_lowercase().replace('/', "\\") == matched_norm
-        })
-        .unwrap_or(false)
+    let matched_norm = normalize_path_lower(matched_exe);
+
+    // Walk the tracked PID and its descendants. The tracked PID is often
+    // a wrapper (gamescope / gamemoderun / mangohud / a launcher) whose
+    // own `/proc/<pid>/exe` names the wrapper binary — the game runs as a
+    // child (or grandchild) process. A descendant counts as running only
+    // when it resolves to the tracked exe, so a wrapper that spawned an
+    // unrelated helper never keeps the session alive.
+    let mut stack: Vec<u32> = vec![last_pid];
+    let mut visited: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    while let Some(pid) = stack.pop() {
+        if !visited.insert(pid) {
+            continue;
+        }
+        if let Some(p) = processes.iter().find(|p| p.pid == pid) {
+            if matched_norm.is_empty() || normalize_path_lower(&p.exe_path) == matched_norm {
+                return true;
+            }
+            stack.extend(processes.iter().filter(|c| c.ppid == pid).map(|c| c.pid));
+        }
+    }
+    false
 }
 
 /// Locate a still-running process for an active session when the tracked
@@ -1869,11 +2019,7 @@ fn find_session_process(
     if let Some(lower) = stem {
         if !lower.is_empty() && !SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
             if let Some(dir_lower) = install_dir.map(|d| {
-                d.to_string_lossy()
-                    .to_lowercase()
-                    .replace('/', "\\")
-                    .trim_end_matches('\\')
-                    .to_string()
+                trim_path_separators(&normalize_path_lower(&d.to_string_lossy())).to_string()
             }) {
                 let mut best: Option<(u64, ProcessInfo)> = None;
                 for p in processes {
@@ -1889,7 +2035,7 @@ fn find_session_process(
                     }
                     // Keep the candidate within the install-dir tree (or its
                     // parents) to avoid stealing an unrelated game.
-                    let pl = p.exe_path.to_lowercase().replace('/', "\\");
+                    let pl = normalize_path_lower(&p.exe_path);
                     if pl.starts_with(&dir_lower) {
                         let score = p.working_set_size;
                         if best.as_ref().map(|(s, _)| score > *s).unwrap_or(true) {
@@ -1901,12 +2047,10 @@ fn find_session_process(
                     let mut within = false;
                     for _ in 0..4 {
                         if let Some(pp) = cur {
-                            let pp_l = pp
-                                .to_string_lossy()
-                                .to_lowercase()
-                                .replace('/', "\\")
-                                .trim_end_matches('\\')
-                                .to_string();
+                            let pp_l = trim_path_separators(&normalize_path_lower(
+                                &pp.to_string_lossy(),
+                            ))
+                            .to_string();
                             if !pp_l.is_empty() && pl.starts_with(&pp_l) {
                                 within = true;
                                 break;
@@ -1961,11 +2105,7 @@ fn find_best_process_in_dir(
     expected_stem: Option<&str>,
     allow_bundled_java: bool,
 ) -> Option<ProcessInfo> {
-    let dir_lower = install_dir
-        .to_string_lossy()
-        .to_lowercase()
-        .replace('/', "\\")
-        .trim_end_matches('\\')
+    let dir_lower = trim_path_separators(&normalize_path_lower(&install_dir.to_string_lossy()))
         .to_string();
 
     if dir_lower.is_empty() {
@@ -1982,10 +2122,10 @@ fn find_best_process_in_dir(
     // game. `best_process_in_dir` already guarantees `p` lives inside
     // `dir_lower`, so the remainder slicing here is safe.
     let strict_match = |p: &ProcessInfo| {
-        let path_lower = p.exe_path.to_lowercase().replace('/', "\\");
+        let path_lower = normalize_path_lower(&p.exe_path);
         let remainder = &path_lower[dir_lower.len()..];
-        let rel = remainder.trim_start_matches('\\');
-        if rel.is_empty() || !rel.contains('\\') {
+        let rel = remainder.trim_start_matches(is_path_sep);
+        if rel.is_empty() || !rel.contains(is_path_sep) {
             return match expected_stem.as_deref() {
                 None => true,
                 Some(stem) => exe_stem_matches(p, stem),
@@ -2029,10 +2169,8 @@ fn is_java_runtime_host(p: &ProcessInfo) -> bool {
     if stem != "java" && stem != "javaw" && stem != "javaws" {
         return false;
     }
-    p.exe_path
-        .to_lowercase()
-        .replace('/', "\\")
-        .split('\\')
+    normalize_path_lower(&p.exe_path)
+        .split(is_path_sep)
         .any(|seg| {
             let seg = seg.trim_end_matches(':');
             seg.starts_with("jre") || seg.starts_with("jdk") || seg.starts_with("jvm") || seg.starts_with("jbr")
@@ -2071,7 +2209,7 @@ where
     let mut candidates: Vec<ProcessInfo> = processes
         .iter()
         .filter(|p| {
-            let path_lower = p.exe_path.to_lowercase().replace('/', "\\");
+            let path_lower = normalize_path_lower(&p.exe_path);
             if !path_lower.starts_with(dir_lower) {
                 return false;
             }
@@ -2079,7 +2217,7 @@ where
             // sibling path that happens to share the prefix (e.g. "FooBar"
             // when looking for "Foo").
             let remainder = &path_lower[dir_lower.len()..];
-            if !remainder.is_empty() && !remainder.starts_with('\\') {
+            if !remainder.is_empty() && !remainder.starts_with(is_path_sep) {
                 return false;
             }
             accept(p)
@@ -2583,33 +2721,68 @@ mod tests {
     #[test]
     fn test_is_currently_running_matching_exe() {
         // Case- and separator-insensitive compare of the tracked exe.
-        let mut map: HashMap<u32, &str> = HashMap::new();
-        map.insert(42, "C:\\Games\\Witcher3\\Witcher3.exe");
-        assert!(is_currently_running(&map, 42, "C:\\Games\\Witcher3\\Witcher3.exe"));
-        assert!(is_currently_running(&map, 42, "c:/games/witcher3/witcher3.exe"));
-        assert!(is_currently_running(&map, 42, "C:\\Games\\Witcher3\\WITCHER3.EXE"));
+        let procs = vec![make_proc(42, "C:\\Games\\Witcher3\\Witcher3.exe", 100)];
+        assert!(is_currently_running(&procs, 42, "C:\\Games\\Witcher3\\Witcher3.exe"));
+        assert!(is_currently_running(&procs, 42, "c:/games/witcher3/witcher3.exe"));
+        assert!(is_currently_running(&procs, 42, "C:\\Games\\Witcher3\\WITCHER3.EXE"));
+    }
+
+    #[test]
+    fn test_is_currently_running_posix_paths() {
+        // POSIX paths keep forward slashes through normalization.
+        let procs = vec![make_proc(42, "/home/user/Games/Witcher3/Witcher3.exe", 100)];
+        assert!(is_currently_running(&procs, 42, "/home/user/Games/Witcher3/Witcher3.exe"));
+        assert!(!is_currently_running(&procs, 42, "/home/user/Games/Other/other.exe"));
     }
 
     #[test]
     fn test_is_currently_running_different_exe() {
-        let mut map: HashMap<u32, &str> = HashMap::new();
-        map.insert(42, "C:\\Games\\Witcher3\\Witcher3.exe");
-        assert!(!is_currently_running(&map, 42, "C:\\Games\\Other\\other.exe"));
+        let procs = vec![make_proc(42, "C:\\Games\\Witcher3\\Witcher3.exe", 100)];
+        assert!(!is_currently_running(&procs, 42, "C:\\Games\\Other\\other.exe"));
     }
 
     #[test]
     fn test_is_currently_running_absent_pid() {
-        let map: HashMap<u32, &str> = HashMap::new();
-        assert!(!is_currently_running(&map, 999, "anything.exe"));
+        let procs: Vec<ProcessInfo> = Vec::new();
+        assert!(!is_currently_running(&procs, 999, "anything.exe"));
     }
 
     #[test]
     fn test_is_currently_running_empty_matched_exe() {
         // Empty matched_exe (only reachable for pending launches) counts
         // as running while the PID is alive.
-        let mut map: HashMap<u32, &str> = HashMap::new();
-        map.insert(42, "C:\\Games\\Witcher3\\Witcher3.exe");
-        assert!(is_currently_running(&map, 42, ""));
+        let procs = vec![make_proc(42, "C:\\Games\\Witcher3\\Witcher3.exe", 100)];
+        assert!(is_currently_running(&procs, 42, ""));
+        assert!(!is_currently_running(&procs, 999, ""));
+    }
+
+    #[test]
+    fn test_is_currently_running_matches_wrapper_descendant() {
+        // The tracked PID is a wrapper (gamescope / gamemoderun /
+        // mangohud / wine) whose own exe is NOT the game; the game runs
+        // as a descendant. The session must stay alive while the
+        // descendant still resolves to the tracked exe.
+        let procs = vec![
+            make_proc_with_ppid(100, 1, "/usr/bin/gamescope", 500),
+            make_proc_with_ppid(101, 100, "/usr/lib/wine/wine64-preloader", 300),
+            make_proc_with_ppid(102, 101, "/home/user/Games/Foo/foo.exe", 900),
+        ];
+        assert!(is_currently_running(&procs, 100, "/home/user/Games/Foo/foo.exe"));
+        // A wrapper whose descendants do NOT include the game never
+        // counts as running.
+        assert!(!is_currently_running(&procs, 100, "/home/user/Games/Bar/bar.exe"));
+        // The game process itself matches directly.
+        assert!(is_currently_running(&procs, 102, "/home/user/Games/Foo/foo.exe"));
+    }
+
+    #[test]
+    fn test_is_currently_running_ignores_cycle() {
+        // A malformed parent graph (cycle) must not hang the walk.
+        let procs = vec![
+            make_proc_with_ppid(10, 11, "/usr/bin/wrapper", 100),
+            make_proc_with_ppid(11, 10, "/usr/bin/wrapper", 100),
+        ];
+        assert!(!is_currently_running(&procs, 10, "/home/user/Games/Foo/foo.exe"));
     }
 
     // ── elapsed_seconds ──────────────────────────────────────────────
@@ -2665,6 +2838,16 @@ mod tests {
     fn make_proc(pid: u32, exe: &str, ws: u64) -> ProcessInfo {
         ProcessInfo {
             pid,
+            ppid: 0,
+            exe_path: exe.to_string(),
+            working_set_size: ws,
+        }
+    }
+
+    fn make_proc_with_ppid(pid: u32, ppid: u32, exe: &str, ws: u64) -> ProcessInfo {
+        ProcessInfo {
+            pid,
+            ppid,
             exe_path: exe.to_string(),
             working_set_size: ws,
         }
@@ -2753,6 +2936,58 @@ mod tests {
             find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), Some("game"), true)
                 .is_none()
         );
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_posix_paths() {
+        // Linux/Wine install dirs use forward slashes end to end; the
+        // directory-boundary checks must accept them (regression: the
+        // old `replace('/', "\\")` normalization mangled POSIX paths).
+        let procs = vec![
+            make_proc(1, "/home/user/Games/Foo/game.exe", 100),
+            make_proc(2, "/home/user/Games/Foo/launcher.exe", 999),
+        ];
+        let dir = Path::new("/home/user/Games/Foo");
+        let best = find_best_process_in_dir(&procs, dir, Some("game"), true).unwrap();
+        assert_eq!(best.pid, 1);
+        // A sibling path that merely shares the prefix must stay outside.
+        let sibling = vec![make_proc(3, "/home/user/Games/FooBar/game.exe", 400)];
+        assert!(
+            find_best_process_in_dir(&sibling, dir, Some("game"), true).is_none(),
+            "prefix-sharing sibling directory must not match"
+        );
+    }
+
+    #[test]
+    fn test_rebuild_index_matches_posix_install_dir_prefix() {
+        // The process-index install-dir prefix match must work with POSIX
+        // separators (used for Wine games on Linux).
+        let tmp = tempfile::tempdir().unwrap();
+        let mut watcher = GameWatcher::new(crate::db::Db::open(tmp.path()).unwrap());
+        watcher.rebuild_index(vec![GameRef {
+            game_id: "g1".to_string(),
+            game_name: "Foo".to_string(),
+            platform: "Manual".to_string(),
+            exe_path: Some("/home/user/Games/Foo/game.exe".to_string()),
+            install_dir: Some(PathBuf::from("/home/user/Games/Foo")),
+            steam_app_id: None,
+        }]);
+
+        // The key is produced by the same normalization the matcher uses,
+        // so this assertion is platform-agnostic (backslashes on Windows,
+        // forward slashes on POSIX).
+        let dir_key = format!(
+            "__dir__{}",
+            trim_path_separators(&normalize_path_lower("/home/user/Games/Foo"))
+        );
+        let games = watcher.process_index.get(&dir_key).expect("install-dir key present");
+        assert_eq!(games.len(), 1);
+        // A prefix-sharing sibling directory must not share the key.
+        let sibling_key = format!(
+            "__dir__{}",
+            trim_path_separators(&normalize_path_lower("/home/user/Games/FooBar"))
+        );
+        assert!(watcher.process_index.get(&sibling_key).is_none());
     }
 
     // ── bundled-Java-runtime fallback (Songs of Syx regression) ──────
@@ -2953,6 +3188,68 @@ mod tests {
             "c:\\program files (x86)\\steam\\steamapps\\common\\skyrim"
         ));
         assert!(is_install_dir_sweep_safe("\\\\server\\share\\games\\skyrim"));
+    }
+
+    // ── Wine argv scanning (Linux) ───────────────────────────────────
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_pick_wine_exe_arg_picks_existing_abs_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let game = dir.path().join("game.exe");
+        std::fs::write(&game, b"MZ").unwrap();
+        let cmdline = vec![
+            "/usr/lib/wine/wine64-preloader".to_string(),
+            game.to_string_lossy().to_string(),
+        ];
+        assert_eq!(
+            pick_wine_exe_arg(&cmdline, Some(dir.path())),
+            Some(game.to_string_lossy().to_string())
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_pick_wine_exe_arg_skips_virtual_desktop_host() {
+        // `explorer.exe` (the virtual-desktop host) has no host file and
+        // must lose to the real game exe.
+        let dir = tempfile::tempdir().unwrap();
+        let game = dir.path().join("game.exe");
+        std::fs::write(&game, b"MZ").unwrap();
+        let cmdline = vec![
+            "wine".to_string(),
+            "run".to_string(),
+            "explorer.exe".to_string(),
+            "/desktop=GameIndex,1920x1080".to_string(),
+            game.to_string_lossy().to_string(),
+        ];
+        assert_eq!(
+            pick_wine_exe_arg(&cmdline, Some(dir.path())),
+            Some(game.to_string_lossy().to_string())
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_pick_wine_exe_arg_resolves_relative_against_cwd() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("game.exe"), b"MZ").unwrap();
+        let cmdline = vec![
+            "gamemoderun".to_string(),
+            "./game.exe".to_string(),
+        ];
+        let expected = dir.path().join("game.exe");
+        assert_eq!(
+            pick_wine_exe_arg(&cmdline, Some(dir.path())),
+            Some(expected.to_string_lossy().to_string())
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_pick_wine_exe_arg_no_exe_arg_returns_none() {
+        let cmdline = vec!["gamescope".to_string(), "-f".to_string()];
+        assert_eq!(pick_wine_exe_arg(&cmdline, None), None);
     }
 
     #[test]
