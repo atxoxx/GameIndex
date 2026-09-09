@@ -642,6 +642,63 @@ pub fn run_wine_tool(
     Ok(())
 }
 
+/// MangoHud CSV log folder used by GameIndex-launched sessions.
+///
+/// GameIndex forces logging here (via `MANGOHUD_CONFIG`) so
+/// `metrics_collector` can find the frame log; it is also where MangoHud
+/// drops logs by default when the user configures `output_folder`
+/// themselves, so a log written here never surprises anyone.
+#[cfg(target_os = "linux")]
+pub fn linux_mangohud_log_dir() -> Option<PathBuf> {
+    let base = std::env::var("XDG_DATA_HOME")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            let home = std::env::var("HOME").ok()?;
+            Some(PathBuf::from(home).join(".local/share"))
+        })?;
+    Some(base.join("MangoHud"))
+}
+
+/// Path of the gamescope `--stats-path` FIFO that the metrics collector
+/// tails for real-time FPS. Lives under `$XDG_RUNTIME_DIR` (per-user,
+/// cleaned up on logout) with `/tmp` as fallback for sessions without it
+/// (bare-bones desktops, some containers).
+#[cfg(target_os = "linux")]
+pub fn linux_gamescope_stats_fifo() -> Option<PathBuf> {
+    let base = std::env::var("XDG_RUNTIME_DIR")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var("TMPDIR")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .map(PathBuf::from)
+        })
+        .unwrap_or_else(|| PathBuf::from("/tmp"));
+    Some(base.join("gameindex-gamescope-stats.fifo"))
+}
+
+/// Create (or repair) the gamescope stats FIFO. Returns `false` when the
+/// path cannot be made a FIFO — e.g. it exists as a regular file left
+/// over from a crash and unlinking it fails.
+#[cfg(target_os = "linux")]
+fn ensure_gamescope_stats_fifo(path: &Path) -> bool {
+    use std::os::unix::fs::FileTypeExt;
+    match fs::metadata(path) {
+        Ok(meta) if meta.file_type().is_fifo() => return true,
+        Ok(_) => {
+            // Stale non-FIFO leftover; replace it.
+            let _ = fs::remove_file(path);
+        }
+        Err(_) => {}
+    }
+    let c_path = std::ffi::CString::new(path.to_string_lossy().as_bytes()).ok()?;
+    unsafe { libc::mkfifo(c_path.as_ptr(), 0o600) == 0 }
+}
+
 /// Launch a Windows executable through Wine or Proton.
 /// Returns the PID of the spawned process, while recording stdout/stderr into the game's log file.
 pub fn launch_with_compatibility(
@@ -928,6 +985,17 @@ pub fn launch_with_compatibility(
                 tokens.push(arg.to_string());
             }
         }
+        // Pipe real-time compositor stats (`fps=…` / `focus=…` lines) to a
+        // named FIFO the metrics collector tails, so FPS telemetry works
+        // even without MangoHud. Gamescope retries the open until a reader
+        // shows up, so a missing reader never blocks the compositor.
+        #[cfg(target_os = "linux")]
+        if let Some(fifo) = linux_gamescope_stats_fifo() {
+            if ensure_gamescope_stats_fifo(&fifo) {
+                tokens.push("--stats-path".to_string());
+                tokens.push(fifo.to_string_lossy().to_string());
+            }
+        }
         tokens.push("--".to_string());
     }
 
@@ -967,6 +1035,27 @@ pub fn launch_with_compatibility(
 
     // Environment variables
     cmd.env("WINEPREFIX", &prefix);
+
+    // Linux: enable MangoHud CSV logging (auto-start after 1s, one line per
+    // second) into a folder `metrics_collector` scans, so the overlay also
+    // feeds real-time FPS/frametimes into the session telemetry instead of
+    // being display-only. `MANGOHUD_CONFIG` only overrides the listed keys;
+    // the rest of the user's MangoHud.conf still applies. A user-supplied
+    // `MANGOHUD_CONFIG` in custom env vars below still wins.
+    #[cfg(target_os = "linux")]
+    if enable_mangohud && is_command_available("mangohud") {
+        if let Some(folder) = linux_mangohud_log_dir() {
+            if fs::create_dir_all(&folder).is_ok() {
+                cmd.env(
+                    "MANGOHUD_CONFIG",
+                    format!(
+                        "log_interval=1000,output_folder={},autostart_log=1",
+                        folder.display()
+                    ),
+                );
+            }
+        }
+    }
     if let Some(a) = arch {
         cmd.env("WINEARCH", a);
     }

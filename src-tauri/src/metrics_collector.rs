@@ -266,9 +266,11 @@ fn collect_metrics_loop(
             0.0
         };
 
-        // ── FPS — best-effort from an active MangoHud log ───────────────
+        // ── FPS — active MangoHud log first, then the gamescope
+        //    `--stats-path` FIFO (compositor rate) as a fallback ──────────
         let fps = if config.capture_fps {
             read_mangohud_fps(&mut mangohud_known, &mut mangohud_checked)
+                .or_else(read_gamescope_stats_fps)
         } else {
             None
         };
@@ -538,15 +540,21 @@ fn linux_nvidia_smi_sample() -> Option<(f32, f32)> {
 }
 
 /// Enumerate candidate MangoHud CSV logs under $HOME (MangoHud's default
-/// `output_folder`) and the legacy ~/.local/share/MangoHud directory.
+/// `output_folder`), the XDG data dir (where GameIndex points
+/// `MANGOHUD_CONFIG`), and the legacy ~/.local/share/MangoHud directory.
 #[cfg(target_os = "linux")]
 fn linux_mangohud_candidates() -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();
     let home = std::env::var("HOME").unwrap_or_default();
     if !home.is_empty() {
+        let data = std::env::var("XDG_DATA_HOME")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from(&home).join(".local/share"));
         let dirs = [
             std::path::PathBuf::from(&home),
-            std::path::PathBuf::from(&home).join(".local/share/MangoHud"),
+            data.join("MangoHud"),
         ];
         for dir in dirs {
             if let Ok(entries) = std::fs::read_dir(&dir) {
@@ -647,6 +655,73 @@ fn parse_mangohud_log_fps(text: &str) -> Option<f64> {
         }
     }
     None
+}
+
+/// FPS from the gamescope `--stats-path` FIFO, when a gamescope session is
+/// running. Gamescope streams `fps=<float>` / `focus=<id>` lines every ~300
+/// composite frames; each poll drains whatever accumulated and the last
+/// `fps=` line wins (cached so polls that land between writes still report
+/// the current compositor rate). Opened non-blocking, so a session without
+/// gamescope — or a FIFO whose writer hasn't connected yet — yields `None`
+/// instead of hanging the collection loop.
+#[cfg(target_os = "linux")]
+fn read_gamescope_stats_fps() -> Option<f64> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let path = crate::compatibility::linux_gamescope_stats_fifo()?;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_CLOEXEC)
+        .open(&path)
+        .ok()?;
+    let mut buf = [0u8; 4096];
+    let n = match file.read(&mut buf) {
+        Ok(n) => n,
+        // Empty FIFO (no writer / no data yet) — fall back to the last
+        // value seen this session.
+        Err(_) => return last_gamescope_stats_fps(),
+    };
+    let parsed = parse_gamescope_stats_fps(&String::from_utf8_lossy(&buf[..n]));
+    if let Some(fps) = parsed {
+        set_last_gamescope_stats_fps(fps);
+        return Some(fps);
+    }
+    last_gamescope_stats_fps()
+}
+
+/// Last compositor FPS observed from the gamescope FIFO, bit-cast into an
+/// atomic so the collector's poll loop never needs a lock. `None` (encoded
+/// as NaN) until the first `fps=` line arrives.
+#[cfg(target_os = "linux")]
+fn last_gamescope_stats_fps() -> Option<f64> {
+    let bits = LAST_GAMESCOPE_FPS.load(std::sync::atomic::Ordering::Relaxed);
+    let v = f64::from_bits(bits);
+    if v.is_nan() { None } else { Some(v) }
+}
+
+#[cfg(target_os = "linux")]
+fn set_last_gamescope_stats_fps(v: f64) {
+    LAST_GAMESCOPE_FPS.store(v.to_bits(), std::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(target_os = "linux")]
+static LAST_GAMESCOPE_FPS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(f64::NAN.to_bits());
+
+/// Pure parser for gamescope's stats stream: the newest `fps=` line wins.
+/// Lines are `fps=59.712345\n` / `focus=12345\n`; anything else is ignored.
+/// Shared with tests.
+#[cfg(any(target_os = "linux", test))]
+fn parse_gamescope_stats_fps(text: &str) -> Option<f64> {
+    text.lines().rev().find_map(|line| {
+        let rest = line.strip_prefix("fps=")?;
+        let v: f64 = rest.trim().parse().ok()?;
+        if v > 0.0 && v <= 1000.0 {
+            Some(v)
+        } else {
+            None
+        }
+    })
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
@@ -1681,5 +1756,29 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
     fn mangohud_log_tolerates_crlf_line_endings() {
         let log = "fps,frametime\r\n30.0,33.3\r\n144.0,6.9\r\n";
         assert_eq!(parse_mangohud_log_fps(log), Some(144.0));
+    }
+
+    // ─────────── tests for the gamescope stats FIFO parser ───────────
+
+    #[test]
+    fn gamescope_stats_parses_fps_line() {
+        assert_eq!(
+            parse_gamescope_stats_fps("fps=59.712345\nfocus=12345\n"),
+            Some(59.712345)
+        );
+    }
+
+    #[test]
+    fn gamescope_stats_takes_newest_fps() {
+        let stream = "fps=30.000000\nfocus=123\nfps=59.700000\n";
+        assert_eq!(parse_gamescope_stats_fps(stream), Some(59.7));
+    }
+
+    #[test]
+    fn gamescope_stats_returns_none_without_fps() {
+        assert_eq!(parse_gamescope_stats_fps("focus=0\n"), None);
+        assert_eq!(parse_gamescope_stats_fps(""), None);
+        // Rejects absurd values rather than poisoning the session metrics.
+        assert_eq!(parse_gamescope_stats_fps("fps=123456789.0\n"), None);
     }
 }
