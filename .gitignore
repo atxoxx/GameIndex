@@ -53,3 +53,5 @@ upload.bat
 scripts/test-plugins.mjs
 .freebuff/project-id
 .direnv/
+/node_modules.b/
+package-lock.json.b
