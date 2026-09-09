@@ -163,6 +163,11 @@ pub async fn create_preview_webview(
                             fixed.show();
                             overlay.add(&vbox);
                             overlay.add_overlay(&fixed);
+                            // The fixed layer fills the whole window and gets its own
+                            // full-size GdkWindow on top of the main webview. Without
+                            // pass-through it swallows every input event outside the
+                            // embedded preview webview, freezing the rest of the UI.
+                            overlay.set_overlay_pass_through(&fixed, true);
                             overlay.show();
                             gtk_win.add(&overlay);
 
