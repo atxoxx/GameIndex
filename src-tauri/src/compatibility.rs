@@ -16,7 +16,7 @@ pub struct CompatibilityRunner {
     pub id: String,
     pub name: String,
     pub path: String,
-    /// "proton" | "ge-proton" | "wine" | "custom"
+    /// "proton" | "ge-proton" | "cachyos" | "wine" | "custom"
     pub kind: String,
     pub version: Option<String>,
     pub is_proton: bool,
@@ -211,13 +211,109 @@ pub fn steam_candidate_roots() -> Vec<PathBuf> {
     roots
 }
 
-/// Detect installed compatibility runners: Steam Proton, GE-Proton, system Wine, and custom runners.
+/// Pull the values for `wanted_key` out of a simple VDF file (a flat
+/// list of `"key" "value"` pairs). Used to resolve `install_path` in
+/// system-package compatibility tool manifests.
+fn vdf_key_values(raw: &str, wanted_key: &str) -> Vec<String> {
+    let parts: Vec<&str> = raw.split('"').collect();
+    let mut out = Vec::new();
+    let mut i = 1;
+    while i + 2 < parts.len() {
+        if parts[i] == wanted_key {
+            let val = parts[i + 2].trim();
+            if !val.is_empty() {
+                out.push(val.to_string());
+            }
+        }
+        i += 2;
+    }
+    out
+}
+
+/// Parse the contents of `steamapps/libraryfolders.vdf` and return every
+/// library root it declares (both the modern numeric-key format and the
+/// legacy nested `"path"` format). Accepts `/`-prefixed Linux paths as
+/// well as Windows drive / UNC paths.
+fn parse_library_folders_vdf(raw: &str) -> Vec<PathBuf> {
+    let parts: Vec<&str> = raw.split('"').collect();
+    let mut out = Vec::new();
+    let mut i = 1;
+    while i + 2 < parts.len() {
+        let key = parts[i];
+        if key == "path" || (!key.is_empty() && key.chars().all(|c| c.is_ascii_digit())) {
+            let val = parts[i + 2].trim();
+            if !val.is_empty() {
+                let p = PathBuf::from(val);
+                if p.is_absolute() && !out.contains(&p) {
+                    out.push(p);
+                }
+            }
+        }
+        i += 2;
+    }
+    out
+}
+
+/// Read `steamapps/libraryfolders.vdf` and return every library root it
+/// declares.
+fn steam_library_folders(steam_root: &Path) -> Vec<PathBuf> {
+    let vdf = steam_root.join("steamapps/libraryfolders.vdf");
+    let Ok(raw) = fs::read_to_string(&vdf) else { return Vec::new() };
+    parse_library_folders_vdf(&raw)
+}
+
+/// Steam install roots: the standard candidate folders plus every
+/// secondary library declared in `libraryfolders.vdf`.
+fn steam_library_roots() -> Vec<PathBuf> {
+    let mut roots = steam_candidate_roots();
+    let mut seen: std::collections::HashSet<PathBuf> = roots.iter().cloned().collect();
+    for root in steam_candidate_roots() {
+        for lib in steam_library_folders(&root) {
+            if seen.insert(lib.clone()) {
+                roots.push(lib);
+            }
+        }
+    }
+    roots
+}
+
+/// True when the compatibility tool name belongs to CachyOS Proton
+/// (`CachyOS-Proton*`, `cachyos-proton*`, `proton-cachyos*`).
+fn is_cachyos_proton(name: &str) -> bool {
+    name.to_lowercase().contains("cachyos")
+}
+
+/// Extract the version out of a CachyOS Proton tool name, e.g.
+/// `proton-cachyos-10.0-20251222-slr` → `10.0-20251222-slr`. Returns an
+/// empty string when the name carries no version part.
+fn cachyos_version(name: &str) -> String {
+    let lower = name.to_lowercase();
+    for (lower_prefix, orig_prefix) in [
+        ("proton-cachyos-", "proton-cachyos-"),
+        ("cachyos-proton-", "cachyos-proton-"),
+        ("proton-cachyos", "proton-cachyos"),
+        ("cachyos-proton", "cachyos-proton"),
+    ] {
+        if lower.starts_with(lower_prefix) {
+            return name[orig_prefix.len()..].trim_matches('-').to_string();
+        }
+    }
+    String::new()
+}
+
+/// Detect installed compatibility runners: Steam Proton, GE-Proton,
+/// CachyOS Proton, system Wine, and custom runners.
 pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
     let mut runners = Vec::new();
     let mut seen_paths = std::collections::HashSet::new();
 
+    // Steam roots include the standard install folders plus every
+    // secondary library declared in `libraryfolders.vdf`, so Proton
+    // installs on other drives are found too.
+    let steam_roots = steam_library_roots();
+
     // 1. Steam Proton installs
-    for root in steam_candidate_roots() {
+    for root in &steam_roots {
         let common = root.join("steamapps/common");
         if let Ok(entries) = fs::read_dir(&common) {
             for e in entries.flatten() {
@@ -242,24 +338,70 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
                 }
             }
         }
+    }
 
-        // 2. GE-Proton / custom tools in compatibilitytools.d
-        let compat = root.join("compatibilitytools.d");
-        if let Ok(entries) = fs::read_dir(&compat) {
-            for e in entries.flatten() {
-                let name = e.file_name().to_string_lossy().to_string();
-                let script = e.path().join("proton");
-                let p_str = script.to_string_lossy().to_string();
-                if script.exists() && seen_paths.insert(p_str.clone()) {
-                    runners.push(CompatibilityRunner {
-                        id: format!("compat-{}", name.to_lowercase().replace(' ', "-")),
-                        name: name.clone(),
-                        path: p_str,
-                        kind: "ge-proton".to_string(),
-                        version: Some(name),
-                        is_proton: true,
-                    });
-                }
+    // 2. Compatibility tools in `compatibilitytools.d` — user Steam
+    //    roots plus the system-wide distro directory (CachyOS ships
+    //    proton-cachyos to /usr/share/steam/compatibilitytools.d).
+    let mut compat_dirs: Vec<PathBuf> = steam_roots
+        .iter()
+        .map(|r| r.join("compatibilitytools.d"))
+        .collect();
+    #[cfg(target_os = "linux")]
+    compat_dirs.push(PathBuf::from("/usr/share/steam/compatibilitytools.d"));
+
+    for dir in &compat_dirs {
+        let Ok(entries) = fs::read_dir(dir) else { continue };
+        for e in entries.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            let base_name = name.trim_end_matches(".vdf");
+
+            // System-package layout: a bare VDF at the top of
+            // compatibilitytools.d whose `install_path` points at the
+            // real tool directory (used by newer CachyOS packaging).
+            let script = if name.ends_with(".vdf") {
+                fs::read_to_string(e.path())
+                    .ok()
+                    .and_then(|raw| {
+                        vdf_key_values(&raw, "install_path")
+                            .into_iter()
+                            .next()
+                            .map(|p| PathBuf::from(p).join("proton"))
+                    })
+            } else {
+                Some(e.path().join("proton"))
+            };
+
+            let Some(script) = script else { continue };
+            let p_str = script.to_string_lossy().to_string();
+            if !script.exists() || !seen_paths.insert(p_str.clone()) {
+                continue;
+            }
+
+            if is_cachyos_proton(base_name) {
+                let ver = cachyos_version(base_name);
+                let display = if ver.is_empty() {
+                    "CachyOS Proton".to_string()
+                } else {
+                    format!("CachyOS Proton ({})", ver)
+                };
+                runners.push(CompatibilityRunner {
+                    id: format!("cachyos-{}", base_name.to_lowercase().replace(' ', "-")),
+                    name: display,
+                    path: p_str,
+                    kind: "cachyos".to_string(),
+                    version: if ver.is_empty() { None } else { Some(ver) },
+                    is_proton: true,
+                });
+            } else {
+                runners.push(CompatibilityRunner {
+                    id: format!("compat-{}", base_name.to_lowercase().replace(' ', "-")),
+                    name: base_name.to_string(),
+                    path: p_str,
+                    kind: "ge-proton".to_string(),
+                    version: Some(base_name.to_string()),
+                    is_proton: true,
+                });
             }
         }
     }
@@ -338,12 +480,13 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
         }
     }
 
-    // Sort: GE-Proton first, then Steam Proton, then Wine runners, then system Wine
+    // Sort: GE-Proton, CachyOS Proton, Steam Proton, Wine runners, then system Wine
     runners.sort_by_key(|r| match r.kind.as_str() {
         "ge-proton" => 0,
-        "proton" => 1,
-        "wine" => 2,
-        _ => 3,
+        "cachyos" => 1,
+        "proton" => 2,
+        "wine" => 3,
+        _ => 4,
     });
 
     runners
@@ -1172,4 +1315,161 @@ pub fn launch_with_compatibility(
 
     let child = cmd.spawn().map_err(|e| format!("Failed to spawn compatibility process: {}", e))?;
     Ok(child.id())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+
+    fn write_test_file(path: &Path, content: &str) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(path, content).unwrap();
+    }
+
+    #[test]
+    fn parses_vdf_install_path() {
+        let raw = "\"install_path\"\t\t\"/usr/share/proton-cachyos-10.0\"\n\"name\"\t\t\"proton-cachyos (Steam Linux Runtime)\"\n";
+        assert_eq!(
+            vdf_key_values(raw, "install_path"),
+            vec!["/usr/share/proton-cachyos-10.0"]
+        );
+        assert!(vdf_key_values(raw, "missing").is_empty());
+    }
+
+    #[test]
+    fn parses_library_folders_vdf() {
+        let raw = "\"LibraryFolders\"\n{\n\t\"1\"\t\t\"/mnt/games/SteamLibrary\"\n\t\"2\"\t\t\"/home/user/Games\"\n\t\"path\"\t\t\"/legacy/Library\"\n}\n";
+        assert_eq!(
+            parse_library_folders_vdf(raw),
+            vec![
+                PathBuf::from("/mnt/games/SteamLibrary"),
+                PathBuf::from("/home/user/Games"),
+                PathBuf::from("/legacy/Library"),
+            ]
+        );
+        assert!(parse_library_folders_vdf("not a vdf").is_empty());
+    }
+
+    #[test]
+    fn classifies_cachyos_proton_names() {
+        assert!(is_cachyos_proton("CachyOS-Proton-9.0"));
+        assert!(is_cachyos_proton("proton-cachyos-10.0-20251222-slr"));
+        assert!(is_cachyos_proton("cachyos-proton-experimental"));
+        assert!(!is_cachyos_proton("GE-Proton9-24"));
+
+        assert_eq!(cachyos_version("CachyOS-Proton-9.0"), "9.0");
+        assert_eq!(
+            cachyos_version("proton-cachyos-10.0-20251222-slr"),
+            "10.0-20251222-slr"
+        );
+        assert_eq!(cachyos_version("cachyos-proton"), "");
+    }
+
+    #[test]
+    fn detects_steam_geproton_and_cachyos_proton() {
+        // Point HOME at a scratch tree so detection walks a controlled
+        // layout instead of the real user profile.
+        let home = std::env::temp_dir().join(format!(
+            "gameindex-compat-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&home);
+        std::env::set_var("HOME", &home);
+
+        // Primary Steam root with official Proton installs.
+        let steam_root = home.join(".local/share/Steam");
+        write_test_file(
+            &steam_root.join("steamapps/common/Proton 9.0/proton"),
+            "#!/bin/sh\n",
+        );
+        write_test_file(
+            &steam_root.join("steamapps/common/Proton Experimental/proton"),
+            "#!/bin/sh\n",
+        );
+
+        // Secondary library on another drive (libraryfolders.vdf).
+        let lib2 = home.join("Games/SteamLibrary");
+        write_test_file(&lib2.join("steamapps/common/Proton Hotfix/proton"), "#!/bin/sh\n");
+        write_test_file(
+            &steam_root.join("steamapps/libraryfolders.vdf"),
+            &format!(
+                "\"LibraryFolders\"\n{{\n\t\"1\"\t\t\"{}\"\n}}\n",
+                lib2.display()
+            ),
+        );
+
+        // GE-Proton and CachyOS Proton as plain directories.
+        write_test_file(
+            &steam_root.join("compatibilitytools.d/GE-Proton9-24/proton"),
+            "#!/bin/sh\n",
+        );
+        write_test_file(
+            &steam_root.join("compatibilitytools.d/CachyOS-Proton-9.0/proton"),
+            "#!/bin/sh\n",
+        );
+
+        // CachyOS Proton via bare-VDF indirection (new packaging).
+        let cachyos_install = home.join(".local/share/proton-cachyos-10.0-20251222-slr");
+        write_test_file(&cachyos_install.join("proton"), "#!/bin/sh\n");
+        write_test_file(
+            &steam_root.join("compatibilitytools.d/proton-cachyos-10.0-20251222-slr.vdf"),
+            &format!(
+                "\"install_path\"\t\t\"{}\"\n",
+                cachyos_install.display()
+            ),
+        );
+
+        let runners = detect_compatibility_runners();
+        let by_id: std::collections::HashMap<&str, &CompatibilityRunner> =
+            runners.iter().map(|r| (r.id.as_str(), r)).collect();
+
+        // Official Steam Proton on the primary library.
+        let steam = by_id
+            .get("steam-proton-9.0")
+            .expect("Steam Proton 9.0 detected");
+        assert!(steam.is_proton);
+        assert_eq!(steam.kind, "proton");
+        assert_eq!(steam.version.as_deref(), Some("9.0"));
+
+        // Official Steam Proton on a secondary library.
+        let hotfix = by_id
+            .get("steam-proton-hotfix")
+            .expect("Steam Proton Hotfix on secondary library");
+        assert_eq!(hotfix.kind, "proton");
+        assert!(hotfix.is_proton);
+
+        // GE-Proton.
+        let ge = by_id
+            .get("compat-ge-proton9-24")
+            .expect("GE-Proton detected");
+        assert_eq!(ge.kind, "ge-proton");
+        assert!(ge.is_proton);
+
+        // CachyOS Proton (directory layout).
+        let cachy_dir = runners
+            .iter()
+            .find(|r| r.path.ends_with("CachyOS-Proton-9.0/proton"))
+            .expect("CachyOS Proton directory runner");
+        assert_eq!(cachy_dir.kind, "cachyos");
+        assert_eq!(cachy_dir.version.as_deref(), Some("9.0"));
+        assert!(cachy_dir.is_proton);
+
+        // CachyOS Proton (bare-VDF indirection).
+        let cachy_vdf = runners
+            .iter()
+            .find(|r| r.path.ends_with("proton-cachyos-10.0-20251222-slr/proton"))
+            .expect("CachyOS Proton VDF runner");
+        assert_eq!(cachy_vdf.kind, "cachyos");
+        assert_eq!(
+            cachy_vdf.version.as_deref(),
+            Some("10.0-20251222-slr")
+        );
+        assert!(cachy_vdf.is_proton);
+
+        let _ = fs::remove_dir_all(&home);
+    }
 }
