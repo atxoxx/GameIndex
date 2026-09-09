@@ -12,6 +12,7 @@
 
 /* ── 0. Adaptive (Dynamic Game Artwork Chameleon) ─────────────────────────── */
 [data-theme="adaptive"] {
+  color-scheme: dark;
   --color-bg-primary: #07070d;
   --color-bg-secondary: #0d0e17;
   --color-bg-tertiary: #131522;
@@ -73,6 +74,7 @@
 
 /* ── 1. Light Mode (Soft Daylight Paper) ─────────────────────────────────── */
 [data-theme="light"] {
+  color-scheme: light;
   --color-bg-primary: #f2f5f9;
   --color-bg-secondary: #ffffff;
   --color-bg-tertiary: #edf1f7;
@@ -161,6 +163,7 @@
 
 /* ── 2. Nord Ice (Arctic Polar Night — icy aurora drift) ──────────────────── */
 [data-theme="nord"] {
+  color-scheme: dark;
   --color-bg-primary: #242933;
   --color-bg-secondary: #2e3440;
   --color-bg-tertiary: #3b4252;
@@ -222,6 +225,7 @@
 
 /* ── 3. Cyberpunk (Neo-Tokyo High Voltage — neon grid + dual glow) ────────── */
 [data-theme="cyberpunk"] {
+  color-scheme: dark;
   --color-bg-primary: #050508;
   --color-bg-secondary: #0b0914;
   --color-bg-tertiary: #130f24;
@@ -283,6 +287,7 @@
 
 /* ── 4. Emerald (Bioluminescent Jade — deep forest wash) ──────────────────── */
 [data-theme="emerald"] {
+  color-scheme: dark;
   --color-bg-primary: #040a06;
   --color-bg-secondary: #09160e;
   --color-bg-tertiary: #0f2217;
@@ -343,6 +348,7 @@
 
 /* ── 5. Dracula (Vampire Twilight — violet + fuchsia haze) ────────────────── */
 [data-theme="dracula"] {
+  color-scheme: dark;
   --color-bg-primary: #181920;
   --color-bg-secondary: #21222c;
   --color-bg-tertiary: #282a36;
@@ -403,6 +409,7 @@
 
 /* ── 6. Solarized (Cobalt Papyrus — teal + amber ink) ─────────────────────── */
 [data-theme="solarized"] {
+  color-scheme: dark;
   --color-bg-primary: #001e26;
   --color-bg-secondary: #002b36;
   --color-bg-tertiary: #073642;
@@ -463,6 +470,7 @@
 
 /* ── 7. Tokyo Night (Shibuya Storm — storm blue + mauve) ──────────────────── */
 [data-theme="tokyonight"] {
+  color-scheme: dark;
   --color-bg-primary: #13141c;
   --color-bg-secondary: #1a1b26;
   --color-bg-tertiary: #24283b;
@@ -523,6 +531,7 @@
 
 /* ── 8. Gruvbox (Retro Amber Chocolate — warm paper + ember) ──────────────── */
 [data-theme="gruvbox"] {
+  color-scheme: dark;
   --color-bg-primary: #1d2021;
   --color-bg-secondary: #282828;
   --color-bg-tertiary: #32302f;
@@ -583,6 +592,7 @@
 
 /* ── 9. Catppuccin (Mocha Velvet — mauve + sky soft bloom) ────────────────── */
 [data-theme="catppuccin"] {
+  color-scheme: dark;
   --color-bg-primary: #181825;
   --color-bg-secondary: #1e1e2e;
   --color-bg-tertiary: #24273a;
@@ -643,6 +653,7 @@
 
 /* ── 10. Sunset (Dusk Plum Radiance — coral → plum twilight) ──────────────── */
 [data-theme="sunset"] {
+  color-scheme: dark;
   --color-bg-primary: #140710;
   --color-bg-secondary: #200d1c;
   --color-bg-tertiary: #2d1327;
@@ -703,6 +714,7 @@
 
 /* ── 11. Oceanic (Abyssal Bioluminescence — cyan depth glow) ───────────────── */
 [data-theme="oceanic"] {
+  color-scheme: dark;
   --color-bg-primary: #030d17;
   --color-bg-secondary: #081a2e;
   --color-bg-tertiary: #0e2642;
@@ -763,6 +775,7 @@
 
 /* ── 12. Rose Pine (Moody Velvet Bloom — rose + gold dusk) ────────────────── */
 [data-theme="rosepine"] {
+  color-scheme: dark;
   --color-bg-primary: #12101b;
   --color-bg-secondary: #191724;
   --color-bg-tertiary: #211f30;
@@ -823,6 +836,7 @@
 
 /* ── 13. Synthwave (Outrun 84 Grid — magenta + cyan laser) ────────────────── */
 [data-theme="synthwave"] {
+  color-scheme: dark;
   --color-bg-primary: #0f071a;
   --color-bg-secondary: #180d2b;
   --color-bg-tertiary: #23133d;
@@ -884,6 +898,7 @@
 
 /* ── 14. Forest (Deep Canopy Moss — lime + emerald canopy) ────────────────── */
 [data-theme="forest"] {
+  color-scheme: dark;
   --color-bg-primary: #060d08;
   --color-bg-secondary: #0c1810;
   --color-bg-tertiary: #132619;
@@ -944,6 +959,7 @@
 
 /* ── 15. Desert Mirage (Warm Topaz Dunes — amber heat shimmer) ────────────── */
 [data-theme="desert"] {
+  color-scheme: dark;
   --color-bg-primary: #120c06;
   --color-bg-secondary: #1c140c;
   --color-bg-tertiary: #291e13;
@@ -1004,6 +1020,7 @@
 
 /* ── 16. Aurora (Cosmic Boreal Luminescence — violet + cyan borealis) ─────── */
 [data-theme="aurora"] {
+  color-scheme: dark;
   --color-bg-primary: #04030d;
   --color-bg-secondary: #0b091e;
   --color-bg-tertiary: #131030;
@@ -1064,6 +1081,7 @@
 
 /* ── 17. Midnight OLED (True Zero Pitch Black — whisper mesh) ──────────────── */
 [data-theme="oled"] {
+  color-scheme: dark;
   --color-bg-primary: #000000;
   --color-bg-secondary: #08080a;
   --color-bg-tertiary: #101014;
@@ -1124,6 +1142,7 @@
 
 /* ── 18. High Contrast (Pure Accessibility 21:1 — no mesh, no glow) ───────── */
 [data-theme="highcontrast"] {
+  color-scheme: dark;
   --color-bg-primary: #000000;
   --color-bg-secondary: #000000;
   --color-bg-tertiary: #0c0c0c;

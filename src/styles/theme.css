@@ -2,6 +2,13 @@
    Theme Engine - CSS Custom Properties
    ============================== */
 :root {
+  /* ── Color Scheme ────────────────────────────────────────────────
+     Native form controls (esp. <select> popups) must match the app
+     theme, not the OS. On Linux/WebKitGTK the select popup is a GTK
+     widget and only follows this property — without it dark themes
+     render white dropdowns. Light theme overrides this in themes.css. */
+  color-scheme: dark;
+
   /* ── Font Stack System ─────────────────────────────────────────────
      Outfit (display) + Plus Jakarta Sans (body) — single source of truth.
      Fallback metric: size-adjust:97% to keep Inter fallback close (see index.html font-display:swap).
@@ -471,6 +478,14 @@ h1.text-3xl, h1.text-4xl, h2.text-3xl, h2.text-4xl, .text-3xl, .text-4xl, .text-
 /* Branded text selection — a whisper of accent everywhere. */
 ::selection {
   background: color-mix(in srgb, var(--color-accent) 32%, transparent);
+  color: var(--color-text-primary);
+}
+
+/* Native select option lists follow the theme everywhere. On Linux the
+   popup is a GTK widget themed via color-scheme (see :root); these
+   rules keep Chromium/WebView popups consistent on other platforms. */
+select option {
+  background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
 }
 
