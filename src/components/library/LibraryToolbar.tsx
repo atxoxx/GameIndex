@@ -4,6 +4,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Disclosure } from "../ui";
 import DensityToggle from "../DensityToggle";
 import LibrarySortMenu from "./LibrarySortMenu";
+import MultiSelectDropdown from "../ui/MultiSelectDropdown";
 
 export type LibraryGroupBy = "none" | "platform" | "playStatus" | "genre" | "releaseYear" | "alphabetical";
 
@@ -12,6 +13,12 @@ interface LibraryToolbarProps {
   count?: string | number | null;
   search: string;
   onSearchChange: (q: string) => void;
+  selectedGenres?: string[];
+  selectedPlatforms?: string[];
+  availableGenres?: string[];
+  availablePlatforms?: string[];
+  onGenresChange?: (genres: string[]) => void;
+  onPlatformsChange?: (platforms: string[]) => void;
   sort: LibrarySort;
   onSortChange: (s: LibrarySort) => void;
   groupBy?: LibraryGroupBy;
@@ -40,6 +47,12 @@ export default function LibraryToolbar({
   count,
   search,
   onSearchChange,
+  selectedGenres = [],
+  selectedPlatforms = [],
+  availableGenres = [],
+  availablePlatforms = [],
+  onGenresChange,
+  onPlatformsChange,
   sort,
   onSortChange,
   groupBy = "none",
@@ -113,6 +126,38 @@ export default function LibraryToolbar({
             </button>
           )}
         </div>
+
+        {/* Genre filter dropdown */}
+        {availableGenres.length > 0 && onGenresChange && (
+          <div className="lib-toolbar-dropdown ui-complete-only ui-item-filters">
+            <MultiSelectDropdown
+              label={t("edit.label.genres")}
+              placeholder={t("edit.label.genres")}
+              options={availableGenres}
+              selected={selectedGenres}
+              onChange={onGenresChange}
+              clearLabel={t("common.clear")}
+              searchPlaceholder={t("store.filters.searchGenres")}
+              noResultsLabel={t("common.noResults")}
+            />
+          </div>
+        )}
+
+        {/* Platform filter dropdown */}
+        {availablePlatforms.length > 0 && onPlatformsChange && (
+          <div className="lib-toolbar-dropdown ui-complete-only ui-item-filters">
+            <MultiSelectDropdown
+              label={t("store.compare.platforms")}
+              placeholder={t("store.compare.platforms")}
+              options={availablePlatforms}
+              selected={selectedPlatforms}
+              onChange={onPlatformsChange}
+              clearLabel={t("common.clear")}
+              searchPlaceholder={t("store.filters.searchPlatforms")}
+              noResultsLabel={t("common.noResults")}
+            />
+          </div>
+        )}
 
         {/* Group By selector */}
         {onGroupByChange && (

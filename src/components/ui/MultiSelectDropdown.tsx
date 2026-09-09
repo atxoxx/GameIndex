@@ -28,6 +28,8 @@ interface MultiSelectDropdownProps {
   searchPlaceholder?: string;
   /** Optional localized message shown when the search matches nothing. */
   noResultsLabel?: string;
+  /** Optional override for whether search input should be visible. Defaults to true when options.length > 0. */
+  showSearch?: boolean;
 }
 
 const GAP = 8;
@@ -81,6 +83,7 @@ export default function MultiSelectDropdown({
   counts,
   searchPlaceholder,
   noResultsLabel,
+  showSearch: showSearchProp,
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -96,7 +99,7 @@ export default function MultiSelectDropdown({
   const searchRef = useRef<HTMLInputElement>(null);
   const rafRef = useRef<number | null>(null);
 
-  const showSearch = options.length > 6;
+  const showSearch = showSearchProp ?? (options.length > 0);
 
   const recompute = useCallback(() => {
     const btn = triggerRef.current;

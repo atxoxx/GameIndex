@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LibraryStatus, LibrarySort } from "../hooks/useLibraryFilters";
 import { SORT_LABELS, SORT_OPTIONS } from "../hooks/useLibraryFilters";
 import type { PlayStatus } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
+import MultiSelectDropdown from "./ui/MultiSelectDropdown";
 
 /** Status toggle options. Declared at module scope so the literal
  *  `LibraryStatus` type is preserved on each `value` instead of widening
@@ -351,33 +352,6 @@ export default function SidebarFilterPopover({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  const handleGenreToggle = (genre: string) => {
-    if (selectedGenres.includes(genre)) {
-      onGenresChange(selectedGenres.filter((g) => g !== genre));
-    } else {
-      onGenresChange([...selectedGenres, genre]);
-    }
-  };
-
-  const handlePlatformToggle = (platform: string) => {
-    if (selectedPlatforms.includes(platform)) {
-      onPlatformsChange(selectedPlatforms.filter((p) => p !== platform));
-    } else {
-      onPlatformsChange([...selectedPlatforms, platform]);
-    }
-  };
-
-  // Memoize the genre / platform chip list — re-rendering the same
-  // arrays on every keystroke (year input, slider drag) is wasted work.
-  const genreChips = useMemo(
-    () => availableGenres.slice(0, 24),
-    [availableGenres]
-  );
-  const platformChips = useMemo(
-    () => availablePlatforms.slice(0, 24),
-    [availablePlatforms]
-  );
-
   return createPortal(
     <div
       ref={popoverRef}
@@ -506,8 +480,8 @@ export default function SidebarFilterPopover({
           </select>
         </section>
 
-        {/* ── Genres: wrapping toggle chips ── */}
-        {genreChips.length > 0 && (
+        {/* ── Genres: multi-select dropdown with search ── */}
+        {availableGenres.length > 0 && (
           <section className="sidebar-filter-popover-section">
             <h4 className="sidebar-filter-popover-heading">
               {t("sidebarFilter.genres")}
@@ -517,27 +491,21 @@ export default function SidebarFilterPopover({
                 </span>
               )}
             </h4>
-            <div className="sidebar-filter-popover-chips">
-              {genreChips.map((genre) => {
-                const active = selectedGenres.includes(genre);
-                return (
-                  <button
-                    key={genre}
-                    type="button"
-                    className={`sidebar-filter-popover-chip${active ? " active" : ""}`}
-                    aria-pressed={active}
-                    onClick={() => handleGenreToggle(genre)}
-                  >
-                    {genre}
-                  </button>
-                );
-              })}
-            </div>
+            <MultiSelectDropdown
+              label={t("sidebarFilter.genres")}
+              placeholder={t("common.all")}
+              options={availableGenres}
+              selected={selectedGenres}
+              onChange={onGenresChange}
+              clearLabel={t("common.clear")}
+              searchPlaceholder={t("store.filters.searchGenres")}
+              noResultsLabel={t("common.noResults")}
+            />
           </section>
         )}
 
-        {/* ── Platforms: wrapping toggle chips ── */}
-        {platformChips.length > 0 && (
+        {/* ── Platforms: multi-select dropdown with search ── */}
+        {availablePlatforms.length > 0 && (
           <section className="sidebar-filter-popover-section">
             <h4 className="sidebar-filter-popover-heading">
               {t("sidebarFilter.platforms")}
@@ -547,22 +515,16 @@ export default function SidebarFilterPopover({
                 </span>
               )}
             </h4>
-            <div className="sidebar-filter-popover-chips">
-              {platformChips.map((platform) => {
-                const active = selectedPlatforms.includes(platform);
-                return (
-                  <button
-                    key={platform}
-                    type="button"
-                    className={`sidebar-filter-popover-chip${active ? " active" : ""}`}
-                    aria-pressed={active}
-                    onClick={() => handlePlatformToggle(platform)}
-                  >
-                    {platform}
-                  </button>
-                );
-              })}
-            </div>
+            <MultiSelectDropdown
+              label={t("sidebarFilter.platforms")}
+              placeholder={t("common.all")}
+              options={availablePlatforms}
+              selected={selectedPlatforms}
+              onChange={onPlatformsChange}
+              clearLabel={t("common.clear")}
+              searchPlaceholder={t("store.filters.searchPlatforms")}
+              noResultsLabel={t("common.noResults")}
+            />
           </section>
         )}
 

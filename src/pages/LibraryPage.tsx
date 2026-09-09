@@ -343,6 +343,12 @@ export default function LibraryPage() {
           count={toolbarCount}
           search={filters.search}
           onSearchChange={setSearch}
+          selectedGenres={filters.genres}
+          selectedPlatforms={filters.platforms}
+          availableGenres={availableGenres}
+          availablePlatforms={availablePlatforms}
+          onGenresChange={setGenres}
+          onPlatformsChange={setPlatforms}
           sort={filters.sort}
           onSortChange={setSort}
           groupBy={groupBy}
