@@ -83,8 +83,13 @@
               export GSETTINGS_SCHEMA_DIR="${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}/glib-2.0/schemas"
               export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS"
 
-              # Prevent WebKit rendering black-screens on Wayland / NVIDIA / VMs
-              export WEBKIT_DISABLE_DMABUF_RENDERER=1
+              # Prevent WebKit rendering black-screens on NVIDIA + Wayland.
+              # Only apply on that exact combo: disabling the DMA-BUF
+              # renderer also disables GPU-accelerated compositing, which
+              # makes the UI sluggish on AMD/Intel and NVIDIA/X11.
+              if [ -n "$WAYLAND_DISPLAY" ] && grep -q 0x10de /sys/class/drm/card*/device/vendor 2>/dev/null; then
+                export WEBKIT_DISABLE_DMABUF_RENDERER=1
+              fi
 
               echo "🎮 GameIndex Nix development shell loaded (Tauri v2 + Node 22 + Rust)!"
             '' else ''

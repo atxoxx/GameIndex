@@ -1,0 +1,25 @@
+/* ============================================================================
+   Linux / WebKitGTK performance overrides
+   ============================================================================
+   WebKitGTK implements `backdrop-filter` far less efficiently than the
+   Chromium/WebView2 engines on Windows — a full-window or full-screen
+   backdrop blur forces a backdrop capture + software blur, which is a
+   large per-frame cost while scrolling or opening overlays. The surfaces
+   below are either full-window (topnav), full-screen (modal / command
+   palette backdrops) or large glass panels (.glass / .glass-card). Their
+   backgrounds are already 70-96% opaque theme tints, so dropping the blur
+   is visually near-identical while removing the expensive readback.
+
+   Gated on `data-platform="linux"`, which SettingsContext sets on
+   <html> before first paint (UA sniff + `get_platform` IPC). */
+
+[data-platform="linux"] .topnav,
+[data-platform="linux"] .topnav-tabs,
+[data-platform="linux"] .modal-backdrop,
+[data-platform="linux"] .command-palette-backdrop,
+[data-platform="linux"] .command-palette-panel,
+[data-platform="linux"] .glass,
+[data-platform="linux"] .glass-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

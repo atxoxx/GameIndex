@@ -255,7 +255,7 @@ P2 progress (2026-09-04):
 P3 status (2026-09-04):
 - 3.1 / 3.2 — not started. Parallelisation must be benchmark-chosen per loop (DB layer stays synchronous per `knowledge.md`; Steam/IGDB rate-limit discipline applies); 3.2's payload trimming overlaps 1.2/1.3 lazy hydration and inherits their deferral.
 - 5.2 (audit) — `SettingsContext.historyCapDays` (1|7|30) exists; `ActivityProvider` loads the full `sessions` table into state on mount and re-reads it per `game-exited`. Capping the in-memory array to the setting needs the Activity page's display semantics verified (charts/rail read the same array), so it is documented, not landed.
-- 5.5 (audit) — `src/styles/animations.css` already ships a complete `prefers-reduced-motion` block covering every `animate-*` utility + stagger delays; `backdrop-filter` has **zero** usage in `src` (glass surfaces are gradient/translucency based). No code change landed this pass.
+- 5.5 (audit) — `src/styles/animations.css` already ships a complete `prefers-reduced-motion` block covering every `animate-*` utility + stagger delays. NOTE: the earlier "`backdrop-filter` has zero usage in `src`" claim is stale — there are 250+ uses across `src/styles/*.css`. Landed 2026-09-09: `data-platform` on `<html>` + `styles/platform-linux.css` drops backdrop-filter from full-window/full-screen surfaces (topnav, modal/command-palette backdrops, `.glass`/`.glass-card`) on Linux, since WebKitGTK renders backdrop blur far slower than WebView2/Chromium. Remaining per-card blur (small pills/badges) kept for looks.
 
 Verified: `tsc --noEmit`, `eslint --max-warnings 0`, `cargo check`, `npm run build`, bundle gate (entry 837.8 KB ≤ 950 KB budget).
 

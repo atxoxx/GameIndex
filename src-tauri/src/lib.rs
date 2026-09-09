@@ -15,7 +15,7 @@ mod db;
 mod game_scraper;
 mod game_versions;
 mod game_watcher;
-mod gpu_detector;
+pub mod gpu_detector;
 mod metrics_collector;
 mod rtss_reader;
 mod mahm_reader;

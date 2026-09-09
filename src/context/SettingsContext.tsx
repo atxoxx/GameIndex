@@ -473,7 +473,15 @@ function detectInitialPlatform(): HostPlatform {
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   // Host platform & Linux support level ─────────────────────────────────────
-  const [hostPlatform, setHostPlatform] = useState<HostPlatform>(detectInitialPlatform);
+  const [hostPlatform, setHostPlatform] = useState<HostPlatform>(() => {
+    // Set before first paint so platform-scoped CSS (e.g. the Linux
+    // backdrop-filter fallbacks) applies from the very first frame.
+    const p = detectInitialPlatform();
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.platform = p;
+    }
+    return p;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -481,6 +489,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       .then((p) => {
         if (!cancelled && (p === "windows" || p === "linux" || p === "macos" || p === "unknown")) {
           setHostPlatform(p as HostPlatform);
+          document.documentElement.dataset.platform = p;
         }
       })
       .catch(() => {});
