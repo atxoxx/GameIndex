@@ -23,3 +23,28 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* The surfaces below were missed by the first pass: they are either
+   sticky/full-width bars that stay mounted over scrolling content
+   (re-blurred on EVERY scroll frame — the store toolbar/tab bar are
+   the worst offenders), large content sections over the full-bleed game
+   hero, full-screen overlays, or wide popover panels. Same rule as the
+   block above: their backgrounds are already opaque-ish theme tints, so
+   dropping the blur is visually near-identical while removing the
+   per-frame readback. Small pills/badges (status dots, card badges,
+   hover-preview pills) intentionally keep their blur — they are cheap. */
+[data-platform="linux"] .store-tab-bar,
+[data-platform="linux"] .store-toolbar,
+[data-platform="linux"] .store-filter-bar,
+[data-platform="linux"] .store-filter-overlay-scrim,
+[data-platform="linux"] .game-section,
+[data-platform="linux"] .game-quick-stats-bar,
+[data-platform="linux"] .game-quick-actions__menu,
+[data-platform="linux"] .home-customize-overlay,
+[data-platform="linux"] .home-hero__btn--ghost,
+[data-platform="linux"] .home-hero__btn--dice,
+[data-platform="linux"] .dl-popover,
+[data-platform="linux"] .msd__menu {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

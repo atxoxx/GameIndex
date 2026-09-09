@@ -1,76 +1,29 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useCallback } from "react";
 
 /**
- * Hook that progressively downloads a cover image when its element enters
- * the viewport. Uses `IntersectionObserver` with 200 px root margin so
- * images start loading slightly before the user scrolls to them.
- *
- * Usage in a component:
- * ```tsx
- * const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
- * return <img ref={imgRef} src={coverUrl ?? placeholder} />;
- * ```
- *
+ * Hook for cover images rendered in long lists (store grid, game relations).
  * Returns a tuple of `[loadedUrl, refCallback]`:
- * - `loadedUrl` starts as the original URL and is replaced with a
- *   disk-backed Tauri asset URL once the download completes.
- * - `refCallback` is a function ref to attach to the `<img>` element.
+ * - `loadedUrl` is the source URL itself — images load straight from the
+ *   remote URL and the browser's HTTP cache serves repeat visits.
+ * - `refCallback` attaches the element and marks it `decoding = "async"` so
+ *   WebKitGTK / WebView2 rasterize the bitmap off the main thread — a fast
+ *   scroll through many covers never janks on synchronous image decode.
+ *
+ * Historical note: this hook used to invoke `download_image` (Rust) for every
+ * element that entered the viewport, but the returned base64 data URL was
+ * always discarded — `loadedUrl` stayed the remote URL. Each call was a full
+ * network fetch + base64 encode + IPC round-trip per card for nothing, and a
+ * fast scroll through a store grid fired dozens of them at once. The observer
+ * and invoke are gone; the decode hint is the only real work the hook does.
  */
 export function useProgressiveImage(
   url: string | null
 ): [string | null, (node: HTMLElement | null) => void] {
-  const [loadedUrl, setLoadedUrl] = useState<string | null>(url);
-  const downloadingRef = useRef(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-
-  // Reset whenever the source URL changes
-  useEffect(() => {
-    setLoadedUrl(url);
-    downloadingRef.current = false;
-  }, [url]);
-
-  // Cleanup observer on unmount
-  useEffect(() => {
-    return () => {
-      observerRef.current?.disconnect();
-    };
+  const refCallback = useCallback((node: HTMLElement | null) => {
+    if (node instanceof HTMLImageElement) {
+      node.decoding = "async";
+    }
   }, []);
 
-  const refCallback = useCallback(
-    (node: HTMLElement | null) => {
-      // Disconnect previous observer if any
-      observerRef.current?.disconnect();
-
-      if (!node || !url || downloadingRef.current) return;
-
-      // Decode off the main thread once the asset arrives so a scroll
-      // through many covers never janks on synchronous image decode.
-      if (node instanceof HTMLImageElement) node.decoding = "async";
-
-      observerRef.current = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting && !downloadingRef.current) {
-            downloadingRef.current = true;
-
-            invoke<string | null>("download_image", { url })
-              .then((dataUrl) => {
-                // Legacy fallback: this hook has no game id, so retain the
-                // remote URL rather than putting a large base64 value in React.
-                if (!dataUrl) setLoadedUrl(url);
-              })
-              .catch(() => {
-                // Silently keep the original URL on failure
-              });
-          }
-        },
-        { rootMargin: "200px" }
-      );
-
-      observerRef.current.observe(node);
-    },
-    [url]
-  );
-
-  return [loadedUrl, refCallback];
+  return [url, refCallback];
 }
