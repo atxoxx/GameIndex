@@ -199,25 +199,6 @@ pub(crate) fn linux_drm_cards() -> Vec<std::path::PathBuf> {
     cards
 }
 
-/// True when at least one NVIDIA GPU is present (PCI vendor id `0x10de`
-/// under `/sys/class/drm`). Used at startup to scope the WebKitGTK
-/// rendering workarounds in `main.rs` to the hardware they were written
-/// for: the DMA-BUF / threaded-compositing workarounds fix NVIDIA
-/// black-screen bugs but disable WebKitGTK's hardware-accelerated
-/// rendering path, which makes the whole UI sluggish on AMD/Intel.
-#[cfg(target_os = "linux")]
-pub fn linux_has_nvidia_gpu() -> bool {
-    use std::fs;
-    for card in linux_drm_cards() {
-        if let Ok(vendor) = fs::read_to_string(card.join("device/vendor")) {
-            if vendor.trim().eq_ignore_ascii_case("0x10de") {
-                return true;
-            }
-        }
-    }
-    false
-}
-
 /// Detect GPUs on Linux via /sys/class/drm/card*/device.
 #[cfg(target_os = "linux")]
 pub fn detect_gpus() -> Vec<GpuInfo> {
