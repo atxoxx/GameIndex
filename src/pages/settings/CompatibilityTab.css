@@ -20,12 +20,30 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   overflow-x: auto;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
   -webkit-overflow-scrolling: touch;
 }
 
+/* Themed thin scrollbar so overflowing subtabs stay reachable. */
 .compat-subtab-bar::-webkit-scrollbar {
-  display: none;
+  height: 6px;
+}
+
+.compat-subtab-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.compat-subtab-bar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.compat-subtab-bar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 .compat-subtab-btn {

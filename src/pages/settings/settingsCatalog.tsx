@@ -417,7 +417,7 @@ export function buildSettingsCatalog(
       tab: "compatibility",
       labelKey: "settings.tab.compatibility",
       descKey: "settings.compatibility.desc",
-      keywords: "linux wine proton dxvk vkd3d esync fsync mangohud gamemode gamescope runner prefix compatibility dll overrides",
+      keywords: "linux wine proton dxvk vkd3d esync fsync mangohud gamemode gamescope runner prefix compatibility dll overrides umu launcher steam runtime",
       icon: <CompatibilityIcon />,
       sections: [
         {
@@ -443,7 +443,7 @@ export function buildSettingsCatalog(
         {
           id: "compat-tools",
           labelKey: "settings.compatibility.sectionTools",
-          keywords: "mangohud gamemode overlay governor prime offload discrete gpu",
+          keywords: "mangohud hide hidden umu launcher steam runtime gamemode overlay governor prime offload discrete gpu",
         },
         {
           id: "compat-env",

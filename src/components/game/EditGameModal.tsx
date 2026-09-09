@@ -235,6 +235,12 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [compatMangoHud, setCompatMangoHud] = useState<boolean | null>(
     game.compatibility?.enableMangoHud ?? null
   );
+  const [compatMangoHudHidden, setCompatMangoHudHidden] = useState<boolean | null>(
+    game.compatibility?.mangohudHidden ?? null
+  );
+  const [compatUmu, setCompatUmu] = useState<boolean | null>(
+    game.compatibility?.enableUmuLauncher ?? null
+  );
   const [compatGameMode, setCompatGameMode] = useState<boolean | null>(
     game.compatibility?.enableGameMode ?? null
   );
@@ -306,6 +312,13 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [globalCompatSettings, setGlobalCompatSettings] = useState<CompatibilitySettings | null>(null);
   const [availableRunners, setAvailableRunners] = useState<Array<{ id: string; name: string; path: string; kind: string }>>([]);
   const [runningTool, setRunningTool] = useState<string | null>(null);
+
+  // The "hide MangoHud by default" override only makes sense when the
+  // overlay will actually run: explicitly on for this game, or left on
+  // the global default and the global setting enables MangoHud.
+  const mangohudActive =
+    compatMangoHud === true ||
+    (compatMangoHud === null && (globalCompatSettings?.enableMangoHud ?? false));
 
   useEffect(() => {
     invoke<Array<{ id: string; name: string; path: string; kind: string }>>("list_compatibility_runners")
@@ -946,6 +959,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         compatVirtualDesktopRes.trim() ||
         compatDxvkHud.trim() ||
         compatMangoHud !== null ||
+        compatMangoHudHidden !== null ||
+        compatUmu !== null ||
         compatGameMode !== null ||
         compatGamescope !== null ||
         compatGamescopeArgs.trim() ||
@@ -991,6 +1006,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               virtualDesktopRes: compatVirtualDesktopRes.trim() || undefined,
               dxvkHud: compatDxvkHud.trim() || undefined,
               enableMangoHud: compatMangoHud,
+              mangohudHidden: compatMangoHudHidden,
+              enableUmuLauncher: compatUmu,
               enableGameMode: compatGameMode,
               enableGamescope: compatGamescope,
               gamescopeArgs: compatGamescopeArgs.trim() || undefined,
@@ -2465,6 +2482,20 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.mangohudDesc") || "Vulkan and OpenGL overlay for monitoring FPS, frametimes, temperatures, and hardware load."}
                     value={compatMangoHud}
                     onChange={setCompatMangoHud}
+                  />
+                  {mangohudActive && (
+                    <TriStateCard
+                      title={t("gameEdit.compatibility.mangohudHiddenTitle") || "Hide MangoHud by Default"}
+                      desc={t("gameEdit.compatibility.mangohudHiddenDesc") || "Start the overlay hidden (toggle with the MangoHud hotkey) while still collecting telemetry."}
+                      value={compatMangoHudHidden}
+                      onChange={setCompatMangoHudHidden}
+                    />
+                  )}
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.umuTitle") || "UMU-Launcher (Steam Runtime)"}
+                    desc={t("gameEdit.compatibility.umuDesc") || "Run the executable through umu-run so Proton launches inside Valve's Steam Runtime container without Steam."}
+                    value={compatUmu}
+                    onChange={setCompatUmu}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.gamemodeTitle") || "Feral GameMode Optimizer"}

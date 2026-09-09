@@ -33,6 +33,7 @@ pub struct LinuxSystemStatus {
     pub mangohud_available: bool,
     pub gamescope_available: bool,
     pub winetricks_available: bool,
+    pub umu_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +74,10 @@ pub struct CompatibilitySettings {
     pub virtual_desktop: bool,
     #[serde(default)]
     pub virtual_desktop_res: Option<String>,
+    #[serde(default)]
+    pub enable_umu_launcher: bool,
+    #[serde(default)]
+    pub mangohud_hidden: bool,
 
     // Structured Gamescope settings
     #[serde(default)]
@@ -131,6 +136,9 @@ impl Default for CompatibilitySettings {
             audio_driver: None,
             virtual_desktop: false,
             virtual_desktop_res: Some("1920x1080".to_string()),
+
+            enable_umu_launcher: false,
+            mangohud_hidden: false,
 
             gamescope_mode: Some("fullscreen".to_string()),
             gamescope_game_width: Some(1920),
@@ -515,6 +523,309 @@ pub fn runner_is_proton(runner_path: &str) -> bool {
     proton_by_path_heuristic(runner_path)
 }
 
+/// The Proton installation folder for a runner path — the parent
+/// directory of the `proton` script. umu-launcher's `PROTONPATH`
+/// expects the folder (containing `proton`, `dist/`, …), not the
+/// script itself. Returns `None` for plain Wine binaries.
+pub fn proton_folder_for_runner(runner_path: &str) -> Option<PathBuf> {
+    let parent = Path::new(runner_path).parent()?;
+    if parent.join("proton").is_file() {
+        Some(parent.to_path_buf())
+    } else {
+        None
+    }
+}
+
+/// Locate the `umu-run` executable: on `PATH` first, then the standard
+/// umu-launcher install locations (`~/.local/share/umu/umu_run` is the
+/// canonical data-dir script, `~/.local/bin/umu-run` the user-install
+/// wrapper, plus the system paths). Never an error — callers fall back
+/// to the direct Wine/Proton invocation.
+#[cfg(target_os = "linux")]
+pub fn find_umu_run() -> Option<PathBuf> {
+    if is_command_available("umu-run") {
+        return Some(PathBuf::from("umu-run"));
+    }
+    let home = std::env::var("HOME").ok()?;
+    [
+        PathBuf::from(&home).join(".local/share/umu/umu_run"),
+        PathBuf::from(&home).join(".local/bin/umu-run"),
+        PathBuf::from("/usr/share/umu/umu_run"),
+        PathBuf::from("/usr/bin/umu-run"),
+    ]
+    .into_iter()
+    .find(|p| p.exists())
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn find_umu_run() -> Option<PathBuf> {
+    None
+}
+
+/// Build the MangoHud CSV-logging config used for GameIndex sessions:
+/// one line per second into `folder` so `metrics_collector` finds the
+/// frame log. When `hidden` the overlay starts hidden (toggled with the
+/// MangoHud hotkey) while still logging — useful when the overlay is
+/// only needed for telemetry, not on screen.
+pub fn mangohud_log_config(folder: &Path, hidden: bool) -> String {
+    let mut cfg = format!(
+        "log_interval=1000,output_folder={},autostart_log=1",
+        folder.display()
+    );
+    if hidden {
+        cfg.push_str(",hide");
+    }
+    cfg
+}
+
+/// Environment variables that carry the configured Wine/Proton flags
+/// into a Steam-launched session.
+///
+/// When a Steam title has no local executable, Steam itself owns the
+/// launch (via the `steam` CLI / `steam://run` protocol), so the direct
+/// compatibility path cannot wrap the command. Steam passes its own
+/// environment down to the game process, so the flags that translate
+/// cleanly to env vars — sync engines, DXVK/VKD3D layers, Wayland /
+/// WoW64 toggles, DLL overrides, MangoHud — are applied here instead.
+/// Runner and prefix stay Steam-managed: no `WINEPREFIX` / `PROTONPATH`
+/// is set.
+pub fn steam_launch_env(
+    settings: &CompatibilitySettings,
+    game_profile: Option<&serde_json::Value>,
+) -> Vec<(String, String)> {
+    let mut env: Vec<(String, String)> = Vec::new();
+
+    let enable_dxvk = game_profile
+        .and_then(|p| p.get("enableDxvk").or_else(|| p.get("dxvk")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_dxvk);
+    let enable_vkd3d = game_profile
+        .and_then(|p| p.get("enableVkd3d").or_else(|| p.get("vkd3d")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_vkd3d);
+    let enable_esync = game_profile
+        .and_then(|p| p.get("enableEsync").or_else(|| p.get("esync")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_esync);
+    let enable_fsync = game_profile
+        .and_then(|p| p.get("enableFsync").or_else(|| p.get("fsync")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_fsync);
+    let enable_ntsync = game_profile
+        .and_then(|p| p.get("enableNtsync").or_else(|| p.get("ntsync")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_ntsync);
+    let enable_dxvk_nvapi = game_profile
+        .and_then(|p| p.get("enableDxvkNvapi").or_else(|| p.get("enableNvapi")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_dxvk_nvapi);
+    let enable_dxvk_async = game_profile
+        .and_then(|p| p.get("enableDxvkAsync").or_else(|| p.get("dxvkAsync")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_dxvk_async);
+    let enable_wayland = game_profile
+        .and_then(|p| p.get("enableWayland").or_else(|| p.get("wineland")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_wayland);
+    let enable_wow64 = game_profile
+        .and_then(|p| p.get("enableWow64").or_else(|| p.get("wow64")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_wow64);
+    let enable_large_address_aware = game_profile
+        .and_then(|p| p.get("enableLargeAddressAware").or_else(|| p.get("largeAddressAware")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_large_address_aware);
+    let wine_debug = game_profile
+        .and_then(|p| p.get("wineDebug"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| settings.wine_debug.clone());
+    let audio_driver = game_profile
+        .and_then(|p| p.get("audioDriver"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| settings.audio_driver.clone());
+    let arch = game_profile.and_then(|p| p.get("arch")).and_then(|v| v.as_str());
+    let dxvk_hud = game_profile.and_then(|p| p.get("dxvkHud")).and_then(|v| v.as_str());
+    let enable_mangohud = game_profile
+        .and_then(|p| p.get("enableMangoHud").or_else(|| p.get("mangohud")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_mangohud);
+    let mangohud_hidden = game_profile
+        .and_then(|p| p.get("mangohudHidden"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.mangohud_hidden);
+    let prime_render_offload = game_profile
+        .and_then(|p| p.get("primeRenderOffload").or_else(|| p.get("primeOffload")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.prime_render_offload);
+    let excluded_global_env: Vec<String> = game_profile
+        .and_then(|p| p.get("excludedGlobalEnv"))
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default();
+    let excluded_global_dlls: Vec<String> = game_profile
+        .and_then(|p| p.get("excludedGlobalDlls"))
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default();
+
+    if let Some(a) = arch {
+        env.push(("WINEARCH".to_string(), a.to_string()));
+    }
+    env.push(("WINEESYNC".to_string(), if enable_esync { "1" } else { "0" }.to_string()));
+    env.push(("WINEFSYNC".to_string(), if enable_fsync { "1" } else { "0" }.to_string()));
+    if enable_ntsync {
+        env.push(("WINESYNC".to_string(), "1".to_string()));
+        env.push(("WINENTSYNC".to_string(), "1".to_string()));
+    }
+    if enable_dxvk_nvapi {
+        env.push(("DXVK_ENABLE_NVAPI".to_string(), "1".to_string()));
+    }
+    if enable_dxvk_async {
+        env.push(("DXVK_ASYNC".to_string(), "1".to_string()));
+    }
+    if enable_wayland {
+        env.push(("WINE_ENABLE_WAYLAND".to_string(), "1".to_string()));
+        env.push(("PROTON_ENABLE_WAYLAND".to_string(), "1".to_string()));
+    }
+    if enable_wow64 {
+        env.push(("WINE_NEW_WOW64".to_string(), "1".to_string()));
+        env.push(("PROTON_USE_WOW64".to_string(), "1".to_string()));
+    }
+    if enable_large_address_aware {
+        env.push(("WINE_LARGE_ADDRESS_AWARE".to_string(), "1".to_string()));
+    }
+    if let Some(dbg) = wine_debug.as_deref() {
+        env.push(("WINEDEBUG".to_string(), dbg.to_string()));
+    }
+    if let Some(aud) = audio_driver.as_deref() {
+        if aud != "auto" {
+            env.push(("WINEAUDIODRIVER".to_string(), aud.to_string()));
+        }
+    }
+    if let Some(hud) = dxvk_hud {
+        if !hud.trim().is_empty() {
+            env.push(("DXVK_HUD".to_string(), hud.to_string()));
+        }
+    }
+
+    // DLL overrides: global map minus per-game exclusions, then game
+    // overrides, then the DXVK / VKD3D layer entries.
+    let mut dll_map = settings.custom_dll_overrides.clone();
+    for exc in &excluded_global_dlls {
+        dll_map.remove(exc);
+    }
+    if let Some(game_dlls) = game_profile.and_then(|p| p.get("dllOverrides")).and_then(|v| v.as_object()) {
+        for (k, val) in game_dlls {
+            if let Some(s) = val.as_str() {
+                dll_map.insert(k.clone(), s.to_string());
+            }
+        }
+    }
+    if enable_dxvk {
+        dll_map.entry("d3d11".to_string()).or_insert_with(|| "n,b".to_string());
+        dll_map.entry("dxgi".to_string()).or_insert_with(|| "n,b".to_string());
+        dll_map.entry("d3d10core".to_string()).or_insert_with(|| "n,b".to_string());
+        dll_map.entry("d3d9".to_string()).or_insert_with(|| "n,b".to_string());
+    }
+    if enable_vkd3d {
+        dll_map.entry("d3d12".to_string()).or_insert_with(|| "n,b".to_string());
+    }
+    if !dll_map.is_empty() {
+        let dll_str = dll_map
+            .into_iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join(";");
+        env.push(("WINEDLLOVERRIDES".to_string(), dll_str));
+    }
+
+    if prime_render_offload {
+        env.push(("DRI_PRIME".to_string(), "1".to_string()));
+        env.push(("__NV_PRIME_RENDER_OFFLOAD".to_string(), "1".to_string()));
+        env.push(("__GLX_VENDOR_LIBRARY_NAME".to_string(), "nvidia".to_string()));
+        env.push(("__VK_LAYER_NV_optimus".to_string(), "NVIDIA_only".to_string()));
+    }
+
+    // MangoHud has no wrapper on the Steam path — force the layer on
+    // with `MANGOHUD=1` and keep the same CSV logging + hide behavior
+    // as direct launches.
+    #[cfg(target_os = "linux")]
+    if enable_mangohud {
+        env.push(("MANGOHUD".to_string(), "1".to_string()));
+        if let Some(folder) = linux_mangohud_log_dir() {
+            env.push(("MANGOHUD_CONFIG".to_string(), mangohud_log_config(&folder, mangohud_hidden)));
+        }
+    }
+
+    // User environment variables (filtered for exclusions), then game
+    // overrides on top.
+    for (k, v) in &settings.custom_environment_variables {
+        if !excluded_global_env.contains(k) {
+            env.push((k.clone(), v.clone()));
+        }
+    }
+    if let Some(game_envs) = game_profile
+        .and_then(|p| p.get("environmentVariables").or_else(|| p.get("customEnv")))
+        .and_then(|v| v.as_object())
+    {
+        for (k, v) in game_envs {
+            if let Some(s) = v.as_str() {
+                env.push((k.clone(), s.to_string()));
+            }
+        }
+    }
+
+    env
+}
+
+/// Launch a Steam title through the `steam` CLI with the configured
+/// Wine/Proton flag environment applied (see `steam_launch_env`).
+/// Returns `true` when the `steam` process was spawned; callers fall
+/// back to the `steam://run/<appid>` protocol otherwise. When Steam is
+/// already running it forwards the launch to the running client (which
+/// may drop these vars), but a cold start inherits them, so the flags
+/// are enabled in the common case.
+#[cfg(target_os = "linux")]
+pub fn try_launch_steam_app(
+    app: &tauri::AppHandle,
+    game_id: &str,
+    steam_app_id: u32,
+    launch_arguments: Option<&str>,
+) -> bool {
+    let settings = get_compatibility_settings_internal(app).unwrap_or_default();
+    let game_profile = {
+        let db_state: tauri::State<'_, db::Db> = app.state();
+        db::compatibility::get_for_game(db_state.inner(), game_id)
+            .ok()
+            .flatten()
+    };
+    let env = steam_launch_env(&settings, game_profile.as_ref());
+
+    let appid = steam_app_id.to_string();
+    let mut cmd = std::process::Command::new("steam");
+    cmd.arg("-nobigpicture")
+        .arg("-nochatui")
+        .arg("-nofriendsui")
+        .arg("-silent")
+        .arg("-applaunch")
+        .arg(&appid);
+    if let Some(args) = launch_arguments {
+        if !args.trim().is_empty() {
+            for a in crate::launcher::split_launch_args(args) {
+                cmd.arg(a);
+            }
+        }
+    }
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    // Fire-and-forget: Steam keeps the game process alive on its own;
+    // the watcher picks it up passively once it appears.
+    cmd.spawn().map(|_| true).unwrap_or(false)
+}
+
 /// Retrieve Linux system diagnostics (kernel, display server, Vulkan, gaming tools).
 pub fn get_linux_system_status() -> LinuxSystemStatus {
     let os_name = std::env::consts::OS.to_string();
@@ -542,6 +853,7 @@ pub fn get_linux_system_status() -> LinuxSystemStatus {
     let mangohud_available = is_command_available("mangohud");
     let gamescope_available = is_command_available("gamescope");
     let winetricks_available = is_command_available("winetricks");
+    let umu_available = find_umu_run().is_some();
 
     LinuxSystemStatus {
         os_name,
@@ -552,6 +864,7 @@ pub fn get_linux_system_status() -> LinuxSystemStatus {
         mangohud_available,
         gamescope_available,
         winetricks_available,
+        umu_available,
     }
 }
 
@@ -956,6 +1269,14 @@ pub fn launch_with_compatibility(
         .and_then(|p| p.get("enableMangoHud").or_else(|| p.get("mangohud")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.enable_mangohud);
+    let mangohud_hidden = game_profile
+        .and_then(|p| p.get("mangohudHidden"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.mangohud_hidden);
+    let enable_umu = game_profile
+        .and_then(|p| p.get("enableUmuLauncher"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_umu_launcher);
     let enable_gamemode = game_profile
         .and_then(|p| p.get("enableGameMode").or_else(|| p.get("gamemode")))
         .and_then(|v| v.as_bool())
@@ -1064,6 +1385,15 @@ pub fn launch_with_compatibility(
 
     let is_proton = runner_is_proton(&runner_path);
 
+    // UMU-Launcher mode — run the executable through `umu-run` so
+    // Proton runs inside Valve's Steam Runtime container without Steam
+    // itself. Only Proton runners route through umu (`PROTONPATH` needs
+    // a Proton build); plain Wine keeps the direct invocation.
+    let umu_run = if enable_umu { find_umu_run() } else { None };
+    let use_umu = umu_run.is_some()
+        && is_proton
+        && proton_folder_for_runner(&runner_path).is_some();
+
     // Resolve prefix
     let prefix = resolve_prefix_dir(app, custom_wine_prefix.as_deref(), game_id);
     let _ = fs::create_dir_all(&prefix);
@@ -1087,7 +1417,7 @@ pub fn launch_with_compatibility(
     let _ = writeln!(log_file, "Prefix: {}", prefix.display());
     let _ = writeln!(log_file, "ESync: {}, FSync: {}, NTSync: {}, DXVK: {}, VKD3D: {}", enable_esync, enable_fsync, enable_ntsync, enable_dxvk, enable_vkd3d);
     let _ = writeln!(log_file, "Wineland: {}, WoW64: {}, LargeAddress: {}", enable_wayland, enable_wow64, enable_large_address_aware);
-    let _ = writeln!(log_file, "MangoHud: {}, GameMode: {}, Gamescope: {}", enable_mangohud, enable_gamemode, enable_gamescope);
+    let _ = writeln!(log_file, "MangoHud: {} (hidden: {}), UMU: {}, GameMode: {}, Gamescope: {}", enable_mangohud, mangohud_hidden, use_umu, enable_gamemode, enable_gamescope);
     let _ = writeln!(log_file, "==================================================");
     let _ = log_file.flush();
 
@@ -1175,9 +1505,15 @@ pub fn launch_with_compatibility(
         tokens.push("mangohud".to_string());
     }
 
-    tokens.push(runner_path.clone());
-    if is_proton {
-        tokens.push("run".to_string());
+    if use_umu {
+        if let Some(umu) = &umu_run {
+            tokens.push(umu.to_string_lossy().to_string());
+        }
+    } else {
+        tokens.push(runner_path.clone());
+        if is_proton {
+            tokens.push("run".to_string());
+        }
     }
 
     if virtual_desktop {
@@ -1214,14 +1550,18 @@ pub fn launch_with_compatibility(
     if enable_mangohud && is_command_available("mangohud") {
         if let Some(folder) = linux_mangohud_log_dir() {
             if fs::create_dir_all(&folder).is_ok() {
-                cmd.env(
-                    "MANGOHUD_CONFIG",
-                    format!(
-                        "log_interval=1000,output_folder={},autostart_log=1",
-                        folder.display()
-                    ),
-                );
+                cmd.env("MANGOHUD_CONFIG", mangohud_log_config(&folder, mangohud_hidden));
             }
+        }
+    }
+
+    // UMU-Launcher environment: identify the game for umu's prefix /
+    // protonfix handling and point PROTONPATH at the Proton folder.
+    if use_umu {
+        cmd.env("GAMEID", format!("umu-{}", game_id));
+        cmd.env("STORE", "none");
+        if let Some(folder) = proton_folder_for_runner(&runner_path) {
+            cmd.env("PROTONPATH", folder.to_string_lossy().to_string());
         }
     }
     if let Some(a) = arch {
@@ -1304,8 +1644,9 @@ pub fn launch_with_compatibility(
         cmd.env("__VK_LAYER_NV_optimus", "NVIDIA_only");
     }
 
-    // Proton specific environment
-    if is_proton {
+    // Proton specific environment (umu supplies its own Steam
+    // compatibility vars inside the runtime container).
+    if is_proton && !use_umu {
         cmd.env("STEAM_COMPAT_DATA_PATH", &prefix);
         if let Some(steam) = steam_candidate_roots().into_iter().next() {
             cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", steam.to_string_lossy().to_string());
@@ -1532,5 +1873,107 @@ mod tests {
         assert!(!runner_is_proton(
             "/nonexistent/.local/share/wine/runners/wine-9.0/bin/wine"
         ));
+    }
+
+    #[test]
+    fn proton_folder_derives_folder_from_script_and_rejects_wine() {
+        let dir = tempfile::tempdir().unwrap();
+        let proton_dir = dir.path().join("Proton 9.0");
+        write_test_file(&proton_dir.join("proton"), "#!/bin/sh\n");
+
+        let script = proton_dir.join("proton");
+        let folder = proton_folder_for_runner(&script.to_string_lossy())
+            .expect("proton script resolves to its folder");
+        assert_eq!(folder, proton_dir);
+
+        // A plain wine binary (or any path whose parent lacks a `proton`
+        // script) is not a Proton folder.
+        let wine = dir.path().join("bin/wine");
+        assert!(proton_folder_for_runner(&wine.to_string_lossy()).is_none());
+        assert!(proton_folder_for_runner("/usr/bin/wine").is_none());
+    }
+
+    #[test]
+    fn mangohud_config_appends_hide_only_when_requested() {
+        let folder = Path::new("/home/u/.local/share/MangoHud");
+        let shown = mangohud_log_config(folder, false);
+        assert!(shown.contains("log_interval=1000"));
+        assert!(shown.contains("autostart_log=1"));
+        assert!(!shown.contains(",hide"));
+
+        let hidden = mangohud_log_config(folder, true);
+        assert!(hidden.ends_with(",hide"), "got: {}", hidden);
+    }
+
+    #[test]
+    fn steam_launch_env_carries_flags_but_no_prefix_or_runner() {
+        let settings = CompatibilitySettings {
+            enable_dxvk: true,
+            enable_vkd3d: true,
+            enable_esync: true,
+            enable_fsync: true,
+            ..Default::default()
+        };
+        let env = steam_launch_env(&settings, None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
+        assert_eq!(map.get("WINEESYNC"), Some(&"1"));
+        assert_eq!(map.get("WINEFSYNC"), Some(&"1"));
+        let dll = map.get("WINEDLLOVERRIDES").expect("DXVK dll overrides set");
+        assert!(dll.contains("d3d11=n,b") && dll.contains("d3d12=n,b"));
+        // Steam owns runner and prefix — they must never leak through.
+        assert!(!map.contains_key("WINEPREFIX"));
+        assert!(!map.contains_key("PROTONPATH"));
+        assert!(!map.contains_key("STEAM_COMPAT_DATA_PATH"));
+    }
+
+    #[test]
+    fn steam_launch_env_applies_game_overrides_and_exclusions() {
+        let settings = CompatibilitySettings {
+            enable_esync: false,
+            custom_environment_variables: [("GLOBAL_VAR".to_string(), "g".to_string())]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+        let profile = serde_json::json!({
+            "enableEsync": true,
+            "environmentVariables": { "PER_GAME_VAR": "1" },
+            "excludedGlobalEnv": ["GLOBAL_VAR"],
+            "enableMangoHud": false,
+        });
+        let env = steam_launch_env(&settings, Some(&profile));
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
+        // Per-game override wins over the global default.
+        assert_eq!(map.get("WINEESYNC"), Some(&"1"));
+        // Excluded global vars are dropped; per-game vars still apply.
+        assert!(!map.contains_key("GLOBAL_VAR"));
+        assert_eq!(map.get("PER_GAME_VAR"), Some(&"1"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn steam_launch_env_mangohud_hide_flag() {
+        let settings = CompatibilitySettings {
+            enable_mangohud: true,
+            mangohud_hidden: true,
+            ..Default::default()
+        };
+        let env = steam_launch_env(&settings, None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
+        assert_eq!(map.get("MANGOHUD"), Some(&"1"));
+        let config = map.get("MANGOHUD_CONFIG").expect("mangohud config set");
+        assert!(config.contains("autostart_log=1") && config.contains(",hide"));
     }
 }

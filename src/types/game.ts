@@ -281,6 +281,10 @@ export interface CompatibilityProfile {
 
   /** MangoHud performance HUD overlay override */
   enableMangoHud?: boolean | null;
+  /** Start MangoHud hidden by default (toggle with the hotkey) — only meaningful when MangoHud is enabled */
+  mangohudHidden?: boolean | null;
+  /** Route the launch through umu-launcher (Steam Runtime container) instead of invoking the runner directly */
+  enableUmuLauncher?: boolean | null;
   /** GameMode (Feral GameMode CPU/GPU governor) override */
   enableGameMode?: boolean | null;
   /** Gamescope micro-compositor override */

@@ -28,6 +28,7 @@ interface LinuxSystemStatus {
   mangohudAvailable: boolean;
   gamescopeAvailable: boolean;
   winetricksAvailable: boolean;
+  umuAvailable: boolean;
 }
 
 export interface CompatibilitySettings {
@@ -57,6 +58,8 @@ export interface CompatibilitySettings {
   audioDriver: string | null;
   virtualDesktop: boolean;
   virtualDesktopRes: string | null;
+  enableUmuLauncher: boolean;
+  mangohudHidden: boolean;
 
   // Gamescope full options
   gamescopeMode: string | null;
@@ -100,6 +103,8 @@ const DEFAULT_SETTINGS: CompatibilitySettings = {
   audioDriver: null,
   virtualDesktop: false,
   virtualDesktopRes: "1920x1080",
+  enableUmuLauncher: false,
+  mangohudHidden: false,
 
   gamescopeMode: "fullscreen",
   gamescopeGameWidth: 1920,
@@ -933,6 +938,22 @@ export default function CompatibilityTab() {
                 onChange={(v) => updateSettings((prev) => ({ ...prev, enableMangoHud: v }))}
               />
 
+              {settings.enableMangoHud && (
+                <SettingsToggleCard
+                  title={t("compatibility.mangohudHidden")}
+                  desc={t("compatibility.mangohudHiddenDesc")}
+                  checked={settings.mangohudHidden}
+                  onChange={(v) => updateSettings((prev) => ({ ...prev, mangohudHidden: v }))}
+                />
+              )}
+
+              <SettingsToggleCard
+                title={t("compatibility.enableUmuLauncher")}
+                desc={t("compatibility.enableUmuLauncherDesc")}
+                checked={settings.enableUmuLauncher}
+                onChange={(v) => updateSettings((prev) => ({ ...prev, enableUmuLauncher: v }))}
+              />
+
               <SettingsToggleCard
                 title={t("compatibility.enableGameMode")}
                 desc={t("compatibility.enableGameModeDesc")}
@@ -1129,6 +1150,15 @@ export default function CompatibilityTab() {
                     </span>
                     <Badge variant={systemStatus?.winetricksAvailable ? "success" : "default"}>
                       {systemStatus?.winetricksAvailable ? t("compatibility.available") : t("compatibility.notDetected")}
+                    </Badge>
+                  </div>
+
+                  <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                      UMU-Launcher
+                    </span>
+                    <Badge variant={systemStatus?.umuAvailable ? "success" : "default"}>
+                      {systemStatus?.umuAvailable ? t("compatibility.available") : t("compatibility.notDetected")}
                     </Badge>
                   </div>
                 </div>

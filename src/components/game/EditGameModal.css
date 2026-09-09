@@ -2020,12 +2020,30 @@
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-lg);
   overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  -ms-overflow-style: auto;
 }
 
+/* Themed thin scrollbar so overflowing subtabs stay reachable. */
 .edit-compat-subtabs::-webkit-scrollbar {
-  display: none;
+  height: 6px;
+}
+
+.edit-compat-subtabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.edit-compat-subtabs::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.edit-compat-subtabs::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 .edit-compat-subtab-btn {

@@ -782,11 +782,36 @@ pub fn launch_game(
         // with the real process path before any liveness check.
         exe_path = if game_path.is_empty() { None } else { Some(game_path.clone()) };
     } else if platform == "Steam" && (game_path.is_empty() || !Path::new(&game_path).exists()) {
-        // Steam game without local exe â€" use steam:// protocol
+        // Steam game without local exe â€" launch through Steam itself.
+        // When the `steam` CLI is available we spawn it with the
+        // configured Wine/Proton flag environment (Steam passes its own
+        // environment down to the game process), so the compatibility
+        // settings still apply even though Steam owns the launch.
+        // Otherwise fall back to the `steam://run/<appid>` protocol.
         let sid = steam_app_id.ok_or("Steam games require a steamAppId")?;
-        let url = format!("steam://run/{}", sid);
-        tauri_plugin_opener::open_url(url, None::<&str>)
-            .map_err(|e| format!("Failed to open Steam URL: {}", e))?;
+
+        let launched_via_cli = {
+            #[cfg(target_os = "linux")]
+            {
+                crate::compatibility::is_command_available("steam")
+                    && crate::compatibility::try_launch_steam_app(
+                        &app,
+                        &game_id,
+                        sid,
+                        launch_arguments.as_deref(),
+                    )
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                false
+            }
+        };
+
+        if !launched_via_cli {
+            let url = format!("steam://run/{}", sid);
+            tauri_plugin_opener::open_url(url, None::<&str>)
+                .map_err(|e| format!("Failed to open Steam URL: {}", e))?;
+        }
 
         // No PID â€" the watcher will detect the process when it appears
         initial_pid = 0;
