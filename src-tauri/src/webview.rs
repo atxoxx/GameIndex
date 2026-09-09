@@ -78,12 +78,12 @@ const WEBLINKS_PREVIEW_INIT_SCRIPT: &str = r#"(function () {
   }, true);
 })();"#;
 
-/// Create the WebLinks preview child webview from Rust so we can attach an
-/// initialization script (popup handling) and a new-window handler —
-/// neither exists on the JS `new Webview()` API. The frontend then grabs a
-/// handle via `Webview.getByLabel` for sizing/visibility. Must be `async`
-/// so it runs off the main thread: `Window::add_child` internally marshals
-/// to the main thread and blocks, which would deadlock a sync command.
+// Create the WebLinks preview child webview from Rust so we can attach an
+// initialization script (popup handling) and a new-window handler —
+// neither exists on the JS `new Webview()` API. The frontend then grabs a
+// handle via `Webview.getByLabel` for sizing/visibility. Must be `async`
+// so it runs off the main thread: `Window::add_child` internally marshals
+// to the main thread and blocks, which would deadlock a sync command.
 #[cfg(target_os = "linux")]
 thread_local! {
     static OVERLAY_STATE: std::cell::RefCell<Option<LinuxOverlayState>> = const { std::cell::RefCell::new(None) };

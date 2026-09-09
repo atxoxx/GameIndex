@@ -695,8 +695,10 @@ fn ensure_gamescope_stats_fifo(path: &Path) -> bool {
         }
         Err(_) => {}
     }
-    let c_path = std::ffi::CString::new(path.to_string_lossy().as_bytes()).ok()?;
-    unsafe { libc::mkfifo(c_path.as_ptr(), 0o600) == 0 }
+    match std::ffi::CString::new(path.to_string_lossy().as_bytes()) {
+        Ok(c_path) => unsafe { libc::mkfifo(c_path.as_ptr(), 0o600) == 0 },
+        Err(_) => false,
+    }
 }
 
 /// Launch a Windows executable through Wine or Proton.

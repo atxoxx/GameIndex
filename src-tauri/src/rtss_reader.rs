@@ -6,7 +6,9 @@ use windows::Win32::System::Memory::{
 };
 #[cfg(windows)]
 use windows::Win32::Foundation::{CloseHandle, HANDLE, BOOL};
+#[cfg(windows)]
 use std::ffi::CString;
+#[cfg(windows)]
 use std::sync::Mutex;
 
 /// Real-time metrics read from RTSS shared memory for a specific process.

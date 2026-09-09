@@ -363,11 +363,12 @@ pub fn run() {
             #[cfg(target_os = "linux")]
             if let WindowEvent::Resized(_) = event {
                 if window.label() == "main" {
-                    let win = window.clone();
-                    std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_millis(100));
-                        let _ = win.eval("window.dispatchEvent(new Event('resize'))");
-                    });
+                    if let Some(webview) = window.app_handle().get_webview("main") {
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                            let _ = webview.eval("window.dispatchEvent(new Event('resize'))");
+                        });
+                    }
                 }
             }
         })

@@ -4,7 +4,9 @@ use wmi::{COMLibrary, WMIConnection};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
+#[cfg(windows)]
 use crate::rtss_reader;
+#[cfg(windows)]
 use crate::mahm_reader;
 
 /// Serializable session metrics — matches the frontend SessionMetrics type.
@@ -285,7 +287,6 @@ fn collect_metrics_loop(
             t: 0.0,
         };
         sample.t = loop_start.elapsed().as_secs_f64();
-        samples.push(sample);
 
         if !first_logged {
             first_logged = true;
@@ -295,6 +296,8 @@ fn collect_metrics_loop(
                 sample.cpu_temp, sample.gpu_temp, sample.rtss_fps
             );
         }
+
+        samples.push(sample);
 
         // Sleep for the poll interval, checking for the stop signal.
         let start = Instant::now();
@@ -608,7 +611,7 @@ fn read_mangohud_fps(
 #[cfg(target_os = "linux")]
 fn linux_looks_like_mangohud(path: &std::path::Path) -> bool {
     use std::io::Read;
-    let Ok(mut f) = std::fs::File::open(path) else { return false };
+    let Ok(f) = std::fs::File::open(path) else { return false };
     let mut head = Vec::new();
     if f.take(4096).read_to_end(&mut head).is_err() {
         return false;
@@ -670,7 +673,7 @@ fn read_gamescope_stats_fps() -> Option<f64> {
     use std::os::unix::fs::OpenOptionsExt;
 
     let path = crate::compatibility::linux_gamescope_stats_fifo()?;
-    let file = std::fs::OpenOptions::new()
+    let mut file = std::fs::OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NONBLOCK | libc::O_CLOEXEC)
         .open(&path)

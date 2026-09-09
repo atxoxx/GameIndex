@@ -6,7 +6,9 @@ use windows::Win32::System::Memory::{
 };
 #[cfg(windows)]
 use windows::Win32::Foundation::{CloseHandle, HANDLE, BOOL};
+#[cfg(windows)]
 use std::ffi::CString;
+#[cfg(windows)]
 use std::sync::Mutex;
 
 #[repr(C)]
@@ -388,6 +390,7 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
 
 /// Release cached handle
 #[allow(dead_code)]
+#[cfg(windows)]
 pub fn release_mahm() {
     if let Ok(mut cache) = CACHED_MAHM_HANDLE.lock() {
         if let Some(handle) = cache.take() {
