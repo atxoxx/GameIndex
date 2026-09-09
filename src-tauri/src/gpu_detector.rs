@@ -44,6 +44,14 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
                 let query = "SELECT Name, AdapterCompatibility, AdapterRAM FROM Win32_VideoController";
                 match wmi_con.raw_query::<WmiVideoController>(query) {
                     Ok(results) => {
+                        // Win32_VideoController can list the same physical adapter
+                        // once per display output (a single NVIDIA GPU shows up
+                        // twice when two monitors are attached). Dedupe by
+                        // name+vendor for the settings list, but keep the ORIGINAL
+                        // WMI index in the id so metrics collection can still map
+                        // `gpu-N` to the right `phys_N` performance counter.
+                        let mut seen: std::collections::HashSet<String> =
+                            std::collections::HashSet::new();
                         for (idx, gpu) in results.into_iter().enumerate() {
                             let name = gpu.name.trim().to_string();
                             if name.is_empty() {
@@ -60,6 +68,15 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
                             } else {
                                 vendor
                             };
+
+                            let dedupe_key = format!(
+                                "{}|{}",
+                                name.to_lowercase(),
+                                vendor_display.to_lowercase()
+                            );
+                            if !seen.insert(dedupe_key) {
+                                continue;
+                            }
 
                             let vram_bytes = gpu.adapter_ram.unwrap_or(0);
                             // WMI AdapterRAM is uint32 — values near 4 GB (4,294,967,295 bytes)
@@ -96,30 +113,50 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
     .unwrap_or_default()
 }
 
+/// DRM cards in `/sys/class/drm`, deduplicated by PCI slot so a single
+/// physical GPU that exposes multiple card entries (common with the NVIDIA
+/// driver, one card per display head) is listed once. Shared by both
+/// `detect_gpus` and the metrics collector so a `gpu-N` id maps to the same
+/// card on both sides.
+#[cfg(target_os = "linux")]
+pub(crate) fn linux_drm_cards() -> Vec<std::path::PathBuf> {
+    use std::fs;
+    let mut cards = Vec::new();
+    let mut seen_pci: std::collections::HashSet<String> = std::collections::HashSet::new();
+    if let Ok(entries) = fs::read_dir("/sys/class/drm") {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !name.starts_with("card") || name.contains('-') {
+                continue;
+            }
+            if !entry.path().join("device").exists() {
+                continue;
+            }
+            let uevent = fs::read_to_string(entry.path().join("device/uevent"))
+                .unwrap_or_default();
+            let pci_slot = uevent
+                .lines()
+                .find(|l| l.starts_with("PCI_SLOT_NAME="))
+                .map(|l| l.trim_start_matches("PCI_SLOT_NAME=").to_string())
+                .unwrap_or_default();
+            if !pci_slot.is_empty() && !seen_pci.insert(pci_slot) {
+                continue;
+            }
+            cards.push(entry.path());
+        }
+    }
+    cards
+}
+
 /// Detect GPUs on Linux via /sys/class/drm/card*/device.
 #[cfg(target_os = "linux")]
 pub fn detect_gpus() -> Vec<GpuInfo> {
     use std::fs;
-    use std::path::Path;
 
     let mut gpus = Vec::new();
-    let drm = Path::new("/sys/class/drm");
-    if !drm.exists() {
-        return gpus;
-    }
-    let Ok(entries) = fs::read_dir(drm) else {
-        return gpus;
-    };
     let mut idx = 0u32;
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if !name.starts_with("card") || name.contains('-') {
-            continue;
-        }
-        let dev = entry.path().join("device");
-        if !dev.exists() {
-            continue;
-        }
+    for card in linux_drm_cards() {
+        let dev = card.join("device");
         let vendor_id = fs::read_to_string(dev.join("vendor"))
             .map(|s| s.trim().to_lowercase())
             .unwrap_or_default();
@@ -141,7 +178,7 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
             format!("{} GPU ({})", vendor, pci_slot)
         };
         let vram_mb = if vendor == "NVIDIA" {
-            nvidia_vram_linux()
+            nvidia_vram_linux(&pci_slot)
         } else {
             estimate_vram_from_name(&gpu_name)
         };
@@ -156,40 +193,78 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
     gpus
 }
 
+/// Read the value of a `Key: value` line from an NVIDIA `information` file.
 #[cfg(target_os = "linux")]
-fn nvidia_name_linux(_pci: &str) -> String {
+fn read_nvidia_information(path: &std::path::Path, field: &str) -> Option<String> {
+    let info = std::fs::read_to_string(path).ok()?;
+    info.lines()
+        .find(|l| l.trim_start().starts_with(field))
+        .map(|l| l.trim_start().trim_start_matches(field).trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+/// NVIDIA GPU model for the card at `pci`. The information file's directory
+/// is named after the PCI slot, so look there first; fall back to any NVIDIA
+/// GPU's model when the slot-specific file is unreadable.
+#[cfg(target_os = "linux")]
+fn nvidia_name_linux(pci: &str) -> String {
+    let specific = std::path::Path::new("/proc/driver/nvidia/gpus")
+        .join(pci)
+        .join("information");
+    if let Some(model) = read_nvidia_information(&specific, "Model:") {
+        return model;
+    }
     let base = std::path::Path::new("/proc/driver/nvidia/gpus");
     if let Ok(entries) = std::fs::read_dir(base) {
         for e in entries.flatten() {
-            if let Ok(info) = std::fs::read_to_string(e.path().join("information")) {
-                if let Some(line) = info.lines().find(|l| l.starts_with("Model:")) {
-                    let m = line.trim_start_matches("Model:").trim().to_string();
-                    if !m.is_empty() {
-                        return m;
-                    }
-                }
+            if let Some(model) = read_nvidia_information(&e.path().join("information"), "Model:") {
+                return model;
             }
         }
     }
     "NVIDIA GPU".to_string()
 }
 
+/// Extract VRAM in MB from a single NVIDIA `information` line. Modern
+/// drivers write `GPU Memory Size: 10240 MiB`; older ones wrote
+/// `Total Memory: 12288 MiB`. Shared with tests.
+#[cfg(any(target_os = "linux", test))]
+fn parse_nvidia_vram_mb(line: &str) -> Option<u64> {
+    let lower = line.to_lowercase();
+    if !(lower.contains("gpu memory size") || lower.contains("total memory")) {
+        return None;
+    }
+    let digits: String = line.chars().filter(|c| c.is_ascii_digit()).collect();
+    let mb = digits.parse::<u64>().ok()?;
+    (mb > 0).then_some(mb)
+}
+
+/// VRAM in MB for the NVIDIA card at `pci`, read from its own information
+/// file. Falls back to any NVIDIA GPU when the slot-specific file is
+/// unreadable.
 #[cfg(target_os = "linux")]
-fn nvidia_vram_linux() -> u64 {
+fn nvidia_vram_linux(pci: &str) -> u64 {
+    let specific = std::path::Path::new("/proc/driver/nvidia/gpus")
+        .join(pci)
+        .join("information");
+    if let Some(mb) = read_nvidia_vram_from(&specific) {
+        return mb;
+    }
     let base = std::path::Path::new("/proc/driver/nvidia/gpus");
     if let Ok(entries) = std::fs::read_dir(base) {
         for e in entries.flatten() {
-            if let Ok(info) = std::fs::read_to_string(e.path().join("information")) {
-                if let Some(line) = info.lines().find(|l| l.contains("Total Memory:")) {
-                    let digits: String = line.chars().filter(|c| c.is_ascii_digit()).collect();
-                    if let Ok(mb) = digits.parse::<u64>() {
-                        return mb;
-                    }
-                }
+            if let Some(mb) = read_nvidia_vram_from(&e.path().join("information")) {
+                return mb;
             }
         }
     }
     0
+}
+
+#[cfg(target_os = "linux")]
+fn read_nvidia_vram_from(path: &std::path::Path) -> Option<u64> {
+    let info = std::fs::read_to_string(path).ok()?;
+    info.lines().find_map(parse_nvidia_vram_mb)
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
@@ -293,3 +368,31 @@ fn estimate_vram_from_name(name: &str) -> u64 {
     // Default fallback for unknown modern GPUs
     8192
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nvidia_vram_parses_gpu_memory_size_field() {
+        // Modern NVIDIA driver format — this is the field that was being
+        // missed (the old parser looked for "Total Memory:" only, which
+        // doesn't exist → every NVIDIA card reported 0 MB).
+        assert_eq!(parse_nvidia_vram_mb("GPU Memory Size: 10240 MiB"), Some(10240));
+        assert_eq!(parse_nvidia_vram_mb("GPU Memory Size: 24576 MiB"), Some(24576));
+    }
+
+    #[test]
+    fn nvidia_vram_parses_legacy_total_memory_field() {
+        // Older driver format kept as a fallback.
+        assert_eq!(parse_nvidia_vram_mb("Total Memory: 12288 MiB"), Some(12288));
+    }
+
+    #[test]
+    fn nvidia_vram_rejects_non_memory_lines_and_zero() {
+        assert_eq!(parse_nvidia_vram_mb("Model: NVIDIA GeForce RTX 3080"), None);
+        assert_eq!(parse_nvidia_vram_mb("Bus Location: 0000:01:00.0"), None);
+        assert_eq!(parse_nvidia_vram_mb("GPU Memory Size: 0 MiB"), None);
+        assert_eq!(parse_nvidia_vram_mb(""), None);
+    }
+}

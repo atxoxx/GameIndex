@@ -410,23 +410,11 @@ fn read_cpu_temp_celsius() -> Option<f32> {
     None
 }
 
-/// DRM cards in the same order/filter as `gpu_detector::detect_gpus`, so a
-/// frontend-supplied `gpu-N` id maps to the same card here.
+/// DRM cards in the same order/filter as `gpu_detector::detect_gpus` (PCI-slot
+/// deduped), so a frontend-supplied `gpu-N` id maps to the same card here.
 #[cfg(target_os = "linux")]
 fn linux_drm_cards() -> Vec<std::path::PathBuf> {
-    let mut cards = Vec::new();
-    if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if !name.starts_with("card") || name.contains('-') {
-                continue;
-            }
-            if entry.path().join("device").exists() {
-                cards.push(entry.path());
-            }
-        }
-    }
-    cards
+    crate::gpu_detector::linux_drm_cards()
 }
 
 /// Sysfs-backed GPU load + temperature source for the selected card.
@@ -438,6 +426,10 @@ struct LinuxGpuSource {
     gpu_temp_file: Option<std::path::PathBuf>,
     /// NVIDIA card with nvidia-smi on PATH → query utilization there.
     use_nvidia_smi: bool,
+    /// PCI bus id (e.g. `0000:01:00.0`) of the selected NVIDIA card, passed
+    /// to `nvidia-smi -i` so monitoring reads THIS GPU's sensors instead of
+    /// always the first one. `None` when the id couldn't be resolved.
+    nvidia_bus: Option<String>,
 }
 
 #[cfg(target_os = "linux")]
@@ -453,6 +445,7 @@ impl LinuxGpuSource {
                 gpu_busy_file: None,
                 gpu_temp_file: None,
                 use_nvidia_smi: false,
+                nvidia_bus: None,
             };
         };
 
@@ -462,6 +455,11 @@ impl LinuxGpuSource {
             .lines()
             .find(|l| l.starts_with("DRIVER="))
             .map(|l| l.trim_start_matches("DRIVER=").to_string())
+            .unwrap_or_default();
+        let pci_slot = uevent
+            .lines()
+            .find(|l| l.starts_with("PCI_SLOT_NAME="))
+            .map(|l| l.trim_start_matches("PCI_SLOT_NAME=").to_string())
             .unwrap_or_default();
 
         let gpu_busy_file = if driver == "amdgpu" {
@@ -473,11 +471,17 @@ impl LinuxGpuSource {
         let gpu_temp_file = linux_gpu_temp_file(&dev);
         let use_nvidia_smi = driver == "nvidia"
             && crate::compatibility::is_command_available("nvidia-smi");
+        let nvidia_bus = if use_nvidia_smi && !pci_slot.is_empty() {
+            Some(pci_slot)
+        } else {
+            None
+        };
 
         LinuxGpuSource {
             gpu_busy_file,
             gpu_temp_file,
             use_nvidia_smi,
+            nvidia_bus,
         }
     }
 
@@ -489,7 +493,7 @@ impl LinuxGpuSource {
                 usage = raw.trim().parse::<f32>().unwrap_or(0.0);
             }
         } else if self.use_nvidia_smi {
-            if let Some((u, t)) = linux_nvidia_smi_sample() {
+            if let Some((u, t)) = linux_nvidia_smi_sample(self.nvidia_bus.as_deref()) {
                 if self.gpu_temp_file.is_none() {
                     return (u, t);
                 }
@@ -522,9 +526,16 @@ fn linux_gpu_temp_file(dev: &std::path::Path) -> Option<std::path::PathBuf> {
 }
 
 /// NVIDIA utilization + temperature via nvidia-smi (no sysfs equivalent).
+/// When `bus` is given it is passed as `-i <bus>` so the SELECTED GPU's
+/// sensors are read; without it nvidia-smi would report the first GPU in
+/// its own (unrelated) enumeration order.
 #[cfg(target_os = "linux")]
-fn linux_nvidia_smi_sample() -> Option<(f32, f32)> {
-    let out = std::process::Command::new("nvidia-smi")
+fn linux_nvidia_smi_sample(bus: Option<&str>) -> Option<(f32, f32)> {
+    let mut cmd = std::process::Command::new("nvidia-smi");
+    if let Some(b) = bus {
+        cmd.args(["-i", b]);
+    }
+    let out = cmd
         .args([
             "--query-gpu=utilization.gpu,temperature.gpu",
             "--format=csv,noheader,nounits",
