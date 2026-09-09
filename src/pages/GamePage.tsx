@@ -44,6 +44,7 @@ import "../styles/activity.css";
 import "../styles/achievements.css";
 import "../styles/reviews.css";
 import "../styles/game-news.css";
+import "./news/NewsPage.css";
 import "../styles/weblinks.css";
 import { useAchievements } from "../context/AchievementContext";
 import { Button, ConfirmModal } from "../components/ui";
