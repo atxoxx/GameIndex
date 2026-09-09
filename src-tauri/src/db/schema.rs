@@ -77,6 +77,10 @@ pub const GAMES_V8_DDL: &str = include_str!("schema_games_v8.sql");
 /// and runner profile (`compatibility_json`).
 pub const GAMES_V9_DDL: &str = include_str!("schema_games_v9.sql");
 
+/// DDL for the `games` domain, v10 migration: IGDB collection id
+/// (`collection_id`) for persistent series relations.
+pub const GAMES_V10_DDL: &str = include_str!("schema_games_v10.sql");
+
 /// DDL for the `emulators` domain: the `emulators` table.
 pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
 
@@ -170,7 +174,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "games",
-        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL), ("v8", GAMES_V8_DDL), ("v9", GAMES_V9_DDL)],
+        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL), ("v8", GAMES_V8_DDL), ("v9", GAMES_V9_DDL), ("v10", GAMES_V10_DDL)],
     },
     DomainSchema {
         label: "sessions",

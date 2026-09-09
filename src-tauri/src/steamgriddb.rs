@@ -836,6 +836,7 @@ mod tests {
     fn art(url: &str, mime: &str, score: f64, downloads: u64) -> SgdbArtwork {
         SgdbArtwork {
             url: Some(url.to_string()),
+            thumb: Some(url.to_string()),
             mime: Some(mime.to_string()),
             width: Some(600),
             height: Some(900),
@@ -981,7 +982,8 @@ mod tests {
             art("good.ico", "image/vnd.microsoft.icon", 9.0, 500),
             art("bad.bin", "application/octet-stream", 9.0, 500),
         ];
-        let converted = to_all_artwork_items(items);
+        let mut converted = to_all_artwork_items(items, false);
+        sort_all_artwork_items(&mut converted);
         assert_eq!(converted.len(), 3);
         assert_eq!(converted[0].url, "good.ico");
         assert_eq!(converted[0].width, 600);
@@ -990,7 +992,7 @@ mod tests {
 
     #[test]
     fn all_artwork_items_drops_unrenderable_uploads() {
-        let converted = to_all_artwork_items(vec![art("a.bin", "application/octet-stream", 1.0, 1)]);
+        let converted = to_all_artwork_items(vec![art("a.bin", "application/octet-stream", 1.0, 1)], false);
         assert!(converted.is_empty());
     }
 

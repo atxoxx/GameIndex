@@ -208,6 +208,8 @@ pub struct GameRow {
     pub language_supports: Option<Vec<serde_json::Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub collection: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collection_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub franchise: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -261,7 +263,8 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), 
                  igdb_id,
                  rom_hash, rom_region, rom_language, rom_group, rom_disc,
                  rom_archived, favorite, compat_notes, rom_profile,
-                 version
+                 version,
+                 collection_id
              ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -283,7 +286,8 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), 
                  ?59,?60,?61,?62,
                  ?63,?64,
                  ?65,?66,?67,?68,?69,
-                 ?70,?71,?72,?73,?74
+                 ?70,?71,?72,?73,?74,
+                 ?75
              )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -377,6 +381,7 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), 
             r.compat_notes,
             json_opt(&r.rom_profile),
             r.version,
+            r.collection_id.map(|n| n as i64),
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -424,7 +429,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             igdb_id,
             rom_hash, rom_region, rom_language, rom_group, rom_disc,
             rom_archived, favorite, compat_notes, rom_profile,
-            version
+            version,
+            collection_id
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -446,7 +452,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?59,?60,?61,?62,
             ?63,?64,
             ?65,?66,?67,?68,?69,
-            ?70,?71,?72,?73,?74
+            ?70,?71,?72,?73,?74,
+            ?75
         )",
         params![
             r.id,
@@ -525,6 +532,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             r.compat_notes,
             json_opt(&r.rom_profile),
             r.version,
+            r.collection_id.map(|n| n as i64),
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -616,7 +624,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -714,6 +722,9 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // v8 version column — read after the original 75 columns.
         // NULL rows (pre-v8) read back as `None`.
         version: r.get(75)?,
+        // v10 collection_id column — read after version column.
+        // NULL rows (pre-v10) read back as `None`.
+        collection_id: r.get::<_, Option<i64>>(76)?.map(|n| n as u64),
         // Compatibility profile is isolated into compatibility.db
         compatibility_json: None,
     })
@@ -752,7 +763,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL};
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -769,6 +780,7 @@ mod tests {
             conn.execute_batch(GAMES_V7_DDL).unwrap();
             conn.execute_batch(GAMES_V8_DDL).unwrap();
             conn.execute_batch(GAMES_V9_DDL).unwrap();
+            conn.execute_batch(GAMES_V10_DDL).unwrap();
         }
         (dir, db)
     }
@@ -804,6 +816,7 @@ mod tests {
             "compatNotes": "use Vulkan",
             "romProfile": {"graphicsBackend": "vulkan", "fullscreen": true},
             "version": "1.0.4",
+            "collectionId": 420u64,
         }))
         .unwrap()
     }
@@ -840,6 +853,7 @@ mod tests {
         assert_eq!(got.compat_notes.as_deref(), Some("use Vulkan"));
         assert!(got.rom_profile.is_some());
         assert_eq!(got.version.as_deref(), Some("1.0.4"));
+        assert_eq!(got.collection_id, Some(420));
     }
 
     /// Same alignment guarantee for the full-library `upsert_all` path.
@@ -866,5 +880,6 @@ mod tests {
         assert_eq!(got.compat_notes.as_deref(), Some("use Vulkan"));
         assert!(got.rom_profile.is_some());
         assert_eq!(got.version.as_deref(), Some("1.0.4"));
+        assert_eq!(got.collection_id, Some(420));
     }
 }

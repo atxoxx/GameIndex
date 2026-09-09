@@ -187,6 +187,14 @@ pub fn create_raw_backup<F>(
 where
     F: FnMut(BackupProgress),
 {
+    if let Some(only) = only {
+        for name in only {
+            if !BACKUP_DOMAINS.contains(&name.as_str()) {
+                return Err(format!("unknown backup domain: {name}"));
+            }
+        }
+    }
+
     // Filter chosen domains
     let mut chosen_domains = Vec::new();
     for name in BACKUP_DOMAINS {
@@ -502,10 +510,17 @@ where
 
     let available = manifest.domains;
     let selected_domains: Vec<String> = match domains {
-        Some(only) => available
-            .into_iter()
-            .filter(|d| only.iter().any(|o| o == d))
-            .collect(),
+        Some(only) => {
+            for name in only {
+                if !available.iter().any(|d| d == name) {
+                    return Err(format!("backup archive is missing {name}"));
+                }
+            }
+            available
+                .into_iter()
+                .filter(|d| only.iter().any(|o| o == d))
+                .collect()
+        }
         None => available,
     };
 

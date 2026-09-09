@@ -161,6 +161,25 @@ function normalizeName(name: string): string {
   return name.toLowerCase().trim();
 }
 
+/** Split comma- or semicolon-separated multi-value metadata (franchises, co-developers). */
+function tokenizeList(str?: string): string[] {
+  if (!str) return [];
+  return str
+    .split(/[;,]/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** True when two tokenized lists share at least one element. */
+function hasAnyOverlap(a?: string, b?: string): boolean {
+  if (!a || !b) return false;
+  const tokensA = tokenizeList(a);
+  const tokensB = tokenizeList(b);
+  if (tokensA.length === 0 || tokensB.length === 0) return false;
+  const setA = new Set(tokensA);
+  return tokensB.some((t) => setA.has(t));
+}
+
 /** True when two strings are essentially the same, ignoring trivial
  *  differences (whitespace, case). Used for the in-library check
  *  on the Store page where the IGDB title and the library name
@@ -197,16 +216,24 @@ function buildLibraryGroups(
 
   const groups: RelationGroup[] = [];
 
-  // 1. Same Series (collection)
-  if (current.collection && current.collection.trim().length > 0) {
-    const currentCollection = current.collection.toLowerCase().trim();
+  // 1. Same Series (collection ID or collection name)
+  if (
+    (current.collection && current.collection.trim().length > 0) ||
+    current.collectionId != null
+  ) {
+    const currentCollection = current.collection?.toLowerCase().trim();
     const matches: RelatedGame[] = [];
     for (const g of library) {
       if (g.id === current.id) continue;
-      if (
+      const idMatch =
+        current.collectionId != null &&
+        g.collectionId != null &&
+        g.collectionId === current.collectionId;
+      const nameMatch =
+        currentCollection &&
         g.collection !== undefined &&
-        g.collection.toLowerCase().trim() === currentCollection
-      ) {
+        g.collection.toLowerCase().trim() === currentCollection;
+      if (idMatch || nameMatch) {
         const key = normalizeName(g.name);
         if (!seen.has(key)) {
           seen.add(key);
@@ -230,16 +257,12 @@ function buildLibraryGroups(
     }
   }
 
-  // 2. Same Franchise
+  // 2. Same Franchise (tokenized overlap matching)
   if (current.franchise && current.franchise.trim().length > 0) {
-    const currentFranchise = current.franchise.toLowerCase().trim();
     const matches: RelatedGame[] = [];
     for (const g of library) {
       if (g.id === current.id) continue;
-      if (
-        g.franchise !== undefined &&
-        g.franchise.toLowerCase().trim() === currentFranchise
-      ) {
+      if (hasAnyOverlap(g.franchise, current.franchise)) {
         const key = normalizeName(g.name);
         if (!seen.has(key)) {
           seen.add(key);
@@ -263,16 +286,12 @@ function buildLibraryGroups(
     }
   }
 
-  // 3. Same Developer
+  // 3. Same Developer (tokenized overlap matching for co-developers)
   if (current.developer && current.developer.trim().length > 0) {
-    const currentDev = current.developer.toLowerCase().trim();
     const matches: RelatedGame[] = [];
     for (const g of library) {
       if (g.id === current.id) continue;
-      if (
-        g.developer !== undefined &&
-        g.developer.toLowerCase().trim() === currentDev
-      ) {
+      if (hasAnyOverlap(g.developer, current.developer)) {
         const key = normalizeName(g.name);
         if (!seen.has(key)) {
           seen.add(key);
@@ -296,16 +315,12 @@ function buildLibraryGroups(
     }
   }
 
-  // 4. Same Publisher
+  // 4. Same Publisher (tokenized overlap matching)
   if (current.publisher && current.publisher.trim().length > 0) {
-    const currentPub = current.publisher.toLowerCase().trim();
     const matches: RelatedGame[] = [];
     for (const g of library) {
       if (g.id === current.id) continue;
-      if (
-        g.publisher !== undefined &&
-        g.publisher.toLowerCase().trim() === currentPub
-      ) {
+      if (hasAnyOverlap(g.publisher, current.publisher)) {
         const key = normalizeName(g.name);
         if (!seen.has(key)) {
           seen.add(key);
@@ -329,55 +344,60 @@ function buildLibraryGroups(
     }
   }
 
-  // 5. Shared Genres (≥2 overlapping genres; final fallback)
-  // Guard the candidate on having its own genres populated so a
-  // game with `genres: []` can't be added to the seen set on a
-  // 0-overlap result (which would mask it from later groups).
+  // 5. Shared Genres & Tags (relevance-sorted by overlap count)
   if (current.genres && current.genres.length > 0) {
-    const matches: RelatedGame[] = [];
+    const scoredMatches: { game: RelatedGame; score: number }[] = [];
     for (const g of library) {
       if (g.id === current.id) continue;
       if (!g.genres || g.genres.length === 0) continue;
-      if (countOverlap(g.genres, current.genres) < 2) continue;
+      const overlap = countOverlap(g.genres, current.genres);
+      if (overlap < 2) continue;
       const key = normalizeName(g.name);
       if (seen.has(key)) continue;
-      seen.add(key);
-      matches.push({
-        id: 0,
-        name: g.name,
-        coverUrl: g.coverArtUrl,
-        libraryGameId: g.id,
-        inLibrary: true,
+      scoredMatches.push({
+        game: {
+          id: 0,
+          name: g.name,
+          coverUrl: g.coverArtUrl,
+          libraryGameId: g.id,
+          inLibrary: true,
+        },
+        score: overlap,
       });
+    }
+    // Highest tag overlap first
+    scoredMatches.sort((a, b) => b.score - a.score);
+    const matches: RelatedGame[] = [];
+    for (const { game } of scoredMatches.slice(0, 16)) {
+      seen.add(normalizeName(game.name));
+      matches.push(game);
     }
     if (matches.length > 0) {
       groups.push({
         type: "shared_genres",
-        title: "Similar by genre",
+        title: "Similar by genre & tags",
         subtitle: `${matches.length} game${matches.length !== 1 ? "s" : ""} with overlapping tags`,
         games: matches,
       });
     }
   }
 
-  // 6. Other in this collection (IGDB-fetched, when the GamePage
-  // provided a `collectionId` prop). Mirrors the equivalent group in
-  // store mode so the Library and Store pages surface the same data.
+  // 6. Other in this collection (IGDB-fetched, cross-linked to library)
   if (collectionMembers.length > 0) {
     const matches: RelatedGame[] = [];
     for (const s of collectionMembers) {
-      // Self-exclusion by name (the seen seed already handles the
-      // exact-match case, but `namesMatch` tolerates punctuation/
-      // case variations between the IGDB title and the local name).
       if (namesMatch(s.name, name)) continue;
       const key = normalizeName(s.name);
       if (seen.has(key)) continue;
       seen.add(key);
+      const inLib = library.find((lg) => namesMatch(lg.name, s.name));
       matches.push({
         id: s.id,
         name: s.name,
-        coverUrl: s.coverUrl,
+        coverUrl: inLib?.coverArtUrl ?? s.coverUrl,
         slug: s.slug,
+        inLibrary: !!inLib,
+        libraryGameId: inLib?.id,
       });
     }
     if (matches.length > 0) {
@@ -390,20 +410,21 @@ function buildLibraryGroups(
     }
   }
 
-  // 7. Similar games (IGDB's `similar_games` field). Same dedupe
-  // path as the store page so a game that appears in BOTH the local
-  // library matches AND the IGDB similar list shows up only once.
+  // 7. Similar games (IGDB, cross-linked to library)
   if (similarGames.length > 0) {
     const matches: RelatedGame[] = [];
     for (const sg of similarGames) {
       const key = normalizeName(sg.name);
       if (seen.has(key)) continue;
       seen.add(key);
+      const inLib = library.find((lg) => namesMatch(lg.name, sg.name));
       matches.push({
         id: sg.id,
         name: sg.name,
-        coverUrl: sg.coverUrl,
+        coverUrl: inLib?.coverArtUrl ?? sg.coverUrl,
         slug: slugify(sg.name),
+        inLibrary: !!inLib,
+        libraryGameId: inLib?.id,
       });
     }
     if (matches.length > 0) {
@@ -416,9 +437,7 @@ function buildLibraryGroups(
     }
   }
 
-  // Sort groups by the canonical order so the UI is predictable
-  // even though the builder doesn't insert in that order. Mirrors
-  // buildStoreGroups so the two modes render in a consistent order.
+  // Sort groups by canonical order
   groups.sort(
     (a, b) =>
       RELATION_GROUP_ORDER.indexOf(a.type) -
@@ -475,7 +494,7 @@ function buildStoreGroups(
     });
   }
 
-  // 2. Other in Collection (IGDB-fetched)
+  // 2. Other in Collection (IGDB-fetched, cross-linked to library)
   if (collectionMembers.length > 0) {
     const matches: RelatedGame[] = [];
     for (const s of collectionMembers) {
@@ -483,11 +502,14 @@ function buildStoreGroups(
       const key = normalizeName(s.name);
       if (seen.has(key)) continue;
       seen.add(key);
+      const inLib = library.find((lg) => namesMatch(lg.name, s.name));
       matches.push({
         id: s.id,
         name: s.name,
-        coverUrl: s.coverUrl,
+        coverUrl: inLib?.coverArtUrl ?? s.coverUrl,
         slug: s.slug,
+        inLibrary: !!inLib,
+        libraryGameId: inLib?.id,
       });
     }
     if (matches.length > 0) {
@@ -500,18 +522,21 @@ function buildStoreGroups(
     }
   }
 
-  // 3. Similar Games (IGDB)
+  // 3. Similar Games (IGDB, cross-linked to library)
   if (similarGames.length > 0) {
     const matches: RelatedGame[] = [];
     for (const sg of similarGames) {
       const key = normalizeName(sg.name);
       if (seen.has(key)) continue;
       seen.add(key);
+      const inLib = library.find((lg) => namesMatch(lg.name, sg.name));
       matches.push({
         id: sg.id,
         name: sg.name,
-        coverUrl: sg.coverUrl,
+        coverUrl: inLib?.coverArtUrl ?? sg.coverUrl,
         slug: slugify(sg.name),
+        inLibrary: !!inLib,
+        libraryGameId: inLib?.id,
       });
     }
     if (matches.length > 0) {
@@ -524,23 +549,23 @@ function buildStoreGroups(
     }
   }
 
-  // 4. Same Developer (library scan, store page also gets this)
+  // 4. Same Developer (tokenized overlap matching)
   if (current.developer && current.developer.trim().length > 0) {
-    const currentDev = current.developer.toLowerCase().trim();
     const matches: RelatedGame[] = [];
     for (const g of library) {
-      if (g.developer === undefined) continue;
-      if (g.developer.toLowerCase().trim() !== currentDev) continue;
-      const key = normalizeName(g.name);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      matches.push({
-        id: 0,
-        name: g.name,
-        coverUrl: g.coverArtUrl,
-        libraryGameId: g.id,
-        inLibrary: true,
-      });
+      if (hasAnyOverlap(g.developer, current.developer)) {
+        const key = normalizeName(g.name);
+        if (!seen.has(key)) {
+          seen.add(key);
+          matches.push({
+            id: 0,
+            name: g.name,
+            coverUrl: g.coverArtUrl,
+            libraryGameId: g.id,
+            inLibrary: true,
+          });
+        }
+      }
     }
     if (matches.length > 0) {
       groups.push({
@@ -552,23 +577,23 @@ function buildStoreGroups(
     }
   }
 
-  // 5. Same Publisher (library scan)
+  // 5. Same Publisher (tokenized overlap matching)
   if (current.publisher && current.publisher.trim().length > 0) {
-    const currentPub = current.publisher.toLowerCase().trim();
     const matches: RelatedGame[] = [];
     for (const g of library) {
-      if (g.publisher === undefined) continue;
-      if (g.publisher.toLowerCase().trim() !== currentPub) continue;
-      const key = normalizeName(g.name);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      matches.push({
-        id: 0,
-        name: g.name,
-        coverUrl: g.coverArtUrl,
-        libraryGameId: g.id,
-        inLibrary: true,
-      });
+      if (hasAnyOverlap(g.publisher, current.publisher)) {
+        const key = normalizeName(g.name);
+        if (!seen.has(key)) {
+          seen.add(key);
+          matches.push({
+            id: 0,
+            name: g.name,
+            coverUrl: g.coverArtUrl,
+            libraryGameId: g.id,
+            inLibrary: true,
+          });
+        }
+      }
     }
     if (matches.length > 0) {
       groups.push({
@@ -580,23 +605,35 @@ function buildStoreGroups(
     }
   }
 
-  // 6. Same Series / collection (library scan)
-  if (current.collection && current.collection.trim().length > 0) {
-    const currentCollection = current.collection.toLowerCase().trim();
+  // 6. Same Series / collection (library scan by collectionId or name)
+  if (
+    (current.collection && current.collection.trim().length > 0) ||
+    current.collectionId != null
+  ) {
+    const currentCollection = current.collection?.toLowerCase().trim();
     const matches: RelatedGame[] = [];
     for (const g of library) {
-      if (g.collection === undefined) continue;
-      if (g.collection.toLowerCase().trim() !== currentCollection) continue;
-      const key = normalizeName(g.name);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      matches.push({
-        id: 0,
-        name: g.name,
-        coverUrl: g.coverArtUrl,
-        libraryGameId: g.id,
-        inLibrary: true,
-      });
+      const idMatch =
+        current.collectionId != null &&
+        g.collectionId != null &&
+        g.collectionId === current.collectionId;
+      const nameMatch =
+        currentCollection &&
+        g.collection !== undefined &&
+        g.collection.toLowerCase().trim() === currentCollection;
+      if (idMatch || nameMatch) {
+        const key = normalizeName(g.name);
+        if (!seen.has(key)) {
+          seen.add(key);
+          matches.push({
+            id: 0,
+            name: g.name,
+            coverUrl: g.coverArtUrl,
+            libraryGameId: g.id,
+            inLibrary: true,
+          });
+        }
+      }
     }
     if (matches.length > 0) {
       groups.push({
@@ -608,23 +645,23 @@ function buildStoreGroups(
     }
   }
 
-  // 7. Same Franchise (library scan)
+  // 7. Same Franchise (tokenized overlap matching)
   if (current.franchise && current.franchise.trim().length > 0) {
-    const currentFranchise = current.franchise.toLowerCase().trim();
     const matches: RelatedGame[] = [];
     for (const g of library) {
-      if (g.franchise === undefined) continue;
-      if (g.franchise.toLowerCase().trim() !== currentFranchise) continue;
-      const key = normalizeName(g.name);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      matches.push({
-        id: 0,
-        name: g.name,
-        coverUrl: g.coverArtUrl,
-        libraryGameId: g.id,
-        inLibrary: true,
-      });
+      if (hasAnyOverlap(g.franchise, current.franchise)) {
+        const key = normalizeName(g.name);
+        if (!seen.has(key)) {
+          seen.add(key);
+          matches.push({
+            id: 0,
+            name: g.name,
+            coverUrl: g.coverArtUrl,
+            libraryGameId: g.id,
+            inLibrary: true,
+          });
+        }
+      }
     }
     if (matches.length > 0) {
       groups.push({
@@ -636,30 +673,36 @@ function buildStoreGroups(
     }
   }
 
-  // 8. Shared Genres (≥2 overlapping genres; final fallback).
-  // Self-exclusion is handled by the `seen` seed at the top of this
-  // function (current.title is reserved) — we do NOT compare library
-  // ids because `GameMetadataResult` has no local-library id.
+  // 8. Shared Genres & Tags (relevance-sorted by overlap count)
   if (current.genres && current.genres.length > 0) {
-    const matches: RelatedGame[] = [];
+    const scoredMatches: { game: RelatedGame; score: number }[] = [];
     for (const g of library) {
       if (!g.genres || g.genres.length === 0) continue;
-      if (countOverlap(g.genres, current.genres) < 2) continue;
+      const overlap = countOverlap(g.genres, current.genres);
+      if (overlap < 2) continue;
       const key = normalizeName(g.name);
       if (seen.has(key)) continue;
-      seen.add(key);
-      matches.push({
-        id: 0,
-        name: g.name,
-        coverUrl: g.coverArtUrl,
-        libraryGameId: g.id,
-        inLibrary: true,
+      scoredMatches.push({
+        game: {
+          id: 0,
+          name: g.name,
+          coverUrl: g.coverArtUrl,
+          libraryGameId: g.id,
+          inLibrary: true,
+        },
+        score: overlap,
       });
+    }
+    scoredMatches.sort((a, b) => b.score - a.score);
+    const matches: RelatedGame[] = [];
+    for (const { game } of scoredMatches.slice(0, 16)) {
+      seen.add(normalizeName(game.name));
+      matches.push(game);
     }
     if (matches.length > 0) {
       groups.push({
         type: "shared_genres",
-        title: "Similar by genre",
+        title: "Similar by genre & tags",
         subtitle: `${matches.length} game${matches.length !== 1 ? "s" : ""} with overlapping tags`,
         games: matches,
       });

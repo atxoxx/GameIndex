@@ -697,6 +697,8 @@ struct SteamAppDetail {
     release_date: Option<SteamReleaseDate>,
     #[serde(default)]
     genres: Vec<SteamGenre>,
+    #[serde(default)]
+    categories: Vec<SteamCategory>,
     header_image: Option<String>,
     capsule_image: Option<String>,
 }
@@ -709,6 +711,62 @@ struct SteamReleaseDate {
 #[derive(Debug, Deserialize)]
 struct SteamGenre {
     description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SteamCategory {
+    description: Option<String>,
+}
+
+/// Fetch community user tags from Steam's public app hover endpoint.
+/// This endpoint (`https://store.steampowered.com/apphoverpublic/<appid>?l=english`)
+/// is public, unauthenticated, requires no API key, and returns the top 20
+/// player-voted tags (e.g. "Souls-like", "Open World", "Cyberpunk", "Dark Fantasy").
+pub async fn fetch_steam_user_tags(app_id: u32) -> Vec<String> {
+    let client = http_client();
+    let url = format!("https://store.steampowered.com/apphoverpublic/{}?l=english", app_id);
+    let resp = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(_) => return Vec::new(),
+    };
+    if !resp.status().is_success() {
+        return Vec::new();
+    }
+    let html = match resp.text().await {
+        Ok(t) => t,
+        Err(_) => return Vec::new(),
+    };
+    parse_steam_hover_tags(&html)
+}
+
+/// Parse user tags from the HTML of Steam's apphoverpublic endpoint.
+fn parse_steam_hover_tags(html: &str) -> Vec<String> {
+    let re = match regex::Regex::new(r#"<div[^>]*class="[^"]*app_tag[^"]*"[^>]*>([^<]+)</div>"#) {
+        Ok(r) => r,
+        Err(_) => return Vec::new(),
+    };
+    let mut tags = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for cap in re.captures_iter(html) {
+        if let Some(m) = cap.get(1) {
+            let decoded = m.as_str()
+                .replace("&amp;", "&")
+                .replace("&nbsp;", " ")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replace("&apos;", "'")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">");
+            let clean = decoded.trim();
+            if !clean.is_empty() {
+                let lower = clean.to_lowercase();
+                if seen.insert(lower) {
+                    tags.push(clean.to_string());
+                }
+            }
+        }
+    }
+    tags
 }
 
 /// Raw movie entry from the Steam `appdetails` endpoint. We expose
@@ -1612,7 +1670,19 @@ pub async fn search_game_metadata(
     // up immediately.
     let mut igdb_pinned = false;
     if let Some(appid) = steam_app_id {
-        if let Some(pinned) = fetch_igdb_game_by_steam_appid(appid).await {
+        if let Some(mut pinned) = fetch_igdb_game_by_steam_appid(appid).await {
+            let steam_tags = fetch_steam_user_tags(appid).await;
+            if !steam_tags.is_empty() {
+                let mut merged = pinned.genres.clone();
+                let mut seen: std::collections::HashSet<String> =
+                    merged.iter().map(|g| g.to_lowercase()).collect();
+                for tag in steam_tags {
+                    if seen.insert(tag.to_lowercase()) {
+                        merged.push(tag);
+                    }
+                }
+                pinned.genres = merged;
+            }
             results.push(pinned);
             igdb_pinned = true;
         }
@@ -1734,13 +1804,18 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
     let app_id = best_match.id;
     let title = best_match.name;
 
-    // Step 2: Get detailed app information
+    // Step 2: Get detailed app information and community user tags in parallel
     let detail_url = format!(
         "https://store.steampowered.com/api/appdetails?appids={}",
         app_id
     );
 
-    let detail_resp = client.get(&detail_url).send().await.ok()?;
+    let (detail_resp, user_tags) = tokio::join!(
+        client.get(&detail_url).send(),
+        fetch_steam_user_tags(app_id as u32)
+    );
+
+    let detail_resp = detail_resp.ok()?;
     let detail_data: SteamAppDetailResponse = detail_resp.json().await.ok()?;
 
     let wrapper = detail_data.apps.get(&app_id.to_string())?;
@@ -1748,6 +1823,32 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
         return None;
     }
     let data = wrapper.data.as_ref()?;
+
+    // Combine Steam broad genres, top community user tags, and gameplay categories
+    let mut genres: Vec<String> = data
+        .genres
+        .iter()
+        .filter_map(|g| g.description.clone())
+        .collect();
+    let mut seen_genres: std::collections::HashSet<String> =
+        genres.iter().map(|g| g.to_lowercase()).collect();
+
+    for tag in user_tags {
+        if seen_genres.insert(tag.to_lowercase()) {
+            genres.push(tag);
+        }
+    }
+
+    for cat in &data.categories {
+        if let Some(desc) = &cat.description {
+            let desc_lower = desc.to_lowercase();
+            if desc_lower.contains("player") || desc_lower.contains("co-op") || desc_lower.contains("pvp") || desc_lower.contains("vr") {
+                if seen_genres.insert(desc_lower) {
+                    genres.push(desc.clone());
+                }
+            }
+        }
+    }
 
     // Build images from the API response and CDN patterns. `tiny_image`
     // from storesearch is already a full URL (e.g. shared.akamai.
@@ -1797,11 +1898,7 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
             .release_date
             .as_ref()
             .and_then(|rd| rd.date.clone()),
-        genres: data
-            .genres
-            .iter()
-            .filter_map(|g| g.description.clone())
-            .collect(),
+        genres,
         images,
         source_url: format!("https://store.steampowered.com/app/{}", app_id),
         source_name: "Steam".to_string(),

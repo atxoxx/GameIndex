@@ -13,6 +13,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   gameNameFromPath,
   extractSteamAppId,
+  extractSteamAppIdFromWebsites,
   dedupeGamesById,
   type Game,
   type GameMetadataResult,
@@ -24,7 +25,8 @@ import { usePersistence } from "./game/usePersistence";
 import { useWatcherIndex } from "./game/useWatcherIndex";
 import { useSessions } from "./game/useSessions";
 import { useLaunch } from "./game/useLaunch";
-import { useEnrich } from "./game/useEnrich";
+import { useEnrich, gameNeedsEnrichment } from "./game/useEnrich";
+import { deduplicateAndMergeTags } from "../utils/genreTags";
 
 interface GameContextType {
   games: Game[];
@@ -68,6 +70,10 @@ interface GameContextType {
    * games IGDB doesn't recognise.
    */
   enrichGameMetadata: (gameId: string, gameName: string, steamAppId?: number) => Promise<void>;
+  /** Enqueue a single game for background auto-enrichment. */
+  enqueueEnrich: (game: { id: string; name: string; steamAppId?: number }, highPriority?: boolean) => void;
+  /** Enqueue a batch of games for background auto-enrichment. */
+  enqueueEnrichBatch: (games: { id: string; name: string; steamAppId?: number }[]) => void;
   /** Check whether a game is excluded from playtime/session tracking. */
   isGameUntracked: (gameId: string) => boolean;
   /** Toggle or set tracking exclusion for a game. */
@@ -293,21 +299,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
     scheduleWatcherIndexRebuild();
   }, [scheduleWatcherIndexRebuild]);
 
-  // ── Enrich: IGDB metadata + reviews + image batch ────────────────
-  const { enrichGameMetadata, fetchGameReviews, fetchAllImages } = useEnrich({
+  // ── Enrich: IGDB metadata + reviews + image batch + background queue ──
+  const {
+    enrichGameMetadata,
+    enqueueEnrich,
+    enqueueEnrichBatch,
+    fetchGameReviews,
+    fetchAllImages,
+  } = useEnrich({
     gamesRef,
     updateGame,
   });
 
+  // On initial library load, auto-enrich any games that are missing metadata or tags/relations
+  useEffect(() => {
+    if (!gamesHydrated || games.length === 0) return;
+    const needy = games.filter(gameNeedsEnrichment);
+    if (needy.length > 0) {
+      enqueueEnrichBatch(
+        needy.map((g) => ({ id: g.id, name: g.name, steamAppId: g.steamAppId }))
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gamesHydrated]);
+
   const addGame = useCallback((game: Game) => {
     const id = game.id || generateId();
-    setGames((prev) => dedupeGamesById([...prev, { ...game, id }]));
+    const withId = { ...game, id };
+    setGames((prev) => dedupeGamesById([...prev, withId]));
     // Refresh the watcher index so the new game is passively detectable.
     scheduleWatcherIndexRebuild();
-    // IGDB metadata is now lazy: GamePage calls enrichGameMetadata on mount
-    // for any game that lacks a description. This avoids the wasteful fan-out
-    // that used to trigger hundreds of IGDB calls during Steam sync.
-  }, [scheduleWatcherIndexRebuild]);
+    // Auto-enrich in background queue (installed or not)
+    enqueueEnrich({ id: withId.id, name: withId.name, steamAppId: withId.steamAppId });
+  }, [scheduleWatcherIndexRebuild, enqueueEnrich]);
 
   const addGames = useCallback((newGames: Game[]) => {
     const withIds = newGames.map((g) => ({ ...g, id: g.id || generateId() }));
@@ -315,13 +339,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // Refresh the watcher index so the imported games are passively
     // detectable without a restart.
     scheduleWatcherIndexRebuild();
-    // IGDB metadata is now lazy: GamePage calls enrichGameMetadata on mount
-    // for any game that lacks a description. This avoids the wasteful fan-out
-    // that triggered hundreds of IGDB calls during Steam sync even in
-    // sequential mode. For a 500-game Steam library, this saves ~4 minutes
-    // of background fetching; users only see IGDB work for games they
-    // actually open.
-  }, [scheduleWatcherIndexRebuild]);
+    // Auto-enrich newly added games in the background queue (installed or not)
+    enqueueEnrichBatch(
+      withIds.map((g) => ({ id: g.id, name: g.name, steamAppId: g.steamAppId }))
+    );
+  }, [scheduleWatcherIndexRebuild, enqueueEnrichBatch]);
 
   const removeGame = useCallback(
     (id: string) => {
@@ -392,6 +414,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return existing.id;
     }
 
+    // Resolve Steam App ID and community tags if available
+    const resolvedSteamAppId = extractSteamAppIdFromWebsites(metadata.websites);
+    let steamTags: string[] = [];
+    if (resolvedSteamAppId) {
+      try {
+        steamTags = await invoke<string[]>("get_steam_tags", { appId: resolvedSteamAppId });
+      } catch (err) {
+        console.warn(`Steam tags fetch failed for store game ${metadata.title}:`, err);
+      }
+    }
+    const mergedGenres = deduplicateAndMergeTags(
+      metadata.genres,
+      metadata.themes,
+      steamTags
+    );
+
     // Download all images to base64 for offline use
     const imageData = await fetchAllImages(metadata.images);
 
@@ -403,6 +441,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       installed: false,
       playTime: "0h",
       addedAt: Date.now(),
+      steamAppId: resolvedSteamAppId ?? undefined,
       coverArtUrl: imageData.coverArtUrl,
       coverSourceUrl: imageData.coverSourceUrl,
       iconUrl: undefined,
@@ -412,7 +451,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       developer: metadata.developer ?? undefined,
       publisher: metadata.publisher ?? undefined,
       releaseDate: metadata.releaseDate ?? undefined,
-      genres: metadata.genres.length > 0 ? metadata.genres : undefined,
+      genres: mergedGenres.length > 0 ? mergedGenres : undefined,
       storyline: metadata.storyline,
       igdbRating: metadata.igdbRating ?? undefined,
       criticRating: metadata.criticRating ?? undefined,
@@ -445,9 +484,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     showToast(t("gameContext.addedToLibrary", { name: metadata.title }), "success");
 
     // Kick off a background review fetch so reviews are ready when the user
-    // opens the Reviews tab. The store metadata doesn't carry a Steam app id,
-    // so the backend will look one up by name.
-    fetchGameReviews(newGame.id, newGame.name).catch((err) =>
+    // opens the Reviews tab.
+    fetchGameReviews(newGame.id, newGame.name, resolvedSteamAppId ?? undefined).catch((err) =>
       console.error("Background review fetch on add failed:", err)
     );
 
@@ -467,6 +505,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       let newGame: Game;
       if (item.metadata) {
+        const resolvedSteamAppId = extractSteamAppIdFromWebsites(item.metadata.websites);
+        let steamTags: string[] = [];
+        if (resolvedSteamAppId) {
+          try {
+            steamTags = await invoke<string[]>("get_steam_tags", { appId: resolvedSteamAppId });
+          } catch (err) {
+            console.warn(`Steam tags fetch failed for local game ${item.metadata.title}:`, err);
+          }
+        }
+        const mergedGenres = deduplicateAndMergeTags(
+          item.metadata.genres,
+          item.metadata.themes,
+          steamTags
+        );
+
         const imageData = await fetchAllImages(item.metadata.images);
         newGame = {
           id: generateId(),
@@ -476,6 +529,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           installed: true,
           playTime: "0h",
           addedAt: Date.now(),
+          steamAppId: resolvedSteamAppId ?? undefined,
           coverArtUrl: imageData.coverArtUrl,
           coverSourceUrl: imageData.coverSourceUrl,
           bannerUrl: imageData.bannerUrl,
@@ -484,7 +538,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           developer: item.metadata.developer ?? undefined,
           publisher: item.metadata.publisher ?? undefined,
           releaseDate: item.metadata.releaseDate ?? undefined,
-          genres: item.metadata.genres.length > 0 ? item.metadata.genres : undefined,
+          genres: mergedGenres.length > 0 ? mergedGenres : undefined,
           storyline: item.metadata.storyline,
           igdbRating: item.metadata.igdbRating ?? undefined,
           criticRating: item.metadata.criticRating ?? undefined,
@@ -518,6 +572,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           playTime: "0h",
           addedAt: Date.now(),
         };
+        // Auto-enrich in background
+        enqueueEnrich({ id: newGame.id, name: newGame.name });
       }
       imported.push(newGame);
     }
@@ -573,7 +629,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } else {
       showToast(t("gameContext.noNewImports"), "info");
     }
-  }, [games, showToast, fetchGameReviews, updateGame, fetchAllImages, scheduleWatcherIndexRebuild, t]);
+  }, [games, showToast, fetchGameReviews, updateGame, fetchAllImages, scheduleWatcherIndexRebuild, enqueueEnrich, t]);
 
   const contextValue = useMemo(() => ({
     games,
@@ -594,6 +650,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     importLocalGames,
     fetchGameReviews,
     enrichGameMetadata,
+    enqueueEnrich,
+    enqueueEnrichBatch,
     isGameUntracked: sessions.isGameUntracked,
     toggleGameTracking: sessions.toggleGameTracking,
   }), [
@@ -614,6 +672,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     importLocalGames,
     fetchGameReviews,
     enrichGameMetadata,
+    enqueueEnrich,
+    enqueueEnrichBatch,
     sessions.isGameUntracked,
     sessions.toggleGameTracking,
   ]);
