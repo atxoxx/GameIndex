@@ -740,6 +740,39 @@ export interface PcRequirementsPayload {
   fetchedAt: number;
 }
 
+// ─── Steam Store Features Types (responsive_apppage_details_left) ───────────
+
+export interface SteamFeatureItem {
+  id?: number;
+  name: string;
+  iconUrl?: string;
+  searchUrl?: string;
+}
+
+export interface SteamControllerSupport {
+  fullSupport: boolean;
+  partialSupport: boolean;
+  gamepadPreferred: boolean;
+  xbox: boolean;
+  ps4: boolean;
+  ps5: boolean;
+}
+
+export interface SteamNoticeItem {
+  text: string;
+  linkUrl?: string;
+  linkText?: string;
+  isAnticheat: boolean;
+}
+
+export interface SteamStoreFeaturesPayload {
+  appId: number;
+  features: SteamFeatureItem[];
+  controllerSupport?: SteamControllerSupport;
+  notices: SteamNoticeItem[];
+  fetchedAt: number;
+}
+
 // ─── Achievements / Success Story Types ─────────────────────────────────────
 
 /** A single achievement definition + user progress (from Steam API merge). */

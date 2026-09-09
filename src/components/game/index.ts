@@ -23,6 +23,7 @@ export { default as InfoKpiCard } from "./InfoKpiCard";
 export { default as RatingsKpiCard } from "./RatingsKpiCard";
 export { default as TimeToBeatCard } from "./TimeToBeatCard";
 export { default as SpecsCard } from "./SpecsCard";
+export { default as SteamFeaturesCard } from "./SteamFeaturesCard";
 export { default as ReleasesCard } from "./ReleasesCard";
 export { default as LanguagesSection } from "./LanguagesSection";
 

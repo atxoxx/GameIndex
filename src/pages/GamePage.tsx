@@ -36,6 +36,7 @@ import {
   SystemRequirementsCard,
   DetailSectionsHiddenNote,
   WineLogsModal,
+  SteamFeaturesCard,
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
@@ -344,6 +345,7 @@ function GameDetail({ game }: { game: Game }) {
                   "mods",
                   "weblinks",
                   "news",
+                  "steamFeatures",
                 ]}
               />
 
@@ -404,6 +406,12 @@ function GameDetail({ game }: { game: Game }) {
               </div>
               <div className="side-group ui-complete-only ui-item-kpis">
                 <SpecsCard game={game} />
+                {detailSectionVisible.steamFeatures && (
+                  <SteamFeaturesCard
+                    steamAppId={game.steamAppId ?? heroSteamAppId}
+                    gameName={game.name}
+                  />
+                )}
                 {showDeckVerified && detailSectionVisible.protonDb && (
                   <ProtonDBCard steamAppId={game.steamAppId} />
                 )}

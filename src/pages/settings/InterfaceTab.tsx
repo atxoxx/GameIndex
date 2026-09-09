@@ -454,6 +454,11 @@ function DetailSectionsPanel() {
         titleKey: "settings.detailSections.news.title",
         descKey: "settings.detailSections.news.desc",
       },
+      {
+        key: "steamFeatures",
+        titleKey: "settings.detailSections.steamFeatures.title",
+        descKey: "settings.detailSections.steamFeatures.desc",
+      },
     );
 
     return list;

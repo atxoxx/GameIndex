@@ -414,3 +414,14 @@ pub async fn get_recommended_config(steam_app_id: Option<u32>) -> Option<PcRequi
     game_scraper::fetch_system_requirements(steam_app_id).await
 }
 
+/// Fetch Steam's store page features / specs block (`responsive_apppage_details_left`)
+/// for a game. Extracts feature items (Single-player, Achievements, Workshop, Cloud, etc.),
+/// controller support, and DRM / anti-cheat notices. Localized to `lang`.
+#[tauri::command]
+pub async fn get_steam_page_features(
+    steam_app_id: Option<u32>,
+    lang: Option<String>,
+) -> Option<game_scraper::SteamStoreFeaturesPayload> {
+    game_scraper::fetch_steam_features(steam_app_id, lang.as_deref()).await
+}
+

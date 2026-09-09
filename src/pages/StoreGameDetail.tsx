@@ -43,6 +43,7 @@ import {
   StorylineSection,
   SystemRequirementsCard,
   DetailSectionsHiddenNote,
+  SteamFeaturesCard,
 } from "../components/game";
 import "../styles/page-store.css";
 import "../styles/achievements.css";
@@ -530,6 +531,7 @@ export default function StoreGameDetail() {
                   "achievements",
                   "weblinks",
                   "news",
+                  "steamFeatures",
                 ]}
               />
 
@@ -578,6 +580,12 @@ export default function StoreGameDetail() {
               </div>
               <div className="side-group ui-complete-only ui-item-kpis">
                 <SpecsCard game={mockGame} />
+                {detailSectionVisible.steamFeatures && (
+                  <SteamFeaturesCard
+                    steamAppId={steamAppId}
+                    gameName={data.title}
+                  />
+                )}
                 {showDeckVerified && detailSectionVisible.protonDb && (
                   <ProtonDBCard steamAppId={steamAppId} />
                 )}

@@ -2459,6 +2459,215 @@
   color: var(--color-accent);
 }
 
+/* ── Steam Features Card ─────────────────────────────────────── */
+.steam-features-card {
+  padding: var(--space-xl);
+}
+
+.steam-icon-badge {
+  color: #66c0f4;
+}
+
+.steam-features-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.steam-feature-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  text-decoration: none;
+  color: var(--color-text-primary);
+  transition: background var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+
+.steam-feature-item:last-child {
+  border-bottom: none;
+}
+
+.steam-feature-item.clickable {
+  cursor: pointer;
+}
+
+.steam-feature-item.clickable:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary));
+}
+
+.steam-feature-item.clickable:hover .steam-feature-label {
+  color: var(--color-accent);
+}
+
+.steam-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.steam-feature-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.steam-feature-icon-placeholder {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.steam-feature-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--color-accent) 65%, var(--color-text-primary));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Controller Block */
+.steam-controller-block {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.steam-controller-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.steam-controller-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.steam-controller-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 20px;
+}
+
+.steam-ctrl-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.3px;
+  color: var(--color-text-secondary);
+}
+
+/* Notices Block (DRM, Anti-Cheat, 3rd-party EULA) */
+.steam-notices-block {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.steam-notice-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 25%, var(--color-border));
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+}
+
+.steam-notice-item.anticheat {
+  background: color-mix(in srgb, var(--color-info) 8%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-info) 25%, var(--color-border));
+}
+
+.steam-notice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-warning);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.steam-notice-item.anticheat .steam-notice-icon {
+  color: var(--color-info);
+}
+
+.steam-notice-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.steam-notice-text {
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
+.steam-notice-link {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-size: var(--font-size-2xs);
+}
+
+.steam-notice-link:hover {
+  color: var(--color-text-primary);
+}
+
+/* Skeleton Loading */
+.steam-features-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.steam-feature-skeleton-row {
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  animation: steamSkeletonPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes steamSkeletonPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.25; }
+}
+
+
 /* ── Hero responsive: keep legend text from overflowing on phones. ── */
 @media (max-width: 600px) {
   .game-hero__title-block {

@@ -602,6 +602,52 @@ pub struct PcRequirementsPayload {
     pub fetched_at: u64,
 }
 
+// ─── Steam Store Features Types (responsive_apppage_details_left) ───────────
+
+/// Single feature / category item extracted from Steam store page specs block
+/// (e.g. Single-player, Steam Achievements, Workshop, Cloud, Family Sharing).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamFeatureItem {
+    pub id: Option<u32>,
+    pub name: String,
+    pub icon_url: Option<String>,
+    pub search_url: Option<String>,
+}
+
+/// Controller support summary extracted from Steam store page.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamControllerSupport {
+    pub full_support: bool,
+    pub partial_support: bool,
+    pub gamepad_preferred: bool,
+    pub xbox: bool,
+    pub ps4: bool,
+    pub ps5: bool,
+}
+
+/// Notice item (DRM, anti-cheat, 3rd party account, EULA) in the details block.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamNoticeItem {
+    pub text: String,
+    pub link_url: Option<String>,
+    pub link_text: Option<String>,
+    pub is_anticheat: bool,
+}
+
+/// Payload returned by `get_steam_page_features`.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamStoreFeaturesPayload {
+    pub app_id: u32,
+    pub features: Vec<SteamFeatureItem>,
+    pub controller_support: Option<SteamControllerSupport>,
+    pub notices: Vec<SteamNoticeItem>,
+    pub fetched_at: u64,
+}
+
 // ─── Store Types (IGDB catalog browsing) ─────────────────────────────────────
 
 /// Lightweight game summary for store listings (cards, grids).
@@ -1530,6 +1576,427 @@ async fn fetch_steam_requirements_cached(app_id: u32) -> Option<PcRequirementsPa
 
     Some(payload)
 }
+
+// ─── Steam Store Features Scraper (responsive_apppage_details_left) ─────────
+
+static FEATURES_CACHE: OnceLock<Mutex<HashMap<(u32, String), (Instant, SteamStoreFeaturesPayload)>>> =
+    OnceLock::new();
+const FEATURES_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+
+fn normalize_steam_lang(lang: &str) -> String {
+    let lower = lang.trim().to_lowercase();
+    match lower.as_str() {
+        "fr" | "french" => "french".to_string(),
+        "de" | "german" => "german".to_string(),
+        "es" | "spanish" => "spanish".to_string(),
+        "ru" | "russian" => "russian".to_string(),
+        "zh-cn" | "zh" | "schinese" | "simplified chinese" => "schinese".to_string(),
+        _ => "english".to_string(),
+    }
+}
+
+fn decode_steam_html_entities(s: &str) -> String {
+    s.replace("&amp;", "&")
+        .replace("&nbsp;", " ")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+}
+
+fn strip_steam_html_tags(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for c in html.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => {
+                in_tag = false;
+                if !out.ends_with(' ') {
+                    out.push(' ');
+                }
+            }
+            _ if !in_tag => out.push(c),
+            _ => {}
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn default_steam_category_icon(id: u32) -> &'static str {
+    match id {
+        2 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_singlePlayer.png",
+        1 | 36 | 37 | 49 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_multiPlayer.png",
+        9 | 38 | 39 | 48 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_coop.png",
+        22 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_achievements.png",
+        23 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_cloud.png",
+        29 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_cards.png",
+        30 | 51 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_workshop.png",
+        17 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_editor.png",
+        62 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_familysharing.png",
+        41 | 42 | 43 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_remote_play.png",
+        44 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_remote_play_together.png",
+        61 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_hdr.png",
+        35 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_cart.png",
+        18 | 28 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_controller.png",
+        40 | 53 | 54 => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_vr.png",
+        _ => "https://store.akamai.steamstatic.com/public/images/v6/ico/ico_singlePlayer.png",
+    }
+}
+
+pub async fn fetch_steam_features(
+    steam_app_id: Option<u32>,
+    lang_param: Option<&str>,
+) -> Option<SteamStoreFeaturesPayload> {
+    let app_id = steam_app_id?;
+    let lang = normalize_steam_lang(lang_param.unwrap_or("english"));
+
+    // Cache hit?
+    {
+        let cache = FEATURES_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        if let Ok(guard) = cache.lock() {
+            if let Some((fetched, payload)) = guard.get(&(app_id, lang.clone())) {
+                if fetched.elapsed() < FEATURES_CACHE_TTL {
+                    return Some(payload.clone());
+                }
+            }
+        }
+    }
+
+    let payload = fetch_steam_features_uncached(app_id, &lang).await;
+    if let Some(ref p) = payload {
+        if !p.features.is_empty() {
+            if let Some(cache) = FEATURES_CACHE.get() {
+                if let Ok(mut guard) = cache.lock() {
+                    guard.insert((app_id, lang), (Instant::now(), p.clone()));
+                }
+            }
+        }
+    }
+    payload
+}
+
+async fn fetch_steam_features_uncached(app_id: u32, lang: &str) -> Option<SteamStoreFeaturesPayload> {
+    let client = http_client();
+
+    let mut features: Vec<SteamFeatureItem> = Vec::new();
+    let mut controller_support: Option<SteamControllerSupport> = None;
+    let mut notices: Vec<SteamNoticeItem> = Vec::new();
+
+    // 1. Attempt to fetch HTML from Steam storefront
+    let url = format!("https://store.steampowered.com/app/{}/?l={}", app_id, lang);
+    let html_resp = client
+        .get(&url)
+        .header(
+            reqwest::header::COOKIE,
+            format!(
+                "birthtime=283993201; mature_content=1; wants_mature_content=1; Steam_Language={}",
+                lang
+            ),
+        )
+        .send()
+        .await;
+
+    if let Ok(resp) = html_resp {
+        if resp.status().is_success() {
+            if let Ok(html) = resp.text().await {
+                // Find category block: either id="category_block" or class="responsive_apppage_details_left"
+                let block_start = html
+                    .find("id=\"category_block\"")
+                    .or_else(|| html.find("responsive_apppage_details_left"));
+
+                if let Some(start) = block_start {
+                    let max_end = html.len().min(start + 15000);
+                    let end = html[start..max_end]
+                        .find("responsive_apppage_details_right")
+                        .map(|idx| start + idx)
+                        .unwrap_or(max_end);
+                    let block = &html[start..end];
+
+                    // Extract specs items: <a class="game_area_details_specs_ctn" ...>...</a>
+                    let mut cursor = 0;
+                    while let Some(rel_start) = block[cursor..].find("game_area_details_specs_ctn") {
+                        let class_idx = cursor + rel_start;
+                        let a_start = match block[..class_idx].rfind("<a") {
+                            Some(pos) => pos,
+                            None => {
+                                cursor = class_idx + 27;
+                                continue;
+                            }
+                        };
+                        let a_end = match block[class_idx..].find("</a>") {
+                            Some(pos) => class_idx + pos + 4,
+                            None => {
+                                cursor = class_idx + 27;
+                                continue;
+                            }
+                        };
+                        cursor = a_end;
+                        let anchor_html = &block[a_start..a_end];
+
+                        // Extract search URL from href
+                        let search_url = if let Some(href_pos) = anchor_html.find("href=\"") {
+                            let after = &anchor_html[href_pos + 6..];
+                            after.find('"').map(|e| after[..e].to_string())
+                        } else {
+                            None
+                        };
+
+                        // Extract category ID from search URL (category2=XX)
+                        let cat_id = search_url.as_ref().and_then(|u| {
+                            let needle = "category2=";
+                            u.find(needle).and_then(|pos| {
+                                let rest = &u[pos + needle.len()..];
+                                let num_str: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                                num_str.parse::<u32>().ok()
+                            })
+                        });
+
+                        // Extract icon URL from img src
+                        let icon_url = if let Some(img_pos) = anchor_html.find("<img") {
+                            let img_slice = &anchor_html[img_pos..];
+                            if let Some(src_pos) = img_slice.find("src=\"") {
+                                let after = &img_slice[src_pos + 5..];
+                                after.find('"').map(|e| {
+                                    let raw = &after[..e];
+                                    if raw.starts_with("//") {
+                                        format!("https:{}", raw)
+                                    } else if raw.starts_with('/') {
+                                        format!("https://store.akamai.steamstatic.com{}", raw)
+                                    } else {
+                                        raw.to_string()
+                                    }
+                                })
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        // Fall back to default category icon if not found
+                        let icon_url = icon_url.or_else(|| cat_id.map(|id| default_steam_category_icon(id).to_string()));
+
+                        // Extract label text from <div class="label">...</div>
+                        let name = if let Some(lbl_pos) = anchor_html.find("class=\"label\"") {
+                            let lbl_slice = &anchor_html[lbl_pos..];
+                            if let Some(close_tag) = lbl_slice.find('>') {
+                                let content = &lbl_slice[close_tag + 1..];
+                                if let Some(end_div) = content.find("</div>") {
+                                    decode_steam_html_entities(&strip_steam_html_tags(&content[..end_div]))
+                                } else {
+                                    String::new()
+                                }
+                            } else {
+                                String::new()
+                            }
+                        } else {
+                            decode_steam_html_entities(&strip_steam_html_tags(anchor_html))
+                        };
+
+                        if !name.is_empty() && !features.iter().any(|f| f.name.eq_ignore_ascii_case(&name)) {
+                            features.push(SteamFeatureItem {
+                                id: cat_id,
+                                name,
+                                icon_url,
+                                search_url,
+                            });
+                        }
+                    }
+
+                    // Extract controller support from data-props
+                    if let Some(ctrl_pos) = block.find("data-featuretarget=\"store-sidebar-controller-support-info\"") {
+                        let slice = &block[ctrl_pos..];
+                        if let Some(props_pos) = slice.find("data-props=\"") {
+                            let after = &slice[props_pos + 12..];
+                            if let Some(end_props) = after.find('"') {
+                                let raw_json = decode_steam_html_entities(&after[..end_props]);
+                                #[derive(Deserialize)]
+                                #[serde(rename_all = "camelCase")]
+                                struct CtrlProps {
+                                    #[serde(default)]
+                                    b_full_xbox_controller_support: bool,
+                                    #[serde(default)]
+                                    b_partial_xbox_controller_support: bool,
+                                    #[serde(default)]
+                                    b_p_s4_controller_support: bool,
+                                    #[serde(default)]
+                                    b_p_s5_controller_support: bool,
+                                    #[serde(default)]
+                                    b_gamepad_preferred: bool,
+                                }
+                                if let Ok(p) = serde_json::from_str::<CtrlProps>(&raw_json) {
+                                    if p.b_full_xbox_controller_support
+                                        || p.b_partial_xbox_controller_support
+                                        || p.b_p_s4_controller_support
+                                        || p.b_p_s5_controller_support
+                                    {
+                                        controller_support = Some(SteamControllerSupport {
+                                            full_support: p.b_full_xbox_controller_support,
+                                            partial_support: p.b_partial_xbox_controller_support,
+                                            gamepad_preferred: p.b_gamepad_preferred,
+                                            xbox: p.b_full_xbox_controller_support || p.b_partial_xbox_controller_support,
+                                            ps4: p.b_p_s4_controller_support,
+                                            ps5: p.b_p_s5_controller_support,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Extract DRM / Anti-Cheat notices
+                    let mut drm_cursor = 0;
+                    while let Some(rel) = block[drm_cursor..].find("class=\"DRM_notice\"")
+                        .or_else(|| block[drm_cursor..].find("class=\"anticheat_section DRM_notice\""))
+                    {
+                        let tag_idx = drm_cursor + rel;
+                        let div_start = match block[..tag_idx].rfind("<div") {
+                            Some(p) => p,
+                            None => {
+                                drm_cursor = tag_idx + 18;
+                                continue;
+                            }
+                        };
+                        let div_end = match block[tag_idx..].find("</div>") {
+                            Some(p) => tag_idx + p + 6,
+                            None => {
+                                drm_cursor = tag_idx + 18;
+                                continue;
+                            }
+                        };
+                        drm_cursor = div_end;
+                        let drm_html = &block[div_start..div_end];
+                        let lower_drm = drm_html.to_lowercase();
+                        let is_anticheat = lower_drm.contains("anti-cheat")
+                            || lower_drm.contains("anticheat")
+                            || lower_drm.contains("battleye")
+                            || lower_drm.contains("easy anti-cheat");
+
+                        let link_url = if let Some(href_start) = drm_html.find("href=\"") {
+                            let after = &drm_html[href_start + 6..];
+                            after.find('"').map(|end| after[..end].to_string())
+                        } else {
+                            None
+                        };
+
+                        let link_text = if let Some(a_start) = drm_html.find("<a") {
+                            let a_slice = &drm_html[a_start..];
+                            if let Some(close_tag) = a_slice.find('>') {
+                                let after_open = &a_slice[close_tag + 1..];
+                                after_open
+                                    .find("</a>")
+                                    .map(|end| decode_steam_html_entities(&strip_steam_html_tags(&after_open[..end])))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        let text = decode_steam_html_entities(&strip_steam_html_tags(drm_html));
+                        if !text.is_empty() && !notices.iter().any(|n| n.text == text) {
+                            notices.push(SteamNoticeItem {
+                                text,
+                                link_url,
+                                link_text,
+                                is_anticheat,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Fallback to Steam appdetails JSON API if no features were extracted
+    if features.is_empty() {
+        let api_url = format!(
+            "https://store.steampowered.com/api/appdetails?appids={}&cc=us&l={}",
+            app_id, lang
+        );
+        if let Ok(api_resp) = client.get(&api_url).send().await {
+            if api_resp.status().is_success() {
+                #[derive(Deserialize)]
+                struct ApiWrapper {
+                    success: bool,
+                    #[serde(default)]
+                    data: Option<ApiAppDetail>,
+                }
+                #[derive(Deserialize)]
+                struct ApiAppDetail {
+                    #[serde(default)]
+                    categories: Vec<ApiCategory>,
+                    #[serde(default)]
+                    controller_support: Option<String>,
+                }
+                #[derive(Deserialize)]
+                struct ApiCategory {
+                    id: Option<u32>,
+                    description: Option<String>,
+                }
+
+                if let Ok(map) = api_resp.json::<HashMap<String, ApiWrapper>>().await {
+                    if let Some(wrapper) = map.get(&app_id.to_string()) {
+                        if wrapper.success {
+                            if let Some(data) = &wrapper.data {
+                                for cat in &data.categories {
+                                    if let Some(desc) = &cat.description {
+                                        let trimmed = desc.trim();
+                                        if !trimmed.is_empty() {
+                                            let id = cat.id;
+                                            let icon_url = id.map(|i| default_steam_category_icon(i).to_string());
+                                            let search_url = id.map(|i| format!("https://store.steampowered.com/search/?category2={}", i));
+                                            features.push(SteamFeatureItem {
+                                                id,
+                                                name: trimmed.to_string(),
+                                                icon_url,
+                                                search_url,
+                                            });
+                                        }
+                                    }
+                                }
+
+                                if controller_support.is_none() {
+                                    if let Some(cs) = &data.controller_support {
+                                        let is_full = cs.eq_ignore_ascii_case("full");
+                                        controller_support = Some(SteamControllerSupport {
+                                            full_support: is_full,
+                                            partial_support: !is_full,
+                                            gamepad_preferred: false,
+                                            xbox: true,
+                                            ps4: is_full,
+                                            ps5: is_full,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if features.is_empty() && controller_support.is_none() && notices.is_empty() {
+        return None;
+    }
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    Some(SteamStoreFeaturesPayload {
+        app_id,
+        features,
+        controller_support,
+        notices,
+        fetched_at: now,
+    })
+}
+
 
 /// Fetch the rich "About" payload for every configured language and
 /// return them as a single [`AboutBundle`].
