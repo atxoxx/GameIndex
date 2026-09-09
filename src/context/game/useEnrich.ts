@@ -17,6 +17,12 @@ const enrichAttemptsThisSession = new Map<string, number>();
 
 /** Check if a game could benefit from background metadata enrichment. */
 export function gameNeedsEnrichment(game: Game): boolean {
+  // If it's a Steam game and missing genres, always enrich so Steam genres appear
+  const isSteamGame = !!game.steamAppId || game.platform === "Steam" || game.id.startsWith("steam-");
+  if (isSteamGame && (!game.genres || game.genres.length === 0)) {
+    return true;
+  }
+
   if (game.metadataSource === NO_IGDB_MATCH_SOURCE) {
     // If it has a steamAppId but no genres, we can still fetch Steam tags once
     if (game.steamAppId && (!game.genres || game.genres.length === 0)) {
@@ -125,6 +131,9 @@ export function useEnrich(options: {
       let resolvedSteamAppId =
         steamAppId ??
         current.steamAppId ??
+        (current.id.startsWith("steam-")
+          ? parseInt(current.id.replace("steam-", ""), 10) || undefined
+          : undefined) ??
         extractSteamAppIdFromWebsites(current.websites) ??
         undefined;
 

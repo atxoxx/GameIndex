@@ -221,10 +221,10 @@ pub async fn get_igdb_game_by_id(id: u64) -> Result<Option<GameMetadataResult>, 
     Ok(game_scraper::fetch_igdb_game_by_id(id).await)
 }
 
-/// Fetch community user tags for a Steam app id.
+/// Fetch official store genres and community user tags for a Steam app id.
 #[tauri::command]
 pub async fn get_steam_tags(app_id: u32) -> Result<Vec<String>, String> {
-    Ok(game_scraper::fetch_steam_user_tags(app_id).await)
+    Ok(game_scraper::fetch_steam_genres_and_tags(app_id).await)
 }
 
 /// Download images from URLs and return them as base64 data URLs.

@@ -33,7 +33,7 @@ export function shouldRemoveSteamLibraryEntry(
 
 export function useSteamIntegration() {
   const { showToast } = useToast();
-  const { games, addGames, updateGame, removeGames } = useGames();
+  const { games, addGames, updateGame, removeGames, enqueueEnrichBatch } = useGames();
   const { reloadCache } = useAchievements();
   const { t } = useLanguage();
 
@@ -215,6 +215,7 @@ export function useSteamIntegration() {
         // uninstalled via the Steam client (see
         // `shouldRemoveSteamLibraryEntry`).
         const removedAppIds: number[] = [];
+        const missingGenreGames: { id: string; name: string; steamAppId?: number }[] = [];
         for (const entry of result.syncedGames ?? []) {
           if (!existingAppIds.has(entry.appid)) continue;
           const game = games.find((g) => g.steamAppId === entry.appid);
@@ -237,6 +238,13 @@ export function useSteamIntegration() {
             patch.lastPlayed = syncedLastPlayed;
           }
           if (Object.keys(patch).length > 0) updateGame(game.id, patch);
+          if (!game.genres || game.genres.length === 0) {
+            missingGenreGames.push({ id: game.id, name: game.name, steamAppId: game.steamAppId });
+          }
+        }
+
+        if (missingGenreGames.length > 0) {
+          enqueueEnrichBatch(missingGenreGames);
         }
 
         if (removedAppIds.length > 0) {

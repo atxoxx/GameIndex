@@ -769,6 +769,185 @@ fn parse_steam_hover_tags(html: &str) -> Vec<String> {
     tags
 }
 
+/// Fetch both official Steam store genres (Action, RPG, Strategy, etc.) and
+/// community user tags (Souls-like, Cyberpunk, etc.) for a Steam app id.
+pub async fn fetch_steam_genres_and_tags(app_id: u32) -> Vec<String> {
+    let client = http_client();
+    let detail_url = format!(
+        "https://store.steampowered.com/api/appdetails?appids={}&cc=us&l=en",
+        app_id
+    );
+
+    let (detail_resp, user_tags) = tokio::join!(
+        client.get(&detail_url).send(),
+        fetch_steam_user_tags(app_id)
+    );
+
+    let mut genres = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    if let Ok(resp) = detail_resp {
+        if resp.status().is_success() {
+            if let Ok(detail_data) = resp.json::<SteamAppDetailResponse>().await {
+                if let Some(wrapper) = detail_data.apps.get(&app_id.to_string()) {
+                    if wrapper.success {
+                        if let Some(data) = &wrapper.data {
+                            for g in &data.genres {
+                                if let Some(desc) = &g.description {
+                                    if seen.insert(desc.to_lowercase()) {
+                                        genres.push(desc.clone());
+                                    }
+                                }
+                            }
+                            for cat in &data.categories {
+                                if let Some(desc) = &cat.description {
+                                    let desc_lower = desc.to_lowercase();
+                                    if desc_lower.contains("player")
+                                        || desc_lower.contains("co-op")
+                                        || desc_lower.contains("pvp")
+                                        || desc_lower.contains("vr")
+                                    {
+                                        if seen.insert(desc_lower) {
+                                            genres.push(desc.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for tag in user_tags {
+        if seen.insert(tag.to_lowercase()) {
+            genres.push(tag);
+        }
+    }
+
+    genres
+}
+
+/// Directly fetch Steam metadata by appid (uses Steam's appdetails API + community tags).
+pub async fn fetch_steam_game_by_appid(app_id: u32) -> Option<GameMetadataResult> {
+    let client = http_client();
+    let detail_url = format!(
+        "https://store.steampowered.com/api/appdetails?appids={}&cc=us&l=en",
+        app_id
+    );
+
+    let (detail_resp, user_tags) = tokio::join!(
+        client.get(&detail_url).send(),
+        fetch_steam_user_tags(app_id)
+    );
+
+    let detail_resp = detail_resp.ok()?;
+    let detail_data: SteamAppDetailResponse = detail_resp.json().await.ok()?;
+
+    let wrapper = detail_data.apps.get(&app_id.to_string())?;
+    if !wrapper.success {
+        return None;
+    }
+    let data = wrapper.data.as_ref()?;
+
+    // Combine Steam broad genres, top community user tags, and gameplay categories
+    let mut genres: Vec<String> = data
+        .genres
+        .iter()
+        .filter_map(|g| g.description.clone())
+        .collect();
+    let mut seen_genres: std::collections::HashSet<String> =
+        genres.iter().map(|g| g.to_lowercase()).collect();
+
+    for tag in user_tags {
+        if seen_genres.insert(tag.to_lowercase()) {
+            genres.push(tag);
+        }
+    }
+
+    for cat in &data.categories {
+        if let Some(desc) = &cat.description {
+            let desc_lower = desc.to_lowercase();
+            if desc_lower.contains("player")
+                || desc_lower.contains("co-op")
+                || desc_lower.contains("pvp")
+                || desc_lower.contains("vr")
+            {
+                if seen_genres.insert(desc_lower) {
+                    genres.push(desc.clone());
+                }
+            }
+        }
+    }
+
+    let images = GameImages {
+        icon: Some(format!(
+            "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/capsule_231x87.jpg",
+            app_id
+        )),
+        cover: Some(format!(
+            "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_600x900.jpg",
+            app_id
+        )),
+        hero: data
+            .capsule_image
+            .clone()
+            .or_else(|| data.header_image.clone())
+            .or_else(|| {
+                Some(format!(
+                    "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/header.jpg",
+                    app_id
+                ))
+            }),
+        banner: Some(format!(
+            "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_hero.jpg",
+            app_id
+        )),
+        logo: Some(format!(
+            "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/logo.png",
+            app_id
+        )),
+    };
+
+    Some(GameMetadataResult {
+        title: data.name.clone().unwrap_or_default(),
+        description: data.short_description.clone(),
+        developer: data.developers.first().cloned(),
+        publisher: data.publishers.first().cloned(),
+        collection_id: None,
+        igdb_id: None,
+        release_date: data
+            .release_date
+            .as_ref()
+            .and_then(|rd| rd.date.clone()),
+        genres,
+        images,
+        source_url: format!("https://store.steampowered.com/app/{}", app_id),
+        source_name: "Steam".to_string(),
+        storyline: None,
+        igdb_rating: None,
+        critic_rating: None,
+        themes: None,
+        game_modes: None,
+        player_perspectives: None,
+        screenshots: None,
+        videos: None,
+        websites: None,
+        time_to_beat: None,
+        similar_games: None,
+        releases: None,
+        igdb_reviews: None,
+        alternative_names: None,
+        collection: None,
+        franchise: None,
+        game_category: None,
+        release_status: None,
+        language_supports: None,
+    })
+}
+
+
 /// Raw movie entry from the Steam `appdetails` endpoint. We expose
 /// the four resolution slots (`webm.max`, `webm.full`, `mp4.max`,
 /// `mp4.full`) plus `thumbnail` (a JPG poster) and `highlight`
@@ -1671,7 +1850,7 @@ pub async fn search_game_metadata(
     let mut igdb_pinned = false;
     if let Some(appid) = steam_app_id {
         if let Some(mut pinned) = fetch_igdb_game_by_steam_appid(appid).await {
-            let steam_tags = fetch_steam_user_tags(appid).await;
+            let steam_tags = fetch_steam_genres_and_tags(appid).await;
             if !steam_tags.is_empty() {
                 let mut merged = pinned.genres.clone();
                 let mut seen: std::collections::HashSet<String> =
@@ -1684,6 +1863,9 @@ pub async fn search_game_metadata(
                 pinned.genres = merged;
             }
             results.push(pinned);
+            igdb_pinned = true;
+        } else if let Some(steam_meta) = fetch_steam_game_by_appid(appid).await {
+            results.push(steam_meta);
             igdb_pinned = true;
         }
     }
