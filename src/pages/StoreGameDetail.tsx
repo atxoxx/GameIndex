@@ -522,6 +522,7 @@ export default function StoreGameDetail() {
             <div className="game-main-col">
               <DetailSectionsHiddenNote
                 sections={[
+                  "steamFeatures",
                   "systemRequirements",
                   "gameRelations",
                   "timeToBeat",
@@ -531,7 +532,6 @@ export default function StoreGameDetail() {
                   "achievements",
                   "weblinks",
                   "news",
-                  "steamFeatures",
                 ]}
               />
 
@@ -575,17 +575,17 @@ export default function StoreGameDetail() {
             <div className="game-side-col">
               <div className="side-group">
                 <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />
-                <RatingsKpiCard game={mockGame} />
-                {detailSectionVisible.timeToBeat && <TimeToBeatCard game={mockGame} />}
-              </div>
-              <div className="side-group ui-complete-only ui-item-kpis">
-                <SpecsCard game={mockGame} />
                 {detailSectionVisible.steamFeatures && (
                   <SteamFeaturesCard
                     steamAppId={steamAppId}
                     gameName={data.title}
                   />
                 )}
+                <RatingsKpiCard game={mockGame} />
+                {detailSectionVisible.timeToBeat && <TimeToBeatCard game={mockGame} />}
+              </div>
+              <div className="side-group ui-complete-only ui-item-kpis">
+                <SpecsCard game={mockGame} />
                 {showDeckVerified && detailSectionVisible.protonDb && (
                   <ProtonDBCard steamAppId={steamAppId} />
                 )}

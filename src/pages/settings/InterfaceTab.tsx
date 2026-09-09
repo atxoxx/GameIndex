@@ -394,6 +394,11 @@ function DetailSectionsPanel() {
       descKey: string;
     }[] = [
       {
+        key: "steamFeatures",
+        titleKey: "settings.detailSections.steamFeatures.title",
+        descKey: "settings.detailSections.steamFeatures.desc",
+      },
+      {
         key: "systemRequirements",
         titleKey: "settings.detailSections.systemRequirements.title",
         descKey: "settings.detailSections.systemRequirements.desc",
@@ -453,11 +458,6 @@ function DetailSectionsPanel() {
         key: "news",
         titleKey: "settings.detailSections.news.title",
         descKey: "settings.detailSections.news.desc",
-      },
-      {
-        key: "steamFeatures",
-        titleKey: "settings.detailSections.steamFeatures.title",
-        descKey: "settings.detailSections.steamFeatures.desc",
       },
     );
 

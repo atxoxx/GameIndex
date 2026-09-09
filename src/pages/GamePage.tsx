@@ -335,6 +335,7 @@ function GameDetail({ game }: { game: Game }) {
             <div className="game-main-col">
               <DetailSectionsHiddenNote
                 sections={[
+                  "steamFeatures",
                   "systemRequirements",
                   "gameRelations",
                   "timeToBeat",
@@ -346,7 +347,6 @@ function GameDetail({ game }: { game: Game }) {
                   "mods",
                   "weblinks",
                   "news",
-                  "steamFeatures",
                 ]}
               />
 
@@ -402,17 +402,17 @@ function GameDetail({ game }: { game: Game }) {
                   sizeUnit={sizeUnit}
                   onEditSize={() => setEditing(true)}
                 />
-                <RatingsKpiCard game={game} />
-                {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
-              </div>
-              <div className="side-group ui-complete-only ui-item-kpis">
-                <SpecsCard game={game} />
                 {detailSectionVisible.steamFeatures && (
                   <SteamFeaturesCard
                     steamAppId={game.steamAppId ?? heroSteamAppId}
                     gameName={game.name}
                   />
                 )}
+                <RatingsKpiCard game={game} />
+                {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
+              </div>
+              <div className="side-group ui-complete-only ui-item-kpis">
+                <SpecsCard game={game} />
                 {showDeckVerified && detailSectionVisible.protonDb && (
                   <ProtonDBCard steamAppId={game.steamAppId} />
                 )}
