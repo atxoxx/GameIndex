@@ -856,6 +856,56 @@ mod tests {
         assert_eq!(got.collection_id, Some(420));
     }
 
+    /// Repro: the exact payload the edit modal sends after the user
+    /// modifies a Proton/Wine feature — a `GameData` carrying a
+    /// `compatibility` object. Must round-trip through `GameRow` and
+    /// the isolated `game_compatibility` table without error.
+    #[test]
+    fn save_with_compatibility_profile_round_trips() {
+        use crate::db::schema::COMPATIBILITY_DDL as COMPAT_DDL;
+        let (_dir, db) = test_db();
+        {
+            let conn = db.compatibility().unwrap();
+            conn.execute_batch(COMPAT_DDL).unwrap();
+        }
+
+        let compat = json!({
+            "enabled": true,
+            "runnerType": "custom",
+            "customRunnerPath": "/home/u/.steam/steam/steamapps/common/Proton 9.0/proton",
+            "arch": "win64",
+            "enableDxvk": true,
+            "enableVkd3d": null,
+            "enableEsync": true,
+            "enableFsync": null,
+            "wineDebug": "-all",
+            "environmentVariables": {"FOO": "bar"},
+            "dllOverrides": {"dinput8": "n,b"},
+            "excludedGlobalEnv": ["WINEDEBUG"],
+            "excludedGlobalDlls": []
+        });
+
+        let mut row = sample_row();
+        let mut value = serde_json::to_value(&row).unwrap();
+        value["compatibility"] = compat.clone();
+
+        // Mirror `save_games`'s GameData -> GameRow -> compat-table flow.
+        let row2: GameRow = serde_json::from_value(value).expect("GameRow conversion must succeed");
+        upsert_all(&db, &[row2]).unwrap();
+        crate::db::compatibility::upsert_batch_for_games(
+            &db,
+            &[("g1".to_string(), compat)],
+        )
+        .unwrap();
+
+        let got = crate::db::compatibility::get_for_game(&db, "g1")
+            .unwrap()
+            .expect("compat profile should be stored");
+        assert_eq!(got["enabled"], true);
+        assert_eq!(got["runnerType"], "custom");
+        assert_eq!(got["enableDxvk"], true);
+    }
+
     /// Same alignment guarantee for the full-library `upsert_all` path.
     #[test]
     fn upsert_all_round_trips_all_columns() {

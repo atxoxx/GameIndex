@@ -72,7 +72,14 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const { updateGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { t } = useLanguage();
-  const { showFullLinuxUi, isWindowsHost } = useSettings();
+  const { showFullLinuxUi, isWindowsHost, isLinuxHost } = useSettings();
+
+  // Windows executables on a Linux host run through the Wine/Proton
+  // compatibility layer by default (the launcher routes `.exe` files
+  // there even without a saved profile), so the toggle should reflect
+  // that instead of showing the layer as off. Only an explicit
+  // saved `enabled` value overrides the platform default.
+  const compatEnabledByDefault = isLinuxHost && /\.exe$/i.test(game.path || "");
 
   const [editTab, setEditTab] = useState<EditTab>("details");
   const activeEditTab = editTab === "compatibility" && !showFullLinuxUi ? "details" : editTab;
@@ -162,7 +169,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
   // ── Compatibility / Proton / Wine State ──────────────────────────
   const [compatSubtab, setCompatSubtab] = useState<CompatSubtab>("runner");
-  const [compatEnabled, setCompatEnabled] = useState(game.compatibility?.enabled ?? false);
+  const [compatEnabled, setCompatEnabled] = useState(
+    game.compatibility?.enabled ?? compatEnabledByDefault
+  );
   const [compatRunnerType, setCompatRunnerType] = useState<"default" | "proton" | "wine" | "custom">(
     game.compatibility?.runnerType ?? "default"
   );
@@ -883,7 +892,10 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       metadataSource: editMetadataSource ? editMetadataSource : undefined,
       metadataUrl: editMetadataUrl ? editMetadataUrl : undefined,
       version: editVersion.trim() || undefined,
-      path: editPath.trim() || undefined,
+      // Always persist a plain string — `undefined` here crashes the
+      // sidebar's path-dedup pass (`g.path.toLowerCase()` outside the
+      // error boundary) on the next re-render, blanking the whole app.
+      path: editPath.trim(),
       // Attaching an executable means the game is present on disk — flip
       // it to installed. One-way only: clearing a path never downgrades
       // installed (launcher titles stay installed without a local exe).

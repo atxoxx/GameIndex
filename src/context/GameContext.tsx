@@ -498,7 +498,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const imported: Game[] = [];
     for (const item of items) {
       const pathNorm = item.path.toLowerCase().trim();
-      const duplicate = games.find((g) => g.path.toLowerCase().trim() === pathNorm);
+      const duplicate = games.find((g) => (g.path || "").toLowerCase().trim() === pathNorm);
       if (duplicate) {
         continue;
       }

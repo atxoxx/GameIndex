@@ -197,7 +197,7 @@ export default function Sidebar() {
   const [lastClickedId, setLastClickedId] = useState<string | null>(null);
 
   const existingPathsSet = useMemo(
-    () => new Set(games.map((g) => g.path.toLowerCase())),
+    () => new Set(games.map((g) => (g.path || "").toLowerCase())),
     [games]
   );
 
@@ -517,7 +517,7 @@ export default function Sidebar() {
       });
       if (filePath && typeof filePath === "string") {
         const existing = games.find(
-          (g) => g.path.toLowerCase().trim() === filePath.toLowerCase().trim()
+          (g) => (g.path || "").toLowerCase().trim() === filePath.toLowerCase().trim()
         );
         if (existing) {
           showToast(
