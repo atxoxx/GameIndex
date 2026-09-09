@@ -163,7 +163,12 @@ pub fn parse_library_folders(raw: &str) -> Vec<PathBuf> {
         // Both keys identify a library root whose path is in `value`.
         if key == "path" || key.chars().all(|c| c.is_ascii_digit()) {
             if is_absolute_path_string(value) {
-                roots.push(PathBuf::from(value));
+                // VDF files escape backslashes as `\\` (Windows library
+                // paths); collapse them to single separators so the
+                // resolved roots match how Steam reports the path and how
+                // the naive parser in `steam/sync.rs` reads the same
+                // file. A no-op for POSIX `/`-prefixed paths.
+                roots.push(PathBuf::from(value.replace("\\\\", "\\")));
             }
         }
         i += 2;
@@ -187,6 +192,11 @@ fn is_absolute_path_string(s: &str) -> bool {
         && trimmed.as_bytes()[1] == b':'
         && matches!(trimmed.as_bytes()[2], b'\\' | b'/'))
         || trimmed.starts_with("\\\\")
+        // POSIX absolute paths ("/home/...") — Steam writes these in
+        // libraryfolders.vdf on Linux/macOS (the nested `"path"`
+        // format), so without this secondary libraries are dropped and
+        // games on them can't be located for launch tracking.
+        || trimmed.starts_with('/')
 }
 
 /// Read `<root>\steamapps\appmanifest_<appid>.acf` to find where a
@@ -470,6 +480,56 @@ mod tests {
 "#;
         let libs = parse_library_folders(raw);
         assert_eq!(libs, vec![PathBuf::from("D:\\SteamLibrary")]);
+    }
+
+    #[test]
+    fn parse_library_folders_posix_nested_format() {
+        // Steam on Linux/macOS writes the nested format with `"path"`
+        // keys holding /-prefixed paths; these must be accepted or
+        // secondary libraries are invisible to install-dir resolution.
+        let raw = r#""LibraryFolders"
+{
+    "TimeNextStatsReport" "1234567890"
+    "1"
+    {
+        "path"      "/home/user/.local/share/Steam"
+        "label"     ""
+        "mounted"   "1"
+    }
+    "2"
+    {
+        "path"      "/mnt/games/SteamLibrary"
+        "label"     ""
+        "mounted"   "1"
+    }
+}
+"#;
+        let libs = parse_library_folders(raw);
+        assert_eq!(
+            libs,
+            vec![
+                PathBuf::from("/home/user/.local/share/Steam"),
+                PathBuf::from("/mnt/games/SteamLibrary"),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_library_folders_posix_flat_format() {
+        let raw = r#""LibraryFolders"
+{
+    "1"      "/home/user/.local/share/Steam"
+    "2"      "/mnt/games/SteamLibrary"
+}
+"#;
+        let libs = parse_library_folders(raw);
+        assert_eq!(
+            libs,
+            vec![
+                PathBuf::from("/home/user/.local/share/Steam"),
+                PathBuf::from("/mnt/games/SteamLibrary"),
+            ]
+        );
     }
 
     // ── Path-string detection ──────────────────────────────────────

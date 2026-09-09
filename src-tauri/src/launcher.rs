@@ -588,6 +588,18 @@ pub(crate) fn run_script_blocking(script: &str, _admin: bool) -> Result<(), Stri
     Ok(())
 }
 
+/// Split a launch-argument string into argv entries the way a POSIX
+/// shell would: single/double quotes group words and backslashes escape,
+/// so values like `+exec "my file.cfg"` stay one argument. Windows never
+/// calls this — it passes the raw string through `raw_arg` and lets the
+/// OS do its own parsing. Falls back to plain whitespace splitting when
+/// the string isn't valid shell syntax (e.g. an unbalanced quote) so a
+/// malformed arg string can never block a launch.
+pub(crate) fn split_launch_args(args: &str) -> Vec<String> {
+    shlex::split(args)
+        .unwrap_or_else(|| args.split_whitespace().map(|s| s.to_string()).collect())
+}
+
 /// Launch a companion executable in the background after a delay.
 /// Fire-and-forget: not tracked by the game watcher.
 fn spawn_companion(app: CompanionApp) {
@@ -624,7 +636,7 @@ fn spawn_companion(app: CompanionApp) {
                 }
                 #[cfg(not(windows))]
                 {
-                    cmd.args(args.split_whitespace());
+                    cmd.args(split_launch_args(args));
                 }
             }
         }
@@ -867,7 +879,7 @@ pub fn launch_game(
             {
                 if let Some(args) = launch_arguments.as_deref() {
                     if !args.trim().is_empty() {
-                        cmd.args(args.split_whitespace());
+                        cmd.args(split_launch_args(args));
                     }
                 }
             }
@@ -1011,6 +1023,41 @@ pub fn rebuild_watcher_index(
     let mut w = watcher.lock().map_err(|e| e.to_string())?;
     w.rebuild_index(refs);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn splits_launch_args_preserving_quoted_values() {
+        let args = "-windowed +exec \"my file.cfg\" -nosteam";
+        assert_eq!(
+            split_launch_args(args),
+            vec!["-windowed", "+exec", "my file.cfg", "-nosteam"]
+        );
+    }
+
+    #[test]
+    fn splits_single_quoted_args() {
+        let args = "--config='/opt/game dir/settings.ini'";
+        assert_eq!(
+            split_launch_args(args),
+            vec!["--config=/opt/game dir/settings.ini"]
+        );
+    }
+
+    #[test]
+    fn falls_back_to_whitespace_on_unbalanced_quote() {
+        let args = "-foo \"unclosed";
+        assert_eq!(split_launch_args(args), vec!["-foo", "\"unclosed"]);
+    }
+
+    #[test]
+    fn empty_args_yield_no_argv() {
+        assert!(split_launch_args("").is_empty());
+        assert!(split_launch_args("   ").is_empty());
+    }
 }
 
 

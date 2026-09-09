@@ -492,6 +492,29 @@ pub fn detect_compatibility_runners() -> Vec<CompatibilityRunner> {
     runners
 }
 
+/// Path-only fallback used when a runner isn't in the detection list
+/// (custom wrappers, plain `wine` on PATH): Proton scripts live under a
+/// path containing "proton" (Steam's `…/Proton 9.0/proton`, GE-Proton,
+/// CachyOS), while every Wine binary path ends in the `wine` executable.
+fn proton_by_path_heuristic(path: &str) -> bool {
+    path.contains("proton") && !path.ends_with("wine")
+}
+
+/// True when `runner_path` is a Proton-style runner (needs the `run`
+/// subcommand plus the Steam compat env vars) rather than a plain Wine
+/// binary. Prefers the authoritative `is_proton` flag from
+/// `detect_compatibility_runners` for known installs — the heuristic is
+/// only a fallback for paths that never appear in the detection list.
+pub fn runner_is_proton(runner_path: &str) -> bool {
+    if let Some(r) = detect_compatibility_runners()
+        .into_iter()
+        .find(|r| r.path == runner_path)
+    {
+        return r.is_proton;
+    }
+    proton_by_path_heuristic(runner_path)
+}
+
 /// Retrieve Linux system diagnostics (kernel, display server, Vulkan, gaming tools).
 pub fn get_linux_system_status() -> LinuxSystemStatus {
     let os_name = std::env::consts::OS.to_string();
@@ -707,7 +730,7 @@ pub fn run_wine_tool(
         }
     };
 
-    let is_proton = effective_runner.contains("proton") && !effective_runner.ends_with("wine");
+    let is_proton = runner_is_proton(&effective_runner);
 
     match tool.as_str() {
         "browse_prefix" => {
@@ -1039,7 +1062,7 @@ pub fn launch_with_compatibility(
             .unwrap_or_else(|| "wine".to_string())
     };
 
-    let is_proton = runner_path.contains("proton") && !runner_path.ends_with("wine");
+    let is_proton = runner_is_proton(&runner_path);
 
     // Resolve prefix
     let prefix = resolve_prefix_dir(app, custom_wine_prefix.as_deref(), game_id);
@@ -1126,8 +1149,8 @@ pub fn launch_with_compatibility(
             tokens.push("--force-windows-fullscreen".to_string());
         }
         if let Some(args_str) = gamescope_args.as_ref() {
-            for arg in args_str.split_whitespace() {
-                tokens.push(arg.to_string());
+            for arg in crate::launcher::split_launch_args(args_str) {
+                tokens.push(arg);
             }
         }
         // Pipe real-time compositor stats (`fps=…` / `focus=…` lines) to a
@@ -1167,8 +1190,8 @@ pub fn launch_with_compatibility(
 
     if let Some(args) = launch_args {
         if !args.trim().is_empty() {
-            for a in args.split_whitespace() {
-                tokens.push(a.to_string());
+            for a in crate::launcher::split_launch_args(args) {
+                tokens.push(a);
             }
         }
     }
@@ -1471,5 +1494,43 @@ mod tests {
         assert!(cachy_vdf.is_proton);
 
         let _ = fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn classifies_runner_proton_vs_wine_heuristic() {
+        // Path-only fallback (no HOME manipulation — keeps parallel test
+        // runs deterministic alongside the detection test above).
+        assert!(proton_by_path_heuristic(
+            "/home/u/.steam/steam/steamapps/common/Proton 9.0/proton"
+        ));
+        assert!(proton_by_path_heuristic(
+            "/home/u/.steam/steam/compatibilitytools.d/GE-Proton9-24/proton"
+        ));
+        assert!(proton_by_path_heuristic(
+            "/usr/share/steam/compatibilitytools.d/proton-cachyos-10.0/proton"
+        ));
+        assert!(!proton_by_path_heuristic("/usr/bin/wine"));
+        assert!(!proton_by_path_heuristic("wine"));
+        assert!(!proton_by_path_heuristic(
+            "/home/u/.local/share/wine/runners/wine-9.0/bin/wine"
+        ));
+        // A wine binary whose path merely contains "proton" must still
+        // classify as wine — the `wine` suffix wins.
+        assert!(!proton_by_path_heuristic(
+            "/home/u/proton-tools/build/bin/wine"
+        ));
+    }
+
+    #[test]
+    fn runner_is_proton_falls_back_to_heuristic_for_unknown_paths() {
+        // Paths that can never appear in the detection list (no such
+        // file on any machine) exercise the fallback branch.
+        assert!(runner_is_proton(
+            "/nonexistent/.steam/steam/compatibilitytools.d/GE-Proton9-24/proton"
+        ));
+        assert!(!runner_is_proton("/nonexistent/wine"));
+        assert!(!runner_is_proton(
+            "/nonexistent/.local/share/wine/runners/wine-9.0/bin/wine"
+        ));
     }
 }

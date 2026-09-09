@@ -1864,6 +1864,7 @@ dependencies = [
  "sevenz-rust",
  "sha1",
  "sha2",
+ "shlex",
  "steam-vdf-parser",
  "tauri",
  "tauri-build",

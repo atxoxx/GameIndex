@@ -118,6 +118,11 @@ minisign-verify = "0.2"
 # Rockstar uninstall-string parsing (mirrors Playnite's
 # `Regex.Match(UninstallString, @"(?:Launcher|uninstall)\.exe.+uninstall=(.+)$")`).
 regex = "1"
+# POSIX shell-word splitting for launch arguments on non-Windows — quoted
+# values like `+exec "my file.cfg"` must arrive as ONE argv entry instead
+# of being mangled by whitespace splitting. Already in the lock graph
+# (transitive via build deps), so this adds no new resolution.
+shlex = "2"
 # YAML parsing for the Ubisoft Connect local product cache. Playnite's
 # `Uplay.GetLocalProductCache` deserializes each cache entry's `GameInfo`
 # as a YAML `ProductInformation` document; we mirror that with serde_yaml.
