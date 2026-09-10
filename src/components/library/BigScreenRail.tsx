@@ -26,6 +26,7 @@ import { useGamepad } from "../../hooks/GamepadProvider";
 import BigScreenGameCard from "./BigScreenGameCard";
 import type { Game } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { parseFocusGameKey } from "../../utils/focusMemory";
 
 interface BigScreenRailProps {
   /** Display title for the rail (e.g. "Continue Playing"). */
@@ -87,6 +88,25 @@ export default function BigScreenRail({
       });
     }
   }, [gamepad.focusedElement]);
+
+  // Shell restore: when the layout remembers a card for this route, it
+  // fires `bigscreen:focus-game` and the owning rail re-focuses it.
+  // The auto-scroll effect above then brings it back into view.
+  useEffect(() => {
+    const onFocusGame = (event: Event) => {
+      const parsed = parseFocusGameKey(
+        `game:${(event as CustomEvent<string>).detail}`,
+      );
+      if (!parsed) return;
+      if (parsed.railId && railId && parsed.railId !== railId) return;
+      const card = scrollRef.current?.querySelector<HTMLElement>(
+        `[data-game-id="${CSS.escape(parsed.gameId)}"]`,
+      );
+      card?.focus({ preventScroll: true });
+    };
+    window.addEventListener("bigscreen:focus-game", onFocusGame);
+    return () => window.removeEventListener("bigscreen:focus-game", onFocusGame);
+  }, [railId]);
 
   return (
     <section

@@ -11,6 +11,7 @@ import { setActiveGameArtwork } from "../../utils/activeGameArtwork";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
+import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
 import PlayerCountBadge from "../PlayerCountBadge";
 import DownloadModal from "../DownloadModal";
 import BigScreenHeroBackground from "../game/BigScreenHeroBackground";
@@ -207,6 +208,9 @@ export default function BigScreenStoreGamePage() {
   const resolvedSteamAppId =
     typeof steamAppId === "number" ? steamAppId : mockGame?.steamAppId ?? null;
 
+  // Animated hero art (SteamGridDB animated hero when available).
+  const backdrop = useGameBackdropArt(mockGame);
+
   // Check if already in library (name match against the library rows)
   const existingInLibrary = useMemo(() => {
     if (!data) return null;
@@ -359,8 +363,9 @@ export default function BigScreenStoreGamePage() {
       {/* ── Hero (pauses on Overview) ── */}
       <section className="bigscreen-gamepage-hero" aria-label={t("bigscreen.store.gameBanner", { name: game.name })}>
         <BigScreenHeroBackground
-          bannerUrl={game.bannerUrl}
+          bannerUrl={backdrop.staticUrl ?? game.bannerUrl}
           coverArtUrl={game.coverArtUrl}
+          animatedUrl={backdrop.animatedUrl}
           screenshots={game.screenshots}
           videos={game.videos}
           paused={activeTab === "overview"}

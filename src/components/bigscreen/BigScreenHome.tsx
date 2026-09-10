@@ -4,9 +4,11 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
+import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import type { Game } from "../../types/game";
 import BigScreenRail from "../library/BigScreenRail";
+import BigScreenDashboardBackdrop from "./BigScreenDashboardBackdrop";
 import BigScreenPill from "./BigScreenPill";
 import { extractYear } from "./bigscreenFormat";
 
@@ -99,6 +101,11 @@ export default function BigScreenHome() {
     : null;
   const releaseYear = featuredGame ? extractYear(featuredGame.releaseDate) : null;
 
+  // Animated hero art for the currently spotlighted game. Falls back to
+  // the banner/cover while SteamGridDB resolves (or when no animated
+  // upload exists).
+  const backdrop = useGameBackdropArt(featuredGame);
+
   const handlePlay = useCallback(() => {
     if (featuredGame) {
       launchGame(featuredGame);
@@ -114,8 +121,11 @@ export default function BigScreenHome() {
   const playProps = useFocusable(handlePlay);
   const detailsProps = useFocusable(handleDetails);
 
-  const renderDetailsPane = (railId: string) => {
-    if (activeRailId !== railId) return null;
+  // The details pane is anchored above every rail and simply follows
+  // the spotlight. Rendering it per-rail (the old approach) made the
+  // whole dashboard jump by the pane's height whenever vertical
+  // navigation moved between rails.
+  const renderDetailsPane = () => {
     return (
       <div className="bigscreen-dashboard-details-pane animate-fade-in" style={{ padding: "0 64px 24px 64px" }}>
         <div className="bigscreen-details-pane-content">
@@ -202,43 +212,35 @@ export default function BigScreenHome() {
   return (
     <div className="bigscreen-library-dashboard">
       {/* Backdrop */}
-      <div className="bigscreen-dashboard-backdrop-container">
-        {featuredGame && (
-          <img
-            key={featuredGame.id}
-            src={featuredGame.bannerUrl || featuredGame.coverArtUrl || ""}
-            alt=""
-            className="bigscreen-dashboard-backdrop-img animate-fade-in"
-          />
-        )}
-        <div className="bigscreen-dashboard-backdrop-overlay" />
-      </div>
+      <BigScreenDashboardBackdrop
+        staticUrl={backdrop.staticUrl}
+        animatedUrl={backdrop.animatedUrl}
+        artKey={featuredGame?.id ?? null}
+      />
 
       <div className="bigscreen-dashboard-scrollable-content">
         {/* Shelves / Rails */}
         <div className="bigscreen-dashboard-main-rail">
+          {renderDetailsPane()}
+
           {continuePlaying.length > 0 && (
-            <>
-              {renderDetailsPane("continue-playing")}
-              <BigScreenRail
-                title={t("lib.rail.continue.title")}
-                games={continuePlaying}
-                onCardClick={handleDetails}
-                railId="continue-playing"
-              />
-            </>
+            <BigScreenRail
+              title={t("lib.rail.continue.title")}
+              games={continuePlaying}
+              onCardClick={handleDetails}
+              railId="continue-playing"
+              isActive={activeRailId === "continue-playing"}
+            />
           )}
 
-          <>
-            {renderDetailsPane("recently-added")}
-            <BigScreenRail
-              title={t("lib.rail.recentlyAdded.title")}
-              games={recentlyAdded.length > 0 ? recentlyAdded : games.slice(0, 12)}
-              emptyLabel={t("bigscreen.library.noGamesDesc")}
-              onCardClick={handleDetails}
-              railId="recently-added"
-            />
-          </>
+          <BigScreenRail
+            title={t("lib.rail.recentlyAdded.title")}
+            games={recentlyAdded.length > 0 ? recentlyAdded : games.slice(0, 12)}
+            emptyLabel={t("bigscreen.library.noGamesDesc")}
+            onCardClick={handleDetails}
+            railId="recently-added"
+            isActive={activeRailId === "recently-added"}
+          />
         </div>
       </div>
     </div>

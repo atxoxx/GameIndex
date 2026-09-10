@@ -49,6 +49,7 @@ export default function BigScreenGameCard({
       className={`bigscreen-game-card${isRunning ? " running" : ""}`}
       {...focusable}
       data-game-id={game.id}
+      data-focus-key={`game:${game.id}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}

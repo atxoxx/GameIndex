@@ -48,6 +48,7 @@ import { usePublishGameArtwork } from "../../utils/activeGameArtwork";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
+import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -170,6 +171,10 @@ function BigScreenGamePageContent({
     }
     return game.coverArtUrl;
   }, [game.bannerUrl, game.platform, game.steamAppId, game.coverArtUrl]);
+
+  // Animated hero art — SteamGridDB animated hero (APNG / animated
+  // WebP) when the community has one, layered over the banner.
+  const backdrop = useGameBackdropArt(game);
 
   // Lazy metadata enrichment on mount. `metadataSource` is persisted by the
   // enrichment pipeline, so once metadata has been fetched for this game
@@ -294,8 +299,9 @@ function BigScreenGamePageContent({
         aria-label={`${game.name} banner`}
       >
         <BigScreenHeroBackground
-          bannerUrl={resolvedBanner}
+          bannerUrl={backdrop.staticUrl ?? resolvedBanner}
           coverArtUrl={game.coverArtUrl}
+          animatedUrl={backdrop.animatedUrl}
           screenshots={game.screenshots}
           videos={game.videos}
           paused={activeTab === "overview"}

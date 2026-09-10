@@ -3,6 +3,7 @@ import { useGamepad } from "../../hooks/GamepadProvider";
 import { useLanguage } from "../../context/LanguageContext";
 import BigScreenStoreGameCard from "./BigScreenStoreGameCard";
 import type { StoreGameSummary } from "../../types/game";
+import { parseFocusGameKey } from "../../utils/focusMemory";
 
 interface BigScreenStoreRailProps {
   title: string;
@@ -48,6 +49,24 @@ export default function BigScreenStoreRail({
       });
     }
   }, [gamepad.focusedElement]);
+
+  // Shell restore: see BigScreenRail — the layout fires this event with
+  // the remembered game id (and owning rail) and the rail re-focuses.
+  useEffect(() => {
+    const onFocusGame = (event: Event) => {
+      const parsed = parseFocusGameKey(
+        `game:${(event as CustomEvent<string>).detail}`,
+      );
+      if (!parsed) return;
+      if (parsed.railId && railId && parsed.railId !== railId) return;
+      const card = scrollRef.current?.querySelector<HTMLElement>(
+        `[data-game-id="${CSS.escape(parsed.gameId)}"]`,
+      );
+      card?.focus({ preventScroll: true });
+    };
+    window.addEventListener("bigscreen:focus-game", onFocusGame);
+    return () => window.removeEventListener("bigscreen:focus-game", onFocusGame);
+  }, [railId]);
 
   return (
     <section

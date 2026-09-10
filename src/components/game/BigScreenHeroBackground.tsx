@@ -11,14 +11,16 @@
 //
 // Decision ladder (in order):
 //   1. videos[0] present → muted-autoplay video as the bg layer.
-//   2. screenshots.length >= 2 AND motion allowed → Ken-Burns
+//   2. animatedUrl present (SteamGridDB animated hero) AND motion
+//      allowed → animated APNG/WebP over the static fallback.
+//   3. screenshots.length >= 2 AND motion allowed → Ken-Burns
 //      parallax cycle with cross-fade between two stacked slides.
-//   3. screenshots.length === 1 → render that one shot statically
+//   4. screenshots.length === 1 → render that one shot statically
 //      (still get a slow Ken-Burns scale if motion is allowed —
 //      single image, no cross-fade needed).
-//   4. bannerUrl present → static banner.
-//   5. coverArtUrl present → static cover.
-//   6. otherwise → empty (parent's gradient `bg-tertiary` shows).
+//   5. bannerUrl present → static banner.
+//   6. coverArtUrl present → static cover.
+//   7. otherwise → empty (parent's gradient `bg-tertiary` shows).
 //
 // prefers-reduced-motion
 // ──────────────────────
@@ -49,6 +51,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 interface BigScreenHeroBackgroundProps {
   bannerUrl?: string;
   coverArtUrl?: string;
+  /**
+   * Animated background art (SteamGridDB animated hero — APNG / WebP).
+   * Wins over the screenshot cycle and static banners when motion is
+   * allowed, since it is purpose-built wide artwork that moves.
+   */
+  animatedUrl?: string | null;
   /** Ordered list of screenshot URLs (typically 16:9 IGDB art). */
   screenshots?: string[];
   /** Ordered list of video URLs — e.g. YouTube embeds or MP4 trailers. */
@@ -89,6 +97,7 @@ function isDirectVideoUrl(url: string): boolean {
 export default function BigScreenHeroBackground({
   bannerUrl,
   coverArtUrl,
+  animatedUrl,
   screenshots,
   videos,
   cycleMs = DEFAULT_CYCLE_MS,
@@ -109,6 +118,7 @@ export default function BigScreenHeroBackground({
   //
   // Ladder (top-down, video is preferred):
   //   • direct playable video file (mp4/webm/mov/m3u8)  → muted auto-loop
+  //   • animated hero art AND motion allowed              → animated layer
   //   • 2+ screenshots AND motion allowed                → Ken-Burns cycle
   //   • 1 screenshot (always, motion or not)             → single-shot
   //     (single-static still; keyframe disabled if reduced motion)
@@ -119,7 +129,7 @@ export default function BigScreenHeroBackground({
   // YouTube/Twitch-style video URLs are treated like other
   // `videos[]` entries but they're NOT direct video files, so
   // `isDirectVideoUrl` rejects them and we fall through to the
-  // screenshot ladder. The "Explore → Trailers" card in
+  // animated/screenshot ladder. The "Explore → Trailers" card in
   // BigScreenGamePage still opens the chosen video in a lightbox
   // iframe where the URL actually plays.
   const mode = useMemo(() => {
@@ -131,15 +141,25 @@ export default function BigScreenHeroBackground({
     ) {
       return "video" as const;
     }
+    if (!reducedMotion && animatedUrl) return "animated" as const;
     if (screenshots && screenshots.length >= 2) return "cycle" as const;
     if (screenshots && screenshots.length >= 1) return "single-shot" as const;
     if (bannerUrl) return "banner" as const;
     if (coverArtUrl) return "cover" as const;
     return "empty" as const;
-  }, [reducedMotion, videos, screenshots, bannerUrl, coverArtUrl]);
+  }, [reducedMotion, videos, animatedUrl, screenshots, bannerUrl, coverArtUrl]);
 
   if (mode === "video") {
     return <VideoBackground src={videos![0]} paused={paused} />;
+  }
+
+  if (mode === "animated") {
+    return (
+      <AnimatedBackground
+        animatedUrl={animatedUrl!}
+        fallbackUrl={bannerUrl ?? coverArtUrl}
+      />
+    );
   }
 
   if (mode === "cycle") {
@@ -226,6 +246,56 @@ function VideoBackground({ src, paused }: { src: string; paused?: boolean }) {
         loop
         playsInline
         preload="auto"
+      />
+    </div>
+  );
+}
+
+// ── Animated image (SteamGridDB APNG / WebP) ────────────────
+
+/**
+ * Animated hero layer. The static fallback paints immediately (no
+ * flash of empty background) and the animated image fades in only
+ * once the browser has finished decoding its first frame. If the
+ * animated URL 404s or the host rejects hotlinks, we mark it dead
+ * and fall back to the static layer permanently.
+ *
+ * Animated formats can't be paused from CSS/JS, so the `paused` prop
+ * is intentionally ignored here — the motion is the whole point of
+ * choosing this layer, and it is ambient rather than a slideshow
+ * that would steal reading time.
+ */
+function AnimatedBackground({
+  animatedUrl,
+  fallbackUrl,
+}: {
+  animatedUrl: string;
+  fallbackUrl?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  if (failed) {
+    return fallbackUrl ? <StaticBackground url={fallbackUrl} /> : null;
+  }
+
+  return (
+    <div className="bigscreen-gamepage-hero-bg-animated" aria-hidden>
+      {fallbackUrl ? (
+        <img
+          src={fallbackUrl}
+          alt=""
+          className="bigscreen-gamepage-hero-bg-animated-poster"
+          decoding="async"
+        />
+      ) : null}
+      <img
+        src={animatedUrl}
+        alt=""
+        className={`bigscreen-gamepage-hero-bg-animated-img${loaded ? " is-loaded" : ""}`}
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={() => setFailed(true)}
       />
     </div>
   );

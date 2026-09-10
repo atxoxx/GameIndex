@@ -83,6 +83,19 @@ export interface GamepadState {
    * Register a focusable element. Returns an unregister function.
    */
   registerAction: (element: HTMLElement, onActivate: () => void) => () => void;
+  /**
+   * Move spatial focus one step in a direction. Used by the gamepad
+   * loop AND by the shell's keyboard arrow handling so both input
+   * methods share the exact same geometry + scrolling behavior.
+   * Returns true when focus actually moved to a new element.
+   *
+   * `immediate` skips the smooth scroll for rapid repeats (held arrow
+   * keys / sticks), so queued smooth scrolls don't lag behind focus.
+   */
+  navigate: (
+    direction: "up" | "down" | "left" | "right",
+    immediate?: boolean,
+  ) => boolean;
   /** Virtual mouse pointer state (driven by right stick + triggers). */
   virtualMouse: VirtualMouseState;
   /** Toggle the virtual mouse cursor (Y button or programmatic). */
@@ -111,6 +124,17 @@ export interface GamepadState {
 
 // ── Constants ───────────────────────────────────────────────────
 // Loop-level constants stay here (per-frame, not math-tuning):
+
+/** Unit vectors for the four keyboard-navigable directions. */
+const NAVIGATION_VECTORS: Record<
+  "up" | "down" | "left" | "right",
+  readonly [number, number]
+> = {
+  up: [0, -1],
+  down: [0, 1],
+  left: [-1, 0],
+  right: [1, 0],
+};
 
 // ── Hook ────────────────────────────────────────────────────────
 
@@ -349,6 +373,43 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     [],
   );
 
+  // ── Spatial focus movement (gamepad + keyboard) ─────────────
+  // Shared by the rAF loop (D-pad / left stick) and the shell's
+  // Arrow-key handling, so both paths pick the same next element and
+  // run the same controlled scroll. Returns true when focus moved.
+  const navigateInDirection = useCallback(
+    (dirH: number, dirV: number, immediate = false): boolean => {
+      const focused = focusedRef.current;
+      if (!focused) return false;
+      const entries = entriesRef.current;
+      if (entries.length < 2) return false;
+
+      const dirAngle = Math.atan2(dirV, dirH);
+      const next = nearestInDirection(focused, entries, dirAngle);
+      if (!next || next === focused) return false;
+
+      focused.removeAttribute("data-focused");
+      focusedRef.current = next;
+      next.setAttribute("data-focused", "true");
+      scrollElementIntoViewControlled(next, { immediate });
+      setFocusedElement(next);
+      next.focus({ preventScroll: true });
+      return true;
+    },
+    [],
+  );
+
+  const navigate = useCallback(
+    (
+      direction: "up" | "down" | "left" | "right",
+      immediate = false,
+    ): boolean => {
+      const [h, v] = NAVIGATION_VECTORS[direction];
+      return navigateInDirection(h, v, immediate);
+    },
+    [navigateInDirection],
+  );
+
   // ── Polling loop ────────────────────────────────────────────
   useEffect(() => {
     if (!enabled) {
@@ -534,23 +595,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       }
 
       if (shouldNavigate && focusedRef.current) {
-        const entries = entriesRef.current;
-        if (entries.length > 1) {
-          const dirAngle = Math.atan2(dirV, dirH);
-          const next = nearestInDirection(
-            focusedRef.current,
-            entries,
-            dirAngle,
-          );
-          if (next && next !== focusedRef.current) {
-            focusedRef.current.removeAttribute("data-focused");
-            focusedRef.current = next;
-            next.setAttribute("data-focused", "true");
-            scrollElementIntoViewControlled(next, { immediate: navigateIsRepeat });
-            setFocusedElement(next);
-            next.focus({ preventScroll: true });
-          }
-        }
+        navigateInDirection(dirH, dirV, navigateIsRepeat);
       }
 
       const vm = virtualMouseRef.current;
@@ -796,6 +841,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     connected,
     focusedElement,
     registerAction,
+    navigate,
     virtualMouse,
     toggleVirtualMouse,
     recenterVirtualMouse,

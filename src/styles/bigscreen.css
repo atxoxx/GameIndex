@@ -174,12 +174,49 @@
   pointer-events: none;
 }
 
+/* Stacked frames: the previous artwork stays mounted under the new one
+   while it fades in, so switching the spotlight never flashes bare bg. */
+.bigscreen-dashboard-backdrop-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
 .bigscreen-dashboard-backdrop-img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   filter: brightness(0.2) saturate(1.2) contrast(1.1) blur(2px);
   transform: scale(1.05);
+  animation: bigscreen-backdrop-drift 48s ease-in-out infinite alternate;
+}
+
+/* Animated hero layer (SteamGridDB APNG / WebP) fades in once decoded. */
+.bigscreen-dashboard-backdrop-animated {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  filter: brightness(0.2) saturate(1.2) contrast(1.1) blur(2px);
+  transform: scale(1.05);
+  transition: opacity 900ms ease-in-out;
+}
+
+.bigscreen-dashboard-backdrop-animated.is-loaded {
+  opacity: 1;
+}
+
+@keyframes bigscreen-backdrop-drift {
+  from {
+    transform: scale(1.05) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.1) translate3d(-1.2%, -0.8%, 0);
+  }
 }
 
 .bigscreen-dashboard-backdrop-overlay {
@@ -2038,8 +2075,9 @@
   gap: 10px;
 }
 
-/* ── BIGSCREEN HERO BACKGROUNDS (VIDEO / CYCLE / STATIC) ─────────── */
+/* ── BIGSCREEN HERO BACKGROUNDS (VIDEO / ANIMATED / CYCLE / STATIC) ─ */
 .bigscreen-gamepage-hero-bg-video,
+.bigscreen-gamepage-hero-bg-animated,
 .bigscreen-gamepage-hero-bg-cycle,
 .bigscreen-gamepage-hero-bg-static {
   position: absolute;
@@ -2091,6 +2129,36 @@
   animation-play-state: paused;
 }
 
+/* Animated image background (SteamGridDB APNG / animated WebP).
+   The static poster paints first; the animated image fades in over it
+   once its first frame has decoded. */
+.bigscreen-gamepage-hero-bg-animated {
+  overflow: hidden;
+}
+
+.bigscreen-gamepage-hero-bg-animated-poster,
+.bigscreen-gamepage-hero-bg-animated-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bigscreen-gamepage-hero-bg-animated-poster {
+  transform: scale(1.04);
+}
+
+.bigscreen-gamepage-hero-bg-animated-img {
+  opacity: 0;
+  transform: scale(1.04);
+  transition: opacity 900ms ease-in-out;
+}
+
+.bigscreen-gamepage-hero-bg-animated-img.is-loaded {
+  opacity: 1;
+}
+
 /* Static Background Styles */
 .bigscreen-gamepage-hero-bg-static {
   background-size: cover;
@@ -2116,10 +2184,13 @@
   .bigscreen-game-card-running-dot,
   .virtual-cursor--dragging .virtual-cursor-ring,
   .animate-fade-in,
+  .bigscreen-dashboard-backdrop-img,
   .bigscreen-gamepage-hero-bg-slide img {
     animation: none !important;
   }
-  .bigscreen-gamepage-hero-bg-slide {
+  .bigscreen-gamepage-hero-bg-slide,
+  .bigscreen-gamepage-hero-bg-animated-img,
+  .bigscreen-dashboard-backdrop-animated {
     transition: none;
   }
 }
@@ -2285,6 +2356,11 @@
 }
 .bigscreen-v3-content-frame { width: 100%; height: 100%; overflow: hidden; animation: bs3-content-in 360ms var(--ease-enter) both; }
 .bigscreen-v3-content-frame > * { height: 100%; }
+/* Replayed on every route change by the shell so page transitions read
+   as console-fast: a short lift + fade rather than an instant cut. */
+.bigscreen-v3-content-frame.bigscreen-page-enter {
+  animation: bs3-content-in 260ms var(--ease-enter) both;
+}
 
 /* ── Bottom bar (non-focusable legend) ────────────────────────── */
 

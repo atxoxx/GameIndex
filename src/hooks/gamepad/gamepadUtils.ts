@@ -49,12 +49,34 @@ export function isNavigable(el: HTMLElement): boolean {
 // Keyboard-style hold-to-repeat used by spatial navigation: after a
 // new direction is engaged it fires once immediately, then waits
 // `REPEAT_DELAY_MS` before the first repeat and repeats every
-// `REPEAT_INTERVAL_MS` thereafter.
+// `REPEAT_INTERVAL_MS` thereafter. The interval is tuned snappy
+// (~11 cards/second) so scanning a long rail feels fluid, while the
+// delay stays long enough to prevent accidental double-steps.
 
 /** Initial delay before a held direction starts repeating (ms). */
-export const REPEAT_DELAY_MS = 450;
+export const REPEAT_DELAY_MS = 400;
 /** Interval between repeats while a direction is held (ms). */
-export const REPEAT_INTERVAL_MS = 110;
+export const REPEAT_INTERVAL_MS = 90;
+
+// ── Horizontal track matching ────────────────────────────────────
+// Left/right navigation prefers candidates inside the same horizontal
+// container so focus doesn't drift diagonally into a neighbouring
+// rail. The v3 header strip is included so the section tabs behave
+// like a rail too.
+
+/** Containers whose in-track candidates win horizontal navigation. */
+export const HORIZONTAL_TRACK_SELECTOR =
+  ".bigscreen-rail-track, .bigscreen-cards, .bigscreen-header-tabs, .bigscreen-v3-sections, [data-rail-id]";
+
+/**
+ * Tracks that cycle at their edges. Content rails (`[data-rail-id]`)
+ * wrap from the last card to the first and vice versa — console
+ * behavior. The header strip is deliberately excluded: wrapping there
+ * would trap focus away from the utility buttons (pointer / search /
+ * exit) that sit to the right of the System entry.
+ */
+export const WRAPPING_TRACK_SELECTOR = "[data-rail-id]";
+
 
 // ── Cycler / back-handler priorities ─────────────────────────────
 // Higher priority wins; ties break by registration recency (newest
@@ -339,7 +361,7 @@ export function scrollElementIntoViewControlled(
   const behavior: ScrollBehavior = opts.immediate ? "auto" : "smooth";
 
   // 1. Find if `el` is inside a horizontal rail container
-  const track = el.closest(".bigscreen-rail-track, .bigscreen-cards, .bigscreen-header-tabs, [data-rail-id]") as HTMLElement | null;
+  const track = el.closest(HORIZONTAL_TRACK_SELECTOR) as HTMLElement | null;
   if (track) {
     const cardRect = el.getBoundingClientRect();
     const trackRect = track.getBoundingClientRect();
@@ -423,7 +445,7 @@ export function nearestInDirection(
 
   // If current element is inside a horizontal rail, and user is pressing left/right,
   // prioritize candidates that are inside the same rail container.
-  const currentTrack = current.closest(".bigscreen-rail-track, .bigscreen-cards, .bigscreen-header-tabs, [data-rail-id]");
+  const currentTrack = current.closest(HORIZONTAL_TRACK_SELECTOR);
   const isHorizontalMove = Math.abs(Math.cos(dirAngle)) > Math.abs(Math.sin(dirAngle));
 
   if (currentTrack && isHorizontalMove) {
@@ -438,6 +460,30 @@ export function nearestInDirection(
         viewport,
       );
       if (sameTrackMatch) return sameTrackMatch;
+
+      // Edge wrap: when the user pushes past the first/last card of a
+      // content rail, cycle to the opposite end of the same rail. We
+      // only wrap when there is genuinely no candidate further along
+      // the press axis (a forward match can also fail because the next
+      // card is disabled), so wrap never hijacks a normal step.
+      if (current.closest(WRAPPING_TRACK_SELECTOR)) {
+        const rightward = Math.cos(dirAngle) >= 0;
+        const hasForward = sameTrackCandidates.some((c) =>
+          rightward ? c.cx > cur.x + 4 : c.cx < cur.x - 4,
+        );
+        if (!hasForward) {
+          let edge = sameTrackCandidates[0];
+          for (const candidate of sameTrackCandidates) {
+            const beyond = rightward
+              ? candidate.cx < edge.cx
+              : candidate.cx > edge.cx;
+            if (beyond) edge = candidate;
+          }
+          if (edge && edge.element !== current && isNavigable(edge.element)) {
+            return edge.element;
+          }
+        }
+      }
     }
   }
 
@@ -470,6 +516,34 @@ export function nearestInDirection(
     viewport,
   );
   if (wideMatch) return wideMatch;
+
+  // Horizontal row wrap for grids: pushing right at the end of a row
+  // steps to the first card of the next row (and left at the start of
+  // a row steps to the last card of the previous row). Only reached
+  // when nothing matched in the pressed direction at all, and never
+  // inside a rail/header track, so it can't hijack normal steps or
+  // bump the user out of the header strip.
+  if (isHorizontalMove && !currentTrack) {
+    const rightward = Math.cos(dirAngle) >= 0;
+    const rowCandidates = near.filter((c) =>
+      rightward ? c.cy > cur.y + 8 : c.cy < cur.y - 8,
+    );
+    if (rowCandidates.length > 0) {
+      const bandY = rightward
+        ? Math.min(...rowCandidates.map((c) => c.cy))
+        : Math.max(...rowCandidates.map((c) => c.cy));
+      const row = rowCandidates.filter((c) => Math.abs(c.cy - bandY) < 8);
+      let target = row[0];
+      for (const candidate of row) {
+        if (rightward ? candidate.cx < target.cx : candidate.cx > target.cx) {
+          target = candidate;
+        }
+      }
+      if (target && target.element !== current && isNavigable(target.element)) {
+        return target.element;
+      }
+    }
+  }
 
   // Final fallback: candidates beyond the culling buffer (previously the
   // off-screen-with-penalty branch). Reachable only when nothing nearer

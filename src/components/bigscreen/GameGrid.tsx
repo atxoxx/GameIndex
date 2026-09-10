@@ -31,6 +31,8 @@ import type { ReactNode } from "react";
 import type { Game } from "../../types/game";
 import BigScreenGameCard from "../library/BigScreenGameCard";
 import { isBigScreenOverlayOpen } from "../../context/BigScreenContext";
+import { scrollElementIntoViewControlled } from "../../hooks/gamepad/gamepadUtils";
+import { parseFocusGameKey } from "../../utils/focusMemory";
 import "../../library.css";
 
 const VIRTUALIZE_THRESHOLD = 60;
@@ -129,6 +131,7 @@ export default function GameGrid({
       const el = root.querySelector<HTMLElement>(selector);
       if (el) {
         el.focus({ preventScroll: true });
+        scrollElementIntoViewControlled(el);
         return;
       }
       // Virtualized out of the window — jump the scroll position to
@@ -141,7 +144,9 @@ export default function GameGrid({
       const row = Math.floor(idx / cols);
       root.scrollTop = Math.max(0, row * rowStride - FOCUS_SCROLL_MARGIN);
       requestAnimationFrame(() => {
-        root.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+        const mounted = root.querySelector<HTMLElement>(selector);
+        mounted?.focus({ preventScroll: true });
+        if (mounted) scrollElementIntoViewControlled(mounted);
       });
     },
     [games, useVirtual, containerW, cardH],
@@ -176,6 +181,25 @@ export default function GameGrid({
     if (!targetId) return;
     focusCard(targetId);
   }, [gamesKey, games, focusCard]);
+
+  // Route-return focus restore: the shell remembers which card the user
+  // was on before drilling into a game page and fires this event when
+  // the grid remounts. The card may be virtualized out, so `focusCard`
+  // scrolls its row into view before focusing.
+  useEffect(() => {
+    const onFocusGame = (event: Event) => {
+      const parsed = parseFocusGameKey(
+        `game:${(event as CustomEvent<string>).detail}`,
+      );
+      if (!parsed) return;
+      // Rail-scoped memories are handled by the owning rail.
+      if (parsed.railId) return;
+      if (!games.some((g) => g.id === parsed.gameId)) return;
+      focusCard(parsed.gameId);
+    };
+    window.addEventListener("bigscreen:focus-game", onFocusGame);
+    return () => window.removeEventListener("bigscreen:focus-game", onFocusGame);
+  }, [games, focusCard]);
 
   if (games.length === 0) {
     return (

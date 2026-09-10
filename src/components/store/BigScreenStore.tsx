@@ -5,7 +5,9 @@ import { useWishlistContext } from "../../context/WishlistContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
+import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
 import BigScreenStoreRail from "./BigScreenStoreRail";
+import BigScreenDashboardBackdrop from "../bigscreen/BigScreenDashboardBackdrop";
 import BigScreenPill from "../bigscreen/BigScreenPill";
 import type { StoreGameSummary } from "../../types/game";
 import "../../styles/wishlist.css";
@@ -94,6 +96,10 @@ export default function BigScreenStore() {
     return trendingGamesMap.get(String(selectedGame.id)) ?? selectedGame;
   }, [trendingGamesMap, selectedGame]);
 
+  // Animated hero art for the spotlighted store game (appid resolved
+  // from the IGDB `websites` array by the shared backdrop hook).
+  const backdrop = useGameBackdropArt(featuredGame);
+
   useEffect(() => {
     if (view !== "trending") return;
     const el = gamepad.focusedElement;
@@ -136,8 +142,9 @@ export default function BigScreenStore() {
     setLogoError(false);
   }, [featuredGame?.id, featuredGame?.logoUrl]);
 
-  const renderDetailsPane = (railId: string) => {
-    if (activeRailId !== railId) return null;
+  // Anchored above every rail so switching rails never reflows the
+  // dashboard (same rationale as the Home pane).
+  const renderDetailsPane = () => {
     const featuredLogo = featuredGame?.logoUrl || (featuredGame?.websites ? (() => {
       for (const url of featuredGame.websites) {
         const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
@@ -221,18 +228,11 @@ export default function BigScreenStore() {
     <div className="bigscreen-store-dashboard">
       {/* Dynamic full-bleed backdrop (only on trending view for premium vibes) */}
       {view === "trending" && (
-        <div className="bigscreen-dashboard-backdrop-container">
-          {featuredGame && featuredGame.coverUrl && (
-            <img
-              key={featuredGame.id}
-              src={featuredGame.coverUrl}
-              alt=""
-              className="bigscreen-dashboard-backdrop-img animate-fade-in"
-              style={{ opacity: 1 }}
-            />
-          )}
-          <div className="bigscreen-dashboard-backdrop-overlay" />
-        </div>
+        <BigScreenDashboardBackdrop
+          staticUrl={backdrop.staticUrl}
+          animatedUrl={backdrop.animatedUrl}
+          artKey={featuredGame?.id ?? null}
+        />
       )}
 
       {/* Main scrolling wrapper */}
@@ -275,46 +275,35 @@ export default function BigScreenStore() {
                 </div>
               ) : (
                 <div className="store-rails-group">
-                  <>
-                    {renderDetailsPane("trending")}
-                    <BigScreenStoreRail
-                      railId="trending"
-                      title={t("store.tab.trending")}
-                      games={trending}
-                      onCardClick={handleCardClick}
-                      isActive={activeRailId === "trending"}
-                    />
-                  </>
-                  <>
-                    {renderDetailsPane("popular")}
-                    <BigScreenStoreRail
-                      railId="popular"
-                      title={t("bigscreen.store.popularNow")}
-                      games={popular}
-                      onCardClick={handleCardClick}
-                      isActive={activeRailId === "popular"}
-                    />
-                  </>
-                  <>
-                    {renderDetailsPane("top")}
-                    <BigScreenStoreRail
-                      railId="top"
-                      title={t("bigscreen.store.topCritic")}
-                      games={top}
-                      onCardClick={handleCardClick}
-                      isActive={activeRailId === "top"}
-                    />
-                  </>
-                  <>
-                    {renderDetailsPane("coming-soon")}
-                    <BigScreenStoreRail
-                      railId="coming-soon"
-                      title={t("store.tab.comingSoon")}
-                      games={comingSoon}
-                      onCardClick={handleCardClick}
-                      isActive={activeRailId === "coming-soon"}
-                    />
-                  </>
+                  {renderDetailsPane()}
+                  <BigScreenStoreRail
+                    railId="trending"
+                    title={t("store.tab.trending")}
+                    games={trending}
+                    onCardClick={handleCardClick}
+                    isActive={activeRailId === "trending"}
+                  />
+                  <BigScreenStoreRail
+                    railId="popular"
+                    title={t("bigscreen.store.popularNow")}
+                    games={popular}
+                    onCardClick={handleCardClick}
+                    isActive={activeRailId === "popular"}
+                  />
+                  <BigScreenStoreRail
+                    railId="top"
+                    title={t("bigscreen.store.topCritic")}
+                    games={top}
+                    onCardClick={handleCardClick}
+                    isActive={activeRailId === "top"}
+                  />
+                  <BigScreenStoreRail
+                    railId="coming-soon"
+                    title={t("store.tab.comingSoon")}
+                    games={comingSoon}
+                    onCardClick={handleCardClick}
+                    isActive={activeRailId === "coming-soon"}
+                  />
                 </div>
               )}
             </div>

@@ -23,7 +23,7 @@
 // just spread `useFocusable`'s return value), `useFocusableRef` is
 // the lower-level primitive that exposes the callback directly.
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, type KeyboardEvent } from "react";
 import { useGamepad } from "./GamepadProvider";
 
 export interface FocusableProps {
@@ -35,7 +35,16 @@ export interface FocusableProps {
   role: "option";
   /** Mouse / keyboard fallback (the virtual cursor also uses it). */
   onClick: () => void;
+  /**
+   * Enter / Space activation for non-native focusables (game-card
+   * `<div>`s). Native buttons and links already fire `onClick` on
+   * Enter, so this handler stands down for them to avoid double
+   * activation.
+   */
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
 }
+
+const NATIVE_ACTIVATION_TAGS = new Set(["BUTTON", "A", "INPUT", "SUMMARY"]);
 
 /**
  * Register a focusable element with the Big Screen spatial-nav
@@ -75,10 +84,22 @@ export function useFocusable(onActivate: () => void): FocusableProps {
     [registerAction],
   );
 
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const tag = event.currentTarget.tagName;
+      if (NATIVE_ACTIVATION_TAGS.has(tag)) return;
+      event.preventDefault();
+      onActivateRef.current();
+    },
+    [],
+  );
+
   return {
     ref: refCallback,
     tabIndex: 0,
     role: "option" as const,
     onClick: () => onActivateRef.current(),
+    onKeyDown,
   };
 }
