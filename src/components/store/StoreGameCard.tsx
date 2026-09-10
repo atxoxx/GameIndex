@@ -22,6 +22,8 @@ interface StoreGameCardProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: (game: StoreGameSummary, event: MouseEvent) => void;
+  /** Reports pointer enter/leave so callers can pause ambient media (e.g. the spotlight trailer). */
+  onHoverChange?: (hovering: boolean) => void;
 }
 
 function ratingColor(score: number): string {
@@ -43,6 +45,7 @@ function StoreGameCardBase({
   selectable = false,
   selected = false,
   onToggleSelect,
+  onHoverChange,
 }: StoreGameCardProps) {
   const wishlistCtx = useContext(WishlistContext);
   const densityCtx = useContext(DensityContext);
@@ -64,6 +67,18 @@ function StoreGameCardBase({
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
   const { t } = useLanguage();
   const [hovered, setHovered] = useState(false);
+
+  const handleMouseEnter = () => {
+    setHovered(true);
+    onHoverChange?.(true);
+  };
+
+  const handleMouseLeave = (e: MouseEvent) => {
+    setHovered(false);
+    const next = e.relatedTarget;
+    if (next instanceof Element && next.closest(".store-game-card")) return;
+    onHoverChange?.(false);
+  };
 
   const isList = density === "list";
   const { displayUrl, staticPosterUrl, animatedPosterUrl, isIcon, handleError } = useGameCardArt({
@@ -93,8 +108,8 @@ function StoreGameCardBase({
             onClick(game);
           }
         }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -274,8 +289,8 @@ function StoreGameCardBase({
           onClick(game);
         }
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -540,7 +555,8 @@ const StoreGameCard = memo(StoreGameCardBase, (prev, next) => {
     prev.wishlisted === next.wishlisted &&
     prev.inLibrary === next.inLibrary &&
     prev.selectable === next.selectable &&
-    prev.selected === next.selected
+    prev.selected === next.selected &&
+    prev.onHoverChange === next.onHoverChange
   );
 });
 

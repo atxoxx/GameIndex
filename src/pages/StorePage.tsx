@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import { usePresence } from "../context/PresenceContext";
 import { useStoreCatalogue } from "../hooks/useStoreCatalogue";
@@ -20,6 +20,8 @@ export default function StorePage() {
   const c = useStoreCatalogue();
   const { setStorePlatforms } = usePresence();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [cardHovered, setCardHovered] = useState(false);
+  const handleCardHover = useCallback((hovering: boolean) => setCardHovered(hovering), []);
 
   // Keep Presence in sync with the selected platform filter (for Discord etc.)
   useEffect(() => {
@@ -114,7 +116,7 @@ export default function StorePage() {
 
       {/* Featured Spotlight Showcase */}
       <div className="fade-up ui-complete-only ui-item-hero" style={{ "--d": "120ms" } as CSSProperties}>
-        <StoreFeaturedHero onPickGame={c.onCardClick} />
+        <StoreFeaturedHero onPickGame={c.onCardClick} pauseMotion={cardHovered} />
       </div>
 
       <div className="store-layout store-layout-in" style={{ "--d": "200ms" } as CSSProperties}>
@@ -140,6 +142,7 @@ export default function StorePage() {
             onToggleSelect={c.toggleSelect}
             onClearFilters={c.resetFilters}
             onClearSearch={() => c.applyExternalQuery("")}
+            onCardHover={handleCardHover}
           />
         </div>
 

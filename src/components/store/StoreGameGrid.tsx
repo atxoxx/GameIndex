@@ -25,6 +25,8 @@ interface StoreGameGridProps {
   onClearFilters?: () => void;
   /** Clear just the active search query (leaves facet filters intact). Clears URL ?q= via applyExternalQuery("") in StorePage. */
   onClearSearch?: () => void;
+  /** Reports pointer enter/leave on individual game posters. */
+  onCardHover?: (hovering: boolean) => void;
 }
 
 function CardSkeleton({ list = false }: { list?: boolean }) {
@@ -88,6 +90,7 @@ export default function StoreGameGrid({
   onToggleSelect,
   onClearFilters,
   onClearSearch,
+  onCardHover,
 }: StoreGameGridProps) {
   const { t } = useLanguage();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -343,6 +346,7 @@ export default function StoreGameGrid({
               selectable={bulkMode}
               selected={selectedSlugs ? selectedSlugs.has(game.slug) : false}
               onToggleSelect={onToggleSelect}
+              onHoverChange={onCardHover}
             />
           </div>
         ))}

@@ -18,6 +18,8 @@ type HeroCategory = "hot" | "weekly" | "trending" | "top_rated" | "coming_soon";
 interface StoreFeaturedHeroProps {
   /** Navigate to a game's detail page. */
   onPickGame: (game: StoreGameSummary) => void;
+  /** Freeze spotlight motion (trailer video + animated backdrop) while a catalogue poster is hovered. */
+  pauseMotion?: boolean;
 }
 
 const TABS: {
@@ -116,7 +118,7 @@ function renderPlatformIcon(platform: string): ReactElement | null {
   return null;
 }
 
-export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps) {
+export default function StoreFeaturedHero({ onPickGame, pauseMotion = false }: StoreFeaturedHeroProps) {
   const { t, language } = useLanguage();
   const wishlistCtx = useContext(WishlistContext);
   const [tab, setTab] = useState<HeroCategory>("hot");
@@ -401,12 +403,12 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     const video = videoRef.current;
     if (!video) return;
 
-    if (!isInView || isPaused || manualVideoPaused || reduceMotion) {
+    if (!isInView || isPaused || manualVideoPaused || reduceMotion || pauseMotion) {
       video.pause();
     } else {
       video.play().catch(() => {});
     }
-  }, [isInView, isPaused, manualVideoPaused, reduceMotion, trailerVideoSrc]);
+  }, [isInView, isPaused, manualVideoPaused, reduceMotion, trailerVideoSrc, pauseMotion]);
 
   // Subtle pointer parallax for the hero backdrop + poster. Normalized
   // pointer position (0..1) is published as --spot-x / --spot-y on the
@@ -458,8 +460,9 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const posterSrc = coverUrl ?? sgdb?.gridUrl ?? null;
   const staticBackdrop =
     steamCdnHero ?? sgdb?.heroUrl ?? backdropLoadedUrl ?? coverUrl;
-  const spotlightBackdrop =
-    reduceMotion
+  const spotlightBackdrop = pauseMotion
+    ? (sgdb?.heroUrl ?? staticBackdrop)
+    : reduceMotion
       ? staticBackdrop
       : (sgdb?.heroAnimatedUrl ?? staticBackdrop);
   const trailerPoster = staticBackdrop || undefined;
