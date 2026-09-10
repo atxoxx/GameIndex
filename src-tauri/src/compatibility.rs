@@ -1118,16 +1118,19 @@ pub fn find_umu_run() -> Option<PathBuf> {
 
 /// Build the MangoHud CSV-logging config used for GameIndex sessions:
 /// one line per second into `folder` so `metrics_collector` finds the
-/// frame log. When `hidden` the overlay starts hidden (toggled with the
-/// MangoHud hotkey) while still logging — useful when the overlay is
-/// only needed for telemetry, not on screen.
+/// frame log. `read_cfg` must come first: `MANGOHUD_CONFIG` otherwise
+/// replaces the user's `MangoHud.conf` wholesale, and only keys listed
+/// after it override the file. When `hidden` the overlay starts hidden
+/// (`no_display`, toggled back with the MangoHud hotkey) while still
+/// logging — useful when the overlay is only needed for telemetry, not
+/// on screen.
 pub fn mangohud_log_config(folder: &Path, hidden: bool) -> String {
     let mut cfg = format!(
-        "log_interval=1000,output_folder={},autostart_log=1",
+        "read_cfg,log_interval=1000,output_folder={},autostart_log=1",
         folder.display()
     );
     if hidden {
-        cfg.push_str(",hide");
+        cfg.push_str(",no_display");
     }
     cfg
 }
@@ -3276,8 +3279,8 @@ pub fn launch_with_compatibility(
     // Linux: enable MangoHud CSV logging (auto-start after 1s, one line per
     // second) into a folder `metrics_collector` scans, so the overlay also
     // feeds real-time FPS/frametimes into the session telemetry instead of
-    // being display-only. `MANGOHUD_CONFIG` only overrides the listed keys;
-    // the rest of the user's MangoHud.conf still applies. A user-supplied
+    // being display-only. `read_cfg` keeps the user's MangoHud.conf in play
+    // and the listed keys override only what logging needs. A user-supplied
     // `MANGOHUD_CONFIG` in custom env vars below still wins.
     #[cfg(target_os = "linux")]
     if enable_mangohud && is_command_available("mangohud") {
@@ -4440,15 +4443,16 @@ mod tests {
     }
 
     #[test]
-    fn mangohud_config_appends_hide_only_when_requested() {
+    fn mangohud_config_reads_user_config_and_hides_only_when_requested() {
         let folder = Path::new("/home/u/.local/share/MangoHud");
         let shown = mangohud_log_config(folder, false);
+        assert!(shown.starts_with("read_cfg,"), "got: {}", shown);
         assert!(shown.contains("log_interval=1000"));
         assert!(shown.contains("autostart_log=1"));
-        assert!(!shown.contains(",hide"));
+        assert!(!shown.contains("no_display"));
 
         let hidden = mangohud_log_config(folder, true);
-        assert!(hidden.ends_with(",hide"), "got: {}", hidden);
+        assert!(hidden.ends_with(",no_display"), "got: {}", hidden);
     }
 
     #[test]
@@ -4651,7 +4655,10 @@ mod tests {
 
         assert_eq!(map.get("MANGOHUD"), Some(&"1"));
         let config = map.get("MANGOHUD_CONFIG").expect("mangohud config set");
-        assert!(config.contains("autostart_log=1") && config.contains(",hide"));
+        assert!(
+            config.contains("read_cfg,") && config.contains("autostart_log=1") && config.contains(",no_display"),
+            "got: {config}"
+        );
     }
 
     #[test]
