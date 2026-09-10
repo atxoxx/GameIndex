@@ -1446,6 +1446,18 @@ pub fn try_launch_steam_app(
     for (k, v) in env {
         cmd.env(k, v);
     }
+
+    // Steam owns the game process here, so our stdout capture cannot see
+    // it. Proton can write its own log instead: clear the previous session
+    // and point PROTON_LOG_DIR at this game's folder. Steam passes this
+    // environment down on a cold start; when the client is already running
+    // it may forward the launch without it, so the log is best-effort.
+    let log_dir = steam_wine_log_dir_for_game(app, game_id);
+    let _ = fs::remove_dir_all(&log_dir);
+    let _ = fs::create_dir_all(&log_dir);
+    cmd.env("PROTON_LOG", "1");
+    cmd.env("PROTON_LOG_DIR", &log_dir);
+
     // Fire-and-forget: Steam keeps the game process alive on its own;
     // the watcher picks it up passively once it appears.
     cmd.spawn().map(|_| true).unwrap_or(false)
@@ -1535,15 +1547,39 @@ fn default_prefix_base(app: &tauri::AppHandle) -> PathBuf {
     }
 }
 
-/// Get the log file path for a game's Wine/Proton session.
-pub fn wine_log_path_for_game(app: &tauri::AppHandle, game_id: &str) -> PathBuf {
+/// Root folder holding every game's Wine/Proton session logs.
+fn wine_logs_root(app: &tauri::AppHandle) -> PathBuf {
     let dir = app
         .path()
         .app_data_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join("wine_logs");
     let _ = fs::create_dir_all(&dir);
-    dir.join(format!("{}.log", game_id))
+    dir
+}
+
+/// Get the log file path for a game's direct Wine/Proton session.
+pub fn wine_log_path_for_game(app: &tauri::AppHandle, game_id: &str) -> PathBuf {
+    wine_logs_root(app).join(format!("{}.log", game_id))
+}
+
+/// Per-game folder for a Steam-owned launch: Proton writes
+/// `steam-<appid>.log` there when `PROTON_LOG` is set, and the file name is
+/// fixed by Proton, so the reader picks the newest log in the folder.
+pub fn steam_wine_log_dir_for_game(app: &tauri::AppHandle, game_id: &str) -> PathBuf {
+    let dir = wine_logs_root(app).join(game_id);
+    let _ = fs::create_dir_all(&dir);
+    dir
+}
+
+/// Newest `.log` file inside `dir`, or `None` when the folder is empty.
+fn newest_log_file(dir: &Path) -> Option<PathBuf> {
+    fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|p| p.is_file() && p.extension().map(|e| e == "log").unwrap_or(false))
+        .max_by_key(|p| fs::metadata(p).and_then(|m| m.modified()).ok())
 }
 
 pub fn get_compatibility_settings_internal(app: &tauri::AppHandle) -> Result<CompatibilitySettings, String> {
@@ -1596,7 +1632,31 @@ pub fn get_compatibility_system_status() -> LinuxSystemStatus {
 
 #[tauri::command]
 pub fn get_game_wine_logs(app: tauri::AppHandle, game_id: String) -> Result<WineLogResult, String> {
-    let p = wine_log_path_for_game(&app, &game_id);
+    let direct = wine_log_path_for_game(&app, &game_id);
+    let steam_dir = steam_wine_log_dir_for_game(&app, &game_id);
+
+    // Direct compatibility launches write `<game_id>.log`; Steam-owned
+    // launches let Proton write `steam-<appid>.log` into a per-game folder.
+    // Show whichever log was touched most recently.
+    let p = std::iter::once(direct.clone())
+        .chain(newest_log_file(&steam_dir))
+        .filter(|p| p.is_file())
+        .max_by_key(|p| fs::metadata(p).and_then(|m| m.modified()).ok())
+        .unwrap_or_else(|| {
+            // No log yet — point at where the next Steam launch would write
+            // one when the game has an app id, otherwise the direct path.
+            let appid = {
+                let db_state: tauri::State<'_, db::Db> = app.state();
+                db::games::get(db_state.inner(), &game_id)
+                    .ok()
+                    .flatten()
+                    .and_then(|g| g.steam_app_id)
+            };
+            match appid {
+                Some(id) => steam_dir.join(format!("steam-{}.log", id)),
+                None => direct,
+            }
+        });
     let path_str = p.to_string_lossy().to_string();
 
     if !p.exists() {
@@ -1638,6 +1698,10 @@ pub fn clear_game_wine_logs(app: tauri::AppHandle, game_id: String) -> Result<()
     let p = wine_log_path_for_game(&app, &game_id);
     if p.exists() {
         let _ = fs::remove_file(p);
+    }
+    let steam_dir = steam_wine_log_dir_for_game(&app, &game_id);
+    if steam_dir.exists() {
+        let _ = fs::remove_dir_all(steam_dir);
     }
     Ok(())
 }
@@ -4153,5 +4217,19 @@ mod tests {
         let dest = dir.path().join("eac_runtime");
 
         assert!(extract_anticheat_archive(&dir.path().join("missing.tar.xz"), &dest).is_err());
+    }
+
+    #[test]
+    fn newest_log_file_picks_the_latest_log() {
+        let dir = tempfile::tempdir().unwrap();
+        let older = dir.path().join("steam-100.log");
+        let newer = dir.path().join("steam-200.log");
+        fs::write(&older, "old session").unwrap();
+        std::thread::sleep(Duration::from_millis(30));
+        fs::write(&newer, "new session").unwrap();
+        fs::write(dir.path().join("notes.txt"), "ignored").unwrap();
+
+        assert_eq!(newest_log_file(dir.path()), Some(newer));
+        assert_eq!(newest_log_file(&dir.path().join("missing")), None);
     }
 }
