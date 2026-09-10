@@ -999,7 +999,6 @@ export default function Sidebar() {
                     density={viewOptions.density}
                     viewOptions={viewOptions}
                     searchQuery={filterState.search}
-                    prefersCover={isIconRail}
                     onPointerEnter={handlePointerEnter}
                     onPointerLeave={handlePointerLeave}
                     onQuickPlay={handleQuickPlay}
@@ -1051,7 +1050,6 @@ export default function Sidebar() {
                     density={viewOptions.density}
                     viewOptions={viewOptions}
                     searchQuery={filterState.search}
-                    prefersCover={isIconRail}
                     onPointerEnter={handlePointerEnter}
                     onPointerLeave={handlePointerLeave}
                     onQuickPlay={handleQuickPlay}
@@ -1093,7 +1091,6 @@ export default function Sidebar() {
                           density={viewOptions.density}
                           viewOptions={viewOptions}
                           searchQuery={filterState.search}
-                          prefersCover={isIconRail}
                           onPointerEnter={handlePointerEnter}
                           onPointerLeave={handlePointerLeave}
                           onQuickPlay={handleQuickPlay}
@@ -1168,7 +1165,6 @@ export default function Sidebar() {
                   density={viewOptions.density}
                   viewOptions={viewOptions}
                   searchQuery={filterState.search}
-                  prefersCover={isIconRail}
                   onPointerEnter={handlePointerEnter}
                   onPointerLeave={handlePointerLeave}
                   onQuickPlay={handleQuickPlay}

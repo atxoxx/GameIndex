@@ -36,7 +36,6 @@ function SidebarGameItemBase({
   density = "standard",
   viewOptions,
   searchQuery,
-  prefersCover,
   onPointerEnter,
   onPointerLeave,
   onQuickPlay,
@@ -160,32 +159,19 @@ function SidebarGameItemBase({
       aria-selected={isSelected}
     >
       <div className="sidebar-game-icon">
-        {prefersCover && game.coverArtUrl ? (
+        {game.iconUrl ? (
           <img
-            src={game.coverArtUrl}
+            src={game.iconUrl}
             alt={game.name}
             loading="lazy"
             decoding="async"
             onError={(e) => {
               const img = e.currentTarget;
-              const appId = game.steamAppId;
-              if (appId) {
-                if (img.src.includes("library_600x900_2x")) {
-                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-                  return;
-                }
-                if (img.src.includes("library_600x900")) {
-                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
-                  return;
-                }
-              }
-              if (game.iconUrl && img.src !== game.iconUrl) {
-                img.src = game.iconUrl;
-              }
+              if (!game.coverArtUrl || img.dataset.fallback === "cover") return;
+              img.dataset.fallback = "cover";
+              img.src = game.coverArtUrl;
             }}
           />
-        ) : game.iconUrl ? (
-          <img src={game.iconUrl} alt={game.name} loading="lazy" decoding="async" />
         ) : game.coverArtUrl ? (
           <img
             src={game.coverArtUrl}

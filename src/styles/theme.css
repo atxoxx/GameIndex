@@ -264,7 +264,7 @@
   --topnav-height: 56px;
   --sidebar-width: 280px;
   --sidebar-collapsed-width: 0px;
-  --sidebar-icon-rail-width: 68px;
+  --sidebar-icon-rail-width: 84px;
   --sidebar-hover-preview-width: 260px;
   --content-max-width: 1440px;
 
@@ -359,7 +359,7 @@
   :root {
     --topnav-height: 64px;
     --sidebar-width: 320px;
-    --sidebar-icon-rail-width: 80px;
+    --sidebar-icon-rail-width: 100px;
     --content-max-width: 3600px;
 
     /* Scaled typography hierarchy */

@@ -634,18 +634,22 @@ html[data-game-accent] .sidebar {
 /* Body-level toggle of the inner sidebar between full-width and
  * icon-only-rail mode. The `.app-sidebar` wrapper reads
  * `SidebarCollapseContext` and adds `.sidebar-icon-rail` when active.
- * The two classes below force `width` to the icon-rail variable,
- * hide the chrome that would crowd a 68px column (search box,
- * filter button label, import button), and tighten the row markup
- * so it collapses to just (cover · status-dot). The sidebar root
- * is a flex column so inner elements with `flex: 0 0 auto` keep
- * their layout; the icon rail keeps the header's collapse-to-full
- * toggle visible so the user can revert with one click. */
+ * The two classes below force `width` to the icon-rail variable, hide
+ * the chrome that would crowd the narrow column (search box, filter
+ * button label, import button), and switch each row to the stacked
+ * cover + title card defined further down. The sidebar root is a flex
+ * column so inner elements with `flex: 0 0 auto` keep their layout;
+ * the icon rail keeps the header's collapse-to-full toggle visible so
+ * the user can revert with one click. */
 .app-sidebar.sidebar-icon-rail {
   width: var(--sidebar-icon-rail-width);
 }
 
-/* The inner .sidebar keeps its own width: var(--sidebar-width) (full-width), which leaves every game row ~280px wide inside the now-68px .app-sidebar. The row uses justify-content: center, so the 56px cover is centered in the 280px row at ~112px -- well outside the visible 68px column -- and overflow: hidden clips it away (the list reads as empty even though rows stay clickable). Collapsing the inner sidebar to the rail width lets the centered cover land inside the visible column. */
+/* The inner .sidebar keeps its own width: var(--sidebar-width)
+ * (full-width) by default, which would leave every game row ~280px
+ * wide inside the narrow .app-sidebar column. Collapsing the inner
+ * sidebar to the rail width lets the centered cover land inside the
+ * visible column. */
 .app-sidebar.sidebar-icon-rail .sidebar {
   width: 100%;
 }
@@ -679,23 +683,39 @@ html[data-game-accent] .sidebar {
   display: none;
 }
 
-/* In rail mode, the row shows only the cover thumbnail and the
- * tiny status dot. The title/meta are hidden but remain in the
- * DOM so the row keeps its semantic structure (good for
- * screen readers via the `aria-label` on `.sidebar-game-status`).
- * The cover sits centered in the rail and gains a soft glow on
- * hover so it doesn't read as a flat icon button.
+/* Rail mode turns every row into a mini card: the game icon on top
+ * (falling back to cover art when no icon exists), the game name
+ * clamped to two lines underneath. Section headers, meta, the status
+ * dot and quick-play chrome stay hidden — the rail is for
+ * recognition, the hover preview carries the details.
  *
- * NOTE: SidebarGameItem prefers the high-res `coverArtUrl` (full
- * cover artwork, often IGDB / Steam library_600x900) over the
- * small square `iconUrl` whenever `prefersCover={isIconRail}` is
- * set by the parent. CSS-side we keep the box square so the
- * aspect-ratio cover crops cleanly via `object-fit: cover` on
- * the existing `.sidebar-game-icon img` rule. */
+ * The rail declares its own art size through `--sidebar-rail-art` so
+ * the title column, the platform badge pinned to the art's bottom
+ * edge, the intrinsic row height and the 4K override all stay in
+ * sync from one value. SidebarGameItem prefers the square `iconUrl`
+ * and falls back to the high-res `coverArtUrl`; CSS keeps the box
+ * square so both crop cleanly via `object-fit: cover`. */
+.app-sidebar.sidebar-icon-rail {
+  --sidebar-rail-art: 64px;
+  /* Content-box remainder of the card: gap + two title lines. Kept
+   * separate from the cover so `contain-intrinsic-size` (which
+   * measures the content box) can reconstruct the real row height. */
+  --sidebar-rail-row-extra: 30.4px;
+}
+
+/* Drop the list's side gutters so the row can spend the full rail
+ * width on the cover + title column. */
+.app-sidebar.sidebar-icon-rail .sidebar-list {
+  padding-left: var(--space-2xs);
+  padding-right: var(--space-2xs);
+}
+
 .app-sidebar.sidebar-icon-rail .sidebar-game-item {
-  justify-content: center;
-  padding: var(--space-xs);
-  gap: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-2xs) var(--space-sm);
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-status {
@@ -703,56 +723,105 @@ html[data-game-accent] .sidebar {
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-info {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex !important;
-  justify-content: center;
-  align-items: center;
-  width: auto;
-  max-width: 58px;
+  position: static;
+  display: block;
+  width: 100%;
+  max-width: none;
   min-width: 0;
   padding: 0;
   margin: 0;
   background: transparent;
   pointer-events: none;
-  z-index: 2;
+  text-align: center;
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-name {
-  display: flex;
-  justify-content: center;
-  gap: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  /* Reserve both lines on every row so short and long titles keep a
+   * uniform card height instead of a ragged rail. */
+  min-height: calc(1.2em * 2);
+  padding: 0 2px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  letter-spacing: 0.1px;
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast);
 }
 
-.app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-name > :not(.sidebar-game-console-badge) {
-  display: none;
+.app-sidebar.sidebar-icon-rail .sidebar-game-item:hover .sidebar-game-name,
+.app-sidebar.sidebar-icon-rail .sidebar-game-item.active .sidebar-game-name {
+  color: var(--color-text-primary);
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-meta {
   display: none;
 }
 
+/* Platform badge rides the cover's bottom edge instead of the title
+ * column, so it never consumes one of the two title lines. It is
+ * absolutely positioned against the row, which keeps it out of the
+ * line-clamped title flow above. */
 .app-sidebar.sidebar-icon-rail .sidebar-game-console-badge {
-  display: inline-flex !important;
-  font-size: 8px !important;
-  padding: 1px 4px !important;
+  position: absolute;
+  top: calc(var(--space-xs) + var(--sidebar-rail-art) - 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  font-size: 8px;
+  padding: 1px 4px;
   max-width: 52px;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-light);
   box-shadow: var(--shadow-sm);
   pointer-events: none;
+  z-index: 2;
+}
+
+/* Pin toggle floats over the cover's top-right corner on hover so it
+ * can never push the title column around. */
+.app-sidebar.sidebar-icon-rail .sidebar-game-pin-btn {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  z-index: 3;
+  width: 20px;
+  height: 20px;
+  background: color-mix(in srgb, var(--color-bg-primary) 62%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.app-sidebar.sidebar-icon-rail .sidebar-game-pin-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* The bulk-select checkmark owns the cover corner while it is
+ * visible, so the pin yields instead of stacking on top of it. */
+.app-sidebar.sidebar-icon-rail .sidebar-game-item.bulk-selected .sidebar-game-pin-btn {
+  display: none;
+}
+
+/* The accent selection bar grows with the taller rail card. */
+.app-sidebar.sidebar-icon-rail .sidebar-game-item::after {
+  height: 32px;
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-icon {
-  /* 56px box is the sweet spot for a 68px rail: 6px breathing
-   * room on each side, and large enough that an aspect-ratio
-   * cover (typically 2:3) reads as a recognizable game card with
-   * `object-fit: cover` cropping the top/bottom to a square. */
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
+  /* Square art box sized by the rail variable: large enough for the
+   * icon to read at a glance, and for aspect-ratio cover art
+   * (typically 2:3) to crop to a square via `object-fit: cover`. */
+  width: var(--sidebar-rail-art);
+  height: var(--sidebar-rail-art);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   /* Defensive: covers that downloaded with a transparent border
    * can let the dark sidebar bleed through sub-pixel rounding.
@@ -779,10 +848,10 @@ html[data-game-accent] .sidebar {
  * platform-default `<img>` width. */
 .app-sidebar.sidebar-icon-rail .sidebar-game-icon img {
   display: block !important;
-  width: 56px !important;
-  height: 56px !important;
-  min-width: 56px;
-  min-height: 56px;
+  width: var(--sidebar-rail-art) !important;
+  height: var(--sidebar-rail-art) !important;
+  min-width: var(--sidebar-rail-art);
+  min-height: var(--sidebar-rail-art);
   object-fit: cover;
   /* Visible backdrop while the image is loading or absent so the
    * rail is never a row of invisible rectangles. */
@@ -836,14 +905,17 @@ html[data-game-accent] .sidebar {
   margin: var(--space-xs) var(--space-xs);
 }
 
-/* Rail rows are 68px tall (6px --space-xs padding top/bottom + a
- * 56px cover box) but otherwise inherit the base
- * `contain-intrinsic-size: 52px` from `.sidebar-game-item`, so
- * `content-visibility: auto` reserves ~16px too little per row and
- * the rail's scrollbar drifts as rows enter the visible viewport.
- * Match the intrinsic size to the real rail row height. */
+/* Rail rows are taller than the base 52px estimate, so
+ * `content-visibility: auto` would reserve too little per row and
+ * the rail's scrollbar would drift as rows enter the visible
+ * viewport. `contain-intrinsic-size` measures the CONTENT box
+ * (padding is added on top), so the estimate here tracks only the
+ * cover + gap + two title lines — the padding comes from the card
+ * rule above. */
 .app-sidebar.sidebar-icon-rail .sidebar-game-item {
-  contain-intrinsic-size: 68px;
+  contain-intrinsic-size: calc(
+    var(--sidebar-rail-art) + var(--sidebar-rail-row-extra)
+  );
 }
 
 /* PinnedGames section header (above the pinned rows). Renders as
@@ -874,13 +946,13 @@ html[data-game-accent] .sidebar {
 }
 
 /* Hide the pinned section header in icon-rail mode — it would
- * crowd the 68px column. The covers alone read clearly. */
+ * crowd the narrow column. The covers alone read clearly. */
 .app-sidebar.sidebar-icon-rail .sidebar-section-header {
   display: none;
 }
 
-/* Same for the main list header + its count: only covers fit in the
- * rail, so "GAMES 40" has nowhere to live. */
+/* Same for the main list header + its count: the rail has no room
+ * for "GAMES 40" between the title cards. */
 .app-sidebar.sidebar-icon-rail .sidebar-list-header {
   display: none;
 }
@@ -1060,7 +1132,7 @@ html[data-game-accent] .sidebar {
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-bulk-action-bar {
-  /* In rail mode the bulk action buttons would crowd the 68px
+  /* In rail mode the bulk action buttons would crowd the narrow
    * column; collapse the bar to a single transparent icon
    * cluster that fully expands on hover. The pin + remove + exit
    * actions stay — the user only ever multi-selects from rail
@@ -2884,6 +2956,11 @@ html[data-game-accent] .sidebar {
   .sidebar-section-header {
     font-size: var(--font-size-xs);
     padding: 8px 12px;
+  }
+
+  .app-sidebar.sidebar-icon-rail {
+    --sidebar-rail-art: 76px;
+    --sidebar-rail-row-extra: 34px;
   }
 
   .sidebar-icon-rail-item {

@@ -185,7 +185,6 @@ export interface SidebarGameItemProps {
   density?: SidebarDensity;
   viewOptions?: SidebarViewOptions;
   searchQuery: string;
-  prefersCover?: boolean;
   onPointerEnter: (game: Game) => void;
   onPointerLeave: (game: Game) => void;
   onQuickPlay: (game: Game) => void;
