@@ -336,3 +336,68 @@ describe("EditGameModal prefix selection", () => {
     );
   });
 });
+
+describe("EditGameModal global setting hints", () => {
+  const invokeMock = vi.mocked(
+    invoke as unknown as (cmd: string) => Promise<unknown>
+  );
+
+  afterEach(() => {
+    invokeMock.mockImplementation(() => Promise.resolve([]));
+  });
+
+  it("shows what each compatibility item resolves to in Settings", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "get_compatibility_settings") {
+        return Promise.resolve({
+          defaultRunnerPath: "",
+          audioDriver: "pulse",
+          wineDebug: "fixme-all",
+          enableDxvk: false,
+          enableVkd3d: true,
+        });
+      }
+      return Promise.resolve([]);
+    });
+
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Settings: Auto-detect")).toBeTruthy()
+    );
+    expect(screen.getByText("Settings: PulseAudio")).toBeTruthy();
+    expect(screen.getByText("Settings: fixme-all")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Graphics & Direct3D" })
+    );
+
+    const dxvkCard = screen
+      .getByText("DXVK (Direct3D 9, 10, 11 to Vulkan)")
+      .closest(".edit-launch-card") as HTMLElement;
+    expect(within(dxvkCard).getByText("Settings: Off")).toBeTruthy();
+
+    const vkd3dCard = screen
+      .getByText("VKD3D-Proton (Direct3D 12 to Vulkan)")
+      .closest(".edit-launch-card") as HTMLElement;
+    expect(within(vkd3dCard).getByText("Settings: On")).toBeTruthy();
+  });
+
+  it("hides the hints while settings are unavailable", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "get_compatibility_settings") {
+        return Promise.reject(new Error("settings unavailable"));
+      }
+      return Promise.resolve([]);
+    });
+
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("get_compatibility_settings")
+    );
+    expect(screen.queryByText(/Settings:/)).toBeNull();
+  });
+});

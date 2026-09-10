@@ -1084,6 +1084,63 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     Boolean(compatPrefixOverride) &&
     !availablePrefixes.some((p) => p.path === compatPrefixOverride);
 
+  const globalRunnerLabel = (() => {
+    const path = globalCompatSettings?.defaultRunnerPath?.trim();
+    if (!path) return t("gameEdit.compatibility.globalRunnerAuto") || "Auto-detect";
+    return availableRunners.find((r) => r.path === path)?.name ?? path;
+  })();
+  const globalAudioDriverLabel = (() => {
+    const driver = globalCompatSettings?.audioDriver;
+    if (!driver || driver === "auto") return t("gameEdit.compatibility.globalAudioAuto") || "Auto";
+    if (driver === "pulse") return "PulseAudio";
+    if (driver === "alsa") return "ALSA";
+    if (driver === "oss") return "OSS";
+    return driver;
+  })();
+  const globalGamescopeModeLabel = (() => {
+    const mode = globalCompatSettings?.gamescopeMode || "fullscreen";
+    if (mode === "borderless") return t("compatibility.mode_borderless") || "Borderless";
+    if (mode === "windowed") return t("compatibility.mode_windowed") || "Windowed";
+    return t("compatibility.mode_fullscreen") || "Fullscreen";
+  })();
+  const globalGamescopeFilterLabel = (() => {
+    switch (globalCompatSettings?.gamescopeFilter || "fsr") {
+      case "auto":
+        return t("compatibility.filter_auto") || "Auto";
+      case "nis":
+        return t("compatibility.filter_nis") || "NVIDIA NIS";
+      case "linear":
+        return t("compatibility.filter_linear") || "Linear";
+      case "nearest":
+        return t("compatibility.filter_nearest") || "Nearest";
+      case "integer":
+        return t("compatibility.filter_integer") || "Integer Scaling";
+      default:
+        return t("compatibility.filter_fsr") || "AMD FSR";
+    }
+  })();
+  const globalSettingNone = t("gameEdit.compatibility.globalSettingNotSet") || "Not set";
+  const globalWineDebugLabel = globalCompatSettings?.wineDebug || "-all";
+  const globalVirtualDesktopResLabel = globalCompatSettings?.virtualDesktopRes || "1920x1080";
+  const globalGameResLabel =
+    globalCompatSettings?.gamescopeGameWidth && globalCompatSettings.gamescopeGameHeight
+      ? `${globalCompatSettings.gamescopeGameWidth}x${globalCompatSettings.gamescopeGameHeight}`
+      : globalSettingNone;
+  const globalOutputResLabel =
+    globalCompatSettings?.gamescopeWindowWidth && globalCompatSettings.gamescopeWindowHeight
+      ? `${globalCompatSettings.gamescopeWindowWidth}x${globalCompatSettings.gamescopeWindowHeight}`
+      : globalSettingNone;
+  const globalGamescopeArgsLabel = globalCompatSettings?.gamescopeArgs || globalSettingNone;
+  const globalFsrSharpnessLabel = String(globalCompatSettings?.gamescopeFsrSharpness ?? 5);
+  const globalFpsLimitLabel =
+    globalCompatSettings?.gamescopeFpsLimit != null
+      ? String(globalCompatSettings.gamescopeFpsLimit)
+      : globalSettingNone;
+  const globalRefreshRateLabel =
+    globalCompatSettings?.gamescopeRefreshRate != null
+      ? String(globalCompatSettings.gamescopeRefreshRate)
+      : globalSettingNone;
+
   const tabs: { key: EditTab; label: string; icon: ReactNode }[] = [
     {
       key: "details",
@@ -2217,6 +2274,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                         <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.runnerSelection") || "Runner Selection"}</h4>
                         <p className="edit-launch-card-desc">{t("gameEdit.compatibility.runnerSelectionDesc") || "Select the compatibility runner or provide a custom binary path."}</p>
                       </div>
+                      <GlobalSettingHint value={globalCompatSettings ? globalRunnerLabel : undefined} />
                     </div>
                     <div className="edit-launch-input-row">
                       <select
@@ -2355,6 +2413,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.waylandDesc") || "Uses the native Wine Wayland driver (WINE_ENABLE_WAYLAND=1), bypassing XWayland for lower latency."}
                     value={compatWayland}
                     onChange={setCompatWayland}
+                    globalValue={globalCompatSettings?.enableWayland}
                   />
 
                   <TriStateCard
@@ -2362,6 +2421,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.wow64Desc") || "Runs 32-bit Windows code on a pure 64-bit Unix host without 32-bit Unix libraries (WINE_NEW_WOW64=1)."}
                     value={compatWow64}
                     onChange={setCompatWow64}
+                    globalValue={globalCompatSettings?.enableWow64}
                   />
 
                   <TriStateCard
@@ -2369,6 +2429,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.largeAddressDesc") || "Enables 32-bit Windows applications to allocate up to 4 GB of virtual memory instead of 2 GB."}
                     value={compatLargeAddress}
                     onChange={setCompatLargeAddress}
+                    globalValue={globalCompatSettings?.enableLargeAddressAware}
                   />
 
                   {/* Audio Driver & Debug Channels */}
@@ -2379,6 +2440,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                           <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.audioDriver") || "Audio Driver"}</h4>
                           <p className="edit-launch-card-desc">{t("gameEdit.compatibility.audioDriverDesc") || "Backend sound driver override for the runner."}</p>
                         </div>
+                        <GlobalSettingHint value={globalCompatSettings ? globalAudioDriverLabel : undefined} />
                       </div>
                       <select
                         className="edit-input"
@@ -2399,6 +2461,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                           <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.wineDebug") || "Wine Debug Channels"}</h4>
                           <p className="edit-launch-card-desc">{t("gameEdit.compatibility.wineDebugDesc") || "Logging channels override (WINEDEBUG, e.g. -all, fixme-all)."}</p>
                         </div>
+                        <GlobalSettingHint value={globalCompatSettings ? globalWineDebugLabel : undefined} />
                       </div>
                       <input
                         type="text"
@@ -2420,48 +2483,56 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.dxvkDesc") || "Vulkan-based translation layer for Direct3D 9/10/11."}
                     value={compatDxvk}
                     onChange={setCompatDxvk}
+                    globalValue={globalCompatSettings?.enableDxvk}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.vkd3dTitle") || "VKD3D-Proton (Direct3D 12 to Vulkan)"}
                     desc={t("gameEdit.compatibility.vkd3dDesc") || "Vulkan-based translation layer for Direct3D 12."}
                     value={compatVkd3d}
                     onChange={setCompatVkd3d}
+                    globalValue={globalCompatSettings?.enableVkd3d}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.dxvkAsyncTitle") || "DXVK Async (Asynchronous Shader Compilation)"}
                     desc={t("gameEdit.compatibility.dxvkAsyncDesc") || "Compiles shaders asynchronously in the background to eliminate in-game stuttering."}
                     value={compatDxvkAsync}
                     onChange={setCompatDxvkAsync}
+                    globalValue={globalCompatSettings?.enableDxvkAsync}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.ntsyncTitle") || "NTsync / WineSync (Kernel Synchronization Engine)"}
                     desc={t("gameEdit.compatibility.ntsyncDesc") || "True kernel-level Windows NT synchronization driver (/dev/ntsync) for near-native CPU lock performance."}
                     value={compatNtsync}
                     onChange={setCompatNtsync}
+                    globalValue={globalCompatSettings?.enableNtsync}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.esyncTitle") || "Esync (Eventfd Synchronization)"}
                     desc={t("gameEdit.compatibility.esyncDesc") || "Reduces CPU overhead in multi-threaded games."}
                     value={compatEsync}
                     onChange={setCompatEsync}
+                    globalValue={globalCompatSettings?.enableEsync}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.fsyncTitle") || "Fsync (Futex Synchronization)"}
                     desc={t("gameEdit.compatibility.fsyncDesc") || "Kernel futex-based sync for low-latency synchronization."}
                     value={compatFsync}
                     onChange={setCompatFsync}
+                    globalValue={globalCompatSettings?.enableFsync}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.nvapiTitle") || "DXVK-NVAPI / DLSS Support"}
                     desc={t("gameEdit.compatibility.nvapiDesc") || "Exposes NVIDIA NVAPI to Direct3D applications for DLSS and Reflex."}
                     value={compatNvapi}
                     onChange={setCompatNvapi}
+                    globalValue={globalCompatSettings?.enableDxvkNvapi}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.specificGpuTitle") || "Use Specific GPU (MESA_VK_DEVICE_SELECT)"}
                     desc={t("gameEdit.compatibility.specificGpuDesc") || "Pins Vulkan to the GPU selected in Settings → Hardware and forces Wine Wayland."}
                     value={compatUseSpecificGpu}
                     onChange={setCompatUseSpecificGpu}
+                    globalValue={globalCompatSettings?.useSpecificGpu}
                   />
 
                   {/* DXVK HUD */}
@@ -2501,6 +2572,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.virtualDesktopDesc") || "Confines the game within a virtual desktop window (useful for older titles with resolution-switching bugs)."}
                     value={compatVirtualDesktop}
                     onChange={setCompatVirtualDesktop}
+                    globalValue={globalCompatSettings?.virtualDesktop}
                   />
                   {compatVirtualDesktop === true && (
                     <div className="edit-launch-card">
@@ -2509,6 +2581,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                           <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.virtualDesktopRes") || "Virtual Desktop Resolution"}</h4>
                           <p className="edit-launch-card-desc">{t("gameEdit.compatibility.virtualDesktopResDesc") || "Dimensions for the virtual desktop window (e.g. 1920x1080)."}</p>
                         </div>
+                        <GlobalSettingHint value={globalCompatSettings ? globalVirtualDesktopResLabel : undefined} />
                       </div>
                       <div className="edit-launch-input-row">
                         <input
@@ -2544,6 +2617,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.mangohudDesc") || "Vulkan and OpenGL overlay for monitoring FPS, frametimes, temperatures, and hardware load."}
                     value={compatMangoHud}
                     onChange={setCompatMangoHud}
+                    globalValue={globalCompatSettings?.enableMangoHud}
                   />
                   {mangohudActive && (
                     <TriStateCard
@@ -2551,6 +2625,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                       desc={t("gameEdit.compatibility.mangohudHiddenDesc") || "Start the overlay hidden (toggle with the MangoHud hotkey) while still collecting telemetry."}
                       value={compatMangoHudHidden}
                       onChange={setCompatMangoHudHidden}
+                      globalValue={globalCompatSettings?.mangohudHidden}
                     />
                   )}
                   <TriStateCard
@@ -2558,36 +2633,42 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.umuDesc") || "Run the executable through umu-run so Proton launches inside Valve's Steam Runtime container without Steam."}
                     value={compatUmu}
                     onChange={setCompatUmu}
+                    globalValue={globalCompatSettings?.enableUmuLauncher}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.controllerTitle") || "Controller Support"}
                     desc={t("gameEdit.compatibility.controllerDesc") || "Prefer Proton's SDL gamepad backend, which fixes controller detection for some titles."}
                     value={compatController}
                     onChange={setCompatController}
+                    globalValue={globalCompatSettings?.enableControllerSupport}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.anticheatTitle") || "Anti-Cheat Support (EAC / BattlEye)"}
                     desc={t("gameEdit.compatibility.anticheatDesc") || "Load the Easy Anti-Cheat and BattlEye runtimes so supported online games can initialize their anti-cheat under Proton."}
                     value={compatAnticheat}
                     onChange={setCompatAnticheat}
+                    globalValue={globalCompatSettings?.enableAnticheatSupport}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.gamemodeTitle") || "Feral GameMode Optimizer"}
                     desc={t("gameEdit.compatibility.gamemodeDesc") || "Requests temporary CPU governor, scheduler, and GPU power performance states."}
                     value={compatGameMode}
                     onChange={setCompatGameMode}
+                    globalValue={globalCompatSettings?.enableGameMode}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.primeTitle") || "Discrete GPU (PRIME Offload)"}
                     desc={t("gameEdit.compatibility.primeDesc") || "Forces render offload to the dedicated GPU on laptops with hybrid graphics."}
                     value={compatPrime}
                     onChange={setCompatPrime}
+                    globalValue={globalCompatSettings?.primeRenderOffload}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.gamescopeTitle") || "Gamescope Micro-Compositor"}
                     desc={t("gameEdit.compatibility.gamescopeDesc") || "Runs the game inside an isolated nested Wayland session with upscaling & integer scaling."}
                     value={compatGamescope}
                     onChange={setCompatGamescope}
+                    globalValue={globalCompatSettings?.enableGamescope}
                   />
 
                   {compatGamescope !== false && (
@@ -2600,6 +2681,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                               <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.gamescopeWindowMode") || "Gamescope Display Mode"}</h4>
                               <p className="edit-launch-card-desc">{t("gameEdit.compatibility.gamescopeWindowModeDesc") || "Fullscreen, borderless, or windowed presentation."}</p>
                             </div>
+                            <GlobalSettingHint value={globalCompatSettings ? globalGamescopeModeLabel : undefined} />
                           </div>
                           <select
                             className="edit-input"
@@ -2619,6 +2701,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                               <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.upscalingFilter") || "Upscaling Filter"}</h4>
                               <p className="edit-launch-card-desc">{t("gameEdit.compatibility.upscalingFilterDesc") || "FSR, NIS, linear, or integer scaling algorithm."}</p>
                             </div>
+                            <GlobalSettingHint value={globalCompatSettings ? globalGamescopeFilterLabel : undefined} />
                           </div>
                           <select
                             className="edit-input"
@@ -2644,8 +2727,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                               <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.renderRes") || "Game Render Resolution (-w -h)"}</h4>
                               <p className="edit-launch-card-desc">{t("gameEdit.compatibility.renderResDesc") || "Internal game canvas before upscaling."}</p>
                             </div>
+                            <GlobalSettingHint value={globalCompatSettings ? globalGameResLabel : undefined} />
                           </div>
-                          <div style={{ display: "flex", gap: "var(--space-xs)", marginBottom: "var(--space-xs)" }}>
+                          <div className="edit-res-input-row">
                             <input
                               type="number"
                               className="edit-input"
@@ -2689,8 +2773,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                               <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.outputRes") || "Display Output Resolution (-W -H)"}</h4>
                               <p className="edit-launch-card-desc">{t("gameEdit.compatibility.outputResDesc") || "Final monitor display canvas size."}</p>
                             </div>
+                            <GlobalSettingHint value={globalCompatSettings ? globalOutputResLabel : undefined} />
                           </div>
-                          <div style={{ display: "flex", gap: "var(--space-xs)", marginBottom: "var(--space-xs)" }}>
+                          <div className="edit-res-input-row">
                             <input
                               type="number"
                               className="edit-input"
@@ -2739,6 +2824,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                             <span style={{ fontWeight: 600, fontFamily: "var(--font-family-mono, monospace)" }}>
                               {compatGamescopeFsrSharpness ?? "Default (5)"}
                             </span>
+                            <GlobalSettingHint value={globalCompatSettings ? globalFsrSharpnessLabel : undefined} />
                           </div>
                           <input
                             type="range"
@@ -2756,6 +2842,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                               <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.fpsLimiter") || "Frame Rate Limit (-r)"}</h4>
                               <p className="edit-launch-card-desc">{t("gameEdit.compatibility.fpsLimiterDesc") || "Target framerate cap for Gamescope."}</p>
                             </div>
+                            <GlobalSettingHint value={globalCompatSettings ? globalFpsLimitLabel : undefined} />
                           </div>
                           <div className="edit-launch-input-row">
                             <input
@@ -2788,6 +2875,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                             <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.refreshRate") || "Display Refresh Rate (-o)"}</h4>
                             <p className="edit-launch-card-desc">{t("gameEdit.compatibility.refreshRateDesc") || "Force compositor display refresh rate."}</p>
                           </div>
+                          <GlobalSettingHint value={globalCompatSettings ? globalRefreshRateLabel : undefined} />
                         </div>
                         <div className="edit-launch-input-row">
                           <input
@@ -2818,24 +2906,28 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                         desc={t("gameEdit.compatibility.vrrDesc") || "Passes --adaptive-sync to gamescope to match monitor refresh rate."}
                         value={compatGamescopeAdaptiveSync}
                         onChange={setCompatGamescopeAdaptiveSync}
+                        globalValue={globalCompatSettings?.gamescopeAdaptiveSync}
                       />
                       <TriStateCard
                         title={t("gameEdit.compatibility.hdrTitle") || "HDR Output (--hdr-enabled)"}
                         desc={t("gameEdit.compatibility.hdrDesc") || "Enables high dynamic range color output if supported by display."}
                         value={compatGamescopeHdr}
                         onChange={setCompatGamescopeHdr}
+                        globalValue={globalCompatSettings?.gamescopeHdr}
                       />
                       <TriStateCard
                         title={t("gameEdit.compatibility.stretchTitle") || "Stretch Aspect Ratio (-s)"}
                         desc={t("gameEdit.compatibility.stretchDesc") || "Stretches non-native aspect ratios to fill the entire output area without letterboxing."}
                         value={compatGamescopeStretch}
                         onChange={setCompatGamescopeStretch}
+                        globalValue={globalCompatSettings?.gamescopeStretch}
                       />
                       <TriStateCard
                         title={t("gameEdit.compatibility.forceFullscreenTitle") || "Force Windows Fullscreen"}
                         desc={t("gameEdit.compatibility.forceFullscreenDesc") || "Forces applications into fake fullscreen mode (--force-windows-fullscreen)."}
                         value={compatGamescopeForceWindowsFullscreen}
                         onChange={setCompatGamescopeForceWindowsFullscreen}
+                        globalValue={globalCompatSettings?.gamescopeForceWindowsFullscreen}
                       />
 
                       {/* Gamescope Arguments */}
@@ -2845,6 +2937,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                             <h4 className="edit-launch-card-title">{t("gameEdit.compatibility.gamescopeArgs") || "Additional Manual Gamescope Arguments"}</h4>
                             <p className="edit-launch-card-desc">{t("gameEdit.compatibility.gamescopeArgsDesc") || "Raw command flags appended directly to gamescope invocation."}</p>
                           </div>
+                          <GlobalSettingHint value={globalCompatSettings ? globalGamescopeArgsLabel : undefined} />
                         </div>
                         <div className="edit-launch-input-row">
                           <input
@@ -3462,13 +3555,16 @@ function TriStateCard({
   value,
   onChange,
   icon,
+  globalValue,
 }: {
   title: string;
   desc: string;
   value: boolean | null;
   onChange: (val: boolean | null) => void;
   icon?: ReactNode;
+  globalValue?: boolean | null;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="edit-launch-card edit-tristate-card">
       <div className="edit-launch-card-header">
@@ -3481,6 +3577,17 @@ function TriStateCard({
           <span className="edit-launch-card-title">{title}</span>
           <p className="edit-launch-card-desc">{desc}</p>
         </div>
+        {(globalValue === true || globalValue === false) && (
+          <span
+            className="edit-global-setting-hint"
+            title={`Settings: ${globalValue ? "On" : "Off"}`}
+          >
+            {(globalValue
+              ? t("gameEdit.compatibility.globalSettingOn")
+              : t("gameEdit.compatibility.globalSettingOff")) ||
+              `Settings: ${globalValue ? "On" : "Off"}`}
+          </span>
+        )}
         <div className="edit-tristate-group">
           <button
             type="button"
@@ -3506,5 +3613,16 @@ function TriStateCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function GlobalSettingHint({ value }: { value?: string | number | null }) {
+  const { t } = useLanguage();
+  if (value === undefined || value === null || value === "") return null;
+  return (
+    <span className="edit-global-setting-hint" title={String(value)}>
+      {t("gameEdit.compatibility.globalSettingValue", { value: String(value) }) ||
+        `Settings: ${value}`}
+    </span>
   );
 }

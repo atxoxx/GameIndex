@@ -2094,6 +2094,23 @@
   gap: var(--space-md);
 }
 
+.edit-fieldset-grid > * {
+  min-width: 0;
+}
+
+.edit-res-input-row {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+  min-width: 0;
+}
+
+.edit-res-input-row .edit-input {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
 @media (max-width: 640px) {
   .edit-fieldset-grid {
     grid-template-columns: 1fr;
@@ -2159,6 +2176,27 @@
 .edit-tristate-btn.is-off.is-active {
   background: color-mix(in srgb, var(--color-danger) 20%, transparent);
   color: var(--color-danger);
+}
+
+.edit-global-setting-hint {
+  display: block;
+  align-self: center;
+  margin-left: auto;
+  min-width: 0;
+  flex-shrink: 1;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.1px;
 }
 
 /* Quick Presets Pills */
