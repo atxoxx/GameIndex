@@ -263,7 +263,7 @@ pub fn extract_runner_archive(archive_path: &Path, dest_root: &Path) -> Result<P
     Err(format!("Unsupported archive format for file: {}", archive_path.display()))
 }
 
-fn ensure_exec_permissions(_root: &Path) {
+fn ensure_exec_permissions(root: &Path) {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -295,6 +295,8 @@ fn ensure_exec_permissions(_root: &Path) {
             }
         }
     }
+    #[cfg(not(unix))]
+    let _ = root;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1015,11 +1017,15 @@ pub fn steam_launch_env(
         .or_else(|| settings.audio_driver.clone());
     let arch = game_profile.and_then(|p| p.get("arch")).and_then(|v| v.as_str());
     let dxvk_hud = game_profile.and_then(|p| p.get("dxvkHud")).and_then(|v| v.as_str());
-    let _enable_mangohud = game_profile
+    // MangoHud is wired up on Linux only — the resolved values feed the
+    // MANGOHUD force further down.
+    #[cfg(target_os = "linux")]
+    let enable_mangohud = game_profile
         .and_then(|p| p.get("enableMangoHud").or_else(|| p.get("mangohud")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.enable_mangohud);
-    let _mangohud_hidden = game_profile
+    #[cfg(target_os = "linux")]
+    let mangohud_hidden = game_profile
         .and_then(|p| p.get("mangohudHidden"))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.mangohud_hidden);
