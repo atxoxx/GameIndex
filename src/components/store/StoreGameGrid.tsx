@@ -19,6 +19,8 @@ interface StoreGameGridProps {
   isInLibrary?: (game: StoreGameSummary) => boolean;
   onHide?: (game: StoreGameSummary) => void;
   onCompare?: (game: StoreGameSummary) => void;
+  /** Slugs currently pinned in the compare tray. */
+  compareSlugs?: Set<string>;
   bulkMode?: boolean;
   selectedSlugs?: Set<string>;
   onToggleSelect?: (game: StoreGameSummary) => void;
@@ -85,6 +87,7 @@ export default function StoreGameGrid({
   isInLibrary,
   onHide,
   onCompare,
+  compareSlugs,
   bulkMode = false,
   selectedSlugs,
   onToggleSelect,
@@ -343,6 +346,7 @@ export default function StoreGameGrid({
               inLibrary={isInLibrary ? isInLibrary(game) : false}
               onHide={onHide}
               onCompare={onCompare}
+              inCompare={compareSlugs ? compareSlugs.has(game.slug) : false}
               selectable={bulkMode}
               selected={selectedSlugs ? selectedSlugs.has(game.slug) : false}
               onToggleSelect={onToggleSelect}

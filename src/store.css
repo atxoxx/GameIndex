@@ -1404,10 +1404,10 @@
 
 /* ── Floating-bar safe area ──────────────────────────────────────────────
    The bulk-action bar and compare tray dock at the bottom edge of the
-   window (`position: fixed`). While either is open, pad the page bottom
+   window (`position: fixed`, portaled to <body> so animated page
+   wrappers can't trap them). While either is open, pad the page bottom
    so the last grid row never sits hidden behind them. */
-.store-page:has(.store-bulk-bar),
-.store-page:has(.store-compare-tray) {
+.store-page--docked {
   padding-bottom: calc(var(--space-3xl) + 64px);
 }
 

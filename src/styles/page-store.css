@@ -2110,6 +2110,12 @@
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
 
+.store-card-action-btn--compare.active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
 /* ============================================================================
    Sidebar Filter Additions (Year presets)
    ============================================================================ */

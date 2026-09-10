@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreBulkBarProps {
@@ -32,7 +33,7 @@ export default function StoreBulkBar({
 }: StoreBulkBarProps) {
   const { t } = useLanguage();
   const none = selectedCount === 0;
-  return (
+  return createPortal(
     <div className="store-bulk-bar" role="toolbar" aria-label={t("store.bulk.actions")}>
       <div className="store-bulk-bar-info">
         <span className="store-bulk-count">{t("store.bulk.selected", { count: selectedCount })}</span>
@@ -77,6 +78,7 @@ export default function StoreBulkBar({
           </svg>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

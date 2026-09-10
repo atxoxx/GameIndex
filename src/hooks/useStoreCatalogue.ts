@@ -28,6 +28,14 @@ import {
   setStoreSearchQueryInSearchParams,
   STORE_SEARCH_QUERY_PARAM,
 } from "../components/store/storeSearchQuery";
+import {
+  COMPARE_MAX,
+  addToCompareList,
+  loadCompareGames,
+  removeFromCompareList,
+  saveCompareGames,
+  toggleInCompareList,
+} from "../components/store/storeCompare";
 
 const MAX_AUTO_EMPTY_FETCHES = 3;
 
@@ -354,7 +362,11 @@ export interface StoreCatalogue {
   addAll: () => Promise<void>;
   addingAll: boolean;
   compareGames: StoreGameSummary[];
+  /** Slugs currently pinned for comparison (O(1) membership for cards). */
+  compareSlugs: Set<string>;
   addCompare: (g: StoreGameSummary) => void;
+  /** Pin when absent, unpin when present. */
+  toggleCompare: (g: StoreGameSummary) => void;
   removeCompare: (slug: string) => void;
   clearCompare: () => void;
   compareOpen: boolean;
@@ -453,7 +465,15 @@ export function useStoreCatalogue(): StoreCatalogue {
   const [showHidden, setShowHidden] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
-  const [compareGames, setCompareGames] = useState<StoreGameSummary[]>([]);
+  // Pinned compare set. Restored from sessionStorage so opening a game's
+  // detail page and coming back doesn't silently drop the comparison.
+  const [compareGames, setCompareGames] = useState<StoreGameSummary[]>(() =>
+    loadCompareGames()
+  );
+  // Mirror of the state for stable callbacks: handlers read the freshest
+  // list without being re-created on every pin (keeps card memoization
+  // effective while comparing).
+  const compareGamesRef = useRef<StoreGameSummary[]>(compareGames);
   const [compareOpen, setCompareOpen] = useState(false);
   const [addingAll, setAddingAll] = useState(false);
 
@@ -804,16 +824,49 @@ export function useStoreCatalogue(): StoreCatalogue {
   const clearSelection = useCallback(() => setSelectedSlugs(new Set()), []);
 
   const addCompare = useCallback((game: StoreGameSummary) => {
-    setCompareGames((prev) => {
-      if (prev.some((g) => g.slug === game.slug)) return prev;
-      if (prev.length >= 3) return prev;
-      return [...prev, game];
-    });
-  }, []);
+    const { list, rejected } = addToCompareList(compareGamesRef.current, game);
+    if (rejected === "limit") {
+      showToast(t("store.compare.full", { max: COMPARE_MAX }), "info");
+      return;
+    }
+    if (rejected) return;
+    compareGamesRef.current = list;
+    setCompareGames(list);
+  }, [showToast, t]);
+
+  const toggleCompare = useCallback((game: StoreGameSummary) => {
+    const { list, rejected } = toggleInCompareList(compareGamesRef.current, game);
+    if (rejected === "limit") {
+      showToast(t("store.compare.full", { max: COMPARE_MAX }), "info");
+      return;
+    }
+    if (rejected) return;
+    compareGamesRef.current = list;
+    setCompareGames(list);
+  }, [showToast, t]);
+
   const removeCompare = useCallback((slug: string) => {
-    setCompareGames((prev) => prev.filter((g) => g.slug !== slug));
+    const list = removeFromCompareList(compareGamesRef.current, slug);
+    if (list.length === compareGamesRef.current.length) return;
+    compareGamesRef.current = list;
+    setCompareGames(list);
   }, []);
-  const clearCompare = useCallback(() => setCompareGames([]), []);
+
+  const clearCompare = useCallback(() => {
+    compareGamesRef.current = [];
+    setCompareGames([]);
+  }, []);
+
+  const compareSlugs = useMemo(
+    () => new Set(compareGames.map((g) => g.slug)),
+    [compareGames]
+  );
+
+  // Persist the pinned set for the tab session. `saveCompareGames` is
+  // best-effort, so private-mode/quota failures are silently ignored.
+  useEffect(() => {
+    saveCompareGames(compareGames);
+  }, [compareGames]);
 
   const selectAllVisible = useCallback(() => {
     setSelectedSlugs(new Set(displayedGames.map((g) => g.slug)));
@@ -960,7 +1013,9 @@ export function useStoreCatalogue(): StoreCatalogue {
     addAll,
     addingAll,
     compareGames,
+    compareSlugs,
     addCompare,
+    toggleCompare,
     removeCompare,
     clearCompare,
     compareOpen,

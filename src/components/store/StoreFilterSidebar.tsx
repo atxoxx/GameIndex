@@ -269,7 +269,7 @@ export default function StoreFilterSidebar({
       <div className="store-filter-section">
         <div className="store-filter-section-header">
           <h4 className="store-filter-heading">
-            {t("store.compare.genres")}
+            {t("store.filter.genres")}
             {selectedGenres.length > 0 && (
               <span className="store-filter-count-badge">{selectedGenres.length}</span>
             )}
@@ -277,7 +277,7 @@ export default function StoreFilterSidebar({
         </div>
 
         <MultiSelectDropdown
-          label={t("store.compare.genres")}
+          label={t("store.filter.genres")}
           placeholder={t("common.all")}
           options={GENRES}
           selected={selectedGenres}
@@ -293,7 +293,7 @@ export default function StoreFilterSidebar({
       <div className="store-filter-section">
         <div className="store-filter-section-header">
           <h4 className="store-filter-heading">
-            {t("store.compare.platforms")}
+            {t("store.filter.platforms")}
             {selectedPlatforms.length > 0 && (
               <span className="store-filter-count-badge">{selectedPlatforms.length}</span>
             )}
@@ -301,7 +301,7 @@ export default function StoreFilterSidebar({
         </div>
 
         <MultiSelectDropdown
-          label={t("store.compare.platforms")}
+          label={t("store.filter.platforms")}
           placeholder={t("common.all")}
           options={platformNames}
           selected={selectedPlatforms}

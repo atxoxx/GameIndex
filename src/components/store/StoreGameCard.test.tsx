@@ -47,6 +47,38 @@ function renderCard(onHoverChange = vi.fn()) {
   };
 }
 
+describe("StoreGameCard compare action", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("calls onCompare with the game when the compare button is pressed", () => {
+    const onCompare = vi.fn();
+    const { container } = render(
+      <StoreGameCard game={game} onClick={() => {}} onCompare={onCompare} />
+    );
+    const button = container.querySelector(".store-card-compare") as HTMLElement;
+    expect(button).not.toBeNull();
+    expect(button).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(button);
+    expect(onCompare).toHaveBeenCalledWith(game, expect.anything());
+  });
+
+  it("renders the pinned state and toggles back off", () => {
+    const onCompare = vi.fn();
+    const { container } = render(
+      <StoreGameCard game={game} onClick={() => {}} onCompare={onCompare} inCompare />
+    );
+    const button = container.querySelector(".store-card-compare") as HTMLElement;
+    expect(button.classList.contains("active")).toBe(true);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(button);
+    expect(onCompare).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("StoreGameCard animated preview hover intent", () => {
   afterEach(() => {
     vi.useRealTimers();

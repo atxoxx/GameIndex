@@ -1,5 +1,7 @@
+import { createPortal } from "react-dom";
 import type { StoreGameSummary } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { COMPARE_MAX } from "./storeCompare";
 
 interface StoreCompareTrayProps {
   games: StoreGameSummary[];
@@ -10,7 +12,14 @@ interface StoreCompareTrayProps {
 
 /**
  * StoreCompareTray: a docked strip showing the games the user has pinned
- * for comparison (max 3). Clicking "Compare" opens the side-by-side modal.
+ * for comparison (up to {@link COMPARE_MAX}). The Compare button stays
+ * disabled until at least two games are pinned, and explains why.
+ *
+ * Rendered through a portal to `document.body`: WebKitGTK keeps the
+ * animated page wrappers as the containing block for `position: fixed`
+ * descendants (their `transform: none` fill computes to an identity
+ * matrix), which parked the tray at the bottom of the page content
+ * instead of the viewport.
  */
 export default function StoreCompareTray({
   games,
@@ -21,9 +30,17 @@ export default function StoreCompareTray({
   const { t } = useLanguage();
   if (games.length === 0) return null;
 
-  return (
-    <div className="store-compare-tray" role="region" aria-label={t("store.compare.trayAria")}>
-      <span className="store-compare-tray-label">{t("store.compare.tray", { count: games.length })}</span>
+  const canCompare = games.length >= 2;
+
+  return createPortal(
+    <div
+      className="store-compare-tray ui-complete-only"
+      role="region"
+      aria-label={t("store.compare.trayAria")}
+    >
+      <span className="store-compare-tray-label">
+        {t("store.compare.tray", { count: games.length, max: COMPARE_MAX })}
+      </span>
       <div className="store-compare-tray-items">
         {games.map((g) => (
           <span key={g.slug} className="store-compare-chip" title={g.name}>
@@ -50,7 +67,8 @@ export default function StoreCompareTray({
           type="button"
           className="store-compare-open"
           onClick={onOpen}
-          disabled={games.length < 2}
+          disabled={!canCompare}
+          title={canCompare ? t("store.compare.open") : t("store.compare.trayHint")}
         >
           {t("store.compare.open")}
         </button>
@@ -58,6 +76,7 @@ export default function StoreCompareTray({
           {t("store.compare.clear")}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

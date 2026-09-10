@@ -19,6 +19,8 @@ interface StoreGameCardProps {
   inLibrary?: boolean;
   onHide?: (game: StoreGameSummary, event: MouseEvent) => void;
   onCompare?: (game: StoreGameSummary, event: MouseEvent) => void;
+  /** True while this game is pinned in the compare tray. */
+  inCompare?: boolean;
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: (game: StoreGameSummary, event: MouseEvent) => void;
@@ -50,6 +52,7 @@ function StoreGameCardBase({
   inLibrary = false,
   onHide,
   onCompare,
+  inCompare = false,
   selectable = false,
   selected = false,
   onToggleSelect,
@@ -263,12 +266,13 @@ function StoreGameCardBase({
           {onCompare && (
             <button
               type="button"
-              className="store-card-action-btn"
+              className={`store-card-action-btn store-card-action-btn--compare${inCompare ? " active" : ""}`}
               onClick={(e) => onCompare(game, e)}
-              title={t("store.addToCompare")}
-              aria-label={t("store.addToCompare")}
+              title={inCompare ? t("store.compare.removeFromCompare", { name: game.name }) : t("store.addToCompare")}
+              aria-label={inCompare ? t("store.compare.removeFromCompare", { name: game.name }) : t("store.gameCard.addToCompareAria", { name: game.name })}
+              aria-pressed={inCompare}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
                 <line x1="18" y1="20" x2="18" y2="10" />
                 <line x1="12" y1="20" x2="12" y2="4" />
                 <line x1="6" y1="20" x2="6" y2="14" />
@@ -466,9 +470,10 @@ function StoreGameCardBase({
         {onCompare && (
           <button
             type="button"
-            className="store-card-compare ui-complete-only"
-            aria-label={t("store.gameCard.addToCompareAria", { name: game.name })}
-            title={t("store.addToCompare")}
+            className={`store-card-compare ui-complete-only${inCompare ? " active" : ""}`}
+            aria-label={inCompare ? t("store.compare.removeFromCompare", { name: game.name }) : t("store.gameCard.addToCompareAria", { name: game.name })}
+            aria-pressed={inCompare}
+            title={inCompare ? t("store.compare.removeFromCompare", { name: game.name }) : t("store.addToCompare")}
             onClick={(e) => {
               e.stopPropagation();
               onCompare(game, e);
@@ -579,6 +584,8 @@ const StoreGameCard = memo(StoreGameCardBase, (prev, next) => {
     prev.density === next.density &&
     prev.wishlisted === next.wishlisted &&
     prev.inLibrary === next.inLibrary &&
+    prev.inCompare === next.inCompare &&
+    prev.onCompare === next.onCompare &&
     prev.selectable === next.selectable &&
     prev.selected === next.selected &&
     prev.onHoverChange === next.onHoverChange

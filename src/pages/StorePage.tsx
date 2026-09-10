@@ -110,7 +110,11 @@ export default function StorePage() {
   }, [c.searchQuery, searchParams, setSearchParams]);
 
   return (
-    <div className="store-page page">
+    <div
+      className={`store-page page${
+        c.bulkMode || c.compareGames.length > 0 ? " store-page--docked" : ""
+      }`}
+    >
       <StoreHeader catalogue={c} />
 
       {/* Featured Spotlight Showcase */}
@@ -135,7 +139,8 @@ export default function StorePage() {
             isSourceCheckPending={c.sourceChecksPending > 0}
             isInLibrary={c.isInLibrary}
             onHide={c.onHide}
-            onCompare={c.addCompare}
+            onCompare={c.toggleCompare}
+            compareSlugs={c.compareSlugs}
             bulkMode={c.bulkMode}
             selectedSlugs={c.selectedSlugs}
             onToggleSelect={c.toggleSelect}
@@ -172,10 +177,15 @@ export default function StorePage() {
             />
           )}
 
-          {c.compareOpen && c.compareGames.length >= 2 && (
+          {c.compareOpen && c.compareGames.length > 0 && (
             <StoreCompareModal
               games={c.compareGames}
+              availableGames={c.games}
+              isInLibrary={c.isInLibrary}
               onClose={() => c.setCompareOpen(false)}
+              onRemove={c.removeCompare}
+              onAdd={c.addCompare}
+              onClear={c.clearCompare}
               onOpenGame={(g) => {
                 c.setCompareOpen(false);
                 c.onCardClick(g);
