@@ -1,4 +1,4 @@
-import { Fragment, useContext, useState, memo, type MouseEvent } from "react";
+import { Fragment, useContext, useState, useEffect, useRef, memo, type MouseEvent } from "react";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
@@ -31,6 +31,14 @@ function ratingColor(score: number): string {
   if (score >= 50) return "var(--color-warning)";
   return "var(--color-danger)";
 }
+
+/**
+ * Grace period before a hovered poster swaps in its animated preview. A
+ * pointer swept across the grid can cross a dozen cards; without the delay
+ * each one would start downloading and decoding a multi-megabyte animated
+ * WebP that unmounts a few frames later.
+ */
+export const ANIMATED_PREVIEW_DELAY_MS = 140;
 
 function StoreGameCardBase({
   game,
@@ -66,15 +74,31 @@ function StoreGameCardBase({
   const price = usePrice(game.name);
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
   const { t } = useLanguage();
-  const [hovered, setHovered] = useState(false);
+  const [previewActive, setPreviewActive] = useState(false);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (previewTimerRef.current !== null) clearTimeout(previewTimerRef.current);
+    },
+    []
+  );
 
   const handleMouseEnter = () => {
-    setHovered(true);
     onHoverChange?.(true);
+    if (previewTimerRef.current !== null) clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = setTimeout(() => {
+      previewTimerRef.current = null;
+      setPreviewActive(true);
+    }, ANIMATED_PREVIEW_DELAY_MS);
   };
 
   const handleMouseLeave = (e: MouseEvent) => {
-    setHovered(false);
+    if (previewTimerRef.current !== null) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    setPreviewActive(false);
     const next = e.relatedTarget;
     if (next instanceof Element && next.closest(".store-game-card")) return;
     onHoverChange?.(false);
@@ -84,7 +108,7 @@ function StoreGameCardBase({
   const { displayUrl, staticPosterUrl, animatedPosterUrl, isIcon, handleError } = useGameCardArt({
     game,
     defaultCoverUrl: coverUrl,
-    isHovered: hovered,
+    isHovered: previewActive,
     isListOrSmall: isList,
   });
 
@@ -141,6 +165,7 @@ function StoreGameCardBase({
               src={displayUrl}
               alt={game.name}
               loading="lazy"
+              decoding="async"
               onError={handleError}
               className={isIcon ? "store-card-icon-img" : "store-card-poster-img"}
             />
@@ -332,7 +357,7 @@ function StoreGameCardBase({
               onError={handleError}
               className="store-card-cover-static"
             />
-            {animatedPosterUrl && hovered && (
+            {animatedPosterUrl && previewActive && (
               <img
                 src={animatedPosterUrl}
                 alt=""

@@ -873,6 +873,9 @@
   display: flex;
   flex-direction: column;
   box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-sm);
+  /* Keep hover/lift repaints and animated-cover frame invalidation inside
+     the card instead of walking the whole grid. Mirrors .lib-card. */
+  contain: layout style paint;
 }
 
 .store-game-card:hover {
@@ -900,13 +903,14 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-              filter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .store-card-cover-static {
   position: relative;
   z-index: 0;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .store-card-cover-animated {
@@ -916,14 +920,24 @@
   opacity: 0;
   transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
+  /* The animated WebP repaints every frame; isolate it on its own
+     composited layer so the card (and grid) isn't re-rasterised. */
+  will-change: opacity, transform;
 }
 
 .store-card-cover-animated.is-active {
   opacity: 1;
 }
 
-.store-game-card:hover .store-card-cover img {
-  transform: scale(1.08);
+/* Lift the static poster only; the animated overlay is already being
+   repainted per frame, so it gets no filter animation. */
+.store-game-card:hover .store-card-cover-static {
+  transform: scale(1.07);
+  filter: brightness(1.05) saturate(1.04);
+}
+
+.store-game-card:hover .store-card-cover-animated {
+  transform: scale(1.07);
 }
 
 /* Specular light sheen sweep on hover — mirrors the Library card's
@@ -2874,15 +2888,11 @@
   opacity: 1;
 }
 
-.store-game-card:hover .store-card-cover img {
-  transform: scale(1.07);
-  filter: brightness(1.05) saturate(1.04);
-}
+/* Hover lift for the cover artwork lives in the base card block above;
+   it targets the static poster only so animated covers aren't filtered. */
 
 /* Rating badge → glass pill (over artwork stays scrim-white) */
 .store-card-rating {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--scrim-border);
   box-shadow:
     var(--shadow-sm),

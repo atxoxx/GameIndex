@@ -10,6 +10,7 @@ import {
   usePrefetchImage,
 } from "../../context/SteamGridDbContext";
 import { resolveSteamAppId } from "../../hooks/useGameCardArt";
+import { useStoreCardHover } from "./storeCardHover";
 import { Button } from "../ui";
 import StoreSurpriseModal from "./StoreSurpriseModal";
 
@@ -18,8 +19,6 @@ type HeroCategory = "hot" | "weekly" | "trending" | "top_rated" | "coming_soon";
 interface StoreFeaturedHeroProps {
   /** Navigate to a game's detail page. */
   onPickGame: (game: StoreGameSummary) => void;
-  /** Freeze spotlight motion (trailer video + animated backdrop) while a catalogue poster is hovered. */
-  pauseMotion?: boolean;
 }
 
 const TABS: {
@@ -118,9 +117,10 @@ function renderPlatformIcon(platform: string): ReactElement | null {
   return null;
 }
 
-export default function StoreFeaturedHero({ onPickGame, pauseMotion = false }: StoreFeaturedHeroProps) {
+export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps) {
   const { t, language } = useLanguage();
   const wishlistCtx = useContext(WishlistContext);
+  const pauseMotion = useStoreCardHover();
   const [tab, setTab] = useState<HeroCategory>("hot");
   const [games, setGames] = useState<StoreGameSummary[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
