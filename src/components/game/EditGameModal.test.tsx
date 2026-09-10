@@ -241,3 +241,98 @@ describe("EditGameModal runner selection", () => {
     expect(pathInput.value).toBe("/opt/custom-wine/bin/wine");
   });
 });
+
+describe("EditGameModal prefix selection", () => {
+  const sharedPrefix = {
+    id: "prefix-shared",
+    name: "Shared",
+    path: "/shared/pfx",
+  };
+
+  const invokeMock = vi.mocked(
+    invoke as unknown as (cmd: string) => Promise<unknown>
+  );
+
+  beforeEach(() => {
+    updateGameMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "get_compatibility_settings") {
+        return Promise.resolve({ defaultPrefix: sharedPrefix.path });
+      }
+      if (cmd === "list_wine_prefixes") {
+        return Promise.resolve([sharedPrefix]);
+      }
+      return Promise.resolve([]);
+    });
+  });
+
+  afterEach(() => {
+    invokeMock.mockImplementation(() => Promise.resolve([]));
+  });
+
+  function prefixCard() {
+    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+    const card = screen
+      .getByText("Custom WINEPREFIX Directory")
+      .closest(".edit-launch-card");
+    expect(card).toBeTruthy();
+    return card as HTMLElement;
+  }
+
+  it("shows the prefix selected in settings as the default option", async () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    const select = within(prefixCard()).getByRole(
+      "combobox"
+    ) as HTMLSelectElement;
+
+    await waitFor(() =>
+      expect(select.options[select.selectedIndex].textContent).toContain(
+        "/shared/pfx"
+      )
+    );
+    expect(select.value).toBe("");
+  });
+
+  it("saves a specific prefix chosen from the dropdown", async () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    const select = within(prefixCard()).getByRole(
+      "combobox"
+    ) as HTMLSelectElement;
+    await waitFor(() =>
+      expect(
+        Array.from(select.options).some((o) => o.value === sharedPrefix.path)
+      ).toBe(true)
+    );
+
+    fireEvent.change(select, { target: { value: sharedPrefix.path } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    const updates = updateGameMock.mock.calls[0][1];
+    expect(updates.compatibility.customWinePrefix).toBe(sharedPrefix.path);
+  });
+
+  it("still offers the settings default when the prefix scan fails", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "get_compatibility_settings") {
+        return Promise.resolve({ defaultPrefix: sharedPrefix.path });
+      }
+      if (cmd === "list_wine_prefixes") {
+        return Promise.reject(new Error("scan failed"));
+      }
+      return Promise.resolve([]);
+    });
+
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    const select = within(prefixCard()).getByRole(
+      "combobox"
+    ) as HTMLSelectElement;
+    await waitFor(() =>
+      expect(select.options[select.selectedIndex].textContent).toContain(
+        "/shared/pfx"
+      )
+    );
+  });
+});

@@ -490,6 +490,8 @@ pub struct LinuxSystemStatus {
 pub struct CompatibilitySettings {
     pub default_runner_path: Option<String>,
     pub default_prefix_base_dir: Option<String>,
+    /// Shared WINEPREFIX used by every game unless the game overrides it.
+    pub default_prefix: Option<String>,
     pub enable_dxvk: bool,
     pub enable_vkd3d: bool,
     pub enable_esync: bool,
@@ -579,6 +581,7 @@ impl Default for CompatibilitySettings {
         Self {
             default_runner_path: None,
             default_prefix_base_dir: None,
+            default_prefix: None,
             enable_dxvk: true,
             enable_vkd3d: true,
             enable_esync: true,
@@ -2073,7 +2076,8 @@ pub fn launch_steam_game(
             return Ok(SteamLaunchOutcome { pid: 0, exe_path });
         }
         SteamRoute::Direct => {
-            let profile = with_steam_prefix(game_profile, steam_app_id);
+            let profile =
+                with_steam_prefix(game_profile, steam_app_id, settings.default_prefix.as_deref());
             let path = Path::new(resolved_exe.as_deref().unwrap_or(game_path));
             let cwd = path.parent().unwrap_or_else(|| Path::new("."));
             let pid = launch_with_compatibility(
@@ -2141,10 +2145,12 @@ fn spawn_steam_cli(
 /// Clone a game profile with the Steam compatdata base injected when the
 /// game has one and the user did not pick a custom prefix. Proton reads
 /// the Wine prefix from `${STEAM_COMPAT_DATA_PATH}/pfx`, so the base is
-/// what keeps saves/config/Cloud in the prefix Steam created.
+/// what keeps saves/config/Cloud in the prefix Steam created. A global
+/// default prefix opts out of the injection so every game shares it.
 fn with_steam_prefix(
     game_profile: Option<serde_json::Value>,
     steam_app_id: u32,
+    default_prefix: Option<&str>,
 ) -> Option<serde_json::Value> {
     let mut profile = match game_profile {
         Some(profile) if profile.is_object() => profile,
@@ -2156,7 +2162,10 @@ fn with_steam_prefix(
         .and_then(|v| v.as_str())
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false);
-    if !has_custom {
+    let has_global_default = default_prefix
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
+    if !has_custom && !has_global_default {
         if let Some(prefix) = crate::steam::launch_config::steam_compat_prefix(steam_app_id) {
             profile["customWinePrefix"] =
                 serde_json::Value::String(prefix.to_string_lossy().to_string());
@@ -2213,26 +2222,38 @@ pub fn get_linux_system_status() -> LinuxSystemStatus {
 
 /// Resolve the directory used for per-game WINEPREFIXes.
 pub fn resolve_prefix_dir(app: &tauri::AppHandle, custom_dir: Option<&str>, game_id: &str) -> PathBuf {
-    if let Some(c) = custom_dir {
-        if !c.trim().is_empty() {
-            let p = PathBuf::from(c.trim());
-            return p;
-        }
+    let settings = get_compatibility_settings_internal(app).unwrap_or_default();
+    resolve_prefix_from(
+        custom_dir,
+        settings.default_prefix.as_deref(),
+        settings.default_prefix_base_dir.as_deref(),
+        default_prefix_base(app),
+        game_id,
+    )
+}
+
+/// Prefix precedence: per-game override, then the shared default prefix,
+/// then an isolated folder under the configured base directory.
+fn resolve_prefix_from(
+    custom_dir: Option<&str>,
+    default_prefix: Option<&str>,
+    default_base: Option<&str>,
+    fallback_base: PathBuf,
+    game_id: &str,
+) -> PathBuf {
+    if let Some(c) = custom_dir.map(str::trim).filter(|s| !s.is_empty()) {
+        return PathBuf::from(c);
     }
 
-    let base = if let Ok(db_settings) = get_compatibility_settings_internal(app) {
-        if let Some(d) = db_settings.default_prefix_base_dir {
-            if !d.trim().is_empty() {
-                PathBuf::from(d.trim())
-            } else {
-                default_prefix_base(app)
-            }
-        } else {
-            default_prefix_base(app)
-        }
-    } else {
-        default_prefix_base(app)
-    };
+    if let Some(d) = default_prefix.map(str::trim).filter(|s| !s.is_empty()) {
+        return PathBuf::from(d);
+    }
+
+    let base = default_base
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or(fallback_base);
 
     base.join(game_id)
 }
@@ -3594,8 +3615,16 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
     let games = db::games::list_all(db_state.inner()).unwrap_or_default();
     let compat_map = db::compatibility::list_all_for_games(db_state.inner()).unwrap_or_default();
 
+    let default_prefix_path = settings
+        .default_prefix
+        .as_deref()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(PathBuf::from);
+
     let mut game_titles: HashMap<String, String> = HashMap::new();
     let mut custom_prefix_to_games: HashMap<PathBuf, Vec<PrefixAssociatedGame>> = HashMap::new();
+    let mut default_prefix_games: Vec<PrefixAssociatedGame> = Vec::new();
 
     for g in &games {
         game_titles.insert(g.id.clone(), g.name.clone());
@@ -3603,22 +3632,43 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
         let custom_prefix = compat_map
             .get(&g.id)
             .and_then(|p| p.get("customWinePrefix").or_else(|| p.get("winePrefix")))
-            .and_then(|v| v.as_str());
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|cp| !cp.is_empty());
 
         if let Some(cp) = custom_prefix {
-            let cp_trimmed = cp.trim();
-            if !cp_trimmed.is_empty() {
-                let p = PathBuf::from(cp_trimmed);
-                custom_prefix_to_games
-                    .entry(p)
-                    .or_default()
-                    .push(PrefixAssociatedGame {
-                        id: g.id.clone(),
-                        title: g.name.clone(),
-                    });
-            }
+            custom_prefix_to_games
+                .entry(PathBuf::from(cp))
+                .or_default()
+                .push(PrefixAssociatedGame {
+                    id: g.id.clone(),
+                    title: g.name.clone(),
+                });
+        } else if default_prefix_path.is_some() {
+            default_prefix_games.push(PrefixAssociatedGame {
+                id: g.id.clone(),
+                title: g.name.clone(),
+            });
         }
     }
+
+    let merge_associations = |path: &Path, associated: &mut Vec<PrefixAssociatedGame>| {
+        let mut push_unique = |item: &PrefixAssociatedGame| {
+            if !associated.iter().any(|a| a.id == item.id) {
+                associated.push(item.clone());
+            }
+        };
+        if let Some(mapped) = custom_prefix_to_games.get(path) {
+            for item in mapped {
+                push_unique(item);
+            }
+        }
+        if default_prefix_path.as_deref() == Some(path) {
+            for item in &default_prefix_games {
+                push_unique(item);
+            }
+        }
+    };
 
     let mut prefixes: Vec<WinePrefixInfo> = Vec::new();
     let mut seen_paths: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
@@ -3633,10 +3683,12 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                     let mut associated = Vec::new();
 
                     let name = if let Some(title) = game_titles.get(&folder_name) {
-                        associated.push(PrefixAssociatedGame {
-                            id: folder_name.clone(),
-                            title: title.clone(),
-                        });
+                        if default_prefix_path.is_none() {
+                            associated.push(PrefixAssociatedGame {
+                                id: folder_name.clone(),
+                                title: title.clone(),
+                            });
+                        }
                         title.clone()
                     } else if folder_name == "default" {
                         "Default Prefix".to_string()
@@ -3644,13 +3696,7 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                         folder_name.clone()
                     };
 
-                    if let Some(mapped) = custom_prefix_to_games.get(&path) {
-                        for item in mapped {
-                            if !associated.iter().any(|a| a.id == item.id) {
-                                associated.push(item.clone());
-                            }
-                        }
-                    }
+                    merge_associations(&path, &mut associated);
 
                     let (is_valid, is_proton, arch, win_version, wine_version) = inspect_prefix_path(&path);
                     let size_bytes = dir_size_bytes(&path).unwrap_or(0);
@@ -3703,6 +3749,8 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                 .map(|d| d.as_secs());
 
             seen_paths.insert(p.clone());
+            let mut associated = games_list.clone();
+            merge_associations(p, &mut associated);
             prefixes.push(WinePrefixInfo {
                 id: format!("custom-{}", folder_name),
                 name,
@@ -3713,7 +3761,7 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                 arch,
                 win_version,
                 wine_version,
-                associated_games: games_list.clone(),
+                associated_games: associated,
                 last_modified,
                 is_default_base: false,
                 is_custom: true,
@@ -3738,6 +3786,8 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                 .map(|d| d.as_secs());
 
             seen_paths.insert(p.clone());
+            let mut associated = Vec::new();
+            merge_associations(&p, &mut associated);
             prefixes.push(WinePrefixInfo {
                 id: format!("user-{}", folder_name),
                 name: folder_name,
@@ -3748,7 +3798,45 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                 arch,
                 win_version,
                 wine_version,
-                associated_games: Vec::new(),
+                associated_games: associated,
+                last_modified,
+                is_default_base: false,
+                is_custom: true,
+            });
+        }
+    }
+
+    // 3b. Include the shared default prefix even when it lives outside
+    // the scanned roots and was never registered as a custom prefix.
+    if let Some(default_path) = &default_prefix_path {
+        if !seen_paths.contains(default_path) && default_path.is_dir() {
+            let folder_name = default_path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Default Prefix".to_string());
+            let (is_valid, is_proton, arch, win_version, wine_version) =
+                inspect_prefix_path(default_path);
+            let size_bytes = dir_size_bytes(default_path).unwrap_or(0);
+            let last_modified = fs::metadata(default_path)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs());
+
+            seen_paths.insert(default_path.clone());
+            let mut associated = Vec::new();
+            merge_associations(default_path, &mut associated);
+            prefixes.push(WinePrefixInfo {
+                id: format!("shared-{}", folder_name),
+                name: folder_name,
+                path: default_path.to_string_lossy().to_string(),
+                size_bytes,
+                is_valid,
+                is_proton,
+                arch,
+                win_version,
+                wine_version,
+                associated_games: associated,
                 last_modified,
                 is_default_base: false,
                 is_custom: true,
@@ -3768,6 +3856,8 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                 .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs());
 
+            let mut associated = Vec::new();
+            merge_associations(&wine_dir, &mut associated);
             prefixes.push(WinePrefixInfo {
                 id: "system-wine-default".to_string(),
                 name: "System Wine (~/.wine)".to_string(),
@@ -3778,7 +3868,7 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                 arch,
                 win_version,
                 wine_version,
-                associated_games: Vec::new(),
+                associated_games: associated,
                 last_modified,
                 is_default_base: false,
                 is_custom: false,
@@ -5068,5 +5158,65 @@ mod tests {
 
         assert_eq!(newest_log_file(dir.path()), Some(newer));
         assert_eq!(newest_log_file(&dir.path().join("missing")), None);
+    }
+
+    #[test]
+    fn prefix_resolution_prefers_game_override_then_shared_default() {
+        let fallback = PathBuf::from("/fallback/base");
+
+        let custom = resolve_prefix_from(
+            Some("  /games/foo/custom  "),
+            Some("/shared/prefix"),
+            Some("/configured/base"),
+            fallback.clone(),
+            "game-1",
+        );
+        assert_eq!(custom, PathBuf::from("/games/foo/custom"));
+
+        let shared = resolve_prefix_from(
+            None,
+            Some(" /shared/prefix "),
+            Some("/configured/base"),
+            fallback,
+            "game-1",
+        );
+        assert_eq!(shared, PathBuf::from("/shared/prefix"));
+    }
+
+    #[test]
+    fn prefix_resolution_falls_back_to_per_game_dirs() {
+        let fallback = PathBuf::from("/fallback/base");
+
+        let configured = resolve_prefix_from(
+            None,
+            None,
+            Some("/configured/base"),
+            fallback.clone(),
+            "game-2",
+        );
+        assert_eq!(configured, PathBuf::from("/configured/base/game-2"));
+
+        let blank = resolve_prefix_from(
+            Some("   "),
+            Some("  "),
+            Some(""),
+            fallback.clone(),
+            "game-3",
+        );
+        assert_eq!(blank, fallback.join("game-3"));
+    }
+
+    #[test]
+    fn shared_prefix_opts_out_of_steam_compat_injection() {
+        let profile = with_steam_prefix(None, 123, Some("/shared/prefix")).unwrap();
+        assert!(profile.get("customWinePrefix").is_none());
+
+        let explicit = with_steam_prefix(
+            Some(serde_json::json!({ "customWinePrefix": "/game/own" })),
+            123,
+            Some("/shared/prefix"),
+        )
+        .unwrap();
+        assert_eq!(explicit["customWinePrefix"], "/game/own");
     }
 }

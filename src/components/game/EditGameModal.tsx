@@ -320,6 +320,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   );
   const [globalCompatSettings, setGlobalCompatSettings] = useState<CompatibilitySettings | null>(null);
   const [availableRunners, setAvailableRunners] = useState<Array<{ id: string; name: string; path: string; kind: string }>>([]);
+  const [availablePrefixes, setAvailablePrefixes] = useState<Array<{ id: string; name: string; path: string }>>([]);
   const [runningTool, setRunningTool] = useState<string | null>(null);
 
   // The "hide MangoHud by default" override only makes sense when the
@@ -335,6 +336,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       .catch(() => {});
     invoke<CompatibilitySettings>("get_compatibility_settings")
       .then((s) => setGlobalCompatSettings(s || null))
+      .catch(() => {});
+    invoke<Array<{ id: string; name: string; path: string }>>("list_wine_prefixes")
+      .then((list) => setAvailablePrefixes(list || []))
       .catch(() => {});
   }, []);
 
@@ -1068,6 +1072,17 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     Boolean(compatCustomRunner.trim()) || compatRunnerType !== "default";
   const runnerSelectValue =
     selectedRunner?.path ?? (hasRunnerOverride ? "custom" : "default");
+
+  const defaultPrefixPath = globalCompatSettings?.defaultPrefix?.trim() || "";
+  const defaultPrefixDisplay = (() => {
+    if (!defaultPrefixPath) return "";
+    const known = availablePrefixes.find((p) => p.path === defaultPrefixPath);
+    return known ? `${known.name} (${known.path})` : defaultPrefixPath;
+  })();
+  const compatPrefixOverride = compatPrefix.trim();
+  const hasUnknownPrefix =
+    Boolean(compatPrefixOverride) &&
+    !availablePrefixes.some((p) => p.path === compatPrefixOverride);
 
   const tabs: { key: EditTab; label: string; icon: ReactNode }[] = [
     {
@@ -2262,13 +2277,31 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     </div>
                     <div className="edit-launch-input-row">
                       <div className="edit-launch-input-wrapper">
-                        <input
-                          type="text"
-                          className="edit-input edit-launch-path-input"
-                          value={compatPrefix}
+                        <select
+                          className="edit-input"
+                          value={compatPrefixOverride}
                           onChange={(e) => setCompatPrefix(e.target.value)}
-                          placeholder="e.g. /home/user/.wine or custom prefix directory"
-                        />
+                          aria-label={t("gameEdit.compatibility.winePrefix") || "Custom WINEPREFIX Directory"}
+                        >
+                          <option value="">
+                            {defaultPrefixPath
+                              ? t("gameEdit.compatibility.prefixGlobal", { path: defaultPrefixDisplay }) ||
+                                `Default Prefix (from Settings): ${defaultPrefixDisplay}`
+                              : t("gameEdit.compatibility.prefixIsolated") ||
+                                "Isolated Prefix (per game)"}
+                          </option>
+                          {hasUnknownPrefix && (
+                            <option value={compatPrefixOverride}>
+                              {t("gameEdit.compatibility.prefixCustom", { path: compatPrefixOverride }) ||
+                                `Custom Prefix: ${compatPrefixOverride}`}
+                            </option>
+                          )}
+                          {availablePrefixes.map((p) => (
+                            <option key={p.path} value={p.path}>
+                              {p.name} ({p.path})
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <Button variant="secondary" onClick={handlePickPrefix}>
                         {t("edit.browse") || "Browse..."}

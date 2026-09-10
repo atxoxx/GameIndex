@@ -138,6 +138,8 @@ interface LinuxSystemStatus {
 export interface CompatibilitySettings {
   defaultRunnerPath: string | null;
   defaultPrefixBaseDir: string | null;
+  /** Shared WINEPREFIX every game uses unless it has its own override. */
+  defaultPrefix: string | null;
   enableDxvk: boolean;
   enableVkd3d: boolean;
   enableEsync: boolean;
@@ -188,6 +190,7 @@ export interface CompatibilitySettings {
 const DEFAULT_SETTINGS: CompatibilitySettings = {
   defaultRunnerPath: null,
   defaultPrefixBaseDir: null,
+  defaultPrefix: null,
   enableDxvk: true,
   enableVkd3d: true,
   enableEsync: true,
@@ -672,10 +675,46 @@ export default function CompatibilityTab() {
   }, []);
 
   useEffect(() => {
-    if (activeSubtab === "prefixes") {
+    if (
+      activeSubtab === "prefixes" ||
+      (activeSubtab === "runners" && runnerViewMode === "settings")
+    ) {
       fetchPrefixes();
     }
-  }, [activeSubtab, fetchPrefixes]);
+  }, [activeSubtab, runnerViewMode, fetchPrefixes]);
+
+  const handleSetDefaultPrefix = useCallback(
+    async (path: string | null) => {
+      const next = { ...settings, defaultPrefix: path };
+      setSettings(next);
+      try {
+        await invoke("set_compatibility_settings", { settings: next });
+        if (path) {
+          await invoke("register_custom_prefix", { path }).catch(() => {});
+        }
+        showToast(t("compatibility.defaultPrefixUpdated"), "success");
+      } catch (err) {
+        showToast(t("compatibility.saveFailed", { error: String(err) }), "error");
+      }
+      fetchPrefixes();
+    },
+    [settings, showToast, t, fetchPrefixes],
+  );
+
+  const handleBrowseDefaultPrefix = useCallback(async () => {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: false,
+        title: t("compatibility.selectPrefixDir"),
+      });
+      if (selected && typeof selected === "string") {
+        await handleSetDefaultPrefix(selected);
+      }
+    } catch (err) {
+      showToast(String(err), "error");
+    }
+  }, [handleSetDefaultPrefix, showToast, t]);
 
   const totalPrefixStorage = useMemo(() => {
     return prefixes.reduce((acc, p) => acc + (p.sizeBytes || 0), 0);
@@ -772,10 +811,15 @@ export default function CompatibilityTab() {
     if (!deleteTarget) return;
     setDeletingPrefix(true);
     try {
+      const removedDefault = settings.defaultPrefix === deleteTarget.path;
       await invoke("delete_wine_prefix", { path: deleteTarget.path });
       showToast(t("compatibility.deleteSuccess"), "success");
       setDeleteTarget(null);
-      fetchPrefixes();
+      if (removedDefault) {
+        await handleSetDefaultPrefix(null);
+      } else {
+        fetchPrefixes();
+      }
     } catch (err) {
       showToast(t("compatibility.deleteError", { error: String(err) }), "error");
     } finally {
@@ -1531,6 +1575,37 @@ export default function CompatibilityTab() {
                     </div>
                   </div>
                 </div>
+
+                {/* Shared Default Prefix */}
+                <div className="settings-behavior-card">
+                  <div className="settings-control">
+                    <label className="settings-label" htmlFor="compat-default-prefix">
+                      {t("compatibility.defaultPrefix")}
+                    </label>
+                    <p className="settings-helper-lead">
+                      {t("compatibility.defaultPrefixDesc")}
+                    </p>
+                    <div style={{ display: "flex", gap: "var(--space-md)", alignItems: "center", marginTop: "var(--space-sm)" }}>
+                      <select
+                        id="compat-default-prefix"
+                        className="settings-select"
+                        style={{ flex: 1 }}
+                        value={settings.defaultPrefix || ""}
+                        onChange={(e) => handleSetDefaultPrefix(e.target.value || null)}
+                      >
+                        <option value="">{t("compatibility.defaultPrefixIsolated")}</option>
+                        {prefixes.map((p) => (
+                          <option key={p.path} value={p.path}>
+                            {p.name} ({p.path})
+                          </option>
+                        ))}
+                      </select>
+                      <Button variant="secondary" size="sm" onClick={handleBrowseDefaultPrefix}>
+                        {t("common.browse")}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </SettingsSection>
@@ -1687,6 +1762,9 @@ export default function CompatibilityTab() {
                           <Badge variant={p.arch === "win64" ? "info" : "warning"} size="sm">{p.arch}</Badge>
                           {p.isProton && <Badge variant="accent" size="sm">Proton</Badge>}
                           {p.isDefaultBase && <Badge variant="default" size="sm">Default</Badge>}
+                          {settings.defaultPrefix === p.path && (
+                            <Badge variant="success" size="sm" dot>{t("compatibility.activeDefault")}</Badge>
+                          )}
                           {p.isCustom && <Badge variant="default" size="sm">Custom</Badge>}
                           {p.winVersion && <Badge variant="default" size="sm">{p.winVersion}</Badge>}
                         </div>
@@ -1793,6 +1871,11 @@ export default function CompatibilityTab() {
 
                       <div style={{ flex: 1 }} />
 
+                      {settings.defaultPrefix !== p.path && (
+                        <Button size="sm" variant="ghost" onClick={() => handleSetDefaultPrefix(p.path)}>
+                          <CheckCircle2 size={13} /> {t("compatibility.setAsDefault")}
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" onClick={() => { setDuplicateTarget(p); setDuplicateName(`${p.name}-copy`); }}>
                         <Copy size={13} /> {t("compatibility.duplicatePrefix")}
                       </Button>
@@ -1802,7 +1885,14 @@ export default function CompatibilityTab() {
                       {p.isCustom ? (
                         <Button size="sm" variant="ghost" className="prefix-delete-btn" onClick={() => {
                           invoke("unregister_custom_prefix", { path: p.path })
-                            .then(() => { showToast(t("compatibility.deleteSuccess"), "success"); fetchPrefixes(); })
+                            .then(async () => {
+                              showToast(t("compatibility.deleteSuccess"), "success");
+                              if (settings.defaultPrefix === p.path) {
+                                await handleSetDefaultPrefix(null);
+                              } else {
+                                fetchPrefixes();
+                              }
+                            })
                             .catch((err) => showToast(String(err), "error"));
                         }}>
                           <X size={13} /> {t("compatibility.unregisterPrefix")}
@@ -1941,11 +2031,15 @@ export default function CompatibilityTab() {
                 path: deleteTarget.path,
                 size: formatBytes(deleteTarget.sizeBytes || 0),
               })}
-              warning={deleteTarget.associatedGames.length > 0
-                ? t("compatibility.deletePrefixWarning", {
-                    games: deleteTarget.associatedGames.map((g) => g.title).join(", "),
-                  })
-                : undefined}
+              warning={
+                settings.defaultPrefix === deleteTarget.path
+                  ? t("compatibility.deleteDefaultPrefixWarning")
+                  : deleteTarget.associatedGames.length > 0
+                    ? t("compatibility.deletePrefixWarning", {
+                        games: deleteTarget.associatedGames.map((g) => g.title).join(", "),
+                      })
+                    : undefined
+              }
               confirmLabel={t("compatibility.deletePrefix")}
               cancelLabel={t("compatibility.cancelInstall")}
               busy={deletingPrefix}
