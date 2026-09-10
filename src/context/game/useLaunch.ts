@@ -129,7 +129,14 @@ export function useLaunch(options: {
     // Resolve the selected GPU from localStorage
     let gpuId: string | null = null;
     let gpuName: string | null = null;
-    let gpuPciId: string | null = null;
+    let gpuSelection: {
+      pciId: string | null;
+      pciSlot: string | null;
+      vulkanUuid: string | null;
+      vulkanIndex: number | null;
+      vendor: string | null;
+      nvidiaProvider: string | null;
+    } | null = null;
     const savedGpu = localStorage.getItem("gamelib-gpus");
     const savedGpuId = localStorage.getItem("gamelib-selected-gpu");
     if (savedGpu && savedGpuId) {
@@ -139,7 +146,14 @@ export function useLaunch(options: {
         if (selected) {
           gpuId = selected.id;
           gpuName = selected.name;
-          gpuPciId = selected.pciId ?? null;
+          gpuSelection = {
+            pciId: selected.pciId ?? null,
+            pciSlot: selected.pciSlot ?? null,
+            vulkanUuid: selected.vulkanUuid ?? null,
+            vulkanIndex: selected.vulkanIndex ?? null,
+            vendor: selected.vendor ?? null,
+            nvidiaProvider: selected.nvidiaProvider ?? null,
+          };
         }
       } catch (e) {
         console.error("Failed to parse selected GPU from storage", e);
@@ -232,7 +246,7 @@ export function useLaunch(options: {
         steamAppId: game.steamAppId ?? null,
         gpuId,
         gpuName,
-        gpuPciId,
+        gpuSelection,
         launchArguments: launchArgs,
         runAsAdmin: IS_WINDOWS_HOST ? (game.runAsAdmin || null) : null,
         showSteamLaunchSelection: game.showSteamLaunchSelection || null,

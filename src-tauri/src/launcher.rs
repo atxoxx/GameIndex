@@ -6,6 +6,7 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use crate::db;
+use crate::compatibility::GpuSelection;
 use crate::{discord_presence, game_watcher, metrics_collector};
 use crate::game_watcher::{GameRefInput, GameWatcher};
 use crate::steam::launch_options::SteamLaunchOption;
@@ -697,7 +698,7 @@ pub fn launch_game(
     steam_app_id: Option<u32>,
     gpu_id: Option<String>,
     gpu_name: Option<String>,
-    gpu_pci_id: Option<String>,
+    gpu_selection: Option<GpuSelection>,
     launch_arguments: Option<String>,
     run_as_admin: Option<bool>,
     pre_launch_script: Option<String>,
@@ -784,7 +785,7 @@ pub fn launch_game(
             &game_path,
             sid,
             launch_arguments.as_deref(),
-            gpu_pci_id.as_deref(),
+            gpu_selection.as_ref(),
             show_steam_launch_selection.unwrap_or(false),
         )?;
         initial_pid = outcome.pid;
@@ -875,7 +876,7 @@ pub fn launch_game(
                 cwd,
                 launch_arguments.as_deref(),
                 game_profile.as_ref(),
-                gpu_pci_id.as_deref(),
+                gpu_selection.as_ref(),
                 None,
             )?;
             None
@@ -913,17 +914,20 @@ pub fn launch_game(
             }
 
             // Native Linux titles: honor the specific-GPU override too, so
-            // Vulkan picks the selected adapter even without Wine/Proton.
+            // every graphics stack picks the selected adapter even without
+            // Wine/Proton.
             #[cfg(target_os = "linux")]
             {
                 let compat_settings = crate::compatibility::get_compatibility_settings_internal(&app)
                     .unwrap_or_default();
-                if let Some(pci_id) = crate::compatibility::specific_gpu_select(
+                if let Some(selection) = crate::compatibility::specific_gpu_selection(
                     &compat_settings,
                     game_profile.as_ref(),
-                    gpu_pci_id.as_deref(),
+                    gpu_selection.as_ref(),
                 ) {
-                    cmd.env("MESA_VK_DEVICE_SELECT", pci_id);
+                    for (key, value) in crate::compatibility::specific_gpu_env(&selection) {
+                        cmd.env(key, value);
+                    }
                 }
             }
 

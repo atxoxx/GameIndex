@@ -1144,30 +1144,197 @@ pub fn specific_gpu_enabled(
         .unwrap_or(settings.use_specific_gpu)
 }
 
-/// `MESA_VK_DEVICE_SELECT` value (`vendor:device`, e.g. `10de:2c05`) when the
-/// override is active. The launch-provided id (the GPU currently selected in
-/// Settings) wins; the id persisted on the global setting is the fallback for
-/// launches that don't go through the frontend (e.g. the tray menu). `None`
-/// means no injection: setting off, no GPU selected, or disabled per game.
-pub fn specific_gpu_select(
+/// GPU identity handed to the launch environment. Mirrors the fields the
+/// frontend `GpuInfo` carries; every field is optional because older
+/// payloads and the tray-launch path only persist a single id string.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GpuSelection {
+    /// PCI `vendor:device`, e.g. `10de:2c05`.
+    pub pci_id: Option<String>,
+    /// PCI slot, e.g. `0000:01:00.0` — unique for identical cards.
+    pub pci_slot: Option<String>,
+    /// Vulkan `deviceUUID` (32 hex chars; dashes are stripped).
+    pub vulkan_uuid: Option<String>,
+    /// Position in the Vulkan device enumeration.
+    pub vulkan_index: Option<u32>,
+    /// `NVIDIA`, `AMD`, `Intel`, …
+    pub vendor: Option<String>,
+    /// RandR offload-screen name (`NVIDIA-G0`).
+    pub nvidia_provider: Option<String>,
+}
+
+impl GpuSelection {
+    fn is_empty(&self) -> bool {
+        self.pci_id.is_none()
+            && self.pci_slot.is_none()
+            && self.vulkan_uuid.is_none()
+            && self.vulkan_index.is_none()
+            && self.nvidia_provider.is_none()
+    }
+}
+
+/// Normalize a `vendor:device` string, rejecting anything else. Shared with tests.
+pub(crate) fn normalized_pci_id(raw: &str) -> Option<String> {
+    let value = raw.trim().to_lowercase();
+    let bytes = value.as_bytes();
+    let shape_ok = bytes.len() == 9
+        && bytes[4] == b':'
+        && bytes[..4].iter().all(u8::is_ascii_hexdigit)
+        && bytes[5..].iter().all(u8::is_ascii_hexdigit);
+    shape_ok.then_some(value)
+}
+
+/// Normalize a `0000:01:00.0` PCI slot, rejecting anything else. Shared with tests.
+pub(crate) fn normalized_pci_slot(raw: &str) -> Option<String> {
+    let value = raw.trim().to_lowercase();
+    let bytes = value.as_bytes();
+    let hex_at = |i: usize| bytes.get(i).is_some_and(u8::is_ascii_hexdigit);
+    let shape_ok = bytes.len() == 12
+        && bytes[4] == b':'
+        && bytes[7] == b':'
+        && bytes[10] == b'.'
+        && [0, 1, 2, 3, 5, 6, 8, 9, 11].iter().all(|&i| hex_at(i));
+    shape_ok.then_some(value)
+}
+
+/// Normalize an `NVIDIA-G<n>` provider name, rejecting others. Shared with tests.
+pub(crate) fn normalized_nvidia_provider(raw: &str) -> Option<String> {
+    let value = raw.trim().to_uppercase();
+    let digits = value.strip_prefix("NVIDIA-G")?;
+    (!digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())).then_some(value)
+}
+
+/// Drop fields that aren't shaped like real identifiers, so a stale or
+/// hand-edited setting can't inject garbage into the launch environment.
+fn sanitize_gpu_selection(gpu: &GpuSelection) -> GpuSelection {
+    GpuSelection {
+        pci_id: gpu.pci_id.as_deref().and_then(normalized_pci_id),
+        pci_slot: gpu.pci_slot.as_deref().and_then(normalized_pci_slot),
+        vulkan_uuid: gpu
+            .vulkan_uuid
+            .as_deref()
+            .and_then(crate::gpu_detector::normalize_vulkan_uuid),
+        vulkan_index: gpu.vulkan_index,
+        vendor: gpu
+            .vendor
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_string),
+        nvidia_provider: gpu
+            .nvidia_provider
+            .as_deref()
+            .and_then(normalized_nvidia_provider),
+    }
+}
+
+/// Interpret the single persisted id string (tray launches) as either a PCI
+/// slot or a `vendor:device` pair.
+fn selection_from_id(raw: &str) -> GpuSelection {
+    let trimmed = raw.trim();
+    if let Some(slot) = normalized_pci_slot(trimmed) {
+        return GpuSelection {
+            pci_slot: Some(slot),
+            ..Default::default()
+        };
+    }
+    if let Some(pci_id) = normalized_pci_id(trimmed) {
+        return GpuSelection {
+            pci_id: Some(pci_id),
+            ..Default::default()
+        };
+    }
+    GpuSelection::default()
+}
+
+/// Resolve the GPU override for a launch. The launch-provided selection (the
+/// GPU currently selected in Settings) wins; the id persisted on the global
+/// setting is the fallback for launches that don't go through the frontend
+/// (e.g. the tray menu). `None` means no injection: setting off, no GPU
+/// selected, or disabled per game.
+pub fn specific_gpu_selection(
     settings: &CompatibilitySettings,
     game_profile: Option<&serde_json::Value>,
-    gpu_pci_id: Option<&str>,
-) -> Option<String> {
+    gpu: Option<&GpuSelection>,
+) -> Option<GpuSelection> {
     if !specific_gpu_enabled(settings, game_profile) {
         return None;
     }
-    let selected = gpu_pci_id
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-        .or_else(|| {
-            settings
-                .specific_gpu_id
-                .as_deref()
-                .map(str::trim)
-                .filter(|id| !id.is_empty())
-        })?;
-    Some(selected.to_string())
+    if let Some(gpu) = gpu {
+        let cleaned = sanitize_gpu_selection(gpu);
+        if !cleaned.is_empty() {
+            return Some(cleaned);
+        }
+    }
+    settings
+        .specific_gpu_id
+        .as_deref()
+        .map(selection_from_id)
+        .filter(|selection| !selection.is_empty())
+}
+
+/// Environment variables that pin a launch to the selected GPU. The set is a
+/// matrix because every graphics stack has its own selector: Vulkan (DXVK
+/// UUID filter, vkdevicechooser, loader + Mesa `vid:did`), OpenGL (NVIDIA
+/// PRIME offload provider) and Mesa `DRI_PRIME`. Missing fields simply
+/// produce fewer entries, so old selections and tray launches degrade
+/// gracefully. Shared with tests.
+pub fn specific_gpu_env(selection: &GpuSelection) -> Vec<(String, String)> {
+    let mut env: Vec<(String, String)> = Vec::new();
+
+    // DXVK's UUID filter is the only precise selector for two identical GPUs.
+    if let Some(uuid) = selection
+        .vulkan_uuid
+        .as_deref()
+        .and_then(crate::gpu_detector::normalize_vulkan_uuid)
+    {
+        env.push(("DXVK_FILTER_DEVICE_UUID".to_string(), uuid));
+    }
+    // vkdevicechooser covers native Vulkan titles; harmless without the layer.
+    if let Some(index) = selection.vulkan_index {
+        env.push(("ENABLE_DEVICE_CHOOSER_LAYER".to_string(), "1".to_string()));
+        env.push(("VULKAN_DEVICE_INDEX".to_string(), index.to_string()));
+    }
+    if let Some(pci_id) = selection.pci_id.as_deref().and_then(normalized_pci_id) {
+        if let Some((vendor, device)) = pci_id.split_once(':') {
+            env.push((
+                "VK_LOADER_DEVICE_SELECT".to_string(),
+                format!("0x{vendor}:0x{device}"),
+            ));
+        }
+        env.push(("MESA_VK_DEVICE_SELECT".to_string(), pci_id));
+    }
+
+    let is_nvidia = selection
+        .vendor
+        .as_deref()
+        .is_some_and(|vendor| vendor.eq_ignore_ascii_case("NVIDIA"))
+        || selection
+            .pci_id
+            .as_deref()
+            .is_some_and(|pci| pci.to_lowercase().starts_with("10de:"));
+
+    if is_nvidia {
+        // X11 OpenGL offload needs the GPU screen name; the adapter that
+        // drives the X screen needs nothing (GL already runs there).
+        if let Some(provider) = selection
+            .nvidia_provider
+            .as_deref()
+            .and_then(normalized_nvidia_provider)
+        {
+            env.push(("__NV_PRIME_RENDER_OFFLOAD".to_string(), "1".to_string()));
+            env.push(("__GLX_VENDOR_LIBRARY_NAME".to_string(), "nvidia".to_string()));
+            env.push(("__NV_PRIME_RENDER_OFFLOAD_PROVIDER".to_string(), provider));
+            env.push(("__VK_LAYER_NV_optimus".to_string(), "NVIDIA_only".to_string()));
+        }
+    } else if let Some(slot) = selection.pci_slot.as_deref().and_then(normalized_pci_slot) {
+        // Mesa selects by bus path, which stays unique for identical cards.
+        let dri = format!("pci-{}", slot.replace(':', "_").replace('.', "_"));
+        env.push(("DRI_PRIME".to_string(), dri));
+    }
+
+    env
 }
 
 /// Environment variables that carry the configured Wine/Proton flags
@@ -1184,7 +1351,7 @@ pub fn specific_gpu_select(
 pub fn steam_launch_env(
     settings: &CompatibilitySettings,
     game_profile: Option<&serde_json::Value>,
-    gpu_pci_id: Option<&str>,
+    gpu: Option<&GpuSelection>,
 ) -> Vec<(String, String)> {
     let mut env: Vec<(String, String)> = Vec::new();
 
@@ -1264,7 +1431,7 @@ pub fn steam_launch_env(
         .and_then(|p| p.get("primeRenderOffload").or_else(|| p.get("primeOffload")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.prime_render_offload);
-    let specific_gpu = specific_gpu_select(settings, game_profile, gpu_pci_id);
+    let specific_gpu = specific_gpu_selection(settings, game_profile, gpu);
     let excluded_global_env: Vec<String> = game_profile
         .and_then(|p| p.get("excludedGlobalEnv"))
         .and_then(|v| v.as_array())
@@ -1297,8 +1464,10 @@ pub fn steam_launch_env(
         env.push(("WINE_ENABLE_WAYLAND".to_string(), "1".to_string()));
         env.push(("PROTON_ENABLE_WAYLAND".to_string(), "1".to_string()));
     }
-    if let Some(pci_id) = specific_gpu {
-        env.push(("MESA_VK_DEVICE_SELECT".to_string(), pci_id));
+    if let Some(selection) = specific_gpu.as_ref() {
+        for (key, value) in specific_gpu_env(selection) {
+            env.push((key, value));
+        }
     }
     if enable_wow64 {
         env.push(("WINE_NEW_WOW64".to_string(), "1".to_string()));
@@ -1424,10 +1593,10 @@ pub fn steam_launch_env(
 pub fn steam_launch_prefix(
     settings: &CompatibilitySettings,
     game_profile: Option<&serde_json::Value>,
-    gpu_pci_id: Option<&str>,
+    gpu: Option<&GpuSelection>,
     proton_log_dir: Option<&Path>,
 ) -> String {
-    let mut tokens: Vec<String> = steam_launch_env(settings, game_profile, gpu_pci_id)
+    let mut tokens: Vec<String> = steam_launch_env(settings, game_profile, gpu)
         .into_iter()
         .map(|(key, value)| {
             format!(
@@ -1808,7 +1977,7 @@ pub fn launch_steam_game(
     game_path: &str,
     steam_app_id: u32,
     launch_arguments: Option<&str>,
-    gpu_pci_id: Option<&str>,
+    gpu: Option<&GpuSelection>,
     show_picker: bool,
 ) -> Result<SteamLaunchOutcome, String> {
     let settings = get_compatibility_settings_internal(app).unwrap_or_default();
@@ -1824,8 +1993,8 @@ pub fn launch_steam_game(
     let _ = fs::remove_dir_all(&log_dir);
     let _ = fs::create_dir_all(&log_dir);
 
-    let prefix = steam_launch_prefix(&settings, game_profile.as_ref(), gpu_pci_id, Some(&log_dir));
-    let managed = steam_launch_prefix(&settings, game_profile.as_ref(), gpu_pci_id, None);
+    let prefix = steam_launch_prefix(&settings, game_profile.as_ref(), gpu, Some(&log_dir));
+    let managed = steam_launch_prefix(&settings, game_profile.as_ref(), gpu, None);
     let defaults = steam_launch_prefix(&CompatibilitySettings::default(), None, None, None);
     // An explicit per-game disable opts out of GameIndex's flags, and
     // nothing configured beyond the defaults means there is nothing to
@@ -1851,7 +2020,7 @@ pub fn launch_steam_game(
         }
     }
 
-    let mut process_env = steam_launch_env(&settings, game_profile.as_ref(), gpu_pci_id);
+    let mut process_env = steam_launch_env(&settings, game_profile.as_ref(), gpu);
     process_env.push(("PROTON_LOG".to_string(), "1".to_string()));
     process_env.push((
         "PROTON_LOG_DIR".to_string(),
@@ -1905,7 +2074,7 @@ pub fn launch_steam_game(
                 cwd,
                 launch_arguments,
                 profile.as_ref(),
-                gpu_pci_id,
+                gpu,
                 Some(steam_app_id),
             )?;
             return Ok(SteamLaunchOutcome { pid, exe_path });
@@ -2868,7 +3037,7 @@ pub fn launch_with_compatibility(
     working_dir: &Path,
     launch_args: Option<&str>,
     game_profile: Option<&serde_json::Value>,
-    gpu_pci_id: Option<&str>,
+    gpu: Option<&GpuSelection>,
     steam_app_id: Option<u32>,
 ) -> Result<u32, String> {
     let settings = get_compatibility_settings_internal(app).unwrap_or_default();
@@ -2978,7 +3147,7 @@ pub fn launch_with_compatibility(
         .and_then(|p| p.get("primeRenderOffload").or_else(|| p.get("primeOffload")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.prime_render_offload);
-    let specific_gpu = specific_gpu_select(&settings, game_profile, gpu_pci_id);
+    let specific_gpu = specific_gpu_selection(&settings, game_profile, gpu);
 
     let excluded_global_env: Vec<String> = game_profile
         .and_then(|p| p.get("excludedGlobalEnv"))
@@ -3043,7 +3212,11 @@ pub fn launch_with_compatibility(
     let _ = writeln!(log_file, "Prefix: {}", prefix.display());
     let _ = writeln!(log_file, "ESync: {}, FSync: {}, NTSync: {}, DXVK: {}, VKD3D: {}", enable_esync, enable_fsync, enable_ntsync, enable_dxvk, enable_vkd3d);
     let _ = writeln!(log_file, "Wineland: {}, WoW64: {}, LargeAddress: {}", enable_wayland, enable_wow64, enable_large_address_aware);
-    let _ = writeln!(log_file, "Specific GPU: {}", specific_gpu.as_deref().unwrap_or("disabled"));
+    let specific_gpu_label = specific_gpu
+        .as_ref()
+        .and_then(|gpu| gpu.pci_slot.as_deref().or(gpu.pci_id.as_deref()))
+        .unwrap_or("disabled");
+    let _ = writeln!(log_file, "Specific GPU: {}", specific_gpu_label);
     let _ = writeln!(log_file, "MangoHud: {} (hidden: {}), UMU: {}, GameMode: {}, Gamescope: {}", enable_mangohud, mangohud_hidden, use_umu, enable_gamemode, enable_gamescope);
     let _ = writeln!(log_file, "Controller support: {}, Anti-cheat support: {}", enable_controller_support, enable_anticheat_support);
     let _ = writeln!(log_file, "==================================================");
@@ -3144,11 +3317,13 @@ pub fn launch_with_compatibility(
         cmd.env("WINE_ENABLE_WAYLAND", "1");
     }
     // Pinning a specific GPU also forces Wine Wayland on (WINE + Proton)
-    // and hands the selected device to Mesa's Vulkan loader.
-    if let Some(pci_id) = specific_gpu {
+    // and hands the selection to the whole graphics-stack matrix.
+    if let Some(selection) = specific_gpu.as_ref() {
         cmd.env("WINE_ENABLE_WAYLAND", "1");
         cmd.env("PROTON_ENABLE_WAYLAND", "1");
-        cmd.env("MESA_VK_DEVICE_SELECT", pci_id);
+        for (key, value) in specific_gpu_env(selection) {
+            cmd.env(key, value);
+        }
     }
     if enable_wow64 {
         cmd.env("WINE_NEW_WOW64", "1");
@@ -4485,45 +4660,61 @@ mod tests {
             use_specific_gpu: true,
             ..Default::default()
         };
-        let env = steam_launch_env(&settings, None, Some("10de:2c05"));
+        let selection = GpuSelection {
+            pci_id: Some("10de:2c05".to_string()),
+            vendor: Some("NVIDIA".to_string()),
+            ..Default::default()
+        };
+        let env = steam_launch_env(&settings, None, Some(&selection));
         let map: std::collections::HashMap<&str, &str> = env
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
 
         assert_eq!(map.get("MESA_VK_DEVICE_SELECT"), Some(&"10de:2c05"));
+        assert_eq!(map.get("VK_LOADER_DEVICE_SELECT"), Some(&"0x10de:0x2c05"));
         assert_eq!(map.get("WINE_ENABLE_WAYLAND"), Some(&"1"));
         assert_eq!(map.get("PROTON_ENABLE_WAYLAND"), Some(&"1"));
     }
 
     #[test]
     fn steam_launch_env_specific_gpu_respects_tristate_and_missing_id() {
+        let nvidia = GpuSelection {
+            pci_id: Some("10de:2c05".to_string()),
+            ..Default::default()
+        };
+        let amd = GpuSelection {
+            pci_id: Some("1002:744c".to_string()),
+            ..Default::default()
+        };
+
         // Global on, per-game off wins: no device pin, no forced Wayland.
         let global_on = CompatibilitySettings {
             use_specific_gpu: true,
             ..Default::default()
         };
         let profile_off = serde_json::json!({ "useSpecificGpu": false });
-        let env = steam_launch_env(&global_on, Some(&profile_off), Some("10de:2c05"));
+        let env = steam_launch_env(&global_on, Some(&profile_off), Some(&nvidia));
         let map: std::collections::HashMap<&str, &str> = env
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
         assert!(!map.contains_key("MESA_VK_DEVICE_SELECT"));
+        assert!(!map.contains_key("VK_LOADER_DEVICE_SELECT"));
         assert!(!map.contains_key("WINE_ENABLE_WAYLAND"));
         assert!(!map.contains_key("PROTON_ENABLE_WAYLAND"));
 
         // Global off, per-game on wins.
         let profile_on = serde_json::json!({ "useSpecificGpu": true });
         let global_off = CompatibilitySettings::default();
-        let env = steam_launch_env(&global_off, Some(&profile_on), Some("1002:744c"));
+        let env = steam_launch_env(&global_off, Some(&profile_on), Some(&amd));
         let map: std::collections::HashMap<&str, &str> = env
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
         assert_eq!(map.get("MESA_VK_DEVICE_SELECT"), Some(&"1002:744c"));
 
-        // Enabled but the launch carries no selected PCI id.
+        // Enabled but the launch carries no selected GPU.
         let env = steam_launch_env(&global_on, None, None);
         let map: std::collections::HashMap<&str, &str> = env
             .iter()
@@ -4534,37 +4725,69 @@ mod tests {
     }
 
     #[test]
-    fn specific_gpu_select_requires_enabled_non_blank_id() {
+    fn specific_gpu_selection_requires_enabled_non_blank_id() {
         let settings = CompatibilitySettings {
             use_specific_gpu: true,
             ..Default::default()
         };
-        assert_eq!(specific_gpu_select(&settings, None, Some("   ")), None);
+        let blank = GpuSelection {
+            pci_id: Some("   ".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(specific_gpu_selection(&settings, None, Some(&blank)), None);
+
+        let padded = GpuSelection {
+            pci_id: Some(" 10de:2c05 ".to_string()),
+            ..Default::default()
+        };
         assert_eq!(
-            specific_gpu_select(&settings, None, Some(" 10de:2c05 ")),
-            Some("10de:2c05".to_string())
+            specific_gpu_selection(&settings, None, Some(&padded)),
+            Some(GpuSelection {
+                pci_id: Some("10de:2c05".to_string()),
+                ..Default::default()
+            })
         );
 
         let disabled = CompatibilitySettings::default();
-        assert_eq!(specific_gpu_select(&disabled, None, Some("10de:2c05")), None);
+        assert_eq!(specific_gpu_selection(&disabled, None, Some(&padded)), None);
     }
 
     #[test]
-    fn specific_gpu_select_falls_back_to_persisted_id() {
+    fn specific_gpu_selection_falls_back_to_persisted_id() {
         let settings = CompatibilitySettings {
             use_specific_gpu: true,
             specific_gpu_id: Some("1002:744c".to_string()),
             ..Default::default()
         };
-        // No launch-provided id (tray launch) — the persisted id is used.
+        // No launch-provided selection (tray launch) — the persisted id is used.
         assert_eq!(
-            specific_gpu_select(&settings, None, None),
-            Some("1002:744c".to_string())
+            specific_gpu_selection(&settings, None, None),
+            Some(GpuSelection {
+                pci_id: Some("1002:744c".to_string()),
+                ..Default::default()
+            })
         );
         // A fresh selection overrides the persisted one.
+        let fresh = GpuSelection {
+            pci_id: Some("10de:2c05".to_string()),
+            ..Default::default()
+        };
         assert_eq!(
-            specific_gpu_select(&settings, None, Some("10de:2c05")),
-            Some("10de:2c05".to_string())
+            specific_gpu_selection(&settings, None, Some(&fresh)),
+            Some(fresh)
+        );
+        // A persisted PCI slot keeps its unique identity.
+        let slot_settings = CompatibilitySettings {
+            use_specific_gpu: true,
+            specific_gpu_id: Some("0000:03:00.0".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(
+            specific_gpu_selection(&slot_settings, None, None),
+            Some(GpuSelection {
+                pci_slot: Some("0000:03:00.0".to_string()),
+                ..Default::default()
+            })
         );
         // A blank persisted id disables the fallback.
         let blank = CompatibilitySettings {
@@ -4572,7 +4795,71 @@ mod tests {
             specific_gpu_id: Some("   ".to_string()),
             ..Default::default()
         };
-        assert_eq!(specific_gpu_select(&blank, None, None), None);
+        assert_eq!(specific_gpu_selection(&blank, None, None), None);
+    }
+
+    #[test]
+    fn specific_gpu_env_full_nvidia_matrix() {
+        let selection = GpuSelection {
+            pci_id: Some("10de:2c05".to_string()),
+            pci_slot: Some("0000:01:00.0".to_string()),
+            vulkan_uuid: Some("B5291141-3FF6-F8BF-C85D-2F8E52FC144D".to_string()),
+            vulkan_index: Some(1),
+            vendor: Some("NVIDIA".to_string()),
+            nvidia_provider: Some("NVIDIA-G1".to_string()),
+        };
+        let env = specific_gpu_env(&selection);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
+        assert_eq!(
+            map.get("DXVK_FILTER_DEVICE_UUID"),
+            Some(&"b52911413ff6f8bfc85d2f8e52fc144d")
+        );
+        assert_eq!(map.get("ENABLE_DEVICE_CHOOSER_LAYER"), Some(&"1"));
+        assert_eq!(map.get("VULKAN_DEVICE_INDEX"), Some(&"1"));
+        assert_eq!(map.get("VK_LOADER_DEVICE_SELECT"), Some(&"0x10de:0x2c05"));
+        assert_eq!(map.get("MESA_VK_DEVICE_SELECT"), Some(&"10de:2c05"));
+        assert_eq!(map.get("__NV_PRIME_RENDER_OFFLOAD"), Some(&"1"));
+        assert_eq!(map.get("__GLX_VENDOR_LIBRARY_NAME"), Some(&"nvidia"));
+        assert_eq!(map.get("__NV_PRIME_RENDER_OFFLOAD_PROVIDER"), Some(&"NVIDIA-G1"));
+        assert_eq!(map.get("__VK_LAYER_NV_optimus"), Some(&"NVIDIA_only"));
+        assert!(!map.contains_key("DRI_PRIME"));
+    }
+
+    #[test]
+    fn specific_gpu_env_mesa_uses_pci_slot_for_dri_prime() {
+        let selection = GpuSelection {
+            pci_id: Some("1002:744c".to_string()),
+            pci_slot: Some("0000:03:00.0".to_string()),
+            vendor: Some("AMD".to_string()),
+            ..Default::default()
+        };
+        let env = specific_gpu_env(&selection);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
+        assert_eq!(map.get("DRI_PRIME"), Some(&"pci-0000_03_00_0"));
+        assert_eq!(map.get("VK_LOADER_DEVICE_SELECT"), Some(&"0x1002:0x744c"));
+        assert!(!map.contains_key("__NV_PRIME_RENDER_OFFLOAD"));
+        assert!(!map.contains_key("DXVK_FILTER_DEVICE_UUID"));
+    }
+
+    #[test]
+    fn specific_gpu_env_rejects_malformed_fields() {
+        let selection = GpuSelection {
+            pci_id: Some("not-a-pci-id".to_string()),
+            pci_slot: Some("garbage".to_string()),
+            vulkan_uuid: Some("1234".to_string()),
+            vendor: Some("NVIDIA".to_string()),
+            nvidia_provider: Some("GPU-1".to_string()),
+            ..Default::default()
+        };
+        assert!(specific_gpu_env(&selection).is_empty());
     }
 
     #[test]

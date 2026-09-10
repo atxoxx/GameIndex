@@ -1717,6 +1717,14 @@ export interface GpuInfo {
   vramMb: number;
   /** PCI vendor:device identifier on Linux (e.g. "10de:2c05") — used by MESA_VK_DEVICE_SELECT. */
   pciId?: string | null;
+  /** PCI slot on Linux (e.g. "0000:01:00.0") — unique even for identical GPUs. */
+  pciSlot?: string | null;
+  /** Vulkan deviceUUID (32 hex chars, no dashes) — DXVK_FILTER_DEVICE_UUID. */
+  vulkanUuid?: string | null;
+  /** Position in the Vulkan device enumeration — vkdevicechooser layer. */
+  vulkanIndex?: number | null;
+  /** RandR offload provider name (e.g. "NVIDIA-G0") — PRIME render offload. */
+  nvidiaProvider?: string | null;
 }
 
 /** Build per-session metric series for trend charts. Each data point comes from

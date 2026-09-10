@@ -85,14 +85,18 @@ export default function HardwareTab() {
     [showToast, t],
   );
 
-  // Keep the persisted PCI id in sync with the selection while the
+  // Keep the persisted GPU key in sync with the selection while the
   // "use selected GPU for games" toggle is on, so tray launches (which
-  // don't go through the frontend) target the same adapter.
+  // don't go through the frontend) target the same adapter. The PCI slot is
+  // preferred because it tells identical cards apart.
   const selectGpu = useCallback(
     (gpu: GpuInfo | null) => {
       setSelectedGpu(gpu);
       if (compatSettings?.useSpecificGpu) {
-        updateCompatSettings((prev) => ({ ...prev, specificGpuId: gpu?.pciId ?? null }));
+        updateCompatSettings((prev) => ({
+          ...prev,
+          specificGpuId: gpu?.pciSlot ?? gpu?.pciId ?? null,
+        }));
       }
     },
     [compatSettings?.useSpecificGpu, setSelectedGpu, updateCompatSettings],
@@ -100,10 +104,11 @@ export default function HardwareTab() {
 
   // A restored selection can come from a cache written before the PCI id was
   // exposed — prefer the freshly detected entry for the same adapter.
-  const selectedPciId =
-    systemInfo?.gpus.find((g) => g.id === selectedGpu?.id)?.pciId ??
-    selectedGpu?.pciId ??
-    null;
+  const selectedDetectedGpu =
+    systemInfo?.gpus.find((g) => g.id === selectedGpu?.id) ?? selectedGpu;
+  const selectedPciId = selectedDetectedGpu?.pciId ?? null;
+  const selectedGpuKey =
+    selectedDetectedGpu?.pciSlot ?? selectedDetectedGpu?.pciId ?? null;
 
   // The Rust telemetry config wants milliseconds.
   const samplingIntervalMs = Math.round(samplingIntervalSec * 1000);
@@ -331,18 +336,20 @@ export default function HardwareTab() {
                 <SettingsToggleCard
                   title={t("settings.hardware.specificGpu")}
                   desc={
-                    selectedPciId
-                      ? t("settings.hardware.specificGpuDesc", { id: selectedPciId })
+                    selectedPciId || selectedGpuKey
+                      ? t("settings.hardware.specificGpuDesc", {
+                          id: selectedPciId ?? selectedGpuKey ?? "",
+                        })
                       : t("settings.hardware.specificGpuNoId")
                   }
                   checked={compatSettings?.useSpecificGpu ?? false}
-                  disabled={!compatSettings || !selectedPciId}
+                  disabled={!compatSettings || !selectedGpuKey}
                   onChange={(v) =>
                     updateCompatSettings((prev) => ({
                       ...prev,
                       useSpecificGpu: v,
                       specificGpuId: v
-                        ? selectedPciId ?? prev.specificGpuId
+                        ? selectedGpuKey ?? prev.specificGpuId
                         : prev.specificGpuId,
                     }))
                   }
