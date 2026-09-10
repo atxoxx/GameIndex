@@ -327,28 +327,36 @@ where
 /// we round-trip each entry through compact JSON rather than maintain
 /// a hand-rolled field-by-field converter.
 #[tauri::command]
-pub fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
+pub async fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let mut rows: Vec<db::games::GameRow> = Vec::with_capacity(games.len());
-    let mut compat_items: Vec<(String, serde_json::Value)> = Vec::new();
+    // Sync `#[tauri::command]` bodies run inline on the GTK main thread
+    // (async ones run on the tokio runtime), so the whole-library rewrite
+    // is moved off it explicitly. Serializing/deserializing hundreds of
+    // rows must not stall the event loop while the user is interacting.
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut rows: Vec<db::games::GameRow> = Vec::with_capacity(games.len());
+        let mut compat_items: Vec<(String, serde_json::Value)> = Vec::new();
 
-    for g in games {
-        if let Some(ref c) = g.compatibility {
-            compat_items.push((g.id.clone(), c.clone()));
+        for g in games {
+            if let Some(ref c) = g.compatibility {
+                compat_items.push((g.id.clone(), c.clone()));
+            }
+            let value = serde_json::to_value(&g).map_err(|e| format!("to_value: {e}"))?;
+            let row: db::games::GameRow = serde_json::from_value(value)
+                .map_err(|e| format!("to GameRow: {e}"))?;
+            rows.push(row);
         }
-        let value = serde_json::to_value(&g).map_err(|e| format!("to_value: {e}"))?;
-        let row: db::games::GameRow = serde_json::from_value(value)
-            .map_err(|e| format!("to GameRow: {e}"))?;
-        rows.push(row);
-    }
-    let result = db::games::upsert_all(db_state.inner(), &rows);
-    if result.is_ok() {
-        let _ = db::compatibility::upsert_batch_for_games(db_state.inner(), &compat_items);
-        let ids = rows.iter().map(|row| row.id.clone()).collect();
-        db::artwork::cleanup_unreferenced_artwork(&app_data_dir, &ids);
-    }
-    result
+        let result = db::games::upsert_all(&db, &rows);
+        if result.is_ok() {
+            let _ = db::compatibility::upsert_batch_for_games(&db, &compat_items);
+            let ids = rows.iter().map(|row| row.id.clone()).collect();
+            db::artwork::cleanup_unreferenced_artwork(&app_data_dir, &ids);
+        }
+        result
+    })
+    .await
+    .map_err(|e| format!("save_games task: {e}"))?
 }
 
 /// Persist a SINGLE game immediately, without rewriting the whole
@@ -381,11 +389,32 @@ pub fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
 
 /// Load the game library. Returns every row in Continue-Playing order
 /// (most recent `last_played` first, then alpha by name).
+///
+/// Runs on a blocking thread: on a large library this is tens of MB of
+/// JSON and it must not block WebKitGTK's main loop while the splash is
+/// still up.
 #[tauri::command]
-pub fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
+pub async fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
+    let db = app.state::<db::Db>().inner().clone();
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let rows = db::games::list_all(db_state.inner()).map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || load_games_blocking(&db, &app_data_dir))
+        .await
+        .map_err(|e| format!("load_games task: {e}"))?
+}
+
+fn load_games_blocking(db: &db::Db, app_data_dir: &std::path::Path) -> Result<Vec<GameData>, String> {
+    let mut rows = db::games::list_all(db).map_err(|e| e.to_string())?;
+
+    // Legacy rows stored artwork as base64 data URLs in the games table —
+    // ~67 MB of `icon_url` alone on a 268-game library. Move those into
+    // the disk-backed artwork store (the same place `download_artwork`
+    // already writes) so the library read no longer ships tens of MB of
+    // base64 to the webview on every boot. Rows that fail to externalize
+    // keep their data URL and are retried next launch.
+    for row in rows.iter_mut() {
+        externalize_row_artwork(db, app_data_dir, row);
+    }
+
     let mut out: Vec<GameData> = Vec::with_capacity(rows.len());
     for r in rows {
         let value = match serde_json::to_value(&r) {
@@ -410,7 +439,7 @@ pub fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
     }
 
     // Enrich games with isolated compatibility profiles from compatibility.db
-    if let Ok(mut compat_map) = db::compatibility::list_all_for_games(db_state.inner()) {
+    if let Ok(mut compat_map) = db::compatibility::list_all_for_games(db) {
         for g in &mut out {
             if let Some(c) = compat_map.remove(&g.id) {
                 g.compatibility = Some(c);
@@ -425,7 +454,7 @@ pub fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
     // thread a few seconds after startup: `load_games` returns as fast as
     // the query allows, and pruning still happens once per session.
     {
-        let dir = app_data_dir.clone();
+        let dir = app_data_dir.to_path_buf();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(5));
             db::artwork::cleanup_unreferenced_artwork(&dir, &ids);
@@ -436,6 +465,62 @@ pub fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
         });
     }
     Ok(out)
+}
+
+/// Move the four base64 artwork columns of one row onto disk, rewriting
+/// the stored URL to a `file://` URL the frontend already knows how to
+/// convert (`normalizeGameArtworkUrls`). No-op for non-data URLs.
+fn externalize_row_artwork(
+    db: &db::Db,
+    app_data_dir: &std::path::Path,
+    row: &mut db::games::GameRow,
+) {
+    use db::games::ArtworkSlot;
+
+    let game_id = row.id.clone();
+    let slots = [
+        (ArtworkSlot::Cover, row.cover_art_url.take()),
+        (ArtworkSlot::Icon, row.icon_url.take()),
+        (ArtworkSlot::Banner, row.banner_url.take()),
+        (ArtworkSlot::Logo, row.logo_url.take()),
+    ];
+    for (slot, value) in slots {
+        let next = match value {
+            Some(v) if v.starts_with("data:") => {
+                Some(externalize_data_url(db, app_data_dir, &game_id, slot, v))
+            }
+            other => other,
+        };
+        match slot {
+            ArtworkSlot::Cover => row.cover_art_url = next,
+            ArtworkSlot::Icon => row.icon_url = next,
+            ArtworkSlot::Banner => row.banner_url = next,
+            ArtworkSlot::Logo => row.logo_url = next,
+        }
+    }
+}
+
+/// Returns the new `file://` URL on success, or the original data URL so
+/// the caller never loses artwork when a disk write fails.
+fn externalize_data_url(
+    db: &db::Db,
+    app_data_dir: &std::path::Path,
+    game_id: &str,
+    slot: db::games::ArtworkSlot,
+    value: String,
+) -> String {
+    let stored = db::artwork::store_data_url(app_data_dir, game_id, slot.store_slot(), &value)
+        .ok()
+        .flatten();
+    if let Some(relative) = stored {
+        if let Ok(url) = tauri::Url::from_file_path(app_data_dir.join(&relative)) {
+            let url = url.to_string();
+            if db::games::set_artwork_url(db, game_id, slot, &url).is_ok() {
+                return url;
+            }
+        }
+    }
+    value
 }
 
 // === Emulation support =====================================================

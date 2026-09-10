@@ -80,16 +80,16 @@ struct WatchedGame {
 
 fn load_watched_games(app: &AppHandle) -> Vec<WatchedGame> {
     let db_state: tauri::State<'_, db::Db> = app.state();
-    match db::games::list_all(db_state.inner()) {
-        Ok(rows) => rows
+    // Only the four columns the watcher consumes — a full `list_all`
+    // materialized ~80 MB of artwork/metadata JSON on every 5s poll.
+    match db::games::list_watch_targets(db_state.inner()) {
+        Ok(targets) => targets
             .into_iter()
-            .filter_map(|g| {
-                g.steam_app_id.map(|appid| WatchedGame {
-                    id: g.id,
-                    name: g.name,
-                    steam_app_id: appid,
-                    exe_path: if g.path.is_empty() { None } else { Some(g.path) },
-                })
+            .map(|t| WatchedGame {
+                id: t.id,
+                name: t.name,
+                steam_app_id: t.steam_app_id,
+                exe_path: if t.path.is_empty() { None } else { Some(t.path) },
             })
             .collect(),
         Err(e) => {

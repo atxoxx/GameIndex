@@ -48,7 +48,7 @@ pub fn store_data_url(app_data_dir: &Path, game_id: &str, slot: &str, value: &st
     let dir = artwork_root(app_data_dir).join(safe_component(game_id));
     std::fs::create_dir_all(&dir).map_err(|e| format!("create artwork directory: {e}"))?;
     let relative = format!("{ARTWORK_DIR}/{}/{}.{}", safe_component(game_id), safe_component(slot), extension_from_data_url(value));
-    std::fs::write(app_data_dir.join(&relative), bytes).map_err(|e| format!("write artwork: {e}"))?;
+    write_atomic(&app_data_dir.join(&relative), &bytes)?;
     Ok(Some(relative))
 }
 
@@ -65,8 +65,29 @@ pub fn store_file(app_data_dir: &Path, game_id: &str, slot: &str, source: &Path)
     let dir = artwork_root(app_data_dir).join(safe_component(game_id));
     std::fs::create_dir_all(&dir).map_err(|e| format!("create artwork directory: {e}"))?;
     let relative = format!("{ARTWORK_DIR}/{}/{}.{}", safe_component(game_id), safe_component(slot), ext);
-    std::fs::write(app_data_dir.join(&relative), bytes).map_err(|e| format!("write artwork: {e}"))?;
+    write_atomic(&app_data_dir.join(&relative), &bytes)?;
     Ok(Some(relative))
+}
+
+/// Write via a unique temp file + rename so concurrent writers (e.g.
+/// React StrictMode double-invoking `load_games`) can never observe a
+/// half-written artwork file.
+fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let seq = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let tmp = path.with_file_name(format!(
+        ".{}.{}.{}.tmp",
+        path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default(),
+        std::process::id(),
+        seq
+    ));
+    std::fs::write(&tmp, bytes).map_err(|e| format!("write artwork: {e}"))?;
+    if let Err(e) = std::fs::rename(&tmp, path) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(format!("commit artwork: {e}"));
+    }
+    Ok(())
 }
 
 /// Remove temporary/non-library caches older than `max_age`.
@@ -112,6 +133,31 @@ mod tests {
         assert_eq!(extension_from_data_url("data:image/png;base64,AA=="), "png");
         assert_eq!(extension_from_data_url("data:image/webp;base64,AA=="), "webp");
         assert_eq!(extension_from_data_url("data:image/jpeg;base64,AA=="), "jpg");
+    }
+
+    #[test]
+    fn store_data_url_writes_decoded_file_and_reports_relative_path() {
+        let dir = tempfile::tempdir().unwrap();
+        // 1x1 transparent PNG.
+        let png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+        let relative = store_data_url(dir.path(), "game/one", "icon", png)
+            .unwrap()
+            .expect("data URL should be stored");
+        assert_eq!(relative, "artwork/game_one/icon.png");
+
+        let bytes = std::fs::read(dir.path().join(&relative)).unwrap();
+        assert!(bytes.starts_with(&[0x89, b'P', b'N', b'G']));
+    }
+
+    #[test]
+    fn store_data_url_ignores_non_data_urls() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(store_data_url(dir.path(), "g1", "icon", "https://example.com/a.png")
+            .unwrap()
+            .is_none());
+        assert!(store_data_url(dir.path(), "g1", "icon", "data:image/png,notbase64")
+            .unwrap()
+            .is_none());
     }
 }
 

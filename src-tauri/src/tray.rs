@@ -75,7 +75,6 @@ use tauri::{App, AppHandle, Emitter, Listener, Manager, Wry};
 use tauri::window::{ProgressBarState, ProgressBarStatus};
 
 use crate::db;
-use crate::db::games::GameRow;
 
 /// Managed state: the tray handle plus the inputs `rebuild_menu`
 /// renders from. `TrayIcon<Wry>` is a cheap clone (Arc-backed), so
@@ -408,10 +407,17 @@ fn rebuild_menu(app: &AppHandle) -> tauri::Result<()> {
 /// skipped.
 fn build_recent_submenu(app: &AppHandle) -> tauri::Result<Submenu<Wry>> {
     let db = app.state::<db::Db>();
-    let games = db::games::list_all(&db).unwrap_or_default();
-    let by_id: std::collections::HashMap<&str, &GameRow> =
-        games.iter().map(|g| (g.id.as_str(), g)).collect();
     let sessions = db::sessions::list_recent(&db, 8).unwrap_or_default();
+    let ids: Vec<String> = sessions
+        .iter()
+        .map(|s| s.game_id.clone())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    // Only id + name are materialized: a full `list_all` here decoded the
+    // entire (artwork-heavy) library on every menu rebuild, which happens
+    // on startup and on each game start/exit.
+    let names = db::games::list_names_by_ids(&db, &ids).unwrap_or_default();
     let s = app.state::<TrayHandles>().strings.lock().unwrap().clone();
 
     let mut rows: Vec<MenuItem<Wry>> = Vec::new();
@@ -423,13 +429,13 @@ fn build_recent_submenu(app: &AppHandle) -> tauri::Result<Submenu<Wry>> {
         if !seen.insert(session.game_id.clone()) {
             continue;
         }
-        let Some(row) = by_id.get(session.game_id.as_str()) else {
+        let Some(name) = names.get(&session.game_id) else {
             continue;
         };
         rows.push(MenuItem::with_id(
             app,
-            format!("recent:{}", row.id),
-            &row.name,
+            format!("recent:{}", session.game_id),
+            name,
             true,
             None::<&str>,
         )?);
@@ -539,10 +545,7 @@ fn navigate(app: &AppHandle, path: &str) {
 /// data stored on its `GameRow`.
 fn launch_recent(app: &AppHandle, game_id: &str) {
     let db = app.state::<db::Db>();
-    let Ok(games) = db::games::list_all(&db) else {
-        return;
-    };
-    let Some(row) = games.into_iter().find(|g| g.id == game_id) else {
+    let Ok(Some(row)) = db::games::get(&db, game_id) else {
         return;
     };
     let companion_apps = row.companion_apps.as_ref().map(|apps| {

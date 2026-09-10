@@ -565,14 +565,19 @@ pub fn run() {
             app.manage(source_manager);
 
             // ── Plugin manager (sandboxed JS search plugins) ────────────
-            // Loads every enabled plugin's source into memory at startup
-            // so searches never touch disk. `load_enabled` records
-            // `last_error` for files that fail to read/evaluate instead
-            // of blocking startup.
+            // Loads every enabled plugin's source into memory so searches
+            // never touch disk. The QuickJS evaluation of each source is
+            // real work (16 plugins here) and used to run inline in
+            // `setup`, stalling the window; it now warms up on a
+            // background thread while the UI boots, and the first search
+            // joins that warm-up via `ensure_loaded`.
             let plugins_manager =
                 Arc::new(plugins::PluginManager::new(db.clone(), app_data_dir.clone()));
-            plugins_manager.load_enabled();
-            app.manage(plugins_manager);
+            app.manage(plugins_manager.clone());
+            {
+                let warm = plugins_manager.clone();
+                std::thread::spawn(move || warm.ensure_loaded());
+            }
 
             let store_checker = Arc::new(Mutex::new(store_checker::StoreChecker::new()));
             app.manage(store_checker);

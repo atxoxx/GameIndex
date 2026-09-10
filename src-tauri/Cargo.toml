@@ -159,6 +159,17 @@ discord-rich-presence = "1.1.0"
 # decryption material lives in the binary too.
 obfstr = "0.4"
 
+# Dev builds previously ran this crate and every bundled C dependency
+# (SQLite, QuickJS, serde_json) at `opt-level = 0`, which made a large
+# library boot several times slower in `tauri dev` than in release.
+# Opt-level 1 for the crate keeps rustc itself fast; opt-level 2 for the
+# dependencies (compiled once, then cached) recovers most of the runtime.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+
 # Release profile tuned for maximum runtime performance and minimum binary size.
 [profile.release]
 opt-level = 3        # Aggressive runtime performance optimizations

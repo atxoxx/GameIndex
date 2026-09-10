@@ -552,6 +552,123 @@ pub fn update_last_played(db: &Db, game_id: &str, last_played_ms: u64) -> Result
     Ok(())
 }
 
+/// The four artwork columns that used to hold base64 data URLs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArtworkSlot {
+    Cover,
+    Icon,
+    Banner,
+    Logo,
+}
+
+impl ArtworkSlot {
+    pub fn column(self) -> &'static str {
+        match self {
+            ArtworkSlot::Cover => "cover_art_url",
+            ArtworkSlot::Icon => "icon_url",
+            ArtworkSlot::Banner => "banner_url",
+            ArtworkSlot::Logo => "logo_url",
+        }
+    }
+
+    /// Matches the `slot` string used by the disk-backed artwork store.
+    pub fn store_slot(self) -> &'static str {
+        match self {
+            ArtworkSlot::Cover => "cover",
+            ArtworkSlot::Icon => "icon",
+            ArtworkSlot::Banner => "banner",
+            ArtworkSlot::Logo => "logo",
+        }
+    }
+}
+
+/// Point-update one artwork column. Used when a legacy base64 data URL
+/// is externalized to an on-disk file so the library read stays small.
+pub fn set_artwork_url(
+    db: &Db,
+    game_id: &str,
+    slot: ArtworkSlot,
+    url: &str,
+) -> Result<(), String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    conn.execute(
+        &format!("UPDATE games SET {} = ?1 WHERE id = ?2", slot.column()),
+        params![url, game_id],
+    )
+    .map_err(|e| format!("games set_artwork_url: {e}"))?;
+    Ok(())
+}
+
+/// A library game reduced to what the passive achievement watcher needs.
+#[derive(Debug, Clone)]
+pub struct GameWatchTarget {
+    pub id: String,
+    pub name: String,
+    pub steam_app_id: u32,
+    pub path: String,
+}
+
+/// Steam-linked games only, without materializing the 70+ MB of
+/// artwork/metadata JSON a full `list_all` would decode. The achievement
+/// watcher re-reads this every poll, so it must stay cheap.
+pub fn list_watch_targets(db: &Db) -> Result<Vec<GameWatchTarget>, String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, steam_app_id, path FROM games \
+             WHERE steam_app_id IS NOT NULL",
+        )
+        .map_err(|e| format!("games watch targets prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(GameWatchTarget {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                steam_app_id: r.get(2)?,
+                path: r.get(3)?,
+            })
+        })
+        .map_err(|e| format!("games watch targets query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("games watch target: {e}"))?);
+    }
+    Ok(out)
+}
+
+/// Names for a small set of ids — enough to label the tray's Recent
+/// Games submenu without reading a single artwork column.
+pub fn list_names_by_ids(
+    db: &Db,
+    ids: &[String],
+) -> Result<std::collections::HashMap<String, String>, String> {
+    let mut out = std::collections::HashMap::new();
+    if ids.is_empty() {
+        return Ok(out);
+    }
+    let conn = db.games().map_err(|e| e.to_string())?;
+    let placeholders = (1..=ids.len())
+        .map(|i| format!("?{i}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let sql = format!("SELECT id, name FROM games WHERE id IN ({placeholders})");
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| format!("games names prepare: {e}"))?;
+    let params: Vec<&dyn rusqlite::ToSql> =
+        ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+    let rows = stmt
+        .query_map(params.as_slice(), |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("games names query: {e}"))?;
+    for row in rows {
+        let (id, name) = row.map_err(|e| format!("games names row: {e}"))?;
+        out.insert(id, name);
+    }
+    Ok(out)
+}
+
 /// Read every game, in Continue-Playing-friendly order.
 pub fn list_all(db: &Db) -> Result<Vec<GameRow>, String> {
     let conn = db.games().map_err(|e| e.to_string())?;
@@ -931,5 +1048,66 @@ mod tests {
         assert!(got.rom_profile.is_some());
         assert_eq!(got.version.as_deref(), Some("1.0.4"));
         assert_eq!(got.collection_id, Some(420));
+    }
+
+    #[test]
+    fn list_names_by_ids_returns_only_requested_names() {
+        let (_dir, db) = test_db();
+        let mut a = sample_row();
+        a.id = "a".into();
+        a.name = "Alpha".into();
+        let mut b = sample_row();
+        b.id = "b".into();
+        b.name = "Beta".into();
+        upsert_all(&db, &[a, b]).unwrap();
+
+        let names = list_names_by_ids(&db, &["a".into()]).unwrap();
+        assert_eq!(names.get("a").map(String::as_str), Some("Alpha"));
+        assert_eq!(names.get("b"), None);
+
+        // Happy path: many ids, all found.
+        let names = list_names_by_ids(&db, &["a".into(), "b".into()]).unwrap();
+        assert_eq!(names.len(), 2);
+
+        // Error path: ids that don't exist are simply absent.
+        let none = list_names_by_ids(&db, &["missing".into()]).unwrap();
+        assert!(none.is_empty());
+
+        // Empty input short-circuits without touching SQLite.
+        assert!(list_names_by_ids(&db, &[]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn list_watch_targets_skips_games_without_steam_app_id() {
+        let (_dir, db) = test_db();
+        let mut steam = sample_row();
+        steam.id = "steam-1".into();
+        steam.steam_app_id = Some(440);
+        let mut manual = sample_row();
+        manual.id = "manual".into();
+        manual.steam_app_id = None;
+        upsert_all(&db, &[steam, manual]).unwrap();
+
+        let targets = list_watch_targets(&db).unwrap();
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].id, "steam-1");
+        assert_eq!(targets[0].steam_app_id, 440);
+    }
+
+    #[test]
+    fn set_artwork_url_updates_one_column_only() {
+        let (_dir, db) = test_db();
+        upsert_all(&db, &[sample_row()]).unwrap();
+
+        set_artwork_url(&db, "g1", ArtworkSlot::Icon, "file:///tmp/icon.png").unwrap();
+
+        let got = get(&db, "g1").unwrap().unwrap();
+        assert_eq!(got.icon_url.as_deref(), Some("file:///tmp/icon.png"));
+        // Other artwork columns are untouched.
+        assert_eq!(got.cover_art_url.as_deref(), Some("data:image/png;base64,AAAA"));
+        assert_eq!(got.logo_url.as_deref(), Some("data:image/png;base64,CCCC"));
+
+        // Error path: unknown id is a silent no-op (0 rows), not an error.
+        set_artwork_url(&db, "missing", ArtworkSlot::Icon, "file:///tmp/x.png").unwrap();
     }
 }

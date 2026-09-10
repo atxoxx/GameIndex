@@ -95,6 +95,12 @@ impl Db {
                 SqliteConnectionManager::file(&db_path).with_init(init_connection);
             Pool::builder()
                 .max_size(8)
+                // r2d2 eagerly opens `min_idle` (default: max_size)
+                // connections while building, so 13 pools × 8 was 104
+                // SQLite connections + PRAGMA round-trips before the
+                // event loop could start. Open two per pool instead and
+                // let the rest spin up on demand.
+                .min_idle(Some(2))
                 .build(manager)
                 .map_err(|e| format!("build {name} pool: {e}"))
         };

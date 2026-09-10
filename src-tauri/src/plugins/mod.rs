@@ -14,10 +14,11 @@
 //!   into `plugins_dir`, upsert the DB row (enabled), load it into the
 //!   in-memory source map.
 //! - `plugins_remove` / `plugins_toggle` — the obvious bookkeeping.
-//! - [`PluginManager::load_enabled`] — startup hook (called from
-//!   `lib.rs::setup`): loads every enabled plugin's source into the
-//!   in-memory map so searches never touch disk, setting `last_error`
-//!   for files that fail to read or evaluate.
+//! - [`PluginManager::ensure_loaded`] — one-time warm-up hook (called on
+//!   a background thread from `lib.rs::setup`): loads every enabled
+//!   plugin's source into the in-memory map so searches never touch
+//!   disk, setting `last_error` for files that fail to read or evaluate.
+//!   The first search also calls it in case it beats the warm-up thread.
 //!
 //! ## Search pipeline (`search_downloads`)
 //!
@@ -194,6 +195,10 @@ pub struct PluginManager {
     /// (plugin_id, query) -> (cached-at, raw results).
     cache: Mutex<HashMap<(String, String), (Instant, Vec<PluginRawResult>)>>,
     http: reqwest::blocking::Client,
+    /// Guards the one-time `load_enabled` pass. Startup warms it on a
+    /// background thread; the first search that beats the warm-up blocks
+    /// here until the sources are ready instead of silently missing them.
+    loaded: std::sync::Once,
 }
 
 impl PluginManager {
@@ -223,7 +228,16 @@ impl PluginManager {
             sources: Mutex::new(HashMap::new()),
             cache: Mutex::new(HashMap::new()),
             http,
+            loaded: std::sync::Once::new(),
         }
+    }
+
+    /// Run the one-time source load exactly once, blocking the caller
+    /// until it completes. Evaluates every enabled plugin's QuickJS
+    /// source, so it must never run on the UI thread — call it from a
+    /// background thread (warm-up) or right before the first search.
+    pub fn ensure_loaded(&self) {
+        self.loaded.call_once(|| self.load_enabled());
     }
 
     /// Startup hook: load every *enabled* plugin's source into the
@@ -581,6 +595,10 @@ pub async fn search_downloads(
 ) -> Result<Vec<DownloadSearchResult>, String> {
     let source_manager = app.state::<Arc<source_manager::SourceManager>>();
     let plugin_manager = app.state::<Arc<PluginManager>>();
+    // First search may beat the background warm-up; block until the
+    // enabled plugin sources are in memory rather than return partial
+    // results.
+    plugin_manager.ensure_loaded();
 
     // 1. Built-in sources (local FTS5 search).
     let mut out: Vec<DownloadSearchResult> = source_manager
@@ -656,6 +674,7 @@ pub async fn search_downloads_stream(
 ) -> Result<Vec<DownloadSearchResult>, String> {
     let source_manager = app.state::<Arc<source_manager::SourceManager>>();
     let plugin_manager = app.state::<Arc<PluginManager>>();
+    plugin_manager.ensure_loaded();
 
     let plugin_rows = db::plugins::list_plugins(&plugin_manager.db)?;
     let enabled: Vec<(db::plugins::PluginRow, String)> = {
