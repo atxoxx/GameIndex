@@ -426,6 +426,11 @@ export function buildSettingsCatalog(
           keywords: "runner wine proton default path prefix directory custom scan version wow64",
         },
         {
+          id: "compat-prefixes",
+          labelKey: "compatibility.subtabPrefixes",
+          keywords: "wineprefix prefix pfx drive_c win32 win64 create clean winecfg winetricks regedit taskmgr duplicate backup restore delete",
+        },
+        {
           id: "compat-graphics",
           labelKey: "settings.compatibility.sectionGraphics",
           keywords: "dxvk vkd3d directx vulkan nvapi dlss hud graphics d3d async virtual desktop",

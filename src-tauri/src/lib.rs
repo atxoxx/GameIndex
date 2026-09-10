@@ -325,7 +325,16 @@ pub fn run() {
             compatibility::fetch_available_runners,
             compatibility::install_compatibility_runner,
             compatibility::cancel_runner_install,
-            compatibility::install_runner_from_archive])
+            compatibility::install_runner_from_archive,
+            compatibility::list_wine_prefixes,
+            compatibility::create_wine_prefix,
+            compatibility::delete_wine_prefix,
+            compatibility::clear_wine_prefix,
+            compatibility::duplicate_wine_prefix,
+            compatibility::open_prefix_directory,
+            compatibility::install_winetricks_verb,
+            compatibility::register_custom_prefix,
+            compatibility::unregister_custom_prefix])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since

@@ -8,6 +8,7 @@ import {
   Download,
   Trash2,
   FolderOpen,
+  FolderPlus,
   RefreshCw,
   Check,
   ExternalLink,
@@ -19,6 +20,13 @@ import {
   Loader2,
   FileArchive,
   X,
+  Copy,
+  Terminal,
+  Plus,
+  Package,
+  Power,
+  Gamepad2,
+  ChevronDown,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -27,6 +35,42 @@ import SettingsToggleCard from "./SettingsToggleCard";
 import { Card, Button, Badge, ConfirmModal } from "../../components/ui";
 import { CompatibilityIcon } from "./settingsIcons";
 import "./CompatibilityTab.css";
+
+interface PrefixAssociatedGame {
+  id: string;
+  title: string;
+}
+
+interface WinePrefixInfo {
+  id: string;
+  name: string;
+  path: string;
+  sizeBytes: number;
+  isValid: boolean;
+  isProton: boolean;
+  arch: string;
+  winVersion?: string | null;
+  wineVersion?: string | null;
+  associatedGames: PrefixAssociatedGame[];
+  lastModified?: number | null;
+  isDefaultBase: boolean;
+  isCustom: boolean;
+}
+
+const QUICK_WINETRICKS_PACKAGES = [
+  { verb: "dxvk", name: "DXVK", desc: "Vulkan-based D3D9/D3D10/D3D11 translation" },
+  { verb: "vkd3d", name: "VKD3D-Proton", desc: "Direct3D 12 to Vulkan translation" },
+  { verb: "vcrun2022", name: "Visual C++ 2015-2022", desc: "MSVC runtime redistributables" },
+  { verb: "vcrun2019", name: "Visual C++ 2019", desc: "MSVC 2019 runtime" },
+  { verb: "vcrun2010", name: "Visual C++ 2010", desc: "MSVC 2010 runtime for older games" },
+  { verb: "dotnet48", name: ".NET Framework 4.8", desc: "Microsoft .NET 4.8 Runtime" },
+  { verb: "dotnet472", name: ".NET Framework 4.7.2", desc: "Microsoft .NET 4.7.2 Runtime" },
+  { verb: "corefonts", name: "MS Core Fonts", desc: "Arial, Times New Roman, Courier, etc." },
+  { verb: "allfonts", name: "All Wine Fonts", desc: "Complete font compatibility collection" },
+  { verb: "faudio", name: "FAudio", desc: "XAudio2 reimplementation library" },
+  { verb: "d3dcompiler_47", name: "D3DCompiler 47", desc: "Direct3D shader compiler DLL" },
+  { verb: "physx", name: "NVIDIA PhysX", desc: "Legacy physics runtime engine" },
+];
 
 interface CompatibilityRunner {
   id: string;
@@ -181,6 +225,7 @@ const DEFAULT_SETTINGS: CompatibilitySettings = {
 
 type CompatSettingsSubtab =
   | "runners"
+  | "prefixes"
   | "graphics"
   | "sync_engine"
   | "gamescope"
@@ -205,6 +250,7 @@ export default function CompatibilityTab() {
   // Sync active subtab when deep-linked or searched from the command palette
   useEffect(() => {
     if (sectionParam === "compat-runners") setActiveSubtab("runners");
+    else if (sectionParam === "compat-prefixes") setActiveSubtab("prefixes");
     else if (sectionParam === "compat-graphics") setActiveSubtab("graphics");
     else if (sectionParam === "compat-sync-engine") setActiveSubtab("sync_engine");
     else if (sectionParam === "compat-gamescope") setActiveSubtab("gamescope");
@@ -212,6 +258,39 @@ export default function CompatibilityTab() {
     else if (sectionParam === "compat-env") setActiveSubtab("env_dll");
     else if (sectionParam === "compat-system") setActiveSubtab("maintenance");
   }, [sectionParam]);
+
+  // ── Prefix Manager State ────────────────────────────────────────────────
+  const [prefixes, setPrefixes] = useState<WinePrefixInfo[]>([]);
+  const [loadingPrefixes, setLoadingPrefixes] = useState(false);
+  const [prefixSearch, setPrefixSearch] = useState("");
+  const [prefixFilter, setPrefixFilter] = useState<"all" | "games" | "standalone" | "win64" | "win32">("all");
+  const [prefixSort, setPrefixSort] = useState<"name" | "size" | "date" | "games">("name");
+
+  // Prefix Action & Dialog States
+  const [createPrefixOpen, setCreatePrefixOpen] = useState(false);
+  const [newPrefixName, setNewPrefixName] = useState("");
+  const [newPrefixCustomPath, setNewPrefixCustomPath] = useState(false);
+  const [newPrefixPath, setNewPrefixPath] = useState("");
+  const [newPrefixArch, setNewPrefixArch] = useState<"win64" | "win32">("win64");
+  const [newPrefixRunner, setNewPrefixRunner] = useState<string>("");
+  const [creatingPrefix, setCreatingPrefix] = useState(false);
+
+  const [duplicateTarget, setDuplicateTarget] = useState<WinePrefixInfo | null>(null);
+  const [duplicateName, setDuplicateName] = useState("");
+  const [duplicatingPrefix, setDuplicatingPrefix] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState<WinePrefixInfo | null>(null);
+  const [deletingPrefix, setDeletingPrefix] = useState(false);
+
+  const [clearTarget, setClearTarget] = useState<WinePrefixInfo | null>(null);
+  const [clearingPrefix, setClearingPrefix] = useState(false);
+
+  const [quickVerbsTarget, setQuickVerbsTarget] = useState<WinePrefixInfo | null>(null);
+  const [installingVerb, setInstallingVerb] = useState<string | null>(null);
+
+  const [activeDropdownPrefixId, setActiveDropdownPrefixId] = useState<string | null>(null);
+  const [activeFolderDropdownId, setActiveFolderDropdownId] = useState<string | null>(null);
+  const [killingWineserver, setKillingWineserver] = useState(false);
 
   // New env var inputs
   const [newEnvKey, setNewEnvKey] = useState("");
@@ -553,8 +632,229 @@ export default function CompatibilityTab() {
     }
   };
 
+  const fetchPrefixes = useCallback(async () => {
+    setLoadingPrefixes(true);
+    try {
+      const list = await invoke<WinePrefixInfo[]>("list_wine_prefixes");
+      setPrefixes(list);
+    } catch (err) {
+      console.error("Failed to list prefixes:", err);
+    } finally {
+      setLoadingPrefixes(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSubtab === "prefixes") {
+      fetchPrefixes();
+    }
+  }, [activeSubtab, fetchPrefixes]);
+
+  const totalPrefixStorage = useMemo(() => {
+    return prefixes.reduce((acc, p) => acc + (p.sizeBytes || 0), 0);
+  }, [prefixes]);
+
+  const healthyPrefixCount = useMemo(() => {
+    return prefixes.filter((p) => p.isValid).length;
+  }, [prefixes]);
+
+  const win64Count = useMemo(() => {
+    return prefixes.filter((p) => p.arch === "win64").length;
+  }, [prefixes]);
+
+  const win32Count = useMemo(() => {
+    return prefixes.filter((p) => p.arch === "win32").length;
+  }, [prefixes]);
+
+  const filteredPrefixes = useMemo(() => {
+    const q = prefixSearch.trim().toLowerCase();
+    const list = prefixes.filter((p) => {
+      if (prefixFilter === "games" && p.associatedGames.length === 0) return false;
+      if (prefixFilter === "standalone" && p.associatedGames.length > 0) return false;
+      if (prefixFilter === "win64" && p.arch !== "win64") return false;
+      if (prefixFilter === "win32" && p.arch !== "win32") return false;
+      if (!q) return true;
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.path.toLowerCase().includes(q) ||
+        p.associatedGames.some((g) => g.title.toLowerCase().includes(q))
+      );
+    });
+
+    return list.sort((a, b) => {
+      if (prefixSort === "size") {
+        return (b.sizeBytes || 0) - (a.sizeBytes || 0);
+      }
+      if (prefixSort === "date") {
+        return (b.lastModified || 0) - (a.lastModified || 0);
+      }
+      if (prefixSort === "games") {
+        return b.associatedGames.length - a.associatedGames.length;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [prefixes, prefixSearch, prefixFilter, prefixSort]);
+
+  const handleCreatePrefix = async () => {
+    const name = newPrefixName.trim();
+    if (!name) return;
+    setCreatingPrefix(true);
+    try {
+      await invoke("create_wine_prefix", {
+        name,
+        customPath: newPrefixCustomPath && newPrefixPath.trim() ? newPrefixPath.trim() : null,
+        arch: newPrefixArch,
+        runnerPath: newPrefixRunner || null,
+      });
+      showToast(t("compatibility.createPrefixSuccess", { name }), "success");
+      setCreatePrefixOpen(false);
+      setNewPrefixName("");
+      setNewPrefixPath("");
+      setNewPrefixCustomPath(false);
+      fetchPrefixes();
+    } catch (err) {
+      showToast(t("compatibility.createPrefixError", { error: String(err) }), "error");
+    } finally {
+      setCreatingPrefix(false);
+    }
+  };
+
+  const handleDuplicatePrefix = async () => {
+    if (!duplicateTarget) return;
+    const name = duplicateName.trim();
+    if (!name) return;
+    setDuplicatingPrefix(true);
+    try {
+      await invoke("duplicate_wine_prefix", {
+        sourcePath: duplicateTarget.path,
+        newName: name,
+        targetPath: null,
+      });
+      showToast(t("compatibility.duplicateSuccess", { name }), "success");
+      setDuplicateTarget(null);
+      setDuplicateName("");
+      fetchPrefixes();
+    } catch (err) {
+      showToast(t("compatibility.duplicateError", { error: String(err) }), "error");
+    } finally {
+      setDuplicatingPrefix(false);
+    }
+  };
+
+  const handleDeletePrefix = async () => {
+    if (!deleteTarget) return;
+    setDeletingPrefix(true);
+    try {
+      await invoke("delete_wine_prefix", { path: deleteTarget.path });
+      showToast(t("compatibility.deleteSuccess"), "success");
+      setDeleteTarget(null);
+      fetchPrefixes();
+    } catch (err) {
+      showToast(t("compatibility.deleteError", { error: String(err) }), "error");
+    } finally {
+      setDeletingPrefix(false);
+    }
+  };
+
+  const handleClearPrefix = async () => {
+    if (!clearTarget) return;
+    setClearingPrefix(true);
+    try {
+      await invoke("clear_wine_prefix", {
+        path: clearTarget.path,
+        runnerPath: settings.defaultRunnerPath || null,
+        arch: clearTarget.arch || "win64",
+      });
+      showToast(t("compatibility.clearSuccess"), "success");
+      setClearTarget(null);
+      fetchPrefixes();
+    } catch (err) {
+      showToast(t("compatibility.clearError", { error: String(err) }), "error");
+    } finally {
+      setClearingPrefix(false);
+    }
+  };
+
+  const handleOpenPrefixFolder = async (prefixPath: string, subdir: string) => {
+    try {
+      await invoke("open_prefix_directory", { prefixPath, targetSubdir: subdir });
+    } catch (err) {
+      showToast(String(err), "error");
+    } finally {
+      setActiveFolderDropdownId(null);
+    }
+  };
+
+  const handleRunToolOnPrefix = async (prefixPath: string, tool: string) => {
+    setActiveDropdownPrefixId(null);
+    try {
+      await invoke("run_wine_tool", {
+        runnerPath: settings.defaultRunnerPath || null,
+        prefixPath,
+        gameId: null,
+        tool,
+        args: null,
+      });
+      showToast(t("compatibility.toolLaunched", { tool }), "success");
+    } catch (err) {
+      showToast(String(err), "error");
+    }
+  };
+
+  const handleInstallVerb = async (prefixPath: string, verb: string) => {
+    setInstallingVerb(verb);
+    try {
+      await invoke("install_winetricks_verb", {
+        prefixPath,
+        verb,
+        runnerPath: settings.defaultRunnerPath || null,
+      });
+      showToast(t("compatibility.verbInstalled", { verb }), "success");
+    } catch (err) {
+      showToast(t("compatibility.verbInstallError", { verb, error: String(err) }), "error");
+    } finally {
+      setInstallingVerb(null);
+    }
+  };
+
+  const handleImportPrefix = async () => {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: false,
+        title: t("compatibility.importPrefixTitle"),
+      });
+      if (selected && typeof selected === "string") {
+        await invoke("register_custom_prefix", { path: selected });
+        showToast(t("compatibility.importPrefixSuccess"), "success");
+        fetchPrefixes();
+      }
+    } catch (err) {
+      showToast(t("compatibility.importPrefixError", { error: String(err) }), "error");
+    }
+  };
+
+  const handleKillAllWineservers = async () => {
+    setKillingWineserver(true);
+    try {
+      await invoke("run_wine_tool", {
+        runnerPath: null,
+        prefixPath: null,
+        gameId: null,
+        tool: "kill",
+        args: null,
+      });
+      showToast(t("compatibility.killWineserverSuccess"), "success");
+    } catch (err) {
+      showToast(t("compatibility.killWineserverError", { error: String(err) }), "error");
+    } finally {
+      setKillingWineserver(false);
+    }
+  };
+
   const subtabs: { key: CompatSettingsSubtab; labelKey: string }[] = [
     { key: "runners", labelKey: "settings.compatibility.sectionRunners" },
+    { key: "prefixes", labelKey: "compatibility.subtabPrefixes" },
     { key: "graphics", labelKey: "settings.compatibility.sectionGraphics" },
     { key: "sync_engine", labelKey: "compatibility.subtabSyncEngine" },
     { key: "gamescope", labelKey: "compatibility.subtabGamescope" },
@@ -1225,6 +1525,464 @@ export default function CompatibilityTab() {
             onConfirm={handleDeleteRunnerConfirm}
             onCancel={() => setRunnerToDelete(null)}
           />
+        </div>
+      )}
+
+      {/* ── Subtab: Prefix Manager ─────────────────────────────────────────── */}
+      {activeSubtab === "prefixes" && (
+        <div className="compat-panel" role="tabpanel">
+          <SettingsSection
+            id="compat-prefixes"
+            icon={<CompatibilityIcon />}
+            title={t("compatibility.subtabPrefixes")}
+            desc={t("compatibility.prefixesDesc")}
+          >
+            {/* KPI Grid */}
+            <div className="runner-kpi-grid">
+              <div className="runner-kpi-card">
+                <div className="runner-kpi-icon"><Layers size={18} /></div>
+                <div className="runner-kpi-data">
+                  <span className="runner-kpi-value">{prefixes.length}</span>
+                  <span className="runner-kpi-label">{t("compatibility.totalPrefixes")}</span>
+                </div>
+              </div>
+              <div className="runner-kpi-card">
+                <div className="runner-kpi-icon"><HardDrive size={18} /></div>
+                <div className="runner-kpi-data">
+                  <span className="runner-kpi-value">{formatBytes(totalPrefixStorage)}</span>
+                  <span className="runner-kpi-label">{t("compatibility.totalPrefixStorage")}</span>
+                </div>
+              </div>
+              <div className="runner-kpi-card">
+                <div className="runner-kpi-icon"><CheckCircle2 size={18} /></div>
+                <div className="runner-kpi-data">
+                  <span className="runner-kpi-value">{healthyPrefixCount}</span>
+                  <span className="runner-kpi-label">{t("compatibility.healthyPrefixes")}</span>
+                </div>
+              </div>
+              <div className="runner-kpi-card">
+                <div className="runner-kpi-icon"><Sliders size={18} /></div>
+                <div className="runner-kpi-data">
+                  <span className="runner-kpi-value">{win64Count} / {win32Count}</span>
+                  <span className="runner-kpi-label">win64 / win32</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Toolbar */}
+            <div className="prefix-toolbar">
+              <div className="prefix-toolbar-top">
+                <div className="prefix-search-wrap">
+                  <Search size={14} className="prefix-search-icon" />
+                  <input
+                    type="text"
+                    className="settings-input prefix-search-input"
+                    placeholder={t("compatibility.searchPrefixes")}
+                    value={prefixSearch}
+                    onChange={(e) => setPrefixSearch(e.target.value)}
+                  />
+                </div>
+
+                <div className="prefix-toolbar-actions">
+                  <Button size="sm" variant="primary" onClick={() => setCreatePrefixOpen(true)}>
+                    <Plus size={14} /> {t("compatibility.createPrefix")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleImportPrefix}>
+                    <FolderPlus size={14} /> {t("compatibility.importPrefix")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleOpenPrefixFolder(settings.defaultPrefixBaseDir || "", "")}>
+                    <FolderOpen size={14} /> {t("compatibility.openPrefixBase")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => fetchPrefixes()}>
+                    <RefreshCw size={14} className={loadingPrefixes ? "runner-spin" : ""} /> {t("compatibility.refreshPrefixes")}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleKillAllWineservers} disabled={killingWineserver}>
+                    <Power size={14} /> {t("compatibility.killWineserver")}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="prefix-toolbar-bottom">
+                <div className="prefix-filter-group">
+                  {(["all", "games", "standalone", "win64", "win32"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`prefix-filter-pill ${prefixFilter === f ? "active" : ""}`}
+                      onClick={() => setPrefixFilter(f)}
+                    >
+                      {t(`compatibility.filter${f === "all" ? "AllPrefixes" : f === "games" ? "GameLinked" : f === "standalone" ? "Standalone" : f === "win64" ? "Win64" : "Win32"}`)}
+                    </button>
+                  ))}
+                </div>
+
+                <select
+                  className="settings-select prefix-sort-select"
+                  value={prefixSort}
+                  onChange={(e) => setPrefixSort(e.target.value as typeof prefixSort)}
+                >
+                  <option value="name">{t("compatibility.sortPrefixName")}</option>
+                  <option value="size">{t("compatibility.sortPrefixSize")}</option>
+                  <option value="date">{t("compatibility.sortPrefixDate")}</option>
+                  <option value="games">{t("compatibility.sortPrefixGames")}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Prefix Cards */}
+            {loadingPrefixes ? (
+              <div className="runner-loading-state" style={{ padding: "var(--space-xl)", textAlign: "center" }}>
+                <Loader2 size={24} className="spin" style={{ margin: "0 auto" }} />
+              </div>
+            ) : filteredPrefixes.length === 0 ? (
+              <div className="runner-empty-state" style={{ padding: "var(--space-xl)", textAlign: "center" }}>
+                <Package size={36} style={{ color: "var(--color-text-muted)", margin: "0 auto var(--space-sm)" }} />
+                <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
+                  {prefixes.length === 0
+                    ? t("compatibility.noPrefixesDetected")
+                    : t("compatibility.noPrefixesMatching")}
+                </p>
+                {prefixes.length === 0 && (
+                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-xs)", margin: "var(--space-xs) 0 0" }}>
+                    {t("compatibility.createFirstPrefix")}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="prefix-cards-container">
+                {filteredPrefixes.map((p) => (
+                  <div key={p.id} className="prefix-card">
+                    <div className="prefix-card-header">
+                      <div className="prefix-card-identity">
+                        <div className="prefix-card-title-row">
+                          <span className={`prefix-health-indicator ${p.isValid ? "is-valid" : "is-invalid"}`} />
+                          <span className="prefix-card-name">{p.name}</span>
+                          <Badge variant={p.arch === "win64" ? "info" : "warning"} size="sm">{p.arch}</Badge>
+                          {p.isProton && <Badge variant="accent" size="sm">Proton</Badge>}
+                          {p.isDefaultBase && <Badge variant="default" size="sm">Default</Badge>}
+                          {p.isCustom && <Badge variant="default" size="sm">Custom</Badge>}
+                          {p.winVersion && <Badge variant="default" size="sm">{p.winVersion}</Badge>}
+                        </div>
+                        <div className="prefix-card-meta">
+                          <span className="prefix-card-path" title={p.path}>
+                            {p.path}
+                          </span>
+                          <span className="prefix-card-stat">
+                            <HardDrive size={12} /> {formatBytes(p.sizeBytes || 0)}
+                          </span>
+                          {p.lastModified && (
+                            <span className="prefix-card-stat">
+                              {new Date(p.lastModified * 1000).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Games linked to this prefix */}
+                    {p.associatedGames.length > 0 ? (
+                      <div className="prefix-games-chips">
+                        <Gamepad2 size={13} style={{ color: "var(--color-text-muted)" }} />
+                        <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
+                          {t("compatibility.prefixCardGames", { count: p.associatedGames.length })}:
+                        </span>
+                        {p.associatedGames.slice(0, 5).map((g) => (
+                          <span key={g.id} className="prefix-game-chip">{g.title}</span>
+                        ))}
+                        {p.associatedGames.length > 5 && (
+                          <Badge variant="default" size="sm">+{p.associatedGames.length - 5}</Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="prefix-games-chips">
+                        <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
+                          {t("compatibility.prefixCardStandalone")}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Action Toolbar */}
+                    <div className="prefix-card-actions">
+                      <Button size="sm" variant="ghost" onClick={() => handleRunToolOnPrefix(p.path, "winecfg")}>
+                        <Sliders size={13} /> {t("compatibility.runWinecfg")}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleRunToolOnPrefix(p.path, "winetricks")}>
+                        <Terminal size={13} /> {t("compatibility.runWinetricks")}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setQuickVerbsTarget(p)}>
+                        <Package size={13} /> Packages
+                      </Button>
+
+                      {/* Open Folder Dropdown */}
+                      <div className="prefix-action-dropdown-wrap">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setActiveFolderDropdownId(activeFolderDropdownId === p.id ? null : p.id)}
+                        >
+                          <FolderOpen size={13} /> {t("compatibility.openPrefixDir")} <ChevronDown size={11} />
+                        </Button>
+                        {activeFolderDropdownId === p.id && (
+                          <div className="prefix-dropdown-menu">
+                            <button className="prefix-dropdown-item" onClick={() => handleOpenPrefixFolder(p.path, "drive_c")}>
+                              <FolderOpen size={13} /> {t("compatibility.openDriveC")}
+                            </button>
+                            <button className="prefix-dropdown-item" onClick={() => handleOpenPrefixFolder(p.path, "appdata")}>
+                              <FolderOpen size={13} /> {t("compatibility.openAppData")}
+                            </button>
+                            <button className="prefix-dropdown-item" onClick={() => handleOpenPrefixFolder(p.path, "documents")}>
+                              <FolderOpen size={13} /> {t("compatibility.openDocuments")}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tools Dropdown */}
+                      <div className="prefix-action-dropdown-wrap">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setActiveDropdownPrefixId(activeDropdownPrefixId === p.id ? null : p.id)}
+                        >
+                          <Sliders size={13} /> {t("compatibility.prefixTools")} <ChevronDown size={11} />
+                        </Button>
+                        {activeDropdownPrefixId === p.id && (
+                          <div className="prefix-dropdown-menu">
+                            <button className="prefix-dropdown-item" onClick={() => handleRunToolOnPrefix(p.path, "regedit")}>
+                              <ExternalLink size={13} /> {t("compatibility.runRegedit")}
+                            </button>
+                            <button className="prefix-dropdown-item" onClick={() => handleRunToolOnPrefix(p.path, "taskmgr")}>
+                              <Layers size={13} /> {t("compatibility.runTaskmgr")}
+                            </button>
+                            <button className="prefix-dropdown-item" onClick={() => handleRunToolOnPrefix(p.path, "control")}>
+                              <Sliders size={13} /> {t("compatibility.runControl")}
+                            </button>
+                            <button className="prefix-dropdown-item" onClick={() => handleRunToolOnPrefix(p.path, "cmd")}>
+                              <Terminal size={13} /> {t("compatibility.runCmd")}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ flex: 1 }} />
+
+                      <Button size="sm" variant="ghost" onClick={() => { setDuplicateTarget(p); setDuplicateName(`${p.name}-copy`); }}>
+                        <Copy size={13} /> {t("compatibility.duplicatePrefix")}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setClearTarget(p)}>
+                        <RefreshCw size={13} /> {t("compatibility.clearPrefix")}
+                      </Button>
+                      {p.isCustom ? (
+                        <Button size="sm" variant="ghost" className="prefix-delete-btn" onClick={() => {
+                          invoke("unregister_custom_prefix", { path: p.path })
+                            .then(() => { showToast(t("compatibility.deleteSuccess"), "success"); fetchPrefixes(); })
+                            .catch((err) => showToast(String(err), "error"));
+                        }}>
+                          <X size={13} /> {t("compatibility.unregisterPrefix")}
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="ghost" className="prefix-delete-btn" onClick={() => setDeleteTarget(p)}>
+                          <Trash2 size={13} /> {t("compatibility.deletePrefix")}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SettingsSection>
+
+          {/* ── Create Prefix Modal ──────────────────────────────────────────── */}
+          {createPrefixOpen && (
+            <div className="prefix-modal-backdrop" onClick={() => setCreatePrefixOpen(false)}>
+              <div className="prefix-modal-dialog" onClick={(e) => e.stopPropagation()}>
+                <div className="prefix-modal-header">
+                  <h3 className="prefix-modal-title">{t("compatibility.createPrefixTitle")}</h3>
+                  <button className="prefix-modal-close-btn" onClick={() => setCreatePrefixOpen(false)}><X size={18} /></button>
+                </div>
+                <div className="prefix-modal-body">
+                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", margin: 0 }}>
+                    {t("compatibility.createPrefixDesc")}
+                  </p>
+                  <div className="prefix-modal-field">
+                    <label className="settings-label">{t("compatibility.prefixNameLabel")}</label>
+                    <input
+                      type="text"
+                      className="settings-input"
+                      placeholder={t("compatibility.prefixNamePlaceholder")}
+                      value={newPrefixName}
+                      onChange={(e) => setNewPrefixName(e.target.value)}
+                    />
+                  </div>
+                  <div className="prefix-modal-field">
+                    <label className="settings-label">{t("compatibility.prefixArchLabel")}</label>
+                    <select
+                      className="settings-select"
+                      value={newPrefixArch}
+                      onChange={(e) => setNewPrefixArch(e.target.value as "win64" | "win32")}
+                    >
+                      <option value="win64">{t("compatibility.prefixArch64")}</option>
+                      <option value="win32">{t("compatibility.prefixArch32")}</option>
+                    </select>
+                  </div>
+                  <div className="prefix-modal-field">
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-xs)", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={newPrefixCustomPath}
+                        onChange={(e) => setNewPrefixCustomPath(e.target.checked)}
+                      />
+                      <span className="settings-label" style={{ margin: 0 }}>{t("compatibility.prefixCustomPathToggle")}</span>
+                    </label>
+                    {newPrefixCustomPath && (
+                      <input
+                        type="text"
+                        className="settings-input"
+                        placeholder={t("compatibility.prefixCustomPathPlaceholder")}
+                        value={newPrefixPath}
+                        onChange={(e) => setNewPrefixPath(e.target.value)}
+                      />
+                    )}
+                  </div>
+                  <div className="prefix-modal-field">
+                    <label className="settings-label">{t("compatibility.prefixRunnerLabel")}</label>
+                    <select
+                      className="settings-select"
+                      value={newPrefixRunner}
+                      onChange={(e) => setNewPrefixRunner(e.target.value)}
+                    >
+                      <option value="">{t("compatibility.prefixRunnerAuto")}</option>
+                      {runners.map((r) => (
+                        <option key={r.id} value={r.path}>{r.name} {r.version ? `(${r.version})` : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="prefix-modal-footer">
+                  <Button variant="ghost" onClick={() => setCreatePrefixOpen(false)}>
+                    {t("compatibility.cancelInstall")}
+                  </Button>
+                  <Button variant="primary" disabled={!newPrefixName.trim() || creatingPrefix} onClick={handleCreatePrefix}>
+                    {creatingPrefix ? <><Loader2 size={14} className="spin" /> {t("compatibility.creatingPrefix")}</> : <><Plus size={14} /> {t("compatibility.createPrefix")}</>}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Duplicate Prefix Modal ──────────────────────────────────────── */}
+          {duplicateTarget !== null && (
+            <div className="prefix-modal-backdrop" onClick={() => setDuplicateTarget(null)}>
+              <div className="prefix-modal-dialog" onClick={(e) => e.stopPropagation()}>
+                <div className="prefix-modal-header">
+                  <h3 className="prefix-modal-title">{t("compatibility.duplicatePrefixTitle")}</h3>
+                  <button className="prefix-modal-close-btn" onClick={() => setDuplicateTarget(null)}><X size={18} /></button>
+                </div>
+                <div className="prefix-modal-body">
+                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", margin: 0 }}>
+                    {t("compatibility.duplicatePrefixDesc")}
+                  </p>
+                  <div className="prefix-modal-field">
+                    <label className="settings-label">{t("compatibility.newPrefixNameLabel")}</label>
+                    <input
+                      type="text"
+                      className="settings-input"
+                      value={duplicateName}
+                      onChange={(e) => setDuplicateName(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="prefix-modal-footer">
+                  <Button variant="ghost" onClick={() => setDuplicateTarget(null)}>
+                    {t("compatibility.cancelInstall")}
+                  </Button>
+                  <Button variant="primary" disabled={!duplicateName.trim() || duplicatingPrefix} onClick={handleDuplicatePrefix}>
+                    {duplicatingPrefix ? <><Loader2 size={14} className="spin" /> {t("compatibility.duplicatingPrefix")}</> : <><Copy size={14} /> {t("compatibility.duplicatePrefix")}</>}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Delete Prefix Confirm ──────────────────────────────────────── */}
+          {deleteTarget !== null && (
+            <ConfirmModal
+              open={true}
+              title={t("compatibility.deletePrefixConfirmTitle")}
+              message={t("compatibility.deletePrefixConfirmDesc", {
+                name: deleteTarget.name,
+                path: deleteTarget.path,
+                size: formatBytes(deleteTarget.sizeBytes || 0),
+              })}
+              warning={deleteTarget.associatedGames.length > 0
+                ? t("compatibility.deletePrefixWarning", {
+                    games: deleteTarget.associatedGames.map((g) => g.title).join(", "),
+                  })
+                : undefined}
+              confirmLabel={t("compatibility.deletePrefix")}
+              cancelLabel={t("compatibility.cancelInstall")}
+              busy={deletingPrefix}
+              onConfirm={handleDeletePrefix}
+              onCancel={() => setDeleteTarget(null)}
+            />
+          )}
+
+          {/* ── Clear Prefix Confirm ───────────────────────────────────────── */}
+          {clearTarget !== null && (
+            <ConfirmModal
+              open={true}
+              title={t("compatibility.clearPrefixConfirmTitle")}
+              message={t("compatibility.clearPrefixConfirmDesc", { name: clearTarget.name })}
+              confirmLabel={t("compatibility.clearPrefix")}
+              cancelLabel={t("compatibility.cancelInstall")}
+              busy={clearingPrefix}
+              onConfirm={handleClearPrefix}
+              onCancel={() => setClearTarget(null)}
+            />
+          )}
+
+          {/* ── Quick Winetricks Packages Modal ────────────────────────────── */}
+          {quickVerbsTarget !== null && (
+            <div className="prefix-modal-backdrop" onClick={() => setQuickVerbsTarget(null)}>
+              <div className="prefix-modal-dialog" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
+                <div className="prefix-modal-header">
+                  <h3 className="prefix-modal-title">{t("compatibility.quickVerbsTitle")}</h3>
+                  <button className="prefix-modal-close-btn" onClick={() => setQuickVerbsTarget(null)}><X size={18} /></button>
+                </div>
+                <div className="prefix-modal-body">
+                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", margin: 0 }}>
+                    {t("compatibility.quickVerbsDesc", { name: quickVerbsTarget.name })}
+                  </p>
+                  <div className="quick-verbs-list">
+                    {QUICK_WINETRICKS_PACKAGES.map((pkg) => (
+                      <div key={pkg.verb} className="quick-verb-item">
+                        <div className="quick-verb-info">
+                          <span className="quick-verb-code">{pkg.verb}</span>
+                          <span className="quick-verb-name">{pkg.name} — {pkg.desc}</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          disabled={installingVerb !== null}
+                          onClick={() => handleInstallVerb(quickVerbsTarget.path, pkg.verb)}
+                        >
+                          {installingVerb === pkg.verb
+                            ? <Loader2 size={13} className="spin" />
+                            : <Download size={13} />}
+                          {" "}{t("compatibility.installVerb")}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="prefix-modal-footer">
+                  <Button variant="ghost" onClick={() => setQuickVerbsTarget(null)}>
+                    {t("compatibility.cancelInstall")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
