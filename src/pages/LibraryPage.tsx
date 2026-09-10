@@ -320,7 +320,7 @@ export default function LibraryPage() {
 
   return (
     <div className="lib-page">
-      <div className="ui-complete-only ui-item-hero">
+      <div className="lib-hero-stack ui-complete-only ui-item-hero">
         <LibraryHero
           games={games}
           activeStatus={filters.status}

@@ -40,6 +40,14 @@
   animation: none;
 }
 
+/* Hero + rails live in one wrapper (Simple mode hides them together), so
+   the page flex gap no longer reaches them — restore the rhythm here. */
+.lib-hero-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
 /* Floating-bar safe area: while the bulk bar is docked at the bottom
    edge, pad the page bottom so the last grid row clears it. */
 .lib-page:has(.lib-bulk-bar) {
