@@ -12,6 +12,7 @@ import {
   getStorageHealth,
 } from "./utils";
 import { useDriveUsage } from "./useDriveUsage";
+import { useMountVersion } from "./mounts";
 
 interface Props {
   games: Game[];
@@ -36,7 +37,8 @@ export function StorageHeroDashboard({
   const total = useMemo(() => totalBytesWithMods(games), [games]);
   const coverage = useMemo(() => sizeCoverage(games), [games]);
   const platforms = useMemo(() => platformBuckets(games), [games]);
-  const drives = useMemo(() => driveBuckets(games), [games]);
+  const mountVersion = useMountVersion();
+  const drives = useMemo(() => driveBuckets(games), [games, mountVersion]);
   const driveUsage = useDriveUsage(games);
   const largestGame = useMemo(() => getLargestGame(games), [games]);
 

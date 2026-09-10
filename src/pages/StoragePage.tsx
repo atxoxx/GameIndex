@@ -28,6 +28,7 @@ import { StorageBatchBar } from "./storage/StorageBatchBar";
 import { EmulatorStorageCard } from "./storage/EmulatorStorageCard";
 import { MoveGameDialog } from "./storage/MoveGameDialog";
 import { useStalePaths } from "./storage/useStalePaths";
+import { useMountVersion } from "./storage/mounts";
 import type { Game } from "../types/game";
 import type { Emulator } from "../types/emulator";
 import { formatSize } from "../types/game";
@@ -81,13 +82,18 @@ export default function StoragePage() {
     [staleMap]
   );
 
+  // Real mount points, resolved asynchronously by the Storage hero/
+  // cleanup views; the version bump re-renders rows so their `driveOf`
+  // labels match the resolved disks.
+  const mountVersion = useMountVersion();
+
   // Drive filter
   const driveFilteredGames = useMemo(() => {
     if (!driveFilter) return installedGames;
     return installedGames.filter(
       (g) => g.sizeRootPath && driveOf(g.sizeRootPath) === driveFilter
     );
-  }, [installedGames, driveFilter]);
+  }, [installedGames, driveFilter, mountVersion]);
 
   // Counts for filter chips
   const counts = useMemo(() => {
@@ -211,7 +217,7 @@ export default function StoragePage() {
       const d = driveOf(g.sizeRootPath);
       return d === "Unknown" ? t("storage.section.unknown") : d;
     });
-  }, [sortedGames, groupBy, emuNameById, staleMap, t]);
+  }, [sortedGames, groupBy, emuNameById, staleMap, t, mountVersion]);
 
   const handleRowSizeUpdated = useCallback(
     (gameId: string) => {
@@ -608,6 +614,7 @@ export default function StoragePage() {
                   bytes={s.bytes}
                   maxBytes={maxBytes}
                   density={density}
+                  mountVersion={mountVersion}
                   viewMode={viewMode}
                   selectMode={selectMode}
                   selected={selected}
@@ -630,6 +637,7 @@ export default function StoragePage() {
                   maxBytes={maxBytes}
                   stale={staleMap.get(g.id) === true}
                   density={density}
+                  mountVersion={mountVersion}
                   selectMode={selectMode}
                   selected={selected.has(g.id)}
                   onToggleSelect={() => toggleSelect(g.id)}
@@ -650,6 +658,7 @@ export default function StoragePage() {
                   maxBytes={maxBytes}
                   stale={staleMap.get(g.id) === true}
                   density={density}
+                  mountVersion={mountVersion}
                   selectMode={selectMode}
                   selected={selected.has(g.id)}
                   onToggleSelect={() => toggleSelect(g.id)}

@@ -1,5 +1,6 @@
 import type { Game, SizeUnit } from "../../types/game";
 import { formatSize } from "../../types/game";
+import { mountPointOf } from "./mounts";
 
 // ─── Sort ──────────────────────────────────────────────────────────────────
 
@@ -63,17 +64,33 @@ export function getSizeTier(game: Game): SizeTier {
 
 /** Best-effort "drive bucket" label for a `sizeRootPath`:
  *
- *  - Windows: `"C:\Games\Foo\bin.exe"            -> "C:"`
- *  - Unix:    `"/mnt/games/Foo/bin.exe"          -> "/mnt/games"`
- *  - Fallback: "Unknown" (no path, weird format) */
+ *  - Resolved mount point when `resolve_mounts` has populated the cache
+ *    (accurate on Linux, where `/run/media/<user>/diskA` and `diskB` are
+ *    distinct disks).
+ *  - Windows:   `"C:\Games\Foo\bin.exe"            -> "C:"`
+ *  - Linux:     `"/run/media/u/disk1/Foo/bin"      -> "/run/media/u/disk1"`
+ *  - Fallback:  "Unknown" (no path, weird format) */
 export function driveOf(rootPath: string | undefined | null): string {
   if (!rootPath) return "Unknown";
+  const resolved = mountPointOf(rootPath);
+  if (resolved) return resolved;
   const norm = rootPath.replace(/\\/g, "/");
   const winMatch = norm.match(/^([a-zA-Z]):/);
   if (winMatch) {
     return `${winMatch[1].toUpperCase()}:`;
   }
   const parts = norm.split("/").filter(Boolean);
+  // Linux removable-media layouts: every volume under these roots is a
+  // separate mount, so keep one segment more than the generic fallback.
+  if (parts[0] === "run" && parts[1] === "media" && parts.length >= 4) {
+    return `/${parts.slice(0, 4).join("/")}`;
+  }
+  if (parts[0] === "media" && parts.length >= 3) {
+    return `/${parts.slice(0, 3).join("/")}`;
+  }
+  if ((parts[0] === "mnt" || parts[0] === "Volumes") && parts.length >= 2) {
+    return `/${parts.slice(0, 2).join("/")}`;
+  }
   if (parts.length >= 2) return `/${parts[0]}/${parts[1]}`;
   if (parts.length === 1) return `/${parts[0]}`;
   return "Unknown";

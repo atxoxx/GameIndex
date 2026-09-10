@@ -14,6 +14,7 @@ interface Props {
   density: string;
   viewMode?: "list" | "grid";
   driveLabel?: string;
+  mountVersion?: number;
   selectMode: boolean;
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -33,6 +34,7 @@ export function StorageGroup({
   density,
   viewMode = "list",
   driveLabel,
+  mountVersion = 0,
   selectMode,
   selected,
   onToggleSelect,
@@ -87,6 +89,7 @@ export function StorageGroup({
                   maxBytes={maxBytes}
                   stale={staleMap?.get(g.id) === true}
                   density={density}
+                  mountVersion={mountVersion}
                   selectMode={selectMode}
                   selected={selected.has(g.id)}
                   onToggleSelect={() => onToggleSelect(g.id)}
@@ -107,6 +110,7 @@ export function StorageGroup({
                   maxBytes={maxBytes}
                   stale={staleMap?.get(g.id) === true}
                   density={density}
+                  mountVersion={mountVersion}
                   selectMode={selectMode}
                   selected={selected.has(g.id)}
                   onToggleSelect={() => onToggleSelect(g.id)}

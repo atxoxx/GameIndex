@@ -4,12 +4,14 @@ import { useDownloads } from "../../context/DownloadContext";
 import { formatBytesShort, isActiveStatus } from "../../types/download";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useLanguage } from "../../context/LanguageContext";
+import type { MountUsage } from "../../pages/storage/mounts";
 import { HardDriveIcon } from "./DownloadIcons";
 
 interface DiskUsageResult {
   total: number;
   free: number;
   available: number;
+  mountPoint?: string;
 }
 
 export default function DriveSpaceWidget() {
@@ -17,29 +19,35 @@ export default function DriveSpaceWidget() {
   const { unit } = useSizeUnit();
   const { t } = useLanguage();
   const [diskStats, setDiskStats] = useState<DiskUsageResult | null>(null);
-  const [targetPath, setTargetPath] = useState<string>("C:/");
+  const [targetPath, setTargetPath] = useState<string>("");
 
   useEffect(() => {
     const configured = defaultDownloadPath;
     const activeWithSave = downloads.find((d) => d.savePath)?.savePath;
-    const path = configured || activeWithSave || "C:/";
+    const path = configured || activeWithSave || "";
     setTargetPath(path);
+    if (!path) {
+      setDiskStats(null);
+      return;
+    }
 
     let cancelled = false;
-    invoke<DiskUsageResult>("disk_usage", { path })
-      .then((res) => {
-        if (!cancelled && res && res.total > 0) {
-          setDiskStats(res);
-        }
+    // `resolve_mounts` returns the real mount point, so the widget
+    // labels the actual disk on Linux instead of guessing from a
+    // hardcoded drive letter.
+    invoke<MountUsage[]>("resolve_mounts", { paths: [path] })
+      .then((rows) => {
+        const row = rows[0];
+        if (cancelled || !row || row.total <= 0) return;
+        setDiskStats({
+          total: row.total,
+          free: row.free,
+          available: row.available,
+          mountPoint: row.mountPoint,
+        });
       })
       .catch(() => {
-        invoke<DiskUsageResult>("disk_usage", { path: "C:/" })
-          .then((res) => {
-            if (!cancelled && res && res.total > 0) {
-              setDiskStats(res);
-            }
-          })
-          .catch(() => {});
+        if (!cancelled) setDiskStats(null);
       });
 
     return () => {
@@ -63,14 +71,16 @@ export default function DriveSpaceWidget() {
   const isQueueExceeding = queueRequiredBytes > diskStats.free;
 
   // Extract drive letter / label
-  let driveLabel = targetPath;
+  let driveLabel = diskStats.mountPoint || targetPath;
   try {
-    const match = targetPath.match(/^([A-Za-z]:)/);
-    if (match) {
-      driveLabel = match[1];
-    } else if (targetPath.startsWith("/")) {
-      const parts = targetPath.split("/").filter(Boolean);
-      driveLabel = parts.length > 0 ? `/${parts[0]}` : "/";
+    if (!diskStats.mountPoint) {
+      const match = targetPath.match(/^([A-Za-z]:)/);
+      if (match) {
+        driveLabel = match[1];
+      } else if (targetPath.startsWith("/")) {
+        const parts = targetPath.split("/").filter(Boolean);
+        driveLabel = parts.length > 0 ? `/${parts[0]}` : "/";
+      }
     }
   } catch {}
 

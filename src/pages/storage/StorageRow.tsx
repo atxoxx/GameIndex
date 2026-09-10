@@ -16,6 +16,7 @@ interface Props {
   maxBytes?: number;
   stale?: boolean;
   density?: string;
+  mountVersion?: number;
   onSizeUpdated?: () => void;
   onOpenFolder?: () => void;
   selectMode?: boolean;
@@ -496,6 +497,7 @@ export const StorageRow = memo(StorageRowBase, (prev, next) => {
     prev.maxBytes === next.maxBytes &&
     prev.stale === next.stale &&
     prev.density === next.density &&
+    prev.mountVersion === next.mountVersion &&
     prev.selectMode === next.selectMode &&
     prev.selected === next.selected
   );

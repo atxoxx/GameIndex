@@ -15,6 +15,7 @@ interface Props {
   maxBytes?: number;
   stale?: boolean;
   density?: string;
+  mountVersion?: number;
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -300,6 +301,7 @@ export const StorageGridCard = memo(StorageGridCardBase, (prev, next) => {
     prev.maxBytes === next.maxBytes &&
     prev.stale === next.stale &&
     prev.density === next.density &&
+    prev.mountVersion === next.mountVersion &&
     prev.selectMode === next.selectMode &&
     prev.selected === next.selected
   );

@@ -395,18 +395,42 @@ pub fn open_folder(app: tauri::AppHandle, path: String) -> Result<(), String> {
 /// "used of total" utilization bar in the "By drive" breakdown card.
 ///
 /// Implemented dependency-free: Windows uses `GetDiskFreeSpaceExW` via
-/// the already-vendored `windows` crate; Unix shells out to `df` (a
-/// mandatory, always-present utility). If the platform query fails we
-/// return `None` rather than aborting — the card simply hides the
-/// utilization portion.
+/// the already-vendored `windows` crate; Linux resolves the owning
+/// mount from `/proc/self/mounts` and calls `statvfs`; other Unix
+/// shells out to `df`. If the platform query fails we return an error
+/// rather than aborting — the card simply hides the utilization portion.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DiskUsage {
     /// Total capacity of the volume, in bytes.
     pub total: u64,
-    /// Free bytes on the volume (raw).
+    /// Free bytes on the volume (raw, includes root-reserved blocks).
     pub free: u64,
     /// Bytes available to the current user (≤ free on Unix).
+    pub available: u64,
+}
+
+/// One requested path resolved to its owning filesystem. Returned by
+/// `resolve_mounts` so the Storage tab can bucket games by *real* mount
+/// point instead of guessing from string prefixes — on Linux
+/// `/run/media/<user>/diskA` and `/run/media/<user>/diskB` used to
+/// collapse into a single bucket with one disk's capacity.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MountUsage {
+    /// The path that was asked about (echoed back verbatim).
+    pub path: String,
+    /// Longest mount point that contains `path` (e.g. `/run/media/u/x`).
+    pub mount_point: String,
+    /// Backing device, when known (e.g. `/dev/sdb2`).
+    pub device: String,
+    /// Filesystem type, when known (e.g. `ntfs3`).
+    pub file_system: String,
+    /// Total capacity of the mount, in bytes.
+    pub total: u64,
+    /// Free bytes on the mount (raw).
+    pub free: u64,
+    /// Bytes available to the current user.
     pub available: u64,
 }
 
@@ -418,6 +442,98 @@ pub fn disk_usage(path: String) -> Result<DiskUsage, String> {
         Some(path.clone())
     };
     disk_usage_inner(probe.as_deref())
+}
+
+/// Resolve each path to the filesystem that hosts it and report both the
+/// mount point and its capacity. Used by the Storage page to group games
+/// by actual disk (fixes multi-disk Linux boxes where every removable
+/// volume lives under `/run/media/<user>/`).
+#[tauri::command]
+pub fn resolve_mounts(paths: Vec<String>) -> Vec<MountUsage> {
+    paths
+        .iter()
+        .filter(|p| !p.trim().is_empty())
+        .filter_map(|p| resolve_mount_usage(p))
+        .collect()
+}
+
+#[cfg(target_os = "linux")]
+fn resolve_mount_usage(path: &str) -> Option<MountUsage> {
+    let target = std::fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
+    let (mount_point, device, file_system) = linux_owning_mount(&target)?;
+    let (total, free, available) = statvfs_bytes(&mount_point)?;
+    Some(MountUsage {
+        path: path.to_string(),
+        mount_point: mount_point.to_string_lossy().to_string(),
+        device,
+        file_system,
+        total,
+        free,
+        available,
+    })
+}
+
+#[cfg(windows)]
+fn resolve_mount_usage(path: &str) -> Option<MountUsage> {
+    let mount_point = windows_drive_root(path)?;
+    let usage = disk_usage_inner(Some(&mount_point)).ok()?;
+    Some(MountUsage {
+        path: path.to_string(),
+        mount_point: mount_point.clone(),
+        device: mount_point,
+        file_system: String::new(),
+        total: usage.total,
+        free: usage.free,
+        available: usage.available,
+    })
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn resolve_mount_usage(path: &str) -> Option<MountUsage> {
+    // POSIX `df -P -k <path>` gives the owning mount on the single data
+    // row. The mount point is "everything after the 5 fixed columns",
+    // which tolerates spaces in the volume name.
+    let out = std::process::Command::new("df")
+        .arg("-P")
+        .arg("-k")
+        .arg(path)
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let line = text.lines().nth(1)?;
+    let fields: Vec<&str> = line.split_whitespace().collect();
+    let total_k = fields.get(1)?.parse::<u64>().ok()?;
+    let available_k = fields.get(3)?.parse::<u64>().ok()?;
+    let mount_point = fields.get(5..)?.join(" ");
+    if mount_point.is_empty() {
+        return None;
+    }
+    let total = total_k.saturating_mul(1024);
+    let available = available_k.saturating_mul(1024);
+    Some(MountUsage {
+        path: path.to_string(),
+        mount_point: mount_point.clone(),
+        device: fields.first().copied().unwrap_or("").to_string(),
+        file_system: String::new(),
+        total,
+        free: available,
+        available,
+    })
+}
+
+#[cfg(windows)]
+fn windows_drive_root(path: &str) -> Option<String> {
+    let bytes = path.as_bytes();
+    if bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic() {
+        Some(format!("{}:\\", (bytes[0] as char).to_ascii_uppercase()))
+    } else {
+        // UNC paths ("\\server\share") have no drive root; leave them
+        // to `disk_usage`, which accepts the full path.
+        None
+    }
 }
 
 #[cfg(windows)]
@@ -458,11 +574,29 @@ fn disk_usage_inner(path: Option<&str>) -> Result<DiskUsage, String> {
     use std::process::Command;
 
     let target = path.unwrap_or(".");
+
+    // Linux: `statvfs` on the owning mount is exact and cannot be broken
+    // by unusual characters in the path (unlike parsing `df` columns).
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(m) = resolve_mount_usage(target) {
+            return Ok(DiskUsage {
+                total: m.total,
+                free: m.free,
+                available: m.available,
+            });
+        }
+    }
+
+    let arg = if target.starts_with('-') {
+        format!("./{target}")
+    } else {
+        target.to_string()
+    };
     let out = Command::new("df")
         .arg("-P") // POSIX portable format, single line per mount
         .arg("-k") // 1024-byte blocks (portable across df variants)
-        .arg("--")
-        .arg(target)
+        .arg(&arg)
         .output()
         .map_err(|e| format!("df failed to spawn: {}", e))?;
     if !out.status.success() {
@@ -487,12 +621,98 @@ fn disk_usage_inner(path: Option<&str>) -> Result<DiskUsage, String> {
         .ok_or("df: could not parse available blocks")?;
     let total = total_k.saturating_mul(1024);
     let available = available_k.saturating_mul(1024);
-    let free = available; // exact free unavailable without root-resv math; available is the safe upper bound
+    let free = available; // exact raw-free unavailable without statvfs; available is the safe upper bound
     Ok(DiskUsage {
         total,
         free,
         available,
     })
+}
+
+/// Read `/proc/self/mounts` and return the longest mount point that
+/// contains `target`, plus its device and filesystem type.
+///
+/// Mount fields are space-separated with `\040`-style octal escapes for
+/// spaces/tabs/newlines/backslashes (e.g. `/run/media/seth/Disque\040local`),
+/// so both halves of every entry are decoded before matching.
+#[cfg(target_os = "linux")]
+fn linux_owning_mount(target: &Path) -> Option<(PathBuf, String, String)> {
+    let raw = std::fs::read_to_string("/proc/self/mounts").ok()?;
+    let mut best: Option<(PathBuf, String, String)> = None;
+    for line in raw.lines() {
+        let mut fields = line.split_whitespace();
+        let device = fields.next();
+        let mount = fields.next();
+        let fs_type = fields.next();
+        let (Some(device), Some(mount), Some(fs_type)) = (device, mount, fs_type) else {
+            continue;
+        };
+        let mount_point = PathBuf::from(decode_mount_escape(mount));
+        // `Path::starts_with` compares whole components, so `/mnt/data2`
+        // does not match a `/mnt/data` mount.
+        if target == mount_point || target.starts_with(&mount_point) {
+            let better = best
+                .as_ref()
+                .map(|(current, _, _)| mount_point.as_os_str().len() > current.as_os_str().len())
+                .unwrap_or(true);
+            if better {
+                best = Some((
+                    mount_point,
+                    decode_mount_escape(device),
+                    fs_type.to_string(),
+                ));
+            }
+        }
+    }
+    best
+}
+
+/// Decode the octal escapes used by `/proc/mounts` (`\040` = space,
+/// `\011` = tab, `\012` = newline, `\134` = backslash).
+#[cfg(target_os = "linux")]
+fn decode_mount_escape(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\\' && i + 3 < bytes.len() {
+            let oct = &bytes[i + 1..i + 4];
+            if oct.iter().all(|b| (b'0'..=b'7').contains(b)) {
+                let value = (oct[0] - b'0') * 64 + (oct[1] - b'0') * 8 + (oct[2] - b'0');
+                out.push(value as char);
+                i += 4;
+                continue;
+            }
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
+}
+
+/// `statvfs` the given path and return `(total, free, available)` bytes.
+#[cfg(target_os = "linux")]
+fn statvfs_bytes(path: &Path) -> Option<(u64, u64, u64)> {
+    use std::ffi::CString;
+    use std::os::unix::ffi::OsStrExt;
+
+    let c_path = CString::new(path.as_os_str().as_bytes()).ok()?;
+    // SAFETY: `statvfs` only writes into the zeroed struct we own and
+    // the path is a valid NUL-terminated C string.
+    let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
+    if unsafe { libc::statvfs(c_path.as_ptr(), &mut stat) } != 0 {
+        return None;
+    }
+    let frsize = if stat.f_frsize > 0 {
+        stat.f_frsize as u64
+    } else {
+        stat.f_bsize as u64
+    };
+    Some((
+        (stat.f_blocks as u64).saturating_mul(frsize),
+        (stat.f_bfree as u64).saturating_mul(frsize),
+        (stat.f_bavail as u64).saturating_mul(frsize),
+    ))
 }
 
 // ─── Install management (move / uninstall) ────────────────────────────────
@@ -872,5 +1092,55 @@ mod tests {
         }
 
         std::fs::remove_dir_all(&layout).ok();
+    }
+
+    // ── Mount resolution ────────────────────────────────────────────
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn decode_mount_escape_handles_octal() {
+        assert_eq!(
+            decode_mount_escape("/run/media/seth/Disque\\040local"),
+            "/run/media/seth/Disque local"
+        );
+        assert_eq!(decode_mount_escape("/mnt/plain"), "/mnt/plain");
+        // A lone backslash not followed by three octal digits is literal.
+        assert_eq!(decode_mount_escape("/mnt/back\\slash"), "/mnt/back\\slash");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn resolve_mounts_picks_longest_prefix_and_skips_empty() {
+        // `/proc/self/status` is under both `/` and `/proc`; the longest
+        // mount must win. Empty paths are filtered out entirely.
+        let rows = resolve_mounts(vec!["/proc/self/status".to_string(), String::new()]);
+        assert_eq!(rows.len(), 1, "empty paths should be skipped");
+        assert_eq!(rows[0].mount_point, "/proc");
+        assert!(rows[0].available <= rows[0].total);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn resolve_mounts_reports_capacity_for_real_mounts() {
+        let tmp = std::env::temp_dir();
+        let rows = resolve_mounts(vec![tmp.to_string_lossy().to_string()]);
+        assert_eq!(rows.len(), 1);
+        assert!(
+            rows[0].total > 0,
+            "statvfs should report a capacity for {}",
+            rows[0].mount_point
+        );
+        assert!(rows[0].available <= rows[0].total);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn resolve_mounts_uses_containing_mount_for_missing_paths() {
+        // A not-yet-created destination still resolves to the volume it
+        // would live on, so download/move pre-flight checks work.
+        let rows = resolve_mounts(vec!["/definitely/does/not/exist/game".to_string()]);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].mount_point, "/");
+        assert_eq!(rows[0].path, "/definitely/does/not/exist/game");
     }
 }

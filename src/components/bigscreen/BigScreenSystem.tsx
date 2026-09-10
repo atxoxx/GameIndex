@@ -7,6 +7,7 @@ import { useAchievements } from "../../context/AchievementContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useDriveUsage } from "../../pages/storage/useDriveUsage";
+import { useMountVersion } from "../../pages/storage/mounts";
 import { useFocusable } from "../../hooks/useFocusable";
 import { driveBuckets } from "../../pages/storage/utils";
 import type { Game, GameAchievementData } from "../../types/game";
@@ -223,8 +224,9 @@ function StorageView() {
   const { t } = useLanguage();
   const { games } = useGames();
   const driveUsage = useDriveUsage(games);
+  const mountVersion = useMountVersion();
 
-  const buckets = useMemo(() => driveBuckets(games), [games]);
+  const buckets = useMemo(() => driveBuckets(games), [games, mountVersion]);
 
   return (
     <div className="bigscreen-system-section-view">

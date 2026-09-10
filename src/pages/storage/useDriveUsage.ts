@@ -2,16 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../../types/game";
 import { driveOf } from "./utils";
+import { publishMounts, type MountUsage } from "./mounts";
 
 /** A single drive's capacity + availability, keyed by the same drive
- *  label the breakdown card uses (`C:`, `/mnt/games`, …). */
+ *  label the breakdown card uses (`C:`, `/run/media/u/disk`, …). */
 export interface DriveUsage {
-  total: number;
-  free: number;
-  available: number;
-}
-
-interface DiskUsageResult {
   total: number;
   free: number;
   available: number;
@@ -20,60 +15,56 @@ interface DiskUsageResult {
 /** Per-drive capacity for the "By drive" breakdown card.
  *
  *  Strategy:
- *    1. Derive the set of distinct drive labels from the sized games'
- *       `sizeRootPath` (same `driveOf()` logic the breakdown uses, so
- *       the labels line up exactly).
- *    2. For each distinct drive, invoke `disk_usage(path)` once to get
- *       total/free/available bytes. We pass a concrete path (not just
- *       the label) because `disk_usage` resolves the hosting volume. On
- *       Windows the label `C:` maps to `C:\`; on Unix `/mnt/games` is a
- *       real path already.
- *    3. Failures are isolated per drive — a disconnected mount returns
- *       an error and that drive simply has no usage row (the card still
- *       shows game bytes). The whole header never blanks on one bad
- *       volume.
+ *    1. Collect every distinct `sizeRootPath` from the games.
+ *    2. Resolve them in one `resolve_mounts` call, which reports the real
+ *       mount point and its capacity — so two disks under the same
+ *       parent (`/run/media/seth/diskA` / `diskB`) stay distinct.
+ *    3. Publish the mount table so `driveOf()` labels match the usage
+ *       keys exactly, then key usage by mount point.
  *
- *  The map is recomputed whenever the underlying games change, but each
- *  `disk_usage` call is fire-and-forget into local state so a slow
- *  filesystem stat doesn't block render. */
+ *  Failures are isolated: when the command fails the map is left empty
+ *  and the card still shows game bytes. */
 export function useDriveUsage(games: Game[]): Map<string, DriveUsage> {
   const [usage, setUsage] = useState<Map<string, DriveUsage>>(
     () => new Map()
   );
 
-  // Distinct (label, samplePath) pairs to query — one per drive bucket.
+  // Distinct sample paths to resolve — one per measured game root.
   const targets = useMemo(() => {
-    const m = new Map<string, string>();
+    const seen = new Set<string>();
     for (const g of games) {
-      if (g.sizeBytes == null || g.sizeBytes <= 0) continue;
       const path = g.sizeRootPath;
-      if (!path) continue;
-      const label = driveOf(path);
-      if (!m.has(label)) m.set(label, path);
+      if (path) seen.add(path);
     }
-    return Array.from(m, ([label, path]) => ({ label, path }));
+    return Array.from(seen);
   }, [games]);
 
   useEffect(() => {
     if (targets.length === 0) {
+      publishMounts([]);
       setUsage(new Map());
       return;
     }
     let cancelled = false;
-    const next = new Map<string, DriveUsage>();
-    Promise.all(
-      targets.map(({ label, path }) =>
-        invoke<DiskUsageResult>("disk_usage", { path })
-          .then((r) => ({ label, usage: r as DriveUsage }))
-          .catch(() => null)
-      )
-    ).then((results) => {
-      if (cancelled) return;
-      for (const r of results) {
-        if (r) next.set(r.label, r.usage);
-      }
-      setUsage(new Map(next));
-    });
+    invoke<MountUsage[]>("resolve_mounts", { paths: targets })
+      .then((rows) => {
+        if (cancelled) return;
+        publishMounts(rows);
+        const next = new Map<string, DriveUsage>();
+        for (const row of rows) {
+          const label = row.mountPoint || driveOf(row.path);
+          if (next.has(label)) continue;
+          next.set(label, {
+            total: row.total,
+            free: row.free,
+            available: row.available,
+          });
+        }
+        setUsage(next);
+      })
+      .catch(() => {
+        if (!cancelled) setUsage(new Map());
+      });
     return () => {
       cancelled = true;
     };
