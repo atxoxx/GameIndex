@@ -815,6 +815,8 @@
 .game-hero {
   --hero-h: 370px;
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: auto;
   min-height: clamp(260px, 42vh, var(--hero-h));
   border-radius: var(--radius-xl);
@@ -950,7 +952,8 @@
 .game-hero__inner {
   position: relative;
   z-index: 2;
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
   min-height: clamp(260px, 42vh, var(--hero-h));
   display: flex;
   align-items: center;
@@ -1004,7 +1007,6 @@
 .game-hero__content {
   flex: 1 1 auto;
   min-width: 0;
-  height: 100%;
   align-self: stretch;
   display: flex;
   flex-direction: column;
