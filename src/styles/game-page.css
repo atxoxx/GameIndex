@@ -1,16 +1,8 @@
-/* Game Page — centered inside .app-main and capped at --content-max-width
- * on big screens; the hero + grid stretch to the panel below that. */
+/* Game Page — full-width inside .app-main (no capped container; hero + grid stretch to panel) */
 .game-page {
   width: 100%;
-  max-width: var(--content-max-width);
-  margin-inline: auto;
   padding: var(--page-padding, var(--space-2xl));
   box-sizing: border-box;
-}
-
-.game-page.store-detail-page {
-  width: 100%;
-  max-width: none;
 }
 
 

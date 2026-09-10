@@ -26,8 +26,6 @@
 .lib-page {
   position: relative;
   width: 100%;
-  max-width: var(--content-max-width);
-  margin-inline: auto;
   min-height: 100%;
   padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
   display: flex;

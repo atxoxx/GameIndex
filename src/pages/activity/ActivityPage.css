@@ -3,9 +3,9 @@
    ==========================================================================
 
    Layout flow:
-     .activity__container      (full-bleed scroll shell — intentionally NOT
-                                capped at --content-max-width so the four
-                                tabs use the whole available width)
+     .activity__container      (full-bleed scroll shell — pages are uncapped
+                                so the four tabs use the whole available
+                                width)
        .page-header             (title + capture/export icon actions)
        .activity__controls      (one panel: primary tabs row + tools row)
        main.activity__main
@@ -54,13 +54,10 @@
   overflow-y: auto;
   padding: var(--page-padding, var(--space-lg) var(--space-2xl) var(--space-3xl));
   gap: var(--space-lg);
-  /* NOTE: no max-width here on purpose. The shared `.page` shell caps
-     at `--content-max-width` (1440px), which left the four Activity
-     subtabs sitting in a narrow centered column with large gutters on
-     wide windows. This page is a data-dense analytics surface (Gantt
-     timeline, comparison tables, full-width charts), so the shell is
-     deliberately uncapped — every tab uses the full available width and
-     the inner layouts keep their own responsive breakpoints. */
+  /* No max-width: this page is a data-dense analytics surface (Gantt
+     timeline, comparison tables, full-width charts), so every tab uses
+     the full available width and the inner layouts keep their own
+     responsive breakpoints. */
 }
 
 .activity__main {

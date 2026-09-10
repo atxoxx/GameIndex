@@ -266,7 +266,6 @@
   --sidebar-collapsed-width: 0px;
   --sidebar-icon-rail-width: 84px;
   --sidebar-hover-preview-width: 260px;
-  --content-max-width: 1440px;
 
   /* ── Legacy token aliases ─────────────────────────────────────────
      Older stylesheets (imports.css, modals.css, activity.css, and a
@@ -316,7 +315,6 @@
     --space-2xl: 24px;
     --space-3xl: 36px;
     --space-4xl: 64px;
-    --content-max-width: 100%;
   }
 }
 
@@ -345,7 +343,6 @@
 /* ── 2. 2K / QHD Displays (1921px - 2560px) ──────────────────────────────── */
 @media (min-width: 1921px) and (max-width: 2560px) {
   :root {
-    --content-max-width: 2400px;
     --space-xl: 28px;
     --space-2xl: 38px;
     --space-3xl: 56px;
@@ -360,7 +357,6 @@
     --topnav-height: 64px;
     --sidebar-width: 320px;
     --sidebar-icon-rail-width: 100px;
-    --content-max-width: 3600px;
 
     /* Scaled typography hierarchy */
     --font-size-2xs: 12.5px;

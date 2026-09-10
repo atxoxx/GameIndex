@@ -11,8 +11,6 @@
   gap: var(--space-xl);
   padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
   width: 100%;
-  max-width: var(--content-max-width);
-  margin-inline: auto;
 }
 
 /* ── 1. Cinematic Multi-Candidate Spotlight Hero ────────────────────────── */
