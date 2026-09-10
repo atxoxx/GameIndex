@@ -79,6 +79,26 @@ export default function GameTabs<T extends string = string>({
     };
   }, [activeTab]);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaX !== 0 || e.deltaY === 0) return;
+      if (container.scrollWidth <= container.clientWidth) return;
+      const atStart = container.scrollLeft <= 0;
+      const atEnd =
+        container.scrollLeft + container.clientWidth >= container.scrollWidth - 1;
+      if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return;
+      e.preventDefault();
+      const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      container.scrollLeft += delta;
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, []);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const currentIndex = tabs.findIndex((t) => t.id === activeTab);
     if (currentIndex === -1) return;
