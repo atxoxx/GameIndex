@@ -71,7 +71,11 @@ function StorageRowBase({
     setDetecting(true);
     try {
       let override = folderOverride;
-      if (!override && (!game.path || game.path.trim() === "")) {
+      if (
+        !override &&
+        (!game.path || game.path.trim() === "") &&
+        game.steamAppId == null
+      ) {
         const picked = await open({
           directory: true,
           multiple: false,
@@ -86,7 +90,8 @@ function StorageRowBase({
       const result = await invoke<SizeDetectionResult>("detect_game_size", {
         exePath: game.path,
         gameName: game.name,
-        rootOverride: override,
+        rootOverride: override ?? null,
+        steamAppId: game.steamAppId ?? null,
       });
       updateGame(game.id, {
         sizeBytes: result.sizeBytes,

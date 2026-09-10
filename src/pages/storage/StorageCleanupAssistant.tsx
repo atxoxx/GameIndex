@@ -125,7 +125,9 @@ export function StorageCleanupAssistant({
 
   // Run Unmeasured Games Wizard
   const handleRunWizard = useCallback(async () => {
-    const targets = unmeasuredGames.filter((g) => g.path && g.path.trim() !== "");
+    const targets = unmeasuredGames.filter(
+      (g) => (g.path && g.path.trim() !== "") || g.steamAppId != null
+    );
     if (targets.length === 0) {
       showToast(t("storageHeader.noMeasurements"), "info");
       return;
@@ -141,7 +143,12 @@ export function StorageCleanupAssistant({
       try {
         const result = await invoke<{ sizeBytes: number; rootPath: string }>(
           "detect_game_size",
-          { exePath: g.path, gameName: g.name, rootOverride: null }
+          {
+            exePath: g.path,
+            gameName: g.name,
+            rootOverride: null,
+            steamAppId: g.steamAppId ?? null,
+          }
         );
         updateGame(g.id, {
           sizeBytes: result.sizeBytes,

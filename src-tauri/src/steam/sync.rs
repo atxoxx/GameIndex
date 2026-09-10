@@ -414,23 +414,16 @@ fn find_steam_library_folders() -> Vec<PathBuf> {
 
     let mut folders = vec![steam_root.join("steamapps")];
 
+    // Reuse the watcher's VDF parser instead of the old line-based
+    // `"path"` scan: the flat `"1" "/mnt/games/SteamLibrary"` layout
+    // (older Steam clients, common on Linux) was invisible to that
+    // scan, so games on secondary drives never got measured.
     let vdf_path = steam_root.join("steamapps").join("libraryfolders.vdf");
     if let Ok(content) = fs::read_to_string(&vdf_path) {
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if let Some(path_start) = trimmed.find("\"path\"") {
-                let after_key = &trimmed[path_start + "\"path\"".len()..];
-                if let Some(val_start) = after_key.find('"') {
-                    let val = &after_key[val_start + 1..];
-                    if let Some(val_end) = val.find('"') {
-                        let path_str = &val[..val_end];
-                        let lib_path = PathBuf::from(path_str.replace("\\\\", "\\"));
-                        let steamapps = lib_path.join("steamapps");
-                        if steamapps.exists() && !folders.contains(&steamapps) {
-                            folders.push(steamapps);
-                        }
-                    }
-                }
+        for lib_root in steam_game_watcher::parse_library_folders(&content) {
+            let steamapps = lib_root.join("steamapps");
+            if steamapps.exists() && !folders.contains(&steamapps) {
+                folders.push(steamapps);
             }
         }
     }

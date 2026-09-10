@@ -63,7 +63,10 @@ function StorageGridCardBase({
     setDetecting(true);
     try {
       let override: string | null = null;
-      if (!game.path || game.path.trim() === "") {
+      if (
+        (!game.path || game.path.trim() === "") &&
+        game.steamAppId == null
+      ) {
         const picked = await open({
           directory: true,
           multiple: false,
@@ -79,6 +82,7 @@ function StorageGridCardBase({
         exePath: game.path,
         gameName: game.name,
         rootOverride: override,
+        steamAppId: game.steamAppId ?? null,
       });
       updateGame(game.id, {
         sizeBytes: result.sizeBytes,

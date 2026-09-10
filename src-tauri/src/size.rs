@@ -291,22 +291,33 @@ pub(crate) fn sum_folder_size(root: &Path) -> Result<SizeDetectionResult, String
 ///   1. `root_override` — when the user explicitly picked a folder in the
 ///      UI, use that exact path verbatim. This is the primary path used by
 ///      the Edit-modal "Auto-detect" button.
-///   2. `walk_up_find_root(exe_path, game_name)` — climb parents from the
+///   2. `steam_app_id` — resolve the canonical Steam install dir from the
+///      appmanifest. Works on Linux/macOS where native games have no
+///      `.exe` and therefore no `exe_path` to walk up from.
+///   3. `walk_up_find_root(exe_path, game_name)` — climb parents from the
 ///      exe looking for a name-matching ancestor. Reserved for a future
 ///      auto-detect-via-exe flow; not currently called by the frontend
 ///      because the interview confirmed sync stays manual.
-///   3. Fallback — the immediate parent of `exe_path`.
+///   4. Fallback — the immediate parent of `exe_path`.
 #[tauri::command]
 pub fn detect_game_size(
     exe_path: String,
     game_name: String,
     root_override: Option<String>,
+    steam_app_id: Option<u32>,
 ) -> Result<SizeDetectionResult, String> {
     if let Some(folder) = root_override {
         if folder.is_empty() {
             return Err("rootOverride was empty".into());
         }
         return sum_folder_size(Path::new(&folder));
+    }
+    if let Some(appid) = steam_app_id {
+        if let Some(install_dir) = crate::steam_game_watcher::game_install_path(appid) {
+            if install_dir.is_dir() {
+                return sum_folder_size(&install_dir);
+            }
+        }
     }
     let root = walk_up_find_root(&exe_path, &game_name).unwrap_or_else(|| {
         Path::new(&exe_path)

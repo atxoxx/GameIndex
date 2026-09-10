@@ -335,7 +335,9 @@ export default function StoragePage() {
 
   // Batch remeasure
   const handleBatchRemeasure = useCallback(async () => {
-    const list = selectedGames.filter((g) => g.path && g.path.trim() !== "");
+    const list = selectedGames.filter(
+      (g) => (g.path && g.path.trim() !== "") || g.steamAppId != null
+    );
     if (list.length === 0) return;
     setIsRemeasuringBatch(true);
     let done = 0;
@@ -345,6 +347,7 @@ export default function StoragePage() {
           exePath: g.path,
           gameName: g.name,
           rootOverride: null,
+          steamAppId: g.steamAppId ?? null,
         });
         updateGame(g.id, {
           sizeBytes: result.sizeBytes,

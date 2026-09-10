@@ -52,11 +52,14 @@ export function BulkRecalcBar({ unsizedGames, onComplete }: Props) {
   // making Stop a no-op for any iteration after the click.
   const abortedRef = useRef(false);
 
-  // Split the input into games that have a real exe path (worth trying)
-  // and games missing it (Store-shelf with `path === ""`). Skipping the
-  // latter up-front prevents flooding the toast with Rust errors like
-  // "Folder does not exist: .".
-  const target = unsizedGames.filter((g) => g.path && g.path.trim() !== "");
+  // Split the input into games we can actually locate (exe path for
+  // classic installs, `steamAppId` for Steam titles whose native Linux
+  // install has no .exe on disk) and games missing both (Store-shelf
+  // entries). Skipping the latter up-front prevents flooding the toast
+  // with Rust errors like "Folder does not exist: .".
+  const target = unsizedGames.filter(
+    (g) => (g.path && g.path.trim() !== "") || g.steamAppId != null
+  );
   const skipped = unsizedGames.length - target.length;
 
   const run = useCallback(async () => {
@@ -76,6 +79,7 @@ export function BulkRecalcBar({ unsizedGames, onComplete }: Props) {
           exePath: game.path,
           gameName: game.name,
           rootOverride: null,
+          steamAppId: game.steamAppId ?? null,
         });
         updateGame(game.id, {
           sizeBytes: result.sizeBytes,
