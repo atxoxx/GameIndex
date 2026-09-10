@@ -95,6 +95,11 @@ const LS_DETAIL_SECTIONS_VISIBLE = "gamelib.detail_sections_visible";
 // Per-item UI visibility (Settings → Interface tab). Same overrides-object
 // pattern as detail sections: only OFF entries are persisted.
 const LS_INTERFACE_VISIBILITY = "gamelib.interface_visibility";
+// Top navbar tab order (Settings → Interface → Navbar Tabs). Persisted as
+// the full array of InterfaceItemKey values so the user's arrangement is
+// explicit; normalization on read drops unknown/duplicate keys and
+// appends newly added tabs so an upgrade never leaves one unrendered.
+const LS_NAVBAR_TAB_ORDER = "gamelib.navbar_tab_order";
 // Linux & Steam Deck support level (Settings → General)
 const LS_LINUX_SUPPORT_LEVEL = "gamelib.linux_support_level";
 
@@ -243,6 +248,49 @@ export function interfaceAttrKey(key: InterfaceItemKey): string {
   return key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
+/** Canonical default order of the top navbar tabs — mirrors the flat tab
+ *  list in TopNav so "Reset order" restores the shipped arrangement.
+ *  Activity sits sixth so the default Compact navbar pins it exactly like
+ *  the pre-reorder builds did; the tabs after it match the old "More"
+ *  dropdown order. */
+export const DEFAULT_NAVBAR_TAB_ORDER: InterfaceItemKey[] = [
+  "navHome",
+  "navStore",
+  "navLibrary",
+  "navWishlist",
+  "navDeals",
+  "navActivity",
+  "navNews",
+  "navEmulators",
+  "navMods",
+  "navAchievements",
+  "navStorage",
+  "navCommunity",
+  "navFriends",
+];
+
+/** Normalize a persisted navbar order: drop unknown and duplicate keys,
+ *  then append every known tab that is missing so tabs added in later
+ *  releases still show up at the end of the user's arrangement. */
+export function normalizeNavbarTabOrder(raw: unknown): InterfaceItemKey[] {
+  const known = new Set<string>(DEFAULT_NAVBAR_TAB_ORDER);
+  const seen = new Set<string>();
+  const ordered: InterfaceItemKey[] = [];
+  if (Array.isArray(raw)) {
+    for (const value of raw) {
+      if (typeof value !== "string" || !known.has(value) || seen.has(value)) {
+        continue;
+      }
+      seen.add(value);
+      ordered.push(value as InterfaceItemKey);
+    }
+  }
+  for (const key of DEFAULT_NAVBAR_TAB_ORDER) {
+    if (!seen.has(key)) ordered.push(key);
+  }
+  return ordered;
+}
+
 export interface SettingsContextValue {
   // ── Launcher (Rust-backed) ───────────────────────────────────────
   closeToTray: boolean;
@@ -341,6 +389,9 @@ export interface SettingsContextValue {
    *  these refine visibility in Complete mode. */
   interfaceVisibility: InterfaceVisibility;
   setInterfaceVisibility: (key: InterfaceItemKey, visible: boolean) => void;
+  /** User-arranged order of the top navbar tabs (Settings → Interface). */
+  navbarTabOrder: InterfaceItemKey[];
+  setNavbarTabOrder: (next: InterfaceItemKey[]) => void;
 
   // ── Linux & Steam Deck Support ──────────────────────────────────
   hostPlatform: HostPlatform;
@@ -1169,6 +1220,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [interfaceVisibility]);
 
+  // Navbar tab order (Settings → Interface → Navbar Tabs). Normalized on
+  // read and on every write so TopNav can always consume a complete,
+  // duplicate-free list.
+  const [navbarTabOrder, setNavbarTabOrderState] = useState<InterfaceItemKey[]>(
+    () => normalizeNavbarTabOrder(lsGetJSON<unknown>(LS_NAVBAR_TAB_ORDER, null)),
+  );
+  const setNavbarTabOrder = useCallback((next: InterfaceItemKey[]) => {
+    const normalized = normalizeNavbarTabOrder(next);
+    setNavbarTabOrderState(normalized);
+    lsSetJSON(LS_NAVBAR_TAB_ORDER, normalized);
+  }, []);
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -1249,6 +1312,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setDetailSectionVisible,
       interfaceVisibility,
       setInterfaceVisibility,
+      navbarTabOrder,
+      setNavbarTabOrder,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1337,6 +1402,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setDetailSectionVisible,
       interfaceVisibility,
       setInterfaceVisibility,
+      navbarTabOrder,
+      setNavbarTabOrder,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,

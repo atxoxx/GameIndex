@@ -72,26 +72,11 @@ interface Tab {
   icon: LucideIcon;
 }
 
-// Primary core tabs always displayed in compact navbar mode
-const coreNavTabs: Tab[] = [
-  { path: "/home", labelKey: "nav.home", icon: Home },
-  { path: "/store", labelKey: "nav.store", icon: Store },
-  { path: "/library", labelKey: "nav.library", icon: Monitor },
-  { path: "/wishlist", labelKey: "nav.wishlist", icon: Heart },
-  { path: "/deals", labelKey: "nav.deals", icon: Tag },
-  { path: "/activity", labelKey: "nav.activity", icon: Activity },
-];
-
-// Secondary tabs grouped into the 'More' dropdown menu in compact mode
-const overflowNavTabs: Tab[] = [
-  { path: "/news", labelKey: "nav.news", icon: Rss },
-  { path: "/emulators", labelKey: "nav.emulators", icon: Gamepad2 },
-  { path: "/mods", labelKey: "nav.mods", icon: Puzzle },
-  { path: "/achievements", labelKey: "nav.achievements", icon: Trophy },
-  { path: "/storage", labelKey: "nav.storage", icon: HardDrive },
-  { path: "/community", labelKey: "nav.community", icon: ChartColumn },
-  { path: "/friends", labelKey: "nav.friends", icon: Users },
-];
+// Number of tabs pinned directly to the bar in compact navbar mode; the
+// remainder collapse into the 'More' dropdown. Which tabs land in either
+// group follows the user's arrangement (Settings → Interface → Navbar
+// Tabs), so promoting a page is just a matter of moving it to the top.
+const COMPACT_INLINE_TAB_COUNT = 6;
 
 // Maps each tab path to its Interface-tab visibility key so hidden tabs
 // disappear from both the flat bar and the 'More' dropdown.
@@ -111,7 +96,8 @@ const TAB_VISIBILITY_KEY: Record<string, InterfaceItemKey> = {
   "/friends": "navFriends",
 };
 
-// All pages live as flat tabs in full navbar mode
+// All pages live as flat tabs in full navbar mode, sorted at render time
+// by the user's persisted navbar order.
 const allNavTabs: Tab[] = [
   { path: "/home", labelKey: "nav.home", icon: Home },
   { path: "/store", labelKey: "nav.store", icon: Store },
@@ -136,7 +122,7 @@ export default function TopNav() {
   const activeDownloads = useActiveDownloadCount();
   const version = useAppVersion();
   const { isBigScreen, setBigScreen } = useBigScreen();
-  const { navbarMode, showNavbarNowPlaying, interfaceVisibility } = useSettings();
+  const { navbarMode, showNavbarNowPlaying, interfaceVisibility, navbarTabOrder } = useSettings();
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [unseenCommunity, setUnseenCommunity] = useState<number>(() => getUnseenCommunityItems());
@@ -220,14 +206,27 @@ export default function TopNav() {
   }, []);
 
   // Responsive Navbar style selection. Tabs hidden via the Interface
-  // settings are dropped from the bar AND the overflow menu entirely.
+  // settings are dropped from the bar AND the overflow menu entirely, and
+  // the remaining tabs follow the user's saved order. Compact mode pins
+  // the first `COMPACT_INLINE_TAB_COUNT` visible tabs to the bar.
   const isCompactNavbar = navbarMode === "compact";
   const tabVisible = (path: string) => interfaceVisibility[TAB_VISIBILITY_KEY[path]];
-  const visibleOverflowTabs = overflowNavTabs.filter((tab) => tabVisible(tab.path));
-  const displayedTabs = (isCompactNavbar ? coreNavTabs : allNavTabs).filter(
-    (tab) => tabVisible(tab.path),
-  );
-  const isOverflowActive = visibleOverflowTabs.some((tab) =>
+  const orderedTabs = useMemo(() => {
+    const rank = new Map(navbarTabOrder.map((key, index) => [key, index]));
+    return [...allNavTabs].sort(
+      (a, b) =>
+        (rank.get(TAB_VISIBILITY_KEY[a.path]) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(TAB_VISIBILITY_KEY[b.path]) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }, [navbarTabOrder]);
+  const visibleTabs = orderedTabs.filter((tab) => tabVisible(tab.path));
+  const displayedTabs = isCompactNavbar
+    ? visibleTabs.slice(0, COMPACT_INLINE_TAB_COUNT)
+    : visibleTabs;
+  const overflowTabs = isCompactNavbar
+    ? visibleTabs.slice(COMPACT_INLINE_TAB_COUNT)
+    : [];
+  const isOverflowActive = overflowTabs.some((tab) =>
     location.pathname.startsWith(tab.path),
   );
 
@@ -332,7 +331,7 @@ export default function TopNav() {
           </div>
 
           {/* Compact Mode: 'More' Dropdown Menu */}
-          {isCompactNavbar && visibleOverflowTabs.length > 0 && (
+          {isCompactNavbar && overflowTabs.length > 0 && (
             <div ref={moreRef} className="topnav-more-container">
               <button
                 type="button"
@@ -342,7 +341,7 @@ export default function TopNav() {
                   setMoreOpen((prev) => !prev);
                 }}
                 onMouseEnter={() => {
-                  overflowNavTabs.forEach((tab) => preloadRoute(tab.path));
+                  overflowTabs.forEach((tab) => preloadRoute(tab.path));
                 }}
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
@@ -363,7 +362,7 @@ export default function TopNav() {
 
               {moreOpen && (
                 <div className="topnav-more-dropdown" role="menu">
-                  {visibleOverflowTabs.map((tab) => {
+                  {overflowTabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = location.pathname.startsWith(tab.path);
                     const showBadge = tab.path === "/friends" && unseenCommunity > 0;

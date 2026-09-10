@@ -1,16 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  Activity,
   BadgeCheck,
+  ChartColumn,
+  ChevronDown,
+  ChevronUp,
+  Gamepad2,
+  GripVertical,
+  HardDrive,
+  Heart,
+  Home,
   Info,
   Layout,
   LayoutGrid,
   LayoutList,
   List,
+  Monitor,
+  Puzzle,
+  RotateCcw,
+  Rss,
   SlidersHorizontal,
+  Store,
+  Tag,
+  Trophy,
+  Users,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
+  DEFAULT_NAVBAR_TAB_ORDER,
   useSettings,
   type DetailSectionKey,
   type InterfaceItemKey,
@@ -51,23 +70,26 @@ const SECTION_TO_SUBTAB: Record<string, InterfaceSubtab> = {
 interface ItemDef {
   key: InterfaceItemKey;
   labelKey: string;
+  /** Optional leading glyph — used by the navbar tab order list. */
+  icon?: LucideIcon;
 }
 
-/** Top navbar tabs — labels reuse the existing `nav.*` keys. */
+/** Top navbar tabs — labels reuse the existing `nav.*` keys. Order here is
+ *  the shipped default; the live order comes from `navbarTabOrder`. */
 const NAV_TAB_ITEMS: ItemDef[] = [
-  { key: "navHome", labelKey: "nav.home" },
-  { key: "navStore", labelKey: "nav.store" },
-  { key: "navLibrary", labelKey: "nav.library" },
-  { key: "navWishlist", labelKey: "nav.wishlist" },
-  { key: "navDeals", labelKey: "nav.deals" },
-  { key: "navNews", labelKey: "nav.news" },
-  { key: "navEmulators", labelKey: "nav.emulators" },
-  { key: "navMods", labelKey: "nav.mods" },
-  { key: "navActivity", labelKey: "nav.activity" },
-  { key: "navAchievements", labelKey: "nav.achievements" },
-  { key: "navStorage", labelKey: "nav.storage" },
-  { key: "navCommunity", labelKey: "nav.community" },
-  { key: "navFriends", labelKey: "nav.friends" },
+  { key: "navHome", labelKey: "nav.home", icon: Home },
+  { key: "navStore", labelKey: "nav.store", icon: Store },
+  { key: "navLibrary", labelKey: "nav.library", icon: Monitor },
+  { key: "navWishlist", labelKey: "nav.wishlist", icon: Heart },
+  { key: "navDeals", labelKey: "nav.deals", icon: Tag },
+  { key: "navActivity", labelKey: "nav.activity", icon: Activity },
+  { key: "navNews", labelKey: "nav.news", icon: Rss },
+  { key: "navEmulators", labelKey: "nav.emulators", icon: Gamepad2 },
+  { key: "navMods", labelKey: "nav.mods", icon: Puzzle },
+  { key: "navAchievements", labelKey: "nav.achievements", icon: Trophy },
+  { key: "navStorage", labelKey: "nav.storage", icon: HardDrive },
+  { key: "navCommunity", labelKey: "nav.community", icon: ChartColumn },
+  { key: "navFriends", labelKey: "nav.friends", icon: Users },
 ];
 
 /** Right-cluster buttons in the top bar. */
@@ -285,8 +307,182 @@ function LayoutPanel() {
   );
 }
 
+/**
+ * Combined visibility + reordering list for the top navbar tabs. Each row
+ * owns its checkbox, drag handle and arrow controls so show/hide and order
+ * live in one place. The first visible rows stay pinned to the bar in
+ * Compact mode, so the list doubles as the "which tabs get promoted"
+ * control.
+ */
+function NavTabOrderList() {
+  const { t } = useLanguage();
+  const {
+    navbarTabOrder,
+    setNavbarTabOrder,
+    interfaceVisibility,
+    setInterfaceVisibility,
+    uiSoundEnabled,
+  } = useSettings();
+  const [dragKey, setDragKey] = useState<InterfaceItemKey | null>(null);
+  const [overKey, setOverKey] = useState<InterfaceItemKey | null>(null);
+  // Mirror of `overKey` for the window-level pointer listeners, which are
+  // subscribed once per drag instead of once per hovered row.
+  const overKeyRef = useRef<InterfaceItemKey | null>(null);
+
+  const orderedItems = useMemo(() => {
+    const rank = new Map(navbarTabOrder.map((key, index) => [key, index]));
+    return [...NAV_TAB_ITEMS].sort(
+      (a, b) =>
+        (rank.get(a.key) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.key) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }, [navbarTabOrder]);
+
+  const move = useCallback(
+    (from: number, to: number) => {
+      if (from === to || to < 0 || to >= orderedItems.length) return;
+      const keys = orderedItems.map((item) => item.key);
+      const [moved] = keys.splice(from, 1);
+      keys.splice(to, 0, moved);
+      setNavbarTabOrder(keys);
+      if (uiSoundEnabled) playActionSound();
+    },
+    [orderedItems, setNavbarTabOrder, uiSoundEnabled],
+  );
+
+  // Pointer-driven reordering. HTML5 drag-and-drop is unreliable inside the
+  // Tauri webviews (the native drop handler intercepts it and WebKit needs
+  // a dataTransfer payload to start a drag), so the handle tracks the
+  // pointer directly: whichever row sits under the cursor becomes the drop
+  // target, and releasing commits the move.
+  useEffect(() => {
+    if (dragKey === null) return;
+    const trackPointer = (e: PointerEvent) => {
+      const row = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest<HTMLElement>("[data-nav-tab-key]");
+      const key = row?.dataset.navTabKey as InterfaceItemKey | undefined;
+      if (key && key !== overKeyRef.current) {
+        overKeyRef.current = key;
+        setOverKey(key);
+      }
+    };
+    const finishDrag = () => {
+      const target = overKeyRef.current;
+      if (target !== null && target !== dragKey) {
+        move(
+          orderedItems.findIndex((item) => item.key === dragKey),
+          orderedItems.findIndex((item) => item.key === target),
+        );
+      }
+      overKeyRef.current = null;
+      setDragKey(null);
+      setOverKey(null);
+    };
+    window.addEventListener("pointermove", trackPointer);
+    window.addEventListener("pointerup", finishDrag);
+    window.addEventListener("pointercancel", finishDrag);
+    window.addEventListener("blur", finishDrag);
+    const previousCursor = document.body.style.cursor;
+    document.body.style.cursor = "grabbing";
+    return () => {
+      document.body.style.cursor = previousCursor;
+      window.removeEventListener("pointermove", trackPointer);
+      window.removeEventListener("pointerup", finishDrag);
+      window.removeEventListener("pointercancel", finishDrag);
+      window.removeEventListener("blur", finishDrag);
+    };
+  }, [dragKey, move, orderedItems]);
+
+  const startDrag = (key: InterfaceItemKey) => {
+    overKeyRef.current = key;
+    setDragKey(key);
+    setOverKey(key);
+  };
+
+  return (
+    <div style={columnGap}>
+      <p className="nav-order-note">{t("settings.interface.tabOrderDesc")}</p>
+      <div className="nav-order-list" role="list">
+        {orderedItems.map((item, index) => {
+          const Icon = item.icon;
+          const label = t(item.labelKey);
+          const visible = interfaceVisibility[item.key];
+          return (
+            <div
+              key={item.key}
+              role="listitem"
+              data-nav-tab-key={item.key}
+              className={`nav-order-row${dragKey === item.key ? " is-dragging" : ""}${
+                overKey === item.key && dragKey !== null && dragKey !== item.key
+                  ? " is-drop-target"
+                  : ""
+              }${visible ? "" : " is-hidden-tab"}`}
+            >
+              <span
+                className="nav-order-handle"
+                title={t("settings.interface.tabOrderDragHandle")}
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  startDrag(item.key);
+                }}
+              >
+                <GripVertical size={15} aria-hidden="true" />
+              </span>
+              {Icon && (
+                <Icon className="nav-order-icon" size={16} aria-hidden="true" />
+              )}
+              <span className="nav-order-label">{label}</span>
+              {!visible && (
+                <span className="nav-order-hidden">
+                  {t("settings.interface.tabOrderHidden")}
+                </span>
+              )}
+              <div className="nav-order-buttons">
+                <button
+                  type="button"
+                  className="nav-order-btn"
+                  onClick={() => move(index, index - 1)}
+                  disabled={index === 0}
+                  aria-label={t("settings.interface.tabOrderMoveUp")}
+                  title={t("settings.interface.tabOrderMoveUp")}
+                >
+                  <ChevronUp size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="nav-order-btn"
+                  onClick={() => move(index, index + 1)}
+                  disabled={index === orderedItems.length - 1}
+                  aria-label={t("settings.interface.tabOrderMoveDown")}
+                  title={t("settings.interface.tabOrderMoveDown")}
+                >
+                  <ChevronDown size={14} aria-hidden="true" />
+                </button>
+              </div>
+              <label className="settings-checkbox-label nav-order-toggle">
+                <input
+                  type="checkbox"
+                  checked={visible}
+                  onChange={(e) => {
+                    setInterfaceVisibility(item.key, e.target.checked);
+                    if (uiSoundEnabled) playActionSound();
+                  }}
+                  aria-label={label}
+                />
+              </label>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function NavTabsPanel() {
   const { t } = useLanguage();
+  const { setNavbarTabOrder, uiSoundEnabled } = useSettings();
   return (
     <div className="interface-panel" role="tabpanel">
       <SettingsSection
@@ -294,8 +490,21 @@ function NavTabsPanel() {
         icon={<LayoutList className="settings-section-icon" />}
         title={t("settings.section.interfaceNavTabs")}
         desc={t("settings.section.interfaceNavTabs.desc")}
+        actions={
+          <button
+            type="button"
+            className="nav-order-reset"
+            onClick={() => {
+              setNavbarTabOrder(DEFAULT_NAVBAR_TAB_ORDER);
+              if (uiSoundEnabled) playActionSound();
+            }}
+          >
+            <RotateCcw size={13} aria-hidden="true" />
+            {t("settings.interface.tabOrderReset")}
+          </button>
+        }
       >
-        <ItemToggleGroup items={NAV_TAB_ITEMS} />
+        <NavTabOrderList />
       </SettingsSection>
     </div>
   );

@@ -135,7 +135,7 @@ export function buildSettingsCatalog(
         {
           id: "interface-nav-tabs",
           labelKey: "settings.section.interfaceNavTabs",
-          keywords: "navbar top tabs show hide home store library wishlist deals news emulators mods activity achievements storage community friends navigation",
+          keywords: "navbar top tabs show hide reorder order arrange drag move rearrange home store library wishlist deals news emulators mods activity achievements storage community friends navigation",
         },
         {
           id: "interface-nav-buttons",
