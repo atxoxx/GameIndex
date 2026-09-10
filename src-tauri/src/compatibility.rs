@@ -63,6 +63,40 @@ pub struct RunnerInstallProgress {
 
 static ACTIVE_INSTALL_CANCELS: Mutex<Option<HashMap<String, Arc<AtomicBool>>>> = Mutex::new(None);
 
+fn clear_install_cancel(runner_name: &str) {
+    if let Ok(mut guard) = ACTIVE_INSTALL_CANCELS.lock() {
+        if let Some(map) = guard.as_mut() {
+            map.remove(runner_name);
+        }
+    }
+}
+
+fn emit_install_failed(
+    app: &tauri::AppHandle,
+    runner_name: &str,
+    error: String,
+    downloaded: u64,
+    total_bytes: Option<u64>,
+) {
+    clear_install_cancel(runner_name);
+    let percent = match total_bytes {
+        Some(total) if total > 0 => (downloaded as f32 / total as f32) * 100.0,
+        _ => 0.0,
+    };
+    let _ = app.emit(
+        "runner-install-progress",
+        RunnerInstallProgress {
+            runner_name: runner_name.to_string(),
+            status: "failed".to_string(),
+            downloaded_bytes: downloaded,
+            total_bytes,
+            percent,
+            speed_bytes_per_sec: 0,
+            error: Some(error),
+        },
+    );
+}
+
 #[derive(Clone)]
 struct RunnerCacheEntry {
     fetched_at: Instant,
@@ -2485,7 +2519,82 @@ pub fn delete_compatibility_runner(
     Ok(())
 }
 
-/// Fetch available runner releases from GitHub (GE-Proton, Wine-GE, Kron4ek, Lutris).
+/// GitHub repo + install target ("proton" | "wine") for each downloadable
+/// runner source. Keep in sync with the source pills in the frontend.
+fn runner_source(source: &str) -> Option<(&'static str, &'static str)> {
+    match source {
+        "ge-proton" => Some(("GloriousEggroll/proton-ge-custom", "proton")),
+        "cachyos" => Some(("CachyOS/proton-cachyos", "proton")),
+        "proton-em" => Some(("BananaWorks07/Proton", "proton")),
+        "wine-ge" => Some(("GloriousEggroll/wine-ge-custom", "wine")),
+        "kron4ek" => Some(("Kron4ek/Wine-Builds", "wine")),
+        "soda" => Some(("bottlesdevs/wine", "wine")),
+        _ => None,
+    }
+}
+
+fn host_is_arm64() -> bool {
+    std::env::consts::ARCH == "aarch64"
+}
+
+/// True when a release asset targets the host CPU. Arch-agnostic assets
+/// (no arch token in the name) always match; when both tokens appear we
+/// require the one matching the host.
+fn asset_arch_matches(name: &str, arm_tokens: &[&str], x86_tokens: &[&str]) -> bool {
+    let n = name.to_lowercase();
+    let is_arm = arm_tokens.iter().any(|t| n.contains(t));
+    let is_x86 = x86_tokens.iter().any(|t| n.contains(t));
+    if !is_arm && !is_x86 {
+        return true;
+    }
+    if host_is_arm64() {
+        is_arm
+    } else {
+        is_x86
+    }
+}
+
+fn is_checksum_asset(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n.ends_with(".sha512sum")
+        || n.ends_with(".sha256sum")
+        || n.ends_with(".sha512")
+        || n.ends_with(".sha256")
+        || n.ends_with(".sum")
+        || n.ends_with(".sig")
+        || n.ends_with(".asc")
+        || n.ends_with(".txt")
+}
+
+/// Pick the release asset that matches a runner source on this machine.
+/// Filters checksums first, then the per-source archive format and CPU arch.
+fn runner_asset_matches(source: &str, name: &str) -> bool {
+    if is_checksum_asset(name) {
+        return false;
+    }
+    let n = name.to_lowercase();
+    match source {
+        "ge-proton" => {
+            n.ends_with(".tar.gz") && asset_arch_matches(&n, &["aarch64"], &["x86_64"])
+        }
+        "cachyos" => {
+            n.ends_with(".tar.xz")
+                && !n.contains("_v3")
+                && asset_arch_matches(&n, &["arm64"], &["x86_64"])
+        }
+        "proton-em" => {
+            n.ends_with(".tar.xz") && asset_arch_matches(&n, &["aarch64", "arm64"], &["x86_64"])
+        }
+        "wine-ge" => n.ends_with(".tar.xz") && asset_arch_matches(&n, &["aarch64"], &["x86_64"]),
+        "kron4ek" => n.ends_with(".tar.xz") && (n.contains("amd64") || n.contains("x86_64")),
+        "soda" => {
+            n.ends_with(".tar.xz") && asset_arch_matches(&n, &["aarch64", "arm64"], &["x86_64"])
+        }
+        _ => false,
+    }
+}
+
+/// Fetch available runner releases from GitHub (Proton and Wine builds).
 #[tauri::command]
 pub async fn fetch_available_runners(
     source: String,
@@ -2511,13 +2620,8 @@ pub async fn fetch_available_runners(
         }
     }
 
-    let repo = match cache_key.as_str() {
-        "ge-proton" => "GloriousEggroll/proton-ge-custom",
-        "wine-ge" => "GloriousEggroll/wine-ge-custom",
-        "kron4ek" => "Kron4ek/Wine-Builds",
-        "lutris" => "lutris/wine",
-        _ => return Err(format!("Unknown runner source: {}", source)),
-    };
+    let (repo, target_type) =
+        runner_source(&cache_key).ok_or_else(|| format!("Unknown runner source: {}", source))?;
 
     let url = format!("https://api.github.com/repos/{}/releases?per_page=25", repo);
     let client = reqwest::Client::builder()
@@ -2550,25 +2654,15 @@ pub async fn fetch_available_runners(
     let mut out = Vec::new();
 
     for gh in gh_releases {
-        let best_asset = gh.assets.into_iter().find(|a| {
-            let n = a.name.to_lowercase();
-            if n.ends_with(".sha512sum") || n.ends_with(".sum") || n.ends_with(".sha256") || n.ends_with(".txt") {
-                return false;
-            }
-            match cache_key.as_str() {
-                "ge-proton" => n.ends_with(".tar.gz"),
-                "wine-ge" => n.ends_with(".tar.xz"),
-                "kron4ek" => (n.contains("amd64") || n.contains("x86_64")) && n.ends_with(".tar.xz"),
-                "lutris" => n.ends_with(".tar.xz") || n.ends_with(".tar.gz"),
-                _ => false,
-            }
-        });
+        let best_asset = gh
+            .assets
+            .into_iter()
+            .find(|a| runner_asset_matches(&cache_key, &a.name));
 
         if let Some(asset) = best_asset {
             let tag = gh.tag_name;
             let name = gh.name.unwrap_or_else(|| tag.clone());
             let is_inst = is_release_installed(&detected, &tag, &name);
-            let target_type = if cache_key == "ge-proton" { "proton" } else { "wine" }.to_string();
 
             out.push(RemoteRunnerRelease {
                 id: format!("{}-{}", cache_key, tag),
@@ -2582,7 +2676,7 @@ pub async fn fetch_available_runners(
                 body: gh.body,
                 html_url: gh.html_url,
                 is_installed: is_inst,
-                target_type,
+                target_type: target_type.to_string(),
             });
         }
     }
@@ -2667,39 +2761,46 @@ pub async fn install_compatibility_runner(
 
     let client = reqwest::Client::builder()
         .user_agent("GameIndex-App/1.0")
-        .build()
-        .map_err(|e| format!("HTTP client error: {}", e))?;
+        .build();
+    let client = match client {
+        Ok(c) => c,
+        Err(e) => {
+            let err = format!("HTTP client error: {}", e);
+            emit_install_failed(&app, &runner_name, err.clone(), 0, None);
+            return Err(err);
+        }
+    };
 
-    let res = client
-        .get(&download_url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to initiate download: {}", e))?;
+    let res = client.get(&download_url).send().await;
+    let res = match res {
+        Ok(r) => r,
+        Err(e) => {
+            let err = format!("Failed to initiate download: {}", e);
+            emit_install_failed(&app, &runner_name, err.clone(), 0, None);
+            return Err(err);
+        }
+    };
 
     if !res.status().is_success() {
         let err = format!("Download failed with status: {}", res.status());
-        let _ = app.emit(
-            "runner-install-progress",
-            RunnerInstallProgress {
-                runner_name: runner_name.clone(),
-                status: "failed".to_string(),
-                downloaded_bytes: 0,
-                total_bytes: None,
-                percent: 0.0,
-                speed_bytes_per_sec: 0,
-                error: Some(err.clone()),
-            },
-        );
+        emit_install_failed(&app, &runner_name, err.clone(), 0, res.content_length());
         return Err(err);
     }
 
     let total_bytes = res.content_length();
-    let mut file = OpenOptions::new()
+    let mut file = match OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
         .open(&temp_file_path)
-        .map_err(|e| format!("Failed to create temporary download file: {}", e))?;
+    {
+        Ok(f) => f,
+        Err(e) => {
+            let err = format!("Failed to create temporary download file: {}", e);
+            emit_install_failed(&app, &runner_name, err.clone(), 0, total_bytes);
+            return Err(err);
+        }
+    };
 
     let mut stream = res.bytes_stream();
     let mut downloaded: u64 = 0;
@@ -2710,6 +2811,7 @@ pub async fn install_compatibility_runner(
         if cancel_flag.load(Ordering::Relaxed) {
             drop(file);
             let _ = fs::remove_file(&temp_file_path);
+            clear_install_cancel(&runner_name);
             let _ = app.emit(
                 "runner-install-progress",
                 RunnerInstallProgress {
@@ -2725,9 +2827,23 @@ pub async fn install_compatibility_runner(
             return Err("Download cancelled by user".to_string());
         }
 
-        let chunk = chunk.map_err(|e| format!("Error during download stream: {}", e))?;
-        file.write_all(&chunk)
-            .map_err(|e| format!("Failed to write chunk to disk: {}", e))?;
+        let chunk = match chunk {
+            Ok(c) => c,
+            Err(e) => {
+                drop(file);
+                let _ = fs::remove_file(&temp_file_path);
+                let err = format!("Error during download stream: {}", e);
+                emit_install_failed(&app, &runner_name, err.clone(), downloaded, total_bytes);
+                return Err(err);
+            }
+        };
+        if let Err(e) = file.write_all(&chunk) {
+            drop(file);
+            let _ = fs::remove_file(&temp_file_path);
+            let err = format!("Failed to write chunk to disk: {}", e);
+            emit_install_failed(&app, &runner_name, err.clone(), downloaded, total_bytes);
+            return Err(err);
+        }
         downloaded += chunk.len() as u64;
 
         if last_emit.elapsed() >= Duration::from_millis(200) {
@@ -2786,11 +2902,7 @@ pub async fn install_compatibility_runner(
     let _ = fs::remove_file(&temp_file_path);
 
     // Clean up cancellation handle
-    if let Ok(mut guard) = ACTIVE_INSTALL_CANCELS.lock() {
-        if let Some(map) = guard.as_mut() {
-            map.remove(&runner_name);
-        }
-    }
+    clear_install_cancel(&runner_name);
 
     match extract_res {
         Ok(_) => {
@@ -2809,19 +2921,9 @@ pub async fn install_compatibility_runner(
             Ok(())
         }
         Err(e) => {
-            let _ = app.emit(
-                "runner-install-progress",
-                RunnerInstallProgress {
-                    runner_name: runner_name.clone(),
-                    status: "failed".to_string(),
-                    downloaded_bytes: downloaded,
-                    total_bytes,
-                    percent: 100.0,
-                    speed_bytes_per_sec: 0,
-                    error: Some(e.clone()),
-                },
-            );
-            Err(format!("Extraction error: {}", e))
+            let err = format!("Extraction error: {}", e);
+            emit_install_failed(&app, &runner_name, err.clone(), downloaded, total_bytes);
+            Err(err)
         }
     }
 }
@@ -5045,6 +5147,103 @@ mod tests {
         assert!(is_release_installed(&detected, "GE-Proton9-25", "Release 9-25"));
         assert!(is_release_installed(&detected, "lutris-GE-Proton8-26", "lutris-GE-Proton8-26-x86_64"));
         assert!(!is_release_installed(&detected, "GE-Proton9-26", "GE-Proton9-26"));
+    }
+
+    #[test]
+    fn runner_sources_map_to_repos_and_targets() {
+        assert_eq!(
+            runner_source("ge-proton"),
+            Some(("GloriousEggroll/proton-ge-custom", "proton"))
+        );
+        assert_eq!(
+            runner_source("cachyos"),
+            Some(("CachyOS/proton-cachyos", "proton"))
+        );
+        assert_eq!(
+            runner_source("proton-em"),
+            Some(("BananaWorks07/Proton", "proton"))
+        );
+        assert_eq!(
+            runner_source("wine-ge"),
+            Some(("GloriousEggroll/wine-ge-custom", "wine"))
+        );
+        assert_eq!(runner_source("kron4ek"), Some(("Kron4ek/Wine-Builds", "wine")));
+        assert_eq!(runner_source("soda"), Some(("bottlesdevs/wine", "wine")));
+        assert_eq!(runner_source("lutris"), None);
+        assert_eq!(runner_source("unknown"), None);
+    }
+
+    #[test]
+    fn runner_asset_matches_format_checksums_and_host_arch() {
+        // Checksum sidecars never match, whatever the source or arch.
+        for name in [
+            "GE-Proton11-6-x86_64.sha512sum",
+            "proton-EM-10.0-37-HDR.sha256sum",
+            "sha256sums.txt",
+        ] {
+            assert!(!runner_asset_matches("ge-proton", name), "{name}");
+            assert!(!runner_asset_matches("kron4ek", name), "{name}");
+            assert!(!runner_asset_matches("proton-em", name), "{name}");
+        }
+
+        // Proton-EM publishes one arch-agnostic tarball.
+        assert!(runner_asset_matches("proton-em", "proton-EM-10.0-37-HDR.tar.xz"));
+        assert!(!runner_asset_matches("proton-em", "proton-EM-10.0-37-HDR.zip"));
+
+        // Kron4ek only ships x86/amd64 builds.
+        assert!(runner_asset_matches("kron4ek", "wine-11.17-amd64-wow64.tar.xz"));
+        assert!(!runner_asset_matches("kron4ek", "wine-11.17-staging-tkg-x86.tar.xz"));
+
+        if host_is_arm64() {
+            assert!(runner_asset_matches("ge-proton", "GE-Proton11-6-aarch64.tar.gz"));
+            assert!(!runner_asset_matches("ge-proton", "GE-Proton11-6-x86_64.tar.gz"));
+            assert!(runner_asset_matches("cachyos", "proton-cachyos-11.0-slr-arm64.tar.xz"));
+            assert!(!runner_asset_matches("cachyos", "proton-cachyos-11.0-slr-x86_64.tar.xz"));
+            assert!(runner_asset_matches("soda", "soda-11.0-10-aarch64.tar.xz"));
+            assert!(!runner_asset_matches("soda", "soda-11.0-10-x86_64.tar.xz"));
+        } else {
+            assert!(runner_asset_matches("ge-proton", "GE-Proton11-6-x86_64.tar.gz"));
+            assert!(!runner_asset_matches("ge-proton", "GE-Proton11-6-aarch64.tar.gz"));
+            assert!(runner_asset_matches("cachyos", "proton-cachyos-11.0-slr-x86_64.tar.xz"));
+            assert!(!runner_asset_matches("cachyos", "proton-cachyos-11.0-slr-x86_64_v3.tar.xz"));
+            assert!(!runner_asset_matches("cachyos", "proton-cachyos-11.0-slr-arm64.tar.xz"));
+            assert!(runner_asset_matches("soda", "soda-11.0-10-x86_64.tar.xz"));
+            assert!(!runner_asset_matches("soda", "soda-11.0-10-aarch64.tar.xz"));
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn extracts_runner_archive_and_fixes_binary_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = tempfile::tempdir().unwrap();
+        let src = root.path().join("src/GE-Test");
+        write_test_file(&src.join("proton"), "#!/bin/sh\n");
+        write_test_file(&src.join("bin/wine"), "#!/bin/sh\n");
+        write_test_file(&src.join("bin/wine64"), "#!/bin/sh\n");
+        fs::set_permissions(&src.join("proton"), fs::Permissions::from_mode(0o644)).unwrap();
+
+        let archive = root.path().join("GE-Test.tar.gz");
+        let status = Command::new("tar")
+            .arg("-czf")
+            .arg(&archive)
+            .arg("-C")
+            .arg(root.path().join("src"))
+            .arg("GE-Test")
+            .status()
+            .expect("creates runner archive");
+        assert!(status.success());
+
+        let dest = root.path().join("dest");
+        let out = extract_runner_archive(&archive, &dest).unwrap();
+        assert_eq!(out, dest);
+        assert!(dest.join("GE-Test/proton").is_file());
+
+        for rel in ["GE-Test/proton", "GE-Test/bin/wine", "GE-Test/bin/wine64"] {
+            let mode = fs::metadata(dest.join(rel)).unwrap().permissions().mode();
+            assert!(mode & 0o111 != 0, "{rel} should be executable, got {mode:o}");
+        }
     }
 
     #[test]

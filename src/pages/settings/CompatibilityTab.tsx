@@ -72,6 +72,8 @@ const QUICK_WINETRICKS_PACKAGES = [
   { verb: "physx", name: "NVIDIA PhysX", desc: "Legacy physics runtime engine" },
 ];
 
+const PROTON_SOURCES = ["ge-proton", "cachyos", "proton-em"];
+
 interface CompatibilityRunner {
   id: string;
   name: string;
@@ -406,7 +408,7 @@ export default function CompatibilityTab() {
   const [runnerViewMode, setRunnerViewMode] = useState<"installed" | "download" | "settings">("installed");
   const [runnerSearch, setRunnerSearch] = useState("");
   const [runnerFilter, setRunnerFilter] = useState<"all" | "proton" | "wine">("all");
-  const [activeSource, setActiveSource] = useState<"ge-proton" | "wine-ge" | "kron4ek" | "lutris" | "custom">("ge-proton");
+  const [activeSource, setActiveSource] = useState<"ge-proton" | "cachyos" | "proton-em" | "wine-ge" | "kron4ek" | "soda" | "custom">("ge-proton");
   const [releases, setReleases] = useState<RemoteRunnerRelease[]>([]);
   const [loadingReleases, setLoadingReleases] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
@@ -503,7 +505,7 @@ export default function CompatibilityTab() {
   const handleInstallRelease = async (rel: RemoteRunnerRelease) => {
     try {
       setInstallingRunners((prev) => ({ ...prev, [rel.name]: true }));
-      const targetType = rel.targetType || (rel.source === "ge-proton" ? "proton" : "wine");
+      const targetType = rel.targetType || (PROTON_SOURCES.includes(rel.source) ? "proton" : "wine");
       await invoke("install_compatibility_runner", {
         downloadUrl: rel.downloadUrl,
         filename: rel.filename,
@@ -1290,6 +1292,20 @@ export default function CompatibilityTab() {
                   </button>
                   <button
                     type="button"
+                    className={`runner-source-pill ${activeSource === "cachyos" ? "active" : ""}`}
+                    onClick={() => setActiveSource("cachyos")}
+                  >
+                    <strong>{t("compatibility.sourceCachyos")}</strong>
+                  </button>
+                  <button
+                    type="button"
+                    className={`runner-source-pill ${activeSource === "proton-em" ? "active" : ""}`}
+                    onClick={() => setActiveSource("proton-em")}
+                  >
+                    <strong>{t("compatibility.sourceProtonEm")}</strong>
+                  </button>
+                  <button
+                    type="button"
                     className={`runner-source-pill ${activeSource === "wine-ge" ? "active" : ""}`}
                     onClick={() => setActiveSource("wine-ge")}
                   >
@@ -1304,10 +1320,10 @@ export default function CompatibilityTab() {
                   </button>
                   <button
                     type="button"
-                    className={`runner-source-pill ${activeSource === "lutris" ? "active" : ""}`}
-                    onClick={() => setActiveSource("lutris")}
+                    className={`runner-source-pill ${activeSource === "soda" ? "active" : ""}`}
+                    onClick={() => setActiveSource("soda")}
                   >
-                    <strong>{t("compatibility.sourceLutris")}</strong>
+                    <strong>{t("compatibility.sourceSoda")}</strong>
                   </button>
                   <button
                     type="button"
@@ -1321,9 +1337,11 @@ export default function CompatibilityTab() {
                 {/* Source Description */}
                 <p className="runner-source-description">
                   {activeSource === "ge-proton" && t("compatibility.sourceGeProtonDesc")}
+                  {activeSource === "cachyos" && t("compatibility.sourceCachyosDesc")}
+                  {activeSource === "proton-em" && t("compatibility.sourceProtonEmDesc")}
                   {activeSource === "wine-ge" && t("compatibility.sourceWineGeDesc")}
                   {activeSource === "kron4ek" && t("compatibility.sourceKron4ekDesc")}
-                  {activeSource === "lutris" && t("compatibility.sourceLutrisDesc")}
+                  {activeSource === "soda" && t("compatibility.sourceSodaDesc")}
                   {activeSource === "custom" && t("compatibility.sourceCustomUrlDesc")}
                 </p>
 
@@ -1409,7 +1427,7 @@ export default function CompatibilityTab() {
                     ) : (
                       releases.map((rel) => {
                         const targetType =
-                          rel.targetType || (rel.source === "ge-proton" ? "proton" : "wine");
+                          rel.targetType || (PROTON_SOURCES.includes(rel.source) ? "proton" : "wine");
                         const dateStr = rel.releaseDate || rel.publishedAt;
                         const formattedDate = dateStr
                           ? (() => {
