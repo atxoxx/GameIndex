@@ -26,7 +26,57 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  getCurrentWindow,
+  type PhysicalPosition,
+  type PhysicalSize,
+} from "@tauri-apps/api/window";
+
+type TauriWindow = ReturnType<typeof getCurrentWindow>;
+
+interface WindowSnapshot {
+  maximized: boolean;
+  size: PhysicalSize;
+  position: PhysicalPosition;
+}
+
+// Geometry captured right before entering native fullscreen. Tauri/GTK
+// usually restores it when leaving fullscreen, but a window that entered
+// through the Web Fullscreen fallback would otherwise stay fullscreen,
+// and some window managers come back at the wrong size. Restoring the
+// snapshot explicitly guarantees the window looks exactly like it did
+// before Big Screen mode was entered.
+let windowSnapshot: WindowSnapshot | null = null;
+
+async function captureWindowSnapshot(win: TauriWindow): Promise<void> {
+  try {
+    const [maximized, size, position] = await Promise.all([
+      win.isMaximized(),
+      win.innerSize(),
+      win.outerPosition(),
+    ]);
+    windowSnapshot = { maximized, size, position };
+  } catch {
+    windowSnapshot = null;
+  }
+}
+
+async function restoreWindowSnapshot(win: TauriWindow): Promise<void> {
+  const snapshot = windowSnapshot;
+  windowSnapshot = null;
+  if (!snapshot) return;
+  try {
+    if (snapshot.maximized) {
+      if (!(await win.isMaximized())) await win.maximize();
+      return;
+    }
+    if (await win.isMaximized()) await win.unmaximize();
+    await win.setSize(snapshot.size);
+    await win.setPosition(snapshot.position);
+  } catch {
+    /* window closed or platform refuses geometry changes */
+  }
+}
 
 const LS_BIG_SCREEN = "gamelib-bigscreen";
 
@@ -46,42 +96,54 @@ function lsSet(key: string, value: string): void {
 }
 
 async function setTauriFullscreen(on: boolean): Promise<void> {
+  let win: TauriWindow | null = null;
   try {
-    const win = getCurrentWindow();
-    // Read the current state first so toggling from a fullscreen
-    // window that the user just exited with Escape doesn't make a
-    // redundant IPC call that would re-enter fullscreen by accident.
-    const isCurrentlyFullscreen = await win.isFullscreen().catch(() => false);
-    if (isCurrentlyFullscreen === on) return;
-
-    if (on) {
-      // Enter native fullscreen directly. We deliberately do NOT touch
-      // window decorations here: on Windows, flipping decorations on
-      // then off resizes the frame and leaves the OS taskbar overlapping
-      // the bottom of the window (the "bottom cut off" bug). A bordlerless
-      // window going native-fullscreen cleanly covers the taskbar.
-      await win.setFullscreen(true);
-    } else {
-      await win.setFullscreen(false);
-    }
+    win = getCurrentWindow();
   } catch {
-    // Tauri API not available (e.g. `npm run dev` in browser).
-    // Fallback: use HTML5 Fullscreen API for standard browsers
-    if (typeof document !== "undefined") {
-      const isCurrentlyFullscreen = !!document.fullscreenElement;
-      if (isCurrentlyFullscreen === on) return;
-      if (on) {
-        document.documentElement.requestFullscreen().catch((err) => {
-          console.warn("Failed to enter browser fullscreen:", err);
-        });
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch((err) => {
-            console.warn("Failed to exit browser fullscreen:", err);
-          });
-        }
+    // Tauri API not available (e.g. `npm run dev` in browser). The
+    // Web Fullscreen fallback below still runs.
+  }
+
+  if (win) {
+    if (on) {
+      try {
+        if (await win.isFullscreen().catch(() => false)) return;
+        await captureWindowSnapshot(win);
+        // Enter native fullscreen directly. We deliberately do NOT touch
+        // window decorations here: on Windows, flipping decorations on
+        // then off resizes the frame and leaves the OS taskbar overlapping
+        // the bottom of the window (the "bottom cut off" bug). A borderless
+        // window going native-fullscreen cleanly covers the taskbar.
+        await win.setFullscreen(true);
+        return;
+      } catch {
+        // Native fullscreen rejected (e.g. missing capability on an older
+        // build) — fall through to the Web Fullscreen API.
       }
+    } else {
+      // A window that entered through the Web Fullscreen fallback reports
+      // `isFullscreen() === false`, so leaving has to run unconditionally
+      // or the native window stays fullscreen forever.
+      if (typeof document !== "undefined" && document.fullscreenElement) {
+        await document.exitFullscreen().catch(() => {});
+      }
+      await win.setFullscreen(false).catch(() => {});
+      await restoreWindowSnapshot(win);
+      return;
     }
+  }
+
+  if (typeof document === "undefined") return;
+  if (on) {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn("Failed to enter browser fullscreen:", err);
+      });
+    }
+  } else if (document.fullscreenElement) {
+    document.exitFullscreen().catch((err) => {
+      console.warn("Failed to exit browser fullscreen:", err);
+    });
   }
 }
 
