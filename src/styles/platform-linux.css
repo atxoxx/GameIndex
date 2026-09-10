@@ -48,3 +48,19 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* The library page is the default landing route. Its KPI tiles and sticky
+   toolbar sit on top of the always-animating aurora, so their backdrop
+   was re-blurred every frame; the toolbar re-blurs on every scroll frame.
+   Strip those blurs and freeze the aurora drift — the static gradient is
+   visually near-identical and stops the compositor from never idling. */
+[data-platform="linux"] .lib-stat,
+[data-platform="linux"] .lib-toolbar,
+[data-platform="linux"] .lib-hero-btn--ghost {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-platform="linux"] .lib-hero-aurora {
+  animation: none;
+}

@@ -133,7 +133,7 @@ export default function HeroTrailer({
           className="hero-trailer__video"
           src={parsed.src}
           poster={poster ?? undefined}
-          autoPlay={shouldAutoplay}
+          autoPlay={shouldAutoplay && isInView}
           muted
           loop
           playsInline
@@ -156,10 +156,18 @@ export default function HeroTrailer({
     );
   }
 
-  // YouTube
+  // YouTube. The wrapper carries `containerRef` so the visibility
+  // observer actually attaches (it previously never did, letting the
+  // autoplaying iframe run when the hero was scrolled away or the window
+  // hidden — leaking GStreamer/WebKit media pipelines). Ambient autoplay
+  // unmounts the iframe when out of view; a user-activated trailer stays.
   return (
-    <div className={`hero-trailer${className ? ` ${className}` : ""}`} aria-hidden={!playing}>
-      {playing ? (
+    <div
+      ref={containerRef}
+      className={`hero-trailer${className ? ` ${className}` : ""}`}
+      aria-hidden={!playing}
+    >
+      {playing && (isInView || activated) ? (
         <iframe
           className="hero-trailer__video"
           src={youtubeEmbed(parsed.id, true, shouldAutoplay)}

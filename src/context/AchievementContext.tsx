@@ -28,6 +28,7 @@ import type {
   BatchSyncResult,
 } from "../types/game";
 import type { SteamSession } from "../types/steam";
+import { deferToIdle } from "../utils/idle";
 
 // ── Settings persistence ────────────────────────────────────────────────
 
@@ -210,22 +211,26 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
 
   // Load cache from disk on mount. Guarded: if a sync already wrote
   // entries before the (async) load resolved, keep the fresher data.
+  // Deferred to idle: the payload is multi-MB of JSON, and parsing it on
+  // the boot path competed with `load_games` for the main thread.
   useEffect(() => {
-    (async () => {
-      try {
-        const raw: string = await invoke("load_achievements_cache");
-        if (raw) {
-          const parsed = JSON.parse(raw) as AchievementsCache;
-          if (parsed && parsed.games) {
-            if (Object.keys(cacheRef.current.games).length > 0) return;
-            cacheRef.current = parsed;
-            setCache(parsed);
+    deferToIdle(() => {
+      (async () => {
+        try {
+          const raw: string = await invoke("load_achievements_cache");
+          if (raw) {
+            const parsed = JSON.parse(raw) as AchievementsCache;
+            if (parsed && parsed.games) {
+              if (Object.keys(cacheRef.current.games).length > 0) return;
+              cacheRef.current = parsed;
+              setCache(parsed);
+            }
           }
+        } catch (err) {
+          console.warn("[AchievementContext] Failed to load cache:", err);
         }
-      } catch (err) {
-        console.warn("[AchievementContext] Failed to load cache:", err);
-      }
-    })();
+      })();
+    }, 2500);
   }, []);
 
   const clearCache = useCallback(async () => {

@@ -164,6 +164,8 @@ function SidebarGameItemBase({
           <img
             src={game.coverArtUrl}
             alt={game.name}
+            loading="lazy"
+            decoding="async"
             onError={(e) => {
               const img = e.currentTarget;
               const appId = game.steamAppId;
@@ -183,11 +185,13 @@ function SidebarGameItemBase({
             }}
           />
         ) : game.iconUrl ? (
-          <img src={game.iconUrl} alt={game.name} />
+          <img src={game.iconUrl} alt={game.name} loading="lazy" decoding="async" />
         ) : game.coverArtUrl ? (
           <img
             src={game.coverArtUrl}
             alt={game.name}
+            loading="lazy"
+            decoding="async"
             onError={(e) => {
               const img = e.currentTarget;
               const appId = game.steamAppId;

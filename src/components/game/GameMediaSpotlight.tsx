@@ -41,18 +41,36 @@ function HlsPlayer({ movie, isInView }: { movie: MovieEntry; isInView?: boolean 
     let hlsInstance: import("hls.js").default | null = null;
     let isCancelled = false;
 
+    const startLoad = () => hlsInstance?.startLoad();
+    const stopLoad = () => hlsInstance?.stopLoad();
+    const onPlay = () => startLoad();
+    const onStop = () => stopLoad();
+
     import("hls.js").then(({ default: Hls }) => {
       if (isCancelled || !videoRef.current) return;
       if (Hls.isSupported()) {
-        const hls = new Hls();
+        // Do NOT buffer before the user presses play: hls.js defaults to
+        // autoStartLoad, which fetched and appended segments at mount.
+        // On WebKitGTK that spins up MSE/GStreamer pipelines for a trailer
+        // nobody asked for. Loading starts on the first `play` and stops
+        // on pause/end (the isInView pause below then also stops it).
+        const hls = new Hls({ autoStartLoad: false });
         hlsInstance = hls;
         hls.loadSource(src);
         hls.attachMedia(videoRef.current);
+        if (!videoRef.current.paused && !videoRef.current.ended) hls.startLoad();
       }
     });
 
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onStop);
+    video.addEventListener("ended", onStop);
+
     return () => {
       isCancelled = true;
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onStop);
+      video.removeEventListener("ended", onStop);
       if (hlsInstance) {
         hlsInstance.destroy();
       }
@@ -65,7 +83,7 @@ function HlsPlayer({ movie, isInView }: { movie: MovieEntry; isInView?: boolean 
       controls
       poster={movie.thumbnail || undefined}
       playsInline
-      preload="metadata"
+      preload="none"
       aria-label={label}
       className="media-spotlight__player"
     />
@@ -90,13 +108,17 @@ function SteamPlayer({ movie, isInView }: { movie: MovieEntry; isInView?: boolea
   if (movie.mp4) sources.push({ src: movie.mp4, type: "video/mp4" });
   const label = movie.name || t("game.mediaSpotlight.trailer");
 
+  // `preload="none"`: WebKitGTK spins up a GStreamer pipeline for the
+  // "metadata" preload on mount and kept it decoding a trailer the user
+  // never played (measured ~75% sustained CPU on a game page). The poster
+  // still shows; pressing play loads the stream.
   return (
     <video
       ref={videoRef}
       controls
       poster={movie.thumbnail || undefined}
       playsInline
-      preload="metadata"
+      preload="none"
       aria-label={label}
       className="media-spotlight__player"
     >

@@ -17,6 +17,13 @@ export function usePersistence(options: {
   const { games, setGames, untrackedGameIdsRef, onLoaded } = options;
 
   const loadedRef = useRef(false);
+  // Arrays `load_games` handed to state. The first `[games]` effect run
+  // after one of them renders is not a user change, so it must not
+  // trigger a full-library `save_games` rewrite (which sent ~80 MB back
+  // to Rust on every boot, right as the window was being revealed). A
+  // WeakSet (not a single ref) because React StrictMode can run the load
+  // effect twice, producing two distinct arrays before the first paint.
+  const hydratedGamesRef = useRef<WeakSet<Game[]>>(new WeakSet());
 
   // Load persisted games on mount
   useEffect(() => {
@@ -26,7 +33,9 @@ export function usePersistence(options: {
           // Legacy rows may carry `file://` artwork URLs (written before
           // the asset protocol was enabled); the webview refuses to load
           // those, so convert them back to asset-protocol URLs on load.
-          setGames(dedupeGamesById(data.map(normalizeGameArtworkUrls)));
+          const normalized = dedupeGamesById(data.map(normalizeGameArtworkUrls));
+          hydratedGamesRef.current.add(normalized);
+          setGames(normalized);
           // Populate the watcher's process index for passive detection.
           // Pass game refs so the background poll loop can match
           // running processes to known games (excluding untracked ones).
@@ -89,6 +98,13 @@ export function usePersistence(options: {
 
   useEffect(() => {
     if (!loadedRef.current) return;
+    // The array handed over by `load_games` is the persisted state — only
+    // an actual mutation (enrichment, edit, session end) should schedule
+    // a write.
+    if (hydratedGamesRef.current.has(games)) {
+      hydratedGamesRef.current.delete(games);
+      return;
+    }
     pendingGamesRef.current = games;
     // Leading-window debounce: schedule once and let it fire; do NOT reset an
     // already-pending timer, otherwise a continuous scroll starves the save.
