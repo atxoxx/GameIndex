@@ -5076,6 +5076,7 @@ export const zhCN: TranslationDict = {
   "settings.backup.domain.emulators": "模拟器与 ROM",
   "settings.backup.domain.mods": "模组",
   "settings.backup.domain.plugins": "插件与搜索",
+  "settings.backup.domain.compatibility": "Linux 兼容性",
   "nav.docs": "文档",
   "docs.title": "文档",
   "docs.subtitle": "一份友好、非技术性的 GameIndex 使用指南，介绍每一个界面与按钮——专为新手编写，无需术语。",

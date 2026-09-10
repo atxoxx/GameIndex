@@ -5076,6 +5076,7 @@ export const ru: TranslationDict = {
   "settings.backup.domain.emulators": "Эмуляторы и ROM",
   "settings.backup.domain.mods": "Моды",
   "settings.backup.domain.plugins": "Плагины и поиск",
+  "settings.backup.domain.compatibility": "Совместимость с Linux",
   "nav.docs": "Документация",
   "docs.title": "Документация",
   "docs.subtitle": "Дружелюбное и понятное руководство по каждому экрану и кнопке GameIndex — написано для новичков, без технического жаргона.",

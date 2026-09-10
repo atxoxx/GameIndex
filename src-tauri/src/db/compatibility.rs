@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::params;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::pool::Db;
@@ -18,6 +19,39 @@ fn unix_now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+/// One row of `compatibility_settings` (raw global settings JSON).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompatibilitySettingsRow {
+    pub id: String,
+    pub settings_json: String,
+    pub updated_at: u64,
+}
+
+/// One row of `game_compatibility` (per-game override JSON).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameCompatibilityRow {
+    pub game_id: String,
+    pub config_json: String,
+    pub created_at: u64,
+    pub updated_at: u64,
+}
+
+/// One row of `compatibility_runners`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompatibilityRunnerRow {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub kind: String,
+    pub version: Option<String>,
+    pub is_proton: bool,
+    pub created_at: u64,
+    pub updated_at: u64,
 }
 
 /// Retrieve the raw JSON string for global compatibility settings.
@@ -148,6 +182,147 @@ pub fn upsert_batch_for_games(db: &Db, items: &[(String, Value)]) -> Result<(), 
     Ok(())
 }
 
+/// List every raw row of `compatibility_settings` (including timestamps).
+pub fn list_global_settings_rows(db: &Db) -> Result<Vec<CompatibilitySettingsRow>, String> {
+    let conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
+    let mut stmt = conn
+        .prepare("SELECT id, settings_json, updated_at FROM compatibility_settings")
+        .map_err(|e| format!("list global settings prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(CompatibilitySettingsRow {
+                id: r.get(0)?,
+                settings_json: r.get(1)?,
+                updated_at: r.get::<_, i64>(2)?.max(0) as u64,
+            })
+        })
+        .map_err(|e| format!("list global settings query: {e}"))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("list global settings row: {e}"))
+}
+
+/// Upsert one raw `compatibility_settings` row, preserving its timestamp.
+pub fn upsert_settings_row(db: &Db, row: &CompatibilitySettingsRow) -> Result<(), String> {
+    let conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
+    conn.execute(
+        "INSERT INTO compatibility_settings(id, settings_json, updated_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(id) DO UPDATE SET
+             settings_json = excluded.settings_json,
+             updated_at = excluded.updated_at",
+        params![row.id, row.settings_json, row.updated_at as i64],
+    )
+    .map_err(|e| format!("upsert settings row: {e}"))?;
+    Ok(())
+}
+
+/// List every raw row of `game_compatibility` (including timestamps).
+pub fn list_game_rows(db: &Db) -> Result<Vec<GameCompatibilityRow>, String> {
+    let conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
+    let mut stmt = conn
+        .prepare("SELECT game_id, config_json, created_at, updated_at FROM game_compatibility")
+        .map_err(|e| format!("list game compatibility prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(GameCompatibilityRow {
+                game_id: r.get(0)?,
+                config_json: r.get(1)?,
+                created_at: r.get::<_, i64>(2)?.max(0) as u64,
+                updated_at: r.get::<_, i64>(3)?.max(0) as u64,
+            })
+        })
+        .map_err(|e| format!("list game compatibility query: {e}"))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("list game compatibility row: {e}"))
+}
+
+/// Upsert one raw `game_compatibility` row, preserving its timestamps.
+pub fn upsert_game_row(db: &Db, row: &GameCompatibilityRow) -> Result<(), String> {
+    let conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
+    conn.execute(
+        "INSERT INTO game_compatibility(game_id, config_json, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(game_id) DO UPDATE SET
+             config_json = excluded.config_json,
+             updated_at = excluded.updated_at",
+        params![
+            row.game_id,
+            row.config_json,
+            row.created_at as i64,
+            row.updated_at as i64
+        ],
+    )
+    .map_err(|e| format!("upsert game row: {e}"))?;
+    Ok(())
+}
+
+/// List every registered compatibility runner.
+pub fn list_runners(db: &Db) -> Result<Vec<CompatibilityRunnerRow>, String> {
+    let conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, path, kind, version, is_proton, created_at, updated_at
+             FROM compatibility_runners",
+        )
+        .map_err(|e| format!("list runners prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(CompatibilityRunnerRow {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                path: r.get(2)?,
+                kind: r.get(3)?,
+                version: r.get(4)?,
+                is_proton: r.get::<_, i64>(5)? != 0,
+                created_at: r.get::<_, i64>(6)?.max(0) as u64,
+                updated_at: r.get::<_, i64>(7)?.max(0) as u64,
+            })
+        })
+        .map_err(|e| format!("list runners query: {e}"))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("list runners row: {e}"))
+}
+
+/// Upsert one compatibility runner, preserving its timestamps.
+pub fn upsert_runner(db: &Db, row: &CompatibilityRunnerRow) -> Result<(), String> {
+    let conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
+    conn.execute(
+        "INSERT INTO compatibility_runners(
+             id, name, path, kind, version, is_proton, created_at, updated_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(id) DO UPDATE SET
+             name = excluded.name,
+             path = excluded.path,
+             kind = excluded.kind,
+             version = excluded.version,
+             is_proton = excluded.is_proton,
+             updated_at = excluded.updated_at",
+        params![
+            row.id,
+            row.name,
+            row.path,
+            row.kind,
+            row.version,
+            row.is_proton as i64,
+            row.created_at as i64,
+            row.updated_at as i64
+        ],
+    )
+    .map_err(|e| format!("upsert runner: {e}"))?;
+    Ok(())
+}
+
+/// Remove every compatibility settings row, per-game override and runner.
+pub fn clear_all(db: &Db) -> Result<(), String> {
+    let conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
+    conn.execute("DELETE FROM compatibility_settings", [])
+        .map_err(|e| format!("clear compatibility_settings: {e}"))?;
+    conn.execute("DELETE FROM game_compatibility", [])
+        .map_err(|e| format!("clear game_compatibility: {e}"))?;
+    conn.execute("DELETE FROM compatibility_runners", [])
+        .map_err(|e| format!("clear compatibility_runners: {e}"))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,6 +367,58 @@ mod tests {
         assert_eq!(get_for_game(&db, "game-1").unwrap(), None);
         let all_after = list_all_for_games(&db).unwrap();
         assert_eq!(all_after.len(), 2);
+    }
+
+    #[test]
+    fn raw_rows_roundtrip_and_clear_all() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        crate::db::migrate::run_migrations(&db).unwrap();
+
+        let settings = CompatibilitySettingsRow {
+            id: "global".into(),
+            settings_json: r#"{"enableDxvk":true}"#.into(),
+            updated_at: 111,
+        };
+        upsert_settings_row(&db, &settings).unwrap();
+        let listed = list_global_settings_rows(&db).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].settings_json, settings.settings_json);
+        assert_eq!(listed[0].updated_at, 111);
+
+        let profile = GameCompatibilityRow {
+            game_id: "game-9".into(),
+            config_json: r#"{"enabled":true}"#.into(),
+            created_at: 222,
+            updated_at: 333,
+        };
+        upsert_game_row(&db, &profile).unwrap();
+        let profiles = list_game_rows(&db).unwrap();
+        assert_eq!(profiles.len(), 1);
+        assert_eq!(profiles[0].game_id, "game-9");
+        assert_eq!(profiles[0].created_at, 222);
+        assert_eq!(profiles[0].updated_at, 333);
+
+        let runner = CompatibilityRunnerRow {
+            id: "proton-ge".into(),
+            name: "GE-Proton".into(),
+            path: "/opt/proton".into(),
+            kind: "ge-proton".into(),
+            version: Some("9-20".into()),
+            is_proton: true,
+            created_at: 444,
+            updated_at: 555,
+        };
+        upsert_runner(&db, &runner).unwrap();
+        let runners = list_runners(&db).unwrap();
+        assert_eq!(runners.len(), 1);
+        assert_eq!(runners[0].version.as_deref(), Some("9-20"));
+        assert!(runners[0].is_proton);
+
+        clear_all(&db).unwrap();
+        assert!(list_global_settings_rows(&db).unwrap().is_empty());
+        assert!(list_game_rows(&db).unwrap().is_empty());
+        assert!(list_runners(&db).unwrap().is_empty());
     }
 }
 

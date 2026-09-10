@@ -5076,6 +5076,7 @@ export const es: TranslationDict = {
   "settings.backup.domain.emulators": "Emuladores y ROMs",
   "settings.backup.domain.mods": "Mods",
   "settings.backup.domain.plugins": "Plugins y búsqueda",
+  "settings.backup.domain.compatibility": "Compatibilidad con Linux",
   "nav.docs": "Documentación",
   "docs.title": "Documentación",
   "docs.subtitle": "Una guía amigable y sin tecnicismos de cada pantalla y botón de GameIndex — escrita para jugadores nuevos, sin jerga.",

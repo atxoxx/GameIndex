@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { Button, ConfirmModal } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
 import SettingsSection from "./SettingsSection";
 import { BackupIcon, CloudIcon, DownloadIcon, RefreshIcon } from "./settingsIcons";
@@ -63,6 +64,7 @@ const BACKUP_DOMAIN_LABEL_KEYS: Record<string, string> = {
   emulators: "settings.backup.domain.emulators",
   mods: "settings.backup.domain.mods",
   plugins: "settings.backup.domain.plugins",
+  compatibility: "settings.backup.domain.compatibility",
 };
 
 /** Last path segment of a file dialog result. */
@@ -80,6 +82,7 @@ function fileName(path: string): string {
  */
 export default function BackupTab() {
   const { t } = useLanguage();
+  const { showFullLinuxUi } = useSettings();
   const { showToast } = useToast();
   const [status, setStatus] = useState<BackupStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,7 +119,12 @@ export default function BackupTab() {
     };
   }, [refresh]);
 
-  const existingDomains = status?.domains.filter((d) => d.sizeBytes > 0) ?? [];
+  // The Linux/Wine/Proton domain only applies when the full Linux UI is on.
+  const isDomainVisible = (name: string) =>
+    showFullLinuxUi || name !== "compatibility";
+
+  const existingDomains =
+    status?.domains.filter((d) => d.sizeBytes > 0 && isDomainVisible(d.name)) ?? [];
   const totalBytes = existingDomains.reduce((acc, d) => acc + d.sizeBytes, 0);
 
   // ─── Create selection helpers ──────────────────────────────────────────
@@ -187,21 +195,24 @@ export default function BackupTab() {
   };
 
   const isRestoreChecked = (name: string) => selectedRestore[name] !== false;
-  const restoreChoices = archive?.domains.filter((name) => isRestoreChecked(name)) ?? [];
+  const archiveDomains = archive?.domains.filter(isDomainVisible) ?? [];
+  const restoreChoices = archiveDomains.filter((name) => isRestoreChecked(name));
   const restoreAllSelected =
-    archive !== null && archive.domains.every((name) => isRestoreChecked(name));
+    archive !== null &&
+    archiveDomains.length > 0 &&
+    archiveDomains.every((name) => isRestoreChecked(name));
 
   const toggleRestore = (name: string, checked: boolean) =>
     setSelectedRestore((prev) => ({ ...prev, [name]: checked }));
 
   const setAllRestore = (checked: boolean) => {
     if (!archive) return;
-    setSelectedRestore(Object.fromEntries(archive.domains.map((name) => [name, checked])));
+    setSelectedRestore(Object.fromEntries(archiveDomains.map((name) => [name, checked])));
   };
 
   const doRestore = async () => {
     if (!archive) return;
-    const chosen = archive.domains.filter((name) => isRestoreChecked(name));
+    const chosen = restoreChoices;
     if (chosen.length === 0) return;
     try {
       setRestoring(true);
@@ -410,11 +421,11 @@ export default function BackupTab() {
                 <span className="settings-backup-picker-count">
                   {t("settings.backup.selectedCount", {
                     count: restoreChoices.length,
-                    total: archive.domains.length,
+                    total: archiveDomains.length,
                   })}
                 </span>
               </div>
-              {archive.domains.map((name) => {
+              {archiveDomains.map((name) => {
                 const count = archive.counts?.[name];
                 return (
                   <label

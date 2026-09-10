@@ -45,6 +45,7 @@ const DOMAIN_LABEL_KEYS: Record<string, string> = {
   emulators: "settings.backup.domain.emulators",
   mods: "settings.backup.domain.mods",
   plugins: "settings.backup.domain.plugins",
+  compatibility: "settings.backup.domain.compatibility",
 };
 
 function fileName(path: string): string {

@@ -65,6 +65,7 @@ pub const BACKUP_DOMAINS: &[&str] = &[
     "download_history",
     "store_cache",
     "kv",
+    "compatibility",
 ];
 
 /// One row of the backup overview: a domain + the live file's size + item count.
@@ -613,6 +614,7 @@ fn unix_now() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::compatibility::{self, CompatibilityRunnerRow};
     use crate::db::kv;
 
     /// Mirrors production startup: open pools then run per-domain
@@ -821,6 +823,121 @@ mod tests {
 
         assert_eq!(kv::get(&db, "marker.saved").unwrap(), Some("from_backup".into()));
         assert_eq!(kv::get(&db, "marker.local").unwrap(), Some("keep_me".into()));
+    }
+
+    #[test]
+    fn compatibility_domain_roundtrip() {
+        let (dir, db) = prep();
+        compatibility::set_global_settings(&db, r#"{"enableDxvk":false}"#).unwrap();
+        compatibility::upsert_for_game(&db, "game-1", &serde_json::json!({"enabled": true})).unwrap();
+        compatibility::upsert_runner(
+            &db,
+            &CompatibilityRunnerRow {
+                id: "ge-proton".into(),
+                name: "GE-Proton".into(),
+                path: "/opt/ge-proton".into(),
+                kind: "ge-proton".into(),
+                version: Some("9-20".into()),
+                is_proton: true,
+                created_at: 100,
+                updated_at: 200,
+            },
+        )
+        .unwrap();
+
+        let target = dir.path().join("compat.gibak");
+        let outcome = do_create(
+            &db,
+            dir.path(),
+            target.to_str().unwrap(),
+            Some(&["compatibility".to_string()]),
+        )
+        .unwrap();
+        assert_eq!(outcome.domains, vec!["compatibility"]);
+
+        let (restore_dir, restore_db) = prep();
+        do_restore_test(
+            &restore_db,
+            restore_dir.path(),
+            target.to_str().unwrap(),
+            Some(&["compatibility".to_string()]),
+        )
+        .unwrap();
+
+        assert_eq!(
+            compatibility::get_global_settings(&restore_db)
+                .unwrap()
+                .as_deref(),
+            Some(r#"{"enableDxvk":false}"#)
+        );
+        let profile = compatibility::get_for_game(&restore_db, "game-1")
+            .unwrap()
+            .unwrap();
+        assert_eq!(profile["enabled"], true);
+        let runners = compatibility::list_runners(&restore_db).unwrap();
+        assert_eq!(runners.len(), 1);
+        assert_eq!(runners[0].version.as_deref(), Some("9-20"));
+    }
+
+    #[test]
+    fn compatibility_merge_preserves_local_profile() {
+        let (dir, db) = prep();
+        compatibility::upsert_for_game(
+            &db,
+            "game-from-backup",
+            &serde_json::json!({"enabled": true}),
+        )
+        .unwrap();
+        let target = dir.path().join("compat_merge.gibak");
+        do_create(
+            &db,
+            dir.path(),
+            target.to_str().unwrap(),
+            Some(&["compatibility".to_string()]),
+        )
+        .unwrap();
+
+        compatibility::upsert_for_game(&db, "game-local", &serde_json::json!({"enabled": false}))
+            .unwrap();
+        crate::backup_raw::restore_raw_backup::<fn(BackupProgress)>(
+            &db,
+            dir.path(),
+            target.to_str().unwrap(),
+            Some(&["compatibility".to_string()]),
+            "merge",
+            None,
+        )
+        .unwrap();
+
+        assert!(compatibility::get_for_game(&db, "game-from-backup")
+            .unwrap()
+            .is_some());
+        assert!(compatibility::get_for_game(&db, "game-local")
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn restore_rejects_compatibility_not_in_archive() {
+        let (dir, db) = prep();
+        let target = dir.path().join("kv_only.gibak");
+        do_create(
+            &db,
+            dir.path(),
+            target.to_str().unwrap(),
+            Some(&["kv".to_string()]),
+        )
+        .unwrap();
+
+        let (restore_dir, restore_db) = prep();
+        let err = do_restore_test(
+            &restore_db,
+            restore_dir.path(),
+            target.to_str().unwrap(),
+            Some(&["compatibility".to_string()]),
+        )
+        .unwrap_err();
+        assert!(err.contains("compatibility"), "unexpected err: {err}");
     }
 
     #[test]

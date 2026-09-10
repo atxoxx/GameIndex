@@ -5076,6 +5076,7 @@ export const de: TranslationDict = {
   "settings.backup.domain.emulators": "Emulatoren & ROMs",
   "settings.backup.domain.mods": "Mods",
   "settings.backup.domain.plugins": "Plugins & Suche",
+  "settings.backup.domain.compatibility": "Linux-Kompatibilität",
   "nav.docs": "Dokumentation",
   "docs.title": "Dokumentation",
   "docs.subtitle": "Ein freundlicher, nicht-technischer Leitfaden für jeden Bildschirm und jede Schaltfläche in GameIndex — geschrieben für neue Spieler, ohne Fachbegriffe.",

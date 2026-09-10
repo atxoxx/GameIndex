@@ -24,6 +24,9 @@ use serde::{Deserialize, Serialize};
 use crate::backup::{BackupOutcome, BackupProgress, BACKUP_DOMAINS};
 use crate::db::achievement_links::{self, AchievementLink};
 use crate::db::achievements;
+use crate::db::compatibility::{
+    self, CompatibilityRunnerRow, CompatibilitySettingsRow, GameCompatibilityRow,
+};
 use crate::db::emulators::{self, EmulatorRow};
 use crate::db::games::{self, GameRow};
 use crate::db::kv;
@@ -169,6 +172,21 @@ pub fn count_domain_items(db: &Db, domain: &str) -> u64 {
             .and_then(|c| {
                 c.query_row("SELECT count(*) FROM news_cache", [], |r| r.get::<_, i64>(0))
                     .ok()
+            })
+            .unwrap_or(0)
+            .max(0) as u64,
+        "compatibility" => db
+            .compatibility()
+            .ok()
+            .and_then(|c| {
+                c.query_row(
+                    "SELECT (SELECT count(*) FROM compatibility_settings)
+                          + (SELECT count(*) FROM game_compatibility)
+                          + (SELECT count(*) FROM compatibility_runners)",
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )
+                .ok()
             })
             .unwrap_or(0)
             .max(0) as u64,
@@ -430,6 +448,34 @@ where
                         "updatedAt": updated_at,
                     });
                     let line = serde_json::to_string(&entry).map_err(|e| e.to_string())?;
+                    zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+                    zip.write_all(b"\n").map_err(|e| e.to_string())?;
+                }
+            }
+            "compatibility" => {
+                zip.start_file("data/compatibility_settings.ndjson", zip_file_opts())
+                    .map_err(|e| format!("zip compatibility_settings entry: {e}"))?;
+                let settings_rows = compatibility::list_global_settings_rows(db)?;
+                for row in &settings_rows {
+                    let line = serde_json::to_string(row).map_err(|e| e.to_string())?;
+                    zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+                    zip.write_all(b"\n").map_err(|e| e.to_string())?;
+                }
+
+                zip.start_file("data/game_compatibility.ndjson", zip_file_opts())
+                    .map_err(|e| format!("zip game_compatibility entry: {e}"))?;
+                let game_rows = compatibility::list_game_rows(db)?;
+                for row in &game_rows {
+                    let line = serde_json::to_string(row).map_err(|e| e.to_string())?;
+                    zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+                    zip.write_all(b"\n").map_err(|e| e.to_string())?;
+                }
+
+                zip.start_file("data/compatibility_runners.ndjson", zip_file_opts())
+                    .map_err(|e| format!("zip compatibility_runners entry: {e}"))?;
+                let runners = compatibility::list_runners(db)?;
+                for row in &runners {
+                    let line = serde_json::to_string(row).map_err(|e| e.to_string())?;
                     zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
                     zip.write_all(b"\n").map_err(|e| e.to_string())?;
                 }
@@ -811,6 +857,47 @@ where
                             {
                                 let _ = kv::set(db, k, v);
                             }
+                        }
+                    }
+                }
+            }
+            "compatibility" => {
+                if replace_mode {
+                    let _ = compatibility::clear_all(db);
+                }
+                if let Ok(entry) = archive.by_name("data/compatibility_settings.ndjson") {
+                    let reader = BufReader::new(entry);
+                    for line in reader.lines() {
+                        let l = line.map_err(|e| e.to_string())?;
+                        if l.trim().is_empty() {
+                            continue;
+                        }
+                        if let Ok(row) = serde_json::from_str::<CompatibilitySettingsRow>(&l) {
+                            let _ = compatibility::upsert_settings_row(db, &row);
+                        }
+                    }
+                }
+                if let Ok(entry) = archive.by_name("data/game_compatibility.ndjson") {
+                    let reader = BufReader::new(entry);
+                    for line in reader.lines() {
+                        let l = line.map_err(|e| e.to_string())?;
+                        if l.trim().is_empty() {
+                            continue;
+                        }
+                        if let Ok(row) = serde_json::from_str::<GameCompatibilityRow>(&l) {
+                            let _ = compatibility::upsert_game_row(db, &row);
+                        }
+                    }
+                }
+                if let Ok(entry) = archive.by_name("data/compatibility_runners.ndjson") {
+                    let reader = BufReader::new(entry);
+                    for line in reader.lines() {
+                        let l = line.map_err(|e| e.to_string())?;
+                        if l.trim().is_empty() {
+                            continue;
+                        }
+                        if let Ok(row) = serde_json::from_str::<CompatibilityRunnerRow>(&l) {
+                            let _ = compatibility::upsert_runner(db, &row);
                         }
                     }
                 }
