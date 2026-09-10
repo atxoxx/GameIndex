@@ -764,8 +764,32 @@ pub fn launch_game(
     let mut initial_pid: u32 = 0;
     let exe_path: Option<String>;
 
-    // â”€â”€ Determine launch strategy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    if platform == "Steam" && show_steam_launch_selection.unwrap_or(false) {
+    // ── Determine launch strategy ────────────────────────────────────
+    // On Linux, Steam titles route through the compatibility-aware
+    // handler so the configured Wine/Proton flags reach the game: Steam
+    // persists them as launch options, and a running client (whose IPC
+    // hand-off drops the invoker's env) forces a direct compatibility
+    // launch. Other platforms keep the plain protocol handling below.
+    #[cfg(target_os = "linux")]
+    let steam_via_compat = platform == "Steam" && steam_app_id.is_some();
+    #[cfg(not(target_os = "linux"))]
+    let steam_via_compat = false;
+
+    if steam_via_compat {
+        let sid = steam_app_id.ok_or("Steam games require a steamAppId")?;
+        let outcome = crate::compatibility::launch_steam_game(
+            &app,
+            &game_id,
+            &game_name,
+            &game_path,
+            sid,
+            launch_arguments.as_deref(),
+            gpu_pci_id.as_deref(),
+            show_steam_launch_selection.unwrap_or(false),
+        )?;
+        initial_pid = outcome.pid;
+        exe_path = outcome.exe_path;
+    } else if platform == "Steam" && show_steam_launch_selection.unwrap_or(false) {
         // Steam game with the launch-picker option enabled — go through
         // `steam://launch/<appid>/dialog` so Steam shows its
         // choose-executable/action window (games with a single launch
@@ -775,7 +799,7 @@ pub fn launch_game(
         tauri_plugin_opener::open_url(url, None::<&str>)
             .map_err(|e| format!("Failed to open Steam URL: {}", e))?;
 
-        // No PID â€" the watcher will detect the process when it appears
+        // No PID — the watcher will detect the process when it appears
         initial_pid = 0;
         // Carry the sync-resolved exe so the watcher's Tier-3 stem
         // attach and the exe-based install_dir fallback still work while
@@ -783,39 +807,14 @@ pub fn launch_game(
         // with the real process path before any liveness check.
         exe_path = if game_path.is_empty() { None } else { Some(game_path.clone()) };
     } else if platform == "Steam" && (game_path.is_empty() || !Path::new(&game_path).exists()) {
-        // Steam game without local exe â€" launch through Steam itself.
-        // When the `steam` CLI is available we spawn it with the
-        // configured Wine/Proton flag environment (Steam passes its own
-        // environment down to the game process), so the compatibility
-        // settings still apply even though Steam owns the launch.
-        // Otherwise fall back to the `steam://run/<appid>` protocol.
+        // Steam game without local exe — launch through the Steam
+        // protocol; the watcher detects the process when it appears.
         let sid = steam_app_id.ok_or("Steam games require a steamAppId")?;
+        let url = format!("steam://run/{}", sid);
+        tauri_plugin_opener::open_url(url, None::<&str>)
+            .map_err(|e| format!("Failed to open Steam URL: {}", e))?;
 
-        let launched_via_cli = {
-            #[cfg(target_os = "linux")]
-            {
-                crate::compatibility::is_command_available("steam")
-                    && crate::compatibility::try_launch_steam_app(
-                        &app,
-                        &game_id,
-                        sid,
-                        launch_arguments.as_deref(),
-                        gpu_pci_id.as_deref(),
-                    )
-            }
-            #[cfg(not(target_os = "linux"))]
-            {
-                false
-            }
-        };
-
-        if !launched_via_cli {
-            let url = format!("steam://run/{}", sid);
-            tauri_plugin_opener::open_url(url, None::<&str>)
-                .map_err(|e| format!("Failed to open Steam URL: {}", e))?;
-        }
-
-        // No PID â€" the watcher will detect the process when it appears
+        // No PID — the watcher will detect the process when it appears
         initial_pid = 0;
         // Carry the sync-resolved exe so the watcher's Tier-3 stem
         // attach and the exe-based install_dir fallback still work while
@@ -877,6 +876,7 @@ pub fn launch_game(
                 launch_arguments.as_deref(),
                 game_profile.as_ref(),
                 gpu_pci_id.as_deref(),
+                None,
             )?;
             None
         } else if run_as_admin.unwrap_or(false) {
