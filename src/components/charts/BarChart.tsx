@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useLayoutEffect, useRef } from "react";
 
 interface BarChartProps {
   data: number[];
@@ -20,10 +20,24 @@ export default function BarChart({
   tooltip = true,
 }: BarChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Measure the rendered width so the viewBox tracks the container instead of
+  // letterboxing at a fixed size (see LineChart for the same contract).
+  const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
+  const effectiveWidth = measuredWidth && measuredWidth > 0 ? measuredWidth : width;
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => setMeasuredWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const chart = useMemo(() => {
     const padding = { top: 20, right: 16, bottom: 30, left: 40 };
-    const chartW = width - padding.left - padding.right;
+    const chartW = effectiveWidth - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
     const maxVal = Math.max(...data, 1);
     const barGap = Math.max(4, chartW / (data.length * 3));
@@ -53,7 +67,7 @@ export default function BarChart({
       labelStride,
       showValuesOnTop,
     };
-  }, [data, width, height]);
+  }, [data, effectiveWidth, height]);
 
   const {
     padding,
@@ -84,9 +98,9 @@ export default function BarChart({
   }, []);
 
   return (
-    <div style={{ position: "relative" }}>
+    <div ref={containerRef} style={{ position: "relative" }}>
       <svg
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`0 0 ${effectiveWidth} ${height}`}
         width="100%"
         height={height}
         style={{ fontFamily: "inherit" }}

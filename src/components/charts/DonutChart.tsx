@@ -97,9 +97,9 @@ export default function DonutChart({
     <div style={{ display: "flex", alignItems: "center", gap: "var(--space-xl)", flexWrap: "wrap" }}>
       <svg
         viewBox={`0 0 ${size} ${size}`}
-        width={size}
-        height={size}
-        style={{ flexShrink: 0 }}
+        width="100%"
+        height="auto"
+        style={{ width: "100%", maxWidth: size, height: "auto", flexShrink: 0 }}
       >
         {arcs.map((arc, i) => {
           const isHovered = hoveredIndex === i;

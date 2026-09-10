@@ -92,6 +92,11 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     if (typeof window === "undefined") return true;
     return window.innerWidth >= 860;
   });
+  useEffect(() => {
+    const onResize = () => setShowInspector(window.innerWidth >= 860);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const effectiveShowInspector = !isSimpleMode && showInspector;
 
   const [igdbResults, setIgdbResults] = useState<StoreGameSummary[]>([]);

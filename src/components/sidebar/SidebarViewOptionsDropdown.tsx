@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { LibrarySort } from "../../hooks/useLibraryFilters";
@@ -34,6 +34,7 @@ export default function SidebarViewOptionsDropdown({
 }: SidebarViewOptionsDropdownProps) {
   const { t } = useLanguage();
   const menuRef = useRef<HTMLDivElement>(null);
+  const [clampedTop, setClampedTop] = useState<number | null>(null);
 
   // Close on Escape or click outside
   useEffect(() => {
@@ -46,12 +47,22 @@ export default function SidebarViewOptionsDropdown({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el || !anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    const height = el.offsetHeight;
+    setClampedTop(
+      Math.min(rect.bottom + 6, Math.max(8, window.innerHeight - height - 8))
+    );
+  }, [anchorEl]);
+
   if (!anchorEl) return null;
 
   const rect = anchorEl.getBoundingClientRect();
   const menuWidth = 280;
   const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8));
-  const top = rect.bottom + 6;
+  const top = clampedTop ?? rect.bottom + 6;
 
   const GROUP_BY_OPTIONS: { id: SidebarGroupBy; labelKey: string }[] = [
     { id: "none", labelKey: "sidebar.groupBy.none" },
@@ -79,6 +90,9 @@ export default function SidebarViewOptionsDropdown({
         top,
         left,
         width: menuWidth,
+        maxHeight: "calc(var(--app-h) - 16px)",
+        overflowY: "auto",
+        visibility: clampedTop === null ? "hidden" : "visible",
         zIndex: "var(--z-popover)",
       }}
       onMouseDown={(e) => e.stopPropagation()}

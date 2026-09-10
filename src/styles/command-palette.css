@@ -156,6 +156,7 @@
 
 .command-palette-input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   font-family: var(--font-sans);
@@ -1058,7 +1059,7 @@
 
 .cmd-inspector-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--space-sm);
 }
 
@@ -1844,6 +1845,7 @@
 
 .cmd-drawer-search-input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   font-size: var(--font-size-xs);
@@ -1989,6 +1991,7 @@
 
 .cmd-cheatsheet-search-input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   font-size: var(--font-size-xs);

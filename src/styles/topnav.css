@@ -631,6 +631,9 @@ html[data-game-accent] .window-controls-btn:active {
   top: calc(100% + 8px);
   left: 0;
   min-width: 185px;
+  max-width: calc(100vw - 2 * var(--space-md));
+  max-height: min(70vh, calc(var(--app-h) - var(--topnav-height) - 16px));
+  overflow-y: auto;
   background: color-mix(in srgb, var(--color-bg-secondary) 96%, transparent);
   backdrop-filter: blur(var(--blur-md));
   -webkit-backdrop-filter: blur(var(--blur-md));
@@ -732,9 +735,21 @@ html[data-game-accent] .window-controls-btn:active {
     height: 29px;
   }
 
+  .topnav-btn--cmd {
+    width: 29px;
+    height: 29px;
+  }
+
   .window-controls-btn {
     width: 32px;
     height: 29px;
+  }
+}
+
+/* ── Very narrow windows: drop the wordmark so nav controls keep room ────── */
+@media (max-width: 1040px) {
+  .topnav-logo__word {
+    display: none;
   }
 }
 

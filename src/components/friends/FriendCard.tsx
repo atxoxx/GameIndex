@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Friend, FriendCircle } from "./friendsTypes";
@@ -73,6 +73,21 @@ export default function FriendCard({
     setMenuPos({ top: rect.bottom + 6, left });
     setMenuOpen(true);
   }
+
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    const menu = menuRef.current;
+    const btn = triggerRef.current;
+    if (!menu || !btn) return;
+    const rect = btn.getBoundingClientRect();
+    const height = menu.offsetHeight;
+    const roomBelow = window.innerHeight - rect.bottom - 8;
+    const top =
+      roomBelow >= height || rect.top < height + 8
+        ? Math.min(rect.bottom + 6, window.innerHeight - height - 8)
+        : rect.top - height - 6;
+    setMenuPos({ top: Math.max(8, top), left: menuPos?.left ?? 8 });
+  }, [menuOpen, menuPos?.left]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -300,7 +315,15 @@ export default function FriendCard({
             className="friend-menu"
             role="menu"
             ref={menuRef}
-            style={{ position: "fixed", top: menuPos.top, left: menuPos.left, width: MENU_WIDTH, zIndex: 1200 }}
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              left: menuPos.left,
+              width: MENU_WIDTH,
+              maxHeight: "calc(var(--app-h) - 16px)",
+              overflowY: "auto",
+              zIndex: 1200,
+            }}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {menuItems.map((item, i) => (

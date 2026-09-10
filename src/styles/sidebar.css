@@ -4,7 +4,7 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--topnav-height));
+  height: calc(var(--app-h) - var(--topnav-height));
   background: var(--color-bg-secondary);
   border-right: 1px solid var(--color-border);
   width: var(--sidebar-width);
@@ -999,8 +999,10 @@ html[data-game-accent] .sidebar {
 .sidebar-bulk-action-bar__actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 2px;
   flex: 1;
+  min-width: 0;
   justify-content: flex-end;
 }
 
@@ -1845,8 +1847,8 @@ html[data-game-accent] .sidebar {
 
 .sidebar-filter-popover {
   position: fixed;
-  width: var(--sidebar-filter-popover-width);
-  max-height: calc(100vh - 24px);
+  width: min(var(--sidebar-filter-popover-width), calc(100vw - 24px));
+  max-height: calc(var(--app-h) - 24px);
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary);
@@ -2309,6 +2311,7 @@ html[data-game-accent] .sidebar {
 .sidebar-quick-filters {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 3px;
   padding: 3px;
   background: color-mix(in srgb, var(--color-bg-primary) 50%, var(--color-bg-tertiary));
@@ -2318,7 +2321,8 @@ html[data-game-accent] .sidebar {
 }
 
 .sidebar-quick-filter-pill {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2656,6 +2660,9 @@ html[data-game-accent] .sidebar {
   right: 8px;
   top: 140px;
   bottom: 48px;
+  max-height: calc(var(--app-h) - 188px);
+  overflow-y: auto;
+  scrollbar-width: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2765,6 +2772,10 @@ html[data-game-accent] .sidebar {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-medium);
 }
@@ -2865,8 +2876,8 @@ html[data-game-accent] .sidebar {
   }
 
   .sidebar-game-icon {
-    width: 24px;
-    height: 24px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-md);
   }
 

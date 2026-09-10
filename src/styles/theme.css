@@ -320,6 +320,28 @@
   }
 }
 
+/* ── 1b. Short viewports: 720p and 600px-tall windows ─────────────── */
+@media (max-height: 720px) {
+  :root {
+    --topnav-height: 52px;
+    --space-xl: 16px;
+    --space-2xl: 20px;
+    --space-3xl: 28px;
+    --space-4xl: 48px;
+    --page-padding: var(--space-sm) var(--space-lg) var(--space-xl);
+  }
+}
+
+@media (max-height: 620px) {
+  :root {
+    --topnav-height: 50px;
+    --space-lg: 12px;
+    --space-xl: 14px;
+    --space-2xl: 18px;
+    --page-padding: var(--space-sm) var(--space-md) var(--space-lg);
+  }
+}
+
 /* ── 2. 2K / QHD Displays (1921px - 2560px) ──────────────────────────────── */
 @media (min-width: 1921px) and (max-width: 2560px) {
   :root {

@@ -374,6 +374,7 @@
 .array-editor-row {
   display: flex;
   align-items: flex-end;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: var(--space-sm);
   background: var(--color-bg-secondary);

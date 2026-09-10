@@ -277,9 +277,10 @@ export default function LibraryVirtualGrid({
   const measure = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setViewportH(rect.height);
-    setContainerW(rect.width);
+    const container = containerRef.current ?? findScrollContainer(el);
+    setContainerW(el.clientWidth);
+    const h = container instanceof Window ? window.innerHeight : container.clientHeight;
+    if (h > 0) setViewportH(h);
   }, []);
 
   useEffect(() => {
@@ -293,6 +294,8 @@ export default function LibraryVirtualGrid({
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    if (!(container instanceof Window)) ro.observe(container);
+    window.addEventListener("resize", measure);
 
     let rafId = 0;
     const computeScrollTop = () => {
@@ -300,11 +303,11 @@ export default function LibraryVirtualGrid({
       const containerRect =
         container instanceof Window
           ? { top: 0, height: window.innerHeight }
-          : container.getBoundingClientRect();
+          : { top: container.getBoundingClientRect().top, height: container.clientHeight };
       const relativeTop = Math.max(0, containerRect.top - elRect.top);
       setScrollTop(relativeTop);
-      setViewportH(container instanceof Window ? window.innerHeight : containerRect.height);
-      setContainerW(elRect.width);
+      if (containerRect.height > 0) setViewportH(containerRect.height);
+      setContainerW(el.clientWidth);
     };
     computeScrollTop();
 
@@ -320,6 +323,7 @@ export default function LibraryVirtualGrid({
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
       ro.disconnect();
+      window.removeEventListener("resize", measure);
       container.removeEventListener("scroll", onScroll);
       containerRef.current = null;
     };
@@ -429,20 +433,22 @@ export default function LibraryVirtualGrid({
   const isNarrow = containerW > 0 && containerW <= 950;
   const isUltraWide = containerW >= 2200;
 
-  const rowHeight = density === "compact"
+  // List rows render `.lib-card--list` (~66px tall + 6px margin); a fixed
+  // 72px track keeps the stride exact so virtual offsets never drift.
+  const rowHeight = isList
+    ? 72
+    : density === "compact"
     ? (isNarrow ? 195 : isUltraWide ? 260 : 220)
     : density === "cinematic"
     ? (isNarrow ? 360 : isUltraWide ? 510 : 420)
-    : density === "list"
-    ? (isNarrow ? 70 : isUltraWide ? 90 : 80)
     : (isNarrow ? 370 : isUltraWide ? 490 : 424);
 
-  const gap = density === "compact"
+  const gap = isList
+    ? 0
+    : density === "compact"
     ? (isNarrow ? 10 : isUltraWide ? 16 : 12)
     : density === "cinematic"
     ? (isNarrow ? 16 : isUltraWide ? 28 : 24)
-    : density === "list"
-    ? (isNarrow ? 6 : isUltraWide ? 10 : 8)
     : (isNarrow ? 12 : isUltraWide ? 20 : 16);
 
   const minCol = density === "compact"
@@ -478,7 +484,12 @@ export default function LibraryVirtualGrid({
         <div className="lib-grid-spacer" style={{ height: totalHeight }}>
           <div
             className={`lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${editorial ? " lib-cards--editorial" : ""} lib-cards--virtual${isList ? " lib-cards--list" : ""}`}
-            style={{ transform: `translateY(${firstRow * rowStride}px)` }}
+            style={{
+              transform: `translateY(${firstRow * rowStride}px)`,
+              gridTemplateColumns: isList ? "1fr" : `repeat(${cols}, minmax(0, 1fr))`,
+              gap: `${gap}px`,
+              gridAutoRows: isList ? `${rowHeight}px` : undefined,
+            }}
           >
             {visible}
           </div>

@@ -35,7 +35,11 @@ export default function EditNicknameModal({
 
   return createPortal(
     <div className="friends-modal-backdrop" onClick={onClose}>
-      <div className="friends-modal-box friends-modal-sm" onClick={(e) => e.stopPropagation()}>
+      <form
+        className="friends-modal-box friends-modal-sm"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+      >
         <div className="friends-modal-header">
           <h2 className="friends-modal-title">
             <PencilIcon /> {t("friendsPage.setNickname")}
@@ -45,38 +49,36 @@ export default function EditNicknameModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="friends-modal-body">
-            <p className="friends-modal-desc">
-              {t("friendsPage.setNicknameDesc", { name: friend.name })}
-            </p>
-            <div className="form-group">
-              <input
-                type="text"
-                className="profile-input"
-                placeholder={friend.name}
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                autoFocus
-              />
-            </div>
+        <div className="friends-modal-body">
+          <p className="friends-modal-desc">
+            {t("friendsPage.setNicknameDesc", { name: friend.name })}
+          </p>
+          <div className="form-group">
+            <input
+              type="text"
+              className="profile-input"
+              placeholder={friend.name}
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              autoFocus
+            />
           </div>
+        </div>
 
-          <div className="friends-modal-footer">
-            {friend.nickname && (
-              <button type="button" className="btn btn-secondary btn--mini" onClick={handleClear}>
-                {t("friendsPage.clearNickname")}
-              </button>
-            )}
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              {t("common.cancel")}
+        <div className="friends-modal-footer">
+          {friend.nickname && (
+            <button type="button" className="btn btn-secondary btn--mini" onClick={handleClear}>
+              {t("friendsPage.clearNickname")}
             </button>
-            <button type="submit" className="btn btn-primary">
-              {t("common.save")}
-            </button>
-          </div>
-        </form>
-      </div>
+          )}
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            {t("common.cancel")}
+          </button>
+          <button type="submit" className="btn btn-primary">
+            {t("common.save")}
+          </button>
+        </div>
+      </form>
     </div>,
     document.body
   );

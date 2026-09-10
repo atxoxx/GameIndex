@@ -4,12 +4,16 @@
 .toast-container {
   position: fixed;
   bottom: 24px;
-  right: 24px;
+  right: var(--space-xl);
+  left: auto;
   z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
   pointer-events: none;
+  max-width: min(420px, calc(100vw - 2 * var(--space-xl)));
+  max-height: calc(var(--app-h) - 2 * var(--space-xl));
+  overflow-y: auto;
 }
 
 .toast-item {
@@ -28,7 +32,8 @@
     inset 0 1px 0 var(--color-border-highlight),
     var(--elevation-4);
   pointer-events: auto;
-  min-width: 280px;
+  min-width: 0;
+  width: 100%;
   max-width: 420px;
   animation: toastIn var(--transition-normal) ease;
   transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
@@ -181,7 +186,8 @@
 .update-notification {
   position: fixed;
   top: calc(var(--topnav-height) + 12px);
-  right: 24px;
+  right: var(--space-xl);
+  left: auto;
   z-index: var(--z-toast);
   display: flex;
   align-items: center;
@@ -191,7 +197,7 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-light);
   box-shadow: var(--shadow-lg);
-  max-width: 460px;
+  max-width: min(460px, calc(100vw - 48px));
   animation: toastIn var(--transition-normal) ease;
 }
 

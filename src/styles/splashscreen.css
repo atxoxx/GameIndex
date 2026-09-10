@@ -152,6 +152,7 @@
   z-index: 1;
   width: min(660px, 94vw);
   max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
@@ -399,6 +400,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .splashscreen-info-row {
@@ -765,6 +768,16 @@
   }
   .splashscreen-body {
     padding: var(--space-sm) var(--space-md) var(--space-md);
+  }
+}
+
+@media (max-height: 720px) {
+  .splashscreen-hero {
+    max-height: 170px;
+  }
+  .splashscreen-body {
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-lg) var(--space-md);
   }
 }
 

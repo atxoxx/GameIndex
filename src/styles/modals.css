@@ -35,6 +35,7 @@
   overflow: hidden;
   max-width: min(94vw, 1100px);
   max-height: min(90vh, 840px);
+  max-height: min(90dvh, 840px);
   animation: blurIn 220ms var(--ease-out) both;
 }
 
@@ -145,6 +146,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: var(--space-sm);
+  min-width: 0;
   padding: var(--space-md) var(--space-xl);
   border-top: 1px solid var(--color-border);
   flex-shrink: 0;
@@ -154,6 +158,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex-wrap: wrap;
+  row-gap: var(--space-sm);
+  min-width: 0;
   margin-left: auto;
 }
 
@@ -324,6 +331,34 @@
   }
 }
 
+@media (max-height: 560px) {
+  .modal-backdrop {
+    padding: var(--space-2xs);
+  }
+
+  .modal-header {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .modal-header-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .modal-header-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .modal-body {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .modal-footer {
+    padding: var(--space-xs) var(--space-md);
+  }
+}
+
 /* ===========================================================================
  * FolderScanProgressModal & BackupProgressModal
  * ========================================================================== */
@@ -458,7 +493,7 @@
 /* KPI metric tiles */
 .folder-scan-kpi-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--space-md);
 }
 
@@ -708,7 +743,7 @@
 
 .backup-domain-steps-list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-xs) var(--space-md);
   max-height: 160px;
   overflow-y: auto;

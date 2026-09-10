@@ -4,11 +4,11 @@
 .app-layout {
   display: grid;
   grid-template-rows: var(--topnav-height) 1fr;
-  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   grid-template-areas:
     "topnav topnav"
     "sidebar main";
-  height: 100vh;
+  height: var(--app-h);
   width: 100vw;
   background-color: var(--color-bg-primary);
   background-image:
@@ -50,11 +50,11 @@
 }
 
 .app-layout.sidebar-collapsed {
-  grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+  grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
 }
 
 .app-layout.sidebar-icon-rail {
-  grid-template-columns: var(--sidebar-icon-rail-width) 1fr;
+  grid-template-columns: var(--sidebar-icon-rail-width) minmax(0, 1fr);
 }
 
 .app-topnav {
@@ -65,12 +65,14 @@
 .app-sidebar {
   grid-area: sidebar;
   overflow: hidden;
+  min-width: 0;
   position: relative;
   z-index: 1;
 }
 
 .app-main {
   grid-area: main;
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior-y: none;
