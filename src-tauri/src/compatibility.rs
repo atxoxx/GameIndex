@@ -486,7 +486,7 @@ pub struct LinuxSystemStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct CompatibilitySettings {
     pub default_runner_path: Option<String>,
     pub default_prefix_base_dir: Option<String>,
@@ -495,7 +495,14 @@ pub struct CompatibilitySettings {
     pub enable_esync: bool,
     pub enable_fsync: bool,
     pub enable_dxvk_nvapi: bool,
+    /// Frontend spells this `enableMangoHud`; older settings rows in
+    /// `compatibility.db` carry the naive camelCase `enableMangohud`, so
+    /// both must load and saves emit the frontend key.
+    #[serde(rename = "enableMangoHud", alias = "enableMangohud")]
     pub enable_mangohud: bool,
+    /// Same legacy-key story as `enable_mangohud`: the UI uses
+    /// `enableGameMode`, not serde's `enableGamemode`.
+    #[serde(rename = "enableGameMode", alias = "enableGamemode")]
     pub enable_gamemode: bool,
     pub enable_gamescope: bool,
     pub gamescope_args: Option<String>,
@@ -4453,6 +4460,41 @@ mod tests {
 
         let hidden = mangohud_log_config(folder, true);
         assert!(hidden.ends_with(",no_display"), "got: {}", hidden);
+    }
+
+    #[test]
+    fn compatibility_settings_accepts_legacy_and_frontend_mangohud_keys() {
+        // Older `compatibility.db` rows were written with serde's naive
+        // camelCase (`enableMangohud`/`enableGamemode`) while the UI reads
+        // and writes `enableMangoHud`/`enableGameMode`. Both spellings
+        // must load, and a save must emit the keys the UI expects.
+        let mut value = serde_json::to_value(CompatibilitySettings::default()).unwrap();
+        let obj = value.as_object_mut().unwrap();
+        obj.remove("enableMangoHud");
+        obj.remove("enableGameMode");
+        obj.insert("enableMangohud".to_string(), serde_json::json!(true));
+        obj.insert("enableGamemode".to_string(), serde_json::json!(true));
+
+        let parsed: CompatibilitySettings = serde_json::from_value(value).unwrap();
+        assert!(parsed.enable_mangohud);
+        assert!(parsed.enable_gamemode);
+
+        let emitted = serde_json::to_value(&parsed).unwrap();
+        assert_eq!(emitted["enableMangoHud"], serde_json::json!(true));
+        assert_eq!(emitted["enableGameMode"], serde_json::json!(true));
+        assert!(emitted.get("enableMangohud").is_none());
+        assert!(emitted.get("enableGamemode").is_none());
+    }
+
+    #[test]
+    fn compatibility_settings_partial_payload_keeps_defaults() {
+        // A payload missing fields (older frontend, interrupted write) must
+        // fill from defaults instead of discarding the whole profile.
+        let parsed: CompatibilitySettings =
+            serde_json::from_str(r#"{"enableMangoHud":true}"#).unwrap();
+        assert!(parsed.enable_mangohud);
+        assert!(parsed.enable_dxvk);
+        assert!(parsed.enable_vkd3d);
     }
 
     #[test]
