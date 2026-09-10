@@ -757,6 +757,10 @@
   flex-wrap: wrap;
 }
 
+.achievements-games-section .achievements-toolbar {
+  margin-bottom: var(--space-lg);
+}
+
 .ach-section-title-group {
   display: flex;
   align-items: baseline;
