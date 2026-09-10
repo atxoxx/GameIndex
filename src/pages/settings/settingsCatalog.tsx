@@ -417,7 +417,7 @@ export function buildSettingsCatalog(
       tab: "compatibility",
       labelKey: "settings.tab.compatibility",
       descKey: "settings.compatibility.desc",
-      keywords: "linux wine proton dxvk vkd3d esync fsync mangohud gamemode gamescope runner prefix compatibility dll overrides umu launcher steam runtime",
+      keywords: "linux wine proton dxvk vkd3d esync fsync mangohud gamemode gamescope runner prefix compatibility dll overrides umu launcher steam runtime controller gamepad sdl anticheat eac battleye",
       icon: <CompatibilityIcon />,
       sections: [
         {

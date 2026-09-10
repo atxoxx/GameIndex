@@ -114,6 +114,32 @@ describe("EditGameModal save", () => {
     expect(updates.compatibility.useSpecificGpu).toBe(true);
   });
 
+  it("saves the controller and anti-cheat overrides from the tools subtab", () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tools & Overlays" }));
+
+    const controllerCard = screen
+      .getByText("Controller Support")
+      .closest(".edit-launch-card");
+    expect(controllerCard).toBeTruthy();
+    fireEvent.click(within(controllerCard as HTMLElement).getByRole("button", { name: "On" }));
+
+    const anticheatCard = screen
+      .getByText("Anti-Cheat Support (EAC / BattlEye)")
+      .closest(".edit-launch-card");
+    expect(anticheatCard).toBeTruthy();
+    fireEvent.click(within(anticheatCard as HTMLElement).getByRole("button", { name: "On" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    expect(updateGameMock).toHaveBeenCalledTimes(1);
+    const updates = updateGameMock.mock.calls[0][1];
+    expect(updates.compatibility.enableControllerSupport).toBe(true);
+    expect(updates.compatibility.enableAnticheatSupport).toBe(true);
+  });
+
   it("keeps the specific-GPU override unset when left on Global", () => {
     render(
       <EditGameModal

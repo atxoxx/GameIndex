@@ -168,6 +168,174 @@ pub fn gameindex_runners_dir(kind: &str) -> PathBuf {
     PathBuf::from("runners").join(kind)
 }
 
+/// Directory for the anti-cheat runtimes GameIndex manages itself.
+pub fn gameindex_anticheat_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() {
+        return PathBuf::from(&home).join(".local/share/GameIndex/anticheat");
+    }
+    if let Ok(app_data) = std::env::var("APPDATA") {
+        return PathBuf::from(app_data).join("GameIndex").join("anticheat");
+    }
+    PathBuf::from("anticheat")
+}
+
+/// Folder names for the supported anti-cheat runtime components.
+fn anticheat_component_names(kind: &str) -> (&'static str, &'static str, &'static str) {
+    if kind == "battleye" {
+        ("battleye_runtime", "battleye_runtime", "Proton BattlEye Runtime")
+    } else {
+        ("eac_runtime", "eac_runtime", "Proton EasyAntiCheat Runtime")
+    }
+}
+
+/// Every place a runtime may already live: GameIndex's own folder, a Lutris
+/// runtime install, then the Steam libraries (Steam installs the runtimes as
+/// tool apps alongside games).
+fn anticheat_runtime_candidates(kind: &str) -> Vec<PathBuf> {
+    let (managed_name, lutris_name, steam_name) = anticheat_component_names(kind);
+    let mut candidates = vec![gameindex_anticheat_dir().join(managed_name)];
+
+    if let Ok(home) = std::env::var("HOME") {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local/share/lutris/runtime").join(lutris_name));
+    }
+
+    for root in steam_library_roots() {
+        candidates.push(root.join("steamapps/common").join(steam_name));
+    }
+
+    candidates
+}
+
+fn resolve_anticheat_runtime(kind: &str) -> Option<PathBuf> {
+    anticheat_runtime_candidates(kind)
+        .into_iter()
+        .find(|p| p.is_dir())
+}
+
+/// Path to the Easy Anti-Cheat runtime, if one is installed.
+pub fn eac_runtime_dir() -> Option<PathBuf> {
+    resolve_anticheat_runtime("eac")
+}
+
+/// Path to the BattlEye runtime, if one is installed.
+pub fn battleye_runtime_dir() -> Option<PathBuf> {
+    resolve_anticheat_runtime("battleye")
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeIndexEntry {
+    name: String,
+    url: String,
+}
+
+/// Pick the download URL for `name` out of the public runtime index payload.
+fn runtime_url_from_index(body: &str, name: &str) -> Result<String, String> {
+    let entries: Vec<RuntimeIndexEntry> =
+        serde_json::from_str(body).map_err(|e| format!("Failed to parse runtime index: {}", e))?;
+    entries
+        .into_iter()
+        .find(|e| e.name == name)
+        .map(|e| e.url)
+        .ok_or_else(|| format!("Runtime '{}' is not available from the runtime index", name))
+}
+
+/// Extract a runtime archive whose contents live under a single top-level
+/// folder, flattening it so the target directory holds `v1/`, `v2/`, ...
+fn extract_anticheat_archive(archive_path: &Path, dest_dir: &Path) -> Result<(), String> {
+    let _ = fs::remove_dir_all(dest_dir);
+    fs::create_dir_all(dest_dir).map_err(|e| format!("Failed to create {}: {}", dest_dir.display(), e))?;
+
+    let tar_bin = if cfg!(windows) { "tar.exe" } else { "tar" };
+    let output = Command::new(tar_bin)
+        .arg("-xf")
+        .arg(archive_path)
+        .arg("-C")
+        .arg(dest_dir)
+        .arg("--strip-components=1")
+        .output()
+        .map_err(|e| format!("Failed to run {}: {}", tar_bin, e))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "Failed to extract runtime archive: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    Ok(())
+}
+
+async fn download_runtime_archive(
+    client: &reqwest::Client,
+    url: &str,
+    dest_dir: &Path,
+) -> Result<(), String> {
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download runtime: {}", e))?;
+    if !response.status().is_success() {
+        return Err(format!("Runtime download failed with status: {}", response.status()));
+    }
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read runtime download: {}", e))?;
+
+    let parent = dest_dir.parent().unwrap_or_else(|| Path::new("."));
+    let _ = fs::create_dir_all(parent);
+    let archive_path = parent.join(".runtime_download.tar.xz");
+    fs::write(&archive_path, &bytes).map_err(|e| format!("Failed to save runtime archive: {}", e))?;
+
+    let result = extract_anticheat_archive(&archive_path, dest_dir);
+    let _ = fs::remove_file(&archive_path);
+    result
+}
+
+/// Download any missing anti-cheat runtimes (EAC and BattlEye) into the
+/// GameIndex folder so games that rely on Proton's runtime env vars work.
+#[tauri::command]
+pub async fn install_anticheat_runtimes() -> Result<(), String> {
+    let missing: Vec<&str> = ["eac", "battleye"]
+        .into_iter()
+        .filter(|kind| resolve_anticheat_runtime(kind).is_none())
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+
+    let client = reqwest::Client::builder()
+        .user_agent("GameIndex-App/1.0")
+        .timeout(Duration::from_secs(120))
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let response = client
+        .get("https://lutris.net/api/runtimes")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch the runtime index: {}", e))?;
+    if !response.status().is_success() {
+        return Err(format!("Runtime index responded with status: {}", response.status()));
+    }
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read the runtime index: {}", e))?;
+
+    for kind in missing {
+        let (name, _, _) = anticheat_component_names(kind);
+        let url = runtime_url_from_index(&body, name)?;
+        let dest = gameindex_anticheat_dir().join(name);
+        download_runtime_archive(&client, &url, &dest).await?;
+    }
+
+    Ok(())
+}
+
 /// Extract an archive file (.tar.gz, .tar.xz, .zip, etc.) into a target directory.
 pub fn extract_runner_archive(archive_path: &Path, dest_root: &Path) -> Result<PathBuf, String> {
     let _ = fs::create_dir_all(dest_root);
@@ -311,6 +479,10 @@ pub struct LinuxSystemStatus {
     pub gamescope_available: bool,
     pub winetricks_available: bool,
     pub umu_available: bool,
+    #[serde(default)]
+    pub eac_runtime_available: bool,
+    #[serde(default)]
+    pub battleye_runtime_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -359,6 +531,10 @@ pub struct CompatibilitySettings {
     pub enable_umu_launcher: bool,
     #[serde(default)]
     pub mangohud_hidden: bool,
+    #[serde(default)]
+    pub enable_controller_support: bool,
+    #[serde(default)]
+    pub enable_anticheat_support: bool,
 
     // Structured Gamescope settings
     #[serde(default)]
@@ -424,6 +600,8 @@ impl Default for CompatibilitySettings {
 
             enable_umu_launcher: false,
             mangohud_hidden: false,
+            enable_controller_support: false,
+            enable_anticheat_support: false,
 
             gamescope_mode: Some("fullscreen".to_string()),
             gamescope_game_width: Some(1920),
@@ -1062,6 +1240,14 @@ pub fn steam_launch_env(
         .or_else(|| settings.audio_driver.clone());
     let arch = game_profile.and_then(|p| p.get("arch")).and_then(|v| v.as_str());
     let dxvk_hud = game_profile.and_then(|p| p.get("dxvkHud")).and_then(|v| v.as_str());
+    let enable_controller_support = game_profile
+        .and_then(|p| p.get("enableControllerSupport"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_controller_support);
+    let enable_anticheat_support = game_profile
+        .and_then(|p| p.get("enableAnticheatSupport"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_anticheat_support);
     // MangoHud is wired up on Linux only — the resolved values feed the
     // MANGOHUD force further down.
     #[cfg(target_os = "linux")]
@@ -1120,6 +1306,19 @@ pub fn steam_launch_env(
     }
     if enable_large_address_aware {
         env.push(("WINE_LARGE_ADDRESS_AWARE".to_string(), "1".to_string()));
+    }
+    if enable_controller_support {
+        // Prefer Proton's SDL gamepad backend, which detects controllers the
+        // default path misses.
+        env.push(("PROTON_PREFER_SDL".to_string(), "1".to_string()));
+    }
+    if enable_anticheat_support {
+        if let Some(dir) = eac_runtime_dir() {
+            env.push(("PROTON_EAC_RUNTIME".to_string(), dir.to_string_lossy().to_string()));
+        }
+        if let Some(dir) = battleye_runtime_dir() {
+            env.push(("PROTON_BATTLEYE_RUNTIME".to_string(), dir.to_string_lossy().to_string()));
+        }
     }
     if let Some(dbg) = wine_debug.as_deref() {
         env.push(("WINEDEBUG".to_string(), dbg.to_string()));
@@ -1280,6 +1479,8 @@ pub fn get_linux_system_status() -> LinuxSystemStatus {
     let gamescope_available = is_command_available("gamescope");
     let winetricks_available = is_command_available("winetricks");
     let umu_available = find_umu_run().is_some();
+    let eac_runtime_available = eac_runtime_dir().is_some();
+    let battleye_runtime_available = battleye_runtime_dir().is_some();
 
     LinuxSystemStatus {
         os_name,
@@ -1291,6 +1492,8 @@ pub fn get_linux_system_status() -> LinuxSystemStatus {
         gamescope_available,
         winetricks_available,
         umu_available,
+        eac_runtime_available,
+        battleye_runtime_available,
     }
 }
 
@@ -2154,6 +2357,14 @@ pub fn launch_with_compatibility(
         .or_else(|| settings.virtual_desktop_res.clone());
 
     let dxvk_hud = game_profile.and_then(|p| p.get("dxvkHud")).and_then(|v| v.as_str());
+    let enable_controller_support = game_profile
+        .and_then(|p| p.get("enableControllerSupport"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_controller_support);
+    let enable_anticheat_support = game_profile
+        .and_then(|p| p.get("enableAnticheatSupport"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_anticheat_support);
     let enable_mangohud = game_profile
         .and_then(|p| p.get("enableMangoHud").or_else(|| p.get("mangohud")))
         .and_then(|v| v.as_bool())
@@ -2309,6 +2520,7 @@ pub fn launch_with_compatibility(
     let _ = writeln!(log_file, "Wineland: {}, WoW64: {}, LargeAddress: {}", enable_wayland, enable_wow64, enable_large_address_aware);
     let _ = writeln!(log_file, "Specific GPU: {}", specific_gpu.as_deref().unwrap_or("disabled"));
     let _ = writeln!(log_file, "MangoHud: {} (hidden: {}), UMU: {}, GameMode: {}, Gamescope: {}", enable_mangohud, mangohud_hidden, use_umu, enable_gamemode, enable_gamescope);
+    let _ = writeln!(log_file, "Controller support: {}, Anti-cheat support: {}", enable_controller_support, enable_anticheat_support);
     let _ = writeln!(log_file, "==================================================");
     let _ = log_file.flush();
 
@@ -2486,6 +2698,17 @@ pub fn launch_with_compatibility(
     }
     if enable_large_address_aware {
         cmd.env("WINE_LARGE_ADDRESS_AWARE", "1");
+    }
+    if enable_controller_support {
+        cmd.env("PROTON_PREFER_SDL", "1");
+    }
+    if enable_anticheat_support {
+        if let Some(dir) = eac_runtime_dir() {
+            cmd.env("PROTON_EAC_RUNTIME", &dir);
+        }
+        if let Some(dir) = battleye_runtime_dir() {
+            cmd.env("PROTON_BATTLEYE_RUNTIME", &dir);
+        }
     }
     if let Some(dbg) = wine_debug.as_deref() {
         cmd.env("WINEDEBUG", dbg);
@@ -3602,6 +3825,49 @@ mod tests {
     }
 
     #[test]
+    fn steam_launch_env_applies_controller_and_anticheat_flags() {
+        let settings = CompatibilitySettings {
+            enable_controller_support: true,
+            enable_anticheat_support: true,
+            ..Default::default()
+        };
+        let profile = serde_json::json!({});
+        let env = steam_launch_env(&settings, Some(&profile), None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
+        assert_eq!(map.get("PROTON_PREFER_SDL"), Some(&"1"));
+        // Runtime env vars only appear when a runtime is actually installed.
+        match eac_runtime_dir() {
+            Some(dir) => assert_eq!(
+                map.get("PROTON_EAC_RUNTIME").map(PathBuf::from),
+                Some(dir)
+            ),
+            None => assert!(!map.contains_key("PROTON_EAC_RUNTIME")),
+        }
+        match battleye_runtime_dir() {
+            Some(dir) => assert_eq!(
+                map.get("PROTON_BATTLEYE_RUNTIME").map(PathBuf::from),
+                Some(dir)
+            ),
+            None => assert!(!map.contains_key("PROTON_BATTLEYE_RUNTIME")),
+        }
+
+        // A per-game `false` overrides the global toggle.
+        let off = serde_json::json!({ "enableControllerSupport": false, "enableAnticheatSupport": false });
+        let env = steam_launch_env(&settings, Some(&off), None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert!(!map.contains_key("PROTON_PREFER_SDL"));
+        assert!(!map.contains_key("PROTON_EAC_RUNTIME"));
+        assert!(!map.contains_key("PROTON_BATTLEYE_RUNTIME"));
+    }
+
+    #[test]
     fn steam_launch_env_applies_game_overrides_and_exclusions() {
         let settings = CompatibilitySettings {
             enable_esync: false,
@@ -3836,5 +4102,56 @@ mod tests {
         copy_dir_recursive(src_dir.path(), &dst_target).unwrap();
 
         assert!(dst_target.join("drive_c").join("windows").join("test.dll").is_file());
+    }
+
+    #[test]
+    fn picks_runtime_url_from_index() {
+        let body = r#"[
+            {"name":"battleye_runtime","url":"https://example.com/be.tar.xz"},
+            {"name":"eac_runtime","url":"https://example.com/eac.tar.xz"}
+        ]"#;
+
+        assert_eq!(
+            runtime_url_from_index(body, "eac_runtime").unwrap(),
+            "https://example.com/eac.tar.xz"
+        );
+    }
+
+    #[test]
+    fn errors_when_runtime_missing_from_index() {
+        assert!(runtime_url_from_index("[]", "eac_runtime").is_err());
+        assert!(runtime_url_from_index("not json", "eac_runtime").is_err());
+    }
+
+    #[test]
+    fn extracts_runtime_archive_without_top_level_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let staging = dir.path().join("staging");
+        let archive = dir.path().join("runtime.tar.gz");
+        let dest = dir.path().join("eac_runtime");
+
+        fs::create_dir_all(staging.join("eac_runtime").join("v2")).unwrap();
+        fs::write(staging.join("eac_runtime").join("v2").join("easyanticheat.so"), b"so").unwrap();
+
+        let status = Command::new("tar")
+            .arg("-czf")
+            .arg(&archive)
+            .arg("-C")
+            .arg(&staging)
+            .arg("eac_runtime")
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        extract_anticheat_archive(&archive, &dest).unwrap();
+        assert!(dest.join("v2").join("easyanticheat.so").is_file());
+    }
+
+    #[test]
+    fn errors_extracting_a_missing_runtime_archive() {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("eac_runtime");
+
+        assert!(extract_anticheat_archive(&dir.path().join("missing.tar.xz"), &dest).is_err());
     }
 }

@@ -131,6 +131,8 @@ interface LinuxSystemStatus {
   gamescopeAvailable: boolean;
   winetricksAvailable: boolean;
   umuAvailable: boolean;
+  eacRuntimeAvailable: boolean;
+  battleyeRuntimeAvailable: boolean;
 }
 
 export interface CompatibilitySettings {
@@ -164,6 +166,8 @@ export interface CompatibilitySettings {
   virtualDesktopRes: string | null;
   enableUmuLauncher: boolean;
   mangohudHidden: boolean;
+  enableControllerSupport: boolean;
+  enableAnticheatSupport: boolean;
 
   // Gamescope full options
   gamescopeMode: string | null;
@@ -211,6 +215,8 @@ const DEFAULT_SETTINGS: CompatibilitySettings = {
   virtualDesktopRes: "1920x1080",
   enableUmuLauncher: false,
   mangohudHidden: false,
+  enableControllerSupport: false,
+  enableAnticheatSupport: false,
 
   gamescopeMode: "fullscreen",
   gamescopeGameWidth: 1920,
@@ -250,6 +256,7 @@ export default function CompatibilityTab() {
   const [systemStatus, setSystemStatus] = useState<LinuxSystemStatus | null>(null);
   const [loadingRunners, setLoadingRunners] = useState(false);
   const [runningMaintenance, setRunningMaintenance] = useState(false);
+  const [installingRuntimes, setInstallingRuntimes] = useState(false);
 
   // Sync active subtab when deep-linked or searched from the command palette
   useEffect(() => {
@@ -311,7 +318,10 @@ export default function CompatibilityTab() {
       .catch((e) => console.error("Failed to fetch compatibility settings", e));
 
     fetchRunners();
+    fetchSystemStatus();
+  }, []);
 
+  const fetchSystemStatus = useCallback(() => {
     invoke<LinuxSystemStatus>("get_compatibility_system_status")
       .then((status) => setSystemStatus(status))
       .catch((e) => console.error("Failed to fetch system status", e));
@@ -328,6 +338,19 @@ export default function CompatibilityTab() {
       setLoadingRunners(false);
     }
   }, []);
+
+  const handleInstallRuntimes = useCallback(async () => {
+    setInstallingRuntimes(true);
+    try {
+      await invoke("install_anticheat_runtimes");
+      showToast(t("compatibility.runtimesInstalled"), "success");
+    } catch (err) {
+      showToast(t("compatibility.runtimesInstallFailed", { error: String(err) }), "error");
+    } finally {
+      setInstallingRuntimes(false);
+      fetchSystemStatus();
+    }
+  }, [fetchSystemStatus, showToast, t]);
 
   const updateSettings = useCallback(
     (updater: (prev: CompatibilitySettings) => CompatibilitySettings) => {
@@ -2494,6 +2517,20 @@ export default function CompatibilityTab() {
               />
 
               <SettingsToggleCard
+                title={t("compatibility.enableControllerSupport")}
+                desc={t("compatibility.enableControllerSupportDesc")}
+                checked={settings.enableControllerSupport}
+                onChange={(v) => updateSettings((prev) => ({ ...prev, enableControllerSupport: v }))}
+              />
+
+              <SettingsToggleCard
+                title={t("compatibility.enableAnticheatSupport")}
+                desc={t("compatibility.enableAnticheatSupportDesc")}
+                checked={settings.enableAnticheatSupport}
+                onChange={(v) => updateSettings((prev) => ({ ...prev, enableAnticheatSupport: v }))}
+              />
+
+              <SettingsToggleCard
                 title={t("compatibility.enableGameMode")}
                 desc={t("compatibility.enableGameModeDesc")}
                 checked={settings.enableGameMode}
@@ -2507,6 +2544,46 @@ export default function CompatibilityTab() {
                 onChange={(v) => updateSettings((prev) => ({ ...prev, primeRenderOffload: v }))}
               />
             </div>
+
+            {settings.enableAnticheatSupport && (
+              <Card className="settings-behavior-card" style={{ marginTop: "var(--space-md)" }}>
+                <div className="settings-control">
+                  <label className="settings-label">{t("compatibility.anticheatRuntimes")}</label>
+                  <p className="settings-helper-lead">{t("compatibility.anticheatRuntimesDesc")}</p>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "var(--space-sm)",
+                      marginTop: "var(--space-sm)",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Badge variant={systemStatus?.eacRuntimeAvailable ? "success" : "default"}>
+                      {t("compatibility.eacRuntime")}: {systemStatus?.eacRuntimeAvailable ? t("compatibility.available") : t("compatibility.notDetected")}
+                    </Badge>
+                    <Badge variant={systemStatus?.battleyeRuntimeAvailable ? "success" : "default"}>
+                      {t("compatibility.battleyeRuntime")}: {systemStatus?.battleyeRuntimeAvailable ? t("compatibility.available") : t("compatibility.notDetected")}
+                    </Badge>
+                    {!(systemStatus?.eacRuntimeAvailable && systemStatus?.battleyeRuntimeAvailable) && (
+                      <Button size="sm" onClick={handleInstallRuntimes} disabled={installingRuntimes}>
+                        {installingRuntimes ? (
+                          <>
+                            <Loader2 size={14} className="runner-spin" />
+                            {t("compatibility.installingRuntimes")}
+                          </>
+                        ) : (
+                          <>
+                            <Download size={14} />
+                            {t("compatibility.installRuntimes")}
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
           </SettingsSection>
         </div>
       )}
@@ -2698,6 +2775,24 @@ export default function CompatibilityTab() {
                     </span>
                     <Badge variant={systemStatus?.umuAvailable ? "success" : "default"}>
                       {systemStatus?.umuAvailable ? t("compatibility.available") : t("compatibility.notDetected")}
+                    </Badge>
+                  </div>
+
+                  <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                      {t("compatibility.eacRuntime")}
+                    </span>
+                    <Badge variant={systemStatus?.eacRuntimeAvailable ? "success" : "default"}>
+                      {systemStatus?.eacRuntimeAvailable ? t("compatibility.available") : t("compatibility.notDetected")}
+                    </Badge>
+                  </div>
+
+                  <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                      {t("compatibility.battleyeRuntime")}
+                    </span>
+                    <Badge variant={systemStatus?.battleyeRuntimeAvailable ? "success" : "default"}>
+                      {systemStatus?.battleyeRuntimeAvailable ? t("compatibility.available") : t("compatibility.notDetected")}
                     </Badge>
                   </div>
                 </div>

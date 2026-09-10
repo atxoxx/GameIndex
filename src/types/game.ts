@@ -285,6 +285,10 @@ export interface CompatibilityProfile {
   mangohudHidden?: boolean | null;
   /** Route the launch through umu-launcher (Steam Runtime container) instead of invoking the runner directly */
   enableUmuLauncher?: boolean | null;
+  /** Prefer Proton's SDL gamepad backend (PROTON_PREFER_SDL) to fix controller detection */
+  enableControllerSupport?: boolean | null;
+  /** Enable Easy Anti-Cheat / BattlEye runtime support (PROTON_EAC_RUNTIME / PROTON_BATTLEYE_RUNTIME) */
+  enableAnticheatSupport?: boolean | null;
   /** GameMode (Feral GameMode CPU/GPU governor) override */
   enableGameMode?: boolean | null;
   /** Gamescope micro-compositor override */

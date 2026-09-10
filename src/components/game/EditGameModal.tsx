@@ -241,6 +241,12 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [compatUmu, setCompatUmu] = useState<boolean | null>(
     game.compatibility?.enableUmuLauncher ?? null
   );
+  const [compatController, setCompatController] = useState<boolean | null>(
+    game.compatibility?.enableControllerSupport ?? null
+  );
+  const [compatAnticheat, setCompatAnticheat] = useState<boolean | null>(
+    game.compatibility?.enableAnticheatSupport ?? null
+  );
   const [compatGameMode, setCompatGameMode] = useState<boolean | null>(
     game.compatibility?.enableGameMode ?? null
   );
@@ -964,6 +970,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         compatMangoHud !== null ||
         compatMangoHudHidden !== null ||
         compatUmu !== null ||
+        compatController !== null ||
+        compatAnticheat !== null ||
         compatGameMode !== null ||
         compatGamescope !== null ||
         compatGamescopeArgs.trim() ||
@@ -1012,6 +1020,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               enableMangoHud: compatMangoHud,
               mangohudHidden: compatMangoHudHidden,
               enableUmuLauncher: compatUmu,
+              enableControllerSupport: compatController,
+              enableAnticheatSupport: compatAnticheat,
               enableGameMode: compatGameMode,
               enableGamescope: compatGamescope,
               gamescopeArgs: compatGamescopeArgs.trim() || undefined,
@@ -2507,6 +2517,18 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.umuDesc") || "Run the executable through umu-run so Proton launches inside Valve's Steam Runtime container without Steam."}
                     value={compatUmu}
                     onChange={setCompatUmu}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.controllerTitle") || "Controller Support"}
+                    desc={t("gameEdit.compatibility.controllerDesc") || "Prefer Proton's SDL gamepad backend, which fixes controller detection for some titles."}
+                    value={compatController}
+                    onChange={setCompatController}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.anticheatTitle") || "Anti-Cheat Support (EAC / BattlEye)"}
+                    desc={t("gameEdit.compatibility.anticheatDesc") || "Load the Easy Anti-Cheat and BattlEye runtimes so supported online games can initialize their anti-cheat under Proton."}
+                    value={compatAnticheat}
+                    onChange={setCompatAnticheat}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.gamemodeTitle") || "Feral GameMode Optimizer"}

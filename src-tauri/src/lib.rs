@@ -326,6 +326,7 @@ pub fn run() {
             compatibility::install_compatibility_runner,
             compatibility::cancel_runner_install,
             compatibility::install_runner_from_archive,
+            compatibility::install_anticheat_runtimes,
             compatibility::list_wine_prefixes,
             compatibility::create_wine_prefix,
             compatibility::delete_wine_prefix,
