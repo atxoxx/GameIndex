@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { EditGameModal } from "./EditGameModal";
 import type { Game } from "../../types/game";
 
@@ -155,5 +156,88 @@ describe("EditGameModal save", () => {
     // backend reads as "fall back to the global toggle".
     const updates = updateGameMock.mock.calls[0][1];
     expect(updates.compatibility.useSpecificGpu).toBe(null);
+  });
+});
+
+describe("EditGameModal runner selection", () => {
+  const runner = {
+    id: "steam-proton-9",
+    name: "Steam Proton 9",
+    path: "/steam/steamapps/common/Proton 9/proton",
+    kind: "proton",
+  };
+
+  const invokeMock = vi.mocked(
+    invoke as unknown as (cmd: string) => Promise<unknown>
+  );
+
+  beforeEach(() => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "list_compatibility_runners") {
+        return Promise.resolve([runner]);
+      }
+      if (cmd === "get_compatibility_settings") {
+        return Promise.resolve({});
+      }
+      return Promise.resolve([]);
+    });
+  });
+
+  afterEach(() => {
+    invokeMock.mockImplementation(() => Promise.resolve([]));
+  });
+
+  function runnerCard() {
+    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+    const card = screen
+      .getByText("Runner Selection")
+      .closest(".edit-launch-card");
+    expect(card).toBeTruthy();
+    return card as HTMLElement;
+  }
+
+  it("shows the saved runner in the dropdown instead of the custom-path option", async () => {
+    render(
+      <EditGameModal
+        game={makeGame({
+          compatibility: {
+            enabled: true,
+            runnerType: "custom",
+            customRunnerPath: runner.path,
+          },
+        })}
+        onClose={() => {}}
+      />
+    );
+
+    const select = within(runnerCard()).getByRole("combobox") as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe(runner.path));
+    expect(select.options[select.selectedIndex].textContent).toContain(
+      "Steam Proton 9"
+    );
+  });
+
+  it("keeps the custom-path option for an unrecognized runner path", async () => {
+    render(
+      <EditGameModal
+        game={makeGame({
+          compatibility: {
+            enabled: true,
+            runnerType: "custom",
+            customRunnerPath: "/opt/custom-wine/bin/wine",
+          },
+        })}
+        onClose={() => {}}
+      />
+    );
+
+    const card = runnerCard();
+    const select = within(card).getByRole("combobox") as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe("custom"));
+
+    const pathInput = within(card).getByPlaceholderText(
+      "/path/to/wine or /path/to/proton"
+    ) as HTMLInputElement;
+    expect(pathInput.value).toBe("/opt/custom-wine/bin/wine");
   });
 });

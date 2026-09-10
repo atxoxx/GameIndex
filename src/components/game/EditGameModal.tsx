@@ -1061,6 +1061,14 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     showToast("Game updated", "success");
   }
 
+  const selectedRunner = availableRunners.find(
+    (r) => r.path === compatCustomRunner.trim()
+  );
+  const hasRunnerOverride =
+    Boolean(compatCustomRunner.trim()) || compatRunnerType !== "default";
+  const runnerSelectValue =
+    selectedRunner?.path ?? (hasRunnerOverride ? "custom" : "default");
+
   const tabs: { key: EditTab; label: string; icon: ReactNode }[] = [
     {
       key: "details",
@@ -2198,7 +2206,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     <div className="edit-launch-input-row">
                       <select
                         className="edit-input"
-                        value={compatRunnerType === "custom" ? "custom" : (compatCustomRunner ? compatCustomRunner : compatRunnerType)}
+                        value={runnerSelectValue}
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === "default") {
@@ -2221,7 +2229,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                         <option value="custom">{t("gameEdit.compatibility.runnerCustom") || "Custom Runner Path..."}</option>
                       </select>
                     </div>
-                    {compatRunnerType === "custom" && (
+                    {runnerSelectValue !== "default" && (
                       <div className="edit-launch-input-row" style={{ marginTop: "var(--space-sm)" }}>
                         <div className="edit-launch-input-wrapper">
                           <input
