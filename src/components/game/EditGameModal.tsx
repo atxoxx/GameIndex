@@ -292,6 +292,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [compatPrime, setCompatPrime] = useState<boolean | null>(
     game.compatibility?.primeRenderOffload ?? null
   );
+  const [compatUseSpecificGpu, setCompatUseSpecificGpu] = useState<boolean | null>(
+    game.compatibility?.useSpecificGpu ?? null
+  );
   const [compatPreLaunch, setCompatPreLaunch] = useState(
     game.compatibility?.preLaunchWrapper ?? ""
   );
@@ -978,6 +981,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         compatGamescopeStretch !== null ||
         compatGamescopeForceWindowsFullscreen !== null ||
         compatPrime !== null ||
+        compatUseSpecificGpu !== null ||
         compatPreLaunch.trim() ||
         compatEnvPairs.length > 0 ||
         compatDllPairs.length > 0 ||
@@ -1025,6 +1029,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               gamescopeStretch: compatGamescopeStretch,
               gamescopeForceWindowsFullscreen: compatGamescopeForceWindowsFullscreen,
               primeRenderOffload: compatPrime,
+              useSpecificGpu: compatUseSpecificGpu,
               preLaunchWrapper: compatPreLaunch.trim() || undefined,
               environmentVariables: compatEnvPairs.reduce((acc, { key, value }) => {
                 if (key.trim()) acc[key.trim()] = value;
@@ -2400,6 +2405,12 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     desc={t("gameEdit.compatibility.nvapiDesc") || "Exposes NVIDIA NVAPI to Direct3D applications for DLSS and Reflex."}
                     value={compatNvapi}
                     onChange={setCompatNvapi}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.specificGpuTitle") || "Use Specific GPU (MESA_VK_DEVICE_SELECT)"}
+                    desc={t("gameEdit.compatibility.specificGpuDesc") || "Pins Vulkan to the GPU selected in Settings → Hardware and forces Wine Wayland."}
+                    value={compatUseSpecificGpu}
+                    onChange={setCompatUseSpecificGpu}
                   />
 
                   {/* DXVK HUD */}

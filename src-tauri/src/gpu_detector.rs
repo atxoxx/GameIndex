@@ -10,6 +10,9 @@ pub struct GpuInfo {
     pub name: String,
     pub vendor: String,
     pub vram_mb: u64,
+    /// PCI `vendor:device` identifier (e.g. `10de:2c05`) used to target the
+    /// GPU through `MESA_VK_DEVICE_SELECT`. Linux only — `None` elsewhere.
+    pub pci_id: Option<String>,
 }
 
 /// WMI video controller struct for deserialization.
@@ -98,6 +101,7 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
                                 name,
                                 vendor: vendor_display,
                                 vram_mb,
+                                pci_id: None,
                             });
                         }
                     }
@@ -199,6 +203,36 @@ pub(crate) fn linux_drm_cards() -> Vec<std::path::PathBuf> {
     cards
 }
 
+/// Parse the PCI vendor:device id from a sysfs `uevent` body. The kernel
+/// writes `PCI_ID=10DE:2C05` (uppercase); normalize to the lowercase
+/// `10de:2c05` form `MESA_VK_DEVICE_SELECT` expects. Shared with tests.
+#[cfg(any(target_os = "linux", test))]
+fn parse_pci_id_from_uevent(uevent: &str) -> Option<String> {
+    uevent
+        .lines()
+        .find_map(|l| l.strip_prefix("PCI_ID="))
+        .map(|v| v.trim().to_lowercase())
+        .filter(|v| !v.is_empty())
+}
+
+/// Normalize a sysfs vendor/device pair (`0x10de`, `0x2c05`) into
+/// `10de:2c05`. Returns `None` when either half is missing. Shared with tests.
+#[cfg(any(target_os = "linux", test))]
+fn format_pci_id(vendor: &str, device: &str) -> Option<String> {
+    fn normalize(raw: &str) -> String {
+        raw.trim()
+            .trim_start_matches("0x")
+            .trim_start_matches("0X")
+            .to_lowercase()
+    }
+    let vendor = normalize(vendor);
+    let device = normalize(device);
+    if vendor.is_empty() || device.is_empty() {
+        return None;
+    }
+    Some(format!("{}:{}", vendor, device))
+}
+
 /// Detect GPUs on Linux via /sys/class/drm/card*/device.
 #[cfg(target_os = "linux")]
 pub fn detect_gpus() -> Vec<GpuInfo> {
@@ -217,6 +251,11 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
             .find(|l| l.starts_with("PCI_SLOT_NAME="))
             .map(|l| l.trim_start_matches("PCI_SLOT_NAME=").to_string())
             .unwrap_or_default();
+        let pci_id = parse_pci_id_from_uevent(&uevent).or_else(|| {
+            fs::read_to_string(dev.join("device"))
+                .ok()
+                .and_then(|device| format_pci_id(&vendor_id, &device))
+        });
         let vendor = match vendor_id.as_str() {
             "0x10de" => "NVIDIA",
             "0x1002" => "AMD",
@@ -246,6 +285,7 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
             name: gpu_name,
             vendor: vendor.to_string(),
             vram_mb,
+            pci_id,
         });
         idx += 1;
     }
@@ -500,5 +540,37 @@ mod tests {
         assert_eq!(parse_nvidia_smi_memory_mb("12288 MiB"), Some(12288));
         assert_eq!(parse_nvidia_smi_memory_mb("0"), None);
         assert_eq!(parse_nvidia_smi_memory_mb("N/A"), None);
+    }
+
+    #[test]
+    fn pci_id_reads_from_drm_uevent() {
+        let uevent = "DRIVER=nvidia\nPCI_CLASS=30000\nPCI_ID=10DE:2C05\nPCI_SLOT_NAME=0000:01:00.0\n";
+        assert_eq!(parse_pci_id_from_uevent(uevent), Some("10de:2c05".to_string()));
+        // The amdgpu/radeon sysfs uevent exposes the same line.
+        assert_eq!(
+            parse_pci_id_from_uevent("PCI_ID=1002:744C\n"),
+            Some("1002:744c".to_string())
+        );
+    }
+
+    #[test]
+    fn pci_id_is_none_when_absent_or_incomplete() {
+        assert_eq!(parse_pci_id_from_uevent("PCI_SLOT_NAME=0000:01:00.0\n"), None);
+        assert_eq!(parse_pci_id_from_uevent(""), None);
+        assert_eq!(parse_pci_id_from_uevent("PCI_ID=\n"), None);
+        assert_eq!(format_pci_id("", "0x2c05"), None);
+        assert_eq!(format_pci_id("0x10de", ""), None);
+    }
+
+    #[test]
+    fn pci_id_falls_back_to_vendor_and_device_files() {
+        assert_eq!(
+            format_pci_id("0x10de\n", "0x2c05\n"),
+            Some("10de:2c05".to_string())
+        );
+        assert_eq!(
+            format_pci_id("0x1002", "0X744C"),
+            Some("1002:744c".to_string())
+        );
     }
 }

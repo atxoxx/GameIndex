@@ -1853,6 +1853,19 @@ textarea.settings-input {
   flex-shrink: 0;
 }
 
+.hw-gpu-chip-id {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.hw-gpu-chip.active .hw-gpu-chip-id {
+  color: var(--color-text-secondary);
+}
+
 .hw-gpu-chip.active {
   color: var(--color-text-primary);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);

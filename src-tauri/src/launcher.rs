@@ -697,6 +697,7 @@ pub fn launch_game(
     steam_app_id: Option<u32>,
     gpu_id: Option<String>,
     gpu_name: Option<String>,
+    gpu_pci_id: Option<String>,
     launch_arguments: Option<String>,
     run_as_admin: Option<bool>,
     pre_launch_script: Option<String>,
@@ -799,6 +800,7 @@ pub fn launch_game(
                         &game_id,
                         sid,
                         launch_arguments.as_deref(),
+                        gpu_pci_id.as_deref(),
                     )
             }
             #[cfg(not(target_os = "linux"))]
@@ -874,6 +876,7 @@ pub fn launch_game(
                 cwd,
                 launch_arguments.as_deref(),
                 game_profile.as_ref(),
+                gpu_pci_id.as_deref(),
             )?;
             None
         } else if run_as_admin.unwrap_or(false) {
@@ -906,6 +909,21 @@ pub fn launch_game(
                     if !args.trim().is_empty() {
                         cmd.args(split_launch_args(args));
                     }
+                }
+            }
+
+            // Native Linux titles: honor the specific-GPU override too, so
+            // Vulkan picks the selected adapter even without Wine/Proton.
+            #[cfg(target_os = "linux")]
+            {
+                let compat_settings = crate::compatibility::get_compatibility_settings_internal(&app)
+                    .unwrap_or_default();
+                if let Some(pci_id) = crate::compatibility::specific_gpu_select(
+                    &compat_settings,
+                    game_profile.as_ref(),
+                    gpu_pci_id.as_deref(),
+                ) {
+                    cmd.env("MESA_VK_DEVICE_SELECT", pci_id);
                 }
             }
 

@@ -328,6 +328,10 @@ pub struct CompatibilitySettings {
     pub enable_gamescope: bool,
     pub gamescope_args: Option<String>,
     pub prime_render_offload: bool,
+    #[serde(default)]
+    pub use_specific_gpu: bool,
+    #[serde(default)]
+    pub specific_gpu_id: Option<String>,
     pub custom_environment_variables: HashMap<String, String>,
     pub custom_dll_overrides: HashMap<String, String>,
     pub winetricks_path: Option<String>,
@@ -402,6 +406,8 @@ impl Default for CompatibilitySettings {
             enable_gamescope: false,
             gamescope_args: Some("-w 1920 -h 1080 -F fsr -f".to_string()),
             prime_render_offload: false,
+            use_specific_gpu: false,
+            specific_gpu_id: None,
             custom_environment_variables: HashMap::new(),
             custom_dll_overrides: HashMap::new(),
             winetricks_path: None,
@@ -948,6 +954,44 @@ pub fn mangohud_log_config(folder: &Path, hidden: bool) -> String {
     cfg
 }
 
+/// Whether the specific-GPU launch override is active. The per-game
+/// `useSpecificGpu` tri-state wins over the global `use_specific_gpu`.
+pub fn specific_gpu_enabled(
+    settings: &CompatibilitySettings,
+    game_profile: Option<&serde_json::Value>,
+) -> bool {
+    game_profile
+        .and_then(|p| p.get("useSpecificGpu"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.use_specific_gpu)
+}
+
+/// `MESA_VK_DEVICE_SELECT` value (`vendor:device`, e.g. `10de:2c05`) when the
+/// override is active. The launch-provided id (the GPU currently selected in
+/// Settings) wins; the id persisted on the global setting is the fallback for
+/// launches that don't go through the frontend (e.g. the tray menu). `None`
+/// means no injection: setting off, no GPU selected, or disabled per game.
+pub fn specific_gpu_select(
+    settings: &CompatibilitySettings,
+    game_profile: Option<&serde_json::Value>,
+    gpu_pci_id: Option<&str>,
+) -> Option<String> {
+    if !specific_gpu_enabled(settings, game_profile) {
+        return None;
+    }
+    let selected = gpu_pci_id
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .or_else(|| {
+            settings
+                .specific_gpu_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+        })?;
+    Some(selected.to_string())
+}
+
 /// Environment variables that carry the configured Wine/Proton flags
 /// into a Steam-launched session.
 ///
@@ -962,6 +1006,7 @@ pub fn mangohud_log_config(folder: &Path, hidden: bool) -> String {
 pub fn steam_launch_env(
     settings: &CompatibilitySettings,
     game_profile: Option<&serde_json::Value>,
+    gpu_pci_id: Option<&str>,
 ) -> Vec<(String, String)> {
     let mut env: Vec<(String, String)> = Vec::new();
 
@@ -1033,6 +1078,7 @@ pub fn steam_launch_env(
         .and_then(|p| p.get("primeRenderOffload").or_else(|| p.get("primeOffload")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.prime_render_offload);
+    let specific_gpu = specific_gpu_select(settings, game_profile, gpu_pci_id);
     let excluded_global_env: Vec<String> = game_profile
         .and_then(|p| p.get("excludedGlobalEnv"))
         .and_then(|v| v.as_array())
@@ -1059,9 +1105,14 @@ pub fn steam_launch_env(
     if enable_dxvk_async {
         env.push(("DXVK_ASYNC".to_string(), "1".to_string()));
     }
-    if enable_wayland {
+    // The specific-GPU override also turns on the native Wayland driver, so
+    // a launch that pins a GPU never silently falls back to XWayland.
+    if enable_wayland || specific_gpu.is_some() {
         env.push(("WINE_ENABLE_WAYLAND".to_string(), "1".to_string()));
         env.push(("PROTON_ENABLE_WAYLAND".to_string(), "1".to_string()));
+    }
+    if let Some(pci_id) = specific_gpu {
+        env.push(("MESA_VK_DEVICE_SELECT".to_string(), pci_id));
     }
     if enable_wow64 {
         env.push(("WINE_NEW_WOW64".to_string(), "1".to_string()));
@@ -1167,6 +1218,7 @@ pub fn try_launch_steam_app(
     game_id: &str,
     steam_app_id: u32,
     launch_arguments: Option<&str>,
+    gpu_pci_id: Option<&str>,
 ) -> bool {
     let settings = get_compatibility_settings_internal(app).unwrap_or_default();
     let game_profile = {
@@ -1175,7 +1227,7 @@ pub fn try_launch_steam_app(
             .ok()
             .flatten()
     };
-    let env = steam_launch_env(&settings, game_profile.as_ref());
+    let env = steam_launch_env(&settings, game_profile.as_ref(), gpu_pci_id);
 
     let appid = steam_app_id.to_string();
     let mut cmd = std::process::Command::new("steam");
@@ -2026,6 +2078,7 @@ pub fn launch_with_compatibility(
     working_dir: &Path,
     launch_args: Option<&str>,
     game_profile: Option<&serde_json::Value>,
+    gpu_pci_id: Option<&str>,
 ) -> Result<u32, String> {
     let settings = get_compatibility_settings_internal(app).unwrap_or_default();
 
@@ -2193,6 +2246,7 @@ pub fn launch_with_compatibility(
         .and_then(|p| p.get("primeRenderOffload").or_else(|| p.get("primeOffload")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.prime_render_offload);
+    let specific_gpu = specific_gpu_select(&settings, game_profile, gpu_pci_id);
 
     let excluded_global_env: Vec<String> = game_profile
         .and_then(|p| p.get("excludedGlobalEnv"))
@@ -2253,6 +2307,7 @@ pub fn launch_with_compatibility(
     let _ = writeln!(log_file, "Prefix: {}", prefix.display());
     let _ = writeln!(log_file, "ESync: {}, FSync: {}, NTSync: {}, DXVK: {}, VKD3D: {}", enable_esync, enable_fsync, enable_ntsync, enable_dxvk, enable_vkd3d);
     let _ = writeln!(log_file, "Wineland: {}, WoW64: {}, LargeAddress: {}", enable_wayland, enable_wow64, enable_large_address_aware);
+    let _ = writeln!(log_file, "Specific GPU: {}", specific_gpu.as_deref().unwrap_or("disabled"));
     let _ = writeln!(log_file, "MangoHud: {} (hidden: {}), UMU: {}, GameMode: {}, Gamescope: {}", enable_mangohud, mangohud_hidden, use_umu, enable_gamemode, enable_gamescope);
     let _ = writeln!(log_file, "==================================================");
     let _ = log_file.flush();
@@ -2418,6 +2473,13 @@ pub fn launch_with_compatibility(
     }
     if enable_wayland {
         cmd.env("WINE_ENABLE_WAYLAND", "1");
+    }
+    // Pinning a specific GPU also forces Wine Wayland on (WINE + Proton)
+    // and hands the selected device to Mesa's Vulkan loader.
+    if let Some(pci_id) = specific_gpu {
+        cmd.env("WINE_ENABLE_WAYLAND", "1");
+        cmd.env("PROTON_ENABLE_WAYLAND", "1");
+        cmd.env("MESA_VK_DEVICE_SELECT", pci_id);
     }
     if enable_wow64 {
         cmd.env("WINE_NEW_WOW64", "1");
@@ -3523,7 +3585,7 @@ mod tests {
             enable_fsync: true,
             ..Default::default()
         };
-        let env = steam_launch_env(&settings, None);
+        let env = steam_launch_env(&settings, None, None);
         let map: std::collections::HashMap<&str, &str> = env
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
@@ -3554,7 +3616,7 @@ mod tests {
             "excludedGlobalEnv": ["GLOBAL_VAR"],
             "enableMangoHud": false,
         });
-        let env = steam_launch_env(&settings, Some(&profile));
+        let env = steam_launch_env(&settings, Some(&profile), None);
         let map: std::collections::HashMap<&str, &str> = env
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
@@ -3575,7 +3637,7 @@ mod tests {
             mangohud_hidden: true,
             ..Default::default()
         };
-        let env = steam_launch_env(&settings, None);
+        let env = steam_launch_env(&settings, None, None);
         let map: std::collections::HashMap<&str, &str> = env
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
@@ -3584,6 +3646,102 @@ mod tests {
         assert_eq!(map.get("MANGOHUD"), Some(&"1"));
         let config = map.get("MANGOHUD_CONFIG").expect("mangohud config set");
         assert!(config.contains("autostart_log=1") && config.contains(",hide"));
+    }
+
+    #[test]
+    fn steam_launch_env_pins_selected_gpu_and_forces_wayland() {
+        let settings = CompatibilitySettings {
+            use_specific_gpu: true,
+            ..Default::default()
+        };
+        let env = steam_launch_env(&settings, None, Some("10de:2c05"));
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
+        assert_eq!(map.get("MESA_VK_DEVICE_SELECT"), Some(&"10de:2c05"));
+        assert_eq!(map.get("WINE_ENABLE_WAYLAND"), Some(&"1"));
+        assert_eq!(map.get("PROTON_ENABLE_WAYLAND"), Some(&"1"));
+    }
+
+    #[test]
+    fn steam_launch_env_specific_gpu_respects_tristate_and_missing_id() {
+        // Global on, per-game off wins: no device pin, no forced Wayland.
+        let global_on = CompatibilitySettings {
+            use_specific_gpu: true,
+            ..Default::default()
+        };
+        let profile_off = serde_json::json!({ "useSpecificGpu": false });
+        let env = steam_launch_env(&global_on, Some(&profile_off), Some("10de:2c05"));
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert!(!map.contains_key("MESA_VK_DEVICE_SELECT"));
+        assert!(!map.contains_key("WINE_ENABLE_WAYLAND"));
+        assert!(!map.contains_key("PROTON_ENABLE_WAYLAND"));
+
+        // Global off, per-game on wins.
+        let profile_on = serde_json::json!({ "useSpecificGpu": true });
+        let global_off = CompatibilitySettings::default();
+        let env = steam_launch_env(&global_off, Some(&profile_on), Some("1002:744c"));
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert_eq!(map.get("MESA_VK_DEVICE_SELECT"), Some(&"1002:744c"));
+
+        // Enabled but the launch carries no selected PCI id.
+        let env = steam_launch_env(&global_on, None, None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert!(!map.contains_key("MESA_VK_DEVICE_SELECT"));
+        assert!(!map.contains_key("WINE_ENABLE_WAYLAND"));
+    }
+
+    #[test]
+    fn specific_gpu_select_requires_enabled_non_blank_id() {
+        let settings = CompatibilitySettings {
+            use_specific_gpu: true,
+            ..Default::default()
+        };
+        assert_eq!(specific_gpu_select(&settings, None, Some("   ")), None);
+        assert_eq!(
+            specific_gpu_select(&settings, None, Some(" 10de:2c05 ")),
+            Some("10de:2c05".to_string())
+        );
+
+        let disabled = CompatibilitySettings::default();
+        assert_eq!(specific_gpu_select(&disabled, None, Some("10de:2c05")), None);
+    }
+
+    #[test]
+    fn specific_gpu_select_falls_back_to_persisted_id() {
+        let settings = CompatibilitySettings {
+            use_specific_gpu: true,
+            specific_gpu_id: Some("1002:744c".to_string()),
+            ..Default::default()
+        };
+        // No launch-provided id (tray launch) — the persisted id is used.
+        assert_eq!(
+            specific_gpu_select(&settings, None, None),
+            Some("1002:744c".to_string())
+        );
+        // A fresh selection overrides the persisted one.
+        assert_eq!(
+            specific_gpu_select(&settings, None, Some("10de:2c05")),
+            Some("10de:2c05".to_string())
+        );
+        // A blank persisted id disables the fallback.
+        let blank = CompatibilitySettings {
+            use_specific_gpu: true,
+            specific_gpu_id: Some("   ".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(specific_gpu_select(&blank, None, None), None);
     }
 
     #[test]

@@ -559,6 +559,7 @@ fn launch_recent(app: &AppHandle, game_id: &str) {
         row.steam_app_id,
         None,
         None,
+        None,
         row.launch_arguments,
         row.run_as_admin,
         row.pre_launch_script,

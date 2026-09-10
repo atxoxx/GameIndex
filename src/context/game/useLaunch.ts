@@ -129,6 +129,7 @@ export function useLaunch(options: {
     // Resolve the selected GPU from localStorage
     let gpuId: string | null = null;
     let gpuName: string | null = null;
+    let gpuPciId: string | null = null;
     const savedGpu = localStorage.getItem("gamelib-gpus");
     const savedGpuId = localStorage.getItem("gamelib-selected-gpu");
     if (savedGpu && savedGpuId) {
@@ -138,6 +139,7 @@ export function useLaunch(options: {
         if (selected) {
           gpuId = selected.id;
           gpuName = selected.name;
+          gpuPciId = selected.pciId ?? null;
         }
       } catch (e) {
         console.error("Failed to parse selected GPU from storage", e);
@@ -230,6 +232,7 @@ export function useLaunch(options: {
         steamAppId: game.steamAppId ?? null,
         gpuId,
         gpuName,
+        gpuPciId,
         launchArguments: launchArgs,
         runAsAdmin: IS_WINDOWS_HOST ? (game.runAsAdmin || null) : null,
         showSteamLaunchSelection: game.showSteamLaunchSelection || null,

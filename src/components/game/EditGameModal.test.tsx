@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { EditGameModal } from "./EditGameModal";
 import type { Game } from "../../types/game";
 
@@ -92,5 +92,42 @@ describe("EditGameModal save", () => {
       name: "Toggle compatibility layer",
     });
     expect(toggle.className).not.toContain("active");
+  });
+
+  it("saves the specific-GPU override from the graphics subtab", () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Graphics & Direct3D" })
+    );
+
+    const card = screen
+      .getByText("Use Specific GPU (MESA_VK_DEVICE_SELECT)")
+      .closest(".edit-launch-card");
+    expect(card).toBeTruthy();
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "On" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    expect(updateGameMock).toHaveBeenCalledTimes(1);
+    const updates = updateGameMock.mock.calls[0][1];
+    expect(updates.compatibility.useSpecificGpu).toBe(true);
+  });
+
+  it("keeps the specific-GPU override unset when left on Global", () => {
+    render(
+      <EditGameModal
+        game={makeGame({ compatibility: { enabled: true } })}
+        onClose={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    // `null` is the tri-state "inherit from Settings" value and is what the
+    // backend reads as "fall back to the global toggle".
+    const updates = updateGameMock.mock.calls[0][1];
+    expect(updates.compatibility.useSpecificGpu).toBe(null);
   });
 });

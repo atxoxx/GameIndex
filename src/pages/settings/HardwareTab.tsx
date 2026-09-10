@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { useActivity } from "../../context/ActivityContext";
@@ -8,9 +8,11 @@ import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../../components/ui";
-import type { SizeUnit, SpeedUnit } from "../../types/game";
+import type { GpuInfo, SizeUnit, SpeedUnit } from "../../types/game";
 import { CpuIcon, GaugeIcon, GpuIcon, HardwareIcon, MemoryIcon, RefreshIcon, ThermometerIcon } from "./settingsIcons";
+import type { CompatibilitySettings } from "./CompatibilityTab";
 import SettingsSection from "./SettingsSection";
+import SettingsToggleCard from "./SettingsToggleCard";
 
 /**
  * HardwareTab — detected-hardware summary (CPU / RAM / GPU chips), the
@@ -32,6 +34,7 @@ export default function HardwareTab() {
     setSamplingIntervalSec,
     tempUnit,
     setTempUnit,
+    isLinuxHost,
   } = useSettings();
   const { unit: sizeUnit, setUnit: setSizeUnit } = useSizeUnit();
   const { unit: speedUnit, setUnit: setSpeedUnit } = useSpeedUnit();
@@ -43,8 +46,12 @@ export default function HardwareTab() {
   const [systemInfo, setSystemInfo] = useState<{
     cpuName: string;
     ramGb: number;
-    gpus: { id: string; name: string; vendor: string; vramMb: number }[];
+    gpus: GpuInfo[];
   } | null>(null);
+
+  // Global compatibility settings hold the "use selected GPU for games"
+  // toggle; the GPU itself is chosen in the card below.
+  const [compatSettings, setCompatSettings] = useState<CompatibilitySettings | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -52,14 +59,51 @@ export default function HardwareTab() {
         const info = await invoke<{
           cpuName: string;
           ramGb: number;
-          gpus: { id: string; name: string; vendor: string; vramMb: number }[];
+          gpus: GpuInfo[];
         }>("get_system_info");
         setSystemInfo(info);
       } catch (e) {
         console.warn("[SettingsPage] get_system_info failed:", e);
       }
     })();
+    invoke<CompatibilitySettings>("get_compatibility_settings")
+      .then((s) => setCompatSettings(s))
+      .catch((e) => console.warn("[SettingsPage] get_compatibility_settings failed:", e));
   }, []);
+
+  const updateCompatSettings = useCallback(
+    (updater: (prev: CompatibilitySettings) => CompatibilitySettings) => {
+      setCompatSettings((prev) => {
+        if (!prev) return prev;
+        const next = updater(prev);
+        invoke("set_compatibility_settings", { settings: next }).catch((err) => {
+          showToast(t("compatibility.saveFailed", { error: String(err) }), "error");
+        });
+        return next;
+      });
+    },
+    [showToast, t],
+  );
+
+  // Keep the persisted PCI id in sync with the selection while the
+  // "use selected GPU for games" toggle is on, so tray launches (which
+  // don't go through the frontend) target the same adapter.
+  const selectGpu = useCallback(
+    (gpu: GpuInfo | null) => {
+      setSelectedGpu(gpu);
+      if (compatSettings?.useSpecificGpu) {
+        updateCompatSettings((prev) => ({ ...prev, specificGpuId: gpu?.pciId ?? null }));
+      }
+    },
+    [compatSettings?.useSpecificGpu, setSelectedGpu, updateCompatSettings],
+  );
+
+  // A restored selection can come from a cache written before the PCI id was
+  // exposed — prefer the freshly detected entry for the same adapter.
+  const selectedPciId =
+    systemInfo?.gpus.find((g) => g.id === selectedGpu?.id)?.pciId ??
+    selectedGpu?.pciId ??
+    null;
 
   // The Rust telemetry config wants milliseconds.
   const samplingIntervalMs = Math.round(samplingIntervalSec * 1000);
@@ -177,12 +221,13 @@ export default function HardwareTab() {
                         data-active={isActive ? "true" : "false"}
                         title={`${g.name} · ${vram}`}
                         onClick={() => {
-                          setSelectedGpu(g);
+                          selectGpu(g);
                           showToast(t("settings.hardware.gpuSelected", { name: g.name }), "success");
                         }}
                       >
                         <span className="hw-gpu-chip-dot" aria-hidden />
                         <span className="hw-gpu-chip-name">{g.name}</span>
+                        {g.pciId && <span className="hw-gpu-chip-id">{g.pciId}</span>}
                         <span className="hw-gpu-chip-vram">{vram}</span>
                       </button>
                     );
@@ -263,7 +308,7 @@ export default function HardwareTab() {
               value={selectedGpu?.id || ""}
               onChange={(e) => {
                 const gpu = availableGpus.find((g) => g.id === e.target.value);
-                setSelectedGpu(gpu || null);
+                selectGpu(gpu || null);
                 showToast(
                   gpu
                     ? t("settings.hardware.gpuSelected", { name: gpu.name })
@@ -276,10 +321,34 @@ export default function HardwareTab() {
               <option value="">{t("settings.gpuPlaceholder")}</option>
               {availableGpus.map((gpu) => (
                 <option key={gpu.id} value={gpu.id}>
-                  {gpu.name} ({gpu.vramMb} MB)
+                  {gpu.name} ({gpu.vramMb} MB{gpu.pciId ? ` · ${gpu.pciId}` : ""})
                 </option>
               ))}
             </select>
+
+            {isLinuxHost && (
+              <div style={{ marginTop: "var(--space-sm)" }}>
+                <SettingsToggleCard
+                  title={t("settings.hardware.specificGpu")}
+                  desc={
+                    selectedPciId
+                      ? t("settings.hardware.specificGpuDesc", { id: selectedPciId })
+                      : t("settings.hardware.specificGpuNoId")
+                  }
+                  checked={compatSettings?.useSpecificGpu ?? false}
+                  disabled={!compatSettings || !selectedPciId}
+                  onChange={(v) =>
+                    updateCompatSettings((prev) => ({
+                      ...prev,
+                      useSpecificGpu: v,
+                      specificGpuId: v
+                        ? selectedPciId ?? prev.specificGpuId
+                        : prev.specificGpuId,
+                    }))
+                  }
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

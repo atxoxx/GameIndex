@@ -319,6 +319,8 @@ export interface CompatibilityProfile {
   gamescopeArgs?: string;
   /** Prime render offload (discrete GPU on hybrid laptops) */
   primeRenderOffload?: boolean | null;
+  /** Pin Vulkan to the GPU selected in Settings → Hardware (MESA_VK_DEVICE_SELECT) and force Wine Wayland */
+  useSpecificGpu?: boolean | null;
 
   /** Custom environment variables (KEY -> VALUE) */
   environmentVariables?: Record<string, string>;
@@ -1709,6 +1711,8 @@ export interface GpuInfo {
   name: string;
   vendor: string;
   vramMb: number;
+  /** PCI vendor:device identifier on Linux (e.g. "10de:2c05") — used by MESA_VK_DEVICE_SELECT. */
+  pciId?: string | null;
 }
 
 /** Build per-session metric series for trend charts. Each data point comes from

@@ -146,6 +146,8 @@ export interface CompatibilitySettings {
   enableGamescope: boolean;
   gamescopeArgs: string | null;
   primeRenderOffload: boolean;
+  useSpecificGpu: boolean;
+  specificGpuId: string | null;
   customEnvironmentVariables: Record<string, string>;
   customDllOverrides: Record<string, string>;
   winetricksPath: string | null;
@@ -192,6 +194,8 @@ const DEFAULT_SETTINGS: CompatibilitySettings = {
   enableGamescope: false,
   gamescopeArgs: "-w 1920 -h 1080 -F fsr -f",
   primeRenderOffload: false,
+  useSpecificGpu: false,
+  specificGpuId: null,
   customEnvironmentVariables: {},
   customDllOverrides: {},
   winetricksPath: null,
