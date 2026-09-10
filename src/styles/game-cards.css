@@ -815,7 +815,8 @@
 .game-hero {
   --hero-h: 370px;
   position: relative;
-  height: var(--hero-h);
+  height: auto;
+  min-height: clamp(260px, 42vh, var(--hero-h));
   border-radius: var(--radius-xl);
   overflow: hidden;
   margin-bottom: var(--space-xl);
@@ -950,6 +951,7 @@
   position: relative;
   z-index: 2;
   height: 100%;
+  min-height: clamp(260px, 42vh, var(--hero-h));
   display: flex;
   align-items: center;
   gap: var(--space-xl);
@@ -972,7 +974,7 @@
 .game-hero__poster {
   position: relative;
   flex: 0 0 auto;
-  height: calc(var(--hero-h) - var(--space-2xl));
+  height: calc(clamp(260px, 42vh, var(--hero-h)) - var(--space-2xl));
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -1003,6 +1005,7 @@
   flex: 1 1 auto;
   min-width: 0;
   height: 100%;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1125,6 +1128,20 @@
   flex: 0 0 auto;
 }
 
+/* Short viewports (720p and below): cap the hero so the content below
+   it stays above the fold. Poster/inner must follow or they overflow.
+   Declared before the width media so the ≤860px stacked poster keeps
+   its auto height. */
+@media (max-height: 720px) {
+  .game-hero,
+  .game-hero__inner {
+    min-height: 260px;
+  }
+  .game-hero__poster {
+    height: calc(260px - var(--space-2xl));
+  }
+}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 860px) {
   .game-hero {
@@ -1218,6 +1235,8 @@
   align-items: center;
   gap: var(--space-sm);
   margin-top: var(--space-xs);
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .friends-playing__avatars {

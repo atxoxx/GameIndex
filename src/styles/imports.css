@@ -855,7 +855,7 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
-  width: 340px;
+  width: min(340px, 90%);
   text-align: center;
   box-shadow: var(--shadow-xl);
   display: flex;
@@ -922,7 +922,9 @@
 .import-stepper {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
+  row-gap: var(--space-sm);
   padding: var(--space-md) var(--space-xl);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
@@ -998,7 +1000,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-md);
+  row-gap: var(--space-sm);
   padding: var(--space-sm) var(--space-xl);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
@@ -1073,7 +1077,7 @@
   border: 1px solid var(--color-border);
   background: var(--color-background);
   color: var(--color-text-primary);
-  width: 190px;
+  width: clamp(140px, 30%, 230px);
   transition: border-color var(--transition-fast), width var(--transition-fast);
 }
 

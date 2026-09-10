@@ -115,6 +115,14 @@ export default function BigScreenLayout() {
     return () => cancelAnimationFrame(raf);
   }, [location.pathname]);
 
+  // Mirror the mode flag onto <html> so rem-based Big Screen scaling
+  // (bigscreen.css `[data-bigscreen="true"] { font-size }`) resolves.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-bigscreen", "true");
+    return () => root.removeAttribute("data-bigscreen");
+  }, []);
+
   return (
     <div className="bigscreen-v2 bigscreen-v3" data-bigscreen="true">
       <BigScreenHeader onOpenSearch={() => setSearchOpen(true)} />

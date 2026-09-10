@@ -1227,8 +1227,11 @@
   max-width: 900px;
   width: 92vw;
   height: 82vh;
+  height: min(82vh, 88dvh);
   min-height: 560px;
+  min-height: min(560px, 78dvh);
   max-height: 90vh;
+  max-height: min(90vh, 900px);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -1237,6 +1240,17 @@
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-2xl);
   position: relative;
+}
+
+@media (max-height: 720px) {
+  .news-preview-modal {
+    min-height: 0;
+    height: 94vh;
+    height: 94dvh;
+  }
+  .news-preview-webview-placeholder {
+    min-height: 0;
+  }
 }
 
 /* Reader Themes */
@@ -1660,7 +1674,7 @@
 
 .news-preview-webview-placeholder {
   flex: 1;
-  min-height: 380px;
+  min-height: min(380px, 50vh);
   position: relative;
   background: var(--color-bg-primary);
   display: flex;

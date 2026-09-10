@@ -20,12 +20,22 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   overflow-x: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
   -webkit-overflow-scrolling: touch;
 }
 
 .interface-subtab-bar::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.interface-subtab-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.interface-subtab-bar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
 }
 
 .interface-subtab-btn {

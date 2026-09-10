@@ -3037,6 +3037,7 @@
   width: auto;
   height: auto;
   max-height: 80%;
+  max-width: min(92vw, 60rem);
   border-radius: 1.25rem;
   border: var(--bigscreen-glass-border);
   background: var(--bigscreen-bg-raised);
@@ -3582,7 +3583,7 @@
   align-items: flex-start;
 }
 .bigscreen-gamepage-2col[data-cols="4"] {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 .bigscreen-kpi-card {
   background: var(--bigscreen-glass-bg);
@@ -4809,6 +4810,7 @@
 
 .bigscreen-addfriend-panel {
   width: 31.25rem;
+  max-width: min(92vw, 36rem);
   padding: 1.75rem;
   gap: 1.25rem;
 }
@@ -5431,7 +5433,14 @@
   grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
   gap: 1.5rem;
   align-items: stretch;
-  min-height: 34rem;
+  min-height: min(34rem, 100%);
+}
+
+@media (max-width: 1100px) {
+  .bigscreen-dms-layout {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
 }
 .bigscreen-dms-threadlist {
   display: flex;
@@ -5711,7 +5720,7 @@
 }
 .bigscreen-sessioncreate-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.875rem;
 }
 .bigscreen-sessioncreate-invites {
@@ -5857,7 +5866,7 @@
 }
 .bigscreen-lobby-meta-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   gap: 0.75rem;
 }
 .bigscreen-lobby-desc {

@@ -100,8 +100,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 44px;
+  min-height: 44px;
+  height: auto;
   padding: 0 var(--space-md);
+  flex-wrap: wrap;
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--color-bg-tertiary) 92%, var(--scrim-text) 6%),
@@ -2049,7 +2051,7 @@
 
 .steam-stats-popover-activity-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
   gap: 8px;
 }
 
@@ -2455,7 +2457,7 @@
 
 .steam-history-chart-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
   gap: 6px;
   margin-top: 4px;
 }

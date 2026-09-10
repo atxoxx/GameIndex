@@ -1400,7 +1400,7 @@
 /* Stats row — hairline-separated footer of the identity card. */
 .profile-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
   gap: var(--space-sm);
   width: 100%;
   padding-top: var(--space-lg);
@@ -1704,7 +1704,7 @@
   }
 }
 
-@media (max-width: 800px) {
+@media (max-width: 860px) {
   .profile-editor-layout {
     grid-template-columns: 1fr;
   }

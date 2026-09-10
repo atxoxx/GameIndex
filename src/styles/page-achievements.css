@@ -1086,3 +1086,19 @@
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Responsive: compact desktop windows ─────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .ach-hero-score-bar-wrap {
+    min-width: 180px;
+  }
+
+  .ach-activity-bars {
+    height: 88px;
+  }
+
+  .ach-game-card-cover-wrap {
+    height: 110px;
+  }
+}

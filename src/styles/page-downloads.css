@@ -293,7 +293,9 @@
     row-gap: var(--space-md);
   }
 
-  .dl-hero-grid > .dl-hero-divider:last-of-type {
+  /* `.dl-hero-extra` is the last div child, so `:last-of-type` can never
+     match a divider — target the one that follows the upload metric. */
+  .dl-hero-grid > .dl-hero-metric--up + .dl-hero-divider {
     display: none;
   }
 
@@ -873,7 +875,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  width: 220px;
+  width: min(220px, 100%);
+  flex: 1 1 180px;
   transition: width var(--transition-fast);
 }
 
@@ -1759,6 +1762,35 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-file-item--skipped {
   opacity: 0.45;
   background: transparent;
+}
+
+/* Narrow windows: stack the progress bar under the name and drop the
+   size column so the name keeps room to breathe. */
+@media (max-width: 760px) {
+  .dl-file-item {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .dl-file-checkbox {
+    grid-area: 1 / 1;
+  }
+
+  .dl-file-name {
+    grid-area: 1 / 2;
+  }
+
+  .dl-file-size {
+    display: none;
+  }
+
+  .dl-file-percentage {
+    grid-area: 1 / 3;
+  }
+
+  .dl-file-progress-bar {
+    grid-area: 2 / 2 / 3 / 4;
+  }
 }
 
 .dl-file-name {
@@ -2699,7 +2731,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-stats-extraction-stats {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--space-md);
 }
 
@@ -2729,7 +2761,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-stats-timeline-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--space-md);
 }
 

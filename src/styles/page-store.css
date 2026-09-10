@@ -79,14 +79,17 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
+  flex-wrap: wrap;
+  row-gap: var(--space-sm);
 }
 
 .store-header-brand {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
-  flex-shrink: 0;
+  flex-shrink: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .store-header-brand .brand-text {
@@ -95,6 +98,8 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .store-header-brand .brand-count {
@@ -382,11 +387,11 @@
 /* Stage */
 .store-spotlight-stage {
   position: relative;
-  min-height: 440px;
-  /* Cap the hero so it never eats the whole fold on short windows.
-     `62vh` keeps it proportional to the viewport; the min-height wins
-     whenever the window is tall enough that 440px is the natural size. */
-  max-height: min(560px, 62vh);
+  min-height: clamp(300px, 44vh, 440px);
+  /* Let the stage grow with its content so the CTA row is never clipped.
+     The clamp keeps the hero proportional to the viewport instead of a
+     fixed 440px, and the background stays clipped in its own layers. */
+  max-height: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -664,6 +669,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
   margin-top: 6px;
 }
 

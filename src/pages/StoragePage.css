@@ -920,12 +920,18 @@
 
 .storage__row-summary {
   display: grid;
-  grid-template-columns: auto minmax(180px, 1.5fr) minmax(90px, 0.8fr) minmax(110px, 1fr) minmax(100px, 0.8fr) auto;
+  grid-template-columns: auto minmax(0, 1.5fr) minmax(90px, 0.8fr) minmax(110px, 1fr) minmax(100px, 0.8fr) auto;
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   cursor: pointer;
   user-select: none;
+}
+
+/* Select mode prepends a checkbox cell — give it its own track so the
+   summary keeps its alignment instead of wrapping into an implicit row. */
+.storage__row-summary--select {
+  grid-template-columns: auto auto minmax(0, 1.5fr) minmax(90px, 0.8fr) minmax(110px, 1fr) minmax(100px, 0.8fr) auto;
 }
 
 .storage__row-select {
@@ -1251,7 +1257,11 @@
 /* ── Density Variants for Rows ── */
 .storage__row--compact .storage__row-summary {
   padding: 4px var(--space-sm);
-  grid-template-columns: auto minmax(150px, 1.8fr) minmax(80px, 0.7fr) minmax(90px, 0.8fr) minmax(80px, 0.6fr) auto;
+  grid-template-columns: minmax(0, 1.8fr) minmax(80px, 0.7fr) minmax(90px, 0.8fr) minmax(80px, 0.6fr) auto;
+}
+
+.storage__row--compact .storage__row-summary--select {
+  grid-template-columns: auto minmax(0, 1.8fr) minmax(80px, 0.7fr) minmax(90px, 0.8fr) minmax(80px, 0.6fr) auto;
 }
 
 .storage__row--cinematic .storage__row-thumb {
@@ -1606,6 +1616,9 @@
   z-index: 1000;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100vw - var(--space-xl));
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-lg);
   background: var(--color-surface);
@@ -1654,6 +1667,8 @@
 .storage-batch-selectors {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2px;
   border-left: 1px solid var(--color-border);
   border-right: 1px solid var(--color-border);
@@ -1663,6 +1678,8 @@
 .storage-batch-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-xs);
 }
 
@@ -2079,6 +2096,7 @@
 .emu-storage-card-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
@@ -2730,4 +2748,40 @@
   line-height: 1.6;
   max-height: 160px;
   overflow-y: auto;
+}
+
+/* ══ Responsive — narrow window / handheld widths ═════════════════════════ */
+
+@media (max-width: 1000px) {
+  .storage__row-summary {
+    grid-template-columns: auto minmax(0, 1fr) minmax(90px, 0.8fr) auto;
+  }
+
+  .storage__row-summary--select {
+    grid-template-columns: auto auto minmax(0, 1fr) minmax(90px, 0.8fr) auto;
+  }
+
+  .storage__row--compact .storage__row-summary {
+    grid-template-columns: minmax(0, 1fr) minmax(90px, 0.8fr) auto;
+  }
+
+  .storage__row--compact .storage__row-summary--select {
+    grid-template-columns: auto minmax(0, 1fr) minmax(90px, 0.8fr) auto;
+  }
+
+  .storage__row-platform,
+  .storage__row-detected {
+    display: none;
+  }
+
+  /* ROM tables drop the size column and keep name + open action. */
+  .emu-storage-roms-header,
+  .emu-storage-rom {
+    grid-template-columns: minmax(140px, 2fr) minmax(110px, 1.2fr);
+  }
+
+  .emu-th--size,
+  .emu-storage-rom-size-cell {
+    display: none;
+  }
 }

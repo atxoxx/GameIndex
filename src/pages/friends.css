@@ -770,6 +770,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: var(--space-xs);
   padding: 10px 16px;
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
   border: 1px solid var(--color-accent);
@@ -794,7 +796,9 @@
 .batch-actions-cluster {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+  row-gap: var(--space-xs);
 }
 
 /* Friends Grid & Cards */
@@ -1034,7 +1038,7 @@
 .friend-card-stats-strip,
 .friend-card-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
   gap: 6px;
   padding: 8px;
   background: var(--color-bg-tertiary);
@@ -1354,7 +1358,7 @@
   display: grid;
   grid-template-columns: 290px 1fr;
   gap: var(--space-md);
-  min-height: 580px;
+  min-height: min(580px, calc(var(--app-h) - 220px));
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -1786,12 +1790,14 @@
   border-top: 1px solid var(--color-border);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   background: var(--color-surface);
 }
 
 .dm-composer-input {
   flex: 1;
+  min-width: 0;
 }
 
 .dm-send-btn {
@@ -3417,6 +3423,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 20px 0 10px;
 }
@@ -3426,7 +3433,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  width: 180px;
+  width: min(180px, 30%);
   padding: 16px 12px 0;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -3544,7 +3551,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .leaderboard-table {
@@ -4016,7 +4023,7 @@
 
 .profile-card-stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
   gap: 8px;
   padding: 12px 16px;
   background: var(--color-bg-tertiary);
@@ -4500,7 +4507,7 @@ textarea.profile-input {
 .friend-preview-stats,
 .preview-stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
   gap: 6px;
   padding: 8px;
   background: var(--color-surface);

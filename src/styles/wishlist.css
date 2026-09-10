@@ -284,6 +284,7 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
   overflow: hidden;
+  overflow-y: auto;
 }
 
 .wishlist-filter-section h4 {

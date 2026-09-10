@@ -675,6 +675,10 @@
   padding: var(--space-xl);
   position: sticky;
   top: calc(var(--topnav-height) + var(--space-lg));
+  /* Keep the whole sidebar reachable on short windows (offset + gap). */
+  max-height: calc(var(--app-h) - var(--topnav-height) - var(--space-lg) - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ach-rarity-side-stats {
@@ -2191,12 +2195,27 @@
   }
 }
 
+@media (max-width: 1000px) {
+  .achievements-game-row {
+    grid-template-columns: 64px minmax(0, 1fr) auto auto;
+    gap: var(--space-md);
+  }
+  /* Drop the per-tier rarity columns + sync date; the progress bar and
+   * source badge carry the row's meaning at this width. */
+  .achievements-game-row .ach-rarity-counts,
+  .achievements-game-row .achievements-game-synced-at {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .ach-tab-body {
     grid-template-columns: 1fr;
   }
   .ach-rarity-side {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
   .ach-rarity-counts {
     display: none;

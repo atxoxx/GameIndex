@@ -3575,6 +3575,7 @@
 
 .dl-progress-card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   flex-shrink: 0;
 }
@@ -3823,7 +3824,7 @@
   right: 0;
   width: 380px;
   max-width: calc(100vw - var(--space-xl) * 2);
-  max-height: min(560px, calc(100vh - var(--topnav-height) - var(--space-2xl)));
+  max-height: min(560px, calc(var(--app-h) - var(--topnav-height) - var(--space-2xl)));
   background: var(--color-bg-elevated);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -5809,6 +5810,35 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-file-item--skipped {
   opacity: 0.45;
   background: transparent;
+}
+
+/* Narrow windows: stack the progress bar under the name and drop the
+   size column so the name keeps room to breathe. */
+@media (max-width: 760px) {
+  .dl-file-item {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .dl-file-checkbox {
+    grid-area: 1 / 1;
+  }
+
+  .dl-file-name {
+    grid-area: 1 / 2;
+  }
+
+  .dl-file-size {
+    display: none;
+  }
+
+  .dl-file-percentage {
+    grid-area: 1 / 3;
+  }
+
+  .dl-file-progress-bar {
+    grid-area: 2 / 2 / 3 / 4;
+  }
 }
 
 .dl-file-name {

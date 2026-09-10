@@ -606,6 +606,17 @@
   min-height: 700px;
 }
 
+/* Short windows: cap every preview size so the frame never runs off
+   the fold; the max preset also drops its 700px floor. */
+@media (max-height: 800px) {
+  .wl-preview-standard,
+  .wl-preview-tall,
+  .wl-preview-max {
+    height: clamp(320px, 60vh, 680px);
+    min-height: 0;
+  }
+}
+
 .wl-webview-frame {
   flex: 1;
   display: flex;

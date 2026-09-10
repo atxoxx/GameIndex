@@ -30,6 +30,7 @@ import {
   type SavedArticle,
 } from "./communityStorage";
 import "./news/NewsPage.css";
+import "../styles/game-news.css";
 
 const ITEMS_PER_PAGE = 24;
 const DENSITY_STORAGE_KEY = "gamelib.news.density";

@@ -11,6 +11,8 @@
   gap: var(--space-xl);
   padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
   width: 100%;
+  max-width: var(--content-max-width);
+  margin-inline: auto;
 }
 
 /* ── 1. Cinematic Multi-Candidate Spotlight Hero ────────────────────────── */
@@ -565,6 +567,7 @@
   justify-content: center;
   gap: var(--space-md);
   margin-top: 4px;
+  flex-wrap: wrap;
 }
 
 .home-spotlight__arrow {
@@ -1200,7 +1203,7 @@
 
 .home-activity__stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: var(--space-sm);
 }
 
@@ -1221,6 +1224,9 @@
   letter-spacing: -0.02em;
   color: var(--color-text-primary);
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .home-activity__stat-label {
@@ -1574,7 +1580,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  width: 120px;
+  width: clamp(104px, 9vw, 160px);
   flex-shrink: 0;
   padding: 0;
   background: transparent;
@@ -1674,12 +1680,12 @@
 }
 
 .home-deals__skeleton {
-  width: 150px;
+  flex: 0 0 clamp(120px, 24%, 150px);
   aspect-ratio: 3 / 4;
 }
 
 .home-news__skeleton {
-  width: 230px;
+  flex: 0 0 clamp(160px, 34%, 230px);
   height: 190px;
 }
 
@@ -1700,7 +1706,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  width: 150px;
+  width: clamp(120px, 11vw, 170px);
   flex-shrink: 0;
   padding: 0;
   background: transparent;
@@ -1816,7 +1822,7 @@
 
 /* News Rail */
 .home-news-card {
-  width: 230px;
+  width: clamp(180px, 17vw, 260px);
   flex-shrink: 0;
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -2163,6 +2169,41 @@
 }
 
 /* ── 6. Responsive Breakpoints ──────────────────────────────────────────── */
+
+/* Wide-sidebar windows (Deck 1280): app chrome leaves ~1000px of main
+   column, so stack the hero + dashboard before the desktop grid gets
+   too tight. Mirrors the ≤1100 collapse below. */
+@media (max-width: 1320px) {
+  .home-hero__grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .home-spotlight {
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .home-dashboard {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .home-hero__empty-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mirror of the ≤1040 sidebar rule — when the dashboard is stacked the
+   widgets can pair up again. */
+@media (max-width: 1160px) {
+  .home-dashboard__sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
+  }
+}
 
 @media (max-width: 1200px) {
   .home-hero__grid {

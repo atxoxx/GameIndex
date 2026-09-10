@@ -226,6 +226,7 @@
 .docs-content {
   min-width: 0;
   width: 100%;
+  max-width: 78ch;
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);

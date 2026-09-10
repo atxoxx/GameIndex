@@ -612,7 +612,7 @@
   .activity__stat:nth-child(n + 4) {
     border-top: 1px solid var(--color-border);
   }
-  .activity__stat:nth-child(4) {
+  .activity__stat:nth-child(3n + 1) {
     border-left: none;
   }
 }
@@ -637,7 +637,7 @@
   min-height: 0;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1024px) {
   .activity__dashboard-layout {
     grid-template-columns: 1fr;
   }
@@ -1101,8 +1101,9 @@
   position: relative;
 }
 
-/* The chart body has a fixed height; the empty state should fill and
-   center within it rather than sit at the top of the reserved space. */
+/* Height matches the chart's `height` prop (240); only the chart width is
+   responsive, so the reserved space never clips. The empty state fills and
+   centers within it rather than sitting at the top. */
 .activity-main-chart__body > .activity-empty {
   height: 100%;
   min-height: 0;
@@ -1117,7 +1118,7 @@
   gap: var(--space-lg);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .activity__two-column {
     grid-template-columns: 1fr;
   }
@@ -1361,6 +1362,8 @@
   gap: 2px;
   height: 32px;
   width: 100%;
+  max-width: 1100px;
+  margin-inline: auto;
 }
 
 .activity-gantt__heatmap-cell {
@@ -1514,7 +1517,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 520px;
+  max-height: min(520px, 45vh);
   overflow-y: auto;
   padding-right: 4px;
 }

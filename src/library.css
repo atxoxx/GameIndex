@@ -26,6 +26,8 @@
 .lib-page {
   position: relative;
   width: 100%;
+  max-width: var(--content-max-width);
+  margin-inline: auto;
   min-height: 100%;
   padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
   display: flex;
@@ -177,7 +179,7 @@
 }
 
 .lib-hero-text {
-  min-width: 260px;
+  min-width: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -300,7 +302,7 @@
 
 .lib-hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-sm);
   margin-top: var(--space-xl);
 }
@@ -473,6 +475,10 @@
   margin: 0;
   letter-spacing: -0.2px;
   font-family: var(--font-display);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lib-rail-subtitle {
@@ -1040,7 +1046,7 @@
   display: flex;
   gap: var(--space-sm);
   align-items: flex-start;
-  width: 300px;
+  width: clamp(220px, 24vw, 300px);
   max-width: 300px;
   box-sizing: border-box;
   transition: width var(--transition-normal);
@@ -1121,10 +1127,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  width: 252px;
+  width: 100%;
   max-width: 252px;
+  min-width: 0;
   box-sizing: border-box;
-  flex-shrink: 0;
+  flex: 1 1 auto;
   padding: var(--space-lg);
   background: var(--color-surface-glass);
   backdrop-filter: blur(16px);
@@ -1656,6 +1663,14 @@
   }
 }
 
+/* Below 1024 the toolbar's overlay "Filters" button takes over, so the
+   inline rail must not render in parallel. */
+@media (max-width: 1023px) {
+  .lib-rail-wrap {
+    display: none;
+  }
+}
+
 /* ────────────────────────────────────────────────────────────────────
    GRID + VIRTUALIZATION
    ──────────────────────────────────────────────────────────────────── */
@@ -1742,11 +1757,11 @@
 }
 
 .lib-card.density-compact {
-  max-width: 150px;
+  max-width: min(100%, 150px);
 }
 
 .lib-card.density-cinematic {
-  max-width: 300px;
+  max-width: min(100%, 300px);
 }
 
 .lib-grid-scroll {
@@ -2221,7 +2236,7 @@
 
 .lib-rail-cover {
   position: relative;
-  height: 210px;
+  height: clamp(150px, 26vh, 240px);
   flex-shrink: 0;
   background: var(--color-surface);
   overflow: hidden;
@@ -2380,6 +2395,19 @@
 .lib-rail-resume:focus-visible {
   outline: 2px solid var(--color-text-inverse);
   outline-offset: 2px;
+}
+
+/* Touch/handheld: there is no hover, so reveal the hover-only FAB and
+   resume pill permanently (translate keeps the pill horizontally centered). */
+@media (hover: none) {
+  .lib-card-fab {
+    opacity: 1;
+    transform: none;
+  }
+  .lib-rail-resume {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 .lib-rail-player-chip {
@@ -2941,9 +2969,6 @@
   .lib-page {
     padding: var(--space-lg) var(--space-xl) var(--space-2xl);
   }
-  .lib-hero-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 @media (max-width: 1280px) {
@@ -2953,6 +2978,20 @@
   }
   .lib-search {
     max-width: 240px;
+  }
+  /* The toolbar wraps taller in this range, so the sticky panel would
+     tuck under it — scroll the panel with the page instead. */
+  .lib-filter {
+    position: static;
+    top: auto;
+  }
+  /* The rail gets narrower than 300px here; let segment labels wrap to
+     two lines rather than ellipsizing words like "Not installed". */
+  .lib-segment-option {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.2;
   }
   .lib-cards {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -3310,6 +3349,7 @@
   justify-content: space-between;
   gap: var(--space-xl);
   margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
 }
 
 .lib-hero-spotlight {
@@ -3628,6 +3668,9 @@
   align-items: center;
   gap: var(--space-md);
   padding: 8px 16px;
+  max-width: calc(100vw - var(--space-xl));
+  flex-wrap: wrap;
+  justify-content: center;
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border-highlight);
   background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent);
@@ -4023,6 +4066,28 @@
   }
   .lib-th-playtime,
   .lib-card-list-playtime {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1000px) {
+  .lib-list-table-header,
+  .lib-card--list {
+    grid-template-columns: 44px minmax(120px, 2fr) minmax(70px, 0.9fr) minmax(80px, 0.9fr);
+  }
+  .lib-th-actions,
+  .lib-card-list-actions {
+    display: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .lib-list-table-header,
+  .lib-card--list {
+    grid-template-columns: 44px minmax(120px, 1fr) minmax(70px, 0.8fr);
+  }
+  .lib-th-status,
+  .lib-card-list-status {
     display: none !important;
   }
 }

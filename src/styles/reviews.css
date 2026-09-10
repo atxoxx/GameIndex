@@ -375,6 +375,15 @@
   border-radius: var(--radius-md);
 }
 
+/* Segments wrap instead of forcing the toolbar wider than the panel. */
+.rv-seg {
+  flex-wrap: wrap;
+}
+
+.rv-seg > * {
+  min-width: 0;
+}
+
 .rv-source-seg-btn,
 .rv-seg-btn {
   appearance: none;
@@ -570,7 +579,8 @@
   left: 0;
   z-index: 70;
   min-width: 190px;
-  max-height: 320px;
+  max-height: min(320px, 60vh);
+  max-width: calc(100vw - 24px);
   overflow-y: auto;
   padding: 4px;
   border-radius: var(--radius-md);
@@ -582,6 +592,13 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* The trailing dropdown in the tools row opens right-aligned so its
+   menu can't overhang the app shell's clipped right edge. */
+.rv-toolbar-tools .rv-dd:not(:has(~ .rv-dd)) > .rv-dd-menu {
+  right: 0;
+  left: auto;
 }
 
 .rv-dd-opt {

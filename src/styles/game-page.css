@@ -1,8 +1,9 @@
-/* Game Page — full-width inside .app-main (no capped container; hero + grid stretch to panel) */
+/* Game Page — centered inside .app-main and capped at --content-max-width
+ * on big screens; the hero + grid stretch to the panel below that. */
 .game-page {
   width: 100%;
-  max-width: none;
-  margin: 0;
+  max-width: var(--content-max-width);
+  margin-inline: auto;
   padding: var(--page-padding, var(--space-2xl));
   box-sizing: border-box;
 }
@@ -108,24 +109,19 @@
   align-items: start;
 }
 
-/* Mid-width: tighten the side column floor so cards don't get
- * squeezed into an unreadable width before the full stack kicks
- * in at 860px. */
+/* Full collapse to a single reading column once the window is too
+ * narrow for two readable columns (the sidebar is already in icon-rail
+ * mode at this width). align-items reset isn't needed since it's one
+ * column. */
 @media (max-width: 1100px) {
   .game-content-grid {
-    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-    gap: var(--space-lg);
-  }
-}
-
-/* Full collapse to a single reading column on phones / narrow
- * windows. align-items reset isn't needed since it's one column. */
-@media (max-width: 860px) {
-  .game-content-grid {
     grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-lg);
   }
   .game-side-col {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -276,13 +272,14 @@
 
 .edit-field.full-width {  grid-column: 1 / -1;}
 .edit-field-row {
-.edit-field-row > .edit-field {
-  flex: 1;
-  min-width: 0;
-}
   grid-column: 1 / -1;
   display: flex;
   gap: var(--space-md);
+  min-width: 0;
+}
+
+.edit-field-row > .edit-field {
+  flex: 1;
   min-width: 0;
 }
 
@@ -463,11 +460,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  min-width: 0;
   margin-bottom: var(--space-lg);
 }
 .game-top-bar__actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
   gap: var(--space-sm);
 }
 
@@ -841,10 +842,15 @@
   /* On wide screens keep the KPI / compatibility stack visible
    * while the (often taller) main column scrolls. The offset
    * clears the sticky tab bar + breathing room. Disabled below
-   * 860px where the column stacks and sticky would trap it. */
+   * 1100px where the column stacks and sticky would trap it. */
   position: sticky;
   top: calc(var(--topnav-height) + 72px);
   align-self: start;
+  /* Keep every card scrollable inside the rail on short windows:
+   * subtract the 72px sticky offset + a 32px bottom gap. */
+  max-height: calc(var(--app-h) - var(--topnav-height) - 104px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 
@@ -2072,7 +2078,7 @@
   justify-content: space-between;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1100px) {
   .store-hero-skeleton {
     flex-direction: column;
     align-items: center;
@@ -2364,7 +2370,7 @@
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 50%, transparent);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1120px) {
   .game-quick-stats-bar {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -2401,8 +2407,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   margin-bottom: var(--space-md);
   gap: var(--space-md);
+  row-gap: var(--space-sm);
 }
 
 .media-spotlight__title-row {
@@ -2432,6 +2440,7 @@
 .media-spotlight__nav-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
 }
 
@@ -2487,6 +2496,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
+  max-height: min(70vh, 720px);
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-bg-tertiary);
@@ -2603,7 +2613,7 @@
 
 .media-spotlight__thumb {
   position: relative;
-  flex: 0 0 130px;
+  flex: 0 0 clamp(110px, 12vw, 200px);
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -2699,7 +2709,7 @@
 
 .activity-pulse__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: var(--space-md);
 }
 
@@ -2779,7 +2789,8 @@
 /* ── Handhelds / Steam Deck (<= 1024px) ──────────────────────────────────── */
 @media (max-width: 1024px) {
   .game-hero {
-    min-height: auto;
+    height: auto;
+    min-height: 0;
   }
 
   .game-hero__actions {

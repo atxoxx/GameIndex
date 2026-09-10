@@ -203,6 +203,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex-wrap: wrap;
   margin-top: var(--space-sm);
 }
 
@@ -258,6 +259,7 @@
 /* ─── Sub-tabs ─── */
 .deals-subtabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-xs);
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 0;
@@ -1683,7 +1685,7 @@
 
 .pt-detail-req-row {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: minmax(90px, 140px) 1fr;
   gap: var(--space-md);
   align-items: baseline;
 }
@@ -1700,6 +1702,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .pt-media-strip {

@@ -40,7 +40,7 @@ export default function StoreGameLoadingSkeleton() {
 
       {/* Tabs bar skeleton */}
       <div style={{ display: "flex", justifyContent: "center", margin: "var(--space-xl) 0" }}>
-        <div style={{ display: "flex", gap: "var(--space-sm)", padding: "4px", background: "var(--color-surface-raised)", borderRadius: "var(--radius-full)" }}>
+        <div style={{ display: "flex", gap: "var(--space-sm)", padding: "4px", background: "var(--color-surface-raised)", borderRadius: "var(--radius-full)", flexWrap: "wrap", justifyContent: "center" }}>
           <Skeleton shape="rect" width="90px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
           <Skeleton shape="rect" width="90px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
           <Skeleton shape="rect" width="110px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
@@ -63,7 +63,7 @@ export default function StoreGameLoadingSkeleton() {
           {/* Screenshots Carousel Skeleton */}
           <div className="game-section" style={{ padding: "var(--space-xl)", borderRadius: "var(--radius-lg)", background: "var(--color-surface-raised)" }}>
             <Skeleton shape="text" width="140px" height="24px" style={{ marginBottom: "var(--space-lg)" }} />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-md)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "var(--space-md)" }}>
               <Skeleton shape="rect" width="100%" height="120px" style={{ borderRadius: "var(--radius-md)" }} />
               <Skeleton shape="rect" width="100%" height="120px" style={{ borderRadius: "var(--radius-md)" }} />
               <Skeleton shape="rect" width="100%" height="120px" style={{ borderRadius: "var(--radius-md)" }} />
