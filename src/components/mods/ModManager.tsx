@@ -76,7 +76,7 @@ export default function ModManager({
   const mods = payload?.mods ?? [];
   const engines = payload?.engines ?? [];
   const supportsReorder = payload?.supportsReorder ?? false;
-  const canScan = !!game.path;
+  const canScan = !!game.path || game.steamAppId != null;
 
   // Persist total footprint
   const onModsSizedRef = useRef(onModsSized);

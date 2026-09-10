@@ -69,14 +69,14 @@ export function useGameMods(game: Game | null) {
   }, [game?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scan = useCallback(async () => {
-    if (!game?.path) return;
+    if (!game?.path && game?.steamAppId == null) return;
     const gameId = game.id;
     setScanning(true);
     setError(null);
     try {
       const p = await invoke<GameModsPayload>("mods_scan_game", {
         gameId,
-        gamePath: game.path,
+        gamePath: game.path ?? "",
         steamAppId: game.steamAppId ?? null,
       });
       if (gameIdRef.current === gameId) {

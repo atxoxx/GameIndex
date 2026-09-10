@@ -805,7 +805,13 @@ pub fn scan_with_cancel(
     cancelled: Option<&AtomicBool>,
 ) -> Result<ScanOutcome, String> {
     let exe = Path::new(game_path);
-    let game_dir = exe.parent().filter(|p| p.is_dir());
+    // Callers may pass either a game executable or the install directory
+    // itself (Steam games on Linux resolve to a directory, not an .exe).
+    let game_dir = if exe.is_dir() {
+        Some(exe)
+    } else {
+        exe.parent().filter(|p| p.is_dir())
+    };
     if game_dir.is_none() && custom_root.is_none() {
         return Err(format!("game folder not found for '{game_path}'"));
     }
@@ -867,12 +873,20 @@ mod tests {
 
     #[test]
     fn plugins_txt_star_format_detection() {
-        assert!(plugins_txt_is_star_format(Path::new(
-            "C:\\Users\\u\\AppData\\Local\\Skyrim Special Edition\\Plugins.txt"
-        )));
-        assert!(!plugins_txt_is_star_format(Path::new(
-            "C:\\Users\\u\\AppData\\Local\\FalloutNV\\Plugins.txt"
-        )));
+        let sse = PathBuf::from("Users")
+            .join("u")
+            .join("AppData")
+            .join("Local")
+            .join("Skyrim Special Edition")
+            .join("Plugins.txt");
+        assert!(plugins_txt_is_star_format(&sse));
+        let fnv = PathBuf::from("Users")
+            .join("u")
+            .join("AppData")
+            .join("Local")
+            .join("FalloutNV")
+            .join("Plugins.txt");
+        assert!(!plugins_txt_is_star_format(&fnv));
     }
 
     #[test]
@@ -906,5 +920,33 @@ mod tests {
         let map = parse_plugins_txt(&file);
         assert_eq!(map.get("enabled.esp").unwrap().0, true);
         assert_eq!(map.get("disabled.esp").unwrap().0, false);
+    }
+
+    #[test]
+    fn scan_accepts_install_dir_instead_of_exe() {
+        // Steam titles on Linux resolve to the install directory, not an
+        // .exe, so `scan_with_cancel` must treat a directory as the game
+        // folder instead of its parent.
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("SomeGame");
+        let plugins = root.join("BepInEx").join("plugins");
+        fs::create_dir_all(&plugins).unwrap();
+        fs::write(plugins.join("CoolMod.dll"), b"dll").unwrap();
+
+        let out = scan_with_cancel("g1", &root.to_string_lossy(), None, None, None).unwrap();
+        assert!(out.engines.contains(&"bepinex".to_string()));
+        assert_eq!(out.mods.len(), 1);
+    }
+
+    #[test]
+    fn scan_rejects_missing_game_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        // The parent must be missing too — otherwise (exe semantics) the
+        // parent dir is a valid game folder to scan.
+        let missing = dir.path().join("no-such-dir").join("game.exe");
+        let result = scan_with_cancel("g1", &missing.to_string_lossy(), None, None, None);
+        assert!(result.is_err(), "missing folder must error without a custom root");
+        let err = result.err().unwrap();
+        assert!(err.contains("game folder not found"));
     }
 }

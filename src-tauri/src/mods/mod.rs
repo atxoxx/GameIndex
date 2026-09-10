@@ -304,6 +304,19 @@ async fn mods_scan_game_internal(
             }
         }
     }
+    // Steam games (especially native Linux titles) can have an empty
+    // `path` because exe resolution only understands Windows binaries.
+    // Fall back to the appmanifest install dir so scanning still works.
+    let mut scan_path = game_path;
+    if scan_path.trim().is_empty() {
+        if let Some(dir) = appid
+            .as_deref()
+            .and_then(|a| a.parse::<u32>().ok())
+            .and_then(crate::steam_game_watcher::game_install_path)
+        {
+            scan_path = dir.to_string_lossy().to_string();
+        }
+    }
     let custom_root = db::mods::get_settings(&db, &game_id)?.and_then(|s| s.custom_root);
     let custom_root_clone = custom_root.clone();
     let cancel = Arc::new(AtomicBool::new(false));
@@ -314,7 +327,7 @@ async fn mods_scan_game_internal(
         let _ = progress_handle.emit("mods-scan-progress", ModScanProgress { game_id: progress_game_id.clone(), phase: "scanning".into(), files_examined: 0, mods_found: 0, complete: false });
         detect::scan_with_cancel(
             &gid,
-            &game_path,
+            &scan_path,
             appid.as_deref(),
             custom_root_clone.as_deref(),
             Some(&cancel),

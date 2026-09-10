@@ -35,13 +35,17 @@ export default function ModsPage() {
   const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const { setModsGameName } = usePresence();
 
-  // Installed games with a real on-disk path or games that already have mods
+  // Installed games we can scan or that already have mods. Steam titles
+  // are included via `steamAppId` even when `path` is empty — native
+  // Linux games have no .exe for the resolver to find, and the backend
+  // locates them from the appmanifest instead.
   const candidates = useMemo(
     () =>
       games
         .filter(
           (g) =>
-            (g.installed !== false && !!g.path) ||
+            (g.installed !== false &&
+              (!!g.path || g.steamAppId != null)) ||
             (overview.get(g.id)?.total ?? 0) > 0
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
@@ -121,8 +125,8 @@ export default function ModsPage() {
       const am = overview.get(a.id)?.total ?? 0;
       const bm = overview.get(b.id)?.total ?? 0;
       if ((am > 0) !== (bm > 0)) return am > 0 ? -1 : 1;
-      const ai = a.installed !== false && !!a.path;
-      const bi = b.installed !== false && !!b.path;
+      const ai = a.installed !== false && (!!a.path || a.steamAppId != null);
+      const bi = b.installed !== false && (!!b.path || b.steamAppId != null);
       if (ai !== bi) return ai ? -1 : 1;
       return a.name.localeCompare(b.name);
     });

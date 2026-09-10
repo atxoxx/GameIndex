@@ -54,11 +54,14 @@ export default function BigScreenModsPage() {
   const [overview, setOverview] = useState<Map<string, ModsOverviewEntry>>(new Map());
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
-  // Games that are installed with a path, or already have mods configured,
-  // are moddable candidates. If none match, fall back to all games.
+  // Games that are installed with a path (or a Steam AppID we can
+  // resolve an install dir from), or already have mods configured, are
+  // moddable candidates. If none match, fall back to all games.
   const candidates = useMemo(() => {
     const list = games.filter(
-      (g) => (g.installed !== false && !!g.path) || (overview.get(g.id)?.total ?? 0) > 0
+      (g) =>
+        (g.installed !== false && (!!g.path || g.steamAppId != null)) ||
+        (overview.get(g.id)?.total ?? 0) > 0
     );
     const pool = list.length > 0 ? list : games;
     return [...pool].sort((a, b) => {
