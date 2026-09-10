@@ -338,21 +338,43 @@ export function StorageHeroDashboard({
                   }}
                   title={t("storageHeader.filterBy", { label: d.label })}
                 >
-                  <div className="storage-drive-top">
+                  <div className="storage-drive-header">
                     <div className="storage-drive-identity">
-                      <span className="storage-drive-letter">{d.label}</span>
+                      <span className="storage-drive-letter" title={d.label}>
+                        {d.label}
+                      </span>
                       <span className="storage-drive-count">
                         {t("storageHeader.gameCount", { count: d.count, plural: d.count === 1 ? "" : "s" })}
                       </span>
                     </div>
-                    <div className="storage-drive-stats">
-                      <span className="storage-drive-lib-size">{formatSize(d.bytes, unit)}</span>
-                      {hasUsage && (
-                        <span className="storage-drive-free-size">
-                          {formatSize(u.available, unit)} free
-                        </span>
-                      )}
+                    {isActive && (
+                      <span className="storage-drive-active-indicator" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="storage-drive-stats">
+                    <div className="storage-drive-stat">
+                      <span className="storage-drive-stat-value storage-drive-stat-value--library">
+                        {formatSize(d.bytes, unit)}
+                      </span>
+                      <span className="storage-drive-stat-label">{t("storage.drive.library")}</span>
                     </div>
+                    {hasUsage && (
+                      <div className="storage-drive-stat storage-drive-stat--end">
+                        <span
+                          className={`storage-drive-stat-value ${isLowSpace ? "storage-drive-stat-value--low" : ""}`}
+                        >
+                          {formatSize(u.available, unit)}
+                        </span>
+                        <span className="storage-drive-stat-label">
+                          {t("storage.drive.freeOf", { total: formatSize(u.total, unit) })}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Multi-segment capacity progress bar */}
@@ -363,32 +385,40 @@ export function StorageHeroDashboard({
                         <div
                           className="storage-drive-seg storage-drive-seg--library"
                           style={{ width: `${libraryPct.toFixed(1)}%` }}
-                          title={`Library: ${formatSize(libraryBytes, unit)} (${libraryPct.toFixed(1)}%)`}
+                          title={`${t("storage.drive.library")}: ${formatSize(libraryBytes, unit)} (${libraryPct.toFixed(1)}%)`}
                         />
                         {/* Segment 2: Other Files & System */}
                         <div
                           className="storage-drive-seg storage-drive-seg--other"
                           style={{ width: `${otherPct.toFixed(1)}%` }}
-                          title={`Other: ${formatSize(otherBytes, unit)} (${otherPct.toFixed(1)}%)`}
+                          title={`${t("storage.drive.otherFiles")}: ${formatSize(otherBytes, unit)} (${otherPct.toFixed(1)}%)`}
                         />
                         {/* Segment 3: Free space (remaining track) */}
                       </div>
                       <div className="storage-drive-legend">
                         <span className="storage-drive-legend-item">
                           <i className="storage-drive-dot storage-drive-dot--library" aria-hidden="true" />
-                          {t("storage.drive.libraryShare", { pct: Math.round(libraryPct) })}
+                          {t("storage.drive.legend.library", { pct: Math.round(libraryPct) })}
                         </span>
-                        {isLowSpace && (
-                          <span className="storage-drive-legend-warning">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <circle cx="12" cy="12" r="10" />
-                              <line x1="12" y1="8" x2="12" y2="12" />
-                              <line x1="12" y1="16" x2="12.01" y2="16" />
-                            </svg>
-                            {t("storage.drive.lowSpaceWarning")}
-                          </span>
-                        )}
+                        <span className="storage-drive-legend-item">
+                          <i className="storage-drive-dot storage-drive-dot--other" aria-hidden="true" />
+                          {t("storage.drive.legend.other", { pct: Math.round(otherPct) })}
+                        </span>
+                        <span className="storage-drive-legend-item">
+                          <i className="storage-drive-dot storage-drive-dot--free" aria-hidden="true" />
+                          {t("storage.drive.legend.free", { pct: Math.round(freePct) })}
+                        </span>
                       </div>
+                      {isLowSpace && (
+                        <span className="storage-drive-warning">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                          </svg>
+                          {t("storage.drive.lowSpaceWarning")}
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <div className="storage-drive-progress-container">
@@ -398,14 +428,13 @@ export function StorageHeroDashboard({
                           style={{ width: `${total > 0 ? (d.bytes / total) * 100 : 0}%` }}
                         />
                       </div>
-                    </div>
-                  )}
-
-                  {isActive && (
-                    <div className="storage-drive-active-indicator" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
+                      {total > 0 && (
+                        <span className="storage-drive-stat-label">
+                          {t("storage.drive.shareOfLibrary", {
+                            pct: Math.round((d.bytes / total) * 100),
+                          })}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

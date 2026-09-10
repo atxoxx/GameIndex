@@ -344,44 +344,90 @@
   border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
 }
 
-.storage-drive-top {
+.storage-drive-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  min-width: 0;
 }
 
 .storage-drive-identity {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-xs);
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
 }
 
 .storage-drive-letter {
-  font-size: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 140px;
+  padding: 3px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent);
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .storage-drive-count {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .storage-drive-stats {
   display: flex;
-  flex-direction: column;
   align-items: flex-end;
-  font-size: var(--font-size-xs);
+  justify-content: space-between;
+  gap: var(--space-md);
 }
 
-.storage-drive-lib-size {
+.storage-drive-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.storage-drive-stat--end {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.storage-drive-stat-value {
+  font-size: 1.15rem;
   font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.storage-drive-stat-value--library {
   color: var(--color-accent);
 }
 
-.storage-drive-free-size {
+.storage-drive-stat-value--low {
+  color: var(--color-danger);
+}
+
+.storage-drive-stat-label {
+  max-width: 100%;
+  font-size: 11px;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .storage-drive-progress-container {
@@ -392,7 +438,7 @@
 
 .storage-drive-multibar {
   display: flex;
-  height: 8px;
+  height: 10px;
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   overflow: hidden;
@@ -412,7 +458,7 @@
 }
 
 .storage-drive-simplebar {
-  height: 8px;
+  height: 10px;
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   overflow: hidden;
@@ -427,7 +473,8 @@
 .storage-drive-legend {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px var(--space-sm);
   font-size: 11px;
   color: var(--color-text-muted);
 }
@@ -436,48 +483,64 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .storage-drive-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .storage-drive-dot--library {
   background: var(--color-accent);
 }
 
-.storage-drive-legend-warning {
+.storage-drive-dot--other {
+  background: color-mix(in srgb, var(--color-text-muted) 35%, transparent);
+}
+
+.storage-drive-dot--free {
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-text-muted) 60%, transparent);
+}
+
+.storage-drive-warning {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  align-self: flex-start;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
   color: var(--color-danger);
+  font-size: 11px;
   font-weight: var(--font-weight-medium);
 }
 
-.storage-drive-legend-warning svg {
+.storage-drive-warning svg {
   width: 12px;
   height: 12px;
+  flex-shrink: 0;
 }
 
 .storage-drive-active-indicator {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 18px;
-  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--color-accent);
   color: var(--color-accent-contrast, #ffffff);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-shrink: 0;
 }
 
 .storage-drive-active-indicator svg {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
 }
 
 /* ── Platform Distribution Strip ── */
