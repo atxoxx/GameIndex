@@ -1764,6 +1764,8 @@ export const de: TranslationDict = {
   "editExtras.adminHint": "Prozessrechte beim Start über Windows UAC erhöhen.",
   "editExtras.argsHint": "Benutzerdefinierte Befehlszeilenparameter, die beim Start direkt an die ausführbare Datei übergeben werden.",
   "editExtras.argsPlaceholder": "z. B. -windowed -novid -dev",
+  "editExtras.artworkRemoved": "{slot}-Bild entfernt",
+  "editExtras.artworkSaved": "{slot}-Bild gespeichert",
   "editExtras.browse": "Durchsuchen...",
   "editExtras.columnContent": "Inhalt",
   "editExtras.columnDate": "Datum",

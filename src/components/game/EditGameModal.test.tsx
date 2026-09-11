@@ -6,21 +6,27 @@ import type { Game } from "../../types/game";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(() => Promise.resolve([])),
+  convertFileSrc: (path: string) => `asset://localhost/${path}`,
+}));
+const { openMock } = vi.hoisted(() => ({
+  openMock: vi.fn(() => Promise.resolve(null as string | null)),
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({
-  open: vi.fn(() => Promise.resolve(null)),
+  open: openMock,
 }));
 
 const updateGameMock = vi.fn();
 vi.mock("../../context/GameContext", () => ({
   useGames: () => ({
     updateGame: updateGameMock,
+    getGame: () => undefined,
     isGameUntracked: () => false,
     toggleGameTracking: vi.fn(),
   }),
 }));
+const showToastMock = vi.fn();
 vi.mock("../../context/ToastContext", () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast: showToastMock }),
 }));
 vi.mock("../../context/SettingsContext", () => ({
   useSettings: () => ({
@@ -399,5 +405,100 @@ describe("EditGameModal global setting hints", () => {
       expect(invokeMock).toHaveBeenCalledWith("get_compatibility_settings")
     );
     expect(screen.queryByText(/Settings:/)).toBeNull();
+  });
+});
+
+describe("EditGameModal instant artwork save", () => {
+  const invokeMock = vi.mocked(
+    invoke as unknown as (cmd: string, args?: unknown) => Promise<unknown>
+  );
+
+  beforeEach(() => {
+    updateGameMock.mockClear();
+    showToastMock.mockClear();
+    invokeMock.mockClear();
+    invokeMock.mockImplementation(() => Promise.resolve(null));
+  });
+
+  afterEach(() => {
+    openMock.mockReset();
+    invokeMock.mockImplementation(() => Promise.resolve([]));
+  });
+
+  function openMediaTab() {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+  }
+
+  function iconFileButton() {
+    return screen.getAllByRole("button", { name: "File" })[0];
+  }
+
+  it("saves a chosen icon immediately, replacing the existing one", async () => {
+    openMock.mockResolvedValueOnce("/pictures/new-icon.png");
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "store_artwork_file") {
+        return Promise.resolve("artwork/game-1/icon.png");
+      }
+      if (cmd === "artwork_asset_url") {
+        return Promise.resolve("file:///tmp/artwork/game-1/icon.png");
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <EditGameModal
+        game={makeGame({ iconUrl: "asset://localhost/old-icon.png" })}
+        onClose={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    fireEvent.click(iconFileButton());
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "store_artwork_file",
+        expect.objectContaining({ gameId: "game-1", slot: "icon" })
+      )
+    );
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "save_game",
+        expect.objectContaining({
+          game: expect.objectContaining({
+            id: "game-1",
+            iconUrl: expect.stringContaining("asset://localhost/"),
+          }),
+        })
+      )
+    );
+    expect(updateGameMock).toHaveBeenCalledWith(
+      "game-1",
+      expect.objectContaining({
+        iconUrl: expect.stringContaining("asset://localhost/"),
+      })
+    );
+    expect(updateGameMock.mock.calls[0][1].iconUrl).not.toBe(
+      "asset://localhost/old-icon.png"
+    );
+  });
+
+  it("does not touch the game when the artwork file cannot be stored", async () => {
+    openMock.mockResolvedValueOnce("/pictures/broken.png");
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "store_artwork_file") {
+        return Promise.reject(new Error("disk full"));
+      }
+      return Promise.resolve(null);
+    });
+
+    openMediaTab();
+    fireEvent.click(iconFileButton());
+
+    await waitFor(() =>
+      expect(showToastMock).toHaveBeenCalledWith("Failed to load image", "error")
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith("save_game", expect.anything());
+    expect(updateGameMock).not.toHaveBeenCalled();
   });
 });

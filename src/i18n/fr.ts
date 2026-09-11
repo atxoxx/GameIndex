@@ -1764,6 +1764,8 @@ export const fr: TranslationDict = {
   "editExtras.adminHint": "Élever les privilèges du processus via Windows UAC au lancement.",
   "editExtras.argsHint": "Paramètres de ligne de commande personnalisés transmis directement à l'exécutable au démarrage.",
   "editExtras.argsPlaceholder": "ex. -windowed -novid -dev",
+  "editExtras.artworkRemoved": "Image {slot} supprimée",
+  "editExtras.artworkSaved": "Image {slot} enregistrée",
   "editExtras.browse": "Parcourir...",
   "editExtras.columnContent": "Contenu",
   "editExtras.columnDate": "Date",

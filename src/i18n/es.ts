@@ -1764,6 +1764,8 @@ export const es: TranslationDict = {
   "editExtras.adminHint": "Eleva los privilegios del proceso usando el UAC de Windows al iniciar.",
   "editExtras.argsHint": "Parámetros personalizados de línea de comandos pasados directamente al ejecutable al iniciar.",
   "editExtras.argsPlaceholder": "p. ej. -windowed -novid -dev",
+  "editExtras.artworkRemoved": "Imagen de {slot} eliminada",
+  "editExtras.artworkSaved": "Imagen de {slot} guardada",
   "editExtras.browse": "Examinar...",
   "editExtras.columnContent": "Contenido",
   "editExtras.columnDate": "Fecha",

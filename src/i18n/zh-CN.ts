@@ -1764,6 +1764,8 @@ export const zhCN: TranslationDict = {
   "editExtras.adminHint": "启动时通过 Windows UAC 提升进程权限。",
   "editExtras.argsHint": "启动时直接传递给可执行文件的自定义命令行参数。",
   "editExtras.argsPlaceholder": "例如：-windowed -novid -dev",
+  "editExtras.artworkRemoved": "{slot}图片已移除",
+  "editExtras.artworkSaved": "{slot}图片已保存",
   "editExtras.browse": "浏览…",
   "editExtras.columnContent": "内容",
   "editExtras.columnDate": "日期",

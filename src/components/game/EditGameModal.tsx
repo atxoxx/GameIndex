@@ -49,6 +49,17 @@ const PERSPECTIVE_SUGGESTIONS = [
 ];
 const LANGUAGE_SUPPORT_TYPES = ["Audio", "Subtitles", "Interface"];
 
+const ARTWORK_SLOT_LABEL_KEYS: Record<
+  "icon" | "cover" | "hero" | "banner" | "logo",
+  string
+> = {
+  icon: "edit.label.icon",
+  cover: "edit.label.cover",
+  hero: "edit.label.hero",
+  banner: "edit.label.hero",
+  logo: "edit.label.logo",
+};
+
 const COMMON_LAUNCH_ARGS = [
   { label: "-windowed", desc: "Windowed mode" },
   { label: "-fullscreen", desc: "Fullscreen" },
@@ -69,7 +80,7 @@ interface EditGameModalProps {
 
 export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const { showToast } = useToast();
-  const { updateGame, isGameUntracked, toggleGameTracking } = useGames();
+  const { updateGame, getGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { t } = useLanguage();
   const { showFullLinuxUi, isWindowsHost, isLinuxHost } = useSettings();
@@ -498,6 +509,46 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     else setEditLogo(value);
   }
 
+  function artworkPatch(
+    key: "icon" | "cover" | "hero" | "banner" | "logo",
+    value: string
+  ): Partial<Game> {
+    const slot = key === "banner" ? "hero" : key;
+    const url = value || undefined;
+    if (slot === "icon") return { iconUrl: url };
+    if (slot === "cover") {
+      return {
+        coverArtUrl: url,
+        coverSourceUrl: /^https:\/\//i.test(value) ? value : undefined,
+      };
+    }
+    return slot === "hero" ? { bannerUrl: url } : { logoUrl: url };
+  }
+
+  function persistImageSlot(
+    key: "icon" | "cover" | "hero" | "banner" | "logo",
+    value: string
+  ) {
+    const patch = artworkPatch(key, value);
+    setImageSlot(key, value);
+    updateGame(game.id, patch);
+    const fresh = getGame(game.id) ?? game;
+    invoke("save_game", { game: { ...fresh, ...patch } }).catch((err) =>
+      console.warn(`Immediate artwork persist failed for ${game.name}:`, err)
+    );
+  }
+
+  function freshAssetUrl(url: string): string {
+    return `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+  }
+
+  function artworkSavedToast(key: "icon" | "cover" | "hero" | "banner" | "logo") {
+    showToast(
+      t("editExtras.artworkSaved", { slot: t(ARTWORK_SLOT_LABEL_KEYS[key]) }),
+      "success"
+    );
+  }
+
   async function searchMetadata(): Promise<GameMetadataResult[]> {
     return invoke("search_game_metadata", {
       gameName: editName.trim() || game.name,
@@ -513,14 +564,16 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       url,
     });
     if (relativePath) {
-      const assetUrl = toWebviewAssetUrl(
-        await invoke<string>("artwork_asset_url", { relativePath })
+      const assetUrl = freshAssetUrl(
+        toWebviewAssetUrl(
+          await invoke<string>("artwork_asset_url", { relativePath })
+        )
       );
-      setImageSlot(slot, assetUrl);
-      showToast(`Applied and saved image as ${slot}`, "success");
+      persistImageSlot(slot, assetUrl);
+      artworkSavedToast(slot);
       return true;
     }
-    showToast("Failed to download image", "error");
+    showToast(t("editExtras.failedToDownloadImage"), "error");
     return false;
   }
 
@@ -566,7 +619,11 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             url,
           });
           const assetUrl = relativePath
-            ? toWebviewAssetUrl(await invoke<string>("artwork_asset_url", { relativePath }))
+            ? freshAssetUrl(
+                toWebviewAssetUrl(
+                  await invoke<string>("artwork_asset_url", { relativePath })
+                )
+              )
             : undefined;
           return [key, assetUrl] as const;
         }),
@@ -643,19 +700,26 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
           filePath,
         });
         if (relativePath) {
-          const assetUrl = toWebviewAssetUrl(
-            await invoke<string>("artwork_asset_url", { relativePath })
+          const assetUrl = freshAssetUrl(
+            toWebviewAssetUrl(
+              await invoke<string>("artwork_asset_url", { relativePath })
+            )
           );
-          setImageSlot(key, assetUrl);
+          persistImageSlot(key, assetUrl);
+          artworkSavedToast(key);
         }
       }
     } catch (err) {
-      showToast("Failed to load image", "error");
+      showToast(t("editExtras.failedToLoadImage"), "error");
     }
   }
 
   function handleRemoveImage(key: "icon" | "cover" | "hero" | "logo") {
-    setImageSlot(key, "");
+    persistImageSlot(key, "");
+    showToast(
+      t("editExtras.artworkRemoved", { slot: t(ARTWORK_SLOT_LABEL_KEYS[key]) }),
+      "info"
+    );
   }
 
   async function handleApplyIgdbImage(imageUrl: string, slot: "icon" | "cover" | "hero" | "banner" | "logo") {

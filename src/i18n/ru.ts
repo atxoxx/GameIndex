@@ -1764,6 +1764,8 @@ export const ru: TranslationDict = {
   "editExtras.adminHint": "Повышает привилегии процесса через Windows UAC при запуске.",
   "editExtras.argsHint": "Пользовательские параметры командной строки, передаваемые напрямую исполняемому файлу при запуске.",
   "editExtras.argsPlaceholder": "напр. -windowed -novid -dev",
+  "editExtras.artworkRemoved": "Изображение «{slot}» удалено",
+  "editExtras.artworkSaved": "Изображение «{slot}» сохранено",
   "editExtras.browse": "Обзор...",
   "editExtras.columnContent": "Содержание",
   "editExtras.columnDate": "Дата",
