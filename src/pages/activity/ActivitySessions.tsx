@@ -22,8 +22,12 @@ import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime, type Game, type GameSession } from "../../types/game";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
+import { Copy, Eye, Link2, Play, Plus, Trash2 } from "lucide-react";
 import { useToast } from "../../context/ToastContext";
 import { ConfirmModal } from "../../components/ui/ConfirmModal";
+import ContextMenu, { type ContextMenuItem } from "../../components/ui/ContextMenu";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { copyTextToClipboard } from "../../utils/clipboard";
 import { generateEstimatedTimeline } from "./performance/perfData";
 import { EmptyState, ManualSessionModal, SessionComparisonModal, LinkGameModal, AddActivityGameModal } from "../../components/activity";
 import * as Icons from "./Icons";
@@ -624,6 +628,8 @@ function ActivitySessionItem({
   const [noteText, setNoteText] = useState(noteData.note);
   const [tagsList, setTagsList] = useState(noteData.tags);
   const [tagInput, setTagInput] = useState("");
+  const sessionMenu = useContextMenu();
+  const { showToast } = useToast();
 
   const { appId: resolvedSteamAppId } = useSteamAppId(game ?? null);
   const steamAppId =
@@ -802,6 +808,81 @@ function ActivitySessionItem({
 
   const m = session.metrics;
 
+  const copyValue = async (value: string) => {
+    const copied = await copyTextToClipboard(value);
+    showToast(
+      copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
+      copied ? "success" : "error"
+    );
+  };
+
+  const sessionMenuItems: ContextMenuItem[] = [
+    ...(game
+      ? [
+          {
+            id: "view-game",
+            label: t("gameActivity.viewGamePage"),
+            icon: <Eye size={15} />,
+            onSelect: () => navigate(`/library/${game.id}`),
+          } as ContextMenuItem,
+          ...(onLaunchGame
+            ? [
+                {
+                  id: "launch",
+                  label: t("game.play"),
+                  icon: <Play size={15} />,
+                  accent: true,
+                  onSelect: () => onLaunchGame(game),
+                } as ContextMenuItem,
+              ]
+            : []),
+        ]
+      : [
+          ...(onRequestLink
+            ? [
+                {
+                  id: "link",
+                  label: t("activity.linkToLibrary"),
+                  icon: <Link2 size={15} />,
+                  onSelect: () => onRequestLink(session.gameId, session.gameName),
+                } as ContextMenuItem,
+              ]
+            : []),
+          ...(onRequestAdd
+            ? [
+                {
+                  id: "add",
+                  label: t("activity.addToLibrary"),
+                  icon: <Plus size={15} />,
+                  accent: true,
+                  onSelect: () => onRequestAdd(session.gameId, session.gameName),
+                } as ContextMenuItem,
+              ]
+            : []),
+        ]),
+    { id: "sep-1", separator: true },
+    {
+      id: "copy-session-id",
+      label: t("ctx.copySessionId"),
+      icon: <Copy size={15} />,
+      onSelect: () => copyValue(session.id),
+    },
+    {
+      id: "copy-game-name",
+      label: t("gameMenu.copyName"),
+      icon: <Copy size={15} />,
+      onSelect: () => copyValue(session.gameName),
+    },
+    { id: "sep-2", separator: true },
+    {
+      id: "delete",
+      label: t("activitySessions.delete"),
+      icon: <Trash2 size={15} />,
+      danger: true,
+      onSelect: () => onRequestDelete(session),
+    },
+  ];
+
   return (
     <div className={`activity-session-item ${isExpanded ? "activity-session-item--expanded" : ""}`}>
       <div
@@ -810,6 +891,7 @@ function ActivitySessionItem({
         tabIndex={0}
         aria-expanded={isExpanded}
         onClick={() => setIsExpanded(!isExpanded)}
+        onContextMenu={(e) => sessionMenu.open(e)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -1135,6 +1217,24 @@ function ActivitySessionItem({
             </div>
           )}
         </div>
+      )}
+
+      {sessionMenu.state && (
+        <ContextMenu
+          x={sessionMenu.state.x}
+          y={sessionMenu.state.y}
+          items={sessionMenuItems}
+          onClose={sessionMenu.close}
+          ariaLabel={session.gameName}
+          header={
+            <>
+              <span className="context-menu-title" title={session.gameName}>
+                {session.gameName}
+              </span>
+              <span className="ctx-badge">{formattedDuration}</span>
+            </>
+          }
+        />
       )}
     </div>
   );
