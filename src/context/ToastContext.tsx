@@ -56,10 +56,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Shared no-op used when a component is rendered outside the provider
+// (isolated component tests, HMR edge cases) so toasts never crash the tree.
+const NOOP_TOAST_CONTEXT: ToastContextType = { showToast: () => {} };
+
 export function useToast(): ToastContextType {
   const ctx = useContext(ToastContext);
   if (!ctx) {
-    throw new Error("useToast must be used within a ToastProvider");
+    return NOOP_TOAST_CONTEXT;
   }
   return ctx;
 }

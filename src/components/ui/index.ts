@@ -28,3 +28,10 @@ export type { FlagIconProps } from "./FlagIcon";
 export { default as Disclosure } from "./Disclosure";
 
 export { UpdateModal } from "./UpdateModal";
+
+export { default as ContextMenu } from "./ContextMenu";
+export type {
+  ContextMenuAction,
+  ContextMenuItem,
+  ContextMenuProps,
+} from "./ContextMenu";
