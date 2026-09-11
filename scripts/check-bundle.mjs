@@ -4,7 +4,7 @@
  * past the budgets below. Run after `npm run build` (needs dist/assets).
  *
  * Budgets are in raw bytes and deliberately carry headroom over today's
- * bundle (entry ~835 KB, locales up to ~444 KB) so the gate catches
+ * bundle (entry ~733 KB, locales up to ~537 KB) so the gate catches
  * regressions rather than normal churn. Tighten them toward the stretch
  * targets (entry ≤ 450 KB) as the P1/P2 bundle work lands.
  */
@@ -17,7 +17,7 @@ const assetsDir = join(root, "dist", "assets");
 
 const BUDGETS = {
   entry: 950_000, // index-*.js — cold-boot critical path
-  locale: 520_000, // de/fr/es/ru/zh-CN dictionaries
+  locale: 560_000, // de/fr/es/ru/zh-CN dictionaries (rich docs guide pushes ru highest)
   total: 9_500_000, // all JS combined (< 10 MB bundle target)
 };
 
