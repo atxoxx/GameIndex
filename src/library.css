@@ -1355,6 +1355,30 @@
   color: var(--color-text-muted);
 }
 
+/* Native <select> variants of the rail input — strip the OS arrow and draw
+   the same chevron the button dropdowns use so every filter control reads
+   as one family. */
+select.lib-filter-search {
+  appearance: none;
+  padding-right: 34px;
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23747e98' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-sm) center;
+  background-size: 15px;
+}
+
+select.lib-filter-search:hover {
+  border-color: var(--color-border-highlight);
+}
+
+select.lib-filter-search option {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
 /* Segmented control for status / play-status / source */
 .lib-segment {
   display: flex;
