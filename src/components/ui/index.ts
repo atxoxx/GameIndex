@@ -29,6 +29,9 @@ export { default as Disclosure } from "./Disclosure";
 
 export { UpdateModal } from "./UpdateModal";
 
+export { ChangelogModal } from "./ChangelogModal";
+export type { ChangelogModalProps } from "./ChangelogModal";
+
 export { default as ContextMenu } from "./ContextMenu";
 export type {
   ContextMenuAction,

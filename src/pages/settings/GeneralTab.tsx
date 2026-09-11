@@ -4,7 +4,7 @@ import { useAppVersion } from "../../hooks/useAppVersion";
 import { useUpdate, formatBytes, installModeLabelKey } from "../../context/UpdateContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
-import { FlagIcon, Button } from "../../components/ui";
+import { FlagIcon, Button, ChangelogModal } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import { CompatibilityIcon, GamepadIcon, GlobeIcon, RefreshIcon } from "./settingsIcons";
@@ -49,6 +49,7 @@ export default function GeneralTab() {
   const [languagePickerHoverIdx, setLanguagePickerHoverIdx] = useState(0);
   const languagePickerRef = useRef<HTMLDivElement>(null);
   const languagePickerTriggerRef = useRef<HTMLButtonElement>(null);
+  const [showChangelog, setShowChangelog] = useState(false);
 
   const currentLanguage =
     languages.find((l) => l.code === language) ?? languages[0];
@@ -333,6 +334,9 @@ export default function GeneralTab() {
             </div>
 
             <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              <Button variant="ghost" onClick={() => setShowChangelog(true)}>
+                {t("updater.changelog")}
+              </Button>
               {status === "available" ? (
                 <>
                   <Button variant="primary" onClick={() => void installUpdate()}>
@@ -693,6 +697,11 @@ export default function GeneralTab() {
           </div>
         )}
       </SettingsSection>
+
+      <ChangelogModal
+        open={showChangelog}
+        onClose={() => setShowChangelog(false)}
+      />
     </div>
   );
 }

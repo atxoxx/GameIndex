@@ -1,0 +1,279 @@
+/* ==============================
+   Changelog Modal
+   ============================== */
+
+.changelog-modal {
+  width: min(720px, 94vw);
+  max-height: min(88vh, 760px);
+  max-height: min(88dvh, 760px);
+}
+
+.changelog-github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
+}
+
+.changelog-github-link:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.changelog-body {
+  padding: var(--space-lg) var(--space-xl);
+}
+
+/* ── Timeline list ─────────────────────────────────────────────── */
+
+.changelog-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.changelog-list::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 5px;
+  width: 1px;
+  background: var(--color-border);
+}
+
+.changelog-entry {
+  position: relative;
+  display: flex;
+  gap: var(--space-md);
+}
+
+.changelog-rail {
+  width: 11px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.changelog-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-light);
+  transition: border-color 0.18s var(--ease-out), background 0.18s var(--ease-out);
+}
+
+.changelog-entry.open .changelog-dot {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+
+.changelog-card {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+  transition: border-color 0.18s var(--ease-out);
+}
+
+.changelog-entry.open .changelog-card {
+  border-color: var(--color-border-light);
+}
+
+.changelog-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.changelog-head:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.changelog-version {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.changelog-date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.changelog-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform 0.18s var(--ease-out);
+}
+
+.changelog-entry.open .changelog-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Rendered release notes ────────────────────────────────────── */
+
+.changelog-notes {
+  padding: 0 14px 13px;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.changelog-no-notes {
+  margin: 0;
+  padding: 0 14px 13px;
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+.changelog-notes > :first-child {
+  margin-top: 0;
+}
+
+.changelog-notes p {
+  margin: 8px 0;
+}
+
+.changelog-notes a {
+  color: var(--color-accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.changelog-notes a:hover {
+  text-decoration: underline;
+}
+
+.changelog-notes code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  padding: 1px 5px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+}
+
+.changelog-notes ul,
+.changelog-notes ol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.changelog-notes blockquote {
+  margin: 8px 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--color-border-light);
+  color: var(--color-text-muted);
+}
+
+.changelog-notes hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 10px 0;
+}
+
+.changelog-heading {
+  margin: 10px 0 4px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.changelog-heading--1 {
+  font-size: var(--font-size-md);
+}
+
+.changelog-heading--2 {
+  font-size: var(--font-size-sm);
+}
+
+.changelog-heading--3,
+.changelog-heading--4 {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+/* ── Loading / empty / error states ────────────────────────────── */
+
+.changelog-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.changelog-skeleton-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.changelog-skeleton-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.changelog-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 34px 16px;
+  text-align: center;
+}
+
+.changelog-status-icon {
+  color: var(--color-text-muted);
+}
+
+.changelog-status-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.changelog-status-desc {
+  margin: 0;
+  max-width: 42ch;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
