@@ -175,6 +175,13 @@ export default function TopNav() {
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, []);
 
+  // Let other surfaces (e.g. the app context menu) open the palette.
+  useEffect(() => {
+    const openPalette = () => setPaletteOpen(true);
+    window.addEventListener("gamelib:open-command-palette", openPalette);
+    return () => window.removeEventListener("gamelib:open-command-palette", openPalette);
+  }, []);
+
   // Translate vertical mouse-wheel input into horizontal tab scrolling.
   const handleTabsWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
     const tabs = tabsRef.current;

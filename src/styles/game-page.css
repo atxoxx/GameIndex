@@ -710,6 +710,10 @@
   min-width: 236px;
 }
 
+.app-context-menu {
+  min-width: 232px;
+}
+
 .ctx-menu__header {
   display: flex;
   align-items: center;

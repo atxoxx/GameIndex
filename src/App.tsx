@@ -41,6 +41,7 @@ import { useDiscordPresence } from "./hooks/useDiscordPresence";
 import { useTrayNavigation } from "./hooks/useTrayNavigation";
 import { useTrayStrings } from "./hooks/useTrayStrings";
 import { LandingRedirect } from "./components/LandingRedirect";
+import AppContextMenu from "./components/AppContextMenu";
 import Splashscreen from "./components/Splashscreen";
 import WindowReveal from "./components/WindowReveal";
 import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
@@ -130,6 +131,7 @@ function AppShell() {
   return (
     <GamepadProvider enabled={isBigScreen}>
       <ResizeHandles />
+      {!isBigScreen && <AppContextMenu />}
       <Suspense fallback={<PageLoadingFallback />}>
         <Routes>
           <Route element={<AppLayout />}>
