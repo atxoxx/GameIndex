@@ -11,6 +11,7 @@ use std::ffi::CString;
 #[cfg(windows)]
 use std::sync::Mutex;
 
+#[cfg(windows)]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct MAHMSharedMemoryHeader {
@@ -24,6 +25,7 @@ pub struct MAHMSharedMemoryHeader {
     pub gpu_entry_size: u32,
 }
 
+#[cfg(windows)]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct MAHMSharedMemoryGpu {
@@ -49,16 +51,24 @@ pub struct MAHMSharedMemoryGpu {
 //   offset 1316: dwGpu (u32, 4 bytes) — GPU index for this entry
 //   offset 1320: dwSrcId (u32, 4 bytes) — source ID
 
+#[cfg(windows)]
 const ENTRY_NAME_OFFSET: usize = 0;
+#[cfg(windows)]
 const ENTRY_NAME_SIZE: usize = 260;
+#[cfg(windows)]
 const ENTRY_UNITS_OFFSET: usize = 260;
+#[cfg(windows)]
 const ENTRY_UNITS_SIZE: usize = 260;
 // Modern layout: data value at 5 × 260 = 1300
+#[cfg(windows)]
 const MODERN_DATA_OFFSET: usize = 1300;
 // Legacy layout: data value at 544 (pre-v2.0 entries with 268-byte strings)
+#[cfg(windows)]
 const LEGACY_DATA_OFFSET: usize = 544;
+#[cfg(windows)]
 const LEGACY_ENTRY_SIZE_THRESHOLD: u32 = 640;
 
+#[cfg(windows)]
 #[derive(Debug, Clone)]
 pub struct MahmMetrics {
     pub cpu_usage: Option<f32>,
@@ -123,6 +133,7 @@ unsafe fn read_str_at(ptr: *const u8, len: usize) -> String {
 
 /// Get the offset of the float `data` field within an entry,
 /// based on the entry size reported by the header.
+#[cfg(windows)]
 fn get_data_offset(entry_size: u32) -> usize {
     if entry_size < LEGACY_ENTRY_SIZE_THRESHOLD {
         LEGACY_DATA_OFFSET
@@ -149,6 +160,7 @@ fn get_data_offset(entry_size: u32) -> usize {
 // if a future MAHM revision exposes genuine system shared memory under this
 // exact name, narrow the exclusion to a more specific phrase (e.g.
 // "shared gpu memory") rather than relaxing it globally.
+#[cfg(any(windows, test))]
 const NON_SYSTEM_RAM_HINTS: &[&str] = &[
     "vram",
     "video memory",
@@ -165,6 +177,7 @@ const NON_SYSTEM_RAM_HINTS: &[&str] = &[
 ];
 
 /// Exact-name matches (case-insensitive) for system RAM entries.
+#[cfg(any(windows, test))]
 const SYSTEM_RAM_NAMES: &[&str] = &[
     "ram usage",
     "memory usage",
@@ -184,6 +197,7 @@ const SYSTEM_RAM_NAMES: &[&str] = &[
 ];
 
 /// True iff `name` (an MAHM sensor display name) corresponds to system RAM.
+#[cfg(any(windows, test))]
 fn matches_system_ram(name: &str) -> bool {
     let name_lower = name.to_lowercase();
     if name_lower.is_empty() {
@@ -205,11 +219,6 @@ fn matches_system_ram(name: &str) -> bool {
 ///
 /// These are the standard English names that MSI Afterburner uses in its shared memory.
 /// The matching is case-insensitive.
-#[cfg(not(windows))]
-pub fn read_mahm_metrics(_gpu_idx: u32, _gpu_name: Option<&str>) -> Option<MahmMetrics> {
-    None
-}
-
 #[cfg(windows)]
 pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMetrics> {
     unsafe {

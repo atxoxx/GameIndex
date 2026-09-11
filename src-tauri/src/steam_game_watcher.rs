@@ -32,6 +32,7 @@ pub struct AppManifest {
 /// and/or forward slashes; both are tolerated here. Returns `None` for
 /// empty input. The caller is still responsible for verifying the path
 /// actually looks like a Steam root (e.g. contains `steamapps`).
+#[cfg(any(windows, test))]
 fn normalize_steam_registry_path(raw: &str) -> Option<PathBuf> {
     let trimmed = raw.trim().trim_matches('"').to_string();
     if trimmed.is_empty() {

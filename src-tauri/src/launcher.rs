@@ -300,11 +300,6 @@ fn launch_elevated(path: &std::path::Path, cwd: &std::path::Path, args: Option<&
     Ok(Some(pid))
 }
 
-#[cfg(not(windows))]
-fn launch_elevated(_path: &std::path::Path, _cwd: &std::path::Path, _args: Option<&str>) -> Result<Option<u32>, String> {
-    Err("Admin elevation is only supported on Windows".to_string())
-}
-
 // === Launcher settings (L2/L3/L5) ============================================
 //
 // State that needs to be read on the hot path (every launch, every

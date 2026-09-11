@@ -33,6 +33,7 @@ pub mod sync;
 /// One curated Rockstar title. Mirrors Playnite's `RockstarGame`
 /// (Name / Executable / TitleId). `TitleId` is the token Rockstar's
 /// uninstaller embeds in `UninstallString` as `uninstall=<TitleId>`.
+#[cfg(windows)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RockstarGame {
     pub name: &'static str,
@@ -45,6 +46,7 @@ pub struct RockstarGame {
 /// Curated catalog — verbatim from Playnite's
 /// `RockstarGames.Games` list (15 titles, including the Definitive
 /// Edition Unreal builds that ship under `Gameface/Binaries/Win64/`).
+#[cfg(windows)]
 pub const GAMES: &[RockstarGame] = &[
     RockstarGame {
         name: "Grand Theft Auto V",
@@ -124,6 +126,7 @@ pub const GAMES: &[RockstarGame] = &[
 ];
 
 /// Look up a catalog entry by `title_id`.
+#[cfg(windows)]
 pub fn game_by_title_id(title_id: &str) -> Option<&'static RockstarGame> {
     GAMES.iter().find(|g| g.title_id == title_id)
 }
@@ -235,7 +238,7 @@ pub struct RockstarInstalledGame {
 /// 2. `Regex.Match(UninstallString,
 ///    @"(?:Launcher|uninstall)\.exe.+uninstall=(.+)$")` — captures
 ///    the `TitleId`.
-/// 3. Look the `TitleId` up in [`GAMES`]; unknown ids are skipped
+/// 3. Look the `TitleId` up in `GAMES`; unknown ids are skipped
 ///    with a warning (just like Playnite's `logger.Warn`).
 /// 4. Validate `InstallLocation` exists on disk; mark
 ///    `is_installed=false` (and blank the dir) when it doesn't — we

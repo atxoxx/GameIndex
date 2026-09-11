@@ -12,6 +12,7 @@ use std::ffi::CString;
 use std::sync::Mutex;
 
 /// Real-time metrics read from RTSS shared memory for a specific process.
+#[cfg(windows)]
 #[derive(Debug, Clone)]
 pub struct RtssMetrics {
     pub fps: f64,
@@ -212,11 +213,6 @@ pub fn release_rtss() {
             }
         }
     }
-}
-
-#[cfg(not(windows))]
-pub fn read_rtss_metrics(_pid: u32) -> Option<RtssMetrics> {
-    None
 }
 
 #[allow(dead_code)]

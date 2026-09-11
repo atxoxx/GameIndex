@@ -1131,6 +1131,7 @@ fn get_total_ram_mb(wmi_con: &WMIConnection) -> u64 {
 /// that are stuck at total memory (a common saturated-sensor failure mode)
 /// produce no in-band candidate and force the caller to WMI, breaking the
 /// "always 100%" trap.
+#[cfg(any(windows, test))]
 fn resolve_mahm_ram_pct(raw_ram: f32, units: &str, total_ram_mb: u64) -> Option<f32> {
     if !raw_ram.is_finite() || raw_ram < 0.0 || total_ram_mb == 0 {
         return None;
@@ -1458,11 +1459,6 @@ fn get_phys_ram_gb_windows_api() -> Option<u32> {
     Some(total_gb as u32)
 }
 
-#[cfg(not(windows))]
-fn get_phys_ram_gb_windows_api() -> Option<u32> {
-    None
-}
-
 /// Read total physical RAM via WMI (`Win32_OperatingSystem`). Returns `None`
 /// when COM/WMI is unavailable or the query yields nothing.
 #[cfg(windows)]
@@ -1581,11 +1577,6 @@ fn get_cpu_name_registry() -> Option<String> {
     } else {
         Some(name)
     }
-}
-
-#[cfg(not(windows))]
-fn get_cpu_name_registry() -> Option<String> {
-    None
 }
 
 /// Helper: widen a `&str` into a NUL-terminated `u16` slice for the Windows

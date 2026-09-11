@@ -700,6 +700,7 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
 }
 
 /// Try to infer the vendor from the GPU name when WMI doesn't report it.
+#[cfg(windows)]
 fn detect_vendor_from_name(name: &str) -> String {
     let lower = name.to_lowercase();
     if lower.contains("nvidia") || lower.contains("geforce") || lower.contains("rtx") || lower.contains("gtx") || lower.contains("quadro") {
