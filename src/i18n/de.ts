@@ -4799,7 +4799,6 @@ export const de: TranslationDict = {
   "store.failedToLoad": "Spiel konnte nicht geladen werden",
   "store.featured.comingSoon": "Demnächst",
   "store.featured.hot": "Jetzt heiß",
-  "store.featured.topRated": "Bestbewertet",
   "store.featured.trending": "Im Trend",
   "store.featured.weekly": "Spiel der Woche",
   "store.featuredCategoriesAria": "Empfohlene Kategorien",

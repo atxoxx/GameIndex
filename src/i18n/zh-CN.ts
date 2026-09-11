@@ -4799,7 +4799,6 @@ export const zhCN: TranslationDict = {
   "store.failedToLoad": "游戏加载失败",
   "store.featured.comingSoon": "即将推出",
   "store.featured.hot": "当前热门",
-  "store.featured.topRated": "高分好评",
   "store.featured.trending": "热门趋势",
   "store.featured.weekly": "本周游戏",
   "store.featuredCategoriesAria": "精选分类",

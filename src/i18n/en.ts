@@ -4807,7 +4807,6 @@ export const en: TranslationDict = {
   "store.failedToLoad": "Failed to load game",
   "store.featured.comingSoon": "Coming Soon",
   "store.featured.hot": "Hot Now",
-  "store.featured.topRated": "Top Rated",
   "store.featured.trending": "Trending",
   "store.featured.weekly": "Game of the Week",
   "store.featuredCategoriesAria": "Featured categories",

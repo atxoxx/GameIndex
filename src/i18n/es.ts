@@ -4799,7 +4799,6 @@ export const es: TranslationDict = {
   "store.failedToLoad": "Error al cargar el juego",
   "store.featured.comingSoon": "Próximamente",
   "store.featured.hot": "Popular ahora",
-  "store.featured.topRated": "Mejor valorados",
   "store.featured.trending": "Tendencias",
   "store.featured.weekly": "Juego de la semana",
   "store.featuredCategoriesAria": "Categorías destacadas",

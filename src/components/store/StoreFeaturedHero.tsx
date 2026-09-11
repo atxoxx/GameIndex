@@ -14,7 +14,7 @@ import { useStoreCardHover } from "./storeCardHover";
 import { Button } from "../ui";
 import StoreSurpriseModal from "./StoreSurpriseModal";
 
-type HeroCategory = "hot" | "weekly" | "trending" | "top_rated" | "coming_soon";
+type HeroCategory = "hot" | "weekly" | "trending" | "coming_soon";
 
 interface StoreFeaturedHeroProps {
   /** Navigate to a game's detail page. */
@@ -55,15 +55,6 @@ const TABS: {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
         <polyline points="17 6 23 6 23 12" />
-      </svg>
-    ),
-  },
-  {
-    id: "top_rated",
-    labelKey: "store.featured.topRated",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
       </svg>
     ),
   },
@@ -194,7 +185,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
         // Graceful fallback if category returned empty list
         if (!results || results.length === 0) {
           const fallbackCat =
-            tab === "weekly" || tab === "top_rated"
+            tab === "weekly"
               ? "top"
               : tab === "hot"
               ? "popular"

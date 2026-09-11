@@ -4799,7 +4799,6 @@ export const ru: TranslationDict = {
   "store.failedToLoad": "Не удалось загрузить игру",
   "store.featured.comingSoon": "Скоро выйдут",
   "store.featured.hot": "Сейчас в тренде",
-  "store.featured.topRated": "Лучшие оценки",
   "store.featured.trending": "В тренде",
   "store.featured.weekly": "Игра недели",
   "store.featuredCategoriesAria": "Избранные категории",
