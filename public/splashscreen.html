@@ -835,9 +835,29 @@
             .catch(function () {});
         }
 
+        function syncVersionFromBackend(retriesLeft) {
+          var invoke = getTauriInvoke();
+          if (!invoke) {
+            if (retriesLeft > 0) {
+              setTimeout(function () { syncVersionFromBackend(retriesLeft - 1); }, 20);
+            }
+            return;
+          }
+
+          invoke("plugin:app|version")
+            .then(function (version) {
+              if (typeof version === "string" && version && window.__setSplashVersion) {
+                window.__setSplashVersion(version);
+              }
+            })
+            .catch(function () {});
+        }
+
         syncThemeFromBackend(40);
+        syncVersionFromBackend(40);
         document.addEventListener("DOMContentLoaded", function () {
           syncThemeFromBackend(10);
+          syncVersionFromBackend(10);
         });
       })();
     </script>
@@ -913,7 +933,7 @@
       <div class="footer-row">
         <div class="version-pill">
           <span class="version-dot"></span>
-          <span id="version-text">v0.20.2</span>
+          <span id="version-text">v…</span>
         </div>
         <div id="splash-tip" class="footer-tip">
           Ctrl + Shift + F · Big Screen Mode
@@ -1001,6 +1021,7 @@
           }
         } catch (e) {}
 
+        var versionTextEl = document.getElementById("version-text");
         var taglineEl = document.getElementById("splash-tagline");
         var statusTextEl = document.getElementById("status-text");
         var tipEl = document.getElementById("splash-tip");
@@ -1018,6 +1039,10 @@
 
         window.__setSplashLanguage = applyLanguage;
         applyLanguage(currentLang);
+
+        window.__setSplashVersion = function (version) {
+          if (versionTextEl) versionTextEl.textContent = "v" + version;
+        };
 
         /* ── Dynamic Particle Canvas ── */
         var canvas = document.getElementById("particles-canvas");

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "splashscreen",
+  "description": "Minimal capability for the boot splash window. It only needs the app version command for the footer badge; theme and language sync use application commands, which are not ACL-gated for local origins.",
+  "windows": ["splashscreen"],
+  "permissions": ["core:app:allow-version"]
+}
