@@ -4,7 +4,6 @@ export { default as SidebarSearch } from "./SidebarSearch";
 export { default as SidebarActiveFilters } from "./SidebarActiveFilters";
 export { default as SidebarSectionHeader } from "./SidebarSectionHeader";
 export { default as SidebarGameItem } from "./SidebarGameItem";
-export { default as SidebarContextMenu } from "./SidebarContextMenu";
 export { default as SidebarBulkActionBar } from "./SidebarBulkActionBar";
 export { default as SidebarEmptyState } from "./SidebarEmptyState";
 export { default as SidebarImportDropdown } from "./SidebarImportDropdown";

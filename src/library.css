@@ -2860,72 +2860,6 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   LIBRARY CONTEXT MENU
-   Scoped refinements layered on top of the base .context-menu in
-   game-page.css — glassier surface, accent play action.
-   ──────────────────────────────────────────────────────────────────── */
-
-.lib-context-menu {
-  background: color-mix(in srgb, var(--color-bg-tertiary) 94%, transparent);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-accent-glow);
-  padding: var(--space-2xs);
-  animation: libMenuIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.lib-context-menu .context-menu-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.lib-context-menu .context-menu-title {
-  font-size: 12px;
-  color: var(--color-text-primary);
-  font-family: var(--font-display);
-  letter-spacing: -0.2px;
-}
-
-.lib-context-menu__platform {
-  flex-shrink: 0;
-  padding: 2px 7px;
-  font-size: 9px;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-hover);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-}
-
-.lib-context-menu .context-menu-item {
-  border-radius: var(--radius-md);
-  margin: 1px 0;
-}
-
-.lib-context-menu .context-menu-item.play-action {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-}
-
-.lib-context-menu .context-menu-item.play-action:hover {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-}
-
-.lib-context-menu .context-menu-item.remove-action:hover {
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-}
-
-.lib-context-menu .context-menu-separator {
-  margin: var(--space-2xs) 0;
-}
-
-/* ────────────────────────────────────────────────────────────────────
    LIBRARY EXPORT MODAL
    ──────────────────────────────────────────────────────────────────── */
 
@@ -4114,31 +4048,6 @@
 .lib-card-list-play-btn.running {
   background: var(--color-success);
 }
-
-/* ── Context Menu Submenu & Status Dots ─────────────────────────────────── */
-.context-menu-submenu-trigger-wrap {
-  position: relative;
-}
-
-.lib-context-submenu {
-  position: absolute;
-  left: 100%;
-  top: -4px;
-  min-width: 170px;
-  z-index: var(--z-popover);
-}
-
-.lib-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 6px;
-}
-.lib-status-dot--playing { background: var(--color-accent); }
-.lib-status-dot--completed { background: var(--color-success); }
-.lib-status-dot--backlog { background: var(--color-warning); }
-.lib-status-dot--on_hold { background: var(--color-info); }
-.lib-status-dot--abandoned { background: var(--color-danger); }
 
 /* ── Card Select Checkbox (Bulk mode) ───────────────────────────────────── */
 .lib-card-select {

@@ -691,6 +691,186 @@
   flex-shrink: 0;
 }
 
+/* ── Game context menu (shared by the library grid and sidebar) ────── */
+.game-context-menu {
+  min-width: 236px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2xs);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface-raised) 96%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-border-light);
+  animation: gameMenuIn 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.game-context-menu .context-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-2xs);
+}
+
+.game-context-menu .context-menu-title {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.game-context-menu__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.game-context-menu__platform {
+  padding: 2px 7px;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.game-context-menu__running {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-success);
+}
+
+.game-context-menu__running-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 22%, transparent);
+  animation: gameMenuPulse 1.6s ease-in-out infinite;
+}
+
+.game-context-menu .context-menu-item {
+  border-radius: var(--radius-md);
+  margin: 1px 0;
+}
+
+.game-context-menu .context-menu-item.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.game-context-menu .context-menu-item.is-active:not(.play-action):not(.remove-action) {
+  background: var(--color-bg-hover);
+}
+
+.game-context-menu .context-menu-item.play-action {
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+}
+
+.game-context-menu .context-menu-item.play-action:hover,
+.game-context-menu .context-menu-item.play-action.is-active {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.game-context-menu .context-menu-item.remove-action:hover,
+.game-context-menu .context-menu-item.remove-action.is-active {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.game-ctx-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--color-text-secondary);
+}
+
+.game-context-menu .context-menu-item.play-action .game-ctx-icon,
+.game-context-menu .context-menu-item.remove-action .game-ctx-icon,
+.game-context-menu .context-menu-item.is-active .game-ctx-icon {
+  color: inherit;
+}
+
+.game-ctx-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-ctx-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  width: 13px;
+  height: 13px;
+}
+
+.game-ctx-submenu {
+  min-width: 208px;
+}
+
+.game-ctx-submenu__item {
+  border-radius: var(--radius-md);
+  margin: 1px 0;
+}
+
+.game-ctx-submenu__item.is-active {
+  background: var(--color-bg-hover);
+}
+
+.game-ctx-submenu__item.is-selected {
+  color: var(--color-accent);
+}
+
+.game-ctx-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin: 0 4px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.game-ctx-check {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+}
+
+@keyframes gameMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gameMenuPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 /* Edit Form */
 .game-edit-section {
   margin-bottom: var(--space-xl);

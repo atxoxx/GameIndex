@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGames } from "../context/GameContext";
@@ -17,7 +17,8 @@ import ContinuePlayingRail from "../components/library/ContinuePlayingRail";
 import LibraryEmptyState from "../components/library/LibraryEmptyState";
 import LibraryFilteredEmpty from "../components/library/LibraryFilteredEmpty";
 import LibraryVirtualGrid from "../components/library/LibraryVirtualGrid";
-import LibraryContextMenu from "../components/library/LibraryContextMenu";
+import GameContextMenu from "../components/game/GameContextMenu";
+import { EditGameModal } from "../components/game/EditGameModal";
 import LibraryGameCard from "../components/library/LibraryGameCard";
 import LibraryExportModal from "../components/library/LibraryExportModal";
 import LibraryBulkBar from "../components/library/LibraryBulkBar";
@@ -28,7 +29,7 @@ import "../library.css";
 
 export default function LibraryPage() {
   const navigate = useNavigate();
-  const { games, setSelectedGameId, runningGameIds, launchGame, removeGame, updateGame } = useGames();
+  const { games, setSelectedGameId, runningGameIds, launchGame, forceCloseGame, removeGame, updateGame } = useGames();
   const { showToast } = useToast();
   const { density, setDensity } = useDensityContext();
   const { t } = useLanguage();
@@ -60,6 +61,7 @@ export default function LibraryPage() {
   } = useLibraryFilters(games);
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
+  const [editGame, setEditGame] = useState<Game | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -108,17 +110,6 @@ export default function LibraryPage() {
     [getPresetFilters, setGenres, setPlatforms, setYearRange, setRatingMin, setSource, setStatus, setPlayStatus, setSort, showToast, t]
   );
 
-  useEffect(() => {
-    if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    document.addEventListener("click", close);
-    document.addEventListener("contextmenu", close);
-    return () => {
-      document.removeEventListener("click", close);
-      document.removeEventListener("contextmenu", close);
-    };
-  }, [contextMenu]);
-
   const isLibraryEmpty = games.length === 0;
 
   const handleCardClick = useCallback(
@@ -141,6 +132,30 @@ export default function LibraryPage() {
       launchGame(game);
     },
     [launchGame]
+  );
+
+  const handleLaunchAdmin = useCallback(
+    (game: Game) => {
+      setContextMenu(null);
+      launchGame({ ...game, runAsAdmin: true });
+    },
+    [launchGame]
+  );
+
+  const handleForceClose = useCallback(
+    (game: Game) => {
+      setContextMenu(null);
+      forceCloseGame(game);
+    },
+    [forceCloseGame]
+  );
+
+  const handleEditGame = useCallback(
+    (game: Game) => {
+      setContextMenu(null);
+      setEditGame(game);
+    },
+    []
   );
 
   const handleViewDetails = useCallback(
@@ -166,14 +181,6 @@ export default function LibraryPage() {
     showToast(t("library.removedFromLibrary", { name: removeConfirmGame.name }), "info");
     setRemoveConfirmGame(null);
   }, [removeConfirmGame, removeGame, showToast, t]);
-
-  const handleUpdatePlayStatus = useCallback(
-    (gameId: string, status: PlayStatus) => {
-      updateGame(gameId, { playStatus: status });
-      setContextMenu(null);
-    },
-    [updateGame]
-  );
 
   // Bulk actions
   const toggleSelectGame = useCallback((game: Game) => {
@@ -517,17 +524,22 @@ export default function LibraryPage() {
       )}
 
       {contextMenu && (
-        <LibraryContextMenu
+        <GameContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           game={contextMenu.game}
           isRunning={runningSet.has(contextMenu.game.id)}
+          onClose={() => setContextMenu(null)}
           onLaunch={() => handleLaunch(contextMenu.game)}
+          onLaunchAdmin={() => handleLaunchAdmin(contextMenu.game)}
+          onForceClose={() => handleForceClose(contextMenu.game)}
           onViewDetails={() => handleViewDetails(contextMenu.game)}
-          onUpdatePlayStatus={handleUpdatePlayStatus}
+          onEdit={() => handleEditGame(contextMenu.game)}
           onRemove={() => handleRemove(contextMenu.game)}
         />
       )}
+
+      {editGame && <EditGameModal game={editGame} onClose={() => setEditGame(null)} />}
 
       {exportOpen && (
         <LibraryExportModal

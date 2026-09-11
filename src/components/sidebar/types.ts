@@ -191,26 +191,6 @@ export interface SidebarGameItemProps {
   onTogglePin?: (game: Game) => void;
 }
 
-/** Props for the portaled context menu on right-clicked game rows. */
-export interface SidebarContextMenuProps {
-  x: number;
-  y: number;
-  game: Game;
-  isRunning: boolean;
-  isPinned: boolean;
-  onLaunch: () => void;
-  onLaunchAdmin?: () => void;
-  onViewDetails: () => void;
-  onRemove: () => void;
-  onTogglePin: () => void;
-  onSetStatus: (status: PlayStatus) => void;
-  onShowInFolder: () => void;
-  onOpenStore: () => void;
-  onCopyPath: () => void;
-  onCopySteamId?: () => void;
-  onRefreshMetadata?: () => void;
-}
-
 /** Props for the sticky floating bulk-actions bottom bar. */
 export interface SidebarBulkActionBarProps {
   count: number;

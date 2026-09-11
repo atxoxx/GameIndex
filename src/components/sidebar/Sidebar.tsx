@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLibraryFilters } from "../../hooks/useLibraryFilters";
@@ -23,7 +22,7 @@ import SidebarHeader from "./SidebarHeader";
 import SidebarActiveFilters from "./SidebarActiveFilters";
 import SidebarSectionHeader from "./SidebarSectionHeader";
 import SidebarGameItem from "./SidebarGameItem";
-import SidebarContextMenu from "./SidebarContextMenu";
+import GameContextMenu from "../game/GameContextMenu";
 import SidebarBulkActionBar from "./SidebarBulkActionBar";
 import SidebarEmptyState from "./SidebarEmptyState";
 import SidebarResizeHandle from "./SidebarResizeHandle";
@@ -81,7 +80,6 @@ export default function Sidebar() {
     launchGame,
     importLocalGames,
     updateGame,
-    enrichGameMetadata,
   } = useGames();
   const { showToast } = useToast();
 
@@ -492,7 +490,7 @@ export default function Sidebar() {
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       const target = e.target as Element | null;
-      if (target && target.closest("[data-sidebar-context-menu]")) {
+      if (target && target.closest("[data-game-context-menu]")) {
         return;
       }
       setShowImportMenu(false);
@@ -612,77 +610,6 @@ export default function Sidebar() {
     removeGame(game.id);
     setContextMenu(null);
     showToast(t("gamePage.removed", { name: game.name }), "info");
-  }
-
-  async function handleShowInFolder(game: Game) {
-    setContextMenu(null);
-    if (!game.path) {
-      showToast(t("sidebar.noLocalPath", { name: game.name }), "info");
-      return;
-    }
-    try {
-      const parent = game.path.replace(/[\\/][^\\/]+$/, "");
-      await openPath(parent);
-    } catch (err) {
-      showToast(t("sidebar.couldNotOpenFolder", { error: String(err) }), "error");
-    }
-  }
-
-  function handleOpenStore(game: Game) {
-    setContextMenu(null);
-    if (game.metadataUrl) {
-      openUrl(game.metadataUrl).catch(() => undefined);
-      return;
-    }
-    navigate(`/store?q=${encodeURIComponent(game.name)}`);
-  }
-
-  async function handleCopyPath(game: Game) {
-    setContextMenu(null);
-    const text = game.path || game.name;
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = true;
-    } catch {
-      /* skip */
-    }
-    showToast(
-      copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
-      copied ? "success" : "error"
-    );
-  }
-
-  async function handleCopySteamId(game: Game) {
-    setContextMenu(null);
-    if (!game.steamAppId) return;
-    try {
-      await navigator.clipboard.writeText(String(game.steamAppId));
-      showToast(t("sidebar.copiedToClipboard"), "success");
-    } catch {
-      showToast(t("sidebar.copyFailed"), "error");
-    }
-  }
-
-  async function handleRefreshMetadata(game: Game) {
-    setContextMenu(null);
-    showToast(t("sidebar.refreshingMetadata", { name: game.name }), "info");
-    try {
-      await enrichGameMetadata(game.id, game.name, game.steamAppId);
-      showToast(t("sidebar.metadataRefreshed", { name: game.name }), "success");
-    } catch (err) {
-      console.warn("Metadata refresh failed:", err);
-    }
-  }
-
-  function handleSetPlayStatus(game: Game, status: PlayStatus) {
-    updateGame(game.id, { playStatus: status });
-    setContextMenu(null);
-    const meta = PLAY_STATUS_DETAILS[status];
-    showToast(
-      t("sidebar.statusSet", { name: game.name, status: meta ? t(meta.labelKey) : status }),
-      "success"
-    );
   }
 
   const togglePin = useCallback((game: Game) => {
@@ -1220,26 +1147,21 @@ export default function Sidebar() {
       {/* Context Menu Portal */}
       {contextMenu &&
         createPortal(
-          <SidebarContextMenu
+          <GameContextMenu
             x={contextMenu.x}
             y={contextMenu.y}
             game={contextMenu.game}
             isRunning={runningGameIds.includes(contextMenu.game.id)}
             isPinned={pinnedIds.has(contextMenu.game.id)}
+            onClose={() => setContextMenu(null)}
             onLaunch={() => handleLaunchFromContextMenu(contextMenu.game)}
             onLaunchAdmin={() => handleLaunchAdminFromContextMenu(contextMenu.game)}
             onViewDetails={() => handleViewDetailsFromContextMenu(contextMenu.game)}
-            onRemove={() => handleRemoveFromContextMenu(contextMenu.game)}
             onTogglePin={() => {
               togglePin(contextMenu.game);
               setContextMenu(null);
             }}
-            onSetStatus={(s) => handleSetPlayStatus(contextMenu.game, s)}
-            onShowInFolder={() => handleShowInFolder(contextMenu.game)}
-            onOpenStore={() => handleOpenStore(contextMenu.game)}
-            onCopyPath={() => handleCopyPath(contextMenu.game)}
-            onCopySteamId={() => handleCopySteamId(contextMenu.game)}
-            onRefreshMetadata={() => handleRefreshMetadata(contextMenu.game)}
+            onRemove={() => handleRemoveFromContextMenu(contextMenu.game)}
           />,
           document.body
         )}
