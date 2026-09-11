@@ -6,6 +6,9 @@ import { useDownloads } from "../../context/DownloadContext";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import ContextMenu from "../ui/ContextMenu";
+import { useDownloadMenuItems } from "./downloadMenu";
 import {
   PlayIcon,
   PauseIcon,
@@ -66,6 +69,15 @@ export const DownloadRow = React.memo(
 
     // Resolve game artwork from library or automated metadata search
     const { matchedGame, coverArtUrl: artworkUrl } = useDownloadCoverArt(download);
+
+    const downloadMenu = useContextMenu();
+    const downloadMenuItems = useDownloadMenuItems(download, {
+      matchedGame,
+      onPause,
+      onResume,
+      onRemove,
+      onDeleteFiles,
+    });
 
     const handleToggleFile = async (idx: number) => {
       if (!download.files) return;
@@ -149,7 +161,7 @@ export const DownloadRow = React.memo(
 
     return (
       <div className="dl-row-container">
-        <div className={rowClass}>
+        <div className={rowClass} onContextMenu={(e) => downloadMenu.open(e)}>
           {/* Multi-select checkbox */}
           {onToggleSelect && (
             <div className="dl-row-checkbox-cell" onClick={(e) => e.stopPropagation()}>
@@ -472,6 +484,24 @@ export const DownloadRow = React.memo(
               })}
             </div>
           </div>
+        )}
+
+        {downloadMenu.state && (
+          <ContextMenu
+            x={downloadMenu.state.x}
+            y={downloadMenu.state.y}
+            items={downloadMenuItems}
+            onClose={downloadMenu.close}
+            ariaLabel={download.name}
+            header={
+              <>
+                <span className="context-menu-title" title={download.name}>
+                  {download.name}
+                </span>
+                <span className="ctx-badge">{getStatusLabel(download.status, t)}</span>
+              </>
+            }
+          />
         )}
       </div>
     );

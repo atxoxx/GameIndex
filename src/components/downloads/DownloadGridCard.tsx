@@ -7,6 +7,9 @@ import { useGames } from "../../context/GameContext";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import ContextMenu from "../ui/ContextMenu";
+import { useDownloadMenuItems } from "./downloadMenu";
 import {
   formatBytesPerSecond,
   formatBytesShort,
@@ -59,6 +62,15 @@ export const DownloadGridCard = React.memo(
     // Resolve artwork from library or automated metadata search
     const { matchedGame, coverArtUrl: artworkUrl } = useDownloadCoverArt(download);
 
+    const downloadMenu = useContextMenu();
+    const downloadMenuItems = useDownloadMenuItems(download, {
+      matchedGame,
+      onPause,
+      onResume,
+      onRemove,
+      onDeleteFiles,
+    });
+
     const status = download.status;
     const isCompleted = status.kind === "completed";
     const isPaused = status.kind === "paused";
@@ -84,6 +96,7 @@ export const DownloadGridCard = React.memo(
         className={`dl-card${selected ? " dl-card--selected" : ""}${isError ? " dl-card--error" : ""}${
           isCompleted ? " dl-card--completed" : ""
         }`}
+        onContextMenu={(e) => downloadMenu.open(e)}
       >
         {/* Artwork Media Header */}
         <div className="dl-card-media">
@@ -271,6 +284,24 @@ export const DownloadGridCard = React.memo(
             </button>
           </div>
         </div>
+
+        {downloadMenu.state && (
+          <ContextMenu
+            x={downloadMenu.state.x}
+            y={downloadMenu.state.y}
+            items={downloadMenuItems}
+            onClose={downloadMenu.close}
+            ariaLabel={download.name}
+            header={
+              <>
+                <span className="context-menu-title" title={download.name}>
+                  {download.name}
+                </span>
+                <span className="ctx-badge">{getStatusLabel(download.status, t)}</span>
+              </>
+            }
+          />
+        )}
       </div>
     );
   },
