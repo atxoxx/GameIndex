@@ -1,4 +1,5 @@
 import { Fragment, useContext, useState, useEffect, useRef, memo, type MouseEvent } from "react";
+import { BarChart3, Copy, Eye, EyeOff, Heart } from "lucide-react";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
@@ -7,6 +8,10 @@ import { DensityContext } from "../../context/DensityContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { useToast } from "../../context/ToastContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { copyTextToClipboard } from "../../utils/clipboard";
+import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import StoreHighlightText from "./StoreHighlightText";
 
 interface StoreGameCardProps {
@@ -77,8 +82,80 @@ function StoreGameCardBase({
   const price = usePrice(game.name);
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
   const { t } = useLanguage();
+  const { showToast } = useToast();
+  const storeMenu = useContextMenu();
   const [previewActive, setPreviewActive] = useState(false);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const menuEvent = () =>
+    ({ preventDefault: () => {}, stopPropagation: () => {} }) as unknown as MouseEvent;
+
+  const handleWishlistFromMenu = () => {
+    if (wishlistCtx) {
+      wishlistCtx.toggle(game);
+      return;
+    }
+    onToggleWishlist?.(game, menuEvent());
+  };
+
+  const handleCopyName = async () => {
+    const copied = await copyTextToClipboard(game.name);
+    showToast(
+      copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
+      copied ? "success" : "error"
+    );
+  };
+
+  const storeMenuItems: ContextMenuItem[] = [
+    {
+      id: "view",
+      label: t("game.viewDetails"),
+      icon: <Eye size={15} />,
+      onSelect: () => onClick(game),
+    },
+    { id: "sep-1", separator: true },
+    ...(onToggleWishlist
+      ? [
+          {
+            id: "wishlist",
+            label: wishlisted ? t("ctx.removeFromWishlist") : t("ctx.addToWishlist"),
+            icon: <Heart size={15} fill={wishlisted ? "currentColor" : "none"} />,
+            accent: !wishlisted,
+            onSelect: handleWishlistFromMenu,
+          } as ContextMenuItem,
+        ]
+      : []),
+    ...(onCompare
+      ? [
+          {
+            id: "compare",
+            label: inCompare
+              ? t("store.compare.removeFromCompare", { name: game.name })
+              : t("store.addToCompare"),
+            icon: <BarChart3 size={15} />,
+            active: inCompare,
+            onSelect: () => onCompare(game, menuEvent()),
+          } as ContextMenuItem,
+        ]
+      : []),
+    ...(onHide
+      ? [
+          {
+            id: "hide",
+            label: t("store.notInterested"),
+            icon: <EyeOff size={15} />,
+            onSelect: () => onHide(game, menuEvent()),
+          } as ContextMenuItem,
+        ]
+      : []),
+    { id: "sep-2", separator: true },
+    {
+      id: "copy-name",
+      label: t("gameMenu.copyName"),
+      icon: <Copy size={15} />,
+      onSelect: handleCopyName,
+    },
+  ];
 
   useEffect(
     () => () => {
@@ -137,6 +214,7 @@ function StoreGameCardBase({
         }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onContextMenu={(e) => storeMenu.open(e)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -303,6 +381,15 @@ function StoreGameCardBase({
             </button>
           )}
         </div>
+        {storeMenu.state && (
+          <ContextMenu
+            x={storeMenu.state.x}
+            y={storeMenu.state.y}
+            items={storeMenuItems}
+            onClose={storeMenu.close}
+            ariaLabel={game.name}
+          />
+        )}
       </div>
     );
   }
@@ -320,6 +407,7 @@ function StoreGameCardBase({
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onContextMenu={(e) => storeMenu.open(e)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -572,6 +660,16 @@ function StoreGameCardBase({
             </div>
           )}
         </div>
+      )}
+
+      {storeMenu.state && (
+        <ContextMenu
+          x={storeMenu.state.x}
+          y={storeMenu.state.y}
+          items={storeMenuItems}
+          onClose={storeMenu.close}
+          ariaLabel={game.name}
+        />
       )}
     </div>
   );

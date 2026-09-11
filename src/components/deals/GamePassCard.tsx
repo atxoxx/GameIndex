@@ -1,8 +1,12 @@
 import { useMemo } from "react";
+import { Copy, ExternalLink, Eye, Heart } from "lucide-react";
 import type { GamePassGame } from "../../types/deals";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWishlist } from "../../hooks/useWishlist";
 import { useGames } from "../../context/GameContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import { titleToSlug } from "../../pages/deals/dealsConstants";
 
 interface GamePassCardProps {
@@ -23,6 +27,8 @@ export default function GamePassCard({
   const { t } = useLanguage();
   const { isWishlisted, toggle } = useWishlist();
   const { games } = useGames();
+  const gamePassMenu = useContextMenu();
+  const copy = useCopyToClipboard();
 
   const slug = useMemo(() => titleToSlug(game.title), [game.title]);
   const wishlisted = isWishlisted(slug);
@@ -31,8 +37,7 @@ export default function GamePassCard({
     return games.some((g) => g.name.toLowerCase().trim() === titleNorm);
   }, [game.title, games]);
 
-  const handleToggleWishlist = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleWishlist = () => {
     toggle({
       id: 0,
       name: game.title,
@@ -50,6 +55,45 @@ export default function GamePassCard({
     });
   };
 
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleWishlist();
+  };
+
+  const gamePassMenuItems: ContextMenuItem[] = [
+    ...(onInspect
+      ? [
+          {
+            id: "details",
+            label: t("game.viewDetails"),
+            icon: <Eye size={15} />,
+            accent: true,
+            onSelect: () => onInspect(game),
+          } as ContextMenuItem,
+        ]
+      : []),
+    {
+      id: "open",
+      label: t("deals.openDeal"),
+      icon: <ExternalLink size={15} />,
+      onSelect: () => onOpenUrl(game.deeplink),
+    },
+    { id: "sep-1", separator: true },
+    {
+      id: "wishlist",
+      label: wishlisted ? t("ctx.removeFromWishlist") : t("ctx.addToWishlist"),
+      icon: <Heart size={15} fill={wishlisted ? "currentColor" : "none"} />,
+      onSelect: toggleWishlist,
+    },
+    { id: "sep-2", separator: true },
+    {
+      id: "copy-name",
+      label: t("gameMenu.copyName"),
+      icon: <Copy size={15} />,
+      onSelect: () => copy(game.title),
+    },
+  ];
+
   return (
     <article
       className={`deals-gamepass-card deals-card-enter density-${density} ${
@@ -66,6 +110,7 @@ export default function GamePassCard({
           else onOpenUrl(game.deeplink);
         }
       }}
+      onContextMenu={(e) => gamePassMenu.open(e)}
     >
       <div className="deals-gamepass-card-image-wrap">
         {game.coverImage ? (
@@ -203,6 +248,24 @@ export default function GamePassCard({
           </button>
         )}
       </div>
+
+      {gamePassMenu.state && (
+        <ContextMenu
+          x={gamePassMenu.state.x}
+          y={gamePassMenu.state.y}
+          items={gamePassMenuItems}
+          onClose={gamePassMenu.close}
+          ariaLabel={game.title}
+          header={
+            <>
+              <span className="context-menu-title" title={game.title}>
+                {game.title}
+              </span>
+              <span className="ctx-badge">Xbox</span>
+            </>
+          }
+        />
+      )}
     </article>
   );
 }

@@ -1,8 +1,13 @@
 import { useMemo, useState } from "react";
+import { Copy, ExternalLink, Eye, Heart } from "lucide-react";
 import type { DealItem } from "../../types/deals";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWishlist } from "../../hooks/useWishlist";
 import { useGames } from "../../context/GameContext";
+import { useToast } from "../../context/ToastContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
+import { copyTextToClipboard } from "../../utils/clipboard";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
 import {
   formatPrice,
@@ -31,6 +36,8 @@ export default function DealCard({
   const { t } = useLanguage();
   const { isWishlisted, toggle } = useWishlist();
   const { games } = useGames();
+  const { showToast } = useToast();
+  const dealMenu = useContextMenu();
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -62,8 +69,7 @@ export default function DealCard({
     deal.discountPercent,
   );
 
-  const handleToggleWishlist = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleWishlist = () => {
     toggle({
       id: 0,
       name: deal.gameTitle,
@@ -80,6 +86,59 @@ export default function DealCard({
       hypes: 0,
     });
   };
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleWishlist();
+  };
+
+  const copyValue = async (value: string) => {
+    const copied = await copyTextToClipboard(value);
+    showToast(
+      copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
+      copied ? "success" : "error"
+    );
+  };
+
+  const dealMenuItems: ContextMenuItem[] = [
+    ...(onInspect
+      ? [
+          {
+            id: "details",
+            label: t("game.viewDetails"),
+            icon: <Eye size={15} />,
+            accent: true,
+            onSelect: () => onInspect(deal),
+          } as ContextMenuItem,
+        ]
+      : []),
+    {
+      id: "open",
+      label: t("deals.openDeal"),
+      icon: <ExternalLink size={15} />,
+      onSelect: () => onOpenUrl(deal.storeUrl),
+    },
+    { id: "sep-1", separator: true },
+    {
+      id: "wishlist",
+      label: wishlisted ? t("ctx.removeFromWishlist") : t("ctx.addToWishlist"),
+      icon: <Heart size={15} fill={wishlisted ? "currentColor" : "none"} />,
+      onSelect: toggleWishlist,
+    },
+    { id: "sep-2", separator: true },
+    {
+      id: "copy-link",
+      label: t("deals.copyLink"),
+      icon: <Copy size={15} />,
+      onSelect: () => copyValue(deal.storeUrl),
+    },
+    {
+      id: "copy-name",
+      label: t("gameMenu.copyName"),
+      icon: <Copy size={15} />,
+      onSelect: () => copyValue(deal.gameTitle),
+    },
+  ];
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -112,6 +171,7 @@ export default function DealCard({
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onContextMenu={(e) => dealMenu.open(e)}
       aria-label={t("deals.openDealLabel", {
         game: deal.gameTitle,
         store: deal.storeName,
@@ -259,6 +319,23 @@ export default function DealCard({
         </div>
       </div>
 
+      {dealMenu.state && (
+        <ContextMenu
+          x={dealMenu.state.x}
+          y={dealMenu.state.y}
+          items={dealMenuItems}
+          onClose={dealMenu.close}
+          ariaLabel={deal.gameTitle}
+          header={
+            <>
+              <span className="context-menu-title" title={deal.gameTitle}>
+                {deal.gameTitle}
+              </span>
+              <span className="ctx-badge">{deal.storeName}</span>
+            </>
+          }
+        />
+      )}
     </article>
   );
 }

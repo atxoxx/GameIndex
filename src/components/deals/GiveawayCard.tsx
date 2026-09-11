@@ -1,8 +1,12 @@
 import { useMemo, useState } from "react";
+import { Copy, ExternalLink, Eye, Heart } from "lucide-react";
 import type { Giveaway } from "../../types/deals";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWishlist } from "../../hooks/useWishlist";
 import { useGames } from "../../context/GameContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import {
   storeTint,
   formatExpiry,
@@ -28,6 +32,8 @@ export default function GiveawayCard({
   const { t } = useLanguage();
   const { isWishlisted, toggle } = useWishlist();
   const { games } = useGames();
+  const giveawayMenu = useContextMenu();
+  const copy = useCopyToClipboard();
   const [copied, setCopied] = useState(false);
 
   const slug = useMemo(() => titleToSlug(giveaway.title), [giveaway.title]);
@@ -40,8 +46,7 @@ export default function GiveawayCard({
   const countdown = formatCountdown(giveaway.expiry);
   const expiry = formatExpiry(giveaway.expiry);
 
-  const handleToggleWishlist = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleWishlist = () => {
     toggle({
       id: 0,
       name: giveaway.title,
@@ -58,6 +63,51 @@ export default function GiveawayCard({
       hypes: 0,
     });
   };
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleWishlist();
+  };
+
+  const giveawayMenuItems: ContextMenuItem[] = [
+    ...(onInspect
+      ? [
+          {
+            id: "details",
+            label: t("game.viewDetails"),
+            icon: <Eye size={15} />,
+            accent: true,
+            onSelect: () => onInspect(giveaway),
+          } as ContextMenuItem,
+        ]
+      : []),
+    {
+      id: "open",
+      label: t("deals.claimFree"),
+      icon: <ExternalLink size={15} />,
+      onSelect: () => onOpenUrl(giveaway.dealUrl),
+    },
+    { id: "sep-1", separator: true },
+    {
+      id: "wishlist",
+      label: wishlisted ? t("ctx.removeFromWishlist") : t("ctx.addToWishlist"),
+      icon: <Heart size={15} fill={wishlisted ? "currentColor" : "none"} />,
+      onSelect: toggleWishlist,
+    },
+    { id: "sep-2", separator: true },
+    {
+      id: "copy-link",
+      label: t("deals.copyLink"),
+      icon: <Copy size={15} />,
+      onSelect: () => copy(giveaway.dealUrl),
+    },
+    {
+      id: "copy-name",
+      label: t("gameMenu.copyName"),
+      icon: <Copy size={15} />,
+      onSelect: () => copy(giveaway.title),
+    },
+  ];
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -88,6 +138,7 @@ export default function GiveawayCard({
           else onOpenUrl(giveaway.dealUrl);
         }
       }}
+      onContextMenu={(e) => giveawayMenu.open(e)}
     >
       <div className="deals-giveaway-card-image-wrap">
         {giveaway.imageUrl ? (
@@ -254,6 +305,24 @@ export default function GiveawayCard({
           </svg>
         </button>
       </div>
+
+      {giveawayMenu.state && (
+        <ContextMenu
+          x={giveawayMenu.state.x}
+          y={giveawayMenu.state.y}
+          items={giveawayMenuItems}
+          onClose={giveawayMenu.close}
+          ariaLabel={giveaway.title}
+          header={
+            <>
+              <span className="context-menu-title" title={giveaway.title}>
+                {giveaway.title}
+              </span>
+              <span className="ctx-badge">{giveaway.storeName}</span>
+            </>
+          }
+        />
+      )}
     </article>
   );
 }

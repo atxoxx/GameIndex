@@ -1,8 +1,12 @@
 import { useMemo } from "react";
+import { Copy, Eye, Heart } from "lucide-react";
 import type { PlaytesterGame } from "../../types/deals";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWishlist } from "../../hooks/useWishlist";
 import { useGames } from "../../context/GameContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import { titleToSlug } from "../../pages/deals/dealsConstants";
 
 interface PlaytesterCardProps {
@@ -21,6 +25,8 @@ export default function PlaytesterCard({
   const { t } = useLanguage();
   const { isWishlisted, toggle } = useWishlist();
   const { games } = useGames();
+  const playtesterMenu = useContextMenu();
+  const copy = useCopyToClipboard();
 
   const slug = useMemo(() => titleToSlug(game.title), [game.title]);
   const wishlisted = isWishlisted(slug);
@@ -31,8 +37,7 @@ export default function PlaytesterCard({
 
   const isActive = game.status.toLowerCase() === "active";
 
-  const handleToggleWishlist = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleWishlist = () => {
     toggle({
       id: 0,
       name: game.title,
@@ -55,6 +60,35 @@ export default function PlaytesterCard({
     });
   };
 
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleWishlist();
+  };
+
+  const playtesterMenuItems: ContextMenuItem[] = [
+    {
+      id: "details",
+      label: t("game.viewDetails"),
+      icon: <Eye size={15} />,
+      accent: true,
+      onSelect: () => onInspect?.(game),
+    },
+    { id: "sep-1", separator: true },
+    {
+      id: "wishlist",
+      label: wishlisted ? t("ctx.removeFromWishlist") : t("ctx.addToWishlist"),
+      icon: <Heart size={15} fill={wishlisted ? "currentColor" : "none"} />,
+      onSelect: toggleWishlist,
+    },
+    { id: "sep-2", separator: true },
+    {
+      id: "copy-name",
+      label: t("gameMenu.copyName"),
+      icon: <Copy size={15} />,
+      onSelect: () => copy(game.title),
+    },
+  ];
+
   return (
     <article
       className={`pt-card deals-card-enter density-${density} ${
@@ -70,6 +104,7 @@ export default function PlaytesterCard({
           onInspect?.(game);
         }
       }}
+      onContextMenu={(e) => playtesterMenu.open(e)}
       aria-label={t("deals.openPlaytesterLabel", { game: game.title })}
     >
       <div className="pt-card-image-wrap">
@@ -184,6 +219,24 @@ export default function PlaytesterCard({
           <p className="pt-card-desc">{game.description}</p>
         )}
       </div>
+
+      {playtesterMenu.state && (
+        <ContextMenu
+          x={playtesterMenu.state.x}
+          y={playtesterMenu.state.y}
+          items={playtesterMenuItems}
+          onClose={playtesterMenu.close}
+          ariaLabel={game.title}
+          header={
+            <>
+              <span className="context-menu-title" title={game.title}>
+                {game.title}
+              </span>
+              <span className="ctx-badge">{game.status}</span>
+            </>
+          }
+        />
+      )}
     </article>
   );
 }
