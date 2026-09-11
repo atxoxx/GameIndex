@@ -4,9 +4,11 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Disclosure } from "../ui";
 import DensityToggle from "../DensityToggle";
 import LibrarySortMenu from "./LibrarySortMenu";
+import LibraryGroupMenu from "./LibraryGroupMenu";
+import type { LibraryGroupBy } from "./LibraryGroupMenu";
 import MultiSelectDropdown from "../ui/MultiSelectDropdown";
 
-export type LibraryGroupBy = "none" | "platform" | "playStatus" | "genre" | "releaseYear" | "alphabetical";
+export type { LibraryGroupBy };
 
 interface LibraryToolbarProps {
   title: string;
@@ -32,15 +34,6 @@ interface LibraryToolbarProps {
   filtersOpen?: boolean;
   activeFilterCount?: number;
 }
-
-const GROUP_BY_OPTIONS: readonly { value: LibraryGroupBy; labelKey: string }[] = [
-  { value: "none", labelKey: "library.groupBy.none" },
-  { value: "platform", labelKey: "library.groupBy.platform" },
-  { value: "playStatus", labelKey: "library.groupBy.playStatus" },
-  { value: "genre", labelKey: "library.groupBy.genre" },
-  { value: "releaseYear", labelKey: "library.groupBy.releaseYear" },
-  { value: "alphabetical", labelKey: "library.groupBy.alphabetical" },
-];
 
 export default function LibraryToolbar({
   title,
@@ -161,28 +154,8 @@ export default function LibraryToolbar({
 
         {/* Group By selector */}
         {onGroupByChange && (
-          <div className="lib-groupby-wrap ui-complete-only ui-item-filters">
-            <label htmlFor="lib-groupby-select" className="lib-groupby-label" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-            </label>
-            <select
-              id="lib-groupby-select"
-              className="lib-groupby-select"
-              value={groupBy}
-              onChange={(e) => onGroupByChange(e.target.value as LibraryGroupBy)}
-              aria-label={t("library.groupBy.label")}
-            >
-              {GROUP_BY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {t(opt.labelKey)}
-                </option>
-              ))}
-            </select>
+          <div className="ui-complete-only ui-item-filters">
+            <LibraryGroupMenu value={groupBy} onChange={onGroupByChange} />
           </div>
         )}
 

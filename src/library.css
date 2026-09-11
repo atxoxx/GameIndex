@@ -775,12 +775,14 @@
   color: var(--color-accent);
 }
 
-/* Sort dropdown */
-.lib-sort {
+/* Sort & Group By dropdowns — same pill + menu family */
+.lib-sort,
+.lib-groupby {
   position: relative;
 }
 
-.lib-sort-trigger {
+.lib-sort-trigger,
+.lib-groupby-trigger {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -799,45 +801,63 @@
   white-space: nowrap;
 }
 
-.lib-sort-trigger:hover {
+/* Grouping is off by default — flip the pill accent only when a mode is set. */
+.lib-groupby-trigger.has-value {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  color: var(--color-accent);
+}
+
+.lib-groupby-trigger.has-value .lib-groupby-trigger-icon {
+  color: var(--color-accent);
+}
+
+.lib-sort-trigger:hover,
+.lib-groupby-trigger:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
-.lib-sort-trigger:focus-visible {
+.lib-sort-trigger:focus-visible,
+.lib-groupby-trigger:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-.lib-sort-trigger.open {
+.lib-sort-trigger.open,
+.lib-groupby-trigger.open {
   border-color: var(--color-accent);
   color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
-.lib-sort-trigger-icon {
+.lib-sort-trigger-icon,
+.lib-groupby-trigger-icon {
   display: inline-flex;
   color: var(--color-text-secondary);
 }
 
-.lib-sort-trigger-icon svg {
+.lib-sort-trigger-icon svg,
+.lib-groupby-trigger-icon svg {
   width: 15px;
   height: 15px;
 }
 
-.lib-sort-chevron {
+.lib-sort-chevron,
+.lib-groupby-chevron {
   width: 14px;
   height: 14px;
   color: var(--color-text-muted);
   transition: transform var(--transition-fast);
 }
 
-.lib-sort-trigger.open .lib-sort-chevron {
+.lib-sort-trigger.open .lib-sort-chevron,
+.lib-groupby-trigger.open .lib-groupby-chevron {
   transform: rotate(180deg);
 }
 
-.lib-sort-list {
+.lib-sort-list,
+.lib-groupby-list {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -867,7 +887,8 @@
   }
 }
 
-.lib-sort-option {
+.lib-sort-option,
+.lib-groupby-option {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -883,30 +904,36 @@
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.lib-sort-option:hover {
+.lib-sort-option:hover,
+.lib-groupby-option:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
-.lib-sort-option-icon {
+.lib-sort-option-icon,
+.lib-groupby-option-icon {
   display: inline-flex;
   color: var(--color-text-muted);
 }
 
-.lib-sort-option-icon svg {
+.lib-sort-option-icon svg,
+.lib-groupby-option-icon svg {
   width: 15px;
   height: 15px;
 }
 
-.lib-sort-option.active {
+.lib-sort-option.active,
+.lib-groupby-option.active {
   color: var(--color-accent);
 }
 
-.lib-sort-option.active .lib-sort-option-icon {
+.lib-sort-option.active .lib-sort-option-icon,
+.lib-groupby-option.active .lib-groupby-option-icon {
   color: var(--color-accent);
 }
 
-.lib-sort-check {
+.lib-sort-check,
+.lib-groupby-check {
   width: 15px;
   height: 15px;
   margin-left: auto;
@@ -2993,6 +3020,7 @@
   .lib-stat,
   .lib-rail,
   .lib-sort-list,
+  .lib-groupby-list,
   .lib-empty,
   .lib-filtered-empty,
   .bigscreen-overlay-drawer {
@@ -3486,50 +3514,6 @@
 .lib-hero-filter-pill.active .lib-hero-filter-count {
   background: color-mix(in srgb, var(--color-accent-contrast) 25%, transparent);
   color: var(--color-accent-contrast);
-}
-
-/* ── Group By Dropdown in Toolbar ────────────────────────────────────────── */
-.lib-groupby-wrap {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 36px;
-  padding: 0 8px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
-}
-
-.lib-groupby-wrap:hover {
-  border-color: var(--color-border-light);
-}
-
-.lib-groupby-label {
-  display: flex;
-  align-items: center;
-}
-
-.lib-groupby-select {
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  outline: none;
-  cursor: pointer;
-}
-
-/* Keyboard focus ring — the base rule strips the global :focus-visible
- * outline, so restate it via the shared double-ring token. */
-.lib-groupby-select:focus-visible {
-  outline: none;
-  box-shadow: var(--ring-accent);
-}
-
-.lib-groupby-select option {
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
 }
 
 /* ── Genre & Platform Filter Dropdowns in Toolbar ────────────────────────── */
