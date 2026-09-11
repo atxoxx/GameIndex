@@ -14,7 +14,12 @@ fn main() {
         }
 
         // Force GDK to prefer Wayland with X11 fallback (safe for every vendor).
-        if std::env::var("GDK_BACKEND").is_err() {
+        // The AppImage's linuxdeploy GTK hook force-sets GDK_BACKEND=x11 before we start,
+        // which makes WebKit pick the wrong render device on multi-GPU systems (white
+        // webview). Override the hook when a Wayland session is available.
+        let appimage_forced_x11 = std::env::var_os("APPIMAGE").is_some()
+            && std::env::var_os("WAYLAND_DISPLAY").is_some();
+        if std::env::var("GDK_BACKEND").is_err() || appimage_forced_x11 {
             std::env::set_var("GDK_BACKEND", "wayland,x11");
         }
     }
