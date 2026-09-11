@@ -6688,6 +6688,8 @@ export const zhCN: TranslationDict = {
   "settings.linux.badgeDeck": "Deck / ProtonDB",
   "settings.linux.badgeFull": "完整套件",
   "settings.linux.nativeLinuxNotice": "您正在 Linux 原生环境下运行 GameIndex。所有 Linux 兼容性功能已自动处于活动状态。",
+  "settings.linux.windowsWarningTitle": "仅适用于 Linux 与 Steam Deck",
+  "settings.linux.windowsWarningDesc": "这些选项专为 Linux 和 Steam Deck 设计，用于显示 Proton 兼容性并管理 Wine/Proton 运行器。在 Windows 上它们毫无用处——只会改变商店和游戏页面上的兼容性徽章。",
   "settings.linux.emulatorsTitle": "Linux 模拟器支持",
   "settings.linux.emulatorsDesc": "GameIndex 可检测原生模拟器二进制文件、AppImage、Flatpak 导出和 Snap 包。添加模拟器时，flatpak run <app-id> \"%ROM%\" 等启动命令可直接使用。",
   "settings.linux.emulatorsPaths": "已扫描的文件夹",

@@ -517,6 +517,29 @@ export default function GeneralTab() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div
+              className="settings-behavior-card settings-behavior-card--warn"
+              role="note"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "12px",
+                padding: "16px 20px",
+              }}
+            >
+              <span style={{ fontSize: "20px" }} aria-hidden>
+                ⚠️
+              </span>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "2px" }}>
+                  {t("settings.linux.windowsWarningTitle")}
+                </div>
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                  {t("settings.linux.windowsWarningDesc")}
+                </div>
+              </div>
+            </div>
+
             <SettingsToggleCard
               title={t("settings.linux.enableTitle")}
               desc={t("settings.linux.enableDesc")}

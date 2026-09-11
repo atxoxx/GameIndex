@@ -6689,6 +6689,8 @@ export const es: TranslationDict = {
   "settings.linux.badgeDeck": "Deck / ProtonDB",
   "settings.linux.badgeFull": "Suite completa",
   "settings.linux.nativeLinuxNotice": "Estás ejecutando GameIndex de forma nativa en Linux. Las funciones de compatibilidad con Linux están activadas automáticamente.",
+  "settings.linux.windowsWarningTitle": "Solo para Linux y Steam Deck",
+  "settings.linux.windowsWarningDesc": "Estas opciones están pensadas para Linux y Steam Deck para mostrar la compatibilidad con Proton y gestionar los runners de Wine/Proton. En Windows son inútiles: solo cambiarán las insignias de compatibilidad en la tienda y las páginas de juegos.",
   "settings.linux.emulatorsTitle": "Compatibilidad de emuladores en Linux",
   "settings.linux.emulatorsDesc": "GameIndex detecta binarios nativos, AppImages, exportaciones Flatpak y paquetes Snap. Comandos como flatpak run <app-id> \"%ROM%\" funcionan directamente al añadir un emulador.",
   "settings.linux.emulatorsPaths": "Carpetas analizadas",
