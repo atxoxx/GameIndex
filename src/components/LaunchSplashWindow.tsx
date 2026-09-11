@@ -101,6 +101,13 @@ function LaunchSplashHost() {
   // This window is display-only; the main window owns opening.
   const open = useCallback(() => {}, []);
 
+  // The Tauri window is transparent, so the page must be too or the
+  // body/App.css background would paint the whole rectangle around the card.
+  useEffect(() => {
+    document.body.classList.add("launch-splash-window");
+    return () => document.body.classList.remove("launch-splash-window");
+  }, []);
+
   // Subscribe before hydrating so an update emitted while the webview
   // boots is never lost — the fetch then folds in without rewinding it.
   useEffect(() => {
@@ -152,7 +159,7 @@ function LaunchSplashHost() {
 
   return (
     <SplashContext.Provider value={value}>
-      <Splashscreen />
+      <Splashscreen variant="window" />
     </SplashContext.Provider>
   );
 }

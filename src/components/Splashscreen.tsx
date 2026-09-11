@@ -220,7 +220,13 @@ export function sampleVibrantPalette(src: string): Promise<VibrantPalette | null
   });
 }
 
-export default function Splashscreen() {
+export default function Splashscreen({
+  variant = "overlay",
+}: {
+  /** "overlay" dims the host app behind a scrim; "window" draws only the
+   *  card because the host is a transparent always-on-top webview. */
+  variant?: "overlay" | "window";
+}) {
   const { record, close, updateLaunchStep } = useSplash();
   const { t } = useLanguage();
 
@@ -462,7 +468,9 @@ export default function Splashscreen() {
 
   return (
     <div
-      className="splashscreen-root"
+      className={`splashscreen-root${
+        variant === "window" ? " splashscreen-root--window" : ""
+      }`}
       style={
         palette
           ? ({

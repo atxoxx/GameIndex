@@ -98,6 +98,10 @@ fn build_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     .inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     .resizable(false)
     .decorations(false)
+    .transparent(true)
+    // Native shadows are rectangular, so they would outline the whole
+    // transparent window; the card's CSS shadow provides the depth.
+    .shadow(false)
     .always_on_top(true)
     .skip_taskbar(true)
     .center()
