@@ -49,6 +49,7 @@ AGENTS.md
 .vscode
 build.bat
 build-upload.bat
+build.sh
 upload.bat
 scripts/test-plugins.mjs
 .freebuff/project-id
