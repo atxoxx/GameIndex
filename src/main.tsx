@@ -1,6 +1,5 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
 import { markBootStart } from "./utils/bootPerf";
 import "./index.css";
 import "./styles/animations.css";
@@ -25,18 +24,42 @@ import "./styles/download.css";
 // before it has landed, `getNostrKeys` degrades to the session fallback.
 markBootStart();
 
+const root = document.getElementById("root") as HTMLElement;
+
+/** Window discriminator set on the Tauri URL by the Rust window builder. */
+const LAUNCH_SPLASH_PARAM = "launch-splash";
+
 async function bootstrap() {
+  // The standalone launch splash lives in its own `launch-splash` webview.
+  // Boot only the splash entry there — skipping the App chunk keeps the
+  // window's first paint (and therefore the reveal) fast.
+  if (
+    new URLSearchParams(window.location.search).get("window") ===
+    LAUNCH_SPLASH_PARAM
+  ) {
+    const { default: LaunchSplashWindow } = await import(
+      "./components/LaunchSplashWindow"
+    );
+    ReactDOM.createRoot(root).render(
+      <React.StrictMode>
+        <LaunchSplashWindow />
+      </React.StrictMode>,
+    );
+    return;
+  }
+
   // Fire-and-forget: hydrate the Nostr key cache when reachable, but never
   // gate first paint on it. Any failure is non-fatal and flows through the
   // legacy/placeholder fallback path.
   void import("./pages/friendsStorage")
     .then((m) => m.initNostrKeys())
     .catch(() => {});
-  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  const { default: App } = await import("./App");
+  ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <App />
     </React.StrictMode>,
   );
 }
 
-void bootstrap();
+void bootstrap();

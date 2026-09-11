@@ -16,7 +16,7 @@ import { ActivityProvider } from "./context/ActivityContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { DensityProvider } from "./context/DensityContext";
 import { LibraryFilterProvider } from "./context/LibraryFilterContext";
-import { SplashProvider } from "./context/SplashContext";
+import { SplashProvider, useSplash } from "./context/SplashContext";
 import { DownloadProvider } from "./context/DownloadContext";
 import { SourceProvider } from "./context/SourceContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -43,6 +43,7 @@ import { useTrayStrings } from "./hooks/useTrayStrings";
 import { LandingRedirect } from "./components/LandingRedirect";
 import AppContextMenu from "./components/AppContextMenu";
 import Splashscreen from "./components/Splashscreen";
+import LaunchSplashBridge from "./components/LaunchSplashBridge";
 import WindowReveal from "./components/WindowReveal";
 import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
 import { GameAccentSync } from "./components/GameAccentSync";
@@ -150,6 +151,17 @@ function AppShell() {
   );
 }
 
+/**
+ * Inline splash overlay fallback. The launch splash normally renders in
+ * its own `launch-splash` window so it survives minimize-on-launch; this
+ * overlay is only used when that window couldn't be created (plain
+ * `npm run dev` without a Tauri shell, or a window build failure).
+ */
+function InlineSplashFallback() {
+  const { inline } = useSplash();
+  return inline ? <Splashscreen /> : null;
+}
+
 function App() {
   // Route chunks are loaded on demand. Navigation components still preload
   // the route being hovered/focused, avoiding the resident memory cost of
@@ -200,7 +212,8 @@ function App() {
                     </AchievementProvider>
                   </ActivityProvider>
                 </GameProvider>
-                <Splashscreen />
+                <InlineSplashFallback />
+                <LaunchSplashBridge />
               </SplashProvider>
             </UpdateProvider>
           </ToastProvider>

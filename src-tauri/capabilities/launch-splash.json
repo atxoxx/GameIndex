@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "launch-splash",
+  "description": "Capability for the standalone launch splash window. It listens for snapshot updates pushed by the Rust commands; application commands (open/update/close) are not ACL-gated for local origins.",
+  "windows": ["launch-splash"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

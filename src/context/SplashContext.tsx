@@ -3,9 +3,11 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../types/game";
 
 /**
@@ -61,6 +63,10 @@ function buildSplashRecord(
 export interface SplashContextType {
   /** Whether the splash overlay is currently visible. */
   visible: boolean;
+  /** True when the splash renders as an in-window overlay. The standalone
+   *  splash window is the default; this is only a fallback for runs without
+   *  a Tauri shell (plain `npm run dev`) or when the window build fails. */
+  inline: boolean;
   /** Current splash record. Null when no launch is in flight. */
   record: SplashRecord | null;
   /** Draw the splash with status "launching". Idempotent — re-calling
@@ -84,7 +90,7 @@ export interface SplashContextType {
 const globalSplashObj = globalThis as unknown as {
   __gamelib_splash_context__?: React.Context<SplashContextType | null>;
 };
-const SplashContext =
+export const SplashContext =
   globalSplashObj.__gamelib_splash_context__ ??
   (globalSplashObj.__gamelib_splash_context__ = createContext<SplashContextType | null>(null));
 
@@ -107,10 +113,28 @@ export function isSplashEnabled(): boolean {
 
 export function SplashProvider({ children }: { children: ReactNode }) {
   const [record, setRecord] = useState<SplashRecord | null>(null);
+  const [inline, setInline] = useState(false);
+  // Identifies the launch whose window-open call is still in flight, so a
+  // stale failure can't pull a newer launch back into the overlay.
+  const activeStartedAtRef = useRef<number | null>(null);
 
   const open = useCallback(
     (payload: SplashPayload, actions?: { retry?: () => void }) => {
-      setRecord({ ...buildSplashRecord(payload, "launching"), retry: actions?.retry });
+      const next = { ...buildSplashRecord(payload, "launching"), retry: actions?.retry };
+      activeStartedAtRef.current = next.startedAt;
+      setRecord(next);
+      setInline(false);
+      // The splash renders in its own always-on-top window so it survives
+      // minimize-on-launch hiding the app. Fire-and-forget: the bridge
+      // mirrors later status flips, and a failed build flips this window
+      // to the inline overlay fallback.
+      void invoke("open_launch_splash", {
+        payload: payload.game,
+        gameId: payload.game.id,
+        startedAt: next.startedAt,
+      }).catch(() => {
+        if (activeStartedAtRef.current === next.startedAt) setInline(true);
+      });
     },
     []
   );
@@ -129,19 +153,21 @@ export function SplashProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const close = useCallback(() => {
+    activeStartedAtRef.current = null;
     setRecord(null);
   }, []);
 
   const value = useMemo<SplashContextType>(
     () => ({
       visible: record !== null,
+      inline,
       record,
       open,
       updateStatus,
       updateLaunchStep,
       close,
     }),
-    [record, open, updateStatus, updateLaunchStep, close]
+    [record, inline, open, updateStatus, updateLaunchStep, close]
   );
 
   return (

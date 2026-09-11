@@ -137,9 +137,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
   const { t } = useLanguage();
   // SplashProvider wraps GameProvider in App.tsx, so we can read the
-  // splash dispatcher straight from context. No cross-window IPC,
-  // no async round-trip — the splash is an in-process React overlay.
-  // Keep call order intact — Splash wraps Game.
+  // splash dispatcher straight from context. The provider owns the state
+  // machine; LaunchSplashBridge mirrors it into the standalone
+  // `launch-splash` window. Keep call order intact — Splash wraps Game.
   const splash = useSplash();
 
   const [games, setGames] = useState<Game[]>([]);
