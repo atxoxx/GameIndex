@@ -652,6 +652,7 @@ fn is_launchable_fallback(path: &Path, name_lower: &str) -> bool {
     }
     #[cfg(windows)]
     {
+        let _ = path;
         name_lower.ends_with(".exe")
     }
     #[cfg(unix)]
