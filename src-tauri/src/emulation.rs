@@ -186,13 +186,27 @@ pub async fn finish_emulator_install(
     let install_dir = emulator_install::resolve_install_dir(&download_id)
         .ok_or_else(|| format!("No install in progress for download '{download_id}'"))?;
 
-    let exe_name = emulator_install::exe_name_for_download(&download_id)
-        .unwrap_or_else(|| "emulator.exe".to_string());
+    let exe_name = emulator_install::exe_name_for_download(&download_id).unwrap_or_else(|| {
+        if cfg!(windows) {
+            "emulator.exe".to_string()
+        } else {
+            "emulator".to_string()
+        }
+    });
 
     let exe = emulator_install::find_executable(&install_dir, &exe_name).ok_or_else(|| {
         "Emulator executable not found after extraction (extraction may have failed — 7-Zip is required for .7z archives)"
             .to_string()
     })?;
+
+    // Extracted AppImages / tarball binaries lose their execute bit in
+    // some extractors; make sure the launch target is runnable.
+    if let Err(e) = emulator_install::ensure_executable(&exe) {
+        eprintln!(
+            "[emulator_install] could not mark {} executable: {e}",
+            exe.display()
+        );
+    }
 
     std::fs::create_dir_all(&emulator.rom_folder)
         .map_err(|e| format!("Failed to create ROM folder: {e}"))?;

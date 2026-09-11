@@ -450,22 +450,68 @@ export default function GeneralTab() {
         desc={t("settings.linux.desc")}
       >
         {isLinuxHost ? (
-          <div
-            className="settings-behavior-card"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              padding: "16px 20px",
-            }}
-          >
-            <span style={{ fontSize: "20px" }}>🐧</span>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "2px" }}>
-                {t("settings.linux.modeFull")}
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div
+              className="settings-behavior-card"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "16px 20px",
+              }}
+            >
+              <span style={{ fontSize: "20px" }}>🐧</span>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "2px" }}>
+                  {t("settings.linux.modeFull")}
+                </div>
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                  {t("settings.linux.nativeLinuxNotice")}
+                </div>
               </div>
-              <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-                {t("settings.linux.nativeLinuxNotice")}
+            </div>
+
+            <div
+              className="settings-behavior-card"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "12px",
+                padding: "16px 20px",
+              }}
+            >
+              <span style={{ fontSize: "20px" }}>🕹️</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: "14px" }}>
+                  {t("settings.linux.emulatorsTitle")}
+                </div>
+                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                  {t("settings.linux.emulatorsDesc")}
+                </div>
+                <code
+                  style={{
+                    fontSize: "12px",
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--color-text-secondary)",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  flatpak run org.libretro.RetroArch "%ROM%"
+                </code>
+                <code
+                  style={{
+                    fontSize: "12px",
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--color-text-secondary)",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  snap run retroarch "%ROM%"
+                </code>
+                <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+                  {t("settings.linux.emulatorsPaths")}: /usr/bin · /usr/local/bin ·
+                  /var/lib/flatpak/exports/bin · /snap/bin · ~/Applications · ~/AppImages
+                </div>
               </div>
             </div>
           </div>

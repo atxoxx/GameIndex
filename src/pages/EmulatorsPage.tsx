@@ -5,11 +5,13 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 import { useToast } from "../context/ToastContext";
 import { useGames } from "../context/GameContext";
 import type { Game } from "../types/game";
 import {
   accentForPlatform,
+  argumentsTemplateForHost,
   KNOWN_EMULATORS,
   knownEmulatorByKey,
   matchKnownEmulator,
@@ -43,6 +45,7 @@ const ICON = {
 
 export default function EmulatorsPage() {
   const { t } = useLanguage();
+  const { hostPlatform } = useSettings();
   const { showToast } = useToast();
   const { games, addGame, updateGame, removeGames, launchGame, runningGameIds } = useGames();
 
@@ -308,7 +311,9 @@ export default function EmulatorsPage() {
         name: known?.name ?? d.name,
         platform: known?.platform ?? d.platform,
         executablePath: d.executablePath,
-        argumentsTemplate: known?.argumentsTemplate ?? '"%ROM%"',
+        argumentsTemplate: known
+          ? argumentsTemplateForHost(known, hostPlatform)
+          : '"%ROM%"',
         romFolder: "",
         iconUrl: known?.logo,
         createdAt: now,
@@ -323,7 +328,7 @@ export default function EmulatorsPage() {
         showToast(t("emulators.discovery.addError", { error: String(err) }), "error");
       }
     },
-    [load, showToast, t]
+    [load, showToast, t, hostPlatform]
   );
 
   const handleCheckBios = useCallback(
@@ -922,7 +927,11 @@ export default function EmulatorsPage() {
             <div className="modal-header">
               <div className="modal-header-text">
                 <h2>{t("emulators.discovery.title")}</h2>
-                <p className="modal-subtitle">{t("emulators.discovery.desc")}</p>
+                <p className="modal-subtitle">
+                  {hostPlatform === "linux"
+                    ? t("emulators.discovery.descLinux")
+                    : t("emulators.discovery.desc")}
+                </p>
               </div>
               <button className="modal-close" aria-label={t("common.close")} onClick={() => setShowDiscovery(false)}>
                 ×

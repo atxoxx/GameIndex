@@ -4,11 +4,14 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 import { useToast } from "../context/ToastContext";
 import {
   type Emulator,
   type KnownEmulator,
   KNOWN_EMULATORS,
+  argumentsTemplateForHost,
+  linuxLaunchPresets,
 } from "../types/emulator";
 import { Button } from "../components/ui";
 
@@ -38,6 +41,7 @@ export default function EmulatorEditorModal({
   onSaved,
 }: Props) {
   const { t } = useLanguage();
+  const { hostPlatform, isLinuxHost } = useSettings();
   const { showToast } = useToast();
   const isEdit = !!emulator;
 
@@ -55,7 +59,8 @@ export default function EmulatorEditorModal({
   const [executablePath, setExecutablePath] = useState(emulator?.executablePath ?? "");
   const [romFolder, setRomFolder] = useState(emulator?.romFolder ?? "");
   const [argumentsTemplate, setArgumentsTemplate] = useState(
-    emulator?.argumentsTemplate ?? presetKnown?.argumentsTemplate ?? '"%ROM%"'
+    emulator?.argumentsTemplate ??
+      (presetKnown ? argumentsTemplateForHost(presetKnown, hostPlatform) : '"%ROM%"')
   );
   const [notes, setNotes] = useState(emulator?.notes ?? "");
   const [biosFolder, setBiosFolder] = useState(emulator?.biosFolder ?? "");
@@ -68,7 +73,7 @@ export default function EmulatorEditorModal({
     setKnownKey(k.key);
     setName(k.name);
     setPlatform(k.platform);
-    setArgumentsTemplate(k.argumentsTemplate);
+    setArgumentsTemplate(argumentsTemplateForHost(k, hostPlatform));
   }
 
   useEffect(() => {
@@ -84,25 +89,37 @@ export default function EmulatorEditorModal({
     [knownKey]
   );
 
+  const linuxPresets = useMemo(
+    () => (isLinuxHost && selectedKnown ? linuxLaunchPresets(selectedKnown) : []),
+    [isLinuxHost, selectedKnown]
+  );
+
   async function pickExecutable() {
     try {
       const p = await open({
         multiple: false,
         directory: false,
         title: t("emulators.browseExe"),
-        filters: [{ name: "Executable", extensions: ["exe", "app", "sh", "AppImage"] }],
+        filters: isLinuxHost
+          ? [
+              {
+                name: "Executable",
+                extensions: ["AppImage", "appimage", "sh", "bin", "run"],
+              },
+              { name: "All files", extensions: ["*"] },
+            ]
+          : [{ name: "Executable", extensions: ["exe", "app", "sh", "AppImage"] }],
       });
       if (typeof p !== "string") return;
       setExecutablePath(p);
       if (!name.trim()) {
         const base = p.split(/[\\/]/).pop()?.toLowerCase() ?? "";
-        const hit = KNOWN_EMULATORS.find((k) => k.executableName.toLowerCase() === base);
-        if (hit) {
-          setKnownKey(hit.key);
-          setName(hit.name);
-          setPlatform(hit.platform);
-          setArgumentsTemplate(hit.argumentsTemplate);
-        }
+        const hit = KNOWN_EMULATORS.find(
+          (k) =>
+            k.executableName.toLowerCase() === base ||
+            k.linuxExecutableName?.toLowerCase() === base
+        );
+        if (hit) applyKnown(hit);
       }
     } catch (err) {
       console.error(err);
@@ -275,7 +292,7 @@ export default function EmulatorEditorModal({
               <input
                 value={executablePath}
                 onChange={(e) => setExecutablePath(e.target.value)}
-                placeholder="C:\emu\dolphin.exe"
+                placeholder={isLinuxHost ? "/usr/bin/retroarch" : "C:\\emu\\dolphin.exe"}
               />
               <Button
                 type="button"
@@ -299,7 +316,7 @@ export default function EmulatorEditorModal({
               <input
                 value={romFolder}
                 onChange={(e) => setRomFolder(e.target.value)}
-                placeholder="C:\roms\gamecube"
+                placeholder={isLinuxHost ? "/home/user/ROMs/gamecube" : "C:\\roms\\gamecube"}
               />
               <Button
                 type="button"
@@ -341,6 +358,28 @@ export default function EmulatorEditorModal({
             <small className="emulators-hint">{t("emulators.argumentsHint")}</small>
           </label>
 
+          {isLinuxHost && linuxPresets.length > 0 && (
+            <label className="emulators-field">
+              <span>{t("emulators.linux.launchCommands")}</span>
+              <div className="emulators-presets-row">
+                {linuxPresets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="emu-preset-pill"
+                    onClick={() => {
+                      setExecutablePath(preset.executablePath);
+                      setArgumentsTemplate(preset.argumentsTemplate);
+                    }}
+                  >
+                    {t(preset.labelKey)}
+                  </button>
+                ))}
+              </div>
+              <small className="emulators-hint">{t("emulators.linux.launchHint")}</small>
+            </label>
+          )}
+
           {selectedKnown && (
             <p className="emulators-extensions">
               {t("emulators.extensions")}:{" "}
@@ -354,7 +393,9 @@ export default function EmulatorEditorModal({
               <input
                 value={biosFolder}
                 onChange={(e) => setBiosFolder(e.target.value)}
-                placeholder="C:\emu\dolphin\Sys\GC"
+                placeholder={
+                  isLinuxHost ? "/usr/share/dolphin-emu/Sys/GC" : "C:\\emu\\dolphin\\Sys\\GC"
+                }
               />
               <Button
                 type="button"
@@ -379,7 +420,11 @@ export default function EmulatorEditorModal({
               <input
                 value={savesFolder}
                 onChange={(e) => setSavesFolder(e.target.value)}
-                placeholder="C:\emu\dolphin\User\GC\USA\Card A"
+                placeholder={
+                  isLinuxHost
+                    ? "/home/user/.local/share/dolphin-emu/GC/USA/Card A"
+                    : "C:\\emu\\dolphin\\User\\GC\\USA\\Card A"
+                }
               />
               <Button
                 type="button"

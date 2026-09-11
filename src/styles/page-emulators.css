@@ -2301,6 +2301,29 @@
   height: 12px;
 }
 
+.download-emulator-build {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
+}
+
+.download-emulator-build.is-native {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.download-emulator-build.is-wine {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+}
+
 .download-emulator-hint {
   margin: 0;
   font-size: var(--font-size-xs);

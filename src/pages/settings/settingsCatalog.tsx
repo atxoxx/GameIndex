@@ -116,7 +116,7 @@ export function buildSettingsCatalog(
         {
           id: "general-linux",
           labelKey: "settings.linux.title",
-          keywords: "linux steam deck proton protondb wine compatibility verified deck verified runners prefix",
+          keywords: "linux steam deck proton protondb wine compatibility verified deck verified runners prefix emulator emulators flatpak snap appimage roms",
         },
       ],
     },

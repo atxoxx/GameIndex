@@ -284,23 +284,256 @@ static EMULATOR_DOWNLOADS: &[EmulatorDownload] = &[
     },
 ];
 
+/// Native Linux build override for one catalog key. Entries without an
+/// override fall back to the Windows archive, which the Linux launcher
+/// routes through Wine/Proton automatically.
+struct LinuxBuild {
+    url: &'static str,
+    exe_name: &'static str,
+    size_hint: &'static str,
+    notes: &'static str,
+}
+
+/// Curated Linux builds (AppImage / archive / tarball), verified against
+/// the projects' release endpoints. Keys match `EMULATOR_DOWNLOADS`.
+static LINUX_BUILDS: &[(&str, LinuxBuild)] = &[
+    (
+        "retroarch",
+        LinuxBuild {
+            url: "https://buildbot.libretro.com/stable/1.22.2/linux/x86_64/RetroArch.7z",
+            exe_name: "retroarch",
+            size_hint: "~190 MiB",
+            notes: "7z, libretro buildbot stable (Linux x86_64)",
+        },
+    ),
+    (
+        "pcsx2",
+        LinuxBuild {
+            url: "https://github.com/PCSX2/pcsx2/releases/download/v2.6.3/pcsx2-v2.6.3-linux-appimage-x64-Qt.AppImage",
+            exe_name: "pcsx2-v2.6.3-linux-appimage-x64-Qt.AppImage",
+            size_hint: "~68 MiB",
+            notes: "AppImage, Qt build",
+        },
+    ),
+    (
+        "ppsspp",
+        LinuxBuild {
+            url: "https://github.com/hrydgard/ppsspp/releases/download/v1.20.4/PPSSPP-v1.20.4-anylinux-x86_64.AppImage",
+            exe_name: "PPSSPP-v1.20.4-anylinux-x86_64.AppImage",
+            size_hint: "~48 MiB",
+            notes: "AppImage",
+        },
+    ),
+    (
+        "duckstation",
+        LinuxBuild {
+            url: "https://github.com/stenzek/duckstation/releases/latest/download/DuckStation-x64.AppImage",
+            exe_name: "DuckStation-x64.AppImage",
+            size_hint: "~88 MiB",
+            notes: "AppImage, rolling latest tag",
+        },
+    ),
+    (
+        "cemu",
+        LinuxBuild {
+            url: "https://github.com/cemu-project/Cemu/releases/download/v2.6/cemu-2.6-x86_64.AppImage",
+            exe_name: "cemu-2.6-x86_64.AppImage",
+            size_hint: "~30 MiB",
+            notes: "AppImage",
+        },
+    ),
+    (
+        "snes9x",
+        LinuxBuild {
+            url: "https://github.com/snes9xgit/snes9x/releases/download/1.63/Snes9x-1.63-x86_64.AppImage",
+            exe_name: "Snes9x-1.63-x86_64.AppImage",
+            size_hint: "~16 MiB",
+            notes: "AppImage",
+        },
+    ),
+    (
+        "mgba",
+        LinuxBuild {
+            url: "https://github.com/mgba-emu/mgba/releases/download/0.10.5/mGBA-0.10.5-appimage-x64.appimage",
+            exe_name: "mGBA-0.10.5-appimage-x64.appimage",
+            size_hint: "~24 MiB",
+            notes: "AppImage",
+        },
+    ),
+    (
+        "flycast",
+        LinuxBuild {
+            url: "https://github.com/flyinghead/flycast/releases/download/v2.6/flycast-x86_64.AppImage",
+            exe_name: "flycast-x86_64.AppImage",
+            size_hint: "~10 MiB",
+            notes: "AppImage",
+        },
+    ),
+    (
+        "redream",
+        LinuxBuild {
+            url: "https://redream.io/download/redream.x86_64-linux-v1.5.0.tar.gz",
+            exe_name: "redream",
+            size_hint: "~3 MiB",
+            notes: "tar.gz, stable since 2019",
+        },
+    ),
+    (
+        "shadps4",
+        LinuxBuild {
+            url: "https://github.com/shadps4-emu/shadPS4/releases/download/v.0.17.0/shadps4-linux-sdl-0.17.0.zip",
+            exe_name: "shadps4",
+            size_hint: "~33 MiB",
+            notes: "zip, SDL build only",
+        },
+    ),
+    (
+        "vita3k",
+        LinuxBuild {
+            url: "https://github.com/Vita3K/Vita3K/releases/latest/download/Vita3K-x86_64.AppImage",
+            exe_name: "Vita3K-x86_64.AppImage",
+            size_hint: "~64 MiB",
+            notes: "AppImage, rolling latest tag",
+        },
+    ),
+    (
+        "melonds",
+        LinuxBuild {
+            url: "https://github.com/melonDS-emu/melonDS/releases/download/1.1/melonDS-1.1-appimage-x86_64.zip",
+            exe_name: "melonDS",
+            size_hint: "~33 MiB",
+            notes: "zip containing an AppImage",
+        },
+    ),
+    (
+        "mupen64plus",
+        LinuxBuild {
+            url: "https://github.com/mupen64plus/mupen64plus-core/releases/download/2.6.0/mupen64plus-bundle-linux64-2.6.0.tar.gz",
+            exe_name: "mupen64plus-ui-console",
+            size_hint: "~3 MiB",
+            notes: "tar.gz, CLI bundle",
+        },
+    ),
+    (
+        "xemu",
+        LinuxBuild {
+            url: "https://github.com/xemu-project/xemu/releases/download/v0.8.136/xemu-0.8.136-x86_64.AppImage",
+            exe_name: "xemu-0.8.136-x86_64.AppImage",
+            size_hint: "~16 MiB",
+            notes: "AppImage",
+        },
+    ),
+    (
+        "fbneo",
+        LinuxBuild {
+            url: "https://github.com/finalburnneo/FBNeo/releases/latest/download/linux-sdl2-x86_64.zip",
+            exe_name: "fbneo",
+            size_hint: "~15 MiB",
+            notes: "zip, SDL2 build",
+        },
+    ),
+    (
+        "blastem",
+        LinuxBuild {
+            url: "https://www.retrodev.com/blastem/blastem64-0.6.2.tar.gz",
+            exe_name: "blastem",
+            size_hint: "~2 MiB",
+            notes: "tar.gz, stable since 2019",
+        },
+    ),
+    (
+        "azahar",
+        LinuxBuild {
+            url: "https://github.com/azahar-emu/azahar/releases/download/2126.0/azahar.AppImage",
+            exe_name: "azahar.AppImage",
+            size_hint: "~98 MiB",
+            notes: "AppImage, merged Citra/Lime3DS successor",
+        },
+    ),
+];
+
+fn linux_build(key: &str) -> Option<&'static LinuxBuild> {
+    LINUX_BUILDS
+        .iter()
+        .find(|(k, _)| *k == key)
+        .map(|(_, b)| b)
+}
+
+/// A catalog entry resolved for the running host. On Linux the fields
+/// carry the native build when one exists, otherwise the Windows archive
+/// with `build_kind: "wine"` (the launcher runs it via Wine/Proton).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostEmulatorDownload {
+    pub key: &'static str,
+    pub url: String,
+    pub exe_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archive_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size_hint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    /// `"native"` (Linux-only build), `"wine"` (Windows archive on a Linux
+    /// host) or `"windows"` (Windows host catalog).
+    pub build_kind: &'static str,
+}
+
 /// Look up a catalog entry by its `key` (e.g. `"dolphin"`).
 pub fn catalog_entry(key: &str) -> Option<&'static EmulatorDownload> {
     EMULATOR_DOWNLOADS.iter().find(|e| e.key == key)
 }
 
-/// Every catalog entry — used by the emulator auto-discovery command
-/// (`roms::discover_emulators`) to recognise known emulator executables
-/// on disk without duplicating the catalog in a second module.
-pub fn all_catalog_entries() -> Vec<&'static EmulatorDownload> {
-    EMULATOR_DOWNLOADS.iter().collect()
+fn host_entry(base: &'static EmulatorDownload) -> HostEmulatorDownload {
+    let linux = if cfg!(target_os = "linux") {
+        linux_build(base.key)
+    } else {
+        None
+    };
+    match linux {
+        Some(build) => HostEmulatorDownload {
+            key: base.key,
+            url: build.url.to_string(),
+            exe_name: build.exe_name.to_string(),
+            archive_root: None,
+            size_hint: Some(build.size_hint.to_string()),
+            notes: Some(build.notes.to_string()),
+            build_kind: "native",
+        },
+        None => HostEmulatorDownload {
+            key: base.key,
+            url: base.url.to_string(),
+            exe_name: base.exe_name.to_string(),
+            archive_root: base.archive_root.map(str::to_string),
+            size_hint: base.size_hint.map(str::to_string),
+            notes: base.notes.map(str::to_string),
+            build_kind: if cfg!(target_os = "linux") {
+                "wine"
+            } else {
+                "windows"
+            },
+        },
+    }
 }
 
-/// Return the full downloadable catalog (cloned, so the static entries
-/// are never exposed mutably).
+/// Look up a catalog entry resolved for the running host.
+pub fn host_catalog_entry(key: &str) -> Option<HostEmulatorDownload> {
+    catalog_entry(key).map(host_entry)
+}
+
+/// Every catalog entry — used by the emulator auto-discovery command
+/// (`roms::discover_emulators`) to recognise known emulator executables
+/// on disk without duplicating the catalog in a second module. On Linux
+/// the resolved `exe_name` is the native binary name, so discovery finds
+/// `retroarch` rather than `retroarch.exe`.
+pub fn all_catalog_entries() -> Vec<HostEmulatorDownload> {
+    EMULATOR_DOWNLOADS.iter().map(host_entry).collect()
+}
+
+/// Return the full downloadable catalog resolved for the running host.
 #[tauri::command]
-pub fn list_emulator_downloads() -> Result<Vec<EmulatorDownload>, String> {
-    Ok(EMULATOR_DOWNLOADS.to_vec())
+pub fn list_emulator_downloads() -> Result<Vec<HostEmulatorDownload>, String> {
+    Ok(all_catalog_entries())
 }
 
 // ─── Install-spec registry ──────────────────────────────────────────────────
@@ -365,15 +598,15 @@ pub fn exe_name_for_download(download_id: &str) -> Option<String> {
         let map = install_specs();
         let guard = map.lock().unwrap();
         if let Some(spec) = guard.get(download_id) {
-            if let Some(entry) = catalog_entry(&spec.emulator_key) {
-                return Some(entry.exe_name.to_string());
+            if let Some(entry) = host_catalog_entry(&spec.emulator_key) {
+                return Some(entry.exe_name);
             }
         }
     }
     if let Some(rest) = download_id.strip_prefix("emu_") {
         if let Some(key) = rest.rsplit_once('_').map(|(k, _)| k) {
-            if let Some(entry) = catalog_entry(key) {
-                return Some(entry.exe_name.to_string());
+            if let Some(entry) = host_catalog_entry(key) {
+                return Some(entry.exe_name);
             }
         }
     }
@@ -386,15 +619,65 @@ pub fn exe_name_for_download(download_id: &str) -> Option<String> {
 
 // ─── Executable discovery ────────────────────────────────────────────────────
 
+/// Whether `name_lower` (an on-disk file name) is the wanted executable.
+/// Matches exactly, by suffix, and — for AppImages — by stem so versioned
+/// names like `pcsx2-v2.6.3-linux-appimage-x64-Qt.AppImage` still match a
+/// `pcsx2` target.
+fn file_matches_target(name_lower: &str, target: &str) -> bool {
+    if target.is_empty() {
+        return false;
+    }
+    if name_lower == target {
+        return true;
+    }
+    if name_lower.ends_with(target) {
+        return true;
+    }
+    if name_lower.ends_with(".appimage") {
+        let name_stem = name_lower.trim_end_matches(".appimage");
+        let target_stem = target.trim_end_matches(".appimage");
+        return name_stem == target_stem
+            || name_stem.starts_with(&format!("{target_stem}-"))
+            || name_stem.ends_with(&format!("-{target_stem}"))
+            || name_stem.contains(target_stem);
+    }
+    false
+}
+
+/// True when a file is a plausible launch target as a last-resort
+/// fallback (name/exec-bit based, platform aware).
+fn is_launchable_fallback(path: &Path, name_lower: &str) -> bool {
+    if name_lower.ends_with(".appimage") || name_lower.ends_with(".run") {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        name_lower.ends_with(".exe")
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(path)
+            .map(|m| m.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = path;
+        false
+    }
+}
+
 /// Recursively find an executable under `install_dir`.
 ///
 /// Walk is depth-first, bounded to 6 levels, visiting directory entries
 /// in sorted order (stable, deterministic). Directories whose name
 /// starts with `__MACOSX` or `.` are skipped. A candidate file matches
-/// when its lowercased name is `==` the target, OR ends with the target
-/// (covers versioned names like `snes9x-x64.exe`); only `.exe` files
-/// are considered. When no named match exists, the first `.exe` found
-/// at depth <= 2 is returned (some catalog exe names are best-effort).
+/// the target by name/suffix/AppImage stem; on Windows only `.exe` files
+/// are considered, on Unix any file is (AppImages and native binaries
+/// have no mandatory extension). When no named match exists, the first
+/// launchable file found at depth <= 2 is returned (some catalog names
+/// are best-effort).
 pub fn find_executable(install_dir: &Path, exe_name: &str) -> Option<PathBuf> {
     let exe_name_lower = exe_name.trim().to_lowercase();
 
@@ -416,26 +699,23 @@ pub fn find_executable(install_dir: &Path, exe_name: &str) -> Option<PathBuf> {
             let name = entry.file_name();
             let name_lower = name.to_string_lossy().to_lowercase();
             let path = entry.path();
-            let Ok(ft) = entry.file_type() else {
-                continue;
-            };
-            if ft.is_dir() {
+            let is_dir = path.is_dir();
+            if is_dir {
                 if name_lower.starts_with("__macosx") || name_lower.starts_with('.') {
                     continue;
                 }
                 if let Some(found) = walk(&path, exe_name_lower, depth + 1, fallback) {
                     return Some(found);
                 }
-            } else if ft.is_file() {
+            } else if path.is_file() {
+                #[cfg(windows)]
                 if !name_lower.ends_with(".exe") {
                     continue;
                 }
-                if name_lower == exe_name_lower
-                    || (!exe_name_lower.is_empty() && name_lower.ends_with(exe_name_lower))
-                {
+                if file_matches_target(&name_lower, exe_name_lower) {
                     return Some(path);
                 }
-                if depth <= 2 && fallback.is_none() {
+                if depth <= 2 && fallback.is_none() && is_launchable_fallback(&path, &name_lower) {
                     *fallback = Some(path);
                 }
             }
@@ -450,6 +730,29 @@ pub fn find_executable(install_dir: &Path, exe_name: &str) -> Option<PathBuf> {
     fallback
 }
 
+/// Make an extracted executable runnable. AppImages and tarball binaries
+/// lose their Unix permission bits during zip/7z extraction, so add the
+/// execute bit (no-op on Windows).
+pub fn ensure_executable(path: &Path) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
+        let mut perms = metadata.permissions();
+        let mode = perms.mode();
+        if mode & 0o111 == 0 {
+            perms.set_mode(mode | 0o755);
+            std::fs::set_permissions(path, perms).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(())
+    }
+}
+
 // ─── Command: start an install ──────────────────────────────────────────────
 
 /// Kick off an emulator install: download the catalog archive into
@@ -460,7 +763,7 @@ pub async fn start_emulator_install(
     emulator_key: String,
     install_dir: String,
 ) -> Result<Download, String> {
-    let entry = catalog_entry(&emulator_key)
+    let entry = host_catalog_entry(&emulator_key)
         .ok_or_else(|| format!("No downloadable build for '{emulator_key}'"))?;
 
     let install_dir_path = Path::new(&install_dir);
@@ -554,5 +857,51 @@ mod tests {
         // the earlier-listed `game.exe` sibling.
         let found = find_executable(dir.path(), "snes9x-x64.exe");
         assert_eq!(found, Some(dir.path().join("snes9x-x64.exe")));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn find_executable_appimage_stem() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("readme.txt"), b"hi").unwrap();
+        std::fs::write(
+            dir.path().join("pcsx2-v2.6.3-linux-appimage-x64-Qt.AppImage"),
+            b"",
+        )
+        .unwrap();
+
+        let found = find_executable(dir.path(), "pcsx2");
+        assert_eq!(
+            found,
+            Some(dir.path().join("pcsx2-v2.6.3-linux-appimage-x64-Qt.AppImage"))
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ensure_executable_adds_exec_bit() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("retroarch");
+        std::fs::write(&bin, b"").unwrap();
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        ensure_executable(&bin).unwrap();
+
+        let mode = std::fs::metadata(&bin).unwrap().permissions().mode();
+        assert_ne!(mode & 0o111, 0);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn host_catalog_prefers_native_linux_build() {
+        let pcsx2 = host_catalog_entry("pcsx2").unwrap();
+        assert_eq!(pcsx2.build_kind, "native");
+        assert!(pcsx2.url.contains("linux"));
+        assert!(pcsx2.exe_name.ends_with(".AppImage"));
+
+        let dolphin = host_catalog_entry("dolphin").unwrap();
+        assert_eq!(dolphin.build_kind, "wine");
+        assert!(dolphin.exe_name.ends_with(".exe"));
     }
 }

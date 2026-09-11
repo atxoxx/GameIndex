@@ -1227,12 +1227,54 @@ const EXTRA_KNOWN_EXES: &[(&str, &str, &str, &str)] = &[
     ("ares", "ares", "Multi-system", "ares.exe"),
 ];
 
-fn known_exe_map() -> Vec<(String, &'static str, &'static str, &'static str)> {
-    // (lowercase exe name, key, name, platform)
-    let mut out: Vec<(String, &'static str, &'static str, &'static str)> = Vec::new();
+/// Native Linux emulator binaries, Flatpak app ids and Snap names to
+/// detect on disk. Distro/Flatpak installs use stable names that don't
+/// appear in the download catalog, so they're listed separately.
+/// `(key, name, platform, candidate file names)`.
+const EXTRA_KNOWN_LINUX: &[(&str, &str, &str, &[&str])] = &[
+    ("retroarch", "RetroArch", "RetroArch", &["retroarch", "org.libretro.retroarch"]),
+    ("dolphin", "Dolphin", "GameCube", &["dolphin-emu", "org.dolphinemu.dolphin-emu"]),
+    ("pcsx2", "PCSX2", "PlayStation 2", &["pcsx2-qt", "pcsx2", "net.pcsx2.pcsx2"]),
+    ("ppsspp", "PPSSPP", "PlayStation Portable", &["ppsspp", "ppsspp-qt", "org.ppsspp.ppsspp"]),
+    ("duckstation", "DuckStation", "PlayStation", &["duckstation-qt", "duckstation", "org.duckstation.duckstation"]),
+    ("cemu", "Cemu", "Wii U", &["cemu", "info.cemu.cemu"]),
+    ("snes9x", "Snes9x", "Super Nintendo", &["snes9x-gtk", "snes9x", "com.snes9x.snes9x"]),
+    ("mgba", "mGBA", "Game Boy Advance", &["mgba-qt", "mgba", "io.mgba.mgba"]),
+    ("desmume", "DeSmuME", "Nintendo DS", &["desmume", "org.desmume.desmume"]),
+    ("melonds", "melonDS", "Nintendo DS", &["melonds", "net.kuribo64.melonds"]),
+    ("flycast", "Flycast", "Sega Dreamcast", &["flycast", "org.flycast.flycast"]),
+    ("redream", "Redream", "Sega Dreamcast", &["redream"]),
+    ("shadps4", "shadPS4", "PlayStation 4", &["shadps4", "net.shadps4.shadps4"]),
+    ("vita3k", "Vita3K", "PlayStation Vita", &["vita3k"]),
+    ("lime3ds", "Lime3DS", "Nintendo 3DS", &["azahar", "azahar-room", "org.azahar_emu.azahar"]),
+    ("citra", "Citra", "Nintendo 3DS", &["citra"]),
+    ("yuzu", "Yuzu", "Nintendo Switch", &["yuzu"]),
+    ("ryujinx", "Ryujinx", "Nintendo Switch", &["ryujinx", "ryujinx-ava"]),
+    ("mupen64plus", "Mupen64Plus", "Nintendo 64", &["mupen64plus-ui-console", "mupen64plus"]),
+    ("project64", "Project64", "Nintendo 64", &["project64"]),
+    ("mame", "MAME", "Arcade", &["mame", "org.mamedev.mame"]),
+    ("mednafen", "Mednafen", "Multi-system", &["mednafen"]),
+    ("ares", "ares", "Multi-system", &["ares", "dev.ares.ares"]),
+    ("sameboy", "SameBoy", "Game Boy", &["sameboy", "io.github.sameboy.sameboy"]),
+    ("mesen", "Mesen", "NES", &["mesen"]),
+    ("fceux", "FCEUX", "NES", &["fceux"]),
+    ("bsnes", "bsnes", "Super Nintendo", &["bsnes"]),
+    ("stella", "Stella", "Atari 2600", &["stella"]),
+    ("xemu", "xemu", "Xbox", &["xemu", "app.xemu.xemu"]),
+    ("fbneo", "FBNeo", "Arcade", &["fbneo"]),
+    ("blastem", "BlastEm", "Sega Genesis", &["blastem"]),
+    ("kega-fusion", "Kega Fusion", "Sega Genesis", &["kega-fusion"]),
+    ("kronos", "Kronos", "Sega Saturn", &["kronos"]),
+    ("demul", "Demul", "Sega Dreamcast", &["demul"]),
+];
+
+#[allow(clippy::type_complexity)]
+fn known_exe_map() -> Vec<(Vec<String>, &'static str, &'static str, &'static str)> {
+    // (lowercase candidate file names, key, name, platform)
+    let mut out: Vec<(Vec<String>, &'static str, &'static str, &'static str)> = Vec::new();
     for entry in emulator_install::all_catalog_entries() {
         out.push((
-            entry.exe_name.to_lowercase(),
+            vec![entry.exe_name.to_lowercase()],
             entry.key,
             // Catalog keys are the stable identity; names come from the
             // frontend catalog, but keep a readable fallback here.
@@ -1240,25 +1282,78 @@ fn known_exe_map() -> Vec<(String, &'static str, &'static str, &'static str)> {
             "",
         ));
     }
-    for (key, name, platform, exe) in EXTRA_KNOWN_EXES {
-        out.push((exe.to_lowercase(), key, name, platform));
+    if cfg!(target_os = "linux") {
+        for (key, name, platform, candidates) in EXTRA_KNOWN_LINUX {
+            out.push((
+                candidates.iter().map(|s| s.to_lowercase()).collect(),
+                key,
+                name,
+                platform,
+            ));
+        }
+    } else {
+        for (key, name, platform, exe) in EXTRA_KNOWN_EXES {
+            out.push((vec![exe.to_lowercase()], key, name, platform));
+        }
     }
     out
 }
 
-/// Candidate root folders to scan for emulator executables.
-fn discovery_roots() -> Vec<PathBuf> {
-    let mut roots: Vec<PathBuf> = Vec::new();
-    for var in ["ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA", "USERPROFILE", "ProgramData", "HOME"] {
-        if let Ok(v) = std::env::var(var) {
-            let p = PathBuf::from(&v);
+/// Candidate root folders to scan for emulator executables, paired with
+/// a recursion depth (bin directories are shallow; `/opt` and home
+/// installs need a couple of levels).
+fn discovery_roots() -> Vec<(PathBuf, usize)> {
+    let mut roots: Vec<(PathBuf, usize)> = Vec::new();
+    if cfg!(target_os = "linux") {
+        for dir in [
+            "/usr/bin",
+            "/usr/local/bin",
+            "/usr/games",
+            "/var/lib/flatpak/exports/bin",
+            "/snap/bin",
+            "/app/bin",
+        ] {
+            let p = PathBuf::from(dir);
             if p.is_dir() {
-                roots.push(p.clone());
-                if var == "LOCALAPPDATA" || var == "USERPROFILE" || var == "HOME" {
-                    roots.push(p.join("Programs"));
-                    roots.push(p.join("Emulation"));
-                    roots.push(p.join("Emulators"));
-                    roots.push(p.join("RetroArch-Win64"));
+                roots.push((p, 0));
+            }
+        }
+        let opt = PathBuf::from("/opt");
+        if opt.is_dir() {
+            roots.push((opt, 2));
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            let home = PathBuf::from(home);
+            if home.is_dir() {
+                roots.push((home.clone(), 0));
+                for rel in [
+                    ".local/bin",
+                    "bin",
+                    "Applications",
+                    "AppImages",
+                    "Emulation",
+                    "Emulators",
+                    ".local/share/flatpak/exports/bin",
+                ] {
+                    let p = home.join(rel);
+                    if p.is_dir() {
+                        roots.push((p, 2));
+                    }
+                }
+            }
+        }
+    } else {
+        for var in ["ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA", "USERPROFILE", "ProgramData", "HOME"] {
+            if let Ok(v) = std::env::var(var) {
+                let p = PathBuf::from(&v);
+                if p.is_dir() {
+                    roots.push((p.clone(), 0));
+                    if var == "LOCALAPPDATA" || var == "USERPROFILE" || var == "HOME" {
+                        roots.push((p.join("Programs"), 2));
+                        roots.push((p.join("Emulation"), 2));
+                        roots.push((p.join("Emulators"), 2));
+                        roots.push((p.join("RetroArch-Win64"), 2));
+                    }
                 }
             }
         }
@@ -1267,15 +1362,15 @@ fn discovery_roots() -> Vec<PathBuf> {
 }
 
 /// Scan common install folders for known emulator executables. Depth
-/// limited (3 levels) so the scan stays fast on big Program Files trees.
+/// limited so the scan stays fast on big `/usr` or Program Files trees.
 #[tauri::command]
 pub async fn discover_emulators() -> Result<Vec<DiscoveredEmulator>, String> {
     tokio::task::spawn_blocking(|| {
         let known = known_exe_map();
         let mut found: Vec<DiscoveredEmulator> = Vec::new();
         let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-        for root in discovery_roots() {
-            walk_for_exes(&root, &known, 0, &mut seen, &mut found);
+        for (root, max_depth) in discovery_roots() {
+            walk_for_exes(&root, &known, 0, max_depth, &mut seen, &mut found);
         }
         found.sort_by(|a, b| a.name.cmp(&b.name));
         found.dedup_by(|a, b| a.executable_path == b.executable_path);
@@ -1285,14 +1380,33 @@ pub async fn discover_emulators() -> Result<Vec<DiscoveredEmulator>, String> {
     .map_err(|e| format!("discover task: {e}"))?
 }
 
+/// True when an on-disk file name matches one of an emulator's candidate
+/// names. AppImage files also match by stem, so
+/// `pcsx2-v2.6.3-linux-x64.AppImage` matches the `pcsx2` candidate.
+fn emulator_file_matches(name_lower: &str, candidate: &str) -> bool {
+    if name_lower == candidate {
+        return true;
+    }
+    if name_lower.ends_with(".appimage") {
+        let stem = name_lower.trim_end_matches(".appimage");
+        let candidate = candidate.trim_end_matches(".appimage");
+        return stem == candidate
+            || stem.starts_with(&format!("{candidate}-"))
+            || stem.ends_with(&format!("-{candidate}"));
+    }
+    false
+}
+
+#[allow(clippy::too_many_arguments)]
 fn walk_for_exes(
     dir: &Path,
-    known: &[(String, &'static str, &'static str, &'static str)],
+    known: &[(Vec<String>, &'static str, &'static str, &'static str)],
     depth: usize,
+    max_depth: usize,
     seen: &mut std::collections::HashSet<String>,
     out: &mut Vec<DiscoveredEmulator>,
 ) {
-    if depth > 3 {
+    if depth > max_depth {
         return;
     }
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -1307,18 +1421,19 @@ fn walk_for_exes(
         if name == "windows" || name == "system32" || name == "syswow64" || name == "node_modules" {
             continue;
         }
-        let Ok(ft) = entry.file_type() else {
-            continue;
-        };
-        if ft.is_dir() {
-            walk_for_exes(&path, known, depth + 1, seen, out);
+        // Follow symlinks (Flatpak exports are symlinks into the store).
+        if path.is_dir() {
+            walk_for_exes(&path, known, depth + 1, max_depth, seen, out);
             continue;
         }
-        if !name.ends_with(".exe") {
+        if cfg!(windows) && !name.ends_with(".exe") {
             continue;
         }
-        for (exe_lower, key, display, platform) in known {
-            if name == *exe_lower {
+        for (candidates, key, display, platform) in known {
+            if candidates
+                .iter()
+                .any(|candidate| emulator_file_matches(&name, candidate))
+            {
                 let abs = path.to_string_lossy().to_string();
                 if seen.insert(abs.clone()) {
                     out.push(DiscoveredEmulator {
@@ -1386,9 +1501,12 @@ pub fn discover_rom_folders(app: tauri::AppHandle, emulator_id: String) -> Resul
     if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
         let home = PathBuf::from(home);
         candidates.push(home.join("ROMs"));
+        candidates.push(home.join("roms"));
         candidates.push(home.join("Emulation").join("roms"));
         candidates.push(home.join("Emulation").join("roms").join(&emu.platform));
+        candidates.push(home.join("Games").join("ROMs"));
         candidates.push(home.join("Documents").join("ROMs"));
+        candidates.push(home.join(".local").join("share").join("ROMs"));
     }
 
     let mut out: Vec<String> = Vec::new();
@@ -1813,5 +1931,32 @@ mod tests {
     fn sanitizes_snapshot_names() {
         assert_eq!(sanitize_component("a/b:c*d?"), "a_b_c_d_");
         assert_eq!(sanitize_component("normal-name_1"), "normal-name_1");
+    }
+
+    #[test]
+    fn emulator_file_matches_flatpak_export_and_appimage() {
+        assert!(emulator_file_matches(
+            "org.libretro.retroarch",
+            "org.libretro.retroarch"
+        ));
+        assert!(emulator_file_matches("retroarch", "retroarch"));
+        assert!(emulator_file_matches(
+            "dolphin-emu",
+            "dolphin-emu"
+        ));
+        assert!(emulator_file_matches(
+            "duckstation-x64.appimage",
+            "duckstation"
+        ));
+        assert!(emulator_file_matches(
+            "pcsx2-v2.6.3-linux-appimage-x64-qt.appimage",
+            "pcsx2"
+        ));
+    }
+
+    #[test]
+    fn emulator_file_matches_rejects_unrelated_names() {
+        assert!(!emulator_file_matches("ls", "retroarch"));
+        assert!(!emulator_file_matches("notes.txt", "mame"));
     }
 }

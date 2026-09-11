@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
 import { useDownloads } from "../../context/DownloadContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
@@ -12,6 +13,7 @@ import {
   type Emulator,
   type EmulatorDownload,
   type KnownEmulator,
+  argumentsTemplateForHost,
   KNOWN_EMULATORS,
 } from "../../types/emulator";
 import {
@@ -111,6 +113,7 @@ interface CatalogRow {
  */
 export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
   const { t } = useLanguage();
+  const { hostPlatform, isLinuxHost } = useSettings();
   const { unit: sizeUnit } = useSizeUnit();
   const { unit: speedUnit } = useSpeedUnit();
   const { showToast } = useToast();
@@ -209,7 +212,7 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
         name: selectedKnown.name,
         platform: selectedKnown.platform,
         executablePath: "",
-        argumentsTemplate: selectedKnown.argumentsTemplate,
+        argumentsTemplate: argumentsTemplateForHost(selectedKnown, hostPlatform),
         romFolder: `${installDir.replace(/\\/g, "/")}/roms`,
         createdAt: now,
         updatedAt: now,
@@ -226,7 +229,7 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
     } finally {
       setFinishing(false);
     }
-  }, [selectedKnown, downloadId, installDir, t]);
+  }, [selectedKnown, downloadId, installDir, t, hostPlatform]);
 
   // Watch the download record: terminal statuses drive the step machine
   // and a completed+extracted download triggers the finish call once.
@@ -445,6 +448,16 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
                                 {row.download.sizeHint}
                               </span>
                             )}
+                            {row.download.buildKind === "native" && (
+                              <span className="download-emulator-build is-native">
+                                {t("emulators.download.nativeBuild")}
+                              </span>
+                            )}
+                            {row.download.buildKind === "wine" && (
+                              <span className="download-emulator-build is-wine">
+                                {t("emulators.download.wineBuild")}
+                              </span>
+                            )}
                             {row.installed && (
                               <span className="download-emulator-installed">
                                 <IconCheck />
@@ -502,12 +515,17 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
                   <div className="download-emulator-layout-line">
                     <span>{t("emulators.download.plannedLayout")}</span>
                     <code>
-                      {installDir}\{archiveName}
+                      {installDir}
+                      {isLinuxHost ? "/" : "\\"}
+                      {archiveName}
                     </code>
                   </div>
                   <div className="download-emulator-layout-line">
                     <span>{t("emulators.download.romFolderLabel")}</span>
-                    <code>{installDir}\roms</code>
+                    <code>
+                      {installDir}
+                      {isLinuxHost ? "/" : "\\"}roms
+                    </code>
                   </div>
                 </div>
               )}

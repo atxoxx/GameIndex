@@ -171,6 +171,14 @@ export interface KnownEmulator {
   platform: string;
   /** Default executable file name (without path) shown as a hint. */
   executableName: string;
+  /** Native Linux binary name, when the emulator is packaged for Linux. */
+  linuxExecutableName?: string;
+  /** Native Linux launch-argument template (falls back to the default). */
+  linuxArgumentsTemplate?: string;
+  /** Flathub application id, when one is published (e.g. "org.libretro.RetroArch"). */
+  flatpakId?: string;
+  /** Snap package name, when one is published (e.g. "retroarch"). */
+  snapName?: string;
   /** Supported ROM file extensions (lowercase, no dot). */
   extensions: string[];
   /** Default launch-argument template. */
@@ -193,6 +201,9 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "RetroArch",
     platform: "RetroArch",
     executableName: "retroarch.exe",
+    linuxExecutableName: "retroarch",
+    flatpakId: "org.libretro.RetroArch",
+    snapName: "retroarch",
     extensions: ["zip", "7z", "iso", "bin", "cue", "rom"],
     argumentsTemplate: '"%ROM%"',
     accent: "#8b5cf6",
@@ -207,6 +218,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Dolphin",
     platform: "GameCube",
     executableName: "Dolphin.exe",
+    linuxExecutableName: "dolphin-emu",
+    flatpakId: "org.DolphinEmu.dolphin-emu",
     extensions: ["iso", "gcm", "rvz", "gcz"],
     argumentsTemplate: '"%ROM%"',
     accent: "#22d3ee",
@@ -220,6 +233,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Dolphin (Wii)",
     platform: "Wii",
     executableName: "Dolphin.exe",
+    linuxExecutableName: "dolphin-emu",
+    flatpakId: "org.DolphinEmu.dolphin-emu",
     extensions: ["iso", "wbfs", "rvz", "gcz"],
     argumentsTemplate: '"%ROM%"',
     accent: "#06b6d4",
@@ -233,6 +248,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "PCSX2",
     platform: "PlayStation 2",
     executableName: "pcsx2-qt.exe",
+    linuxExecutableName: "pcsx2-qt",
+    flatpakId: "net.pcsx2.PCSX2",
     extensions: ["iso", "bin", "cue", "chd", "img", "gz"],
     argumentsTemplate: '"%ROM%"',
     accent: "#f59e0b",
@@ -246,6 +263,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "PPSSPP",
     platform: "PlayStation Portable",
     executableName: "PPSSPPWindows64.exe",
+    linuxExecutableName: "ppsspp",
+    flatpakId: "org.ppsspp.PPSSPP",
     extensions: ["iso", "cso", "pbp"],
     argumentsTemplate: '"%ROM%"',
     accent: "#10b981",
@@ -259,6 +278,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "DuckStation",
     platform: "PlayStation",
     executableName: "duckstation-qt-x64-ReleaseLTCG.exe",
+    linuxExecutableName: "duckstation-qt",
+    flatpakId: "org.duckstation.DuckStation",
     extensions: ["iso", "bin", "cue", "img", "pbp", "chd"],
     argumentsTemplate: '"%ROM%"',
     accent: "#ef4444",
@@ -272,6 +293,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Citra",
     platform: "Nintendo 3DS",
     executableName: "citra.exe",
+    linuxExecutableName: "citra",
     extensions: ["3ds", "cia", "cxi"],
     argumentsTemplate: '"%ROM%"',
     accent: "#3b82f6",
@@ -285,6 +307,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Yuzu",
     platform: "Nintendo Switch",
     executableName: "yuzu.exe",
+    linuxExecutableName: "yuzu",
     extensions: ["xci", "nsp"],
     argumentsTemplate: '"%ROM%"',
     accent: "#6366f1",
@@ -298,6 +321,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Cemu",
     platform: "Wii U",
     executableName: "Cemu.exe",
+    linuxExecutableName: "cemu",
+    flatpakId: "info.cemu.Cemu",
     extensions: ["wud", "wux", "rpx"],
     argumentsTemplate: '-g "%ROM%"',
     accent: "#14b8a6",
@@ -311,6 +336,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Snes9x",
     platform: "Super Nintendo",
     executableName: "snes9x-x64.exe",
+    linuxExecutableName: "snes9x-gtk",
+    flatpakId: "com.snes9x.Snes9x",
     extensions: ["smc", "sfc", "swc", "fig"],
     argumentsTemplate: '"%ROM%"',
     accent: "#a855f7",
@@ -324,6 +351,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Mesen",
     platform: "NES",
     executableName: "Mesen.exe",
+    linuxExecutableName: "mesen",
     extensions: ["nes"],
     argumentsTemplate: '"%ROM%"',
     accent: "#eab308",
@@ -337,6 +365,9 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "mGBA",
     platform: "Game Boy Advance",
     executableName: "mgba.exe",
+    linuxExecutableName: "mgba-qt",
+    flatpakId: "io.mgba.mGBA",
+    snapName: "mgba",
     extensions: ["gba"],
     argumentsTemplate: '"%ROM%"',
     accent: "#84cc16",
@@ -350,6 +381,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "DeSmuME",
     platform: "Nintendo DS",
     executableName: "DeSmuME.exe",
+    linuxExecutableName: "desmume",
+    flatpakId: "org.desmume.DeSmuME",
     extensions: ["nds"],
     argumentsTemplate: '"%ROM%"',
     accent: "#0ea5e9",
@@ -388,6 +421,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Flycast",
     platform: "Sega Dreamcast",
     executableName: "flycast.exe",
+    linuxExecutableName: "flycast",
+    flatpakId: "org.flycast.Flycast",
     extensions: ["cdi", "gdi", "chd"],
     argumentsTemplate: '"%ROM%"',
     accent: "#f97316",
@@ -401,6 +436,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Redream",
     platform: "Sega Dreamcast",
     executableName: "redream.exe",
+    linuxExecutableName: "redream",
     extensions: ["cdi", "gdi", "chd"],
     argumentsTemplate: '"%ROM%"',
     accent: "#ef4444",
@@ -413,6 +449,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "RPCS3",
     platform: "PlayStation 3",
     executableName: "rpcs3.exe",
+    linuxExecutableName: "rpcs3",
     extensions: ["iso", "pkg", "rap"],
     argumentsTemplate: '"%ROM%"',
     accent: "#0ea5e9",
@@ -426,6 +463,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "shadPS4",
     platform: "PlayStation 4",
     executableName: "shadps4.exe",
+    linuxExecutableName: "shadps4",
+    flatpakId: "net.shadps4.shadPS4",
     extensions: ["pkg", "elf"],
     argumentsTemplate: '"%ROM%"',
     accent: "#3b82f6",
@@ -439,6 +478,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Vita3K",
     platform: "PlayStation Vita",
     executableName: "Vita3K.exe",
+    linuxExecutableName: "vita3k",
     extensions: ["vpk", "zip", "bin"],
     argumentsTemplate: '"%ROM%"',
     accent: "#0284c7",
@@ -452,6 +492,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Ryujinx",
     platform: "Nintendo Switch",
     executableName: "Ryujinx.exe",
+    linuxExecutableName: "ryujinx",
     extensions: ["xci", "nsp", "nca"],
     argumentsTemplate: '"%ROM%"',
     accent: "#e63946",
@@ -465,6 +506,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Lime3DS",
     platform: "Nintendo 3DS",
     executableName: "azahar.exe",
+    linuxExecutableName: "azahar",
+    flatpakId: "org.azahar_emu.Azahar",
     extensions: ["3ds", "cia", "cxi", "app"],
     argumentsTemplate: '"%ROM%"',
     accent: "#84cc16",
@@ -478,6 +521,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "melonDS",
     platform: "Nintendo DS",
     executableName: "melonDS.exe",
+    linuxExecutableName: "melonds",
+    flatpakId: "net.kuribo64.melonDS",
     extensions: ["nds"],
     argumentsTemplate: '"%ROM%"',
     accent: "#10b981",
@@ -491,6 +536,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Mupen64Plus",
     platform: "Nintendo 64",
     executableName: "mupen64plus-ui-console.exe",
+    linuxExecutableName: "mupen64plus-ui-console",
     extensions: ["n64", "z64", "v64"],
     argumentsTemplate: '"%ROM%"',
     accent: "#d97706",
@@ -504,6 +550,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "bsnes",
     platform: "Super Nintendo",
     executableName: "bsnes.exe",
+    linuxExecutableName: "bsnes",
     extensions: ["smc", "sfc", "swc", "fig"],
     argumentsTemplate: '"%ROM%"',
     accent: "#c084fc",
@@ -517,6 +564,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "FCEUX",
     platform: "NES",
     executableName: "fceux64.exe",
+    linuxExecutableName: "fceux",
     extensions: ["nes", "fds"],
     argumentsTemplate: '"%ROM%"',
     accent: "#ea580c",
@@ -530,6 +578,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "SameBoy",
     platform: "Game Boy Color",
     executableName: "sameboy.exe",
+    linuxExecutableName: "sameboy",
+    flatpakId: "io.github.sameboy.SameBoy",
     extensions: ["gb", "gbc"],
     argumentsTemplate: '"%ROM%"',
     accent: "#facc15",
@@ -543,6 +593,9 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "xemu",
     platform: "Xbox",
     executableName: "xemu.exe",
+    linuxExecutableName: "xemu",
+    linuxArgumentsTemplate: '-dvd_path "%ROM%"',
+    flatpakId: "app.xemu.xemu",
     extensions: ["iso", "xbe"],
     argumentsTemplate: '-dvd "%ROM%"',
     accent: "#16a34a",
@@ -582,6 +635,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "MAME",
     platform: "Arcade",
     executableName: "mame.exe",
+    linuxExecutableName: "mame",
+    flatpakId: "org.mamedev.MAME",
     extensions: ["zip", "7z", "chd"],
     argumentsTemplate: '"%ROM%"',
     accent: "#d97706",
@@ -595,6 +650,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "FinalBurn Neo",
     platform: "Arcade",
     executableName: "fbneo64.exe",
+    linuxExecutableName: "fbneo",
     extensions: ["zip", "7z"],
     argumentsTemplate: '"%ROM%"',
     accent: "#e11d48",
@@ -608,6 +664,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "BlastEm",
     platform: "Sega Genesis",
     executableName: "blastem.exe",
+    linuxExecutableName: "blastem",
     extensions: ["md", "gen", "smd", "bin"],
     argumentsTemplate: '"%ROM%"',
     accent: "#9333ea",
@@ -620,6 +677,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Kega Fusion",
     platform: "Sega Genesis",
     executableName: "Fusion.exe",
+    linuxExecutableName: "kega-fusion",
     extensions: ["md", "gen", "smd", "bin", "iso"],
     argumentsTemplate: '"%ROM%"',
     accent: "#7c3aed",
@@ -632,6 +690,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Kronos",
     platform: "Sega Saturn",
     executableName: "kronos.exe",
+    linuxExecutableName: "kronos",
     extensions: ["iso", "bin", "cue", "chd"],
     argumentsTemplate: '"%ROM%"',
     accent: "#2563eb",
@@ -645,6 +704,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Mednafen",
     platform: "Sega Saturn",
     executableName: "mednafen.exe",
+    linuxExecutableName: "mednafen",
     extensions: ["cue", "iso", "chd", "toc"],
     argumentsTemplate: '"%ROM%"',
     accent: "#059669",
@@ -657,6 +717,8 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "ares",
     platform: "Multi-system",
     executableName: "ares.exe",
+    linuxExecutableName: "ares",
+    flatpakId: "dev.ares.ares",
     extensions: ["sfc", "nes", "n64", "md", "pce", "gb", "gba"],
     argumentsTemplate: '"%ROM%"',
     accent: "#ec4899",
@@ -670,6 +732,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     name: "Stella",
     platform: "Atari 2600",
     executableName: "Stella.exe",
+    linuxExecutableName: "stella",
     extensions: ["a26", "bin"],
     argumentsTemplate: '"%ROM%"',
     accent: "#f43f5e",
@@ -699,6 +762,12 @@ export interface EmulatorDownload {
   sizeHint?: string;
   /** Caveats (optional). */
   notes?: string;
+  /**
+   * Build resolved for the running host:
+   * `"native"` = Linux-only build, `"wine"` = Windows archive on Linux
+   * (launched through Wine/Proton), `"windows"` = Windows host catalog.
+   */
+  buildKind?: "native" | "wine" | "windows";
 }
 
 /** Platform brand / manufacturer category for easy filtering. */
@@ -770,6 +839,9 @@ const KNOWN_BY_PLATFORM_OR_NAME = new Map<string, string>();
 for (const k of KNOWN_EMULATORS) {
   KNOWN_BY_NAME.set(k.name.toLowerCase(), k);
   KNOWN_BY_EXE.set(k.executableName.toLowerCase(), k);
+  if (k.linuxExecutableName) {
+    KNOWN_BY_EXE.set(k.linuxExecutableName.toLowerCase(), k);
+  }
   const p = k.platform.toLowerCase();
   const list = KNOWN_BY_PLATFORM.get(p) ?? [];
   list.push(k);
@@ -781,6 +853,72 @@ for (const k of KNOWN_EMULATORS) {
 /** Look up a known emulator by its catalog key. */
 export function knownEmulatorByKey(key: string): KnownEmulator | undefined {
   return KNOWN_EMULATORS.find((e) => e.key === key);
+}
+
+/** Native executable name for the host OS (falls back to the default). */
+export function executableNameForHost(
+  k: KnownEmulator,
+  hostPlatform: string,
+): string {
+  if (hostPlatform === "linux" && k.linuxExecutableName) {
+    return k.linuxExecutableName;
+  }
+  return k.executableName;
+}
+
+/** Launch-argument template for the host OS (falls back to the default). */
+export function argumentsTemplateForHost(
+  k: KnownEmulator,
+  hostPlatform: string,
+): string {
+  if (hostPlatform === "linux" && k.linuxArgumentsTemplate) {
+    return k.linuxArgumentsTemplate;
+  }
+  return k.argumentsTemplate;
+}
+
+/** A one-click Linux launch command offered in the emulator editor. */
+export interface LinuxLaunchPreset {
+  id: "native" | "flatpak" | "snap";
+  /** i18n key for the button label. */
+  labelKey: string;
+  executablePath: string;
+  argumentsTemplate: string;
+}
+
+/**
+ * Linux launch commands for a catalog entry: the native binary, the
+ * Flatpak export (`flatpak run <appId> "%ROM%"`) and the Snap package
+ * (`snap run <name> "%ROM%"`). Only presets the catalog actually knows
+ * about are returned.
+ */
+export function linuxLaunchPresets(k: KnownEmulator): LinuxLaunchPreset[] {
+  const presets: LinuxLaunchPreset[] = [];
+  if (k.linuxExecutableName) {
+    presets.push({
+      id: "native",
+      labelKey: "emulators.linux.native",
+      executablePath: `/usr/bin/${k.linuxExecutableName}`,
+      argumentsTemplate: argumentsTemplateForHost(k, "linux"),
+    });
+  }
+  if (k.flatpakId) {
+    presets.push({
+      id: "flatpak",
+      labelKey: "emulators.linux.flatpak",
+      executablePath: "/usr/bin/flatpak",
+      argumentsTemplate: `run ${k.flatpakId} "%ROM%"`,
+    });
+  }
+  if (k.snapName) {
+    presets.push({
+      id: "snap",
+      labelKey: "emulators.linux.snap",
+      executablePath: "/usr/bin/snap",
+      argumentsTemplate: `run ${k.snapName} "%ROM%"`,
+    });
+  }
+  return presets;
 }
 
 /**
