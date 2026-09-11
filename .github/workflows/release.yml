@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish-tauri:
+  build:
     permissions:
       contents: write
     strategy:
@@ -15,9 +15,7 @@ jobs:
       matrix:
         include:
           - platform: "windows-latest"
-            args: ""
           - platform: "ubuntu-latest"
-            args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -42,35 +40,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
-      - name: generate release changelog
-        id: changelog
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
+      # The release tag comes from package.json, not github.ref_name: on
+      # workflow_dispatch ref_name is a branch, while tauri-action always
+      # publishes to v<package version>.
+      - name: resolve release tag
+        id: meta
+        shell: bash
         run: |
-          git fetch --tags --force
-          $repo = "${{ github.repository }}"
-          $currentTag = "${{ github.ref_name }}"
-          
-          # Find previous tag (matching v*)
-          $prevTag = (git tag --sort=-v:refname | Where-Object { $_ -ne $currentTag -and $_ -match '^v\d+' } | Select-Object -First 1)
-          
-          $body = "## What's Changed`n`n"
-          if ($prevTag) {
-            Write-Host "Generating commits between $prevTag and HEAD"
-            $logs = git log "$prevTag..HEAD" --no-merges "--format=* %s ([%h](https://github.com/$repo/commit/%H))"
-            if ($logs) {
-              $body += ($logs -join "`n")
-            } else {
-              $body += "No new commits since $prevTag."
-            }
-          } else {
-            Write-Host "No previous tag found, listing recent commits"
-            $logs = git log -n 50 --no-merges "--format=* %s ([%h](https://github.com/$repo/commit/%H))"
-            $body += ($logs -join "`n")
-          }
-          
-          $body += "`n`n---\n*See assets below to download GameIndex.*"
-          $body | Out-File -FilePath release_notes.md -Encoding utf8
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: build and publish tauri app
         uses: tauri-apps/tauri-action@v0
@@ -95,170 +74,157 @@ jobs:
           generateReleaseNotes: false
           releaseDraft: true
           prerelease: false
-          # Do not attach the .sig signature files to the release - they only
-          # clutter the asset list. latest.json still embeds the signatures, so
-          # the updater keeps working.
-          uploadUpdaterSignatures: false
+          # latest.json is assembled once by finalize-release after both
+          # platforms uploaded their artifacts - letting both jobs merge it
+          # concurrently would drop whichever platform wrote first.
+          uploadUpdaterJson: false
+          # Signatures must stay on the release until finalize-release embeds
+          # them in latest.json, which then strips the .sig assets.
+          uploadUpdaterSignatures: true
 
-      # The steps below are Windows-only: the portable exe + NSIS latest.json
-      # rewrite only apply to the windows-latest job. tauri-action itself
-      # merges the updater latest.json across the matrix, so the Linux job's
-      # appimage/deb entries and the Windows portable/setup entries all end up
-      # in the same manifest.
-
-      # Explicitly clean up any .sig signature file assets from the GitHub draft release.
-      # latest.json still embeds the signature inline, so auto-updates work without standalone .sig files.
-      - name: remove .sig files from release assets
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
-        run: |
-          $sigAssets = (gh release view "${{ github.ref_name }}" --json assets -q '.assets[].name') | Where-Object { $_ -like "*.sig" }
-          foreach ($asset in $sigAssets) {
-            Write-Host "Deleting .sig asset: $asset"
-            gh release delete-asset "${{ github.ref_name }}" $asset --yes
-          }
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # tauri-action uploads the NSIS installer (+ updater artifacts) only -
-      # the MSI is excluded via bundle.targets: ["nsis"] in tauri.conf.json.
       # "portable" is not a valid Tauri bundle target, so the portable exe is a
-      # plain copy of the release binary. It is copied first, then signed, and
-      # finally uploaded together with the corrected latest.json so that the
-      # NSIS setup AND the portable exe both get updater support.
+      # plain copy of the release binary. It is signed and uploaded here so
+      # finalize-release can embed its signature in latest.json.
       - name: prepare portable executable
         if: matrix.platform == 'windows-latest'
+        shell: pwsh
         run: |
           $version = node -p "require('./package.json').version"
           Copy-Item src-tauri/target/release/GameIndex.exe "GameIndex_${version}_x64_portable.exe"
 
-      # Sign the portable exe with the same key used for the NSIS updater
-      # artifacts (same env var names as the tauri-action step above). The
-      # updater rejects unsigned portable builds. The CLI writes <file>.sig
-      # next to the exe; that signature is embedded into latest.json below.
-      # NOTE: `tauri signer sign` takes the file as a POSITIONAL argument in
-      # the CLI version pinned by package-lock.json (2.x); --file is not valid.
+      # The updater rejects unsigned portable builds. `tauri signer sign` takes
+      # the file as a POSITIONAL argument in the CLI version pinned by
+      # package-lock.json (2.x); --file is not valid.
       - name: sign portable executable
         if: matrix.platform == 'windows-latest'
         shell: pwsh
-        run: |
-          $version = node -p "require('./package.json').version"
-          $portable = "GameIndex_${version}_x64_portable.exe"
-          npx tauri signer sign $portable
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      # The updater resolves an installed NSIS build by windows-x86_64-nsis
-      # (fallback windows-x86_64) but a portable build by windows-x86_64 only.
-      # tauri-action's latest.json points windows-x86_64 at the setup exe, so
-      # rewrite it to the signed portable exe and keep windows-x86_64-nsis ->
-      # setup exe (tauri-action's entry is already correct; only create it if
-      # missing). The read-modify-write preserves the Linux (appimage/deb)
-      # entries merged in by the ubuntu-latest job.
-      - name: rewrite latest.json for portable updater support
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
         run: |
           $version = node -p "require('./package.json').version"
-          $tag = "${{ github.ref_name }}"
-          $repo = "${{ github.repository }}"
-          $portable = "GameIndex_${version}_x64_portable.exe"
-
-          # Locate the NSIS setup exe (and its .sig) robustly instead of
-          # hardcoding the filename pattern.
-          $setupExe = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "*-setup.exe" } | Select-Object -First 1
-          if (-not $setupExe) {
-            $setupExe = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue |
-              Select-Object -First 1
-          }
-          if (-not $setupExe) { throw "NSIS setup exe not found under src-tauri/target/release/bundle/nsis" }
-          $setup = $setupExe.Name
-
-          # Signature files are named <artifact>.sig next to the artifact.
-          $setupSigFile = "$($setupExe.FullName).sig"
-          if (-not (Test-Path -LiteralPath $setupSigFile)) {
-            $candidate = Get-ChildItem "src-tauri/target/release" -Recurse -Filter "$setup.sig" -ErrorAction SilentlyContinue |
-              Select-Object -First 1
-            if (-not $candidate) {
-              $candidate = Get-ChildItem "src-tauri/target/release" -Recurse -Filter "$($setupExe.BaseName).sig" -ErrorAction SilentlyContinue |
-                Select-Object -First 1
-            }
-            if (-not $candidate) { throw "Signature file for $setup not found" }
-            $setupSigFile = $candidate.FullName
-          }
-
-          $portableSigFile = "${portable}.sig"
-          if (-not (Test-Path -LiteralPath $portableSigFile)) {
-            $candidate = Get-ChildItem . -Filter "${portable}*.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $candidate) { throw "Signature file for $portable not found" }
-            $portableSigFile = $candidate.Name
-          }
-
-          # Pull the tauri-action generated manifest off the draft release.
-          # gh release download handles draft releases by tag name natively, avoiding
-          # REST API 404 errors on /releases/tags/$tag for draft releases.
-          gh release download $tag -p "latest.json" --clobber
-          if (-not (Test-Path "latest.json")) {
-            $localJson = Get-ChildItem "src-tauri/target/release" -Recurse -Filter "latest.json" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($localJson) {
-              Copy-Item $localJson.FullName "latest.json"
-            }
-          }
-          if (-not (Test-Path "latest.json")) { throw "latest.json asset not found on release $tag" }
-          $json = Get-Content -Raw "latest.json" | ConvertFrom-Json
-          if (-not $json.platforms) { throw "Unexpected latest.json structure - no platforms map" }
-
-          # Embed the generated changelog into latest.json `notes`. The updater
-          # plugin surfaces `notes` as the update body in the app's update modal;
-          # it never reads the GitHub release body. tauri-action only writes the
-          # static `releaseBody` placeholder here, so without this the modal shows
-          # just that placeholder line instead of the real changelog.
-          if (Test-Path "release_notes.md") {
-            $json.notes = (Get-Content -Raw "release_notes.md")
-          }
-
-          $base = "https://github.com/$repo/releases/download/$tag"
-
-          # The .sig files written by the tauri CLI contain the base64 signature
-          # string itself (the same string it prints as "Public signature") -
-          # embed it verbatim. Re-encoding it would double-encode and break
-          # the updater's base64-decode -> minisign Signature::decode chain.
-          $portableSig = (Get-Content -Raw $portableSigFile).Trim()
-
-          # windows-x86_64 (what a portable build resolves) -> portable exe.
-          # Add-Member -Force overwrites an existing entry (or creates it).
-          $json.platforms | Add-Member -MemberType NoteProperty -Name 'windows-x86_64' -Value @{ url = "$base/$portable"; signature = $portableSig } -Force
-
-          # windows-x86_64-nsis -> setup exe. tauri-action should already have
-          # written a correct entry; only create it if missing.
-          if (-not $json.platforms.'windows-x86_64-nsis') {
-            $setupSig = (Get-Content -Raw $setupSigFile).Trim()
-            $json.platforms | Add-Member -MemberType NoteProperty -Name 'windows-x86_64-nsis' -Value @{ url = "$base/$setup"; signature = $setupSig } -Force
-          }
-
-          # UTF-8 WITHOUT BOM - a BOM prefix would break the updater's JSON parse.
-          $jsonText = $json | ConvertTo-Json -Depth 10
-          [System.IO.File]::WriteAllText((Join-Path (Get-Location) "latest.json"), $jsonText, [System.Text.UTF8Encoding]::new($false))
-
-          gh release upload $tag latest.json --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npx tauri signer sign "GameIndex_${version}_x64_portable.exe"
 
       - name: upload portable executable
         if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $tag = "${{ steps.meta.outputs.tag }}"
           $version = node -p "require('./package.json').version"
-          gh release upload "${{ github.ref_name }}" "GameIndex_${version}_x64_portable.exe" --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          gh release upload $tag "GameIndex_${version}_x64_portable.exe" "GameIndex_${version}_x64_portable.exe.sig" --clobber
 
-      # All assets are uploaded above while the release is still a draft;
-      # publish it once (from the Windows job) with the generated changelog
-      # (including commit links).
-      - name: publish release
-        if: matrix.platform == 'windows-latest'
-        run: gh release edit "${{ github.ref_name }}" --notes-file release_notes.md --draft=false
+  # Runs after both platforms: builds the single latest.json manifest from the
+  # signed artifacts, strips the .sig assets and publishes the draft release.
+  finalize-release:
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: setup node
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+
+      - name: resolve release tag
+        id: meta
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: generate release notes
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          current="${{ steps.meta.outputs.tag }}"
+          git fetch --tags --force
+          prev="$(git tag --sort=-v:refname | grep -E '^v[0-9]' | grep -vx "$current" | head -n1 || true)"
+          {
+            echo "## What's Changed"
+            echo
+            if [ -n "$prev" ]; then
+              git log "$prev..HEAD" --no-merges --format="* %s ([%h](https://github.com/$REPO/commit/%H))"
+            else
+              git log -n 50 --no-merges --format="* %s ([%h](https://github.com/$REPO/commit/%H))"
+            fi
+            echo
+            echo "---"
+            echo "*See assets below to download GameIndex.*"
+          } > release_notes.md
+
+      - name: finalize release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.meta.outputs.tag }}"
+          version="${{ steps.meta.outputs.version }}"
+          base="https://github.com/${{ github.repository }}/releases/download/$tag"
+
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            echo "::warning::Release $tag does not exist; nothing to finalize."
+            exit 0
+          fi
+
+          assets_dir="$(mktemp -d)"
+          gh release view "$tag" --json assets -q '.assets[].name' > asset-names.txt
+
+          appimage="$(grep -E '\.AppImage$' asset-names.txt | head -n1 || true)"
+          setup="$(grep -E -- '-setup\.exe$' asset-names.txt | head -n1 || true)"
+          portable="GameIndex_${version}_x64_portable.exe"
+          if ! grep -Fqx "$portable" asset-names.txt; then
+            portable=""
+          fi
+
+          download_sig() {
+            local artifact="$1"
+            [ -n "$artifact" ] || return 0
+            if grep -Fqx "${artifact}.sig" asset-names.txt; then
+              gh release download "$tag" -p "${artifact}.sig" -D "$assets_dir" --clobber
+            else
+              echo "::warning::No signature asset for $artifact"
+            fi
+          }
+          download_sig "$appimage"
+          download_sig "$setup"
+          download_sig "$portable"
+
+          platforms='{}'
+          add_platform() {
+            local key="$1" artifact="$2" sigfile sig
+            [ -n "$artifact" ] || return 0
+            sigfile="$assets_dir/${artifact}.sig"
+            [ -f "$sigfile" ] || return 0
+            sig="$(tr -d '\r\n' < "$sigfile")"
+            platforms="$(jq -c --arg key "$key" --arg url "$base/$artifact" --arg sig "$sig" \
+              '. + {($key): {url: $url, signature: $sig}}' <<< "$platforms")"
+          }
+          add_platform "windows-x86_64" "$portable"
+          add_platform "windows-x86_64-nsis" "$setup"
+          add_platform "linux-x86_64" "$appimage"
+
+          jq -n \
+            --arg version "$version" \
+            --arg notes "$(cat release_notes.md)" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" \
+            --argjson platforms "$platforms" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}' > latest.json
+
+          # Signatures live inside latest.json only, don't clutter the assets.
+          while IFS= read -r name; do
+            case "$name" in
+              *.sig) gh release delete-asset "$tag" "$name" --yes ;;
+            esac
+          done < asset-names.txt
+
+          gh release upload "$tag" latest.json --clobber
+          gh release edit "$tag" --notes-file release_notes.md --draft=false
