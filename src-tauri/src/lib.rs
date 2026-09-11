@@ -246,6 +246,7 @@ pub fn run() {
             set_minimize_on_launch_enabled,
             set_restore_on_exit_enabled,
             set_disable_elevation_prompts,
+            set_startup_splash_enabled,
             set_autostart_enabled,
             is_autostart_enabled,
             write_sync_file,
@@ -458,6 +459,14 @@ pub fn run() {
                     )) as Box<dyn std::error::Error>);
                 }
             };
+            // Startup-splash preference (Settings → Appearance). When the
+            // user turned it off, reveal the main window right away instead
+            // of waiting for the frontend's first render — the splash
+            // window is created from tauri.conf.json before `.setup` runs,
+            // so this is the earliest point it can be dismissed.
+            if !launcher::startup_splash_enabled(&db) {
+                system::reveal_main_window(app.handle());
+            }
             app.manage(db.clone());
             app.manage(mods::ModScanState::default());
             app.manage(media::ExeScanState::default());

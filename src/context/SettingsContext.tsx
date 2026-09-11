@@ -34,6 +34,7 @@ import { listen } from "@tauri-apps/api/event";
 import { applyAccentFamily } from "../utils/color";
 import { clampDeadzone } from "../hooks/gamepad/gamepadUtils";
 import { updateSoundConfig } from "../utils/soundEffects";
+import { SPLASH_ENABLED_KEY } from "./SplashContext";
 
 // ── LocalStorage keys (one per localStorage-backed setting) ─────────────────
 //
@@ -394,6 +395,16 @@ export interface SettingsContextValue {
   navbarTabOrder: InterfaceItemKey[];
   setNavbarTabOrder: (next: InterfaceItemKey[]) => void;
 
+  // ── Splash screens (Settings → Appearance) ──────────────────────
+  /** Show the standalone launch splash while a game starts. Mirrors the
+   *  `gamelib-show-splash` key read by `isSplashEnabled()` at launch. */
+  launchSplashEnabled: boolean;
+  setLaunchSplashEnabled: (next: boolean) => void;
+  /** Show the native boot splash window while the app starts. Rust-backed
+   *  (kv_store) because the boot path consumes it before the frontend. */
+  startupSplashEnabled: boolean;
+  setStartupSplashEnabled: (next: boolean) => void;
+
   // ── Linux & Steam Deck Support ──────────────────────────────────
   hostPlatform: HostPlatform;
   isLinuxHost: boolean;
@@ -576,6 +587,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [restoreOnExit, setRestoreOnExitState] = useState(false);
   const [disableElevationPrompts, setDisableElevationPromptsState] =
     useState(false);
+  const [startupSplashEnabled, setStartupSplashEnabledState] = useState(true);
   const [autoStartEnabled, setAutoStartEnabledState] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -591,12 +603,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           minimizeOnLaunchEnabled: boolean;
           restoreOnExitEnabled: boolean;
           disableElevationPrompts: boolean;
+          startupSplashEnabled: boolean;
         }>("get_launcher_settings");
         if (cancelled) return;
         setCloseToTrayState(s.closeToTrayEnabled);
         setMinimizeOnLaunchState(s.minimizeOnLaunchEnabled);
         setRestoreOnExitState(s.restoreOnExitEnabled);
         setDisableElevationPromptsState(s.disableElevationPrompts);
+        setStartupSplashEnabledState(s.startupSplashEnabled);
       } catch {
         // Backend call failed (e.g. `npm run dev` in the browser
         // where the Tauri bridge isn't injected). Keep defaults on
@@ -664,6 +678,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         "[SettingsContext] set_disable_elevation_prompts failed:",
         err,
       );
+    }
+  }, []);
+
+  const setStartupSplashEnabled = useCallback(async (next: boolean) => {
+    setStartupSplashEnabledState(next);
+    try {
+      await invoke("set_startup_splash_enabled", { enabled: next });
+    } catch (err) {
+      console.warn("[SettingsContext] set_startup_splash_enabled failed:", err);
     }
   }, []);
 
@@ -1150,6 +1173,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_SHOW_NAVBAR_NOW_PLAYING, String(next));
   }, []);
 
+  // Launch splash visibility. Deliberately the same localStorage key the
+  // launch path reads directly (SplashContext.isSplashEnabled): GameProvider
+  // sits above SettingsProvider, so useLaunch can't consume this hook.
+  const [launchSplashEnabled, setLaunchSplashEnabledState] = useState<boolean>(
+    () => lsGet(SPLASH_ENABLED_KEY) !== "false",
+  );
+  const setLaunchSplashEnabled = useCallback((next: boolean) => {
+    setLaunchSplashEnabledState(next);
+    lsSet(SPLASH_ENABLED_KEY, String(next));
+  }, []);
+
   // Detail-page section visibility. Loaded once from localStorage as an
   // overrides object; keys not present fall back to ON (visible) so
   // existing users see everything exactly as before. Writing only the
@@ -1310,6 +1344,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowGameArtBackdrop,
       showNavbarNowPlaying,
       setShowNavbarNowPlaying,
+      launchSplashEnabled,
+      setLaunchSplashEnabled,
+      startupSplashEnabled,
+      setStartupSplashEnabled,
       detailSectionVisible,
       setDetailSectionVisible,
       interfaceVisibility,
@@ -1400,6 +1438,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowGameArtBackdrop,
       showNavbarNowPlaying,
       setShowNavbarNowPlaying,
+      launchSplashEnabled,
+      setLaunchSplashEnabled,
+      startupSplashEnabled,
+      setStartupSplashEnabled,
       detailSectionVisible,
       setDetailSectionVisible,
       interfaceVisibility,

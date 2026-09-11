@@ -326,6 +326,11 @@ pub(crate) struct LauncherSettings {
     /// just fails with a clear error message â€” for users who don't
     /// want surprise UAC prompts mid-session.
     pub(crate) disable_elevation_prompts: bool,
+    /// Show the native boot splash window while the app hydrates.
+    /// Read once at startup (`lib.rs`) to decide whether to reveal the
+    /// main window immediately instead of waiting for the frontend's
+    /// first render. Defaults ON so the upgrade is silent.
+    pub(crate) startup_splash_enabled: bool,
 }
 
 impl Default for LauncherSettings {
@@ -335,6 +340,7 @@ impl Default for LauncherSettings {
             minimize_on_launch_enabled: false,
             restore_on_exit_enabled: false,
             disable_elevation_prompts: false,
+            startup_splash_enabled: true,
         }
     }
 }
@@ -357,7 +363,19 @@ pub(crate) fn load_launcher_settings(db: &db::Db) -> LauncherSettings {
         disable_elevation_prompts: get(KV_DISABLE_ELEVATION_PROMPTS)
             .map(|v| v == "true")
             .unwrap_or(false),
+        startup_splash_enabled: startup_splash_enabled(db),
     }
+}
+
+/// Whether the native boot splash should be shown. Read straight from kv
+/// (default ON) so `lib.rs` can decide before the managed
+/// `LauncherSettings` mirror is registered.
+pub(crate) fn startup_splash_enabled(db: &db::Db) -> bool {
+    db::kv::get(db, KV_STARTUP_SPLASH)
+        .ok()
+        .flatten()
+        .map(|v| v != "false")
+        .unwrap_or(true)
 }
 
 const KV_CLOSE_TO_TRAY: &str = "launcher.close_to_tray_enabled";
@@ -367,6 +385,8 @@ const KV_MINIMIZE_ON_LAUNCH: &str = "launcher.minimize_on_launch_enabled";
 const KV_RESTORE_ON_EXIT: &str = "launcher.restore_on_exit_enabled";
 
 const KV_DISABLE_ELEVATION_PROMPTS: &str = "launcher.disable_elevation_prompts";
+
+const KV_STARTUP_SPLASH: &str = "launcher.startup_splash_enabled";
 
 /// L6: `true` while the main window is hidden by the minimize-on-launch
 /// behavior. Set in `launch_game` when the hide succeeds; cleared by the
@@ -439,6 +459,21 @@ pub fn set_disable_elevation_prompts(
     let db_state: tauri::State<'_, db::Db> = app.state();
     db::kv::set(db_state.inner(), KV_DISABLE_ELEVATION_PROMPTS, if_enabled(enabled))?;
     state.lock().map(|mut s| s.disable_elevation_prompts = enabled).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Toggle the app startup splash. The boot path reads the kv value on
+/// the next launch; the in-memory mirror is kept in sync so Settings can
+/// re-hydrate without a restart.
+#[tauri::command]
+pub fn set_startup_splash_enabled(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<std::sync::Mutex<LauncherSettings>>>,
+    enabled: bool,
+) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::kv::set(db_state.inner(), KV_STARTUP_SPLASH, if_enabled(enabled))?;
+    state.lock().map(|mut s| s.startup_splash_enabled = enabled).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1102,6 +1137,23 @@ mod tests {
     fn empty_args_yield_no_argv() {
         assert!(split_launch_args("").is_empty());
         assert!(split_launch_args("   ").is_empty());
+    }
+
+    #[test]
+    fn startup_splash_defaults_on_when_unset() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = db::init(dir.path()).unwrap();
+        assert!(startup_splash_enabled(&db));
+        assert!(load_launcher_settings(&db).startup_splash_enabled);
+    }
+
+    #[test]
+    fn startup_splash_respects_persisted_disable() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = db::init(dir.path()).unwrap();
+        db::kv::set(&db, KV_STARTUP_SPLASH, "false").unwrap();
+        assert!(!startup_splash_enabled(&db));
+        assert!(!load_launcher_settings(&db).startup_splash_enabled);
     }
 }
 

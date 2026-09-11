@@ -96,8 +96,9 @@ export const SplashContext =
 
 /** localStorage key for the user-controlled "show launch splash"
  *  preference. Read fresh on every launchGame call so a Settings
- *  toggle takes effect on the very next click without a remount. */
-const SPLASH_ENABLED_KEY = "gamelib-show-splash";
+ *  toggle takes effect on the very next click without a remount.
+ *  Exported so SettingsContext reads/writes the exact same key. */
+export const SPLASH_ENABLED_KEY = "gamelib-show-splash";
 
 /** Per-window user preference stored in localStorage (intentionally
  *  per-window — it's the user's own setting, not an IPC payload).

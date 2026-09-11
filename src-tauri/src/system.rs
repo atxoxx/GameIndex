@@ -13,12 +13,10 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
     cached_system_info().gpus
 }
 
-/// Close the startup splash window and reveal the main window once the
-/// frontend has finished its first render. Idempotent - safe to call
-/// multiple times (React StrictMode double-mount) or when the splash has
-/// already been dismissed.
-#[tauri::command]
-pub fn close_splashscreen(app: tauri::AppHandle) {
+/// Reveal the main window and dismiss the startup splash. Shared by the
+/// `close_splashscreen` command (frontend finished hydrating) and the
+/// boot path in `lib.rs` when the user disabled the startup splash.
+pub(crate) fn reveal_main_window(app: &tauri::AppHandle) {
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.show();
         let _ = main.set_focus();
@@ -26,6 +24,15 @@ pub fn close_splashscreen(app: tauri::AppHandle) {
     if let Some(splash) = app.get_webview_window("splashscreen") {
         let _ = splash.close();
     }
+}
+
+/// Close the startup splash window and reveal the main window once the
+/// frontend has finished its first render. Idempotent - safe to call
+/// multiple times (React StrictMode double-mount) or when the splash has
+/// already been dismissed.
+#[tauri::command]
+pub fn close_splashscreen(app: tauri::AppHandle) {
+    reveal_main_window(&app);
 }
 
 /// Static summary of the host hardware, returned by `get_system_info`.

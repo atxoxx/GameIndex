@@ -163,7 +163,7 @@ export function buildSettingsCatalog(
       tab: "appearance",
       labelKey: "settings.appearance",
       descKey: "settings.appearance.desc",
-      keywords: "theme accent color display palette",
+      keywords: "theme accent color display palette splash screen startup launch boot",
       icon: <PaletteIcon />,
       sections: [
         {
@@ -185,6 +185,11 @@ export function buildSettingsCatalog(
           id: "appearance-sound",
           labelKey: "settings.sound.sectionTitle",
           keywords: "sound audio volume feedback effects clicks chime",
+        },
+        {
+          id: "appearance-splash",
+          labelKey: "settings.section.appearanceSplash",
+          keywords: "splash screen startup boot launch animation intro game progress disable hide",
         },
       ],
     },

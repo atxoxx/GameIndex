@@ -3,7 +3,7 @@ import { useTheme, type ThemeConfig, type ThemeDescriptor } from "../../context/
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2, Zap, Pencil, Plus, Download, Upload } from "lucide-react";
+import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay } from "lucide-react";
 import { Button, ConfirmModal } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -104,6 +104,10 @@ export default function AppearanceTab() {
     setUiSoundVolume,
     reduceMotion,
     setReduceMotion,
+    launchSplashEnabled,
+    setLaunchSplashEnabled,
+    startupSplashEnabled,
+    setStartupSplashEnabled,
   } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -549,6 +553,34 @@ export default function AppearanceTab() {
               />
             </div>
           )}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        id="appearance-splash"
+        icon={<MonitorPlay className="settings-section-icon" />}
+        title={t("settings.section.appearanceSplash")}
+        desc={t("settings.splash.sectionDesc")}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+          <SettingsToggleCard
+            title={t("settings.splash.launchTitle")}
+            desc={t("settings.splash.launchDesc")}
+            checked={launchSplashEnabled}
+            onChange={(checked) => {
+              setLaunchSplashEnabled(checked);
+              if (uiSoundEnabled) playActionSound();
+            }}
+          />
+          <SettingsToggleCard
+            title={t("settings.splash.startupTitle")}
+            desc={t("settings.splash.startupDesc")}
+            checked={startupSplashEnabled}
+            onChange={(checked) => {
+              setStartupSplashEnabled(checked);
+              if (uiSoundEnabled) playActionSound();
+            }}
+          />
         </div>
       </SettingsSection>
 
