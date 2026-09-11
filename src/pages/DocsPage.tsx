@@ -1,214 +1,15 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowUp, BookOpen, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
+import {
+  DOC_GROUPS,
+  DOC_SECTIONS,
+  DocBody,
+  docReadMinutes,
+  docWordCount,
+  type DocGroupId,
+} from "../components/docs/docsContent";
 import "../styles/page-docs.css";
-
-/**
- * Documentation page — a non-technical, UI-based user guide.
- *
- * Content lives entirely in i18n (`docs.*` keys) so it translates with
- * the rest of the app. Each section is one `docs.<id>.title` + one
- * `docs.<id>.body` string.
- */
-
-// Order of sections in the guide. The same ids are used as anchor targets
-// and as i18n key suffixes, so the TOC and content stay in sync.
-const SECTION_IDS = [
-  "welcome",
-  "firststeps",
-  "layout",
-  "library",
-  "gamedetails",
-  "sidebar",
-  "topnav",
-  "store",
-  "wishlist",
-  "deals",
-  "news",
-  "activity",
-  "achievements",
-  "downloads",
-  "storage",
-  "emulators",
-  "mods",
-  "community",
-  "settings",
-  "interface",
-  "bigscreen",
-  "shortcuts",
-  "tips",
-] as const;
-
-type SectionId = (typeof SECTION_IDS)[number];
-
-// Inline formatting inside prose: [label](url), `code`, **bold**, *italic*, and keyboard-key chips.
-const INLINE_RE =
-  /\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*([^*]+?)\*\*|\*([^*]+?)\*|(F\d{1,2}|Ctrl\+[A-Za-z0-9]+|Shift\+[A-Za-z0-9]+|Alt\+[A-Za-z0-9]+|Cmd\+[A-Za-z0-9]+|Meta\+[A-Za-z0-9]+|Escape|Enter|Backspace|Tab|Space|Delete|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)/g;
-
-function renderInline(text: string): ReactNode[] {
-  const out: ReactNode[] = [];
-  let last = 0;
-  let key = 0;
-  let m: RegExpExecArray | null;
-  INLINE_RE.lastIndex = 0;
-  while ((m = INLINE_RE.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
-    if (m[1] !== undefined && m[2] !== undefined) {
-      // Markdown link [text](url)
-      const isExternal = m[2].startsWith("http://") || m[2].startsWith("https://");
-      out.push(
-        <a
-          href={m[2]}
-          key={`a-${key++}`}
-          className="doc-link"
-          target={isExternal ? "_blank" : undefined}
-          rel={isExternal ? "noopener noreferrer" : undefined}
-        >
-          {m[1]}
-        </a>
-      );
-    } else if (m[3] !== undefined) {
-      // Code `code`
-      out.push(
-        <code className="doc-code" key={`c-${key++}`}>
-          {m[3]}
-        </code>
-      );
-    } else if (m[4] !== undefined) {
-      // **bold**
-      out.push(<strong key={`b-${key++}`}>{m[4]}</strong>);
-    } else if (m[5] !== undefined) {
-      // *italic*
-      out.push(<em key={`i-${key++}`}>{m[5]}</em>);
-    } else if (m[6] !== undefined) {
-      // Keyboard shortcut chip
-      out.push(
-        <kbd className="doc-kbd" key={`k-${key++}`}>
-          {m[6]}
-        </kbd>
-      );
-    }
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) out.push(text.slice(last));
-  return out;
-}
-
-function DocBookIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    </svg>
-  );
-}
-
-interface BulletItem {
-  text: string;
-  children: BulletItem[];
-}
-
-function renderBulletItems(items: BulletItem[]): ReactNode {
-  return items.map((it, i) => (
-    <li key={i} className="doc-bullet-item">
-      <span className="doc-bullet-marker" aria-hidden />
-      <div className="doc-bullet-content">
-        {renderInline(it.text)}
-        {it.children.length > 0 && (
-          <ul className="docs-bullets docs-bullets--nested">
-            {renderBulletItems(it.children)}
-          </ul>
-        )}
-      </div>
-    </li>
-  ));
-}
-
-/**
- * Render a docs body string into structured block components.
- */
-function DocBody({ text }: { text: string }) {
-  const lines = text.split("\n");
-  const blocks: ReactNode[] = [];
-  let para: string[] = [];
-  let rootItems: BulletItem[] = [];
-  let stack: { level: number; items: BulletItem[] }[] = [
-    { level: -1, items: rootItems },
-  ];
-
-  const flushPara = () => {
-    if (para.length) {
-      blocks.push(
-        <p className="docs-paragraph" key={`p-${blocks.length}`}>
-          {renderInline(para.join(" "))}
-        </p>
-      );
-      para = [];
-    }
-  };
-
-  const flushList = () => {
-    if (rootItems.length) {
-      blocks.push(
-        <ul className="docs-bullets" key={`ul-${blocks.length}`}>
-          {renderBulletItems(rootItems)}
-        </ul>
-      );
-      rootItems = [];
-      stack = [{ level: -1, items: rootItems }];
-    }
-  };
-
-  for (const raw of lines) {
-    const indent = raw.length - raw.replace(/^\s+/, "").length;
-    const trimmed = raw.trim();
-
-    if (trimmed === "") {
-      flushPara();
-      flushList();
-      continue;
-    }
-
-    if (trimmed.startsWith("## ")) {
-      flushPara();
-      flushList();
-      blocks.push(
-        <h3 className="docs-subhead" key={`h-${blocks.length}`}>
-          {renderInline(trimmed.slice(3))}
-        </h3>
-      );
-      continue;
-    }
-
-    const bm = /^[-*]\s+(.*)$/.exec(trimmed);
-    if (bm) {
-      flushPara();
-      const level = Math.floor(indent / 2);
-      const item: BulletItem = { text: bm[1], children: [] };
-      while (stack.length > 1 && stack[stack.length - 1].level >= level) {
-        stack.pop();
-      }
-      stack[stack.length - 1].items.push(item);
-      stack.push({ level, items: item.children });
-      continue;
-    }
-
-    flushList();
-    para.push(trimmed);
-  }
-
-  flushPara();
-  flushList();
-
-  return <>{blocks}</>;
-}
 
 function getScrollContainer(node: HTMLElement | null): HTMLElement {
   let parent = node?.parentElement;
@@ -231,65 +32,119 @@ function getScrollContainer(node: HTMLElement | null): HTMLElement {
 
 export default function DocsPage() {
   const { t } = useLanguage();
-  const [active, setActive] = useState<SectionId>("welcome");
+  const [active, setActive] = useState(DOC_SECTIONS[0].id);
+  const [query, setQuery] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [showTop, setShowTop] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
   const tocRef = useRef<HTMLElement>(null);
   const activeBtnRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const isScrollingToRef = useRef<boolean>(false);
   const scrollTimeoutRef = useRef<number | null>(null);
+
+  const normalizedQuery = query.trim().toLowerCase();
+
+  // Section text/title/read-time for the active language.
+  const localized = useMemo(
+    () =>
+      DOC_SECTIONS.map((def) => {
+        const title = t(`docs.${def.id}.title`);
+        const body = t(`docs.${def.id}.body`);
+        return {
+          ...def,
+          title,
+          body,
+          minutes: docReadMinutes(body),
+          words: docWordCount(body),
+          haystack: `${title} ${body}`.toLowerCase(),
+        };
+      }),
+    [t]
+  );
+
+  const filtered = useMemo(
+    () => (normalizedQuery ? localized.filter((s) => s.haystack.includes(normalizedQuery)) : localized),
+    [localized, normalizedQuery]
+  );
+
+  const totalMinutes = useMemo(
+    () => localized.reduce((sum, s) => sum + s.minutes, 0),
+    [localized]
+  );
+
+  // Keep the active section valid while searching.
+  useEffect(() => {
+    if (!filtered.length) return;
+    if (!filtered.some((s) => s.id === active)) {
+      setActive(filtered[0].id);
+    }
+  }, [filtered, active]);
 
   // Scroll-spy: highlight the TOC entry for the section in view.
   useEffect(() => {
     const container = getScrollContainer(pageRef.current);
 
-    const sections = SECTION_IDS.map((id) => document.getElementById(`doc-${id}`)).filter(
-      (el): el is HTMLElement => el !== null
-    );
+    const sections = filtered
+      .map((s) => document.getElementById(`doc-${s.id}`))
+      .filter((el): el is HTMLElement => el !== null);
     if (!sections.length) return;
 
     const isViewport = container === document.documentElement || container === document.body;
 
-    const handleScroll = () => {
-      if (isScrollingToRef.current) return;
-      const isAtBottom =
-        container.scrollTop + container.clientHeight >= container.scrollHeight - 60;
-      if (isAtBottom) {
-        setActive(SECTION_IDS[SECTION_IDS.length - 1]);
-      }
-    };
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (isScrollingToRef.current) return;
-        const isAtBottom =
-          container.scrollTop + container.clientHeight >= container.scrollHeight - 60;
-        if (isAtBottom) return;
-
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (visible[0]) {
-          setActive(visible[0].target.id.replace("doc-", "") as SectionId);
+          setActive(visible[0].target.id.replace("doc-", ""));
         }
       },
       {
         root: isViewport ? null : container,
-        rootMargin: "-8% 0px -60% 0px",
+        rootMargin: "-12% 0px -62% 0px",
         threshold: 0,
       }
     );
 
     sections.forEach((s) => observer.observe(s));
-    const targetEl = isViewport ? window : container;
-    targetEl.addEventListener("scroll", handleScroll, { passive: true });
+    return () => observer.disconnect();
+  }, [filtered]);
 
+  // Reading progress + back-to-top visibility.
+  useEffect(() => {
+    const container = getScrollContainer(pageRef.current);
+    const isViewport = container === document.documentElement || container === document.body;
+    const targetEl = isViewport ? window : container;
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      const top = isViewport ? window.scrollY : container.scrollTop;
+      const max = isViewport
+        ? document.documentElement.scrollHeight - window.innerHeight
+        : container.scrollHeight - container.clientHeight;
+      setProgress(max > 0 ? Math.min(100, Math.max(0, (top / max) * 100)) : 0);
+      setShowTop(top > 700);
+    };
+
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+
+    update();
+    targetEl.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
     return () => {
-      observer.disconnect();
-      targetEl.removeEventListener("scroll", handleScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+      targetEl.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
     };
   }, []);
 
-  // Keep active TOC item in view inside TOC sidebar without calling scrollIntoView on window
+  // Keep the active TOC item in view without scrolling the page.
   useEffect(() => {
     const toc = tocRef.current;
     const btn = activeBtnRef.current;
@@ -297,15 +152,15 @@ export default function DocsPage() {
     const tocRect = toc.getBoundingClientRect();
     const btnRect = btn.getBoundingClientRect();
     if (btnRect.top < tocRect.top || btnRect.bottom > tocRect.bottom) {
-      toc.scrollTop += (btnRect.top - tocRect.top) - (tocRect.height / 2 - btnRect.height / 2);
+      toc.scrollTop += btnRect.top - tocRect.top - (tocRect.height / 2 - btnRect.height / 2);
     }
   }, [active]);
 
-  const scrollTo = (id: SectionId) => {
+  const scrollTo = useCallback((id: string) => {
     const el = document.getElementById(`doc-${id}`);
     if (!el) return;
 
-    // Suppress scroll-spy updates during programatic scroll animation
+    // Suppress scroll-spy updates during the programmatic scroll animation.
     isScrollingToRef.current = true;
     if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current);
     scrollTimeoutRef.current = window.setTimeout(() => {
@@ -325,71 +180,258 @@ export default function DocsPage() {
     } else {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  };
+  }, []);
 
-  const activeIndex = SECTION_IDS.indexOf(active);
-  const progress = ((activeIndex + 1) / SECTION_IDS.length) * 100;
+  const scrollToTop = useCallback(() => {
+    const container = getScrollContainer(pageRef.current);
+    const isViewport = container === document.documentElement || container === document.body;
+    if (isViewport) window.scrollTo({ top: 0, behavior: "smooth" });
+    else container.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // "/" focuses search, Escape clears it.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest("input, textarea, select, [contenteditable='true']") ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      if (event.key === "/") {
+        event.preventDefault();
+        searchRef.current?.focus();
+      } else if (event.key === "Escape") {
+        setQuery("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const activeIndex = filtered.findIndex((s) => s.id === active);
+  const prevSection = activeIndex > 0 ? filtered[activeIndex - 1] : null;
+  const nextSection =
+    activeIndex >= 0 && activeIndex < filtered.length - 1 ? filtered[activeIndex + 1] : null;
+
+  const firstSectionOfGroup = (group: DocGroupId) => DOC_SECTIONS.find((s) => s.group === group);
+
+  const highlightGroup = (group: DocGroupId): ReactNode => t(`docs.group.${group}`);
 
   return (
     <div className="docs-page" ref={pageRef}>
       <header className="docs-hero">
-        <div className="docs-hero__icon">
-          <DocBookIcon />
+        <div className="docs-hero__glow" aria-hidden />
+        <div className="docs-hero__grid" aria-hidden />
+        <div className="docs-hero__main">
+          <div className="docs-hero__icon">
+            <BookOpen />
+          </div>
+          <div className="docs-hero__text">
+            <span className="brand-eyebrow">{t("nav.docs")}</span>
+            <h1 className="docs-hero__title">{t("docs.title")}</h1>
+            <p className="docs-hero__subtitle">{t("docs.subtitle")}</p>
+            <div className="docs-hero__stats">
+              <span className="docs-stat">
+                {t("docs.statSections", { count: DOC_SECTIONS.length })}
+              </span>
+              <span className="docs-stat">{t("docs.statRead", { min: totalMinutes })}</span>
+            </div>
+          </div>
         </div>
-        <div className="docs-hero__text">
-          <span className="brand-eyebrow">{t("nav.docs")}</span>
-          <h1 className="docs-hero__title">{t("docs.title")}</h1>
-          <p className="docs-hero__subtitle">{t("docs.subtitle")}</p>
+
+        <div className="docs-hero__search">
+          <Search className="docs-search__icon" aria-hidden />
+          <input
+            ref={searchRef}
+            type="search"
+            className="docs-search__input"
+            placeholder={t("docs.searchPlaceholder")}
+            aria-label={t("docs.searchPlaceholder")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              type="button"
+              className="docs-search__clear"
+              onClick={() => setQuery("")}
+              aria-label={t("docs.searchClear")}
+            >
+              <X aria-hidden />
+            </button>
+          )}
+          <kbd className="docs-search__hint" aria-hidden>
+            /
+          </kbd>
         </div>
-        <div className="docs-hero__pill" aria-hidden>
-          <span className="docs-hero__pill-dot" />
-          {SECTION_IDS.length}
+
+        <div className="docs-hero__groups">
+          {DOC_GROUPS.map((group) => {
+            const first = firstSectionOfGroup(group);
+            if (!first) return null;
+            return (
+              <button
+                key={group}
+                type="button"
+                className="docs-group-chip"
+                onClick={() => scrollTo(first.id)}
+              >
+                {highlightGroup(group)}
+              </button>
+            );
+          })}
         </div>
       </header>
 
       <div className="docs-layout">
-        <nav className="docs-toc" aria-label={t("docs.toc")} ref={tocRef}>
+        <aside className="docs-toc" aria-label={t("docs.toc")} ref={tocRef}>
           <div className="docs-toc__progress" aria-hidden>
             <span className="docs-toc__progress-fill" style={{ width: `${progress}%` }} />
           </div>
           <span className="docs-toc__heading">{t("docs.toc")}</span>
-          <ul>
-            {SECTION_IDS.map((id, i) => (
-              <li key={id}>
-                <button
-                  type="button"
-                  className={`docs-toc__link${
-                    active === id ? " docs-toc__link--active" : ""
-                  }`}
-                  onClick={() => scrollTo(id)}
-                  aria-current={active === id ? "true" : undefined}
-                  ref={active === id ? activeBtnRef : undefined}
-                >
-                  <span className="docs-toc__num">{i + 1}</span>
-                  <span className="docs-toc__label">{t(`docs.${id}.title`)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
+
+          {filtered.length === 0 ? (
+            <p className="docs-toc__empty">{t("docs.noResults", { query })}</p>
+          ) : (
+            DOC_GROUPS.map((group) => {
+              const items = filtered.filter((s) => s.group === group);
+              if (!items.length) return null;
+              return (
+                <div className="docs-toc__group" key={group}>
+                  <span className="docs-toc__group-label">{highlightGroup(group)}</span>
+                  <ul>
+                    {items.map((section) => {
+                      const Icon = section.icon;
+                      const number = DOC_SECTIONS.findIndex((s) => s.id === section.id) + 1;
+                      return (
+                        <li key={section.id}>
+                          <button
+                            type="button"
+                            className={`docs-toc__link${
+                              active === section.id ? " docs-toc__link--active" : ""
+                            }`}
+                            onClick={() => scrollTo(section.id)}
+                            aria-current={active === section.id ? "true" : undefined}
+                            ref={active === section.id ? activeBtnRef : undefined}
+                          >
+                            <span className="docs-toc__icon" aria-hidden>
+                              <Icon />
+                            </span>
+                            <span className="docs-toc__label">{section.title}</span>
+                            <span className="docs-toc__num" aria-hidden>
+                              {number}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })
+          )}
+        </aside>
 
         <div className="docs-content">
-          {SECTION_IDS.map((id, i) => (
-            <section
-              key={id}
-              id={`doc-${id}`}
-              className="docs-section"
-              style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
-            >
-              <header className="docs-section__head">
-                <span className="docs-section__index">{i + 1}</span>
-                <h2 className="docs-section__title">{t(`docs.${id}.title`)}</h2>
-              </header>
-              <DocBody text={t(`docs.${id}.body`)} />
-            </section>
-          ))}
+          {normalizedQuery && (
+            <div className="docs-results" role="status">
+              <Search aria-hidden />
+              <span>
+                {t("docs.results", { shown: filtered.length, total: DOC_SECTIONS.length })}
+              </span>
+              <button type="button" className="docs-results__clear" onClick={() => setQuery("")}>
+                {t("docs.searchClear")}
+              </button>
+            </div>
+          )}
+
+          {filtered.length === 0 && (
+            <div className="docs-empty">
+              <Search aria-hidden />
+              <h2>{t("docs.noResults", { query })}</h2>
+              <p>{t("docs.noResultsHint")}</p>
+            </div>
+          )}
+
+          {filtered.map((section, i) => {
+            const Icon = section.icon;
+            const number = DOC_SECTIONS.findIndex((s) => s.id === section.id) + 1;
+            const isActive = active === section.id && !normalizedQuery;
+            return (
+              <section
+                key={section.id}
+                id={`doc-${section.id}`}
+                className={`docs-section${isActive ? " docs-section--active" : ""}`}
+                style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}
+              >
+                <header className="docs-section__head">
+                  <span className="docs-section__icon" aria-hidden>
+                    <Icon />
+                  </span>
+                  <h2 className="docs-section__title">
+                    <span className="docs-section__index">{number}</span>
+                    {section.title}
+                  </h2>
+                  <span className="docs-section__meta">
+                    {t("docs.readTime", { min: section.minutes })}
+                  </span>
+                </header>
+
+                <DocBody text={section.body} />
+
+                {!normalizedQuery && (prevSection || nextSection) && (
+                  <nav className="docs-section__nav" aria-label={t("docs.toc")}>
+                    {prevSection ? (
+                      <button
+                        type="button"
+                        className="docs-navbtn docs-navbtn--prev"
+                        onClick={() => scrollTo(prevSection.id)}
+                      >
+                        <ChevronLeft aria-hidden />
+                        <span>
+                          <em>{t("docs.prev")}</em>
+                          <strong>{prevSection.title}</strong>
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="docs-navbtn docs-navbtn--ghost" aria-hidden />
+                    )}
+                    {nextSection && (
+                      <button
+                        type="button"
+                        className="docs-navbtn docs-navbtn--next"
+                        onClick={() => scrollTo(nextSection.id)}
+                      >
+                        <span>
+                          <em>{t("docs.next")}</em>
+                          <strong>{nextSection.title}</strong>
+                        </span>
+                        <ChevronRight aria-hidden />
+                      </button>
+                    )}
+                  </nav>
+                )}
+              </section>
+            );
+          })}
         </div>
       </div>
+
+      {showTop && (
+        <button
+          type="button"
+          className="docs-top"
+          onClick={scrollToTop}
+          aria-label={t("docs.backToTop")}
+          title={t("docs.backToTop")}
+        >
+          <ArrowUp aria-hidden />
+        </button>
+      )}
     </div>
   );
 }
