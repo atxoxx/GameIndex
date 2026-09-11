@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "./Button";
-import { useUpdate, formatBytes, formatEta } from "../../context/UpdateContext";
+import { useUpdate, formatBytes, formatEta, installModeHintKey, installModeLabelKey, isPluginManaged } from "../../context/UpdateContext";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
@@ -66,6 +66,8 @@ export function UpdateModal() {
   const isRestarting = status === "restarting";
   const isChecking = status === "checking";
   const isPortable = installMode === "portable";
+  const pluginManaged = isPluginManaged(installMode);
+  const hintKey = installModeHintKey(installMode);
 
   const canDismiss = !isDownloading && !isRestarting && !isError;
 
@@ -85,12 +87,7 @@ export function UpdateModal() {
     return null;
   }
 
-  const modeBadge =
-    installMode === "portable"
-      ? t("updater.modePortable")
-      : installMode === "nsis"
-        ? t("updater.modeInstalled")
-        : t("updater.modeDev");
+  const modeBadge = t(installModeLabelKey(installMode));
 
   const releasedOn = (() => {
     if (!updateInfo?.date) return null;
@@ -121,7 +118,7 @@ export function UpdateModal() {
   if (isDownloading) {
     body = (
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        {installMode === "nsis" && (
+        {pluginManaged && (
           <p
             style={{
               margin: 0,
@@ -355,7 +352,7 @@ export function UpdateModal() {
         >
           {t("updater.newVersionAvailableDesc")}
         </p>
-        {(isPortable || installMode === "nsis") && (
+        {hintKey && (
           <p
             style={{
               margin: 0,
@@ -364,7 +361,7 @@ export function UpdateModal() {
               lineHeight: 1.5,
             }}
           >
-            {isPortable ? t("updater.portableHint") : t("updater.installedHint")}
+            {t(hintKey)}
           </p>
         )}
       </div>

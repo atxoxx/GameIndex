@@ -5,6 +5,15 @@
 //! rejects the artifact because tauri doesn't sign portable exes. So
 //! NSIS/MSI-installed builds keep using the plugin, while portable
 //! builds download, verify, and swap in the new exe themselves.
+//!
+//! `latest.json` carries one entry per published artifact:
+//! `windows-x86_64` (portable exe), `windows-x86_64-nsis` (NSIS setup),
+//! `linux-x86_64` (AppImage) and `linux-x86_64-deb` (Debian package).
+//! [`updater_install_info`] classifies the running build from its
+//! compile-time bundle type and tells the frontend exactly which key to
+//! request, so a build can only ever download its own artifact. AppImage
+//! and deb installs go through the plugin's own installer; the raw
+//! Windows exe is the only shape without one, and self-updates below.
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -36,32 +45,70 @@ pub struct PortableStageInfo {
     pub size_bytes: u64,
 }
 
-/// `"dev"` for dev builds, `"nsis"` for installer-built binaries, and
-/// `"portable"` for raw `target/release` copies. Portable is the only
-/// mode that must self-update: installed builds go through the plugin.
-#[tauri::command]
-#[allow(unused_variables)] // `app` is just a signature placeholder
-pub fn updater_install_mode(app: tauri::AppHandle) -> String {
-    if tauri::is_dev() {
-        return "dev".to_string();
-    }
-    match tauri::utils::platform::bundle_type() {
-        // An installed exe has its bundle type baked in at build time;
-        // every other bundle shape is installer-managed too.
-        Some(BundleType::Nsis) | Some(BundleType::Msi) => "nsis",
-        Some(_) => "nsis",
-        None => {
+/// How this build receives updates. `target` is the `latest.json`
+/// `platforms` key matching the running bundle; `None` means no artifact
+/// is published for this shape (dev builds, unbundled Linux binaries).
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterInstallInfo {
+    pub mode: &'static str,
+    pub target: Option<&'static str>,
+}
+
+const WINDOWS_PORTABLE_TARGET: &str = "windows-x86_64";
+const WINDOWS_NSIS_TARGET: &str = "windows-x86_64-nsis";
+const LINUX_APPIMAGE_TARGET: &str = "linux-x86_64";
+const LINUX_DEB_TARGET: &str = "linux-x86_64-deb";
+
+fn classify_install_info(
+    bundle: Option<BundleType>,
+    platform: &str,
+    has_uninstaller: bool,
+) -> UpdaterInstallInfo {
+    match bundle {
+        Some(BundleType::Nsis | BundleType::Msi) => UpdaterInstallInfo {
+            mode: "nsis",
+            target: Some(WINDOWS_NSIS_TARGET),
+        },
+        Some(BundleType::AppImage) => UpdaterInstallInfo {
+            mode: "appimage",
+            target: Some(LINUX_APPIMAGE_TARGET),
+        },
+        Some(BundleType::Deb) => UpdaterInstallInfo {
+            mode: "deb",
+            target: Some(LINUX_DEB_TARGET),
+        },
+        // No rpm/macOS artifacts are published, so there is nothing to
+        // point the plugin at.
+        Some(BundleType::Rpm | BundleType::App | BundleType::Dmg) => {
+            UpdaterInstallInfo { mode: "unsupported", target: None }
+        }
+        None if platform == "windows" => {
             // Unbundled binaries report no bundle type. A sibling
             // `uninstall.exe` marks an NSIS install dir, so a portable
             // copy sitting next to one still routes to the plugin.
-            if has_uninstaller_near(std::env::current_exe().ok().as_deref()) {
-                "nsis"
+            if has_uninstaller {
+                UpdaterInstallInfo { mode: "nsis", target: Some(WINDOWS_NSIS_TARGET) }
             } else {
-                "portable"
+                UpdaterInstallInfo { mode: "portable", target: Some(WINDOWS_PORTABLE_TARGET) }
             }
         }
+        // A bare binary anywhere else has no installer to update through.
+        None => UpdaterInstallInfo { mode: "unsupported", target: None },
     }
-    .to_string()
+}
+
+/// Resolve the update channel for this build (see [`UpdaterInstallInfo`]).
+#[tauri::command]
+pub fn updater_install_info() -> UpdaterInstallInfo {
+    if tauri::is_dev() {
+        return UpdaterInstallInfo { mode: "dev", target: None };
+    }
+    classify_install_info(
+        tauri::utils::platform::bundle_type(),
+        crate::system::host_platform(),
+        has_uninstaller_near(std::env::current_exe().ok().as_deref()),
+    )
 }
 
 /// Whether an NSIS `uninstall.exe` sits next to the given exe directory.
@@ -299,5 +346,49 @@ mod tests {
         assert!(!has_uninstaller_near(None));
         std::fs::write(dir.path().join("uninstall.exe"), b"x").unwrap();
         assert!(has_uninstaller_near(Some(dir.path())));
+    }
+
+    #[test]
+    fn classifies_installer_bundles() {
+        assert_eq!(
+            classify_install_info(Some(BundleType::Nsis), "windows", false),
+            UpdaterInstallInfo { mode: "nsis", target: Some(WINDOWS_NSIS_TARGET) }
+        );
+        assert_eq!(
+            classify_install_info(Some(BundleType::Msi), "windows", false),
+            UpdaterInstallInfo { mode: "nsis", target: Some(WINDOWS_NSIS_TARGET) }
+        );
+        assert_eq!(
+            classify_install_info(Some(BundleType::AppImage), "linux", false),
+            UpdaterInstallInfo { mode: "appimage", target: Some(LINUX_APPIMAGE_TARGET) }
+        );
+        assert_eq!(
+            classify_install_info(Some(BundleType::Deb), "linux", false),
+            UpdaterInstallInfo { mode: "deb", target: Some(LINUX_DEB_TARGET) }
+        );
+    }
+
+    #[test]
+    fn classifies_bare_windows_binary() {
+        assert_eq!(
+            classify_install_info(None, "windows", false),
+            UpdaterInstallInfo { mode: "portable", target: Some(WINDOWS_PORTABLE_TARGET) }
+        );
+        assert_eq!(
+            classify_install_info(None, "windows", true),
+            UpdaterInstallInfo { mode: "nsis", target: Some(WINDOWS_NSIS_TARGET) }
+        );
+    }
+
+    #[test]
+    fn classify_without_published_artifact_is_unsupported() {
+        assert_eq!(
+            classify_install_info(None, "linux", false),
+            UpdaterInstallInfo { mode: "unsupported", target: None }
+        );
+        assert_eq!(
+            classify_install_info(Some(BundleType::Rpm), "linux", false),
+            UpdaterInstallInfo { mode: "unsupported", target: None }
+        );
     }
 }

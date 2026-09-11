@@ -13,7 +13,73 @@ import { useLanguage } from "./LanguageContext";
 
 const LS_AUTO_CHECK_UPDATES = "gamelib.auto_check_updates";
 
-export type InstallMode = "nsis" | "portable" | "dev";
+export type InstallMode =
+  | "nsis"
+  | "portable"
+  | "appimage"
+  | "deb"
+  | "dev"
+  | "unsupported";
+
+/** Resolved by `updater_install_info`: how this build receives updates. */
+export interface UpdaterInstallInfo {
+  mode: InstallMode;
+  /** Exact `latest.json` platforms key to request; null when none exists. */
+  target: string | null;
+}
+
+const INSTALL_MODES: readonly InstallMode[] = [
+  "nsis",
+  "portable",
+  "appimage",
+  "deb",
+  "dev",
+  "unsupported",
+];
+
+export function isInstallMode(value: unknown): value is InstallMode {
+  return typeof value === "string" && INSTALL_MODES.includes(value as InstallMode);
+}
+
+/** Installed bundles update through `tauri-plugin-updater`; portable uses
+ * the custom download/swap path. Dev/unsupported builds have no channel. */
+export function isPluginManaged(mode: InstallMode): boolean {
+  return mode === "nsis" || mode === "appimage" || mode === "deb";
+}
+
+export function installModeLabelKey(mode: InstallMode): string {
+  switch (mode) {
+    case "portable":
+      return "updater.modePortable";
+    case "nsis":
+      return "updater.modeInstalled";
+    case "appimage":
+      return "updater.modeAppImage";
+    case "deb":
+      return "updater.modeDeb";
+    case "unsupported":
+      return "updater.modeUnsupported";
+    default:
+      return "updater.modeDev";
+  }
+}
+
+/** Explainer shown next to an available update; null for modes that never
+ * surface one (dev/unsupported). */
+export function installModeHintKey(mode: InstallMode): string | null {
+  switch (mode) {
+    case "portable":
+      return "updater.portableHint";
+    case "nsis":
+      return "updater.installedHint";
+    case "appimage":
+      return "updater.appimageHint";
+    case "deb":
+      return "updater.debHint";
+    default:
+      return null;
+  }
+}
 
 export type UpdateStatus =
   | "idle"
@@ -103,7 +169,10 @@ const UpdateContext =
 export function UpdateProvider({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
 
-  const [installMode, setInstallMode] = useState<InstallMode>("nsis");
+  const [installInfo, setInstallInfo] = useState<UpdaterInstallInfo | null>(null);
+  // Until `updater_install_info` resolves the safe default has no channel,
+  // so an early auto-check can never request another platform's artifact.
+  const installMode: InstallMode = installInfo?.mode ?? "dev";
   const [autoCheckUpdates, setAutoCheckUpdatesState] = useState<boolean>(() => {
     try {
       const raw = localStorage.getItem(LS_AUTO_CHECK_UPDATES);
@@ -156,16 +225,20 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Resolve the real install mode on mount; dev/stub falls back to "nsis".
+  // Resolve how this build receives updates on mount. Each mode maps to
+  // exactly one published artifact, so Linux never requests the Windows
+  // installer (or vice versa).
   useEffect(() => {
-    invoke<string>("updater_install_mode")
-      .then((mode) => {
-        if (mode === "nsis" || mode === "portable" || mode === "dev") {
-          setInstallMode(mode);
-        }
+    invoke<UpdaterInstallInfo>("updater_install_info")
+      .then((info) => {
+        if (!isInstallMode(info?.mode)) return;
+        setInstallInfo({
+          mode: info.mode,
+          target: typeof info.target === "string" ? info.target : null,
+        });
       })
       .catch(() => {
-        // Command unavailable (dev/stub) — keep default.
+        // Command unavailable (dev/stub) — stay in the no-channel default.
       });
   }, []);
 
@@ -201,20 +274,35 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       setLastCheckedAt(Date.now());
 
       // Dev builds ship no updater artifacts.
-      if (installMode === "dev") {
+      if (!installInfo || installInfo.mode === "dev") {
         clearUpdate();
         setStatus("up-to-date");
         return;
       }
 
+      // Bundles without a published artifact (e.g. a bare Linux binary)
+      // cannot self-update. Manual checks explain why, auto-checks stay quiet.
+      if (!installInfo.target) {
+        clearUpdate();
+        if (manual) {
+          setError(t("updater.errorNoArtifact"));
+          setStatus("error");
+        } else {
+          setStatus("up-to-date");
+        }
+        return;
+      }
+
+      const { target, mode } = installInfo;
+      const isPortable = mode === "portable";
+
       try {
         const { check } = await import("@tauri-apps/plugin-updater");
-        const target = installMode === "portable" ? "windows-x86_64" : "windows-x86_64-nsis";
         const update = await check({ target });
 
         if (update && update.available) {
           // Auto-checks respect persisted user gates; manual checks bypass them.
-          if (!manual && installMode === "portable") {
+          if (!manual && isPortable) {
             try {
               if (localStorage.getItem("gamelib.skipped_version") === update.version) {
                 clearUpdate();
@@ -242,11 +330,11 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
           });
 
           // Extract the portable artifact (url + signature) from the raw latest.json.
-          if (installMode === "portable") {
+          if (isPortable) {
             const manifest = update.rawJson as {
               platforms?: Record<string, { url?: string; signature?: string }>;
             };
-            const artifact = manifest.platforms?.["windows-x86_64"];
+            const artifact = manifest.platforms?.[target];
             if (artifact?.url && artifact?.signature) {
               setPortableUrl(artifact.url);
               setPortableSignature(artifact.signature);
@@ -295,7 +383,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [installMode, t, clearUpdate],
+    [installInfo, t, clearUpdate],
   );
 
   // Shared portable download: drives progress + speed/ETA, stages the file on success.
@@ -367,7 +455,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const installUpdate = useCallback(async () => {
-    if (installMode === "nsis") {
+    if (isPluginManaged(installMode)) {
       if (!updateObj) return;
       setStatus("downloading");
       setError(null);
@@ -420,8 +508,8 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   }, [installMode, updateObj, portableUrl, portableDownload, portableApply]);
 
   const downloadUpdate = useCallback(async () => {
-    if (installMode === "nsis") {
-      // The nsis updater buffers the whole artifact in memory; a background
+    if (isPluginManaged(installMode)) {
+      // The plugin buffers the whole artifact in memory; a background
       // download isn't supported, so fall back to install-now.
       await installUpdate();
       return;
@@ -431,9 +519,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   }, [installMode, updateObj, portableUrl, installUpdate, portableDownload]);
 
   const applyUpdate = useCallback(async () => {
-    if (installMode === "nsis") {
+    if (isPluginManaged(installMode)) {
       // Dead-but-harmless on Windows (the installer already relaunched);
-      // required on other platforms.
+      // required on Linux, where the plugin replaced the bundle in place.
       try {
         const { relaunch } = await import("@tauri-apps/plugin-process");
         await relaunch();
@@ -454,7 +542,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       }
       setStatus("idle");
     }
-    // nsis: no-op (the download is in-memory inside downloadAndInstall).
+    // plugin-managed: no-op (the download is in-memory inside downloadAndInstall).
   }, [installMode]);
 
   const dismissUpdateNotification = useCallback(() => {

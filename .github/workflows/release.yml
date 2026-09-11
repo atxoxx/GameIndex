@@ -179,6 +179,7 @@ jobs:
           gh release view "$tag" --json assets -q '.assets[].name' > asset-names.txt
 
           appimage="$(grep -E '\.AppImage$' asset-names.txt | head -n1 || true)"
+          deb="$(grep -E '_amd64\.deb$' asset-names.txt | head -n1 || true)"
           setup="$(grep -E -- '-setup\.exe$' asset-names.txt | head -n1 || true)"
           portable="GameIndex_${version}_x64_portable.exe"
           if ! grep -Fqx "$portable" asset-names.txt; then
@@ -195,6 +196,7 @@ jobs:
             fi
           }
           download_sig "$appimage"
+          download_sig "$deb"
           download_sig "$setup"
           download_sig "$portable"
 
@@ -210,7 +212,9 @@ jobs:
           }
           add_platform "windows-x86_64" "$portable"
           add_platform "windows-x86_64-nsis" "$setup"
+          # AppImage self-replaces; deb installs through pkexec/sudo dpkg.
           add_platform "linux-x86_64" "$appimage"
+          add_platform "linux-x86_64-deb" "$deb"
 
           jq -n \
             --arg version "$version" \

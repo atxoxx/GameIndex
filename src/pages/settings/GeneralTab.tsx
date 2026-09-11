@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useAppVersion } from "../../hooks/useAppVersion";
-import { useUpdate, formatBytes } from "../../context/UpdateContext";
+import { useUpdate, formatBytes, installModeLabelKey } from "../../context/UpdateContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
 import { FlagIcon, Button } from "../../components/ui";
@@ -53,12 +53,7 @@ export default function GeneralTab() {
   const currentLanguage =
     languages.find((l) => l.code === language) ?? languages[0];
 
-  const modeLabel =
-    installMode === "portable"
-      ? t("updater.modePortable")
-      : installMode === "nsis"
-        ? t("updater.modeInstalled")
-        : t("updater.modeDev");
+  const modeLabel = t(installModeLabelKey(installMode));
 
   const lastCheckedTime = (() => {
     if (!lastCheckedAt) return null;

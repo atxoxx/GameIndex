@@ -96,9 +96,8 @@ pub fn set_metrics_config(
     Ok(())
 }
 
-/// Query the host operating system platform ("windows", "linux", "macos", "unknown").
-#[tauri::command]
-pub fn get_platform() -> &'static str {
+/// Host operating system platform ("windows", "linux", "macos", "unknown").
+pub(crate) fn host_platform() -> &'static str {
     if cfg!(target_os = "windows") {
         "windows"
     } else if cfg!(target_os = "linux") {
@@ -108,4 +107,10 @@ pub fn get_platform() -> &'static str {
     } else {
         "unknown"
     }
+}
+
+/// Query the host operating system platform ("windows", "linux", "macos", "unknown").
+#[tauri::command]
+pub fn get_platform() -> &'static str {
+    host_platform()
 }

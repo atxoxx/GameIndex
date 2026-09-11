@@ -316,7 +316,7 @@ pub fn run() {
             mods::nexus_set_api_key,
             mods::nexus_get_status,
             mods::nexus_check_updates,
-            updater::updater_install_mode,
+            updater::updater_install_info,
             updater::portable_update_download,
             updater::portable_update_cancel,
             updater::portable_update_apply,
