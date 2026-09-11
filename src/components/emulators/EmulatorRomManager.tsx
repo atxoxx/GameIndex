@@ -28,6 +28,7 @@ interface RomManagerProps {
   onDelete: (game: Game) => void;
   onInspect: (game: Game) => void;
   onBulkDelete: () => void;
+  onRomContextMenu?: (e: React.MouseEvent, game: Game) => void;
 }
 
 const ICON = {
@@ -54,6 +55,7 @@ function EmulatorRomManagerBase({
   onDelete,
   onInspect,
   onBulkDelete,
+  onRomContextMenu,
 }: RomManagerProps) {
   const { t } = useLanguage();
 
@@ -477,6 +479,7 @@ function EmulatorRomManagerBase({
           onRename={onRename}
           onDelete={onDelete}
           onInspect={onInspect}
+          onContextMenu={onRomContextMenu}
         />
       ) : (
         <EmulatorRomTableView
@@ -491,6 +494,7 @@ function EmulatorRomManagerBase({
           onRename={onRename}
           onDelete={onDelete}
           onInspect={onInspect}
+          onContextMenu={onRomContextMenu}
         />
       )}
 

@@ -4,10 +4,14 @@ import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { Copy, Eye, FolderOpen, Heart, Pencil, Play, Trash2 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { useToast } from "../context/ToastContext";
 import { useGames } from "../context/GameContext";
+import { useContextMenu } from "../hooks/useContextMenu";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import ContextMenu, { type ContextMenuItem } from "../components/ui/ContextMenu";
 import type { Game } from "../types/game";
 import {
   accentForPlatform,
@@ -48,6 +52,8 @@ export default function EmulatorsPage() {
   const { hostPlatform } = useSettings();
   const { showToast } = useToast();
   const { games, addGame, updateGame, removeGames, launchGame, runningGameIds } = useGames();
+  const romMenu = useContextMenu<Game>();
+  const copy = useCopyToClipboard();
 
   const [emulators, setEmulators] = useState<Emulator[]>([]);
   const [showEditor, setShowEditor] = useState(false);
@@ -591,6 +597,82 @@ export default function EmulatorsPage() {
     setShowEditor(true);
   }, []);
 
+  const contextRom = romMenu.state?.target ?? null;
+
+  const romMenuItems: ContextMenuItem[] = contextRom
+    ? [
+        {
+          id: "launch",
+          label: t("emulators.games.launch"),
+          icon: <Play size={15} />,
+          accent: true,
+          onSelect: () => {
+            romMenu.close();
+            launchGame(contextRom);
+          },
+        },
+        {
+          id: "details",
+          label: t("game.viewDetails"),
+          icon: <Eye size={15} />,
+          onSelect: () => {
+            romMenu.close();
+            setInspectRom(contextRom);
+          },
+        },
+        {
+          id: "favorite",
+          label: contextRom.favorite
+            ? t("emulators.roms.favoriteRemove")
+            : t("emulators.roms.favoriteAdd"),
+          icon: <Heart size={15} fill={contextRom.favorite ? "currentColor" : "none"} />,
+          onSelect: () => {
+            romMenu.close();
+            updateGame(contextRom.id, { favorite: !contextRom.favorite });
+          },
+        },
+        { id: "sep-1", separator: true },
+        {
+          id: "open-location",
+          label: t("emulators.games.openLocation"),
+          icon: <FolderOpen size={15} />,
+          onSelect: () => {
+            romMenu.close();
+            handleOpenLocation(contextRom.romPath ?? contextRom.path);
+          },
+        },
+        {
+          id: "rename",
+          label: t("emulators.games.rename"),
+          icon: <Pencil size={15} />,
+          onSelect: () => {
+            romMenu.close();
+            openRename(contextRom);
+          },
+        },
+        {
+          id: "copy-path",
+          label: t("sidebar.copyPath"),
+          icon: <Copy size={15} />,
+          onSelect: () => {
+            romMenu.close();
+            void copy(contextRom.romPath ?? contextRom.path);
+          },
+        },
+        { id: "sep-2", separator: true },
+        {
+          id: "delete",
+          label: t("emulators.games.deleteRom"),
+          icon: <Trash2 size={15} />,
+          danger: true,
+          onSelect: () => {
+            romMenu.close();
+            setConfirmDeleteRom(contextRom);
+          },
+        },
+      ]
+    : [];
+
   return (
     <div className="emulators-page">
       <PageHeader
@@ -778,12 +860,34 @@ export default function EmulatorsPage() {
                     onDelete={(g) => setConfirmDeleteRom(g)}
                     onInspect={(g) => setInspectRom(g)}
                     onBulkDelete={() => setConfirmBulkDelete(true)}
+                    onRomContextMenu={(e, g) => romMenu.open(e, g)}
                   />
                 )}
               </div>
             )}
           </section>
         </div>
+
+      {/* ROM context menu */}
+      {contextRom && romMenu.state && (
+        <ContextMenu
+          x={romMenu.state.x}
+          y={romMenu.state.y}
+          items={romMenuItems}
+          onClose={romMenu.close}
+          ariaLabel={contextRom.name}
+          header={
+            <>
+              <span className="context-menu-title" title={contextRom.name}>
+                {contextRom.name}
+              </span>
+              {contextRom.romRegion && (
+                <span className="ctx-badge">{contextRom.romRegion}</span>
+              )}
+            </>
+          }
+        />
+      )}
 
       {/* Editor Modal */}
       {showEditor && (

@@ -16,6 +16,7 @@ interface RomTableViewProps {
   onRename: (game: Game) => void;
   onDelete: (game: Game) => void;
   onInspect: (game: Game) => void;
+  onContextMenu?: (e: React.MouseEvent, game: Game) => void;
 }
 
 const ICON = {
@@ -47,6 +48,7 @@ function EmulatorRomTableViewBase({
   onRename,
   onDelete,
   onInspect,
+  onContextMenu,
 }: RomTableViewProps) {
   const { t } = useLanguage();
   const runningSet = useMemo(() => new Set(runningGameIds), [runningGameIds]);
@@ -91,6 +93,7 @@ function EmulatorRomTableViewBase({
             }`}
             key={g.id}
             role="row"
+            onContextMenu={onContextMenu ? (e) => onContextMenu(e, g) : undefined}
           >
             <span className="emu-game-check" role="cell">
               <input

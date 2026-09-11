@@ -14,6 +14,7 @@ interface RomGridViewProps {
   onRename: (game: Game) => void;
   onDelete: (game: Game) => void;
   onInspect: (game: Game) => void;
+  onContextMenu?: (e: React.MouseEvent, game: Game) => void;
 }
 
 const ICON = {
@@ -37,6 +38,7 @@ function EmulatorRomGridViewBase({
   onRename,
   onDelete,
   onInspect,
+  onContextMenu,
 }: RomGridViewProps) {
   const { t } = useLanguage();
   const runningSet = useMemo(() => new Set(runningGameIds), [runningGameIds]);
@@ -55,6 +57,7 @@ function EmulatorRomGridViewBase({
               isRunning ? " is-running" : ""
             }`}
             style={{ ["--emu-accent" as string]: accentColor }}
+            onContextMenu={onContextMenu ? (e) => onContextMenu(e, g) : undefined}
           >
             {/* Top Selection Checkbox & Running Badge */}
             <div className="emu-rom-card-topbar">
