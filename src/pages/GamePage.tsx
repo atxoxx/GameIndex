@@ -107,7 +107,7 @@ function GameDetail({ game }: { game: Game }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
   const { t } = useLanguage();
-  const { launchGame, enrichGameMetadata, removeGame, updateGame } = useGames();
+  const { launchGame, enrichGameMetadata, fetchGameHltb, removeGame, updateGame } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
   const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
@@ -176,13 +176,22 @@ function GameDetail({ game }: { game: Game }) {
   useEffect(() => {
     if (enrichmentStartedRef.current) return;
     if (!game.name) return;
+    // Rows that still carry legacy IGDB time-to-beat data (or none at
+    // all) get upgraded to HowLongToBeat stats.
+    const needsHltb = !game.timeToBeat?.hltb;
     const alreadyEnriched =
       !!game.metadataSource &&
       !(game.metadataSource === NO_IGDB_MATCH_SOURCE && game.igdbId != null);
-    if (alreadyEnriched) return;
+    if (alreadyEnriched) {
+      if (!needsHltb) return;
+      enrichmentStartedRef.current = true;
+      fetchGameHltb(game.id, game.name).catch((err) =>
+        console.error("HLTB refresh failed:", err)
+      );
+      return;
+    }
 
     const hasDescription = !!game.description;
-    const missingTTB = !game.timeToBeat;
     const hasCollection = !!game.collection;
     const hasDeveloper = !!game.developer;
     const hasPublisher = !!game.publisher;
@@ -190,7 +199,7 @@ function GameDetail({ game }: { game: Game }) {
     const hasAllRelationFields = hasCollection && hasDeveloper && hasPublisher && hasGenres;
     const missedCollectionId = !!game.collection && game.collectionId === undefined;
 
-    if (hasDescription && !missingTTB && hasAllRelationFields && !missedCollectionId) {
+    if (hasDescription && !needsHltb && hasAllRelationFields && !missedCollectionId) {
       return;
     }
 
@@ -212,6 +221,7 @@ function GameDetail({ game }: { game: Game }) {
     game.publisher,
     game.genres,
     enrichGameMetadata,
+    fetchGameHltb,
   ]);
 
   const handleLaunch = () => {

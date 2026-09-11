@@ -603,7 +603,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       setEditWebsites(result.websites || []);
 
       setEditTimeToBeatMain(result.timeToBeat?.normally ? Math.round(result.timeToBeat.normally / 3600) : 0);
-      setEditTimeToBeatExtra(result.timeToBeat?.hastily ? Math.round(result.timeToBeat.hastily / 3600) : 0);
+      const fetchedExtra = result.timeToBeat?.mainExtra ?? result.timeToBeat?.hastily;
+      setEditTimeToBeatExtra(fetchedExtra ? Math.round(fetchedExtra / 3600) : 0);
       setEditTimeToBeatComple(result.timeToBeat?.completely ? Math.round(result.timeToBeat.completely / 3600) : 0);
       setEditSimilarGamesNames(result.similarGames ? result.similarGames.map((g) => g.name) : []);
       setEditReleases(result.releases || []);
@@ -902,8 +903,13 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       videos: editVideos.length > 0 ? editVideos : undefined,
       websites: editWebsites.length > 0 ? editWebsites : undefined,
       timeToBeat: {
+        // Keep the HLTB stat sheet (and the legacy IGDB-only fields)
+        // intact — the form only edits the three headline values.
+        ...(game.timeToBeat?.hltb ? { hltb: game.timeToBeat.hltb } : {}),
+        ...(game.timeToBeat?.hastily ? { hastily: game.timeToBeat.hastily } : {}),
+        ...(game.timeToBeat?.allStyles ? { allStyles: game.timeToBeat.allStyles } : {}),
         normally: editTimeToBeatMain > 0 ? editTimeToBeatMain * 3600 : undefined,
-        hastily: editTimeToBeatExtra > 0 ? editTimeToBeatExtra * 3600 : undefined,
+        mainExtra: editTimeToBeatExtra > 0 ? editTimeToBeatExtra * 3600 : undefined,
         completely: editTimeToBeatComple > 0 ? editTimeToBeatComple * 3600 : undefined,
       },
       similarGames: newSimilarGames.length > 0 ? newSimilarGames : undefined,

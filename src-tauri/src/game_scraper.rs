@@ -363,17 +363,10 @@ pub struct GameMetadataResult {
     pub language_supports: Option<Vec<LanguageSupportInfo>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct TimeToBeat {
-    /// Seconds spent rushing through the game (IGDB "hastily" field).
-    /// The legacy `hastly` typo is accepted as an alias for backward
-    /// compatibility with games.json saved before the fix.
-    #[serde(alias = "hastly")]
-    pub hastily: Option<u64>,
-    pub normally: Option<u64>,
-    pub completely: Option<u64>,
-}
+/// Time-to-beat data now comes from HowLongToBeat (see `crate::hltb`).
+/// Re-exported here so existing `game_scraper::TimeToBeat` imports keep
+/// working.
+pub use crate::hltb::TimeToBeat;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -2370,6 +2363,22 @@ pub async fn search_game_metadata(
         results.extend(igdb_results);
     }
 
+    // HowLongToBeat is name-based, so resolve it once for the best IGDB
+    // candidate (or the first result when IGDB has no match) and attach
+    // it there. The frontend prefers the IGDB result when merging.
+    if !results.is_empty() {
+        let index = results
+            .iter()
+            .position(|r| r.source_name == "IGDB")
+            .unwrap_or(0);
+        if results[index].time_to_beat.is_none() {
+            let lookup_name = results[index].title.clone();
+            if let Some(ttb) = crate::hltb::fetch_time_to_beat(&lookup_name, None).await {
+                results[index].time_to_beat = Some(ttb);
+            }
+        }
+    }
+
     results
 }
 
@@ -3342,13 +3351,6 @@ struct IgdbGame {
 }
 
 #[derive(Debug, Deserialize)]
-struct IgdbTimeToBeatRaw {
-    hastily: Option<u64>,
-    normally: Option<u64>,
-    completely: Option<u64>,
-}
-
-#[derive(Debug, Deserialize)]
 struct IgdbSimilarGameRaw {
     id: u64,
     name: String,
@@ -3605,76 +3607,11 @@ async fn igdb_query_games(body: &str) -> Vec<IgdbGame> {
     }
 }
 
-/// Fetch IGDB "time to beat" rows for a batch of game ids. Mirrors the
-/// `/v4/game_time_to_beats` schema quirks (`game_id` FK, `hastily` spelling).
-async fn igdb_query_ttbs(game_ids: &[String]) -> HashMap<u64, IgdbTimeToBeatRaw> {
-    let mut out = HashMap::new();
-    if game_ids.is_empty() {
-        return out;
-    }
-    let token = match get_twitch_token().await {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("IGDB token error: {}", e);
-            return out;
-        }
-    };
-    let client = http_client();
-    let client_id = crate::config::get_twitch_client_id();
-    let ttb_body = format!(
-        "fields game_id, hastily, normally, completely; where game_id = ({}); limit 50;",
-        game_ids.join(",")
-    );
-    let _guard = igdb_acquire().await;
-    let resp = match client
-        .post("https://api.igdb.com/v4/game_time_to_beats")
-        .header("Client-ID", &client_id)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "text/plain")
-        .body(ttb_body)
-        .send()
-        .await
-    {
-        Ok(r) => Some(r),
-        Err(e) => {
-            eprintln!("IGDB game_time_to_beats request error: {}", e);
-            None
-        }
-    };
-    if let Some(r) = resp {
-        if r.status().is_success() {
-            if let Ok(text) = r.text().await {
-                #[derive(Debug, Deserialize)]
-                struct IgdbTimeToBeatRawInner {
-                    game_id: u64,
-                    hastily: Option<u64>,
-                    normally: Option<u64>,
-                    completely: Option<u64>,
-                }
-                if let Ok(raw_ttbs) = serde_json::from_str::<Vec<IgdbTimeToBeatRawInner>>(&text) {
-                    for ttb in raw_ttbs {
-                        out.insert(
-                            ttb.game_id,
-                            IgdbTimeToBeatRaw {
-                                hastily: ttb.hastily,
-                                normally: ttb.normally,
-                                completely: ttb.completely,
-                            },
-                        );
-                    }
-                } else {
-                    eprintln!("IGDB game_time_to_beats parse error for search: {}", text);
-                }
-            }
-        }
-    }
-    out
-}
-
-/// Map a single IGDB row (+ optional time-to-beat data) into the unified
-/// `GameMetadataResult` shape. Shared by the name search and the
-/// appid-pinned by-id lookup so both paths produce identical metadata.
-fn map_igdb_game(game: IgdbGame, ttb: Option<&IgdbTimeToBeatRaw>) -> GameMetadataResult {
+/// Map a single IGDB row into the unified `GameMetadataResult` shape.
+/// Shared by the name search and the appid-pinned by-id lookup so both
+/// paths produce identical metadata. Time-to-beat is filled in later
+/// from HowLongToBeat (see `crate::hltb`).
+fn map_igdb_game(game: IgdbGame) -> GameMetadataResult {
     let mut developers = Vec::new();
     let mut publishers = Vec::new();
     if let Some(ref companies) = game.involved_companies {
@@ -3801,12 +3738,8 @@ fn map_igdb_game(game: IgdbGame, ttb: Option<&IgdbTimeToBeatRaw>) -> GameMetadat
             unique_urls
         });
 
-    // Map Time to Beat
-    let time_to_beat = ttb.map(|t| TimeToBeat {
-        hastily: t.hastily,
-        normally: t.normally,
-        completely: t.completely,
-    });
+    // Time-to-beat is sourced from HowLongToBeat by the caller, not IGDB.
+    let time_to_beat = None;
 
     // Map Similar Games
     let similar_games = game.similar_games.map(|list| {
@@ -3931,9 +3864,12 @@ pub async fn fetch_igdb_game_by_id(id: u64) -> Option<GameMetadataResult> {
     let body = format!("fields {}; where id = {}; limit 1;", IGDB_GAME_FIELDS, id);
     let mut games = igdb_query_games(&body).await;
     let game = games.pop()?;
-    let ttbs = igdb_query_ttbs(&[game.id.to_string()]).await;
-    let ttb = ttbs.get(&game.id);
-    Some(map_igdb_game(game, ttb))
+    let mut result = map_igdb_game(game);
+    // IGDB no longer provides time-to-beat data; HowLongToBeat does.
+    if let Some(ttb) = crate::hltb::fetch_time_to_beat(&result.title, None).await {
+        result.time_to_beat = Some(ttb);
+    }
+    Some(result)
 }
 
 /// Resolve a Steam appid to its exact IGDB game via IGDB's `external_games`
@@ -3964,15 +3900,10 @@ pub async fn search_igdb(game_name: &str) -> Vec<GameMetadataResult> {
     );
 
     let igdb_games = igdb_query_games(&body).await;
-    let game_ids: Vec<String> = igdb_games.iter().map(|g| g.id.to_string()).collect();
-    let time_to_beat_by_game = igdb_query_ttbs(&game_ids).await;
 
     let mut results: Vec<GameMetadataResult> = igdb_games
         .into_iter()
-        .map(|game| {
-            let ttb = time_to_beat_by_game.get(&game.id);
-            map_igdb_game(game, ttb)
-        })
+        .map(map_igdb_game)
         .collect();
 
     // Rank by title similarity first; ties (same-name games like "Prototype"
@@ -5367,50 +5298,6 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
     // API and returns 404. Reviews are not fetched here; the IgdbReview field
     // is kept for backward compatibility with saved library data only.
 
-    // Fetch time-to-beat for this game
-    let mut time_to_beat: Option<IgdbTimeToBeatRaw> = None;
-    let ttb_body = format!(
-        "fields game_id, hastily, normally, completely; where game_id = {}; limit 1;",
-        game.id
-    );
-    let _guard6 = igdb_acquire().await;
-    if let Ok(r) = client
-        .post("https://api.igdb.com/v4/game_time_to_beats")
-        .header("Client-ID", &client_id)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "text/plain")
-        .body(ttb_body)
-        .send()
-        .await
-    {                if r.status().is_success() {
-                if let Ok(text) = r.text().await {
-                #[derive(Debug, Deserialize)]
-                struct IgdbTimeToBeatRawInner {
-                    // game_id is required by IGDB Apicalypse deserialization
-                    // but unused here (we only fetch one TTB by game.id).
-                    #[allow(dead_code)]
-                    game_id: u64,
-                    hastily: Option<u64>,
-                    normally: Option<u64>,
-                    completely: Option<u64>,
-                }
-                if let Ok(raw_ttbs) =
-                    serde_json::from_str::<Vec<IgdbTimeToBeatRawInner>>(&text)
-                {
-                    if let Some(first) = raw_ttbs.into_iter().next() {
-                        time_to_beat = Some(IgdbTimeToBeatRaw {
-                            hastily: first.hastily,
-                            normally: first.normally,
-                            completely: first.completely,
-                        });
-                    }
-                } else {
-                    eprintln!("IGDB game_time_to_beats parse error for detail: {}", text);
-                }
-            }
-        }
-    }
-
     // Map the IgdbGame → GameMetadataResult
     let mut developers = Vec::new();
     let mut publishers = Vec::new();
@@ -5563,11 +5450,8 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
         unique_urls
     });
 
-    let mapped_time_to_beat = time_to_beat.map(|t| TimeToBeat {
-        hastily: t.hastily,
-        normally: t.normally,
-        completely: t.completely,
-    });
+    // Time-to-beat comes from HowLongToBeat rather than IGDB.
+    let time_to_beat = crate::hltb::fetch_time_to_beat(&game.name, None).await;
 
     let similar_games = game.similar_games.map(|list| {
         list.into_iter()
@@ -5678,7 +5562,7 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
         },
         videos,
         websites,
-        time_to_beat: mapped_time_to_beat,
+        time_to_beat,
         similar_games,
         releases,
         igdb_reviews,

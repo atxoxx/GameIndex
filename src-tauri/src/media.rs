@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use crate::game_scraper;
-use crate::game_scraper::{GameMetadataResult, LaunchBoxImageResult};
+use crate::game_scraper::{GameMetadataResult, LaunchBoxImageResult, TimeToBeat};
 use crate::steam_game_watcher;
 
 /// Managed state holding cancellation tokens for active executable scans.
@@ -219,6 +219,14 @@ pub async fn search_game_metadata(game_name: String, skip_launchbox: Option<bool
 #[tauri::command]
 pub async fn get_igdb_game_by_id(id: u64) -> Result<Option<GameMetadataResult>, String> {
     Ok(game_scraper::fetch_igdb_game_by_id(id).await)
+}
+
+/// Fetch HowLongToBeat time-to-beat stats for a game. Searches by name
+/// when `hltb_id` is omitted, or fetches the exact game page when the
+/// id is known (used to refresh an already-linked entry).
+#[tauri::command]
+pub async fn fetch_hltb_stats(game_name: String, hltb_id: Option<u64>) -> Result<Option<TimeToBeat>, String> {
+    Ok(crate::hltb::fetch_time_to_beat(&game_name, hltb_id).await)
 }
 
 /// Fetch official store genres and community user tags for a Steam app id.

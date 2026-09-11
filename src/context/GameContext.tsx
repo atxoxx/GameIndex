@@ -74,6 +74,8 @@ interface GameContextType {
   enqueueEnrich: (game: { id: string; name: string; steamAppId?: number }, highPriority?: boolean) => void;
   /** Enqueue a batch of games for background auto-enrichment. */
   enqueueEnrichBatch: (games: { id: string; name: string; steamAppId?: number }[]) => void;
+  /** Refresh only the HowLongToBeat stats for a game. */
+  fetchGameHltb: (gameId: string, gameName: string) => Promise<void>;
   /** Check whether a game is excluded from playtime/session tracking. */
   isGameUntracked: (gameId: string) => boolean;
   /** Toggle or set tracking exclusion for a game. */
@@ -304,6 +306,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     enrichGameMetadata,
     enqueueEnrich,
     enqueueEnrichBatch,
+    fetchGameHltb,
     fetchGameReviews,
     fetchAllImages,
   } = useEnrich({
@@ -652,6 +655,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     enrichGameMetadata,
     enqueueEnrich,
     enqueueEnrichBatch,
+    fetchGameHltb,
     isGameUntracked: sessions.isGameUntracked,
     toggleGameTracking: sessions.toggleGameTracking,
   }), [
@@ -674,6 +678,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     enrichGameMetadata,
     enqueueEnrich,
     enqueueEnrichBatch,
+    fetchGameHltb,
     sessions.isGameUntracked,
     sessions.toggleGameTracking,
   ]);

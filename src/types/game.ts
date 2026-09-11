@@ -348,11 +348,130 @@ export interface WineLogResult {
 }
 
 export interface TimeToBeat {
-  /** Hours spent rushing through the game (IGDB hastily field).
-   *  Note: legacy `hastly` spelling was a typo and is no longer used. */
+  /** Seconds spent rushing through the game (legacy IGDB "hastily" field). */
   hastily?: number;
+  /** Main story, in seconds (HLTB `comp_main`). */
   normally?: number;
+  /** Completionist, in seconds (HLTB `comp_100`). */
   completely?: number;
+  /** Main + Extra, in seconds (HLTB `comp_plus`). */
+  mainExtra?: number;
+  /** All play styles, in seconds (HLTB `comp_all`). */
+  allStyles?: number;
+  /** Full HowLongToBeat stats powering the details modal. */
+  hltb?: HltbStats;
+}
+
+/** One timing bucket on HowLongToBeat (average/median/fastest/slowest). */
+export interface HltbTimeStat {
+  average?: number;
+  median?: number;
+  /** Fastest submission (HLTB "low"). */
+  low?: number;
+  /** Slowest submission (HLTB "high"). */
+  high?: number;
+  /** Number of submitted times. */
+  count?: number;
+}
+
+export interface HltbLevels {
+  singlePlayer?: boolean;
+  singlePlayerDifficulty?: boolean;
+  coOp?: boolean;
+  multiplayer?: boolean;
+  combined?: boolean;
+}
+
+export interface HltbCommunity {
+  completed?: number;
+  playing?: number;
+  backlog?: number;
+  replays?: number;
+  retired?: number;
+  reviews?: number;
+  reviewScore?: number;
+  total?: number;
+}
+
+export interface HltbPlatformStat {
+  platform: string;
+  completed?: number;
+  total?: number;
+  mainStory?: number;
+  mainExtra?: number;
+  completionist?: number;
+  allStyles?: number;
+  low?: number;
+  high?: number;
+}
+
+export interface HltbRelatedGame {
+  gameId: number;
+  gameName: string;
+  gameType?: string;
+  mainStory?: number;
+  mainExtra?: number;
+  completionist?: number;
+  allStyles?: number;
+  allStylesCount?: number;
+  backlog?: number;
+  reviewScore?: number;
+}
+
+export interface HltbReviewBucket {
+  score: number;
+  count: number;
+}
+
+/** Raw HowLongToBeat payload, mirrored from `src-tauri/src/hltb.rs`. */
+export interface HltbStats {
+  gameId: number;
+  gameName: string;
+  gameAlias?: string;
+  gameType?: string;
+  url?: string;
+  imageUrl?: string;
+  description?: string;
+  developer?: string;
+  publisher?: string;
+  platforms?: string;
+  genres?: string;
+  steamAppId?: number;
+  releaseWorld?: string;
+  releaseNa?: string;
+  releaseEu?: string;
+  releaseJp?: string;
+  ratingEsrb?: string;
+  ratingPegi?: string;
+  ratingCero?: string;
+  mainStory?: HltbTimeStat;
+  mainExtra?: HltbTimeStat;
+  completionist?: HltbTimeStat;
+  allStyles?: HltbTimeStat;
+  speedrun?: HltbTimeStat;
+  completionistSpeedrun?: HltbTimeStat;
+  investedCo?: HltbTimeStat;
+  investedMp?: HltbTimeStat;
+  levels?: HltbLevels;
+  community?: HltbCommunity;
+  platformStats?: HltbPlatformStat[];
+  related?: HltbRelatedGame[];
+  reviewHistogram?: HltbReviewBucket[];
+}
+
+/**
+ * Merge freshly fetched HowLongToBeat data into the stored value.
+ * Incoming HLTB stats replace legacy IGDB / manual-only rows, but
+ * never clobber an existing HLTB result (it may carry manual edits).
+ */
+export function mergeTimeToBeat(
+  current?: TimeToBeat,
+  incoming?: TimeToBeat | null
+): TimeToBeat | undefined {
+  if (!incoming) return current;
+  if (!current) return incoming;
+  if (!current.hltb) return incoming;
+  return current;
 }
 
 export interface SimilarGame {

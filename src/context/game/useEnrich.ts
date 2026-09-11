@@ -2,9 +2,11 @@ import { useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   extractSteamAppIdFromWebsites,
+  mergeTimeToBeat,
   type Game,
   type GameMetadataResult,
   type IgdbReview,
+  type TimeToBeat,
 } from "../../types/game";
 import type { SgdbAssets } from "../../types/steamgriddb";
 import { isUsableImageUrl, toWebviewAssetUrl } from "../../utils/artworkUrl";
@@ -169,10 +171,22 @@ export function useEnrich(options: {
         }
         const mergedGenres = deduplicateAndMergeTags(current.genres, steamTags);
 
+        // IGDB had no match but HowLongToBeat might still know the game.
+        let hltb: TimeToBeat | null = null;
+        if (!current.timeToBeat?.hltb) {
+          try {
+            hltb = await invoke<TimeToBeat | null>("fetch_hltb_stats", { gameName, hltbId: null });
+          } catch (err) {
+            console.warn(`HLTB fetch failed for ${gameName}:`, err);
+          }
+        }
+        const timeToBeat = mergeTimeToBeat(current.timeToBeat, hltb);
+
         const noMatchPatch: Partial<Game> = {
           metadataSource: current.metadataSource ?? NO_IGDB_MATCH_SOURCE,
           steamAppId: resolvedSteamAppId,
           ...(mergedGenres.length > 0 ? { genres: mergedGenres } : {}),
+          ...(timeToBeat ? { timeToBeat } : {}),
         };
         updateGame(gameId, noMatchPatch);
         invoke("save_game", { game: { ...current, ...noMatchPatch } }).catch((err) =>
@@ -296,7 +310,7 @@ export function useEnrich(options: {
         screenshots: current.screenshots ?? meta.screenshots ?? undefined,
         videos: current.videos ?? meta.videos ?? undefined,
         websites: current.websites ?? meta.websites ?? undefined,
-        timeToBeat: current.timeToBeat ?? meta.timeToBeat ?? undefined,
+        timeToBeat: mergeTimeToBeat(current.timeToBeat, meta.timeToBeat),
         similarGames: current.similarGames ?? meta.similarGames ?? undefined,
         releases: current.releases ?? meta.releases ?? undefined,
         igdbReviews: current.igdbReviews ?? meta.igdbReviews ?? undefined,
@@ -329,6 +343,33 @@ export function useEnrich(options: {
       enrichAttemptsThisSession.delete(gameId);
     }
   }, [gamesRef, updateGame]);
+
+  /** Refresh only the HowLongToBeat stats for a game (no IGDB
+   *  metadata round-trip). Used by the game page to upgrade rows that
+   *  still carry legacy IGDB time-to-beat values or none at all. */
+  const fetchGameHltb = useCallback(
+    async (gameId: string, gameName: string) => {
+      const current = gamesRef.current.find((g) => g.id === gameId);
+      if (!current) return;
+      try {
+        const fresh = await invoke<TimeToBeat | null>("fetch_hltb_stats", {
+          gameName,
+          hltbId: current.timeToBeat?.hltb?.gameId ?? null,
+        });
+        if (!fresh) return;
+        const timeToBeat = mergeTimeToBeat(current.timeToBeat, fresh);
+        if (!timeToBeat) return;
+        const patch: Partial<Game> = { timeToBeat };
+        updateGame(gameId, patch);
+        invoke("save_game", { game: { ...current, ...patch } }).catch((err) =>
+          console.warn(`HLTB persist failed for ${gameName}:`, err)
+        );
+      } catch (err) {
+        console.warn(`HLTB fetch failed for ${gameName}:`, err);
+      }
+    },
+    [gamesRef, updateGame]
+  );
 
   /** Sequential queue processor with 350ms pacing between requests. */
   const processQueue = useCallback(async () => {
@@ -421,6 +462,7 @@ export function useEnrich(options: {
     enrichGameMetadata,
     enqueueEnrich,
     enqueueEnrichBatch,
+    fetchGameHltb,
     fetchGameReviews,
     fetchAllImages,
     downloadImageSafe,
