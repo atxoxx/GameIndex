@@ -895,6 +895,9 @@ pub fn launch_game(
             let mut cmd = std::process::Command::new(path);
             cmd.current_dir(cwd);
 
+            #[cfg(target_os = "linux")]
+            crate::compatibility::strip_appimage_env(&mut cmd);
+
             #[cfg(windows)]
             {
                 use std::os::windows::process::CommandExt;
