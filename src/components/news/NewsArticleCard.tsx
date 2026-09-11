@@ -1,8 +1,13 @@
 import { useMemo, useState } from "react";
+import { Bookmark, BookmarkX, Check, Copy, ExternalLink, Eye } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
 import { formatArticleDate, estimateReadingTime, extractArticleTags } from "../../hooks/useNewsFeeds";
 import type { ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 
 interface NewsArticleCardProps {
   article: NewsArticle;
@@ -28,6 +33,8 @@ export default function NewsArticleCard({
   onSelectTag,
 }: NewsArticleCardProps) {
   const { t } = useLanguage();
+  const newsMenu = useContextMenu();
+  const copy = useCopyToClipboard();
   const [copied, setCopied] = useState(false);
   const isList = density === "list";
   const isCompact = density === "compact";
@@ -65,6 +72,58 @@ export default function NewsArticleCard({
     }
   };
 
+  const newsMenuItems: ContextMenuItem[] = [
+    {
+      id: "read",
+      label: t("news.readNow"),
+      icon: <Eye size={15} />,
+      accent: true,
+      onSelect: () => onClick(article),
+    },
+    {
+      id: "open-browser",
+      label: t("weblinks.openBrowser"),
+      icon: <ExternalLink size={15} />,
+      onSelect: () => {
+        openUrl(article.link).catch(() => undefined);
+      },
+    },
+    { id: "sep-1", separator: true },
+    ...(onToggleRead
+      ? [
+          {
+            id: "toggle-read",
+            label: read ? t("news.markAsUnread") : t("news.markAsRead"),
+            icon: <Check size={15} />,
+            onSelect: () => onToggleRead(article),
+          } as ContextMenuItem,
+        ]
+      : []),
+    ...(onToggleSave
+      ? [
+          {
+            id: "toggle-save",
+            label: saved ? t("news.removeBookmark") : t("news.saveForLater"),
+            icon: saved ? <BookmarkX size={15} /> : <Bookmark size={15} />,
+            onSelect: () => onToggleSave(article),
+          } as ContextMenuItem,
+        ]
+      : []),
+    { id: "sep-2", separator: true },
+    {
+      id: "copy-link",
+      label: t("news.copyLink"),
+      icon: <Copy size={15} />,
+      onSelect: () => copy(article.link),
+    },
+    {
+      id: "copy-title",
+      label: t("gameMenu.copyName"),
+      icon: <Copy size={15} />,
+      onSelect: () => copy(article.title),
+    },
+  ];
+
   return (
     <article
       className={`news-article-card density-${density}${isList ? " news-article-card-list" : ""}${
@@ -81,6 +140,7 @@ export default function NewsArticleCard({
           onClick(article);
         }
       }}
+      onContextMenu={(e) => newsMenu.open(e)}
     >
       <div className="news-card-cover">
         {article.imageUrl ? (
@@ -213,6 +273,24 @@ export default function NewsArticleCard({
             )}
           </div>
         </div>
+      )}
+
+      {newsMenu.state && (
+        <ContextMenu
+          x={newsMenu.state.x}
+          y={newsMenu.state.y}
+          items={newsMenuItems}
+          onClose={newsMenu.close}
+          ariaLabel={article.title}
+          header={
+            <>
+              <span className="context-menu-title" title={article.title}>
+                {article.title}
+              </span>
+              <span className="ctx-badge">{article.sourceName}</span>
+            </>
+          }
+        />
       )}
     </article>
   );
