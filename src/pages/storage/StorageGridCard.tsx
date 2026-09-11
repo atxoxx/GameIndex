@@ -8,7 +8,10 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
 import { driveOf, gameTotalBytes } from "./utils";
 import { Button } from "../../components/ui";
+import ContextMenu from "../../components/ui/ContextMenu";
+import { useContextMenu } from "../../hooks/useContextMenu";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
+import { useStorageMenuItems } from "./storageMenu";
 
 interface Props {
   game: Game;
@@ -101,6 +104,32 @@ function StorageGridCardBase({
     }
   }
 
+  const storageMenu = useContextMenu();
+  const storageMenuItems = useStorageMenuItems({
+    game,
+    hasSize: game.sizeBytes != null && game.sizeBytes > 0,
+    hasModsFolder: false,
+    onLaunch,
+    onOpenFolder,
+    onDetect: () => {
+      storageMenu.close();
+      void handleDetect();
+    },
+    onMove: onMove
+      ? () => {
+          storageMenu.close();
+          onMove();
+        }
+      : undefined,
+    onUninstall:
+      onUninstall && (game.sizeRootPath || game.path)
+        ? () => {
+            storageMenu.close();
+            onUninstall();
+          }
+        : undefined,
+  });
+
   return (
     <div
       className={`storage-grid-card storage-grid-card--${density} ${
@@ -111,6 +140,7 @@ function StorageGridCardBase({
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onContextMenu={(e) => storageMenu.open(e)}
     >
       {/* Selection Checkbox */}
       {selectMode && (
@@ -295,6 +325,24 @@ function StorageGridCardBase({
           )}
         </div>
       </div>
+
+      {storageMenu.state && (
+        <ContextMenu
+          x={storageMenu.state.x}
+          y={storageMenu.state.y}
+          items={storageMenuItems}
+          onClose={storageMenu.close}
+          ariaLabel={game.name}
+          header={
+            <>
+              <span className="context-menu-title" title={game.name}>
+                {game.name}
+              </span>
+              <span className="ctx-badge">{game.platform}</span>
+            </>
+          }
+        />
+      )}
     </div>
   );
 }

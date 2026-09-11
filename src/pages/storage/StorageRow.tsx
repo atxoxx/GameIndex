@@ -9,7 +9,10 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
 import { driveOf, gameTotalBytes } from "./utils";
 import { Button } from "../../components/ui";
+import ContextMenu from "../../components/ui/ContextMenu";
+import { useContextMenu } from "../../hooks/useContextMenu";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
+import { useStorageMenuItems } from "./storageMenu";
 
 interface Props {
   game: Game;
@@ -142,12 +145,51 @@ function StorageRowBase({
     showToast(t("storageRow.clearedSize", { name: game.name }), "info");
   }
 
+  const storageMenu = useContextMenu();
+  const storageMenuItems = useStorageMenuItems({
+    game,
+    hasSize,
+    hasModsFolder: hasMods,
+    onLaunch,
+    onOpenFolder,
+    onDetect: () => {
+      storageMenu.close();
+      void detect();
+    },
+    onClearSize: () => {
+      storageMenu.close();
+      clearSize();
+    },
+    onCopyPath: () => {
+      storageMenu.close();
+      void copyPath(game.sizeRootPath || game.path, "path");
+    },
+    onManageMods: () => {
+      storageMenu.close();
+      manageMods();
+    },
+    onMove: onMove
+      ? () => {
+          storageMenu.close();
+          onMove();
+        }
+      : undefined,
+    onUninstall:
+      onUninstall && (game.sizeRootPath || game.path)
+        ? () => {
+            storageMenu.close();
+            onUninstall();
+          }
+        : undefined,
+  });
+
   return (
     <li
       className={`storage__row storage__row--${density} ${expanded ? "storage__row--expanded" : ""} ${
         stale ? "storage__row--stale" : ""
       } ${selected ? "storage__row--selected" : ""}`}
       data-game-id={game.id}
+      onContextMenu={(e) => storageMenu.open(e)}
     >
       {/* ── Collapsed row summary ── */}
       <div
@@ -466,6 +508,24 @@ function StorageRowBase({
             )}
           </div>
         </div>
+      )}
+
+      {storageMenu.state && (
+        <ContextMenu
+          x={storageMenu.state.x}
+          y={storageMenu.state.y}
+          items={storageMenuItems}
+          onClose={storageMenu.close}
+          ariaLabel={game.name}
+          header={
+            <>
+              <span className="context-menu-title" title={game.name}>
+                {game.name}
+              </span>
+              <span className="ctx-badge">{game.platform}</span>
+            </>
+          }
+        />
       )}
     </li>
   );
