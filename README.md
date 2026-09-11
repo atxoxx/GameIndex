@@ -39,6 +39,7 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 ## 📑 Table of Contents
 
 - [✨ Features](#-features)
+- [🐧 Linux, Wine & Proton](#-linux-wine--proton)
 - [📸 Screenshots](#-screenshots)
 - [🎬 Demo Video](#demo-video)
 - [💡 Inspiration](#-inspiration)
@@ -59,10 +60,11 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | Feature | Description |
 |---------|-------------|
 | **Unified Library** | Steam, GOG Galaxy, Epic Games Store, Rockstar, Ubisoft Connect, Humble Bundle, and manual imports in one cohesive grid. |
-| **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, web links, HowLongToBeat, Crackwatch, ProtonDB, Steam community features, and live player counts. |
+| **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, web links, HowLongToBeat stats, Crackwatch, ProtonDB, Steam community features, and live player counts. |
+| **Game Notes** | Per-game Markdown workspace with multiple notes, 7 templates (walkthrough, checklist, boss strategy, build & loadout, quest log, progress journal), search & tag filters, pinning, live preview (write/split), word count, copy/export, and debounced auto-save. |
 | **Game Versions** | Detects installed versions from GOG/Epic/Steam manifests or PE metadata and flags newer releases on game pages and in the download modal. |
 | **Achievements Hub** | Cross-platform achievement tracking and analytics — sync Steam, GOG, Epic, RetroAchievements, and manual lists, with gamerscore totals, rarity & unlock-activity charts, and per-game completion shelves. |
-| **Emulators & ROMs** | Integrated emulator manager: launch emulator executables, catalog multi-system platforms, and manage ROMs with bulk actions. |
+| **Emulators & ROMs** | Integrated emulator manager: launch emulator executables, catalog multi-system platforms, and manage ROMs with bulk actions — with native Linux/AppImage emulator installs plus Flatpak/Snap binary discovery. |
 | **Mod Manager** | Dual-pane mod manager for Steam Workshop & Nexus Mods with bulk multi-select (enable/disable/delete), stat cards, and mod size tracking. |
 | **IGDB Storefront** | IGDB-powered catalog browsing (search, filters, rails, price badges, comparisons). |
 | **Store Compare** | Side-by-side comparison tray and modal for up to 4 games — best-value badges on numeric rows plus shared genre/platform/mode/theme chips. |
@@ -71,7 +73,7 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **News Reader** | Built-in RSS reader on a dedicated News page — curated gaming feeds, regional feeds and feed packs, with article reading that stays in the app. |
 | **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS on Windows (MangoHud / GameScope on Linux), with interactive timeline, Gantt, performance, and sparkline views. |
 | **Downloads** | Unified concurrent download engine with seeding, HTTP direct, debrid (Real-Debrid / AllDebrid / TorBox), browser-resolver captures, and torrents via `librqbit`. |
-| **Linux & Steam Deck** | First-class Proton/Wine compatibility: runner manager (GE-Proton, CachyOS, Wine-GE, Soda, Kron4ek…), shared Wine prefixes with per-game overrides, DXVK/VKD3D, esync/fsync/ntsync, MangoHud, GameMode, GameScope, per-game GPU pinning, controller & anti-cheat runtimes, and captured Proton/Wine logs. |
+| **Linux & Steam Deck** | First-class Proton/Wine compatibility: runner manager (GE-Proton, CachyOS, Proton-EM, Wine-GE, Soda, Kron4ek…), shared prefixes with per-game overrides, DXVK/VKD3D, esync/fsync/ntsync, MangoHud, GameMode, GameScope, per-game GPU pinning, controller & anti-cheat runtimes, captured logs with a live viewer, Wine tools and system diagnostics. → [Full guide](docs/linux-wine-proton.md) |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
 | **Backup & Restore** | Selectable, cancellable backups with live progress — raw NDJSON export plus merge/replace restore modes from the Settings backup tab, including Proton/Wine compatibility profiles. |
 | **Community & Friends** | Local-first social layer: profiles, friend sync, shared recommendations, and a community feed. |
@@ -79,16 +81,34 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs) — with animated game backdrops, focus memory, and fluid rail wrapping. |
 | **Live Player Counts** | Steam player counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
 | **Command Palette** | Global `Ctrl/Cmd+K` launcher for navigation, search, and system actions — recents, calculator, cheat sheet, random-game picker, and power filters — with synthesized UI sounds and a live now-playing chip. |
-| **Themes, i18n & Privacy** | Adaptive theming that samples the active game's artwork into chrome accents, dark/light + alternate themes with a custom accent picker, six-language support (`LanguageContext`), and a Privacy & Data tab to view/wipe local storage. |
-| **Customizable Interface** | Drag-and-drop top-nav tab ordering with per-item visibility, a resizable sidebar that folds to an icon rail on narrow windows, and fluid layouts tuned for handhelds and Steam Deck. |
+| **Themes, i18n & Privacy** | Adaptive theming that samples the active game's artwork into chrome accents, dark/light + alternate themes with a custom accent picker, a full **theme creator** (live preview, presets, JSON import/export), six-language support (`LanguageContext`), and a Privacy & Data tab to view/wipe local storage. |
+| **App Updates** | In-app update checks per install type (NSIS installer, AppImage, `.deb`, portable) plus a browsable **Release History** fetched from GitHub — version timeline, latest/pre-release/installed badges and full release notes without leaving the app. |
+| **Built-in Guide** | Searchable in-app documentation with grouped navigation, covering every major feature — plus a controller-friendly Big Screen variant. |
+| **Customizable Interface** | Drag-and-drop top-nav tab ordering with per-item visibility, right-click context menus across library, downloads, store, mods, news, emulators and storage, a resizable sidebar that folds to an icon rail on narrow windows, and fluid layouts tuned for handhelds and Steam Deck. |
 
-> 🚧 **Planned / in progress:** per-game performance profiles and user tags · theme editor and community themes · broader plugin hooks and marketplace.
+> 🚧 **Planned / in progress:** per-game performance profiles and user tags · community theme browser · broader plugin hooks and marketplace.
+
+---
+
+## 🐧 Linux, Wine & Proton
+
+GameIndex is built for Linux gaming, not ported to it. The compatibility layer is configurable globally and per game, with no external helper scripts required:
+
+- **Runners** — detect Steam/System Wine, CachyOS, Lutris, Heroic and community builds; download GE-Proton, CachyOS, Proton-EM, Wine-GE, Kron4ek and Soda releases in-app; install local archives; uninstall what GameIndex manages.
+- **Prefixes** — shared default prefix or one per game, `compatdata` reuse for Steam titles, prefix inspection (arch, validity, version, size, linked games), clone/reset/delete, Wine tools and one-click winetricks packages.
+- **Launch pipeline** — `[gamescope] [gamemoderun] [mangohud] [umu-run | runner] game.exe`, with DXVK/VKD3D, esync/fsync/ntsync, Wayland, WoW64, large-address-aware, DLL overrides, per-game env vars and exclusion lists.
+- **Display & performance** — Gamescope (FSR/NIS, HDR, VRR, resolution/FPS/refresh controls), MangoHud logging, GameMode, PRIME/GPU pinning and FPS readback into Activity.
+- **Steam integration** — reversible Wine/Proton launch-option merging in `localconfig.vdf` (skipped while Steam runs, one-time backup), Steam launch routes and the native launch-options picker.
+- **Logs & diagnostics** — per-game Wine/Proton logs with a live viewer, Linux system diagnostics, anti-cheat runtime installs and runner maintenance.
+- **Packaging** — AppImage and `.deb` builds with matching in-app updates.
+
+> 📖 **Read the full feature guide:** [`docs/linux-wine-proton.md`](./docs/linux-wine-proton.md)
 
 ---
 
 ## 📸 Screenshots
 
-<p align="center"><sub>Dark-first UI, captured on Windows at 1920×1080. The same interface adapts to light mode and desktop use.</sub></p>
+<p align="center"><sub>Dark-first UI, captured on Windows and Linux at 1920×1080. The same interface adapts to light mode and desktop use.</sub></p>
 
 <p align="center">
   <img src="Screenshots/Library/1.png" width="90%" loading="lazy" alt="GameIndex library grid" />
@@ -185,7 +205,49 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
   <img src="Screenshots/Wishlist/1.png" width="49%" loading="lazy" alt="Wishlist" />
 </p>
 
-> 📁 Full sets live in [`Screenshots/`](./Screenshots) — including Game page (13), Activity (10), Friends (9), Stats (8), and Deals (4) shots.
+### 📝 Game Notes
+
+<p>
+  <img src="Screenshots/notes/1.png" width="32%" loading="lazy" alt="Notes tab empty state with note templates" />
+  <img src="Screenshots/notes/2.png" width="32%" loading="lazy" alt="New note template menu" />
+  <img src="Screenshots/notes/3.png" width="32%" loading="lazy" alt="Markdown note editor with split preview" />
+</p>
+
+### 🐧 Linux & Steam Deck — Proton / Wine
+
+<p align="center"><sub>The global Proton/Wine settings, per-game compatibility overrides, and the live Wine/Proton log viewer. Full walkthrough in the <a href="docs/linux-wine-proton.md">Linux, Wine &amp; Proton feature guide</a>.</sub></p>
+
+<p>
+  <img src="Screenshots/linux/1.png" width="32%" loading="lazy" alt="Proton/Wine runner management" />
+  <img src="Screenshots/linux/2.png" width="32%" loading="lazy" alt="Wine prefix manager" />
+  <img src="Screenshots/linux/3.png" width="32%" loading="lazy" alt="Direct3D and graphics translation settings" />
+</p>
+
+<p>
+  <img src="Screenshots/linux/4.png" width="32%" loading="lazy" alt="Synchronization engine settings" />
+  <img src="Screenshots/linux/5.png" width="32%" loading="lazy" alt="Gamescope compositor settings" />
+  <img src="Screenshots/linux/6.png" width="32%" loading="lazy" alt="Gaming tools and overlays" />
+</p>
+
+<p>
+  <img src="Screenshots/linux/7.png" width="32%" loading="lazy" alt="Environment variables and DLL overrides" />
+  <img src="Screenshots/linux/8.png" width="32%" loading="lazy" alt="Linux system diagnostics and maintenance" />
+  <img src="Screenshots/linux/9.png" width="32%" loading="lazy" alt="Wine/Proton compatibility log viewer" />
+</p>
+
+<p>
+  <img src="Screenshots/linux/10.png" width="32%" loading="lazy" alt="Per-game compatibility layer and runner selection" />
+  <img src="Screenshots/linux/11.png" width="32%" loading="lazy" alt="Per-game prefix, architecture and Wine debug options" />
+  <img src="Screenshots/linux/12.png" width="32%" loading="lazy" alt="Per-game graphics and Direct3D overrides" />
+</p>
+
+<p>
+  <img src="Screenshots/linux/13.png" width="32%" loading="lazy" alt="Per-game tools and overlay overrides" />
+  <img src="Screenshots/linux/14.png" width="32%" loading="lazy" alt="Per-game environment and DLL override inheritance" />
+  <img src="Screenshots/linux/15.png" width="32%" loading="lazy" alt="Per-game prefix maintenance tools" />
+</p>
+
+> 📁 Full sets live in [`Screenshots/`](./Screenshots) — including Game page (13), Linux & Proton/Wine (15), Activity (10), Friends (9), Stats (8), Deals (4), and Notes (3) shots.
 
 ---
 
@@ -335,15 +397,21 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Wishlist tab with release countdowns and notes
 - ✅ Backup & restore with merge/replace NDJSON modes (incl. compatibility profiles)
 - ✅ Command palette, adaptive game-art theming, and now-playing HUD
-- ✅ Linux + Steam Deck support — Proton/Wine runner manager, shared prefixes, DXVK/VKD3D, MangoHud/GameMode/GameScope, GPU pinning, Wine logs
+- ✅ Linux + Steam Deck support — Proton/Wine runner manager, shared prefixes, DXVK/VKD3D, MangoHud/GameMode/GameScope, GPU pinning, Wine logs, system diagnostics ([full guide](docs/linux-wine-proton.md))
 - ✅ Per-game environment variables & compatibility profiles
 - ✅ Per-game GPU selection, controller support, and anti-cheat runtime installs
 - ✅ Store side-by-side compare mode
 - ✅ Game version detection & newer-release badges
+- ✅ Game notes workspace — Markdown notes, templates, tags, search & export
+- ✅ Theme creator with live preview, presets and JSON import/export
+- ✅ Release history + per-install update channels (NSIS, AppImage, `.deb`, portable)
+- ✅ Right-click context menus across library, downloads, store, mods, news, emulators and storage
+- ✅ Native Linux emulator installs (AppImage/tarball) & Flatpak/Snap discovery
+- ✅ Standalone always-on-top launch splash window that survives minimize-on-launch
 - ✅ Reorderable nav tabs, collapsible icon-rail sidebar & handheld/Deck layout pass
 - ✅ Animated Big Picture backdrops, focus memory & fluid rail navigation
 - 🚧 Per-game performance profiles and user tags
-- ⏳ Theme editor & community themes
+- 🚧 Theme creator shipped; community theme browser planned
 - ⏳ Broader plugin hooks and marketplace
 
 ---
