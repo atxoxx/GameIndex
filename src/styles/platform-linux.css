@@ -64,3 +64,32 @@
 [data-platform="linux"] .lib-hero-aurora {
   animation: none;
 }
+
+/* Progress fills are painted with gradients, and a few animate their
+   background-position, re-rasterising the bar every frame. Flatten them to
+   the theme accent so a fill is one solid colour. Completed/error variants
+   keep their semantic colours. */
+[data-platform="linux"] .dl-header-progress-fill,
+[data-platform="linux"] .dl-state-progress-fill,
+[data-platform="linux"] .dl-search-progress-fill,
+[data-platform="linux"] .dl-file-progress-fill,
+[data-platform="linux"] .dl-row-bar-fill--active,
+[data-platform="linux"]
+  .backup-progress-fill:not([data-complete="true"]):not([data-error="true"]),
+[data-platform="linux"] .cmd-inspector-progress-fill,
+[data-platform="linux"] .docs-toc__progress-fill,
+[data-platform="linux"]
+  .splashscreen-progress-fill:not(.splashscreen-progress-fill--error),
+[data-platform="linux"] .quick-stats-tile__mini-fill,
+[data-platform="linux"] .act-milestones__bar-fill,
+[data-platform="linux"] .act-ladder__seg-fill,
+[data-platform="linux"] .act-tod__slot-bar,
+[data-platform="linux"] .act-session-dist__fill,
+[data-platform="linux"] .bigscreen-rail-ach__fill,
+[data-platform="linux"] .bigscreen-leaderboard-bar-fill {
+  background: var(--color-accent);
+}
+
+[data-platform="linux"] .dl-row-bar-fill--active {
+  animation: none;
+}
