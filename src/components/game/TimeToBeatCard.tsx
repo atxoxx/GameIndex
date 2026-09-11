@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { KpiTile } from "../ui";
-import type { Game } from "../../types/game";
+import type { Game, TimeToBeat } from "../../types/game";
+import { parsePlayTime } from "../../types/game";
 import { IconClock, IconInfo, IconStar } from "./icons";
-import { TimeToBeatRow } from "./shared";
 import { useLanguage } from "../../context/LanguageContext";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
@@ -13,36 +13,92 @@ import HltbDetailsModal, { HltbDetailsContent } from "./HltbDetailsModal";
  * TimeToBeatCard
  *
  *  Right-sidebar card showing HowLongToBeat milestones for a game.
- *  Renders as a row of small KPI tiles (Main Story / Main + Extra /
- *  Completionist / All Styles) with a per-row progress bar below each
- *  so the user can see at a glance how far their playtime has carried
- *  them. A details button opens the full HLTB stat sheet — per-style
- *  medians and extremes, submission counts, community tallies and the
- *  per-platform breakdown.
+ *  Each play style is a compact KPI tile carrying its headline hours,
+ *  the HLTB submission count and an inline progress bar comparing the
+ *  user's playtime to that target — so the card answers "how long is
+ *  this game and how much have I done?" without repeating every label
+ *  twice. A details button opens the full HLTB stat sheet.
  *
- *  Legacy rows that still only carry the old IGDB values keep the
- *  previous Main / Completionist / Rushed presentation.
+ *  Legacy rows that still only carry the old IGDB values render the
+ *  same tile grid, minus submissions and the details button.
  */
 
 interface TimeToBeatCardProps {
   game: Game;
 }
 
-interface TierRow {
+type TierIntent = "default" | "accent" | "info" | "success";
+
+interface Tier {
   label: string;
   seconds: number;
-  intent: "default" | "accent" | "info" | "success";
+  intent: TierIntent;
   icon: typeof IconClock;
-  subtext?: string;
+  count?: number;
 }
 
 function formatHours(seconds: number): string {
-  return `${Math.round(seconds / 3600)}h`;
+  const hours = seconds / 3600;
+  if (hours >= 10) return `${Math.round(hours)}h`;
+  return `${Math.round(hours * 10) / 10}h`;
 }
 
-function submissionSubtext(count: number | undefined, t: (key: string, vars?: Record<string, string | number>) => string): string | undefined {
-  if (count == null || count <= 0) return undefined;
-  return t("hltb.submissions", { count: count.toLocaleString() });
+function buildTiers(
+  ttb: TimeToBeat,
+  isHltb: boolean,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): Tier[] {
+  const tiers: Tier[] = [];
+  const add = (
+    label: string,
+    seconds: number | undefined,
+    intent: TierIntent,
+    icon: typeof IconClock,
+    count?: number
+  ) => {
+    if (seconds !== undefined && seconds > 0) {
+      tiers.push({ label, seconds, intent, icon, count });
+    }
+  };
+
+  add(t("gameInfo.mainStory"), ttb.normally, "accent", IconStar, ttb.hltb?.mainStory?.count);
+  add(t("gameInfo.mainExtra"), ttb.mainExtra, "info", IconClock, ttb.hltb?.mainExtra?.count);
+  add(t("gameInfo.completionist"), ttb.completely, "success", IconStar, ttb.hltb?.completionist?.count);
+  add(t("hltb.allStyles"), ttb.allStyles, "default", IconClock, ttb.hltb?.allStyles?.count);
+  // Legacy IGDB "rushed" data has no HLTB equivalent.
+  if (!isHltb) add(t("gameInfo.rushed"), ttb.hastily, "default", IconClock);
+
+  return tiers;
+}
+
+/** Inline "played / target" bar shown in a tile footer. */
+function TimeToBeatProgress({
+  seconds,
+  currentHours,
+}: {
+  seconds: number;
+  currentHours: number;
+}) {
+  const targetHours = Math.max(1, seconds / 3600);
+  const percent = Math.min(100, Math.round((currentHours / targetHours) * 100));
+  const isDone = percent >= 100;
+
+  return (
+    <div className="ttb-progress">
+      <div className="ttb-progress__meta">
+        <span>
+          {Math.round(currentHours * 10) / 10}h / {formatHours(seconds)}
+        </span>
+        <span>{percent}%</span>
+      </div>
+      <div className="ttb-progress__track">
+        <div
+          className={`ttb-progress__fill${isDone ? " ttb-progress__fill--done" : ""}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
@@ -55,60 +111,10 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
   if (!ttb) return null;
 
   const isHltb = !!ttb.hltb;
-  const hasAny =
-    (ttb.normally && ttb.normally > 0) ||
-    (ttb.mainExtra && ttb.mainExtra > 0) ||
-    (ttb.completely && ttb.completely > 0) ||
-    (ttb.allStyles && ttb.allStyles > 0) ||
-    (ttb.hastily && ttb.hastily > 0);
-  if (!hasAny) return null;
+  const tiers = buildTiers(ttb, isHltb, t);
+  if (tiers.length === 0) return null;
 
-  const tiers: TierRow[] = [];
-  if (ttb.normally !== undefined && ttb.normally > 0) {
-    tiers.push({
-      label: t("gameInfo.mainStory"),
-      seconds: ttb.normally,
-      intent: "accent",
-      icon: IconStar,
-      subtext: submissionSubtext(ttb.hltb?.mainStory?.count, t),
-    });
-  }
-  if (ttb.mainExtra !== undefined && ttb.mainExtra > 0) {
-    tiers.push({
-      label: t("gameInfo.mainExtra"),
-      seconds: ttb.mainExtra,
-      intent: "info",
-      icon: IconClock,
-      subtext: submissionSubtext(ttb.hltb?.mainExtra?.count, t),
-    });
-  }
-  if (ttb.completely !== undefined && ttb.completely > 0) {
-    tiers.push({
-      label: t("gameInfo.completionist"),
-      seconds: ttb.completely,
-      intent: "success",
-      icon: IconStar,
-      subtext: submissionSubtext(ttb.hltb?.completionist?.count, t),
-    });
-  }
-  if (ttb.allStyles !== undefined && ttb.allStyles > 0) {
-    tiers.push({
-      label: t("hltb.allStyles"),
-      seconds: ttb.allStyles,
-      intent: "default",
-      icon: IconClock,
-      subtext: submissionSubtext(ttb.hltb?.allStyles?.count, t),
-    });
-  }
-  // Legacy IGDB "rushed" data has no HLTB equivalent.
-  if (!isHltb && ttb.hastily !== undefined && ttb.hastily > 0) {
-    tiers.push({
-      label: t("gameInfo.rushed"),
-      seconds: ttb.hastily,
-      intent: "default",
-      icon: IconClock,
-    });
-  }
+  const currentHours = parsePlayTime(game.playTime || "0h") / 60;
 
   return (
     <section className="game-section time-to-beat-card">
@@ -116,7 +122,7 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
         <span className="game-section-title__icon" aria-hidden>
           <IconClock size={16} />
         </span>
-        {isHltb ? t("gameInfo.hltbTitle") : t("game.timeToBeatTitle")}
+        {t("game.timeToBeatTitle")}
         {isHltb && ttb.hltb && (
           <span className="ttb-title-actions">
             <span className="ttb-source-badge">{t("gameInfo.hltb")}</span>
@@ -135,7 +141,7 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
         )}
       </h2>
 
-      <div className="ttb-kpi-grid">
+      <div className="ttb-tiles">
         {tiers.map((tier) => {
           const Icon = tier.icon;
           return (
@@ -145,22 +151,16 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
               label={tier.label}
               icon={<Icon size={12} />}
               value={formatHours(tier.seconds)}
-              subtext={tier.subtext}
+              subtext={
+                tier.count != null && tier.count > 0
+                  ? t("hltb.submissions", { count: tier.count.toLocaleString() })
+                  : undefined
+              }
               intent={tier.intent}
+              footer={<TimeToBeatProgress seconds={tier.seconds} currentHours={currentHours} />}
             />
           );
         })}
-      </div>
-
-      <div className="ttb-progress-list">
-        {tiers.map((tier) => (
-          <TimeToBeatRow
-            key={tier.label}
-            label={tier.label}
-            targetSeconds={tier.seconds}
-            currentPlayTime={game.playTime}
-          />
-        ))}
       </div>
 
       {detailsOpen && ttb.hltb && (

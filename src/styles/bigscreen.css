@@ -4334,21 +4334,16 @@
 }
 
 /* Time-to-beat card. */
-.bigscreen-gamepage-rail .ttb-kpi-grid {
+.bigscreen-gamepage-rail .ttb-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
 }
 
-.bigscreen-gamepage-rail .ttb-progress-list {
-  gap: 0.625rem;
-  padding-top: 0.75rem;
-}
-
-.bigscreen-gamepage-rail .ttb-row__head {
+.bigscreen-gamepage-rail .ttb-progress__meta {
   font-size: 0.75rem;
 }
 
-.bigscreen-gamepage-rail .ttb-row__track {
+.bigscreen-gamepage-rail .ttb-progress__track {
   height: 0.4375rem;
 }
 

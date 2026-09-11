@@ -36,5 +36,5 @@ export { default as SystemRequirementsCard } from "./SystemRequirementsCard";
 export { default as GameNewsTab } from "./GameNewsTab";
 export { default as DetailSectionsHiddenNote } from "./DetailSectionsHiddenNote";
 
-export { SectionTitle, TimeToBeatRow, StatusDot, formatPlayTimeCompact } from "./shared";
+export { SectionTitle, StatusDot, formatPlayTimeCompact } from "./shared";
 export { getVideoEmbedUrl, getVideoThumbnail } from "./video";

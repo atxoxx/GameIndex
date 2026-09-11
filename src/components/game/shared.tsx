@@ -37,48 +37,6 @@ export function SectionTitle({
 }
 
 /**
- * One progress row for the Time to Beat card. Renders a labeled bar
- * with the user's playtime overlay. Pure presentation; the card
- * supplies the playtime string via props so this stays memoizable.
- */
-export function TimeToBeatRow({
-  label,
-  targetSeconds,
-  currentPlayTime,
-}: {
-  label: string;
-  targetSeconds: number;
-  currentPlayTime: string;
-}) {
-  const targetHours = Math.round(targetSeconds / 3600);
-  const playTimeMinutes = parsePlayTime(currentPlayTime);
-  const playTimeHours = playTimeMinutes / 60;
-
-  const percentage = Math.min(
-    100,
-    Math.round((playTimeHours / targetHours) * 100)
-  );
-  const isDone = percentage >= 100;
-
-  return (
-    <div className="ttb-row">
-      <div className="ttb-row__head">
-        <span className="ttb-row__label">{label}</span>
-        <span className="ttb-row__meta">
-          {Math.round(playTimeHours * 10) / 10}h / {targetHours}h ({percentage}%)
-        </span>
-      </div>
-      <div className="ttb-row__track">
-        <div
-          className={`ttb-row__fill ${isDone ? "ttb-row__fill--done" : ""}`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-/**
  * Small colored dot used to indicate play status in the dropdown
  * and any card that surfaces the current play status.
  */

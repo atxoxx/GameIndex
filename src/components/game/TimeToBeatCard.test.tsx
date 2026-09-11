@@ -64,8 +64,11 @@ describe("TimeToBeatCard", () => {
     expect(screen.getAllByText("gameInfo.mainExtra").length).toBeGreaterThan(0);
     expect(screen.getAllByText("gameInfo.completionist").length).toBeGreaterThan(0);
     expect(screen.getAllByText("hltb.allStyles").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("gameInfo.hltbTitle").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("game.timeToBeatTitle").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("gameInfo.hltb").length).toBeGreaterThan(0);
     expect(screen.getAllByText("8h").length).toBeGreaterThan(0);
+    expect(screen.getByText("5h / 8h")).toBeTruthy();
+    expect(screen.getByText("63%")).toBeTruthy();
 
     const detailsButton = screen.getByRole("button", { name: /common.details/ });
     fireEvent.click(detailsButton);
