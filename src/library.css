@@ -608,47 +608,84 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-primary) 78%, transparent);
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-lg);
+  background: color-mix(in srgb, var(--color-bg-secondary) 88%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-full);
-  box-shadow: var(--shadow-md);
+  box-shadow: inset 0 1px 0 var(--color-border-faint), var(--shadow-md);
   flex-wrap: wrap;
 }
 
 .lib-toolbar-title {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-sm);
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .lib-toolbar-title h2 {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Count chip — reads as status, not body copy. */
 .lib-toolbar-count {
-  font-size: var(--font-size-xs);
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
   white-space: nowrap;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.lib-toolbar-count.is-filtered {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-border);
+  color: var(--color-accent);
 }
 
 .lib-toolbar-controls {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  flex: 1 1 auto;
   flex-wrap: wrap;
+}
+
+.lib-toolbar-sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 var(--space-2xs);
+  flex-shrink: 0;
+  border-radius: 1px;
+  background: var(--color-border);
+}
+
+/* The Simple-mode "Advanced" disclosure wraps toolbar controls in a
+   block that carries a page-level top margin — cancel it in the row. */
+.lib-toolbar .ui-disclosure {
+  margin-top: 0;
 }
 
 /* Prominent pill search */
@@ -656,20 +693,35 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 38px;
+  height: 36px;
   padding: 0 var(--space-md);
-  background: var(--color-surface-glass);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-  flex: 1;
-  min-width: 180px;
-  max-width: 320px;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+  flex: 1 1 200px;
+  min-width: 170px;
+  max-width: 340px;
+}
+
+.lib-search:hover {
+  border-color: var(--color-border-highlight);
 }
 
 .lib-search:focus-within {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.lib-search.has-value {
+  border-color: var(--color-accent-border);
+}
+
+.lib-search.has-value > svg {
+  color: var(--color-accent);
 }
 
 .lib-search svg {
@@ -739,7 +791,7 @@
   align-items: center;
   gap: 2px;
   padding: 2px;
-  background: var(--color-surface-glass);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
 }
@@ -754,8 +806,8 @@
 }
 
 .lib-toolbar-group .store-density-btn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
 }
@@ -786,18 +838,19 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 38px;
+  height: 36px;
   padding: 0 var(--space-md);
-  background: var(--color-surface-glass);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
   transition: border-color var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast),
+    background var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -1664,9 +1717,9 @@ select.lib-filter-search option {
   gap: 6px;
   height: 36px;
   padding: 0 var(--space-md);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
-  background: var(--color-surface-glass);
+  background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -1678,6 +1731,11 @@ select.lib-filter-search option {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
   border-color: var(--color-accent);
+}
+
+.lib-filter-trigger.has-filters {
+  border-color: var(--color-accent-border);
+  color: var(--color-accent);
 }
 
 .lib-filter-trigger.active {
@@ -1700,6 +1758,11 @@ select.lib-filter-search option {
   font-size: 11px;
   font-weight: var(--font-weight-bold);
   line-height: 1;
+}
+
+.lib-filter-trigger.active .lib-toolbar-filter-badge {
+  background: var(--color-accent-contrast);
+  color: var(--color-accent);
 }
 
 @media (min-width: 1024px) {
@@ -2956,12 +3019,24 @@ select.lib-filter-search option {
 }
 
 @media (max-width: 1280px) {
+  /* The capsule only reads right as a single row — stack it before the
+     controls start wrapping inside the pill. */
   .lib-toolbar {
-    flex-wrap: wrap;
-    gap: var(--space-xs);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    border-radius: var(--radius-xl);
+  }
+  .lib-toolbar-controls {
+    justify-content: flex-start;
   }
   .lib-search {
-    max-width: 240px;
+    max-width: 360px;
+  }
+  /* Stacked rows break the cluster divider's meaning — drop it. */
+  .lib-toolbar-sep {
+    display: none;
   }
   /* The toolbar wraps taller in this range, so the sticky panel would
      tuck under it — scroll the panel with the page instead. */
@@ -3010,8 +3085,10 @@ select.lib-filter-search option {
     position: static;
     border-radius: var(--radius-lg);
   }
+  /* Very narrow: the search takes its own full-width row. */
   .lib-search {
     max-width: none;
+    flex: 1 1 100%;
   }
   .lib-empty {
     margin: var(--space-xl) auto;
@@ -3074,19 +3151,20 @@ select.lib-filter-search option {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 38px;
+  height: 36px;
   padding: 0 var(--space-md);
-  background: var(--color-surface-glass);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
   transition: border-color var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .lib-export-trigger:hover {
@@ -3549,8 +3627,8 @@ select.lib-filter-search option {
 .lib-toolbar-dropdown .msd__trigger {
   height: 36px;
   padding: 0 var(--space-md);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -3558,13 +3636,14 @@ select.lib-filter-search option {
 }
 
 .lib-toolbar-dropdown .msd__trigger:hover {
-  border-color: var(--color-border-light);
+  border-color: var(--color-border-highlight);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
 .lib-toolbar-dropdown .msd__trigger.has-value {
   border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary));
   color: var(--color-accent);
 }
 
@@ -3574,10 +3653,10 @@ select.lib-filter-search option {
   align-items: center;
   gap: var(--space-xs);
   height: 36px;
-  padding: 0 var(--space-sm);
-  border-radius: var(--radius-md);
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -3586,9 +3665,9 @@ select.lib-filter-search option {
 }
 
 .lib-bulk-toggle-btn:hover {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
-  border-color: var(--color-border-light);
+  border-color: var(--color-border-highlight);
 }
 
 .lib-bulk-toggle-btn.active {

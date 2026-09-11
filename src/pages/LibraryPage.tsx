@@ -271,16 +271,13 @@ export default function LibraryPage() {
 
   const toolbarTitle = isLibraryEmpty
     ? t("page.library.yourGames")
-    : `${t("nav.library")} (${
-        hasFilters
-          ? t("bigscreen.library.countOf", { count: filteredGames.length, total: games.length })
-          : games.length
-      })`;
+    : t("nav.library");
 
-  const toolbarCount =
-    !isLibraryEmpty && hasFilters
-      ? t("libraryPage.resultCount", { count: filteredGames.length, plural: filteredGames.length !== 1 ? "s" : "" })
-      : null;
+  const toolbarCount = isLibraryEmpty
+    ? null
+    : hasFilters
+      ? t("bigscreen.library.countOf", { count: filteredGames.length, total: games.length })
+      : t("storage.gamesCount", { count: games.length, plural: games.length !== 1 ? "s" : "" });
 
   const sidebarProps = {
     search: filters.search,
@@ -348,6 +345,7 @@ export default function LibraryPage() {
         <LibraryToolbar
           title={toolbarTitle}
           count={toolbarCount}
+          countActive={hasFilters}
           search={filters.search}
           onSearchChange={setSearch}
           selectedGenres={filters.genres}

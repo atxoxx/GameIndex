@@ -13,6 +13,8 @@ export type { LibraryGroupBy };
 interface LibraryToolbarProps {
   title: string;
   count?: string | number | null;
+  /** Highlights the count badge when filters or a search narrow the list. */
+  countActive?: boolean;
   search: string;
   onSearchChange: (q: string) => void;
   selectedGenres?: string[];
@@ -38,6 +40,7 @@ interface LibraryToolbarProps {
 export default function LibraryToolbar({
   title,
   count,
+  countActive = false,
   search,
   onSearchChange,
   selectedGenres = [],
@@ -66,32 +69,14 @@ export default function LibraryToolbar({
       <div className="lib-toolbar-title">
         <h2>{title}</h2>
         {count != null && count !== "" && (
-          <span className="lib-toolbar-count">{count}</span>
+          <span className={`lib-toolbar-count${countActive ? " is-filtered" : ""}`}>
+            {count}
+          </span>
         )}
       </div>
 
       <div className="lib-toolbar-controls">
-        {/* Compact filters trigger button */}
-        {onToggleFilters && (
-          <button
-            type="button"
-            className={`lib-filter-trigger${filtersOpen ? " active" : ""}${activeFilterCount > 0 ? " has-filters" : ""}`}
-            onClick={onToggleFilters}
-            aria-label={t("store.filters")}
-            aria-expanded={filtersOpen}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" width="15" height="15">
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="7" y1="12" x2="17" y2="12" />
-              <line x1="10" y1="18" x2="14" y2="18" />
-            </svg>
-            <span>{t("store.filters")}</span>
-            {activeFilterCount > 0 && (
-              <span className="lib-toolbar-filter-badge">{activeFilterCount}</span>
-            )}
-          </button>
-        )}
-        {/* Search input */}
+        {/* Search input — leads the control cluster */}
         <div className={`lib-search${search ? " has-value" : ""}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
@@ -119,6 +104,27 @@ export default function LibraryToolbar({
             </button>
           )}
         </div>
+
+        {/* Compact filters trigger button */}
+        {onToggleFilters && (
+          <button
+            type="button"
+            className={`lib-filter-trigger${filtersOpen ? " active" : ""}${activeFilterCount > 0 ? " has-filters" : ""}`}
+            onClick={onToggleFilters}
+            aria-label={t("store.filters")}
+            aria-expanded={filtersOpen}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" width="15" height="15">
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="7" y1="12" x2="17" y2="12" />
+              <line x1="10" y1="18" x2="14" y2="18" />
+            </svg>
+            <span>{t("store.filters")}</span>
+            {activeFilterCount > 0 && (
+              <span className="lib-toolbar-filter-badge">{activeFilterCount}</span>
+            )}
+          </button>
+        )}
 
         {/* Genre filter dropdown */}
         {availableGenres.length > 0 && onGenresChange && (
@@ -158,6 +164,9 @@ export default function LibraryToolbar({
             <LibraryGroupMenu value={groupBy} onChange={onGroupByChange} />
           </div>
         )}
+
+        {/* Divider between facet controls and view controls */}
+        <span className="lib-toolbar-sep" aria-hidden="true" />
 
         {/* Sort Menu */}
         <LibrarySortMenu value={sort} onChange={onSortChange} />

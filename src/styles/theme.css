@@ -670,10 +670,6 @@ html[data-ui-mode="simple"] .ui-complete-only {
   display: none !important;
 }
 
-html[data-ui-mode="simple"] .lib-toolbar-count {
-  display: none;
-}
-
 html[data-ui-mode="simple"] .game-hero__kpis {
   gap: var(--space-xs);
 }
