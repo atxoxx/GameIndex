@@ -8,6 +8,14 @@ import {
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  buildCustomThemeCss,
+  detectMode,
+  isValidThemeId,
+  sanitizeCustomThemeColors,
+  type CustomThemeColors,
+  type CustomThemeMode,
+} from "../utils/customTheme";
 
 /**
  * Describes the "feel" of a theme so the UI can tag it with the right
@@ -26,6 +34,9 @@ export interface ThemeMeta {
 export interface ThemeConfig {
   id: string;
   meta: ThemeMeta;
+  /** Seed colors + resolved scheme. Present only on user-authored themes. */
+  colors?: CustomThemeColors;
+  mode?: CustomThemeMode;
 }
 
 /** Well-known built-in themes. */
@@ -122,7 +133,19 @@ function loadThemes(): ThemeConfig[] {
   try {
     const raw = localStorage.getItem(CUSTOM_THEMES_KEY);
     if (!raw) return [...BUILTIN_THEMES];
-    const custom: Array<{ id: string; meta: ThemeMeta }> = JSON.parse(raw);
+    const parsed: Array<{ id?: string; meta?: ThemeMeta; colors?: unknown; mode?: string }> =
+      JSON.parse(raw);
+    const custom: ThemeConfig[] = [];
+    for (const entry of parsed) {
+      const colors = sanitizeCustomThemeColors(entry.colors);
+      if (!entry.id || !isValidThemeId(entry.id) || !colors || !entry.meta?.name) continue;
+      custom.push({
+        id: entry.id,
+        meta: { ...entry.meta, isCustom: true },
+        colors,
+        mode: entry.mode === "light" || entry.mode === "dark" ? entry.mode : detectMode(colors),
+      });
+    }
     return [...BUILTIN_THEMES, ...custom];
   } catch {
     return [...BUILTIN_THEMES];
@@ -142,6 +165,19 @@ function resolveSystemTheme(): "dark" | "light" {
   }
   return "dark";
 }
+
+function persistCustomThemes(themes: ThemeConfig[]) {
+  try {
+    const custom = themes.filter(
+      (t) => t.meta.isCustom && !BUILTIN_THEMES.some((b) => b.id === t.id)
+    );
+    localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(custom));
+  } catch {
+    /* ignore */
+  }
+}
+
+const CUSTOM_STYLE_EL_ID = "gamelib-custom-themes";
 
 // ── Context type ───────────────────────────────────────────────────────
 
@@ -195,6 +231,27 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyTheme(currentTheme);
   }, [currentTheme]);
+
+  // Custom themes live in localStorage, not in themes.css, so their token
+  // blocks are generated and injected as a single runtime stylesheet.
+  useEffect(() => {
+    const blocks = themes
+      .filter((t) => t.meta.isCustom && t.colors && isValidThemeId(t.id))
+      .map((t) =>
+        buildCustomThemeCss(t.id, t.colors as CustomThemeColors, t.mode ?? detectMode(t.colors as CustomThemeColors))
+      );
+    let el = document.getElementById(CUSTOM_STYLE_EL_ID) as HTMLStyleElement | null;
+    if (blocks.length === 0) {
+      el?.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement("style");
+      el.id = CUSTOM_STYLE_EL_ID;
+      document.head.appendChild(el);
+    }
+    el.textContent = blocks.join("\n\n");
+  }, [themes]);
 
   // Mirror the active theme to the backend kv store (get_theme /
   // set_theme) so the native splash window can apply the last-used
@@ -261,14 +318,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemes((prev) => {
       const filtered = prev.filter((t) => t.id !== theme.id);
       const next = [...filtered, { ...theme, meta: { ...theme.meta, isCustom: true } }];
-      try {
-        const custom = next.filter((t) =>
-          !BUILTIN_THEMES.some((b) => b.id === t.id)
-        );
-        localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(custom));
-      } catch {
-        /* ignore */
-      }
+      persistCustomThemes(next);
       return next;
     });
   }, []);
@@ -278,14 +328,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (BUILTIN_THEMES.some((b) => b.id === themeId)) return;
     setThemes((prev) => {
       const next = prev.filter((t) => t.id !== themeId);
-      try {
-        const custom = next.filter((t) =>
-          !BUILTIN_THEMES.some((b) => b.id === t.id)
-        );
-        localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(custom));
-      } catch {
-        /* ignore */
-      }
+      persistCustomThemes(next);
       return next;
     });
     // If the removed theme was active, fall back to dark

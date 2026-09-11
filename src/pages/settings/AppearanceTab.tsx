@@ -1,14 +1,26 @@
-import { useMemo } from "react";
-import { useTheme, type ThemeDescriptor } from "../../context/ThemeContext";
+import { useMemo, useRef, useState } from "react";
+import { useTheme, type ThemeConfig, type ThemeDescriptor } from "../../context/ThemeContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2, Zap } from "lucide-react";
+import { Volume2, Zap, Pencil, Plus, Download, Upload } from "lucide-react";
+import { Button, ConfirmModal } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import AccentPreview from "./AccentPreview";
-import { PaletteIcon } from "./settingsIcons";
+import ThemeCreatorModal from "./ThemeCreatorModal";
+import ThemeImportModal, { type ThemeImportPreviewEntry } from "./ThemeImportModal";
+import { PaletteIcon, TrashIcon } from "./settingsIcons";
 import { playActionSound } from "../../utils/soundEffects";
+import {
+  createCustomThemeId,
+  dedupeThemeName,
+  detectMode,
+  downloadThemeExport,
+  parseThemeImport,
+  type ImportedTheme,
+  type ThemeImportIssue,
+} from "../../utils/customTheme";
 
 /** Maps theme ids to preview colors — kept in sync with theme stylesheets. */
 const THEME_PREVIEW_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
@@ -80,7 +92,7 @@ function getDescriptorLabel(descriptor: ThemeDescriptor, t: (k: string) => strin
 }
 
 export default function AppearanceTab() {
-  const { currentTheme, setTheme, themes, systemSync, setSystemSync } = useTheme();
+  const { currentTheme, setTheme, themes, systemSync, setSystemSync, removeCustomTheme, addCustomTheme } = useTheme();
   const {
     accentColor,
     setAccentColor,
@@ -95,6 +107,15 @@ export default function AppearanceTab() {
   } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
+
+  const [creatorOpen, setCreatorOpen] = useState(false);
+  const [editingTheme, setEditingTheme] = useState<ThemeConfig | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ThemeConfig | null>(null);
+  const [importPreview, setImportPreview] = useState<{
+    entries: ThemeImportPreviewEntry[];
+    errors: ThemeImportIssue[];
+  } | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const accentSwatches = useMemo(
     () =>
@@ -111,6 +132,95 @@ export default function AppearanceTab() {
     showToast(t("settings.themeChanged", { theme: themeMeta?.name ?? themeId }), "success");
   }
 
+  function openCreator() {
+    setEditingTheme(null);
+    setCreatorOpen(true);
+  }
+
+  function openEditor(theme: ThemeConfig) {
+    setEditingTheme(theme);
+    setCreatorOpen(true);
+  }
+
+  function handleDeleteConfirm() {
+    if (!pendingDelete) return;
+    removeCustomTheme(pendingDelete.id);
+    showToast(t("settings.themeCreator.deleted", { name: pendingDelete.meta.name }), "success");
+    setPendingDelete(null);
+  }
+
+  async function handleImportFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0) return;
+
+    const imported: ImportedTheme[] = [];
+    const errors: ThemeImportIssue[] = [];
+    for (const file of files) {
+      try {
+        const result = parseThemeImport(await file.text());
+        imported.push(...result.themes);
+        errors.push(...result.errors);
+      } catch {
+        errors.push({ code: "invalidTheme", detail: file.name });
+      }
+    }
+
+    if (imported.length === 0) {
+      const code = errors[0]?.code ?? "noThemes";
+      showToast(
+        code === "invalidJson"
+          ? t("settings.themeImport.error.invalidJson")
+          : t("settings.themeImport.error.noThemes"),
+        "error"
+      );
+      return;
+    }
+
+    const names = themes.filter((th) => th.meta.isCustom).map((th) => th.meta.name);
+    const entries: ThemeImportPreviewEntry[] = imported.map((theme) => {
+      const finalName = dedupeThemeName(theme.name, names);
+      names.push(finalName);
+      return { theme, finalName, renamed: finalName !== theme.name };
+    });
+    setImportPreview({ entries, errors });
+  }
+
+  function handleImportConfirm(selected: ThemeImportPreviewEntry[]) {
+    const ids = themes.map((th) => th.id);
+    let added = 0;
+    for (const entry of selected) {
+      const id = createCustomThemeId(entry.finalName, ids);
+      ids.push(id);
+      addCustomTheme({
+        id,
+        meta: {
+          name: entry.finalName,
+          descriptor: "minimal",
+          isCustom: true,
+          createdAt: new Date().toISOString(),
+        },
+        colors: entry.theme.colors,
+        mode: entry.theme.mode,
+      });
+      added += 1;
+    }
+    setImportPreview(null);
+    if (added > 0) {
+      showToast(t("settings.themeImport.imported", { count: added }), "success");
+    }
+  }
+
+  function handleExportTheme(theme: ThemeConfig) {
+    if (!theme.colors) return;
+    downloadThemeExport({
+      name: theme.meta.name,
+      colors: theme.colors,
+      mode: theme.mode ?? detectMode(theme.colors),
+    });
+    showToast(t("settings.themeCreator.exported", { name: theme.meta.name }), "success");
+  }
+
   return (
     <>
       <SettingsSection
@@ -118,12 +228,49 @@ export default function AppearanceTab() {
         icon={<PaletteIcon />}
         title={t("settings.section.appearanceThemes")}
         desc={t("settings.appearance.desc")}
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              leftIcon={<Upload size={14} />}
+              onClick={() => importInputRef.current?.click()}
+            >
+              {t("settings.themeImport.button")}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              leftIcon={<Plus size={14} />}
+              onClick={openCreator}
+            >
+              {t("settings.themeCreator.newTheme")}
+            </Button>
+          </>
+        }
       >
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          multiple
+          className="theme-import-input"
+          onChange={handleImportFiles}
+        />
         <div className="theme-grid">
           {themes.map((theme) => {
             const isActive = currentTheme === theme.id;
-            const colors = THEME_PREVIEW_COLORS[theme.id] ?? THEME_PREVIEW_COLORS.dark;
-            const descriptorLabel = getDescriptorLabel(theme.meta.descriptor, t);
+            const colors =
+              theme.meta.isCustom && theme.colors
+                ? {
+                    bg: theme.colors.bgPrimary,
+                    text: theme.colors.textPrimary,
+                    accent: theme.colors.accent,
+                  }
+                : THEME_PREVIEW_COLORS[theme.id] ?? THEME_PREVIEW_COLORS.dark;
+            const descriptorLabel = theme.meta.isCustom
+              ? t("settings.themeCreator.customBadge")
+              : getDescriptorLabel(theme.meta.descriptor, t);
             return (
               <div
                 key={theme.id}
@@ -176,9 +323,63 @@ export default function AppearanceTab() {
                   </div>
                   {isActive && <span className="theme-active-dot" aria-hidden />}
                 </div>
+
+                {theme.meta.isCustom && (
+                  <div className="theme-card-actions">
+                    <button
+                      type="button"
+                      className="theme-card-action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExportTheme(theme);
+                      }}
+                      aria-label={t("settings.themeCreator.exportAria", { name: theme.meta.name })}
+                      title={t("settings.themeCreator.export")}
+                    >
+                      <Download size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="theme-card-action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditor(theme);
+                      }}
+                      aria-label={t("settings.themeCreator.editAria", { name: theme.meta.name })}
+                      title={t("common.edit")}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="theme-card-action theme-card-action--danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingDelete(theme);
+                      }}
+                      aria-label={t("settings.themeCreator.deleteAria", { name: theme.meta.name })}
+                      title={t("common.delete")}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
+
+          <button
+            type="button"
+            className="theme-card theme-card--create"
+            onClick={openCreator}
+          >
+            <span className="theme-card-preview theme-card-preview--create">
+              <Plus size={22} />
+            </span>
+            <span className="theme-card-info">
+              <span className="theme-card-name">{t("settings.themeCreator.newTheme")}</span>
+            </span>
+          </button>
         </div>
 
         {/* System theme sync */}
@@ -350,6 +551,29 @@ export default function AppearanceTab() {
           )}
         </div>
       </SettingsSection>
+
+      <ThemeCreatorModal
+        open={creatorOpen}
+        editing={editingTheme}
+        onClose={() => setCreatorOpen(false)}
+      />
+
+      <ThemeImportModal
+        open={importPreview !== null}
+        entries={importPreview?.entries ?? []}
+        errors={importPreview?.errors ?? []}
+        onConfirm={handleImportConfirm}
+        onCancel={() => setImportPreview(null)}
+      />
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title={t("settings.themeCreator.deleteTitle", { name: pendingDelete?.meta.name ?? "" })}
+        message={t("settings.themeCreator.deleteMessage")}
+        confirmLabel={t("settings.themeCreator.delete")}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setPendingDelete(null)}
+      />
     </>
   );
 }
