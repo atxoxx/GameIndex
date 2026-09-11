@@ -112,14 +112,9 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 ### 🛒 Store
 
 <p>
-  <img src="Screenshots/Store/Overview/1.png" width="32%" loading="lazy" alt="Store catalogue" />
-  <img src="Screenshots/Store/Overview/2.png" width="32%" loading="lazy" alt="Store browsing with filters" />
-  <img src="Screenshots/Store/Overview/3.png" width="32%" loading="lazy" alt="Store product page" />
-</p>
-
-<p>
-  <img src="Screenshots/Store/Reviews/1.png" width="49%" loading="lazy" alt="Community reviews" />
-  <img src="Screenshots/Store/Weblinks/1.png" width="49%" loading="lazy" alt="Web links panel" />
+  <img src="Screenshots/Store/1.png" width="32%" loading="lazy" alt="Store catalogue" />
+  <img src="Screenshots/Store/2.png" width="32%" loading="lazy" alt="Store browsing with filters" />
+  <img src="Screenshots/Store/3.png" width="32%" loading="lazy" alt="Store product page" />
 </p>
 
 ### 📰 News
@@ -190,7 +185,7 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
   <img src="Screenshots/Wishlist/1.png" width="49%" loading="lazy" alt="Wishlist" />
 </p>
 
-> 📁 Full sets live in [`Screenshots/`](./Screenshots) — including more Game page (10), Friends (10), Activity (5), and Store (9) shots.
+> 📁 Full sets live in [`Screenshots/`](./Screenshots) — including Game page (13), Activity (10), Friends (9), Stats (8), and Deals (4) shots.
 
 ---
 
