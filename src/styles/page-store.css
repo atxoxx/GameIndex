@@ -1883,7 +1883,7 @@
   border: 1px solid var(--color-border) !important;
   background: var(--color-bg-secondary) !important;
   cursor: pointer !important;
-  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast) !important;
+  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast) !important;
   margin-bottom: 6px !important;
   box-sizing: border-box !important;
   flex-direction: unset !important;
@@ -1896,7 +1896,6 @@
 .store-game-card.store-game-card-list:hover {
   background: var(--color-bg-tertiary) !important;
   border-color: var(--color-border-hover) !important;
-  transform: translateY(-1px) !important;
   box-shadow: var(--elevation-3) !important;
 }
 
