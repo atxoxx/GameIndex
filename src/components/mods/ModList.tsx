@@ -30,6 +30,7 @@ interface ModListProps {
   onBulkDelete: () => void;
   onClearSelection: () => void;
   onClearFilters: () => void;
+  onModContextMenu?: (e: React.MouseEvent, mod: GameMod) => void;
 }
 
 export default function ModList({
@@ -53,6 +54,7 @@ export default function ModList({
   onBulkDelete,
   onClearSelection,
   onClearFilters,
+  onModContextMenu,
 }: ModListProps) {
   const { t } = useLanguage();
   const dragId = useRef<string | null>(null);
@@ -189,6 +191,7 @@ export default function ModList({
                 e.preventDefault();
                 handleDrop(mod.id);
               }}
+              onContextMenu={onModContextMenu}
             />
           );
         })}

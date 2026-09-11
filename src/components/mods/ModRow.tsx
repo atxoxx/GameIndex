@@ -29,6 +29,7 @@ interface ModRowProps {
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
+  onContextMenu?: (e: React.MouseEvent, mod: GameMod) => void;
 }
 
 export default function ModRow({
@@ -46,6 +47,7 @@ export default function ModRow({
   onDragOver,
   onDragLeave,
   onDrop,
+  onContextMenu,
 }: ModRowProps) {
   const { t } = useLanguage();
 
@@ -64,6 +66,7 @@ export default function ModRow({
         .filter(Boolean)
         .join(" ")}
       onClick={onSelect}
+      onContextMenu={onContextMenu ? (e) => onContextMenu(e, mod) : undefined}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {

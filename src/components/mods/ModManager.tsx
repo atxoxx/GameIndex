@@ -4,12 +4,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { Copy, ExternalLink, FolderOpen, Power, Trash2 } from "lucide-react";
 import type { Game } from "../../types/game";
 import type { GameMod, ModConflict } from "../../types/mods";
 import { useGameMods } from "../../hooks/useGameMods";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { ConfirmModal } from "../ui";
+import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import ModsHeroStats, { type FilterTab } from "./ModsHeroStats";
 import ModsToolbar, { type ModSortOption } from "./ModsToolbar";
 import ModList from "./ModList";
@@ -71,6 +76,8 @@ export default function ModManager({
   const [showExportModal, setShowExportModal] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [nexusOpen, setNexusOpen] = useState(false);
+  const modMenu = useContextMenu<GameMod>();
+  const copy = useCopyToClipboard();
 
   const rootRef = useRef<HTMLDivElement>(null);
   const mods = payload?.mods ?? [];
@@ -443,6 +450,107 @@ export default function ModManager({
     setLeftWidth(Math.max(300, Math.round(current + (e.key === "ArrowRight" ? 24 : -24))));
   }, [leftWidth]);
 
+  const contextMod = modMenu.state?.target ?? null;
+
+  const getWorkshopItemId = (mod: GameMod): string | null => {
+    if (mod.engine !== "workshop") return null;
+    const fromNotes = mod.notes?.match(/workshop:(\d+)/);
+    if (fromNotes) return fromNotes[1];
+    const fromPath = mod.path.match(/(\d+)(?:\.disabled)?$/);
+    return fromPath ? fromPath[1] : null;
+  };
+
+  const modMenuItems: ContextMenuItem[] = contextMod
+    ? [
+        {
+          id: "toggle",
+          label: contextMod.enabled ? t("mods.disable") : t("mods.enable"),
+          icon: <Power size={15} />,
+          accent: !contextMod.enabled,
+          onSelect: () => {
+            modMenu.close();
+            void handleToggle(contextMod);
+          },
+        },
+        {
+          id: "open-folder",
+          label: t("mods.openLocation"),
+          icon: <FolderOpen size={15} />,
+          onSelect: () => {
+            modMenu.close();
+            handleOpenFolder(
+              contextMod.kind === "folder"
+                ? contextMod.path
+                : contextMod.path.replace(/[\\/][^\\/]+$/, "")
+            );
+          },
+        },
+        ...(contextMod.nexusModId &&
+        (contextMod.nexusDomain ?? payload?.settings?.nexusDomain)
+          ? [
+              {
+                id: "open-nexus",
+                label: t("mods.viewOnNexus"),
+                icon: <ExternalLink size={15} />,
+                onSelect: () => {
+                  modMenu.close();
+                  void openUrl(
+                    `https://www.nexusmods.com/${
+                      contextMod.nexusDomain ?? payload?.settings?.nexusDomain
+                    }/mods/${contextMod.nexusModId}`
+                  );
+                },
+              } as ContextMenuItem,
+            ]
+          : []),
+        ...(getWorkshopItemId(contextMod)
+          ? [
+              {
+                id: "open-workshop",
+                label: t("mods.viewOnWorkshop"),
+                icon: <ExternalLink size={15} />,
+                onSelect: () => {
+                  modMenu.close();
+                  void openUrl(
+                    `https://steamcommunity.com/sharedfiles/filedetails/?id=${getWorkshopItemId(contextMod)}`
+                  );
+                },
+              } as ContextMenuItem,
+            ]
+          : []),
+        { id: "sep-1", separator: true },
+        {
+          id: "copy-path",
+          label: t("sidebar.copyPath"),
+          icon: <Copy size={15} />,
+          onSelect: () => {
+            modMenu.close();
+            void copy(contextMod.path);
+          },
+        },
+        {
+          id: "copy-name",
+          label: t("gameMenu.copyName"),
+          icon: <Copy size={15} />,
+          onSelect: () => {
+            modMenu.close();
+            void copy(contextMod.name);
+          },
+        },
+        { id: "sep-2", separator: true },
+        {
+          id: "delete",
+          label: t("mods.delete"),
+          icon: <Trash2 size={15} />,
+          danger: true,
+          onSelect: () => {
+            modMenu.close();
+            setDeleteTarget(contextMod);
+          },
+        },
+      ]
+    : [];
+
   return (
     <div className="mods-manager" ref={rootRef}>
       {/* KPI Hero Stats Bar */}
@@ -612,6 +720,7 @@ export default function ModManager({
               setFilterTab("all");
               setSelectedEngine(null);
             }}
+            onModContextMenu={(e, mod) => modMenu.open(e, mod)}
           />
 
           {/* Draggable split resizer */}
@@ -640,6 +749,25 @@ export default function ModManager({
             onOpenFolder={handleOpenFolder}
           />
         </div>
+      )}
+
+      {/* Mod context menu */}
+      {contextMod && modMenu.state && (
+        <ContextMenu
+          x={modMenu.state.x}
+          y={modMenu.state.y}
+          items={modMenuItems}
+          onClose={modMenu.close}
+          ariaLabel={contextMod.name}
+          header={
+            <>
+              <span className="context-menu-title" title={contextMod.name}>
+                {contextMod.name}
+              </span>
+              <span className="ctx-badge">{contextMod.engine}</span>
+            </>
+          }
+        />
       )}
 
       {/* Delete Confirmation Modal */}
