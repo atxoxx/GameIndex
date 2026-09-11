@@ -2,13 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "../../../styles/game-notes.css";
 import {
   BookOpen,
+  CalendarClock,
   ChevronDown,
   FileText,
   ListChecks,
   Loader2,
   NotebookPen,
   Plus,
+  ScrollText,
   Search,
+  Skull,
+  Swords,
   X,
 } from "lucide-react";
 import type { Game } from "../../../types/game";
@@ -67,6 +71,34 @@ const TEMPLATES: NoteTemplate[] = [
     labelKey: "notes.template.checklist",
     hintKey: "notes.template.checklistHint",
     contentKey: "notes.template.checklistBody",
+  },
+  {
+    id: "boss",
+    icon: Skull,
+    labelKey: "notes.template.boss",
+    hintKey: "notes.template.bossHint",
+    contentKey: "notes.template.bossBody",
+  },
+  {
+    id: "build",
+    icon: Swords,
+    labelKey: "notes.template.build",
+    hintKey: "notes.template.buildHint",
+    contentKey: "notes.template.buildBody",
+  },
+  {
+    id: "quests",
+    icon: ScrollText,
+    labelKey: "notes.template.quests",
+    hintKey: "notes.template.questsHint",
+    contentKey: "notes.template.questsBody",
+  },
+  {
+    id: "journal",
+    icon: CalendarClock,
+    labelKey: "notes.template.journal",
+    hintKey: "notes.template.journalHint",
+    contentKey: "notes.template.journalBody",
   },
 ];
 
