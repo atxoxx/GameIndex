@@ -158,6 +158,7 @@ export type DetailSectionKey =
   | "releases"
   | "reviews"
   | "activity"
+  | "notes"
   | "achievements"
   | "mods"
   | "weblinks"
@@ -502,6 +503,7 @@ const DEFAULT_DETAIL_SECTION_VISIBILITY: DetailSectionVisibility = {
   releases: true,
   reviews: true,
   activity: true,
+  notes: true,
   achievements: true,
   mods: true,
   weblinks: true,

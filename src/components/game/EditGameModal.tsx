@@ -107,7 +107,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [editReleaseDate, setEditReleaseDate] = useState(game.releaseDate || "");
   const [editDescription, setEditDescription] = useState(game.description || "");
   const [editStoryline, setEditStoryline] = useState(game.storyline || "");
-  const [editNotes, setEditNotes] = useState(game.notes || "");
 
   const [editIgdbRating, setEditIgdbRating] = useState(game.igdbRating || 0);
   const [editCriticRating, setEditCriticRating] = useState(game.criticRating || 0);
@@ -907,7 +906,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     const newCover = editCover || undefined;
     const newHero = editHero || undefined;
     const newLogo = editLogo || undefined;
-    const newNotes = editNotes.trim() || undefined;
 
     const newDescription = editDescription.trim() || undefined;
     const newDeveloper = editDeveloper.trim() || undefined;
@@ -948,7 +946,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       coverSourceUrl: /^https:\/\//i.test(newCover || "") ? newCover : undefined,
       bannerUrl: newHero,
       logoUrl: newLogo,
-      notes: newNotes,
       description: newDescription,
       sizeBytes: newSizeBytes,
       sizeRootPath: newSizeRootPath,
@@ -1616,10 +1613,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 <div className="edit-field full-width">
                   <label className="edit-label" htmlFor="edit-storyline">{t("edit.label.storyline")}</label>
                   <textarea id="edit-storyline" className="edit-input edit-textarea" value={editStoryline} onChange={(e) => setEditStoryline(e.target.value)} placeholder="Deep storyline and narrative context..." rows={3} />
-                </div>
-                <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="edit-label" htmlFor="edit-notes">{t("edit.label.notes")}</label>
-                  <textarea id="edit-notes" className="edit-input edit-textarea" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Personal notes, walkthrough reminders, cheats..." rows={3} />
                 </div>
               </fieldset>
 

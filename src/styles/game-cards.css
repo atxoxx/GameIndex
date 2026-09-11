@@ -253,40 +253,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Inline-editable notes card (Game page overview). */
-.notes-section__hint {
-  margin-left: auto;
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-regular);
-  color: var(--color-text-muted);
-  letter-spacing: normal;
-  text-transform: none;
-}
-
-.notes-section__textarea {
-  width: 100%;
-  min-height: 96px;
-  resize: vertical;
-  padding: var(--space-md);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-  font-family: inherit;
-  transition: border-color var(--transition-fast);
-}
-
-.notes-section__textarea:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.notes-section__textarea::placeholder {
-  color: var(--color-text-muted);
-}
-
 .info-dl-value-tag {
   display: inline-block;
   padding: 1px 8px;

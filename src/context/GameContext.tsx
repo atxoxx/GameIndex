@@ -366,12 +366,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Drop the exe from the watcher index so a stale process match can't
       // resurrect the deleted game as a phantom running entry.
       scheduleWatcherIndexRebuild();
+      // Notes live in their own domain DB; clean them up with the game.
+      invoke("delete_game_notes_for_game", { gameId: id }).catch((err) =>
+        console.error("Failed to delete game notes:", err)
+      );
     },
     [scheduleWatcherIndexRebuild, sessions]
   );
 
   const removeGames = useCallback(
     (predicate: (game: Game) => boolean) => {
+      // Snapshot the ids before the state update so the notes domain can
+      // be cleaned up without side effects inside the updater.
+      const removedIds = gamesRef.current.filter(predicate).map((g) => g.id);
+      for (const removedId of removedIds) {
+        invoke("delete_game_notes_for_game", { gameId: removedId }).catch((err) =>
+          console.error("Failed to delete game notes:", err)
+        );
+      }
       setGames((prev) => {
         if (!prev.some(predicate)) return prev;
         const removed = prev.filter(predicate);

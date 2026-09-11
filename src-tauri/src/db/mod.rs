@@ -71,6 +71,7 @@ pub mod atomic;
 pub mod compatibility;
 pub mod download_history;
 pub mod emulators;
+pub mod game_notes;
 pub mod games;
 pub mod kv;
 pub mod legacy;

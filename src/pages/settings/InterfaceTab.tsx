@@ -649,6 +649,11 @@ function DetailSectionsPanel() {
         descKey: "settings.detailSections.activity.desc",
       },
       {
+        key: "notes",
+        titleKey: "settings.detailSections.notes.title",
+        descKey: "settings.detailSections.notes.desc",
+      },
+      {
         key: "achievements",
         titleKey: "settings.detailSections.achievements.title",
         descKey: "settings.detailSections.achievements.desc",

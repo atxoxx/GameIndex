@@ -14,8 +14,9 @@
 //! | `store_cache.db`   | `store_cache`, `store_detail`                       |
 //! | `achievements.db`  | `achievements_cache`                                |
 //! | `kv.db`            | `kv_store`                                          |
-//! | `news.db`          | `news_cache`                                        |
-//! | `emulators.db`     | `emulators`                                         |
+//! | `news.db`         | `news_cache`                                        |
+//! | `game_notes.db`   | `game_notes`                                        |
+//! | `emulators.db`    | `emulators`                                         |
 //! | `mods.db`          | `mods`, `game_mod_settings`                        |
 //! | `plugins.db`       | `plugins`                                           |
 //!
@@ -77,6 +78,7 @@ pub struct Db {
     pub achievements: SqlitePool,
     pub kv: SqlitePool,
     pub news: SqlitePool,
+    pub game_notes: SqlitePool,
     pub emulators: SqlitePool,
     pub mods: SqlitePool,
     pub plugins: SqlitePool,
@@ -114,6 +116,7 @@ impl Db {
             achievements: mk("achievements")?,
             kv: mk("kv")?,
             news: mk("news")?,
+            game_notes: mk("game_notes")?,
             emulators: mk("emulators")?,
             mods: mk("mods")?,
             plugins: mk("plugins")?,
@@ -163,6 +166,12 @@ impl Db {
     pub fn news(&self) -> Result<PooledConn, String> {
         self.news.get().map_err(|e| format!("acquire news conn: {e}"))
     }
+    /// Borrow a connection from the `game_notes` pool.
+    pub fn game_notes(&self) -> Result<PooledConn, String> {
+        self.game_notes
+            .get()
+            .map_err(|e| format!("acquire game_notes conn: {e}"))
+    }
     /// Borrow a connection from the `emulators` pool.
     pub fn emulators(&self) -> Result<PooledConn, String> {
         self.emulators
@@ -197,6 +206,7 @@ impl Db {
             "achievements" => Some(&self.achievements),
             "kv" => Some(&self.kv),
             "news" => Some(&self.news),
+            "game_notes" => Some(&self.game_notes),
             "emulators" => Some(&self.emulators),
             "mods" => Some(&self.mods),
             "plugins" => Some(&self.plugins),
@@ -241,6 +251,7 @@ mod tests {
             Db::achievements,
             Db::kv,
             Db::news,
+            Db::game_notes,
             Db::emulators,
             Db::mods,
             Db::plugins,

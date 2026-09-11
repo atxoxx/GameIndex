@@ -81,6 +81,10 @@ pub const GAMES_V9_DDL: &str = include_str!("schema_games_v9.sql");
 /// (`collection_id`) for persistent series relations.
 pub const GAMES_V10_DDL: &str = include_str!("schema_games_v10.sql");
 
+/// DDL for the `game_notes` domain: user-authored notes / guides
+/// attached to library games (Markdown content + tags + pin flag).
+pub const GAME_NOTES_DDL: &str = include_str!("schema_game_notes.sql");
+
 /// DDL for the `emulators` domain: the `emulators` table.
 pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
 
@@ -203,6 +207,10 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     DomainSchema {
         label: "news",
         versions: &[("v1", NEWS_DDL)],
+    },
+    DomainSchema {
+        label: "game_notes",
+        versions: &[("v1", GAME_NOTES_DDL)],
     },
     DomainSchema {
         label: "emulators",

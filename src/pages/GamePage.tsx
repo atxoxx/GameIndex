@@ -32,7 +32,6 @@ import {
   LanguagesSection,
   AboutSection,
   StorylineSection,
-  NotesSection,
   SystemRequirementsCard,
   DetailSectionsHiddenNote,
   WineLogsModal,
@@ -40,6 +39,8 @@ import {
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
+import NotesTab from "../components/game/notes/NotesTab";
+import { useGameNotes } from "../hooks/useGameNotes";
 import "../styles/activity.css";
 import "../styles/achievements.css";
 import "../styles/reviews.css";
@@ -56,12 +57,14 @@ import {
   IconWrench,
   IconGlobe,
   IconNewspaper,
+  IconFileText,
 } from "../components/game/icons";
 
 type GamePageTab =
   | "overview"
   | "reviews"
   | "activity"
+  | "notes"
   | "achievements"
   | "mods"
   | "weblinks"
@@ -71,6 +74,7 @@ const VALID_TABS = new Set<GamePageTab>([
   "overview",
   "reviews",
   "activity",
+  "notes",
   "achievements",
   "mods",
   "weblinks",
@@ -112,6 +116,15 @@ function GameDetail({ game }: { game: Game }) {
   const { appId: heroSteamAppId } = useSteamAppId(game);
   const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
   const { getGameAchievements } = useAchievements();
+  const {
+    notes: gameNotes,
+    loading: notesLoading,
+    createNote,
+    updateNote,
+    deleteNote,
+  } = useGameNotes(game.id, game.notes, () =>
+    updateGame(game.id, { notes: undefined }),
+  );
 
   // Achievement total from the active source (Steam / GOG / Epic / Retro /
   // manual), falling back to the legacy Steam-synced array for games that
@@ -254,6 +267,12 @@ function GameDetail({ game }: { game: Game }) {
         count: sessionCount > 0 ? sessionCount : null,
       },
       {
+        id: "notes" as const,
+        label: t("notes.title"),
+        icon: IconFileText,
+        count: gameNotes.length > 0 ? gameNotes.length : null,
+      },
+      {
         id: "achievements" as const,
         label: t("game.tab.achievements"),
         icon: IconTrophy,
@@ -269,7 +288,7 @@ function GameDetail({ game }: { game: Game }) {
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
     ];
     return allTabs.filter((tab) => isTabVisible(tab.id));
-  }, [t, achievementTotal, game.websites, isTabVisible]);
+  }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible]);
 
   return (
     <div className="game-page">
@@ -353,6 +372,7 @@ function GameDetail({ game }: { game: Game }) {
                   "releases",
                   "reviews",
                   "activity",
+                  "notes",
                   "achievements",
                   "mods",
                   "weblinks",
@@ -379,10 +399,7 @@ function GameDetail({ game }: { game: Game }) {
                 <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
               )}
 
-              {/* 4. Player Notes Journal */}
-              <NotesSection game={game} />
-
-              {/* 5. Franchise & Similar Games */}
+              {/* 4. Franchise & Similar Games */}
               <div className="ui-complete-only">
                 {detailSectionVisible.gameRelations && (
                   <GameRelationsCard
@@ -440,6 +457,17 @@ function GameDetail({ game }: { game: Game }) {
       {effectiveTab === "reviews" && <ReviewsTab game={game} />}
 
       {effectiveTab === "activity" && <GameActivityTab game={game} />}
+
+      {effectiveTab === "notes" && (
+        <NotesTab
+          game={game}
+          notes={gameNotes}
+          loading={notesLoading}
+          onCreate={createNote}
+          onUpdate={updateNote}
+          onDelete={deleteNote}
+        />
+      )}
 
       {effectiveTab === "weblinks" && (
         <WebLinksTab
