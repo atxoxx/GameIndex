@@ -8,7 +8,7 @@
 
 <p><strong>A unified, cross-store game launcher and library manager.</strong></p>
 
-Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a single, fast, native experience — with discovery, deals & news, activity tracking, achievements, a social layer, and a controller-first 10-foot UI.
+Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a single, fast, native experience — with discovery, deals & news, activity tracking, achievements, Linux/Steam Deck Proton support, a social layer, and a controller-first 10-foot UI.
 
 <br />
 
@@ -59,26 +59,30 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | Feature | Description |
 |---------|-------------|
 | **Unified Library** | Steam, GOG Galaxy, Epic Games Store, Rockstar, Ubisoft Connect, Humble Bundle, and manual imports in one cohesive grid. |
-| **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, web links, HowLongToBeat, Crackwatch, ProtonDB, and live player counts. |
+| **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, web links, HowLongToBeat, Crackwatch, ProtonDB, Steam community features, and live player counts. |
+| **Game Versions** | Detects installed versions from GOG/Epic/Steam manifests or PE metadata and flags newer releases on game pages and in the download modal. |
 | **Achievements Hub** | Cross-platform achievement tracking and analytics — sync Steam, GOG, Epic, RetroAchievements, and manual lists, with gamerscore totals, rarity & unlock-activity charts, and per-game completion shelves. |
 | **Emulators & ROMs** | Integrated emulator manager: launch emulator executables, catalog multi-system platforms, and manage ROMs with bulk actions. |
 | **Mod Manager** | Dual-pane mod manager for Steam Workshop & Nexus Mods with bulk multi-select (enable/disable/delete), stat cards, and mod size tracking. |
 | **IGDB Storefront** | IGDB-powered catalog browsing (search, filters, rails, price badges, comparisons). |
+| **Store Compare** | Side-by-side comparison tray and modal for up to 4 games — best-value badges on numeric rows plus shared genre/platform/mode/theme chips. |
 | **Deals Hub** | Real-time price deals across Steam, GOG, Epic, Humble, Fanatical, and more — plus an Xbox Game Pass catalog, giveaways with live countdowns, and playtester listings. |
 | **Wishlist** | Dedicated wishlist tab with release-date countdowns, per-game notes, genre/platform filters, and share-with-friends cards. |
 | **News Reader** | Built-in RSS reader on a dedicated News page — curated gaming feeds, regional feeds and feed packs, with article reading that stays in the app. |
-| **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS, with interactive timeline, Gantt, performance, and sparkline views. |
+| **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS on Windows (MangoHud / GameScope on Linux), with interactive timeline, Gantt, performance, and sparkline views. |
 | **Downloads** | Unified concurrent download engine with seeding, HTTP direct, debrid (Real-Debrid / AllDebrid / TorBox), browser-resolver captures, and torrents via `librqbit`. |
+| **Linux & Steam Deck** | First-class Proton/Wine compatibility: runner manager (GE-Proton, CachyOS, Wine-GE, Soda, Kron4ek…), shared Wine prefixes with per-game overrides, DXVK/VKD3D, esync/fsync/ntsync, MangoHud, GameMode, GameScope, per-game GPU pinning, controller & anti-cheat runtimes, and captured Proton/Wine logs. |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
-| **Backup & Restore** | Selectable, cancellable backups with live progress — raw NDJSON export plus merge/replace restore modes from the Settings backup tab. |
+| **Backup & Restore** | Selectable, cancellable backups with live progress — raw NDJSON export plus merge/replace restore modes from the Settings backup tab, including Proton/Wine compatibility profiles. |
 | **Community & Friends** | Local-first social layer: profiles, friend sync, shared recommendations, and a community feed. |
 | **Discord Rich Presence** | Playing *and* browsing presence — platform/playtime context, dynamic game poster, and a launcher toggle. |
-| **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs). |
+| **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs) — with animated game backdrops, focus memory, and fluid rail wrapping. |
 | **Live Player Counts** | Steam player counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
 | **Command Palette** | Global `Ctrl/Cmd+K` launcher for navigation, search, and system actions — recents, calculator, cheat sheet, random-game picker, and power filters — with synthesized UI sounds and a live now-playing chip. |
 | **Themes, i18n & Privacy** | Adaptive theming that samples the active game's artwork into chrome accents, dark/light + alternate themes with a custom accent picker, six-language support (`LanguageContext`), and a Privacy & Data tab to view/wipe local storage. |
+| **Customizable Interface** | Drag-and-drop top-nav tab ordering with per-item visibility, a resizable sidebar that folds to an icon rail on narrow windows, and fluid layouts tuned for handhelds and Steam Deck. |
 
-> 🚧 **Planned / in progress:** Linux + Steam Deck support · per-game environment variables, compatibility & performance profiles, tags · theme editor and community themes · broader plugin hooks and marketplace.
+> 🚧 **Planned / in progress:** per-game performance profiles and user tags · theme editor and community themes · broader plugin hooks and marketplace.
 
 ---
 
@@ -291,7 +295,7 @@ npx tsc --noEmit
 │   │                   News, Wishlist, Emulators, Mods, Activity, Achievements,
 │   │                   Storage, Downloads, Community, Friends, Settings, Docs)
 │   ├── components/      Feature-scoped UI (game/, library/, store/, downloads/,
-│   │                   news/, activity/, charts/, bigscreen/, ui/)
+│   │                   news/, activity/, reviews/, sidebar/, charts/, bigscreen/, ui/)
 │   ├── context/         Cross-cutting providers (Game, Activity, Theme, Language, ...)
 │   ├── hooks/           Reusable stateful helpers
 │   ├── types/           Mirrors of Rust serde models
@@ -300,8 +304,9 @@ npx tsc --noEmit
     ├── src/             Tauri commands, DB DAOs, integrations
     │   ├── steam|gog|epic|rockstar|uplay|humble/   Per-store sync + auth
     │   ├── downloads/        Concurrent direct, debrid, torrent & browser-resolver downloads
-    │   ├── db/               SQLite pool + schema
-    │   └── torrent_engine.rs librqbit wrapper
+    │   ├── compatibility.rs  Proton/Wine runners, prefixes, GameScope, GPU pinning
+    │   ├── db/               Per-domain SQLite pools + schema (incl. compatibility.db)
+    │   └── ...
     └── tauri.conf.json  Frameless window + bundle config
 ```
 
@@ -333,10 +338,16 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Deals hub — real-time store deals, Xbox Game Pass catalog, giveaways, and playtester listings
 - ✅ Multi-source Achievements dashboard with analytics
 - ✅ Wishlist tab with release countdowns and notes
-- ✅ Backup & restore with merge/replace NDJSON modes
+- ✅ Backup & restore with merge/replace NDJSON modes (incl. compatibility profiles)
 - ✅ Command palette, adaptive game-art theming, and now-playing HUD
-- 🚧 Per-game environment variables, compatibility profiles, performance profiles, and tags
-- ⏳ Linux + Steam Deck support
+- ✅ Linux + Steam Deck support — Proton/Wine runner manager, shared prefixes, DXVK/VKD3D, MangoHud/GameMode/GameScope, GPU pinning, Wine logs
+- ✅ Per-game environment variables & compatibility profiles
+- ✅ Per-game GPU selection, controller support, and anti-cheat runtime installs
+- ✅ Store side-by-side compare mode
+- ✅ Game version detection & newer-release badges
+- ✅ Reorderable nav tabs, collapsible icon-rail sidebar & handheld/Deck layout pass
+- ✅ Animated Big Picture backdrops, focus memory & fluid rail navigation
+- 🚧 Per-game performance profiles and user tags
 - ⏳ Theme editor & community themes
 - ⏳ Broader plugin hooks and marketplace
 

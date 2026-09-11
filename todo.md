@@ -102,6 +102,9 @@
   - **ProtonDB** badge: native / platinum / gold / silver / bronze / borked, with a link to the ProtonDB page (`protondb.rs`).
   - **System requirements**: minimum & recommended (CPU, GPU, RAM, storage).
   - **Release date + developer + publisher** card.
+  - **Steam store features**: controller support, feature/notice lists (`fetch_steam_features` → `SteamFeaturesCard`), plus community tags.
+  - **Relations / collections**: franchise, series, DLC and "other in this collection" rows (`collection_id`, `GameRelationsCard`).
+  - **Game version**: detected install version with newer-release badge (`game_versions.rs`, `useGameUpdateCheck`).
 
 ### 12. Achievements Tab — ✅ Done (multi-source)
 - Add an **Achievements** tab to the game page, now backed by **five sources**:
@@ -148,6 +151,7 @@
   - Game detail cards with cover art, rating, platforms, and a "Download"/"Get" button (links to store pages).
   - Wishlist / watchlist integration; ownership badges via `store_checker` (Steam / Epic owned).
   - Store game detail page includes a **News tab** (`b2b6872`) and per-section show/hide toggles.
+  - **Side-by-side compare** for up to 4 games — compare tray + modal with best-value badges and shared genre/platform/mode/theme chips (`storeCompare.ts`, `StoreCompareTray`, `StoreCompareModal`).
 - Note: "download" means opening the store link in the user's browser unless an official DRM-free source is available.
 
 ### 17. Multi-Store Import & Sync — ✅ Done
@@ -162,15 +166,15 @@
 - Deduplicate games that appear in multiple launchers (link them under one entry).
 - Show launcher badge icons next to each game in the library.
 
-### 18. Per-Game Options / Context Menu — ⚠️ Partial (launch options done)
+### 18. Per-Game Options / Context Menu — ⚠️ Partial (perf profiles & tags remain)
 - Right-click context menu (or settings gear) on any game in the sidebar/game page:
   - **Game-specific launch options** — ✅ done: command-line arguments, run-as-admin, **pre-launch / post-exit scripts** (`pre_launch_script`, `post_exit_script`, admin variants), **companion apps** (launch alongside, with args + delay), and a **Steam launch-option picker** (`steam://launch/<appid>/dialog` via `steam/launch_options.rs`).
   - **Override metadata**: manually set cover art, title, genre, rating — ✅ done (`EditGameModal`).
   - **Hide / archive game**: soft-delete from library without removing files — ✅ done (hidden games).
-  - **Compatibility settings**: force Proton/Wine version (for future Linux support), DXVK toggle, FSR toggle — ❌ (Linux plan only, see `plans/Linux.md`).
-  - **Environment variables** per game — ❌ not yet.
+  - **Environment variables** per game — ✅ done: global `customEnvironmentVariables` plus per-game additions and per-game exclusion lists.
+  - **Compatibility settings** — ✅ done: per-game Proton/Wine runner, Wine prefix (shared default + overrides), DXVK/VKD3D, GameScope, MangoHud/GameMode, GPU pinning, DLL overrides, controller & anti-cheat toggles (`EditGameModal` "compatibility" tab, `compatibility.rs`).
   - **Performance profile** (Windows power plan, RTSS OSD preset) — ❌ not yet.
-  - **Tags & collections** — ❌ (library filter presets exist, but no per-game user tags).
+  - **Tags & collections** — ❌ (library filter presets + auto genre/tag filters exist, but no per-game user tags).
 
 ### 19. Game Manager Tab — ✅ Done
 - New **Game Manager** tab in the main layout (alongside Library, Store, etc.).
@@ -234,9 +238,12 @@
 ### 25. Performance Optimizations — ⚠️ Partial (code-splitting + virtualization done)
 - **Frontend:**
   - ✅ **Code splitting**: every page is `React.lazy` in `src/bigscreen/registry.tsx`; Vite `manualChunks` splits vendor / react / tauri / router / hls / nostr / qrcode / html2canvas; `modulePreload` defers the heavy on-demand chunks.
-  - ✅ Virtualized library grid (local `VirtualGrid` in `LibraryPage.tsx`) + lazy bigscreen chunks.
+  - ✅ Virtualized library grid (`src/components/library/LibraryVirtualGrid.tsx`, `ResizeObserver`-driven) + lazy bigscreen chunks.
   - ✅ Memoized components, debounced search/filter inputs.
-  - ⏳ No `react-window` elsewhere (custom `VirtualGrid` covers the library).
+  - ✅ Store hover path kept cheap — `storeCardHover.ts` external store (`useSyncExternalStore`, 150 ms release debounce) pauses spotlight motion without grid re-renders; animated previews defer 140 ms.
+  - ✅ Resize-safe shell/charts/grids (`ResizeObserver` in virtual grid + `BarChart`, fluid `DonutChart`, responsive tiers for handhelds/Deck).
+  - ✅ Boot-time work cut on Linux (deferred idle media pipelines, non-blocking library read — `774710a`, `332af04`).
+  - ⏳ No `react-window` elsewhere (custom `LibraryVirtualGrid` covers the library).
   - ⏳ Activity chart render tuning and broader large-list virtualization remain to be revisited.
 - **Backend (Rust):**
   - ⏳ Parallelize game scanning with `rayon` or `tokio::spawn`.
@@ -268,22 +275,28 @@
 - Unified pipeline supporting direct HTTP downloads, debrid services (Real-Debrid / AllDebrid / TorBox), torrents, and a **browser resolver** that captures in-browser downloads (`downloads/browser_resolver.rs`).
 - Download history persisted across restarts (`download_history` table).
 
-### 32. Settings — Privacy, Launcher, Discord, Plugins, Hardware — ✅ Done
+### 32. Settings — Privacy, Launcher, Discord, Plugins, Hardware, Interface, Backup — ✅ Done
 - Settings page is a catalog-driven multi-tab surface (`settingsCatalog.tsx` is the single source of truth for tabs, sidebar groups, jump bar and search):
-  - **General** — language, updates, gamepad.
+  - **General** — language, updates, gamepad, Linux support level (Deck Verified / Full).
   - **Appearance** — themes, accent family, interface (Simple/Complete + density), detail-section show/hide toggles, motion, UI sound.
-  - **Hardware** — detected GPU/CPU/RAM, telemetry sampling, display units.
+  - **Interface** — drag-and-drop top-nav tab order + per-item visibility (`gamelib.navbar_tab_order`), reset to default.
+  - **Hardware** — detected GPU/CPU/RAM, telemetry sampling, display units, per-system GPU selection (Linux).
   - **Integrations** — Steam, Epic, GOG, Humble, Rockstar, Uplay + data-sync + RetroAchievements.
   - **Discord** — Rich Presence master toggle + per-option (cover art, playtime, browsing status) toggles.
   - **Downloads** — save path, notifications, bandwidth, blocked domains, debrid config.
   - **Plugins** — import/install/toggle sandboxed JS search plugins (bulk import modal).
   - **Launcher** — landing page, close-to-tray, minimize-on-launch, restore-on-exit, autostart, UAC elevation prompts.
   - **Privacy & Data** — friends notifications/read receipts, wipe local storage safely.
+  - **Backup** — domain selection, live progress, merge/replace restore (`BackupTab.tsx`).
+  - **Proton / Wine** (Linux-only) — runners, prefixes, graphics, sync engine, GameScope, tools, env/DLL overrides, maintenance (`CompatibilityTab.tsx`).
 
 ### 33. Big Screen Mode & Navigation Polish — ✅ Done
 - Controller-first TV interface with rail-aware gamepad navigation (`BigScreenContext`, `GamepadProvider`, `useFocusable`).
 - **Big Screen v3**: registry-driven sections (`src/bigscreen/registry.tsx` — `PRIMARY_SECTIONS` + `SYSTEM_SECTIONS` hub, `ShellSwitch` swaps desktop ↔ bigscreen per route; each bigscreen view is its own lazy chunk).
 - Dedicated Deals view in Big Screen mode; system pages for Downloads/Storage/Achievements/Mods/Emulators/Settings/Docs.
+- **Animated backdrops**: SteamGridDB animated hero/WebP support with cross-fading dashboard backdrops (`useGameBackdropArt`, `BigScreenDashboardBackdrop`, `BigScreenHeroBackground`).
+- **Fluid navigation**: keyboard arrows share the gamepad `navigate()` path, rails wrap end-to-start, grid rows wrap, hold-to-repeat tuned; per-route focus memory restores the last focused card (`utils/focusMemory.ts`).
+- **Fullscreen geometry**: window snapshot captured/restored around native fullscreen so leaving Big Screen restores position/size/maximized state.
 
 ### 34. System Tray, Launcher Behavior & Autostart — ✅ Done
 - System tray icon with live status line + right-click menu (`tray.rs`), green-dot variant while a game is running.
@@ -306,17 +319,46 @@
 - `tauri-plugin-updater` for release-channel updates + portable-mode update download/cancel/apply (`updater.rs`), surfaced via `UpdateModal` / `UpdateNotification`.
 
 ### 40. Tests — ✅ Done (first pass)
-- Frontend: **vitest** test suite (`npm test`) covering filters, Steam integration, units, color, game utils.
-- Backend: Rust unit tests across `db/games`, `db/migrate`, `plugins` (live smoke, ignored), `steam/launch_options`, GOG/Epic achievements, etc.
+- Frontend: **vitest** test suite (`npm test`) covering filters, Steam integration, units, color, game utils — expanded with store compare, store card hover, focus memory, gamepad utils, backdrop art, update-check, settings/sidebar contexts.
+- Backend: Rust unit tests across `db/games`, `db/migrate`, `plugins` (live smoke, ignored), `steam/launch_options`, GOG/Epic achievements, backup compatibility roundtrips, etc.
+
+### 41. Game Version Detection & Update Badges — ✅ Done
+- `game_versions.rs`: `detect_game_version` / `get_exe_file_version` resolve installed versions from GOG `goggame-*.info`, Windows PE metadata, Steam `appmanifest` buildid, Epic `.item`, folder manifests, and exe scans (launcher stubs bypassed).
+- Persisted in `games.version` (schema v8); `useGameUpdateCheck` + `utils/gameVersions.ts` render newer-release badges on game pages and in the download modal.
+
+### 42. Store Compare Mode — ✅ Done
+- Side-by-side comparison for up to 4 games: tray + modal with thumbnail chips, numeric winner badges, and shared genre/platform/mode/theme highlighting (`storeCompare.ts`, `StoreCompareTray`, `StoreCompareModal`).
+- Compare toggle on store cards + Interface setting to show/hide the compare badge; state persisted in sessionStorage.
+
+### 43. Interface Customization & Handheld Layouts — ✅ Done
+- **Reorderable top-nav tabs** with drag-and-drop (pointer events, not HTML5 DnD), per-item visibility, and reset (`InterfaceTab.tsx`, `SettingsContext`, localStorage `gamelib.navbar_tab_order`).
+- **Collapsible sidebar icon rail** — auto-folds below 1100px, resizable width (220–520px), icons + two-line titles, persisted per window (`SidebarCollapseContext`).
+- **Handheld / Steam Deck layout pass** — full-width pages (removed `--content-max-width`), `auto-fit` grids, wrapping toolbars, `clamp()` heroes, short-viewport chrome tiers, `@media (hover: none)` affordances, resize-safe grids/charts/modals.
+
+### 44. Backup & Restore v2 — ✅ Done
+- Raw **NDJSON v2 `.gibak`** archives (`backup_raw.rs`): one NDJSON file per domain plus `artwork/` and `plugins/`, merge/replace restore modes, live `backup-progress` events.
+- `compatibility` domain included (global settings, per-game profiles, runner records) with merge semantics that preserve local profiles; legacy v1 archives remain restorable.
+
+### 45. Steam Metadata Enrichment & Filters — ✅ Done
+- Steam store genres + community tags and store "features" (controller support, notices) fetched and merged/deduplicated with IGDB genres (`fetch_steam_genres_and_tags`, `fetch_steam_features`, `genreTags.ts`).
+- Searchable multi-select genre/platform filters, `SteamFeaturesCard`, and auto-updating relations powered by `games.collection_id` (`GameRelationsCard`).
+
+### 26. Linux Support — ✅ Done (Proton/Wine compatibility suite)
+- Platform-gated Windows-only paths; Linux process scanning (`/proc`) and GPU detection (`nvidia-smi` / sysfs) work across launcher, watcher and metrics.
+- **Runner manager** (`compatibility.rs`): detects Steam Proton, CachyOS, GE-Proton, Wine-GE, Lutris/Heroic/user runners, plus remote catalog download/install/delete with progress events.
+- **Wine prefix manager**: list/create/delete/clear/duplicate/inspect/open prefixes, winetricks verbs, `run_wine_tool` (winecfg, regedit, control, taskmgr, cmd), shared default prefix + per-game overrides.
+- **Launch integration**: DXVK/VKD3D, esync/fsync/ntsync, Wayland, WoW64, virtual desktop, global + per-game env vars and DLL overrides, MangoHud, GameMode, GameScope (geometry/FSR/FPS/HDR), umu-launcher, per-game GPU pinning, controller & anti-cheat runtimes, Wine/Proton log capture.
+- **Steam**: Wine/Proton flags merged into `localconfig.vdf` (one-time backup, atomic, reversible via kv tracking), Steam compat prefix reuse.
+- **UI**: Proton/Wine settings tab + per-game tab, `LinuxSupportLevel` (disabled/deck_verified/full), compatibility included in backups; AppImage/.deb bundles ship.
+- Remaining: Flatpak packaging.
 
 ---
 
 ## 🔮 Future / Later
 
-### 26. Linux Support — ⚠️ Plan written (`plans/Linux.md`), not implemented
-- A full Wayland build guide + Proton/Wine integration spec exists at `plans/Linux.md` (system deps, platform-gated Cargo deps, `/proc` process scanner, `/sys/class/drm` GPU detection, Steam path detection, ProtonDB badge already shipped).
-- Not merged: platform-gating of Windows-only crates, the `proton.rs` launch module, Wayland env vars, Linux bundle config.
-- Remaining work: integrate with Wine/Proton prefix management (create/manage prefixes, select Proton version, Winetricks/Protontricks), detect Steam Deck and switch to gamepad-friendly UI, Flatpak/AppImage packaging.
+### 46. Performance Profiles & User Tags — ⏳ Planned
+- Per-game performance profile: Windows power plan selection + RTSS OSD preset.
+- Per-game user tags/collections on top of the existing filter presets, auto genre/tag filters and IGDB collections.
 
 ### 27. Theming System (Phase 2) — ⚠️ Partial
 - The CSS custom-property engine is mature: base `:root` dark palette, light/nord/cyberpunk/aurora overrides, and a **global accent family** driving the full game palette (`f9a0c88`, `73327a9` theme consistency polish).
@@ -349,18 +391,18 @@
 | 🟡 Medium | 15 | Web links with page preview | ✅ Done |
 | 🟢 Normal | 16 | Store page — browse & download | ✅ Done |
 | 🟢 Normal | 17 | Multi-store import & sync (Steam/Epic/GOG/Humble/Rockstar/Uplay) | ✅ Done |
-| 🟢 Normal | 18 | Per-game options / context menu | ⚠️ Partial (launch args, admin, pre/post scripts, companion apps, Steam picker, metadata override, hide done; no env vars / compat / perf profiles / tags) |
+| 🟢 Normal | 18 | Per-game options / context menu | ⚠️ Partial (launch args, admin, pre/post scripts, companion apps, Steam picker, metadata override, hide, env vars + compat profiles done; no perf profiles / user tags) |
 | 🟢 Normal | 19 | Game manager tab | ✅ Done |
 | 🟢 Normal | 20 | Deals tab | ✅ Done |
 | 🟢 Normal | 21 | Downloads tab | ✅ Done |
 | 🟢 Normal | 22 | Statistics tab | ✅ Done |
 | 🟢 Normal | 23 | Watchlist tab | ✅ Done |
 | 🟢 Normal | 24 | Translations / i18n (6 locales) | ✅ Done |
-| 🟢 Normal | 25 | Performance optimizations | ⚠️ Partial (code-splitting + VirtualGrid done; no react-window elsewhere, no rayon) |
+| 🟢 Normal | 25 | Performance optimizations | ⚠️ Partial (code-splitting, LibraryVirtualGrid, store hover store, resize-safe shell done; no react-window elsewhere, no rayon/streaming) |
 | 🟢 Normal | 29 | Emulators & ROM management (+ install pipeline) | ✅ Done |
 | 🟢 Normal | 30 | Mod manager (Steam Workshop & Nexus) | ✅ Done |
 | 🟢 Normal | 31 | Concurrent downloads engine | ✅ Done |
-| 🟢 Normal | 32 | Settings overhaul (Discord/Plugins/Launcher/Hardware/Privacy) | ✅ Done |
+| 🟢 Normal | 32 | Settings overhaul (Interface/Backup/Compatibility + Discord/Plugins/Launcher/Hardware/Privacy) | ✅ Done |
 | 🟢 Normal | 33 | Big Screen rail navigation & deals (v3) | ✅ Done |
 | 🟢 Normal | 34 | System tray + launcher behavior + autostart | ✅ Done |
 | 🟢 Normal | 35 | Discord Rich Presence | ✅ Done |
@@ -369,8 +411,14 @@
 | 🟢 Normal | 38 | Docs page | ✅ Done |
 | 🟢 Normal | 39 | Updater (release + portable) | ✅ Done |
 | 🟢 Normal | 40 | Test suite (vitest + Rust unit tests) | ✅ Done |
-| ⚪ Later | 26 | Linux support | ⚠️ Plan written (`plans/Linux.md`), not implemented |
+| 🟢 Normal | 41 | Game version detection & update badges | ✅ Done |
+| 🟢 Normal | 42 | Store side-by-side compare mode | ✅ Done |
+| 🟢 Normal | 43 | Interface customization (nav tab order, icon rail) + handheld layouts | ✅ Done |
+| 🟢 Normal | 44 | Backup & restore v2 (raw NDJSON + compatibility domain) | ✅ Done |
+| 🟢 Normal | 45 | Steam metadata enrichment (tags/features/collections) | ✅ Done |
+| ✅ Done | 26 | Linux support (Proton/Wine runners, prefixes, GameScope, GPU pinning, Wine logs) | ✅ Done (Flatpak packaging remains) |
 | ⚪ Later | 27 | Theming system v2 | ⚠️ Partial (accent family + consistency polish done; no theme editor/import-export yet) |
 | ⚪ Later | 28 | Plugin system | ✅ Done (sandboxed search/download plugins); broader hook/marketplace API future |
+| ⚪ Later | 46 | Performance profiles & user tags | ⏳ Planned |
 
-> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**, **Tray**, **Discord**, **Docs**, **Updater**) are now tracked above.
+> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**, **Tray**, **Discord**, **Docs**, **Updater**, **Linux/Steam Deck compatibility**, **Store Compare**, **Game Versions**, **Interface customization**) are now tracked above.
