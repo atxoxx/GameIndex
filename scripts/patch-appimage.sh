@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Runs from `tauri build` (afterBuildCommand) on every platform and from CI.
+# Only Linux AppImage bundles need the display-stack patch.
+if [[ "$(uname -s)" != "Linux" ]]; then
+  exit 0
+fi
+
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 appimage_dir="$repo_root/src-tauri/target/release/bundle/appimage"
+if [[ ! -d "$appimage_dir" ]]; then
+  exit 0
+fi
 appdir="$(find "$appimage_dir" -maxdepth 1 -type d -name '*.AppDir' -print -quit)"
 appimage="$(find "$appimage_dir" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
 if [[ -z "$appimage" ]]; then
-  appimage="$appimage_dir/GameIndex_1.2.1_amd64.AppImage"
+  version="$(python3 -c "import json;print(json.load(open('$repo_root/src-tauri/tauri.conf.json'))['version'])")"
+  appimage="$appimage_dir/GameIndex_${version}_amd64.AppImage"
 fi
 linuxdeploy="${TAURI_LINUXDEPLOY:-${XDG_CACHE_HOME:-$HOME/.cache}/tauri/linuxdeploy-x86_64.AppImage}"
 
@@ -51,7 +61,7 @@ new = "if [[ -z \"${GDK_BACKEND:-}\" && -n \"${WAYLAND_DISPLAY:-}\" ]]; then\n  
 if old in text:
     path.write_text(text.replace(old, new, 1))
 PY
-done < <(find "$appdir/apprun-hooks" -type f -name 'linuxdeploy-plugin-gtk.sh' -print)
+done < <(find "$appdir/apprun-hooks" -type f -name 'linuxdeploy-plugin-gtk.sh' -print 2>/dev/null || true)
 
 rm -f -- "$appimage"
 OUTPUT="$appimage" "$linuxdeploy" \
@@ -65,5 +75,16 @@ OUTPUT="$appimage" "$linuxdeploy" \
   --exclude-library 'libXau.so*' \
   --exclude-library 'libXdmcp.so*' \
   --output appimage
+
+# The rebuilt AppImage is unsigned. `tauri build` signed the pre-patch
+# artifact during bundling, so re-sign before CI uploads the .sig. Skipped
+# locally when no signing key is present.
+if [[ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  if [[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]]; then
+    echo "[ERROR] TAURI_SIGNING_PRIVATE_KEY set but TAURI_SIGNING_PRIVATE_KEY_PASSWORD is missing" >&2
+    exit 1
+  fi
+  (cd "$repo_root" && npx tauri signer sign "$appimage")
+fi
 
 echo "[DONE] $appimage"
