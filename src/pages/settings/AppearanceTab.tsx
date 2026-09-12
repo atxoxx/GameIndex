@@ -1,9 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 import { useTheme, type ThemeConfig, type ThemeDescriptor } from "../../context/ThemeContext";
+import {
+  useBrandStyle,
+  type BrandStyleId,
+} from "../../context/BrandStyleContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay } from "lucide-react";
+import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay, Sparkles } from "lucide-react";
 import { Button, ConfirmModal } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -91,8 +95,41 @@ function getDescriptorLabel(descriptor: ThemeDescriptor, t: (k: string) => strin
   }
 }
 
+/** Small CSS-only mock of the app shell used by the brand-style cards. The
+ *  `brand-style-preview--<variant>` classes in brand-styles.css restyle the
+ *  shared blocks (topnav tabs, main panel, cards) so each skin reads at a
+ *  glance — rounded glass, flat capsules, underline tabs, etc. */
+function BrandStylePreview({ variant }: { variant: BrandStyleId }) {
+  return (
+    <div className={`brand-style-preview brand-style-preview--${variant}`} aria-hidden="true">
+      <div className="bsp-topnav">
+        <span className="bsp-logo" />
+        <span className="bsp-tabs">
+          <i className="bsp-tab bsp-tab--a active" />
+          <i className="bsp-tab bsp-tab--b" />
+          <i className="bsp-tab bsp-tab--c" />
+        </span>
+      </div>
+      <div className="bsp-body">
+        <div className="bsp-sidebar" />
+        <div className="bsp-main">
+          <div className="bsp-hero">
+            <span className="bsp-hero-line" />
+            <span className="bsp-hero-line bsp-hero-line--short" />
+          </div>
+          <div className="bsp-row">
+            <i className="bsp-card" />
+            <i className="bsp-card" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AppearanceTab() {
   const { currentTheme, setTheme, themes, systemSync, setSystemSync, removeCustomTheme, addCustomTheme } = useTheme();
+  const { currentStyle, setStyle, styles } = useBrandStyle();
   const {
     accentColor,
     setAccentColor,
@@ -134,6 +171,14 @@ export default function AppearanceTab() {
     setTheme(themeId);
     const themeMeta = themes.find((th) => th.id === themeId)?.meta;
     showToast(t("settings.themeChanged", { theme: themeMeta?.name ?? themeId }), "success");
+  }
+
+  function handleStyleChange(styleId: BrandStyleId) {
+    setStyle(styleId);
+    const meta = styles.find((s) => s.id === styleId);
+    if (meta) {
+      showToast(t("settings.brandStyle.changed", { style: t(meta.nameKey) }), "success");
+    }
   }
 
   function openCreator() {
@@ -227,6 +272,39 @@ export default function AppearanceTab() {
 
   return (
     <>
+      <SettingsSection
+        id="appearance-brand-style"
+        icon={<Sparkles className="settings-section-icon" />}
+        title={t("settings.brandStyle.title")}
+        desc={t("settings.brandStyle.desc")}
+      >
+        <p className="brand-style-lead">{t("settings.brandStyle.lead")}</p>
+        <div className="brand-style-grid">
+          {styles.map((style) => {
+            const isActive = currentStyle === style.id;
+            return (
+              <button
+                key={style.id}
+                type="button"
+                className={`brand-style-card${isActive ? " active" : ""}`}
+                onClick={() => handleStyleChange(style.id)}
+                aria-pressed={isActive}
+                aria-label={t("settings.brandStyle.pickAria", { style: t(style.nameKey) })}
+              >
+                <BrandStylePreview variant={style.id} />
+                <span className="brand-style-info">
+                  <span className="brand-style-text">
+                    <span className="brand-style-name">{t(style.nameKey)}</span>
+                    <span className="brand-style-desc">{t(style.descKey)}</span>
+                  </span>
+                  {isActive && <span className="brand-style-active-dot" aria-hidden />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </SettingsSection>
+
       <SettingsSection
         id="appearance-themes"
         icon={<PaletteIcon />}
