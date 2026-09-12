@@ -381,7 +381,10 @@ GameIndex captures every compatibility launch:
 
 - **Direct launches** write `<app_data>/wine_logs/<game_id>.log`, starting with a header that records
   the game, timestamp, exe, runner, prefix and the enabled features (sync, DXVK, Wayland, GPU, HUD,
-  UMU, GameMode, Gamescope, controller / anti-cheat).
+  UMU, GameMode, Gamescope, controller / anti-cheat). The header also includes a `Command:` line
+  with the full launch command — every wine/proton environment flag, the runner, the exe and the
+  launch arguments — so you can reproduce or debug exactly what was spawned (per-game profile from
+  the game edit modal plus global settings are both baked in).
 - **Steam launches** get a per-game folder `<app_data>/wine_logs/<game_id>/` and Proton's own log
   (`steam-<appid>.log`) via `PROTON_LOG=1` + `PROTON_LOG_DIR`. The folder is refreshed on each launch,
   and `steam-<appid>.log` is read when no direct log exists yet.

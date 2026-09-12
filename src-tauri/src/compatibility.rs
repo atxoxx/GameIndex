@@ -3246,6 +3246,24 @@ fn appimage_env_overrides(
     overrides
 }
 
+/// Quote a token for display in a POSIX shell command line.
+fn shell_quote(s: &str) -> String {
+    if s.is_empty() {
+        return "''".to_string();
+    }
+    if s.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b"_-./:@%+=,".contains(&b))
+    {
+        return s.to_string();
+    }
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// Render an environment value for the session log, lossy for non-UTF-8 paths.
+fn os_str_to_display<S: AsRef<std::ffi::OsStr>>(value: S) -> String {
+    value.as_ref().to_string_lossy().into_owned()
+}
+
 /// Launch a Windows executable through Wine or Proton.
 /// Returns the PID of the spawned process, while recording stdout/stderr into the game's log file.
 pub fn launch_with_compatibility(
@@ -3438,8 +3456,6 @@ pub fn launch_with_compatibility(
     let _ = writeln!(log_file, "Specific GPU: {}", specific_gpu_label);
     let _ = writeln!(log_file, "MangoHud: {} (hidden: {}), UMU: {}, GameMode: {}, Gamescope: {}", enable_mangohud, mangohud_hidden, use_umu, enable_gamemode, enable_gamescope);
     let _ = writeln!(log_file, "Controller support: {}, Anti-cheat support: {}", enable_controller_support, enable_anticheat_support);
-    let _ = writeln!(log_file, "==================================================");
-    let _ = log_file.flush();
 
     // Build the command chain.
     // Order: [gamescope [args] --] [gamemoderun] [mangohud] runner [run] [virtual desktop / exe] [args]
@@ -3489,11 +3505,21 @@ pub fn launch_with_compatibility(
     cmd.args(&tokens);
     cmd.current_dir(working_dir);
 
+    // Capture the environment as it is applied so the session log can show
+    // the exact command line, wine/proton flags included.
+    let mut env_lines: Vec<String> = Vec::new();
+    macro_rules! set_env {
+        ($k:expr, $v:expr) => {{
+            cmd.env(&$k, &$v);
+            env_lines.push(format!("{}={}", $k, os_str_to_display(&$v)));
+        }};
+    }
+
     #[cfg(target_os = "linux")]
     strip_appimage_env(&mut cmd);
 
     // Environment variables
-    cmd.env("WINEPREFIX", &prefix);
+    set_env!("WINEPREFIX", &prefix);
 
     // Linux: enable MangoHud CSV logging (auto-start after 1s, one line per
     // second) into a folder `metrics_collector` scans, so the overlay also
@@ -3505,7 +3531,7 @@ pub fn launch_with_compatibility(
     if enable_mangohud && is_command_available("mangohud") {
         if let Some(folder) = linux_mangohud_log_dir() {
             if fs::create_dir_all(&folder).is_ok() {
-                cmd.env("MANGOHUD_CONFIG", mangohud_log_config(&folder, mangohud_hidden));
+                set_env!("MANGOHUD_CONFIG", mangohud_log_config(&folder, mangohud_hidden));
             }
         }
     }
@@ -3513,68 +3539,68 @@ pub fn launch_with_compatibility(
     // UMU-Launcher environment: identify the game for umu's prefix /
     // protonfix handling and point PROTONPATH at the Proton folder.
     if use_umu {
-        cmd.env("GAMEID", format!("umu-{}", game_id));
-        cmd.env("STORE", "none");
+        set_env!("GAMEID", format!("umu-{}", game_id));
+        set_env!("STORE", "none");
         if let Some(folder) = proton_folder_for_runner(&runner_path) {
-            cmd.env("PROTONPATH", folder.to_string_lossy().to_string());
+            set_env!("PROTONPATH", folder.to_string_lossy().to_string());
         }
     }
     if let Some(a) = arch {
-        cmd.env("WINEARCH", a);
+        set_env!("WINEARCH", a);
     }
-    cmd.env("WINEESYNC", if enable_esync { "1" } else { "0" });
-    cmd.env("WINEFSYNC", if enable_fsync { "1" } else { "0" });
+    set_env!("WINEESYNC", if enable_esync { "1" } else { "0" });
+    set_env!("WINEFSYNC", if enable_fsync { "1" } else { "0" });
     if enable_ntsync {
-        cmd.env("WINESYNC", "1");
-        cmd.env("WINENTSYNC", "1");
+        set_env!("WINESYNC", "1");
+        set_env!("WINENTSYNC", "1");
     }
 
     if enable_dxvk_nvapi {
-        cmd.env("DXVK_ENABLE_NVAPI", "1");
+        set_env!("DXVK_ENABLE_NVAPI", "1");
     }
     if enable_dxvk_async {
-        cmd.env("DXVK_ASYNC", "1");
+        set_env!("DXVK_ASYNC", "1");
     }
     if enable_wayland {
-        cmd.env("WINE_ENABLE_WAYLAND", "1");
+        set_env!("WINE_ENABLE_WAYLAND", "1");
     }
     // Pinning a specific GPU also forces Wine Wayland on (WINE + Proton)
     // and hands the selection to the whole graphics-stack matrix.
     if let Some(selection) = specific_gpu.as_ref() {
-        cmd.env("WINE_ENABLE_WAYLAND", "1");
-        cmd.env("PROTON_ENABLE_WAYLAND", "1");
+        set_env!("WINE_ENABLE_WAYLAND", "1");
+        set_env!("PROTON_ENABLE_WAYLAND", "1");
         for (key, value) in specific_gpu_env(selection) {
-            cmd.env(key, value);
+            set_env!(key, value);
         }
     }
     if enable_wow64 {
-        cmd.env("WINE_NEW_WOW64", "1");
+        set_env!("WINE_NEW_WOW64", "1");
     }
     if enable_large_address_aware {
-        cmd.env("WINE_LARGE_ADDRESS_AWARE", "1");
+        set_env!("WINE_LARGE_ADDRESS_AWARE", "1");
     }
     if enable_controller_support {
-        cmd.env("PROTON_PREFER_SDL", "1");
+        set_env!("PROTON_PREFER_SDL", "1");
     }
     if enable_anticheat_support {
         if let Some(dir) = eac_runtime_dir() {
-            cmd.env("PROTON_EAC_RUNTIME", &dir);
+            set_env!("PROTON_EAC_RUNTIME", &dir);
         }
         if let Some(dir) = battleye_runtime_dir() {
-            cmd.env("PROTON_BATTLEYE_RUNTIME", &dir);
+            set_env!("PROTON_BATTLEYE_RUNTIME", &dir);
         }
     }
     if let Some(dbg) = wine_debug.as_deref() {
-        cmd.env("WINEDEBUG", dbg);
+        set_env!("WINEDEBUG", dbg);
     }
     if let Some(aud) = audio_driver.as_deref() {
         if aud != "auto" {
-            cmd.env("WINEAUDIODRIVER", aud);
+            set_env!("WINEAUDIODRIVER", aud);
         }
     }
     if let Some(hud) = dxvk_hud {
         if !hud.trim().is_empty() {
-            cmd.env("DXVK_HUD", hud);
+            set_env!("DXVK_HUD", hud);
         }
     }
 
@@ -3613,22 +3639,22 @@ pub fn launch_with_compatibility(
             .map(|(k, v)| format!("{}={}", k, v))
             .collect::<Vec<_>>()
             .join(";");
-        cmd.env("WINEDLLOVERRIDES", dll_str);
+        set_env!("WINEDLLOVERRIDES", dll_str);
     }
 
     if prime_render_offload {
-        cmd.env("DRI_PRIME", "1");
-        cmd.env("__NV_PRIME_RENDER_OFFLOAD", "1");
-        cmd.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
-        cmd.env("__VK_LAYER_NV_optimus", "NVIDIA_only");
+        set_env!("DRI_PRIME", "1");
+        set_env!("__NV_PRIME_RENDER_OFFLOAD", "1");
+        set_env!("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
+        set_env!("__VK_LAYER_NV_optimus", "NVIDIA_only");
     }
 
     // Proton specific environment (umu supplies its own Steam
     // compatibility vars inside the runtime container).
     if is_proton && !use_umu {
-        cmd.env("STEAM_COMPAT_DATA_PATH", &prefix);
+        set_env!("STEAM_COMPAT_DATA_PATH", &prefix);
         if let Some(steam) = steam_candidate_roots().into_iter().next() {
-            cmd.env("STEAM_COMPAT_CLIENT_INSTALL_PATH", steam.to_string_lossy().to_string());
+            set_env!("STEAM_COMPAT_CLIENT_INSTALL_PATH", steam.to_string_lossy().to_string());
         }
     }
 
@@ -3637,10 +3663,10 @@ pub fn launch_with_compatibility(
     // and the overlay find the client.
     if let Some(app_id) = steam_app_id {
         let app_id = app_id.to_string();
-        cmd.env("SteamAppId", &app_id);
-        cmd.env("SteamGameId", &app_id);
+        set_env!("SteamAppId", &app_id);
+        set_env!("SteamGameId", &app_id);
         if let Some(steam) = steam_candidate_roots().into_iter().next() {
-            cmd.env("SteamPath", steam.to_string_lossy().to_string());
+            set_env!("SteamPath", steam.to_string_lossy().to_string());
         }
     }
 
@@ -3651,7 +3677,7 @@ pub fn launch_with_compatibility(
     user_env.sort_by(|a, b| a.0.cmp(b.0));
     for (k, v) in user_env {
         if !excluded_global_env.contains(k) {
-            cmd.env(k, v);
+            set_env!(k, v);
         }
     }
     if let Some(game_envs) = game_profile
@@ -3660,10 +3686,22 @@ pub fn launch_with_compatibility(
     {
         for (k, v) in game_envs {
             if let Some(s) = v.as_str() {
-                cmd.env(k, s);
+                set_env!(k, s);
             }
         }
     }
+
+    // Write the full command line (env flags + runner + exe + args) into the
+    // session log header for troubleshooting, then close the header block.
+    let mut command_parts: Vec<String> = Vec::new();
+    command_parts.push("env".to_string());
+    command_parts.extend(env_lines.iter().map(|line| shell_quote(line)));
+    command_parts.push(shell_quote(&program));
+    command_parts.extend(tokens.iter().map(|t| shell_quote(t)));
+    let full_command = command_parts.join(" ");
+    let _ = writeln!(log_file, "Command: {}", full_command);
+    let _ = writeln!(log_file, "==================================================");
+    let _ = log_file.flush();
 
     // Redirect stdout and stderr into the log file
     let out_file = OpenOptions::new().append(true).open(&log_path).map_err(|e| e.to_string())?;
