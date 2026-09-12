@@ -51,6 +51,7 @@ build.bat
 build-upload.bat
 build.sh
 upload.bat
+upload.sh
 scripts/test-plugins.mjs
 .freebuff/project-id
 .direnv/
