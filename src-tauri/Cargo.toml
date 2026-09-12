@@ -170,6 +170,14 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 2
 
+# The gameindex crate compiles with a single codegen unit to dodge a rustc
+# codegen bug: the default multi-CGU split + `-Zshare-generics` emits
+# references to drop-glue/outlined monomorphizations that never get defined,
+# so the final link fails with "undefined hidden symbol" under rust-lld.
+# Dependencies keep the default CGU split (profile above).
+[profile.dev.package.gameindex]
+codegen-units = 1
+
 # Release profile tuned for maximum runtime performance and minimum binary size.
 [profile.release]
 opt-level = 3        # Aggressive runtime performance optimizations
