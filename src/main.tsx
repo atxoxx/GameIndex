@@ -1,6 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { markBootStart } from "./utils/bootPerf";
+import {
+  BootstrapErrorBoundary,
+  BootstrapErrorPanel,
+} from "./components/BootstrapErrorBoundary";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/ui.css";
@@ -42,7 +46,9 @@ async function bootstrap() {
     );
     ReactDOM.createRoot(root).render(
       <React.StrictMode>
-        <LaunchSplashWindow />
+        <BootstrapErrorBoundary>
+          <LaunchSplashWindow />
+        </BootstrapErrorBoundary>
       </React.StrictMode>,
     );
     return;
@@ -57,9 +63,20 @@ async function bootstrap() {
   const { default: App } = await import("./App");
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
-      <App />
+      <BootstrapErrorBoundary>
+        <App />
+      </BootstrapErrorBoundary>
     </React.StrictMode>,
   );
 }
 
-void bootstrap();
+void bootstrap().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error("[bootstrap] Failed to load the app chunk:", err);
+  const rootEl = document.getElementById("root") as HTMLElement;
+  const message =
+    err instanceof Error ? err : new Error(String(err));
+  ReactDOM.createRoot(rootEl).render(
+    <BootstrapErrorPanel error={message} />,
+  );
+});
