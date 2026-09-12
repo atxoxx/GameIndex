@@ -82,6 +82,25 @@ jobs:
           # them in latest.json, which then strips the .sig assets.
           uploadUpdaterSignatures: true
 
+      # Tauri v2 has no post-bundle hook, so the AppImage display-stack patch
+      # is applied here, after tauri-action built+uploaded the bundle. The
+      # rebuilt (re-signed) AppImage and its signature replace the originals
+      # before finalize-release embeds the signature in latest.json.
+      - name: patch appimage display stack
+        if: matrix.platform == 'ubuntu-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bash scripts/patch-appimage.sh
+          tag="${{ steps.meta.outputs.tag }}"
+          version="$(node -p "require('./package.json').version")"
+          appimage="src-tauri/target/release/bundle/appimage/GameIndex_${version}_amd64.AppImage"
+          gh release upload "$tag" "$appimage" "$appimage.sig" --clobber
+
       # "portable" is not a valid Tauri bundle target, so the portable exe is a
       # plain copy of the release binary. It is signed and uploaded here so
       # finalize-release can embed its signature in latest.json.

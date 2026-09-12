@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Runs from `tauri build` (afterBuildCommand) on every platform and from CI.
-# Only Linux AppImage bundles need the display-stack patch.
+# Tauri v2 has no post-bundle hook in tauri.conf.json, so this runs from
+# `npm run build:appimage` (local) and from the release CI (which re-uploads
+# the patched AppImage + signature). Only Linux AppImage bundles need the
+# display-stack patch.
 if [[ "$(uname -s)" != "Linux" ]]; then
   exit 0
 fi

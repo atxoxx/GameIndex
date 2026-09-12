@@ -7,7 +7,6 @@
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
-    "afterBuildCommand": "bash scripts/patch-appimage.sh",
     "frontendDist": "../dist"
   },
   "app": {
