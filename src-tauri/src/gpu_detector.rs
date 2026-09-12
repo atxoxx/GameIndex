@@ -222,6 +222,24 @@ pub(crate) fn linux_drm_cards() -> Vec<std::path::PathBuf> {
     cards.into_iter().map(|(_, path)| path).collect()
 }
 
+/// NVIDIA's PCI vendor id as sysfs reports it in `.../device/vendor`.
+#[cfg(any(target_os = "linux", test))]
+fn is_nvidia_vendor(vendor: &str) -> bool {
+    vendor.trim().eq_ignore_ascii_case("0x10de")
+}
+
+/// True when any DRM card belongs to NVIDIA. Reads sysfs only, so it is cheap
+/// enough for the pre-GTK startup path — `detect_gpus` shells out to
+/// vulkaninfo/nvidia-smi/xrandr and is not.
+#[cfg(target_os = "linux")]
+pub fn has_nvidia_drm_device() -> bool {
+    linux_drm_cards().iter().any(|card| {
+        std::fs::read_to_string(card.join("device/vendor"))
+            .map(|vendor| is_nvidia_vendor(&vendor))
+            .unwrap_or(false)
+    })
+}
+
 /// Parse the PCI vendor:device id from a sysfs `uevent` body. The kernel
 /// writes `PCI_ID=10DE:2C05` (uppercase); normalize to the lowercase
 /// `10de:2c05` form `MESA_VK_DEVICE_SELECT` expects. Shared with tests.
@@ -853,6 +871,22 @@ mod tests {
         assert_eq!(parse_pci_id_from_uevent("PCI_ID=\n"), None);
         assert_eq!(format_pci_id("", "0x2c05"), None);
         assert_eq!(format_pci_id("0x10de", ""), None);
+    }
+
+    #[test]
+    fn nvidia_vendor_id_is_recognized() {
+        // sysfs appends a newline, and hex case varies by kernel.
+        assert!(is_nvidia_vendor("0x10de\n"));
+        assert!(is_nvidia_vendor("0X10DE\n"));
+    }
+
+    #[test]
+    fn non_nvidia_vendor_ids_are_rejected() {
+        // AMD and Intel are the vendors that must keep the DMA-BUF path.
+        assert!(!is_nvidia_vendor("0x1002\n"));
+        assert!(!is_nvidia_vendor("0x8086\n"));
+        assert!(!is_nvidia_vendor(""));
+        assert!(!is_nvidia_vendor("10de"));
     }
 
     #[test]

@@ -497,9 +497,16 @@ These are handled automatically and listed here for transparency:
 
 - **NVIDIA explicit sync:** `__NV_DISABLE_EXPLICIT_SYNC=1` is set on startup to fix torn frames and
   black rectangles on NVIDIA + Wayland. The variable is a no-op on AMD/Intel.
-- **Wayland backend:** `GDK_BACKEND=wayland,x11` is set when unset, so the app prefers Wayland but
-  falls back to X11. AppImage launcher hooks that force `x11` are corrected when a Wayland session is
-  detected.
+- **DMA-BUF fallback:** `WEBKIT_DISABLE_DMABUF_RENDERER=1` is enabled automatically only for NVIDIA
+  on system-backed `.deb`/development builds, where WebKitGTK's GBM path commonly fails. AppImages
+  retain DMA-BUF acceleration and remove host-specific Wayland/X11 protocol libraries at build time,
+  so Mesa and proprietary NVIDIA drivers use the runtime system's compatible display stack.
+- **Wayland backend:** `GDK_BACKEND=wayland,x11` is preferred when it is unset in a Wayland session;
+  X11 is used when no Wayland session is present. An explicitly-set `GDK_BACKEND` is never overridden.
+- **AppImage graphics backend:** the AppImage build patches linuxdeploy's GTK hook instead of relying
+  on its unconditional X11 default. This keeps native Wayland available while retaining X11 fallback
+  and avoids the bundled display libraries that can produce `EGL_BAD_PARAMETER`/`EGL_SUCCESS` GBM
+  aborts on newer Mesa or NVIDIA systems.
 - **AppImage Python env:** the AppImage's bundled `PYTHONHOME`/`PYTHONPATH`/`LD_LIBRARY_PATH` entries
   are stripped from child processes, so games and tools don't accidentally load the AppImage's Python.
 - **Blur performance:** on Linux the frontend drops `backdrop-filter` from full-window, sticky and
@@ -523,6 +530,8 @@ These are handled automatically and listed here for transparency:
 | HDR / VRR not working | Enable them in **Gamescope Compositor**; Gamescope must be the active compositor and the display must support the mode. |
 | Settings don't apply to a Steam-launched game | Steam must be closed while GameIndex writes `localconfig.vdf`; check the launch route and the **Wine Logs** header, or use the launch-options picker. |
 | Wrong GPU used | Set the GPU in Settings → Hardware and enable **Use Specific GPU**, or override per game. |
+| Blank/white window, or `Failed to create GBM buffer` in the console | Check that the AppImage was built with the display-stack patch, which preserves GPU acceleration while leaving Wayland/X11 protocol libraries to the host. For a system-backed AMD/Intel build, start with `WEBKIT_DISABLE_DMABUF_RENDERER=1` as a diagnostic. |
+| AppImage aborts with `EGL_BAD_PARAMETER` or `EGL_SUCCESS` | Rebuild with `scripts/patch-appimage.sh`; it removes incompatible bundled display-stack libraries while preserving WebKit GPU acceleration and patches the backend hook. |
 
 ---
 
