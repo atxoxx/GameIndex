@@ -39,9 +39,10 @@
 //!
 //! ## Lifecycle
 //!
-//! `build_tray` is called once from `lib.rs::run` inside `.setup(...)`
-//! after `GameWatcher` is registered. Returns `tauri::Result<()>` so
-//! failures surface — but the caller wraps the call with
+//! `build_tray` is called from `lib.rs::run` (inside `.setup(...)` on
+//! non-Windows, on a short-delay worker thread on Windows so native tray
+//! code can't fast-fail the process at boot). Returns `tauri::Result<()>`
+//! so failures surface — but the caller wraps the call with
 //! `unwrap_or_else(|e| eprintln!(...))` because a missing tray
 //! (eg. headless Linux without a system tray) must not abort startup;
 //! the launcher body still works, the user just can't reach the tray.
@@ -70,7 +71,7 @@ use serde_json::Value;
 use tauri::image::Image;
 use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Emitter, Listener, Manager, Wry};
+use tauri::{AppHandle, Emitter, Listener, Manager, Wry};
 #[cfg(target_os = "windows")]
 use tauri::window::{ProgressBarState, ProgressBarStatus};
 
@@ -170,8 +171,8 @@ fn fill(template: &str, pairs: &[(&str, &str)]) -> String {
 /// Returns `tauri::Result<()>` — callers log-and-continue on error
 /// because the absence of a tray mustn't abort app startup
 /// (headless Linux launches won't have one).
-pub fn build_tray(app: &App<Wry>) -> tauri::Result<()> {
-    let handle = app.handle();
+pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+    let handle = app.clone();
 
     // Use the bundled app icon — already configured as the default
     // window icon by tauri.conf.json so we don't need to load a
@@ -189,7 +190,7 @@ pub fn build_tray(app: &App<Wry>) -> tauri::Result<()> {
     // which `Menu` instance is currently set.
     let tray = TrayIconBuilder::with_id("main-tray")
         .icon(icon)
-        .menu(&Menu::new(handle)?)
+        .menu(&Menu::new(&handle)?)
         // Show the menu on right-click only; left-click is "Show
         // GameIndex" via the on_tray_icon_event handler below. This
         // matches Discord / Steam / Spotify behaviour.
@@ -200,7 +201,7 @@ pub fn build_tray(app: &App<Wry>) -> tauri::Result<()> {
                 show_window(tray.app_handle());
             }
         })
-        .build(handle)?;
+        .build(&handle)?;
 
     app.manage(TrayHandles {
         tray: tray.clone(),
@@ -213,7 +214,7 @@ pub fn build_tray(app: &App<Wry>) -> tauri::Result<()> {
         strings: Mutex::new(TrayStrings::default()),
     });
 
-    rebuild_menu(handle)?;
+    rebuild_menu(&handle)?;
 
     // Live update subscribers that read the game name DIRECTLY from
     // each event payload — deliberately avoiding any call to

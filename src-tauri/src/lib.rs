@@ -1,9 +1,11 @@
 use std::sync::Arc;
 use std::time::Duration;
+use futures::FutureExt;
 use tauri::{Listener, Manager, WindowEvent};
 use tokio::sync::Mutex;
 
 mod config;
+mod crashlog;
 mod backup;
 mod backup_raw;
 mod discord_presence;
@@ -95,6 +97,10 @@ use crate::friends::*;
 pub fn run() {
     #[cfg(target_os = "linux")]
     compatibility::scrub_appimage_python_env();
+
+    // Install the panic hook + (Windows) fatal-exception handler first so
+    // any crash — even during builder setup — writes to crash.log.
+    crashlog::init();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -448,6 +454,7 @@ pub fn run() {
             // causing "state() called before manage()" panics on
             // every command invocation.
             let app_data_dir = app.path().app_data_dir()?;
+            crashlog::set_log_dir(app_data_dir.clone());
             db::artwork::cleanup_non_library_caches(&app_data_dir, Duration::from_secs(30 * 24 * 60 * 60));
             let db = match db::init(&app_data_dir) {
                 Ok(db) => db,
@@ -639,18 +646,59 @@ pub fn run() {
             let app_data_dir_for_engine = app_data_dir.clone();
             let db_for_engine = db.clone();
             let _ = tauri::async_runtime::spawn(async move {
-                if let Err(e) = downloads::initialize_engine(
+                // `catch_unwind` turns a panic inside engine init (e.g. a
+                // poisoned lock while resuming persisted torrents) into a
+                // logged error instead of an unhandled task panic — the
+                // rest of the app keeps working without the engine.
+                let init = std::panic::AssertUnwindSafe(downloads::initialize_engine(
                     app_handle,
                     app_data_dir_for_engine,
                     db_for_engine,
-                )
-                .await
-                {
-                    eprintln!("[gameindex] downloads::initialize_engine failed: {}", e);
+                ))
+                .catch_unwind();
+                match init.await {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => {
+                        eprintln!("[gameindex] downloads::initialize_engine failed: {}", e)
+                    }
+                    Err(panic) => {
+                        let msg = crashlog::panic_message(&*panic);
+                        eprintln!("[gameindex] downloads::initialize_engine panicked: {msg}");
+                    }
                 }
             });
 
-            tray::build_tray(app).unwrap_or_else(|e| eprintln!("[gameindex] tray setup failed: {e}"));
+            // ── System tray ────────────────────────────────────────────
+            // On Windows the tray is built on a short-delay worker thread so
+            // native tray code can't take the whole process down with it if
+            // it fast-fails at boot (CFG `__fastfail` → `0xc0000409` in the
+            // event log). The listeners `build_tray` registers are app-global,
+            // so a late build still receives every event; a panic is caught
+            // and logged instead of aborting startup. Other platforms keep the
+            // synchronous call — they don't exhibit the Windows crash mode.
+            #[cfg(target_os = "windows")]
+            {
+                let tray_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(800));
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        tray::build_tray(&tray_handle)
+                    }));
+                    match result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(e)) => {
+                            eprintln!("[gameindex] tray setup failed: {e}");
+                        }
+                        Err(panic) => {
+                            let msg = crashlog::panic_message(&*panic);
+                            eprintln!("[gameindex] tray build panicked: {msg}");
+                        }
+                    }
+                });
+            }
+            #[cfg(not(target_os = "windows"))]
+            tray::build_tray(app.handle())
+                .unwrap_or_else(|e| eprintln!("[gameindex] tray setup failed: {e}"));
 
             // ── ROM-folder watcher ────────────────────────────────────
             // Background poller detecting added/removed/changed files in
