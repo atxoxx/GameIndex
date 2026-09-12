@@ -438,7 +438,7 @@ export function buildSettingsCatalog(
         {
           id: "compat-graphics",
           labelKey: "settings.compatibility.sectionGraphics",
-          keywords: "dxvk vkd3d directx vulkan nvapi dlss hud graphics d3d async virtual desktop",
+          keywords: "dxvk vkd3d descriptor heap directx vulkan nvapi dlss hud graphics d3d async virtual desktop",
         },
         {
           id: "compat-sync-engine",

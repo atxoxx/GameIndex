@@ -361,6 +361,7 @@ describe("EditGameModal global setting hints", () => {
           wineDebug: "fixme-all",
           enableDxvk: false,
           enableVkd3d: true,
+          enableVkd3dDescriptorHeap: false,
         });
       }
       return Promise.resolve([]);
@@ -388,6 +389,11 @@ describe("EditGameModal global setting hints", () => {
       .getByText("VKD3D-Proton (Direct3D 12 to Vulkan)")
       .closest(".edit-launch-card") as HTMLElement;
     expect(within(vkd3dCard).getByText("Settings: On")).toBeTruthy();
+
+    const descriptorHeapCard = screen
+      .getByText("VKD3D Descriptor Heap")
+      .closest(".edit-launch-card") as HTMLElement;
+    expect(within(descriptorHeapCard).getByText("Settings: Off")).toBeTruthy();
   });
 
   it("hides the hints while settings are unavailable", async () => {

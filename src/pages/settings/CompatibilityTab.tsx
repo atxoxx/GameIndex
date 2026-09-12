@@ -144,6 +144,7 @@ export interface CompatibilitySettings {
   defaultPrefix: string | null;
   enableDxvk: boolean;
   enableVkd3d: boolean;
+  enableVkd3dDescriptorHeap: boolean;
   enableEsync: boolean;
   enableFsync: boolean;
   enableDxvkNvapi: boolean;
@@ -195,6 +196,7 @@ const DEFAULT_SETTINGS: CompatibilitySettings = {
   defaultPrefix: null,
   enableDxvk: true,
   enableVkd3d: true,
+  enableVkd3dDescriptorHeap: true,
   enableEsync: true,
   enableFsync: true,
   enableDxvkNvapi: false,
@@ -2147,6 +2149,13 @@ export default function CompatibilityTab() {
                 desc={t("compatibility.enableVkd3dDesc")}
                 checked={settings.enableVkd3d}
                 onChange={(v) => updateSettings((prev) => ({ ...prev, enableVkd3d: v }))}
+              />
+
+              <SettingsToggleCard
+                title={t("compatibility.enableVkd3dDescriptorHeap")}
+                desc={t("compatibility.enableVkd3dDescriptorHeapDesc")}
+                checked={settings.enableVkd3dDescriptorHeap}
+                onChange={(v) => updateSettings((prev) => ({ ...prev, enableVkd3dDescriptorHeap: v }))}
               />
 
               <SettingsToggleCard

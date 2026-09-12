@@ -528,6 +528,10 @@ pub struct CompatibilitySettings {
     pub default_prefix: Option<String>,
     pub enable_dxvk: bool,
     pub enable_vkd3d: bool,
+    /// VKD3D descriptor-heap mode (`VKD3D_CONFIG=descriptor_heap` /
+    /// `PROTON_VKD3D_HEAP=1`). Some drivers still ship descriptor-heap
+    /// bugs, so it can be switched off per game or globally.
+    pub enable_vkd3d_descriptor_heap: bool,
     pub enable_esync: bool,
     pub enable_fsync: bool,
     pub enable_dxvk_nvapi: bool,
@@ -618,6 +622,7 @@ impl Default for CompatibilitySettings {
             default_prefix: None,
             enable_dxvk: true,
             enable_vkd3d: true,
+            enable_vkd3d_descriptor_heap: true,
             enable_esync: true,
             enable_fsync: true,
             enable_dxvk_nvapi: false,
@@ -1410,6 +1415,10 @@ pub fn steam_launch_env(
         .and_then(|p| p.get("enableVkd3d").or_else(|| p.get("vkd3d")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.enable_vkd3d);
+    let enable_vkd3d_descriptor_heap = game_profile
+        .and_then(|p| p.get("enableVkd3dDescriptorHeap").or_else(|| p.get("vkd3dDescriptorHeap")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_vkd3d_descriptor_heap);
     let enable_esync = game_profile
         .and_then(|p| p.get("enableEsync").or_else(|| p.get("esync")))
         .and_then(|v| v.as_bool())
@@ -1571,6 +1580,25 @@ pub fn steam_launch_env(
     }
     if enable_vkd3d {
         dll_map.entry("d3d12".to_string()).or_insert_with(|| "n,b".to_string());
+    }
+    if enable_vkd3d && enable_vkd3d_descriptor_heap {
+        // VKD3D descriptor-heap mode. Steam games run through Proton
+        // (Steam Play) unless a runner is pinned to plain Wine, so the
+        // flag travels through the layer that owns the game: Proton
+        // exposes it as `PROTON_VKD3D_HEAP`, Wine reads the raw
+        // vkd3d-proton `VKD3D_CONFIG` instead.
+        let steam_proton = game_profile
+            .and_then(|p| p.get("customRunnerPath").or_else(|| p.get("runner")))
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.trim().is_empty())
+            .or(settings.default_runner_path.as_deref())
+            .map(runner_is_proton)
+            .unwrap_or(true);
+        if steam_proton {
+            env.push(("PROTON_VKD3D_HEAP".to_string(), "1".to_string()));
+        } else {
+            env.push(("VKD3D_CONFIG".to_string(), "descriptor_heap".to_string()));
+        }
     }
     if !dll_map.is_empty() {
         // Sort for a stable string: the map iteration order is random,
@@ -3298,6 +3326,10 @@ pub fn launch_with_compatibility(
         .and_then(|p| p.get("enableVkd3d").or_else(|| p.get("vkd3d")))
         .and_then(|v| v.as_bool())
         .unwrap_or(settings.enable_vkd3d);
+    let enable_vkd3d_descriptor_heap = game_profile
+        .and_then(|p| p.get("enableVkd3dDescriptorHeap").or_else(|| p.get("vkd3dDescriptorHeap")))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(settings.enable_vkd3d_descriptor_heap);
     let enable_esync = game_profile
         .and_then(|p| p.get("enableEsync").or_else(|| p.get("esync")))
         .and_then(|v| v.as_bool())
@@ -3447,7 +3479,7 @@ pub fn launch_with_compatibility(
     let _ = writeln!(log_file, "Executable: {}", exe_path.display());
     let _ = writeln!(log_file, "Runner: {}", runner_path);
     let _ = writeln!(log_file, "Prefix: {}", prefix.display());
-    let _ = writeln!(log_file, "ESync: {}, FSync: {}, NTSync: {}, DXVK: {}, VKD3D: {}", enable_esync, enable_fsync, enable_ntsync, enable_dxvk, enable_vkd3d);
+    let _ = writeln!(log_file, "ESync: {}, FSync: {}, NTSync: {}, DXVK: {}, VKD3D: {}, VKD3D Descriptor Heap: {}", enable_esync, enable_fsync, enable_ntsync, enable_dxvk, enable_vkd3d, enable_vkd3d_descriptor_heap);
     let _ = writeln!(log_file, "Wineland: {}, WoW64: {}, LargeAddress: {}", enable_wayland, enable_wow64, enable_large_address_aware);
     let specific_gpu_label = specific_gpu
         .as_ref()
@@ -3627,6 +3659,15 @@ pub fn launch_with_compatibility(
     }
     if enable_vkd3d {
         dll_map.entry("d3d12".to_string()).or_insert_with(|| "n,b".to_string());
+    }
+    if enable_vkd3d && enable_vkd3d_descriptor_heap {
+        // VKD3D descriptor-heap mode: Proton exposes it via its own
+        // wrapper flag, plain Wine reads the vkd3d-proton config var.
+        if is_proton {
+            set_env!("PROTON_VKD3D_HEAP", "1");
+        } else {
+            set_env!("VKD3D_CONFIG", "descriptor_heap");
+        }
     }
 
     if !dll_map.is_empty() {
@@ -4814,6 +4855,7 @@ mod tests {
         assert!(parsed.enable_mangohud);
         assert!(parsed.enable_dxvk);
         assert!(parsed.enable_vkd3d);
+        assert!(parsed.enable_vkd3d_descriptor_heap);
     }
 
     #[test]
@@ -4839,6 +4881,106 @@ mod tests {
         assert!(!map.contains_key("WINEPREFIX"));
         assert!(!map.contains_key("PROTONPATH"));
         assert!(!map.contains_key("STEAM_COMPAT_DATA_PATH"));
+    }
+
+    #[test]
+    fn steam_launch_env_vkd3d_defaults_to_proton_flag() {
+        // Steam games run through Proton by default, so the wrapper flag
+        // is the one that reaches the game.
+        let env = steam_launch_env(&CompatibilitySettings::default(), None, None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert_eq!(map.get("PROTON_VKD3D_HEAP"), Some(&"1"));
+        assert!(!map.contains_key("VKD3D_CONFIG"));
+    }
+
+    #[test]
+    fn steam_launch_env_vkd3d_proton_runner_uses_proton_flag() {
+        let settings = CompatibilitySettings::default();
+        let profile = serde_json::json!({
+            "customRunnerPath": "/usr/share/steam/compatibilitytools.d/GE-Proton9.0/proton"
+        });
+        let env = steam_launch_env(&settings, Some(&profile), None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert_eq!(map.get("PROTON_VKD3D_HEAP"), Some(&"1"));
+        assert!(!map.contains_key("VKD3D_CONFIG"));
+    }
+
+    #[test]
+    fn steam_launch_env_vkd3d_pins_wine_runner_to_raw_config() {
+        let settings = CompatibilitySettings::default();
+        let profile = serde_json::json!({ "customRunnerPath": "/usr/bin/wine" });
+        let env = steam_launch_env(&settings, Some(&profile), None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert_eq!(map.get("VKD3D_CONFIG"), Some(&"descriptor_heap"));
+        assert!(!map.contains_key("PROTON_VKD3D_HEAP"));
+    }
+
+    #[test]
+    fn steam_launch_env_vkd3d_disabled_sets_no_heap_flag() {
+        let settings = CompatibilitySettings {
+            enable_vkd3d: false,
+            ..Default::default()
+        };
+        let env = steam_launch_env(&settings, None, None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert!(!map.contains_key("PROTON_VKD3D_HEAP"));
+        assert!(!map.contains_key("VKD3D_CONFIG"));
+    }
+
+    #[test]
+    fn steam_launch_env_vkd3d_descriptor_heap_global_off_disables_flags() {
+        let settings = CompatibilitySettings {
+            enable_vkd3d_descriptor_heap: false,
+            ..Default::default()
+        };
+        let env = steam_launch_env(&settings, None, None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert!(!map.contains_key("PROTON_VKD3D_HEAP"));
+        assert!(!map.contains_key("VKD3D_CONFIG"));
+        // The d3d12 override still applies — only the heap flag is skipped.
+        let dll = map.get("WINEDLLOVERRIDES").expect("DXVK dll overrides set");
+        assert!(dll.contains("d3d12=n,b"));
+    }
+
+    #[test]
+    fn steam_launch_env_vkd3d_descriptor_heap_per_game_override() {
+        // Global off, per-game on: the flag comes back.
+        let settings = CompatibilitySettings {
+            enable_vkd3d_descriptor_heap: false,
+            ..Default::default()
+        };
+        let on = serde_json::json!({ "enableVkd3dDescriptorHeap": true });
+        let env = steam_launch_env(&settings, Some(&on), None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert_eq!(map.get("PROTON_VKD3D_HEAP"), Some(&"1"));
+
+        // Global on, per-game off: the flag is dropped.
+        let off = serde_json::json!({ "enableVkd3dDescriptorHeap": false });
+        let env = steam_launch_env(&CompatibilitySettings::default(), Some(&off), None);
+        let map: std::collections::HashMap<&str, &str> = env
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert!(!map.contains_key("PROTON_VKD3D_HEAP"));
+        assert!(!map.contains_key("VKD3D_CONFIG"));
     }
 
     #[test]

@@ -203,6 +203,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [compatVkd3d, setCompatVkd3d] = useState<boolean | null>(
     game.compatibility?.enableVkd3d ?? null
   );
+  const [compatVkd3dDescriptorHeap, setCompatVkd3dDescriptorHeap] = useState<boolean | null>(
+    game.compatibility?.enableVkd3dDescriptorHeap ?? null
+  );
   const [compatEsync, setCompatEsync] = useState<boolean | null>(
     game.compatibility?.enableEsync ?? null
   );
@@ -1025,6 +1028,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         compatWorkingDir.trim() ||
         compatDxvk !== null ||
         compatVkd3d !== null ||
+        compatVkd3dDescriptorHeap !== null ||
         compatEsync !== null ||
         compatFsync !== null ||
         compatNvapi !== null ||
@@ -1075,6 +1079,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               workingDir: compatWorkingDir.trim() || undefined,
               enableDxvk: compatDxvk,
               enableVkd3d: compatVkd3d,
+              enableVkd3dDescriptorHeap: compatVkd3dDescriptorHeap,
               enableEsync: compatEsync,
               enableFsync: compatFsync,
               enableDxvkNvapi: compatNvapi,
@@ -2554,6 +2559,13 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     value={compatVkd3d}
                     onChange={setCompatVkd3d}
                     globalValue={globalCompatSettings?.enableVkd3d}
+                  />
+                  <TriStateCard
+                    title={t("gameEdit.compatibility.vkd3dDescriptorHeapTitle") || "VKD3D Descriptor Heap"}
+                    desc={t("gameEdit.compatibility.vkd3dDescriptorHeapDesc") || "Uses the Vulkan descriptor heap for Direct3D 12 (VKD3D_CONFIG=descriptor_heap / PROTON_VKD3D_HEAP)."}
+                    value={compatVkd3dDescriptorHeap}
+                    onChange={setCompatVkd3dDescriptorHeap}
+                    globalValue={globalCompatSettings?.enableVkd3dDescriptorHeap}
                   />
                   <TriStateCard
                     title={t("gameEdit.compatibility.dxvkAsyncTitle") || "DXVK Async (Asynchronous Shader Compilation)"}

@@ -251,6 +251,8 @@ export interface CompatibilityProfile {
   enableDxvk?: boolean | null;
   /** VKD3D-Proton (DirectX 12 -> Vulkan) override */
   enableVkd3d?: boolean | null;
+  /** VKD3D descriptor-heap mode override (VKD3D_CONFIG=descriptor_heap / PROTON_VKD3D_HEAP) */
+  enableVkd3dDescriptorHeap?: boolean | null;
   /** Esync (eventfd-based synchronization) override */
   enableEsync?: boolean | null;
   /** Fsync (futex-based synchronization) override */
