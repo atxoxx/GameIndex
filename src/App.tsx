@@ -20,7 +20,6 @@ import { SplashProvider, useSplash } from "./context/SplashContext";
 import { DownloadProvider } from "./context/DownloadContext";
 import { SourceProvider } from "./context/SourceContext";
 import { ThemeProvider } from "./context/ThemeContext";
-import { BrandStyleProvider } from "./context/BrandStyleContext";
 import { AchievementProvider } from "./context/AchievementContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { SessionNotesProvider } from "./context/SessionNotesContext";
@@ -171,56 +170,54 @@ function App() {
   return (
     <HashRouter>
       <ThemeProvider>
-        <BrandStyleProvider>
-          <LanguageProvider>
-            <ToastProvider>
-              <UpdateProvider>
-                <SplashProvider>
-                  <GameProvider>
-                    {/* Reveals the hidden main window once the library has
-                        hydrated and the first frame painted (see component). */}
-                    <WindowReveal />
-                    <ActivityProvider>
-                      <AchievementProvider>
-                        <DensityProvider>
-                          <LibraryFilterProvider>
-                            <WishlistProvider>
-                              <SourceProvider>
-                                <DownloadProvider>
-                                  <SettingsProvider>
-                                    <SessionNotesProvider>
-                                      <SteamGridDbProvider>
-                                        <CrackWatchProvider>
-                                          <PriceProvider>
-                                            <BigScreenProvider>
-                                              <PresenceProvider>
-                                                <AdaptiveThemeSync />
-                                                <GameAccentSync />
-                                                <AppShell />
-                                                <UpdateModal />
-                                                <UpdateNotification />
-                                              </PresenceProvider>
-                                            </BigScreenProvider>
-                                          </PriceProvider>
-                                        </CrackWatchProvider>
-                                      </SteamGridDbProvider>
-                                    </SessionNotesProvider>
-                                  </SettingsProvider>
-                                </DownloadProvider>
-                              </SourceProvider>
-                            </WishlistProvider>
-                          </LibraryFilterProvider>
-                        </DensityProvider>
-                      </AchievementProvider>
-                    </ActivityProvider>
-                  </GameProvider>
-                  <InlineSplashFallback />
-                  <LaunchSplashBridge />
-                </SplashProvider>
-              </UpdateProvider>
-            </ToastProvider>
-          </LanguageProvider>
-        </BrandStyleProvider>
+        <LanguageProvider>
+          <ToastProvider>
+            <UpdateProvider>
+              <SplashProvider>
+                <GameProvider>
+                  {/* Reveals the hidden main window once the library has
+                      hydrated and the first frame painted (see component). */}
+                  <WindowReveal />
+                  <ActivityProvider>
+                    <AchievementProvider>
+                      <DensityProvider>
+                        <LibraryFilterProvider>
+                          <WishlistProvider>
+                            <SourceProvider>
+                              <DownloadProvider>
+                                <SettingsProvider>
+                                  <SessionNotesProvider>
+                                    <SteamGridDbProvider>
+                                      <CrackWatchProvider>
+                                        <PriceProvider>
+                                          <BigScreenProvider>
+                                            <PresenceProvider>
+                                              <AdaptiveThemeSync />
+                                              <GameAccentSync />
+                                              <AppShell />
+                                              <UpdateModal />
+                                              <UpdateNotification />
+                                            </PresenceProvider>
+                                          </BigScreenProvider>
+                                        </PriceProvider>
+                                      </CrackWatchProvider>
+                                    </SteamGridDbProvider>
+                                  </SessionNotesProvider>
+                                </SettingsProvider>
+                              </DownloadProvider>
+                            </SourceProvider>
+                          </WishlistProvider>
+                        </LibraryFilterProvider>
+                      </DensityProvider>
+                    </AchievementProvider>
+                  </ActivityProvider>
+                </GameProvider>
+                <InlineSplashFallback />
+                <LaunchSplashBridge />
+              </SplashProvider>
+            </UpdateProvider>
+          </ToastProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </HashRouter>
   );
