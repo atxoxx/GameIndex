@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use futures::FutureExt;
-use tauri::{Listener, Manager, WindowEvent};
+use tauri::{Listener, Manager, WebviewWindowBuilder, WindowEvent};
 use tokio::sync::Mutex;
 
 mod config;
@@ -466,14 +466,6 @@ pub fn run() {
                     )) as Box<dyn std::error::Error>);
                 }
             };
-            // Startup-splash preference (Settings → Appearance). When the
-            // user turned it off, reveal the main window right away instead
-            // of waiting for the frontend's first render — the splash
-            // window is created from tauri.conf.json before `.setup` runs,
-            // so this is the earliest point it can be dismissed.
-            if !launcher::startup_splash_enabled(&db) {
-                system::reveal_main_window(app.handle());
-            }
             app.manage(db.clone());
             app.manage(mods::ModScanState::default());
             app.manage(media::ExeScanState::default());
@@ -632,6 +624,30 @@ pub fn run() {
             // fetch-once / filter-in-memory policy.
             app.manage(SteamPlayerHistoryCache::default());
 
+            // ── Create the app windows ─────────────────────────────────
+            // Tauri builds the windows declared in `tauri.conf.json` inside
+            // its own setup step, which runs *before* this closure. The
+            // frontend starts invoking commands the moment its webview
+            // loads — `splashscreen.html` calls `get_theme` / `get_language`
+            // on boot — so a command that resolves `State<Db>` could run
+            // while `app.manage(db)` was still pending and panic with
+            // "state() called before manage()". That panic unwinds out of a
+            // WebView2 callback, so the process aborts (`0xc0000409` /
+            // BEX64) and users on Windows 11 are left with a white window.
+            // The windows are marked `"create": false` in the config and
+            // built here instead — once every command-visible state has been
+            // registered — so a boot-time command can never resolve a
+            // `State` that hasn't been managed yet. This is safe on every
+            // platform; nothing before this point needs a live window.
+            create_config_windows(app.handle())?;
+
+            // Startup-splash preference (Settings → Appearance). When the
+            // user turned it off, reveal the main window right away instead
+            // of waiting for the frontend's first render and its
+            // `close_splashscreen` call.
+            if !launcher::startup_splash_enabled(&db) {
+                system::reveal_main_window(app.handle());
+            }
 
             // Spin the torrent engine up on the async runtime.
             // We use `spawn` (fire-and-forget) rather than
@@ -738,6 +754,21 @@ pub fn run() {
                 std::process::exit(0);
             }
         });
+}
+
+/// Build the windows declared in `tauri.conf.json`.
+///
+/// They are marked `"create": false` so Tauri's built-in setup pass leaves
+/// them alone; `run` calls this instead, after every shared state has been
+/// registered via `app.manage`. See the call site for the full rationale.
+fn create_config_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
+    // `create` is the exact flag Tauri's own setup pass filters on, so build
+    // the ones it skipped and only those — a window left at the default
+    // (`create: true`) is never built twice.
+    for window_config in app.config().app.windows.iter().filter(|w| !w.create) {
+        WebviewWindowBuilder::from_config(app, window_config)?.build()?;
+    }
+    Ok(())
 }
 
 // ── Friends Sync (local shared-file P2P) ─────────────────────────────

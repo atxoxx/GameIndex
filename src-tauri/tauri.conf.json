@@ -21,7 +21,8 @@
         "minWidth": 900,
         "minHeight": 600,
         "decorations": false,
-        "visible": false
+        "visible": false,
+        "create": false
       },
       {
         "label": "splashscreen",
@@ -33,7 +34,8 @@
         "resizable": false,
         "decorations": false,
         "alwaysOnTop": true,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "create": false
       }
     ],
     "security": {
