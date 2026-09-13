@@ -3,7 +3,6 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
 import SidebarSearch from "./SidebarSearch";
 import SidebarImportDropdown from "./SidebarImportDropdown";
-import SidebarQuickFilterBar from "./SidebarQuickFilterBar";
 import SidebarViewOptionsDropdown from "./SidebarViewOptionsDropdown";
 import type { SidebarHeaderProps } from "./types";
 
@@ -12,7 +11,7 @@ import type { SidebarHeaderProps } from "./types";
  * ─────────────
  * Top toolbar of the sidebar containing collapse controls,
  * search input, view options dropdown trigger, random game roll button,
- * quick filter presets bar, advanced filters launcher, and import action.
+ * advanced filters launcher, and import action.
  */
 function SidebarHeaderBase({
   isIconRail,
@@ -34,9 +33,6 @@ function SidebarHeaderBase({
   onImportExe,
   onImportFolder,
   onRandomGame,
-  activeQuickPreset,
-  onSelectQuickPreset,
-  quickPresetCounts,
   groupBy,
   onGroupByChange,
   sort,
@@ -187,15 +183,6 @@ function SidebarHeaderBase({
           )}
         </button>
       </div>
-
-      {/* Quick View Presets Bar: All | Installed | Favorites | Playing */}
-      {!isIconRail && (
-        <SidebarQuickFilterBar
-          activePreset={activeQuickPreset}
-          onSelectPreset={onSelectQuickPreset}
-          counts={quickPresetCounts}
-        />
-      )}
 
       <div className="sidebar-import-wrapper">
         <Button

@@ -46,7 +46,6 @@ import {
   groupGames,
 } from "./utils";
 import type {
-  QuickFilterPreset,
   SectionCollapseMap,
   SidebarDensity,
   SidebarGroupBy,
@@ -60,7 +59,6 @@ import type {
  * Main left sidebar game list component.
  * High-performance container coordinating:
  *   • Dynamic grouping modes (Platform, Status, Genre, Alphabetical, Installed, Decade).
- *   • 1-Click quick filter presets (All, Installed, Favorites, Playing).
  *   • Display density modes (Compact, Standard, Detailed).
  *   • Interactive drag resizing (220px - 520px).
  *   • Random game discovery ("Surprise Me / Roll").
@@ -126,9 +124,6 @@ export default function Sidebar() {
   useEffect(() => {
     savePinnedIds(pinnedIds);
   }, [pinnedIds]);
-
-  // ── Quick Filter Preset (All | Installed | Favorites | Playing) ──
-  const [quickPreset, setQuickPreset] = useState<QuickFilterPreset>("all");
 
   // ── Group By & Sort Direction ────────────────────────────────────
   const [groupBy, setGroupBy] = useState<SidebarGroupBy>(() => loadSidebarGroupBy());
@@ -218,44 +213,11 @@ export default function Sidebar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [bulkSelectedIds.size]);
 
-  // ── Preset counts calculation ────────────────────────────────────
-  const quickPresetCounts = useMemo(() => {
-    let installed = 0;
-    let favorites = 0;
-    let playing = 0;
-    for (const g of games) {
-      if (g.installed) installed++;
-      if (pinnedIds.has(g.id)) favorites++;
-      if (g.playStatus === "playing" || runningGameIds.includes(g.id)) playing++;
-    }
-    return {
-      all: games.length,
-      installed,
-      favorites,
-      playing,
-    };
-  }, [games, pinnedIds, runningGameIds]);
-
-  // ── Filtered Games Pipeline with Quick Preset & Sort Direction ───
+  // ── Filtered Games Pipeline with Sort Direction ──────────────────
   const processedFilteredGames = useMemo(() => {
-    let list = baseFilteredGames;
-
-    // Apply quick preset filter
-    if (quickPreset === "installed") {
-      list = list.filter((g) => g.installed);
-    } else if (quickPreset === "favorites") {
-      list = list.filter((g) => pinnedIds.has(g.id));
-    } else if (quickPreset === "playing") {
-      list = list.filter((g) => g.playStatus === "playing" || runningGameIds.includes(g.id));
-    }
-
-    // Apply sort direction reverse if descending
-    if (sortDirection === "desc") {
-      list = [...list].reverse();
-    }
-
-    return list;
-  }, [baseFilteredGames, quickPreset, pinnedIds, runningGameIds, sortDirection]);
+    if (sortDirection !== "desc") return baseFilteredGames;
+    return [...baseFilteredGames].reverse();
+  }, [baseFilteredGames, sortDirection]);
 
   // Advanced filter count
   const advancedFilterCount =
@@ -268,8 +230,7 @@ export default function Sidebar() {
 
   const isFilteringActive =
     filterState.search.trim() !== "" ||
-    advancedFilterCount > 0 ||
-    quickPreset !== "all";
+    advancedFilterCount > 0;
 
   // ── Hover preview ────────────────────────────────────────────────
   const [hoveredGameId, setHoveredGameId] = useState<string | null>(null);
@@ -858,9 +819,6 @@ export default function Sidebar() {
         onImportExe={handleImportExe}
         onImportFolder={handleImportFolder}
         onRandomGame={handleRandomGame}
-        activeQuickPreset={quickPreset}
-        onSelectQuickPreset={setQuickPreset}
-        quickPresetCounts={quickPresetCounts}
         groupBy={groupBy}
         onGroupByChange={handleGroupByChange}
         sort={filterState.sort}
@@ -885,10 +843,7 @@ export default function Sidebar() {
         onRemovePlatform={removePlatform}
         onRemoveYear={removeYear}
         onRemoveRating={removeRating}
-        onReset={() => {
-          reset();
-          setQuickPreset("all");
-        }}
+        onReset={reset}
       />}
 
       <hr className="sidebar-divider" />
@@ -1083,10 +1038,7 @@ export default function Sidebar() {
                     setImportMenuAnchor(e.currentTarget);
                     setShowImportMenu(true);
                   }}
-                  onClearFilters={() => {
-                    reset();
-                    setQuickPreset("all");
-                  }}
+                  onClearFilters={reset}
                 />
               ) : null
             ) : (
@@ -1145,9 +1097,9 @@ export default function Sidebar() {
         <SidebarStatsFooter
           stats={sidebarStats}
           isFilteringActive={isFilteringActive}
-          onFilterInstalled={() => {
-            setQuickPreset((p) => (p === "installed" ? "all" : "installed"));
-          }}
+          onFilterInstalled={() =>
+            setStatus(filterState.status === "installed" ? "all" : "installed")
+          }
         />
       )}
 
@@ -1219,10 +1171,7 @@ export default function Sidebar() {
           onYearRangeChange={setYearRange}
           onRatingMinChange={setRatingMin}
           onSortChange={setSort}
-          onReset={() => {
-            reset();
-            setQuickPreset("all");
-          }}
+          onReset={reset}
           onClose={() => setShowFilterPopover(false)}
         />
       )}

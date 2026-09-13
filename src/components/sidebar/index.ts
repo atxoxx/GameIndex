@@ -8,7 +8,6 @@ export { default as SidebarBulkActionBar } from "./SidebarBulkActionBar";
 export { default as SidebarEmptyState } from "./SidebarEmptyState";
 export { default as SidebarImportDropdown } from "./SidebarImportDropdown";
 export { default as HighlightedName } from "./HighlightedName";
-export { default as SidebarQuickFilterBar } from "./SidebarQuickFilterBar";
 export { default as SidebarViewOptionsDropdown } from "./SidebarViewOptionsDropdown";
 export { default as SidebarStatsFooter } from "./SidebarStatsFooter";
 export { default as SidebarResizeHandle } from "./SidebarResizeHandle";

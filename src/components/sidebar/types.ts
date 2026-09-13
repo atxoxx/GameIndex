@@ -17,9 +17,6 @@ export type SidebarGroupBy =
 /** Row visual density levels. */
 export type SidebarDensity = "compact" | "standard" | "detailed";
 
-/** Quick view presets in the top header. */
-export type QuickFilterPreset = "all" | "installed" | "favorites" | "playing";
-
 /** Sort direction. */
 export type SidebarSortDirection = "asc" | "desc";
 
@@ -65,18 +62,6 @@ export interface SidebarSearchProps {
   onClear: () => void;
 }
 
-/** Props for the quick filter presets bar. */
-export interface SidebarQuickFilterBarProps {
-  activePreset: QuickFilterPreset;
-  onSelectPreset: (preset: QuickFilterPreset) => void;
-  counts: {
-    all: number;
-    installed: number;
-    favorites: number;
-    playing: number;
-  };
-}
-
 /** Props for the view options dropdown (Group By, Sort, Density, etc.). */
 export interface SidebarViewOptionsDropdownProps {
   anchorEl: HTMLElement | null;
@@ -117,14 +102,6 @@ export interface SidebarHeaderProps {
   onImportExe: () => void;
   onImportFolder: () => void;
   onRandomGame: () => void;
-  activeQuickPreset: QuickFilterPreset;
-  onSelectQuickPreset: (preset: QuickFilterPreset) => void;
-  quickPresetCounts: {
-    all: number;
-    installed: number;
-    favorites: number;
-    playing: number;
-  };
   groupBy: SidebarGroupBy;
   onGroupByChange: (groupBy: SidebarGroupBy) => void;
   sort: LibrarySort;
