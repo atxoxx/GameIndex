@@ -1,26 +1,7 @@
-import {
-  BadgeCheck,
-  Home,
-  LayoutGrid,
-  LayoutList,
-  List,
-  PanelLeft,
-  SlidersHorizontal,
-} from "lucide-react";
+import { List, SlidersHorizontal } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
-import {
-  useSettings,
-  type DetailSectionKey,
-  type LandingPage,
-  type UiScale,
-} from "../../context/SettingsContext";
-import { INTERFACE_PAGES } from "../../context/interfaceLayout";
-import {
-  BADGE_ITEMS,
-  MASTER_GATED_BADGES,
-  WIDGET_ITEMS,
-  buildDetailSectionItems,
-} from "./interfaceItems";
+import { useSettings, type DetailSectionKey, type UiScale } from "../../context/SettingsContext";
+import { buildDetailSectionItems } from "./interfaceItems";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import "./InterfaceDefaults.css";
@@ -52,13 +33,14 @@ const TAB_DETAIL_KEYS: ReadonlySet<DetailSectionKey> = new Set([
 /**
  * InterfaceDefaults
  * ─────────────────
- * The global shell controls that used to live in the Layout Studio's
- * right-hand pane, re-homed as ordinary settings sections below the studio.
+ * The app-wide controls that sit outside the Layout Studio's live preview:
+ * the interface scale, the display modes that reshape the whole shell (Simple
+ * UI, compact navbar, simple command palette, art backdrop) and the overview
+ * detail sections.
  *
- * These are the settings the live preview cannot change by itself: the
- * interface scale, the layout modes, the sidebar side, the card-badge and
- * widget masters, the overview detail sections and the startup landing page.
- * Everything stateful comes straight from `useSettings()`.
+ * Everything the preview *can* edit — navbar items, per-page widgets, sidebar
+ * side and sections, card badges, hero and detail tabs — lives there now, so
+ * each setting has exactly one home.
  */
 export default function InterfaceDefaults() {
   const { t } = useLanguage();
@@ -73,18 +55,8 @@ export default function InterfaceDefaults() {
     setCommandPaletteMode,
     showGameArtBackdrop,
     setShowGameArtBackdrop,
-    showNavbarNowPlaying,
-    setShowNavbarNowPlaying,
-    sidebarPosition,
-    setSidebarPosition,
-    showCardBadges,
-    setShowCardBadges,
-    interfaceVisibility,
-    setInterfaceVisibility,
     detailSectionVisible,
     setDetailSectionVisible,
-    landingPage,
-    setLandingPage,
     showDeckVerified,
   } = useSettings();
 
@@ -92,18 +64,16 @@ export default function InterfaceDefaults() {
     (item) => !TAB_DETAIL_KEYS.has(item.key),
   );
 
-  const landingPages = INTERFACE_PAGES.filter((page) => page.key !== "global");
-
   return (
     <>
-      {/* ── Layout ─────────────────────────────────────────────── */}
+      {/* ── Global appearance ───────────────────────────────────── */}
       <SettingsSection
         id="interface-defaults-layout"
         icon={<SlidersHorizontal size={18} />}
-        title={t("settings.appearance.interfaceTitle")}
-        desc={t("settings.appearance.interfaceDesc")}
+        title={t("settings.interface.globalAppearance")}
+        desc={t("settings.interface.globalAppearanceDesc")}
       >
-        <div className="settings-row">
+        <div className="interface-defaults-layout">
           <div className="settings-control interface-defaults-control">
             <label className="settings-label" htmlFor="interface-ui-scale">
               {t("settings.appearance.uiScaleTitle")}
@@ -156,102 +126,6 @@ export default function InterfaceDefaults() {
         </div>
       </SettingsSection>
 
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <SettingsSection
-        id="interface-defaults-header"
-        icon={<LayoutList size={18} />}
-        title={t("settings.interface.studioHeader")}
-      >
-        <div className="interface-defaults-grid">
-          <SettingsToggleCard
-            title={t("settings.appearance.navbarNowPlayingTitle")}
-            desc={t("settings.appearance.navbarNowPlayingDesc")}
-            checked={showNavbarNowPlaying}
-            onChange={setShowNavbarNowPlaying}
-          />
-        </div>
-      </SettingsSection>
-
-      {/* ── Sidebar ────────────────────────────────────────────── */}
-      <SettingsSection
-        id="interface-defaults-sidebar"
-        icon={<PanelLeft size={18} />}
-        title={t("settings.interface.studioSidebar")}
-      >
-        <div className="settings-control interface-defaults-control">
-          <span className="settings-label">
-            {t("settings.interface.studioSidebarPosition")}
-          </span>
-          <div
-            className="settings-segmented"
-            role="group"
-            aria-label={t("settings.interface.studioSidebarPosition")}
-          >
-            <button
-              type="button"
-              className={sidebarPosition === "left" ? "active" : ""}
-              aria-pressed={sidebarPosition === "left"}
-              onClick={() => setSidebarPosition("left")}
-            >
-              {t("settings.interface.studioSidebarLeft")}
-            </button>
-            <button
-              type="button"
-              className={sidebarPosition === "right" ? "active" : ""}
-              aria-pressed={sidebarPosition === "right"}
-              onClick={() => setSidebarPosition("right")}
-            >
-              {t("settings.interface.studioSidebarRight")}
-            </button>
-          </div>
-        </div>
-      </SettingsSection>
-
-      {/* ── Card badges ────────────────────────────────────────── */}
-      <SettingsSection
-        id="interface-defaults-badges"
-        icon={<BadgeCheck size={18} />}
-        title={t("settings.section.interfaceBadges")}
-        desc={t("settings.section.interfaceBadges.desc")}
-      >
-        <div className="interface-defaults-grid">
-          <SettingsToggleCard
-            title={t("settings.appearance.cardBadgesTitle")}
-            desc={t("settings.appearance.cardBadgesDesc")}
-            checked={showCardBadges}
-            onChange={setShowCardBadges}
-          />
-          {BADGE_ITEMS.map((item) => (
-            <SettingsToggleCard
-              key={item.key}
-              title={t(item.labelKey)}
-              checked={interfaceVisibility[item.key]}
-              disabled={MASTER_GATED_BADGES.has(item.key) && !showCardBadges}
-              onChange={(checked) => setInterfaceVisibility(item.key, checked)}
-            />
-          ))}
-        </div>
-      </SettingsSection>
-
-      {/* ── Widgets ────────────────────────────────────────────── */}
-      <SettingsSection
-        id="interface-defaults-widgets"
-        icon={<LayoutGrid size={18} />}
-        title={t("settings.interface.studioWidgetsAllPages")}
-        desc={t("settings.interface.studioWidgetsAllPagesHint")}
-      >
-        <div className="interface-defaults-grid">
-          {WIDGET_ITEMS.map((item) => (
-            <SettingsToggleCard
-              key={item.key}
-              title={t(item.labelKey)}
-              checked={interfaceVisibility[item.key]}
-              onChange={(checked) => setInterfaceVisibility(item.key, checked)}
-            />
-          ))}
-        </div>
-      </SettingsSection>
-
       {/* ── Game & store detail sections (overview only) ───────── */}
       <SettingsSection
         id="interface-defaults-detail-sections"
@@ -269,29 +143,6 @@ export default function InterfaceDefaults() {
               onChange={(checked) => setDetailSectionVisible(item.key, checked)}
             />
           ))}
-        </div>
-      </SettingsSection>
-
-      {/* ── Landing page ───────────────────────────────────────── */}
-      <SettingsSection
-        id="interface-defaults-landing"
-        icon={<Home size={18} />}
-        title={t("settings.launcher.landingTitle")}
-        desc={t("settings.launcher.landingDesc")}
-      >
-        <div className="settings-control interface-defaults-control">
-          <select
-            className="settings-select"
-            value={landingPage}
-            aria-label={t("settings.launcher.landingTitle")}
-            onChange={(e) => setLandingPage(e.target.value as LandingPage)}
-          >
-            {landingPages.map((page) => (
-              <option key={page.key} value={page.key}>
-                {t(page.labelKey)}
-              </option>
-            ))}
-          </select>
         </div>
       </SettingsSection>
     </>

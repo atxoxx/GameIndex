@@ -125,11 +125,29 @@ export function buildSettingsCatalog(
       tab: "interface",
       labelKey: "settings.interface",
       descKey: "settings.interface.desc",
-      // No section entries: the whole tab is one button into the Layout Studio
-      // modal, so there are no in-page anchors to jump to.
-      keywords: "interface visibility show hide navbar tabs buttons badges overlays widgets kpi filters subtabs clutter declutter simple complete layout scale density detail sections layout studio preview drag rearrange",
+      // The tab leads with the Layout Studio, whose live preview is the single
+      // editing surface for the app shell. The two groups below it (global
+      // appearance + detail sections) are real in-page anchors, so the jump
+      // bar and search can target each one.
+      keywords: "interface visibility show hide navbar tabs buttons badges overlays widgets kpi filters subtabs clutter declutter simple complete layout scale density detail sections layout studio preview drag rearrange sidebar now playing card badge landing page startup",
       icon: <ListIcon />,
-      sections: [],
+      sections: [
+        {
+          id: "interface-studio",
+          labelKey: "settings.interface.studioTitle",
+          keywords: "layout studio preview drag rearrange reorder hide show navbar tabs buttons sidebar sections widgets hero detail tabs card badges now playing scale zoom",
+        },
+        {
+          id: "interface-defaults-layout",
+          labelKey: "settings.interface.globalAppearance",
+          keywords: "global appearance interface scale scaling zoom simple ui mode compact navigation bar command palette dynamic game art backdrop ambient display density",
+        },
+        {
+          id: "interface-defaults-detail-sections",
+          labelKey: "settings.detailSections.title",
+          keywords: "detail sections overview steam features system requirements game relations time to beat protondb releases reviews activity notes achievements mods weblinks news game store pages",
+        },
+      ],
     },
     appearance: {
       tab: "appearance",

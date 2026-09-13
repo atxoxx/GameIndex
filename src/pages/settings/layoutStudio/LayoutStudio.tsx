@@ -490,6 +490,26 @@ export default function LayoutStudio() {
     [sidebarSectionVisible, setSidebarSectionVisible, playSound],
   );
 
+  // Cards, header and sidebar are edited directly in the preview now, so the
+  // studio owns these three masters as well.
+  const handleToggleCardBadgesMaster = useCallback(() => {
+    setShowCardBadges(!showCardBadges);
+    playSound();
+  }, [showCardBadges, setShowCardBadges, playSound]);
+
+  const handleToggleNowPlaying = useCallback(() => {
+    setShowNavbarNowPlaying(!showNavbarNowPlaying);
+    playSound();
+  }, [showNavbarNowPlaying, setShowNavbarNowPlaying, playSound]);
+
+  const handleSetSidebarPosition = useCallback(
+    (side: "left" | "right") => {
+      setSidebarPosition(side);
+      playSound();
+    },
+    [setSidebarPosition, playSound],
+  );
+
   // ── Preset & Snapshot Application ─────────────────────────────────────────
   const applySnapshot = useCallback(
     (snapshot: Partial<LayoutSnapshot>) => {
@@ -702,7 +722,7 @@ export default function LayoutStudio() {
   };
 
   return (
-    <section className="studio" aria-labelledby="layout-studio-title">
+    <section className="studio" id="interface-studio" aria-labelledby="layout-studio-title">
       {/* Studio Header */}
       <div className="studio-header">
         <span className="studio-header__icon">
@@ -887,7 +907,7 @@ export default function LayoutStudio() {
             detailTabItems={detailTabItems}
             heroElementItems={heroElementItems}
             detailScope={activeDetailScope}
-            badgesVisible={interfaceVisibility}
+            globalVisibility={interfaceVisibility}
             showNowPlaying={showNavbarNowPlaying}
             showCardBadgesMaster={showCardBadges}
             highlightedId={highlightedId}
@@ -903,6 +923,10 @@ export default function LayoutStudio() {
             onToggleDetailTab={toggleDetailTab}
             onReorderHeroElements={handleReorderHeroElements}
             onToggleHeroElement={toggleHeroElement}
+            onToggleGlobalItem={toggleInterfaceItemById}
+            onToggleCardBadgesMaster={handleToggleCardBadgesMaster}
+            onToggleNowPlaying={handleToggleNowPlaying}
+            onSetSidebarPosition={handleSetSidebarPosition}
           />
 
           <p className="studio-pane__hint">

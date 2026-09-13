@@ -8,12 +8,15 @@ import "./InterfaceTab.css";
 /**
  * InterfaceTab
  * ────────────
- * The Interface tab leads with the Layout Studio: an editable map of the app
- * shell with a live preview, rendered directly in the page rather than behind
- * a modal. Directly below it, InterfaceDefaults hosts the global shell
- * controls the preview cannot change by itself — interface scale, layout
- * modes, sidebar side, card-badge and widget masters, the overview detail
- * sections and the startup landing page — as ordinary settings sections.
+ * The Interface tab leads with the Layout Studio: a single editable map of the
+ * app shell whose live preview is the one place for every navigational and
+ * visual element — navbar tabs and buttons, sidebar side and sections, page
+ * widgets (per page and app-wide masters), card badges, the now-playing
+ * indicator, hero elements and detail tabs.
+ *
+ * Below it, InterfaceDefaults hosts the two groups the preview cannot express:
+ * the app-wide display modes (scale, Simple UI, compact navbar, simple command
+ * palette, art backdrop) and the overview detail sections.
  */
 export default function InterfaceTab() {
   const { t } = useLanguage();
@@ -23,7 +26,7 @@ export default function InterfaceTab() {
     <>
       <div className="interface-tab-shell">
         {/* Only worth showing while Simple UI strips every marked element: it
-         *  explains the empty studio and where to turn the mode off. */}
+         *  explains the dimmed preview and where to turn the mode off. */}
         {isSimpleUi && (
           <div
             className="settings-behavior-card"
@@ -49,9 +52,8 @@ export default function InterfaceTab() {
         <LayoutStudio />
       </div>
 
-      {/* Global controls that used to live in the studio's right-hand pane.
-       *  Rendered as normal settings sections so the tab keeps the shared
-       *  section rhythm and scrolls with the rest of the page. */}
+      {/* App-wide display modes and the overview detail sections — the only
+       *  settings the live preview cannot change by itself. */}
       <InterfaceDefaults />
     </>
   );

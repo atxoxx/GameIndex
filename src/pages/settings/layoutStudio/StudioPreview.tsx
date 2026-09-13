@@ -1,13 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
+  BadgeCheck,
   Clock,
   Eye,
   EyeOff,
   Gamepad2,
   GripVertical,
+  HardDrive,
+  LayoutGrid,
+  type LucideIcon,
+  PanelLeft,
+  PanelRight,
+  Scale,
   Search,
+  ShieldAlert,
   Sparkles,
   Star,
+  Store,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import {
@@ -17,11 +26,32 @@ import {
   type HeroElementKey,
   type InterfacePageKey,
 } from "../../../context/interfaceLayout";
+import {
+  BADGE_ITEMS,
+  MASTER_GATED_BADGES,
+  WIDGET_ITEMS,
+} from "../interfaceItems";
 import { useOrderDrag } from "../useOrderDrag";
+import { WIDGET_ICON, WIDGET_KEY_BY_ITEM } from "./widgetIcons";
 import type { OrderListItem, ViewportPreset } from "./types";
+
+/** Compact icon for each card-badge toggle in the preview's badge tuner. */
+const BADGE_ICON: Record<string, LucideIcon> = {
+  badgePlatform: Store,
+  badgePlaytime: Clock,
+  badgeInstall: HardDrive,
+  badgeRating: Star,
+  badgeCrackwatch: ShieldAlert,
+  badgeCompare: Scale,
+};
 
 const SIDEBAR_LABEL_KEY: Record<string, string> = Object.fromEntries(
   SIDEBAR_SECTIONS.map((section) => [section.key, section.labelKey]),
+);
+
+/** Card-badge key → label key, for the clickable badges drawn on the mock cards. */
+const BADGE_LABEL_KEY: Record<string, string> = Object.fromEntries(
+  BADGE_ITEMS.map((badge) => [badge.key, badge.labelKey]),
 );
 
 /** Tiny stand-in for a content element inside the preview's hero mock. */
@@ -72,6 +102,62 @@ function HeroElementVisual({ element }: { element: HeroElementKey }) {
   }
 }
 
+interface ToggleChipProps {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+  disabled?: boolean;
+  lit?: boolean;
+  inspectMode?: boolean;
+  onInspect?: (id: string) => void;
+  onToggle: () => void;
+}
+
+/**
+ * ToggleChip — a compact on/off pill used by the preview's global tuners
+ * (widget masters, card badges). Rendered inside `.studio-preview`, so its
+ * styles carry the extra `.studio-preview` prefix to beat the shared
+ * `button` reset in LayoutStudio.css.
+ */
+function ToggleChip({
+  id,
+  label,
+  icon: Icon,
+  active,
+  disabled,
+  lit,
+  inspectMode,
+  onInspect,
+  onToggle,
+}: ToggleChipProps) {
+  const { t } = useLanguage();
+  const title =
+    inspectMode && onInspect
+      ? `${label} — ${t("settings.interface.inspectElementHint")}`
+      : `${label} — ${t(
+          active ? "settings.interface.studioHide" : "settings.interface.studioShow",
+        )}`;
+  return (
+    <button
+      type="button"
+      className={`studio-chip${active ? "" : " is-off"}${
+        lit ? " is-preview-lit" : ""
+      }`}
+      aria-pressed={active}
+      title={title}
+      disabled={disabled}
+      onClick={() => {
+        if (inspectMode && onInspect) onInspect(id);
+        else onToggle();
+      }}
+    >
+      <Icon size={11} aria-hidden="true" />
+      <span className="studio-chip__label">{label}</span>
+    </button>
+  );
+}
+
 export interface StudioPreviewProps {
   navTabs: OrderListItem[];
   navButtons: OrderListItem[];
@@ -79,7 +165,8 @@ export interface StudioPreviewProps {
   sidebarVisible: Record<string, boolean>;
   page: InterfacePageKey;
   pageItems: OrderListItem[];
-  badgesVisible?: Record<string, boolean>;
+  /** The full `interfaceVisibility` map (nav items, card badges, widget masters). */
+  globalVisibility?: Record<string, boolean>;
   showNowPlaying?: boolean;
   showCardBadgesMaster?: boolean;
   highlightedId?: string | null;
@@ -101,6 +188,14 @@ export interface StudioPreviewProps {
   onToggleDetailTab: (id: string, hidden: boolean) => void;
   onReorderHeroElements: (from: number, to: number) => void;
   onToggleHeroElement: (id: string, hidden: boolean) => void;
+  /** Toggle a global `interfaceVisibility` item — card badges and widget masters. */
+  onToggleGlobalItem: (id: string) => void;
+  /** Toggle the "Show Card Badges" master switch. */
+  onToggleCardBadgesMaster: () => void;
+  /** Toggle the navbar now-playing indicator. */
+  onToggleNowPlaying: () => void;
+  /** Dock the app sidebar left or right. */
+  onSetSidebarPosition: (side: "left" | "right") => void;
 }
 
 export function StudioPreview({
@@ -110,7 +205,7 @@ export function StudioPreview({
   sidebarVisible,
   page,
   pageItems,
-  badgesVisible = {},
+  globalVisibility = {},
   showNowPlaying = true,
   showCardBadgesMaster = true,
   highlightedId,
@@ -131,6 +226,10 @@ export function StudioPreview({
   onToggleDetailTab,
   onReorderHeroElements,
   onToggleHeroElement,
+  onToggleGlobalItem,
+  onToggleCardBadgesMaster,
+  onToggleNowPlaying,
+  onSetSidebarPosition,
 }: StudioPreviewProps) {
   const { t } = useLanguage();
   const isGlobal = page === "global";
@@ -345,6 +444,27 @@ export function StudioPreview({
     );
   };
 
+  // A clickable badge drawn on the mock cards. Clicking toggles that badge,
+  // mirroring the minimised version of the real card badges.
+  const renderCardBadge = (id: string, variant: string, content: ReactNode) => {
+    const label = t(BADGE_LABEL_KEY[id] ?? id);
+    return (
+      <button
+        type="button"
+        className={`studio-preview__mini-badge studio-preview__mini-badge--${variant}`}
+        aria-pressed={true}
+        title={toggleTitle(label, false)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (inspectMode && onInspectElement) onInspectElement(id);
+          else onToggleGlobalItem(id);
+        }}
+      >
+        {content}
+      </button>
+    );
+  };
+
   return (
     <div className="studio-preview-container">
       {/* Frame wrapper for aspect ratio simulation */}
@@ -400,18 +520,27 @@ export function StudioPreview({
               ))}
             </div>
 
-            {showNowPlaying && (
-              <div
-                className={`studio-preview__now-playing${
-                  highlightedId === "now-playing" ? " is-preview-lit" : ""
-                }`}
-                title={t("settings.appearance.navbarNowPlayingTitle")}
-              >
-                <span className="studio-preview__now-playing-pulse" aria-hidden="true" />
-                <Gamepad2 size={10} aria-hidden="true" />
-                <span>Playing</span>
-              </div>
-            )}
+            <button
+              type="button"
+              className={`studio-preview__now-playing${
+                showNowPlaying ? "" : " is-off"
+              }${highlightedId === "now-playing" ? " is-preview-lit" : ""}`}
+              aria-pressed={showNowPlaying}
+              title={toggleTitle(
+                t("settings.appearance.navbarNowPlayingTitle"),
+                !showNowPlaying,
+                "now-playing",
+              )}
+              onClick={() =>
+                inspectMode && onInspectElement
+                  ? onInspectElement("now-playing")
+                  : onToggleNowPlaying()
+              }
+            >
+              <span className="studio-preview__now-playing-pulse" aria-hidden="true" />
+              <Gamepad2 size={10} aria-hidden="true" />
+              <span>Playing</span>
+            </button>
 
             <div className="studio-preview__actions" ref={buttonsDrag.containerRef}>
               {navButtons.map((button, index) => (
@@ -449,6 +578,38 @@ export function StudioPreview({
                 highlightedId === "studio-group-sidebar" ? " is-preview-lit" : ""
               }`}
             >
+              {/* Sidebar side control — docks the whole sidebar left/right. */}
+              <div
+                className="studio-preview__sidebar-dock"
+                role="group"
+                aria-label={t("settings.interface.studioSidebarPosition")}
+              >
+                <button
+                  type="button"
+                  className={`studio-preview__sidebar-side${
+                    sidebarPosition === "left" ? " is-active" : ""
+                  }`}
+                  aria-pressed={sidebarPosition === "left"}
+                  aria-label={t("settings.interface.studioSidebarLeft")}
+                  title={t("settings.interface.studioSidebarLeft")}
+                  onClick={() => onSetSidebarPosition("left")}
+                >
+                  <PanelLeft size={11} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={`studio-preview__sidebar-side${
+                    sidebarPosition === "right" ? " is-active" : ""
+                  }`}
+                  aria-pressed={sidebarPosition === "right"}
+                  aria-label={t("settings.interface.studioSidebarRight")}
+                  title={t("settings.interface.studioSidebarRight")}
+                  onClick={() => onSetSidebarPosition("right")}
+                >
+                  <PanelRight size={11} aria-hidden="true" />
+                </button>
+              </div>
+
               {(["search", "activeFilters", "gameList", "statsFooter"] as const).map(
                 (sectionKey) => {
                   const label = t(SIDEBAR_LABEL_KEY[sectionKey]);
@@ -538,10 +699,38 @@ export function StudioPreview({
               {/* Page items or realistic library mockup */}
               {isGlobal ? (
                 <div className="studio-preview__generic">
+                  {/* Widget masters — "hide everywhere" counterparts of the
+                   *  per-page widget toggles on each page tab. */}
+                  <div
+                    className="studio-preview__tuner"
+                    role="group"
+                    aria-label={t("settings.interface.studioWidgetsAllPages")}
+                  >
+                    <span className="studio-preview__tuner-label">
+                      <LayoutGrid size={11} aria-hidden="true" />
+                      {t("settings.interface.studioWidgetsAllPages")}
+                    </span>
+                    <div className="studio-preview__tuner-chips">
+                      {WIDGET_ITEMS.map((item) => (
+                        <ToggleChip
+                          key={item.key}
+                          id={item.key}
+                          label={t(item.labelKey)}
+                          icon={WIDGET_ICON[WIDGET_KEY_BY_ITEM[item.key]]}
+                          active={globalVisibility[item.key] !== false}
+                          lit={highlightedId === item.key}
+                          inspectMode={inspectMode}
+                          onInspect={onInspectElement}
+                          onToggle={() => onToggleGlobalItem(item.key)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
                   <div
                     className={`studio-preview__mock-hero${
-                      highlightedId === "widgetHero" ? " is-preview-lit" : ""
-                    }`}
+                      globalVisibility.widgetHero === false ? " is-off" : ""
+                    }${highlightedId === "widgetHero" ? " is-preview-lit" : ""}`}
                   >
                     <Sparkles size={13} aria-hidden="true" />
                     <span>Hero Spotlight Banner</span>
@@ -551,25 +740,25 @@ export function StudioPreview({
                     {Array.from({ length: 4 }, (_, i) => (
                       <div key={i} className="studio-preview__mock-card">
                         <div className="studio-preview__mock-card-cover">
-                          {showCardBadgesMaster && badgesVisible.badgePlatform !== false && (
-                            <span className="studio-preview__mini-badge studio-preview__mini-badge--plat">
-                              Steam
-                            </span>
-                          )}
-                          {showCardBadgesMaster && badgesVisible.badgeRating !== false && (
-                            <span className="studio-preview__mini-badge studio-preview__mini-badge--rating">
-                              <Star size={7} fill="currentColor" /> 95%
-                            </span>
-                          )}
-                          {showCardBadgesMaster && badgesVisible.badgeInstall !== false && (
-                            <span className="studio-preview__mini-badge studio-preview__mini-badge--installed">
-                              Ready
-                            </span>
-                          )}
+                          {showCardBadgesMaster &&
+                            globalVisibility.badgePlatform !== false &&
+                            renderCardBadge("badgePlatform", "plat", "Steam")}
+                          {showCardBadgesMaster &&
+                            globalVisibility.badgeRating !== false &&
+                            renderCardBadge(
+                              "badgeRating",
+                              "rating",
+                              <>
+                                <Star size={7} fill="currentColor" /> 95%
+                              </>,
+                            )}
+                          {showCardBadgesMaster &&
+                            globalVisibility.badgeInstall !== false &&
+                            renderCardBadge("badgeInstall", "installed", "Ready")}
                         </div>
                         <div className="studio-preview__mock-card-meta">
                           <span className="studio-preview__mock-card-title" />
-                          {showCardBadgesMaster && badgesVisible.badgePlaytime !== false && (
+                          {showCardBadgesMaster && globalVisibility.badgePlaytime !== false && (
                             <span className="studio-preview__mock-card-time">
                               <Clock size={7} /> 28h
                             </span>
@@ -577,6 +766,48 @@ export function StudioPreview({
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Card badges — master switch + every badge, attached to
+                   *  the card mock above so edits have an obvious home. */}
+                  <div
+                    className="studio-preview__tuner"
+                    role="group"
+                    aria-label={t("settings.interface.subtabBadges")}
+                  >
+                    <div className="studio-preview__tuner-head">
+                      <span className="studio-preview__tuner-label">
+                        <BadgeCheck size={11} aria-hidden="true" />
+                        {t("settings.interface.subtabBadges")}
+                      </span>
+                      <ToggleChip
+                        id="show-card-badges"
+                        label={t("settings.appearance.cardBadgesTitle")}
+                        icon={BadgeCheck}
+                        active={showCardBadgesMaster}
+                        inspectMode={inspectMode}
+                        onInspect={onInspectElement}
+                        onToggle={onToggleCardBadgesMaster}
+                      />
+                    </div>
+                    <div className="studio-preview__tuner-chips">
+                      {BADGE_ITEMS.map((item) => (
+                        <ToggleChip
+                          key={item.key}
+                          id={item.key}
+                          label={t(item.labelKey)}
+                          icon={BADGE_ICON[item.key] ?? BadgeCheck}
+                          active={globalVisibility[item.key] !== false}
+                          disabled={
+                            MASTER_GATED_BADGES.has(item.key) && !showCardBadgesMaster
+                          }
+                          lit={highlightedId === item.key}
+                          inspectMode={inspectMode}
+                          onInspect={onInspectElement}
+                          onToggle={() => onToggleGlobalItem(item.key)}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : (

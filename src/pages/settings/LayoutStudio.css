@@ -823,7 +823,7 @@
   color: var(--color-accent);
 }
 
-.studio-preview__now-playing {
+.studio-preview .studio-preview__now-playing {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -837,7 +837,31 @@
   flex-shrink: 0;
   white-space: nowrap;
   margin-left: auto;
+  cursor: pointer;
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 20%, transparent);
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+    background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview .studio-preview__now-playing:hover {
+  border-color: var(--color-accent);
+}
+
+/* Switched off: stay in place, dimmed and dashed, so it can be switched back
+   on from the same chip. */
+.studio-preview .studio-preview__now-playing.is-off {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-text-muted) 60%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+  color: var(--color-text-muted);
+  box-shadow: none;
+}
+
+.studio-preview .studio-preview__now-playing.is-off .studio-preview__now-playing-pulse {
+  background: var(--color-text-muted);
+  box-shadow: none;
+  animation: none;
 }
 
 .studio-preview__now-playing-pulse {
@@ -940,9 +964,57 @@
   gap: 6px;
   width: 140px;
   flex-shrink: 0;
-  padding: var(--space-sm);
+  /* Top room for the dock-side control pinned in the corner. */
+  padding: 30px var(--space-sm) var(--space-sm);
   background: var(--color-bg-secondary);
   border-right: 1px solid var(--color-border);
+}
+
+/* Sidebar side control — small segmented pill in the sidebar's outer corner
+   (away from the alphabet rail) so the whole rail can be docked left or right
+   straight from the preview. */
+.studio-preview__sidebar-dock {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  z-index: 5;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-primary) 80%, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.studio-preview.is-sidebar-right .studio-preview__sidebar-dock {
+  left: auto;
+  right: 6px;
+}
+
+.studio-preview .studio-preview__sidebar-side {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-preview .studio-preview__sidebar-side:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.studio-preview .studio-preview__sidebar-side.is-active {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
 .studio-preview.is-sidebar-right .studio-preview__sidebar {
@@ -1152,7 +1224,7 @@
   justify-content: space-between;
 }
 
-.studio-preview__mini-badge {
+.studio-preview .studio-preview__mini-badge {
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -1162,19 +1234,27 @@
   font-weight: var(--font-weight-bold);
   align-self: flex-start;
   line-height: 1.1;
+  cursor: pointer;
+  transition: outline-color var(--transition-fast), filter var(--transition-fast);
 }
 
-.studio-preview__mini-badge--plat {
+.studio-preview .studio-preview__mini-badge:hover {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 1px;
+  filter: brightness(1.15);
+}
+
+.studio-preview .studio-preview__mini-badge--plat {
   background: rgba(0, 0, 0, 0.6);
   color: #60a5fa;
 }
 
-.studio-preview__mini-badge--rating {
+.studio-preview .studio-preview__mini-badge--rating {
   background: rgba(0, 0, 0, 0.6);
   color: #fbbf24;
 }
 
-.studio-preview__mini-badge--installed {
+.studio-preview .studio-preview__mini-badge--installed {
   background: color-mix(in srgb, #10b981 30%, transparent);
   color: #34d399;
 }
@@ -2019,5 +2099,121 @@
 .studio-preview-frame--handheld .studio-preview__main {
   gap: 5px;
   padding: 6px 10px;
+}
+
+/* ── Global-page tuners (widget masters + card badges) ────────────────────
+ * The Global page exposes the app-wide masters — "hide this widget
+ * everywhere" and the card-badge set — as compact chip rows attached to the
+ * hero and card mocks, so every control owns one editing surface. */
+
+.studio-preview__generic {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border)) transparent;
+}
+
+.studio-preview__generic::-webkit-scrollbar {
+  width: 4px;
+}
+
+.studio-preview__generic::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-preview__generic::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  border-radius: var(--radius-full);
+}
+
+.studio-preview__tuner {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-secondary) 82%, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.studio-preview__tuner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.studio-preview__tuner-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.studio-preview__tuner-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Compact on/off pill. Two-class selector so it beats the shared
+   `.studio-preview button` reset earlier in this file. */
+.studio-preview .studio-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 9.5px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+    background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview .studio-chip svg {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.studio-preview .studio-chip:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+
+.studio-preview .studio-chip.is-off {
+  opacity: 0.45;
+  border-style: dashed;
+  color: var(--color-text-muted);
+}
+
+.studio-preview .studio-chip.is-off svg {
+  color: var(--color-text-muted);
+}
+
+.studio-preview .studio-chip:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* The mock hero dims when its global master is switched off. */
+.studio-preview__mock-hero.is-off {
+  opacity: 0.4;
+  outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  outline-offset: -1px;
 }
 

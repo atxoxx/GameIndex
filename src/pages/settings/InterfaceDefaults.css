@@ -1,20 +1,27 @@
 /* =============================================================================
- * Interface Defaults — the global shell controls relocated out of the Layout
- * Studio's right-hand pane into standard settings sections below the studio.
+ * Interface Defaults — the app-wide controls that sit outside the Layout
+ * Studio preview: interface scale + display modes, and the overview detail
+ * sections. Everything the preview can edit lives in the studio instead.
  * ========================================================================== */
 
-/* Responsive card grid for the toggle groups (badges, widgets, detail
- * sections, layout modes). Mirrors the Launcher tab's card grid so the two
- * surfaces read as one settings family. */
+/* Scale control above the display-mode grid. */
+.interface-defaults-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Responsive card grid for the display-mode and detail-section toggles.
+ * Mirrors the Launcher tab's card grid so the two surfaces read as one
+ * settings family. */
 .interface-defaults-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-md);
 }
 
-/* Narrow single-control rows (scale select, sidebar side, landing page) so
- * they don't stretch to the full content width. Matches the language
- * picker's 360px cap. */
+/* Narrow single-control rows (the scale select) so they don't stretch to the
+ * full content width. Matches the language picker's 360px cap. */
 .interface-defaults-control {
   max-width: 420px;
 }
