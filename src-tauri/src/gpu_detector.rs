@@ -101,10 +101,16 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
                             let vram_mb = if vram_bytes > 0 && vram_bytes < 4_200_000_000 {
                                 // Value fits in uint32 and is not truncated — use it directly
                                 vram_bytes / 1_048_576
-                            } else if let Some(nv) = windows_nvidia_smi_vram_mb(&name) {
+                            } else if vendor_display.to_lowercase().contains("nvidia") {
                                 // WMI gave 0 / a truncated value — ask nvidia-smi for the
-                                // exact total (it reports MiB with `nounits`).
-                                nv
+                                // exact total (it reports MiB with `nounits`). nvidia-smi
+                                // only ever lists NVIDIA GPUs, so querying it for other
+                                // vendors (Intel iGPU, basic render adapter) would spawn a
+                                // console process for a guaranteed miss.
+                                match windows_nvidia_smi_vram_mb(&name) {
+                                    Some(nv) => nv,
+                                    None => estimate_vram_from_name(&name),
+                                }
                             } else {
                                 // Neither WMI nor nvidia-smi produced a value — estimate from name
                                 estimate_vram_from_name(&name)
@@ -146,11 +152,16 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
 /// isn't available or no GPU name matches.
 #[cfg(windows)]
 fn windows_nvidia_smi_vram_mb(wmi_name: &str) -> Option<u64> {
+    use std::os::windows::process::CommandExt;
+
     if !crate::compatibility::is_command_available("nvidia-smi") {
         return None;
     }
     let out = std::process::Command::new("nvidia-smi")
         .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+        // CREATE_NO_WINDOW: this runs from a GUI-subsystem process, so without
+        // it Windows flashes a console window for every spawned nvidia-smi.
+        .creation_flags(0x08000000)
         .output()
         .ok()?;
     if !out.status.success() {
