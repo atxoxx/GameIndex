@@ -1,20 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useMemo, useState } from "react";
 import {
+  BadgeCheck,
   ChartColumn,
   ChevronDown,
+  Gamepad2,
   ChevronUp,
   Eye,
   EyeOff,
   Filter,
   GripVertical,
   LayoutDashboard,
+  LayoutGrid,
   LayoutList,
   LayoutTemplate,
+  List,
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
-  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
@@ -22,7 +24,9 @@ import {
   DEFAULT_NAVBAR_BUTTON_ORDER,
   DEFAULT_NAVBAR_TAB_ORDER,
   useSettings,
+  type DetailSectionKey,
   type InterfaceItemKey,
+  type UiScale,
 } from "../../context/SettingsContext";
 import {
   DEFAULT_PAGE_ITEM_ORDER,
@@ -35,20 +39,18 @@ import {
   type SidebarSectionKey,
 } from "../../context/interfaceLayout";
 import {
+  BADGE_ITEMS,
+  MASTER_GATED_BADGES,
   NAV_BUTTON_ITEMS,
   NAV_TAB_ITEMS,
+  WIDGET_ITEMS,
+  buildDetailSectionItems,
   moveKey,
   sortByOrder,
 } from "./interfaceItems";
 import { useOrderDrag } from "./useOrderDrag";
-import SettingsToggleCard from "./SettingsToggleCard";
 import { playActionSound } from "../../utils/soundEffects";
-import "./LayoutEditorModal.css";
-
-interface LayoutEditorModalProps {
-  open: boolean;
-  onClose: () => void;
-}
+import "./LayoutStudio.css";
 
 /** Icon shown for each page-level widget category. */
 const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
@@ -59,12 +61,36 @@ const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   dashboard: LayoutDashboard,
 };
 
+/** Global widget switch → the page widget category it controls, so the
+ *  "every page" toggles can borrow the per-page icons. */
+const WIDGET_KEY_BY_ITEM: Record<string, PageWidgetKey> = {
+  widgetKpis: "kpis",
+  widgetFilters: "filters",
+  widgetSubtabs: "subtabs",
+  widgetHero: "hero",
+  widgetDashboard: "dashboard",
+};
+
+/** UI scaling presets, in the same order as the shipped select. */
+const UI_SCALE_OPTIONS: { value: UiScale; labelKey: string }[] = [
+  { value: "auto", labelKey: "settings.appearance.uiScaleAuto" },
+  { value: "85", labelKey: "settings.appearance.uiScale85" },
+  { value: "100", labelKey: "settings.appearance.uiScale100" },
+  { value: "110", labelKey: "settings.appearance.uiScale110" },
+  { value: "125", labelKey: "settings.appearance.uiScale125" },
+  { value: "150", labelKey: "settings.appearance.uiScale150" },
+  { value: "175", labelKey: "settings.appearance.uiScale175" },
+  { value: "200", labelKey: "settings.appearance.uiScale200" },
+];
+
 /** One entry of an order/visibility list. `id` is the persisted key. */
 interface OrderListItem {
   id: string;
   label: string;
   icon: LucideIcon;
   hidden: boolean;
+  /** Optional longer explanation, surfaced as the row's tooltip. */
+  hint?: string;
 }
 
 // ── Row ─────────────────────────────────────────────────────────────────────
@@ -73,6 +99,7 @@ function StudioRow({
   index,
   icon: Icon,
   label,
+  hint,
   hidden,
   onToggle,
   onMove,
@@ -85,6 +112,7 @@ function StudioRow({
   index: number;
   icon: LucideIcon;
   label: string;
+  hint?: string;
   hidden: boolean;
   onToggle: () => void;
   /** Omitted for visibility-only rows (sidebar sections). */
@@ -104,6 +132,7 @@ function StudioRow({
       }${hidden ? " is-hidden-item" : ""}`}
       data-order-index={index}
       role="listitem"
+      title={hint}
     >
       {onDragStart && (
         <span
@@ -203,6 +232,7 @@ function OrderList({
           index={index}
           icon={item.icon}
           label={item.label}
+          hint={item.hint}
           hidden={item.hidden}
           onToggle={() => onToggle(item.id, !item.hidden)}
           onMove={
@@ -223,6 +253,111 @@ function OrderList({
         </p>
       )}
     </div>
+  );
+}
+
+// ── Layout switches (Global → Layout) ───────────────────────────────────────
+
+/** Compact boolean row — the layout modes are switches, not list entries, so
+ *  they get a lighter treatment than an OrderList row. */
+function StudioToggle({
+  icon: Icon,
+  label,
+  desc,
+  checked,
+  disabled,
+  onChange,
+}: {
+  icon: LucideIcon;
+  label: string;
+  desc?: string;
+  checked: boolean;
+  /** Gated by a master switch (e.g. the card badges). */
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label
+      className={`studio-row studio-row--control${disabled ? " is-disabled" : ""}`}
+    >
+      <Icon className="studio-row__icon" size={16} aria-hidden="true" />
+      <span className="studio-row__text">
+        <span className="studio-row__label">{label}</span>
+        {desc && <span className="studio-row__desc">{desc}</span>}
+      </span>
+      <input
+        type="checkbox"
+        className="studio-row__check"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    </label>
+  );
+}
+
+/**
+ * StudioJumpBar — quick jumps to the Global tab's control groups. The Global
+ * column is long by nature (header, sidebar, badges, widgets, detail
+ * sections), so a sticky chip row beats scrolling to find a group.
+ */
+function StudioJumpBar({ items }: { items: { id: string; label: string }[] }) {
+  const { t } = useLanguage();
+  return (
+    <nav className="studio-jumpbar" aria-label={t("settings.interface.studioJumpNav")}>
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className="studio-jumpbar__chip"
+          onClick={() => {
+            document
+              .getElementById(item.id)
+              ?.scrollIntoView({ block: "start", behavior: "smooth" });
+          }}
+        >
+          {item.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+/** Select row — used for the UI scaling preset. */
+function StudioSelect({
+  icon: Icon,
+  label,
+  desc,
+  value,
+  options,
+  onChange,
+}: {
+  icon: LucideIcon;
+  label: string;
+  desc?: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (next: string) => void;
+}) {
+  return (
+    <label className="studio-row studio-row--control">
+      <Icon className="studio-row__icon" size={16} aria-hidden="true" />
+      <span className="studio-row__text">
+        <span className="studio-row__label">{label}</span>
+        {desc && <span className="studio-row__desc">{desc}</span>}
+      </span>
+      <select
+        className="studio-row__select"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -407,14 +542,16 @@ function StudioPreview({
         </div>
 
         <div className="studio-preview__main">
-          <div className="studio-preview__main-head">
-            <span className="studio-preview__main-title">
-              {isGlobal
-                ? t("settings.interface.studioPreview")
-                : t(pageDef?.labelKey ?? "settings.interface.studioPreview")}
-            </span>
-            <span className="studio-preview__main-pill" />
-          </div>
+          {/* Only a real page has a title worth showing; the Global tab keeps
+           *  a neutral content skeleton. */}
+          {!isGlobal && (
+            <div className="studio-preview__main-head">
+              <span className="studio-preview__main-title">
+                {t(pageDef?.labelKey ?? "settings.interface.studioPreview")}
+              </span>
+              <span className="studio-preview__main-pill" />
+            </div>
+          )}
           {isGlobal ? (
             <div className="studio-preview__generic">
               <span className="studio-preview__block" style={{ height: 46 }} />
@@ -458,7 +595,18 @@ function StudioPreview({
 
 // ── Modal ───────────────────────────────────────────────────────────────────
 
-export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalProps) {
+/**
+ * LayoutStudio
+ * ─────────────
+ * The Interface settings tab itself: an editable map of the app shell.
+ *
+ * Left: a simplified preview that mirrors the real chrome — drag an element
+ * there to reorder it, click it to hide or show it. Right: the same elements
+ * as an explicit, keyboard-friendly list for the page selected at the top.
+ * The preview column is fixed and the controls column scrolls, so the preview
+ * never leaves the screen while a long list is being arranged.
+ */
+export default function LayoutStudio() {
   const { t } = useLanguage();
   const {
     uiSoundEnabled,
@@ -480,18 +628,22 @@ export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalPr
     setUiDensityMode,
     navbarMode,
     setNavbarMode,
+    uiScale,
+    setUiScale,
+    commandPaletteMode,
+    setCommandPaletteMode,
+    showGameArtBackdrop,
+    setShowGameArtBackdrop,
+    showCardBadges,
+    setShowCardBadges,
+    showNavbarNowPlaying,
+    setShowNavbarNowPlaying,
+    detailSectionVisible,
+    setDetailSectionVisible,
+    showDeckVerified,
   } = useSettings();
 
   const [activePage, setActivePage] = useState<InterfacePageKey>("global");
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
 
   const playSound = useCallback(() => {
     if (uiSoundEnabled) playActionSound();
@@ -642,6 +794,20 @@ export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalPr
     [sidebarSectionVisible, t],
   );
 
+  /** Game & Store detail-page sections (visibility only — their order is
+   *  fixed by the pages themselves). */
+  const detailSectionItems = useMemo<OrderListItem[]>(
+    () =>
+      buildDetailSectionItems(showDeckVerified).map((section) => ({
+        id: section.key,
+        label: t(section.titleKey),
+        hint: t(section.descKey),
+        icon: List,
+        hidden: !detailSectionVisible[section.key],
+      })),
+    [showDeckVerified, detailSectionVisible, t],
+  );
+
   // ── Resets ────────────────────────────────────────────────────────────────
   const resetGlobal = useCallback(() => {
     setNavbarTabOrder(DEFAULT_NAVBAR_TAB_ORDER);
@@ -673,59 +839,77 @@ export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalPr
   const resetEverything = useCallback(() => {
     resetGlobal();
     for (const page of INTERFACE_PAGES) resetPage(page.key);
-    setInterfaceVisibility("btnDownloads", true);
-    setInterfaceVisibility("btnSettings", true);
-    setInterfaceVisibility("btnDocs", true);
-    setInterfaceVisibility("btnBigScreen", true);
-    for (const tab of NAV_TAB_ITEMS) setInterfaceVisibility(tab.key, true);
-  }, [resetGlobal, resetPage, setInterfaceVisibility]);
+    for (const item of [...NAV_TAB_ITEMS, ...NAV_BUTTON_ITEMS, ...BADGE_ITEMS, ...WIDGET_ITEMS]) {
+      setInterfaceVisibility(item.key, true);
+    }
+    setShowCardBadges(true);
+    setShowNavbarNowPlaying(true);
+    for (const section of buildDetailSectionItems(true)) {
+      setDetailSectionVisible(section.key, true);
+    }
+  }, [
+    resetGlobal,
+    resetPage,
+    setInterfaceVisibility,
+    setShowCardBadges,
+    setShowNavbarNowPlaying,
+    setDetailSectionVisible,
+  ]);
 
-  if (!open) return null;
-
+  /** Badge of the page tab: how many of that page's elements are hidden. The
+   *  Global tab counts the shared chrome (header items, badges, widgets and
+   *  sidebar sections) since it owns all of it. */
   const hiddenCountForPage = (page: InterfacePageKey) => {
+    if (page === "global") {
+      const itemGroups = [NAV_TAB_ITEMS, NAV_BUTTON_ITEMS, BADGE_ITEMS, WIDGET_ITEMS];
+      const hiddenItems = itemGroups.reduce(
+        (count, group) =>
+          count + group.filter((item) => interfaceVisibility[item.key] === false).length,
+        0,
+      );
+      const hiddenSidebar = SIDEBAR_SECTIONS.filter(
+        (section) => !sidebarSectionVisible[section.key],
+      ).length;
+      const hiddenDetailSections = buildDetailSectionItems(showDeckVerified).filter(
+        (section) => !detailSectionVisible[section.key],
+      ).length;
+      return hiddenItems + hiddenSidebar + hiddenDetailSections;
+    }
     const entry = pageItemVisible[page];
     if (!entry) return 0;
     return Object.values(entry).filter((visible) => visible === false).length;
   };
 
-  return createPortal(
-    <>
-      <div className="modal-backdrop studio-backdrop" onMouseDown={onClose}>
-        <div
-          className="modal studio-modal"
-          onMouseDown={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="layout-studio-title"
+  return (
+    <section className="studio" aria-labelledby="layout-studio-title">
+      <div className="studio-header">
+        <span className="studio-header__icon">
+          <LayoutTemplate size={20} aria-hidden="true" />
+        </span>
+        <div className="studio-header__text">
+          <h2 className="studio-header__title" id="layout-studio-title">
+            {t("settings.interface.studioTitle")}
+          </h2>
+          <p className="studio-header__subtitle">
+            {t("settings.interface.studioSubtitle")}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="studio-reset"
+          onClick={resetEverything}
         >
-          <div className="modal-header">
-            <div className="modal-header-icon">
-              <LayoutTemplate />
-            </div>
-            <div className="modal-header-text">
-              <h2 className="modal-title" id="layout-studio-title">
-                {t("settings.interface.studioTitle")}
-              </h2>
-              <p className="modal-subtitle">
-                {t("settings.interface.studioSubtitle")}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="studio-close"
-              onClick={onClose}
-              aria-label={t("common.close")}
-            >
-              <X size={18} aria-hidden="true" />
-            </button>
-          </div>
+          <RotateCcw size={13} aria-hidden="true" />
+          {t("settings.interface.studioResetAll")}
+        </button>
+      </div>
 
-          {/* Page tabs — top of the modal, one tab per page. */}
-          <nav
-            className="studio-pages"
-            role="tablist"
-            aria-label={t("settings.interface.studioPages")}
-          >
+      {/* Page tabs — one tab per page to edit. */}
+      <nav
+        className="studio-pages"
+        role="tablist"
+        aria-label={t("settings.interface.studioPages")}
+      >
             {INTERFACE_PAGES.map((page) => {
               const hiddenCount = hiddenCountForPage(page.key);
               const isActive = page.key === activePage;
@@ -752,7 +936,7 @@ export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalPr
             })}
           </nav>
 
-          <div className="modal-body studio-body">
+          <div className="studio-body">
             {/* Live simplified preview of the main app. */}
             <section className="studio-pane studio-pane--preview">
               <h3 className="studio-pane__title">
@@ -782,7 +966,80 @@ export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalPr
             <section className="studio-pane studio-pane--controls">
               {activePage === "global" ? (
                 <>
-                  <h3 className="studio-pane__title">
+                  <StudioJumpBar
+                    items={[
+                      { id: "studio-group-layout", label: t("settings.appearance.interfaceTitle") },
+                      { id: "studio-group-header", label: t("settings.interface.studioHeader") },
+                      { id: "studio-group-sidebar", label: t("settings.interface.studioSidebar") },
+                      { id: "studio-group-badges", label: t("settings.section.interfaceBadges") },
+                      { id: "studio-group-widgets", label: t("settings.interface.studioWidgetsAllPages") },
+                      { id: "studio-group-details", label: t("settings.detailSections.title") },
+                    ]}
+                  />
+
+                  {/* Layout modes lead the list: they change how the whole
+                   *  shell renders, so they are the first thing to reach. */}
+                  <h3 className="studio-pane__title" id="studio-group-layout">
+                    {t("settings.appearance.interfaceTitle")}
+                  </h3>
+                  <div className="studio-group">
+                    <StudioSelect
+                      icon={SlidersHorizontal}
+                      label={t("settings.appearance.uiScaleTitle")}
+                      desc={t("settings.appearance.uiScaleDesc")}
+                      value={uiScale}
+                      options={UI_SCALE_OPTIONS.map((option) => ({
+                        value: option.value,
+                        label: t(option.labelKey),
+                      }))}
+                      onChange={(next) => {
+                        setUiScale(next as UiScale);
+                        playSound();
+                      }}
+                    />
+                    <StudioToggle
+                      icon={LayoutTemplate}
+                      label={t("settings.appearance.simpleUiTitle")}
+                      desc={t("settings.appearance.simpleUiDesc")}
+                      checked={uiDensityMode === "simple"}
+                      onChange={(checked) => {
+                        setUiDensityMode(checked ? "simple" : "complete");
+                        playSound();
+                      }}
+                    />
+                    <StudioToggle
+                      icon={LayoutList}
+                      label={t("settings.appearance.navbarCompactTitle")}
+                      desc={t("settings.appearance.navbarCompactDesc")}
+                      checked={navbarMode === "compact"}
+                      onChange={(checked) => {
+                        setNavbarMode(checked ? "compact" : "full");
+                        playSound();
+                      }}
+                    />
+                    <StudioToggle
+                      icon={List}
+                      label={t("settings.appearance.cmdPaletteSimpleTitle")}
+                      desc={t("settings.appearance.cmdPaletteSimpleDesc")}
+                      checked={commandPaletteMode === "simple"}
+                      onChange={(checked) => {
+                        setCommandPaletteMode(checked ? "simple" : "full");
+                        playSound();
+                      }}
+                    />
+                    <StudioToggle
+                      icon={LayoutGrid}
+                      label={t("settings.appearance.artBackdropTitle")}
+                      desc={t("settings.appearance.artBackdropDesc")}
+                      checked={showGameArtBackdrop}
+                      onChange={(checked) => {
+                        setShowGameArtBackdrop(checked);
+                        playSound();
+                      }}
+                    />
+                  </div>
+
+                  <h3 className="studio-pane__title" id="studio-group-header">
                     {t("settings.interface.studioHeader")}
                   </h3>
                   <div className="studio-group">
@@ -807,8 +1064,20 @@ export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalPr
                       onToggle={toggleGlobalItem}
                     />
                   </div>
+                  <div className="studio-group">
+                    <StudioToggle
+                      icon={Gamepad2}
+                      label={t("settings.appearance.navbarNowPlayingTitle")}
+                      desc={t("settings.appearance.navbarNowPlayingDesc")}
+                      checked={showNavbarNowPlaying}
+                      onChange={(checked) => {
+                        setShowNavbarNowPlaying(checked);
+                        playSound();
+                      }}
+                    />
+                  </div>
 
-                  <h3 className="studio-pane__title">
+                  <h3 className="studio-pane__title" id="studio-group-sidebar">
                     {t("settings.interface.studioSidebar")}
                   </h3>
                   <div className="studio-group">
@@ -859,26 +1128,74 @@ export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalPr
                     />
                   </div>
 
-                  <div className="studio-toggles">
-                    <SettingsToggleCard
-                      title={t("settings.appearance.simpleUiTitle")}
-                      desc={t("settings.appearance.simpleUiDesc")}
-                      checked={uiDensityMode === "simple"}
+                  <h3 className="studio-pane__title" id="studio-group-badges">
+                    {t("settings.section.interfaceBadges")}
+                  </h3>
+                  <div className="studio-group">
+                    <StudioToggle
+                      icon={BadgeCheck}
+                      label={t("settings.appearance.cardBadgesTitle")}
+                      desc={t("settings.appearance.cardBadgesDesc")}
+                      checked={showCardBadges}
                       onChange={(checked) => {
-                        setUiDensityMode(checked ? "simple" : "complete");
+                        setShowCardBadges(checked);
                         playSound();
                       }}
                     />
-                    <SettingsToggleCard
-                      title={t("settings.appearance.navbarCompactTitle")}
-                      desc={t("settings.appearance.navbarCompactDesc")}
-                      checked={navbarMode === "compact"}
-                      onChange={(checked) => {
-                        setNavbarMode(checked ? "compact" : "full");
-                        playSound();
-                      }}
-                    />
+                    {BADGE_ITEMS.map((item) => (
+                      <StudioToggle
+                        key={item.key}
+                        icon={BadgeCheck}
+                        label={t(item.labelKey)}
+                        checked={interfaceVisibility[item.key]}
+                        disabled={MASTER_GATED_BADGES.has(item.key) && !showCardBadges}
+                        onChange={(checked) => {
+                          setInterfaceVisibility(item.key, checked);
+                          playSound();
+                        }}
+                      />
+                    ))}
                   </div>
+
+                  <h3 className="studio-pane__title" id="studio-group-widgets">
+                    {t("settings.interface.studioWidgetsAllPages")}
+                  </h3>
+                  <p className="studio-pane__hint">
+                    {t("settings.interface.studioWidgetsAllPagesHint")}
+                  </p>
+                  <div className="studio-group">
+                    {WIDGET_ITEMS.map((item) => (
+                      <StudioToggle
+                        key={item.key}
+                        icon={WIDGET_ICON[WIDGET_KEY_BY_ITEM[item.key]]}
+                        label={t(item.labelKey)}
+                        checked={interfaceVisibility[item.key]}
+                        onChange={(checked) => {
+                          setInterfaceVisibility(item.key, checked);
+                          playSound();
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  <h3 className="studio-pane__title" id="studio-group-details">
+                    {t("settings.detailSections.title")}
+                  </h3>
+                  <p className="studio-pane__hint">
+                    {t("settings.detailSections.desc")}
+                  </p>
+                  <OrderList
+                    label={t("settings.detailSections.title")}
+                    items={detailSectionItems}
+                    visibilityOnly
+                    onToggle={(id, hidden) => {
+                      setDetailSectionVisible(
+                        id as DetailSectionKey,
+                        !hidden,
+                      );
+                      playSound();
+                    }}
+                  />
                 </>
               ) : (
                 <>
@@ -907,26 +1224,7 @@ export default function LayoutEditorModal({ open, onClose }: LayoutEditorModalPr
                 </>
               )}
             </section>
-          </div>
-
-          <div className="modal-footer">
-            <button
-              type="button"
-              className="studio-reset"
-              onClick={resetEverything}
-            >
-              <RotateCcw size={13} aria-hidden="true" />
-              {t("settings.interface.studioResetAll")}
-            </button>
-            <div className="modal-footer-actions">
-              <button type="button" className="studio-done" onClick={onClose}>
-                {t("settings.interface.studioDone")}
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
-    </>,
-    document.body,
+    </section>
   );
 }

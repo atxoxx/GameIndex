@@ -1,61 +1,87 @@
 /* =============================================================================
- * Layout Studio — big modal that hides/rearranges the main app interface
- * (Settings → Interface → Open Layout Studio)
+ * Layout Studio — hides and rearranges the main app interface inside the
+ * Interface settings tab (rendered in the page, not as a modal).
  *
  * Two columns: an interactive simplified preview of the shell on the left,
- * the element controls for the active page on the right. `.studio-*` classes
- * are scoped to the modal and never leak into the app chrome.
+ * the element controls for the active page on the right. The studio owns its
+ * own height so the page scrolls as one piece while the preview column stays
+ * put and only the controls column scrolls internally. `.studio-*` classes are
+ * scoped to the studio and never leak into the app chrome.
  * ========================================================================== */
 
-.studio-modal {
-  width: min(1500px, 96vw);
-  height: min(92vh, 980px);
-  max-width: none;
-  max-height: none;
+.studio {
+  display: flex;
+  flex-direction: column;
+  height: min(80vh, 940px);
+  min-height: 560px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-2);
+  overflow: hidden;
 }
 
-.studio-backdrop {
+.studio-header {
+  display: flex;
   align-items: center;
-  padding: var(--space-lg);
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
-.studio-close {
+.studio-header__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent) 24%, transparent),
+    color-mix(in srgb, var(--color-accent) 8%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
   flex-shrink: 0;
-  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.studio-close:hover {
-  background: var(--color-surface-hover);
+.studio-header__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-header__title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  line-height: 1.35;
 }
 
-.studio-close:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+.studio-header__subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
 }
 
-/* ── Page tabs (top of the modal) ───────────────────────────────────────── */
+/* ── Page tabs (top of the studio) ──────────────────────────────────────── */
 
+/* Page tabs wrap instead of scrolling sideways: every page stays reachable
+ * with one glance (and one click) instead of hiding past the edge. */
 .studio-pages {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 6px;
   padding: var(--space-sm) var(--space-xl);
   background: var(--color-bg-tertiary);
   border-bottom: 1px solid var(--color-border);
-  overflow-x: auto;
   flex-shrink: 0;
+  max-height: 148px;
+  overflow-y: auto;
   scrollbar-width: thin;
 }
 
@@ -115,18 +141,19 @@
 
 /* ── Body: preview + controls ───────────────────────────────────────────── */
 
+/* The studio body never scrolls as a whole: the preview keeps its own column
+ * and the controls scroll independently, so the preview is always in view. */
 .studio-body {
+  flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
-  gap: var(--space-xl);
-  padding: var(--space-xl);
-  align-items: start;
-}
-
-@media (max-width: 1100px) {
-  .studio-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 0.85fr);
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
+  align-items: stretch;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .studio-pane {
@@ -136,16 +163,32 @@
   min-width: 0;
 }
 
+.studio-pane--preview {
+  height: 100%;
+  min-height: 0;
+}
+
 .studio-pane--controls {
   border-left: 1px solid var(--color-border);
   padding-left: var(--space-xl);
+  padding-right: var(--space-sm);
+  overflow-y: auto;
+  max-height: 100%;
+  min-height: 0;
+  scrollbar-width: thin;
 }
 
 @media (max-width: 1100px) {
+  .studio-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 42%) minmax(0, 1fr);
+  }
+
   .studio-pane--controls {
     border-left: none;
     border-top: 1px solid var(--color-border);
     padding-left: 0;
+    padding-right: var(--space-sm);
     padding-top: var(--space-lg);
   }
 }
@@ -157,6 +200,46 @@
   color: var(--color-text-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+/* Sticky group jumps — the Global column is long, so the chips stay pinned
+ * above the scrolling groups. */
+.studio-jumpbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -4px 0 0;
+  padding: 4px 0 6px;
+  background: var(--color-bg-secondary);
+}
+
+.studio-jumpbar__chip {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-jumpbar__chip:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
+}
+
+.studio-jumpbar__chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .studio-pane__head {
@@ -179,17 +262,23 @@
   gap: var(--space-sm);
 }
 
+/* Sticky: with 13 navbar tabs and 5 sidebar sections in one column, the
+ * heading of each group stays visible while its list scrolls past. */
 .studio-group__label {
+  position: sticky;
+  top: 30px;
+  z-index: 2;
+  padding: 6px 0 4px;
+  background: var(--color-bg-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
 
-.studio-toggles {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
+/* Group headings sit below the sticky jump bar, so anchors scroll clear of
+ * both sticky layers. */
+.studio-pane__title {
+  scroll-margin-top: 34px;
 }
 
 /* ── Control rows ───────────────────────────────────────────────────────── */
@@ -271,6 +360,57 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+}
+
+/* Switch / select rows (Global → Layout). They reuse the row surface but are
+ * labels wrapping a control, and carry a secondary description line. */
+.studio-row--control {
+  cursor: pointer;
+  padding: 9px var(--space-sm);
+}
+
+.studio-row--control.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.studio-row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.studio-row__text .studio-row__label {
+  flex: none;
+}
+
+.studio-row__desc {
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.studio-row__check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.studio-row__select {
+  flex-shrink: 0;
+  max-width: 150px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
 }
 
 .studio-row__badge {
@@ -391,25 +531,7 @@
   border-color: var(--color-border-light);
 }
 
-.studio-done {
-  padding: 8px 22px;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-  color: var(--color-accent);
-  font-family: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-
-.studio-done:hover {
-  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
-}
-
 .studio-reset:focus-visible,
-.studio-done:focus-visible,
 .studio-segmented button:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
@@ -424,6 +546,8 @@
 .studio-preview {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background: var(--color-bg-primary);
@@ -456,6 +580,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex-wrap: wrap;
   padding: 7px var(--space-sm);
   background: var(--color-bg-secondary);
   border-bottom: 1px solid var(--color-border);
@@ -474,12 +599,14 @@
   flex-shrink: 0;
 }
 
+/* Tabs wrap rather than clip: a tab that would run past the frame edge is
+ * always visible, and the action buttons keep their own space. */
 .studio-preview__tabs {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   min-width: 0;
-  overflow: hidden;
   flex: 1;
 }
 
@@ -506,9 +633,7 @@
 }
 
 .studio-preview__tab-label {
-  max-width: 78px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .studio-preview__grip {
@@ -526,6 +651,7 @@
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .studio-preview__action {
@@ -569,7 +695,7 @@
 .studio-preview__body {
   display: flex;
   align-items: stretch;
-  min-height: 300px;
+  min-height: 160px;
   flex: 1;
 }
 

@@ -124,40 +124,11 @@ export function buildSettingsCatalog(
       tab: "interface",
       labelKey: "settings.interface",
       descKey: "settings.interface.desc",
-      keywords: "interface visibility show hide navbar tabs buttons badges overlays widgets kpi filters subtabs clutter declutter simple complete layout scale density detail sections",
+      // No section entries: the whole tab is one button into the Layout Studio
+      // modal, so there are no in-page anchors to jump to.
+      keywords: "interface visibility show hide navbar tabs buttons badges overlays widgets kpi filters subtabs clutter declutter simple complete layout scale density detail sections layout studio preview drag rearrange",
       icon: <ListIcon />,
-      sections: [
-        {
-          id: "interface-layout",
-          labelKey: "settings.appearance.interfaceTitle",
-          keywords: "interface layout scale zoom density simple complete mode navbar compact command palette backdrop art declutter",
-        },
-        {
-          id: "interface-nav-tabs",
-          labelKey: "settings.section.interfaceNavTabs",
-          keywords: "navbar top tabs show hide reorder order arrange drag move rearrange home store library wishlist deals news emulators mods activity achievements storage community friends navigation",
-        },
-        {
-          id: "interface-nav-buttons",
-          labelKey: "settings.section.interfaceNavButtons",
-          keywords: "downloads settings docs big screen buttons top right cluster now playing visibility",
-        },
-        {
-          id: "interface-badges",
-          labelKey: "settings.section.interfaceBadges",
-          keywords: "card badges overlays platform playtime install rating crackwatch compare pills",
-        },
-        {
-          id: "interface-widgets",
-          labelKey: "settings.section.interfaceWidgets",
-          keywords: "kpi stat cards filters sort bars subtabs hero collage dashboard widgets clutter",
-        },
-        {
-          id: "interface-detail-sections",
-          labelKey: "settings.detailSections.title",
-          keywords: "game detail store sections show hide system requirements relations time to beat protondb release reviews activity achievements mods weblinks news visibility",
-        },
-      ],
+      sections: [],
     },
     appearance: {
       tab: "appearance",

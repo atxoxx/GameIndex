@@ -18,7 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { InterfaceItemKey } from "../../context/SettingsContext";
+import type { DetailSectionKey, InterfaceItemKey } from "../../context/SettingsContext";
 
 /**
  * interfaceItems — the header/navbar item catalog shared by the Interface
@@ -64,6 +64,79 @@ export const NAV_BUTTON_ITEMS: InterfaceItemDef[] = [
 export const NAV_ITEM_BY_KEY: Record<string, InterfaceItemDef> = Object.fromEntries(
   [...NAV_TAB_ITEMS, ...NAV_BUTTON_ITEMS].map((item) => [item.key, item]),
 );
+
+/** Granular card-badge toggles. The first four refine the master "Show Card
+ *  Badges" switch; the last two are independent overlays. */
+export const BADGE_ITEMS: { key: InterfaceItemKey; labelKey: string }[] = [
+  { key: "badgePlatform", labelKey: "settings.interface.badgePlatform" },
+  { key: "badgePlaytime", labelKey: "settings.interface.badgePlaytime" },
+  { key: "badgeInstall", labelKey: "settings.interface.badgeInstall" },
+  { key: "badgeRating", labelKey: "settings.interface.badgeRating" },
+  { key: "badgeCrackwatch", labelKey: "settings.interface.badgeCrackwatch" },
+  { key: "badgeCompare", labelKey: "settings.interface.badgeCompare" },
+];
+
+/** Library-card badge keys that respect the "Show Card Badges" master. */
+export const MASTER_GATED_BADGES = new Set<InterfaceItemKey>([
+  "badgePlatform",
+  "badgePlaytime",
+  "badgeInstall",
+  "badgeRating",
+]);
+
+/** The global widget categories — the "every page" counterpart of the
+ *  per-page widget toggles in the Layout Studio's page tabs. */
+export const WIDGET_ITEMS: { key: InterfaceItemKey; labelKey: string }[] = [
+  { key: "widgetKpis", labelKey: "settings.interface.widgetKpis" },
+  { key: "widgetFilters", labelKey: "settings.interface.widgetFilters" },
+  { key: "widgetSubtabs", labelKey: "settings.interface.widgetSubtabs" },
+  { key: "widgetHero", labelKey: "settings.interface.widgetHeroCollage" },
+  { key: "widgetDashboard", labelKey: "settings.interface.widgetDashboard" },
+];
+
+export interface DetailSectionItem {
+  key: DetailSectionKey;
+  titleKey: string;
+  descKey: string;
+}
+
+function detailSectionItem(key: DetailSectionKey): DetailSectionItem {
+  return {
+    key,
+    titleKey: `settings.detailSections.${key}.title`,
+    descKey: `settings.detailSections.${key}.desc`,
+  };
+}
+
+/**
+ * Game & Store detail-page sections, in display order. ProtonDB only exists
+ * where the Linux/Steam Deck support level surfaces it, so it is included on
+ * demand — the same rule the old Interface panel applied.
+ */
+export function buildDetailSectionItems(
+  includeProtonDb: boolean,
+): DetailSectionItem[] {
+  const leading: DetailSectionKey[] = [
+    "steamFeatures",
+    "systemRequirements",
+    "gameRelations",
+    "timeToBeat",
+  ];
+  const trailing: DetailSectionKey[] = [
+    "releases",
+    "reviews",
+    "activity",
+    "notes",
+    "achievements",
+    "mods",
+    "weblinks",
+    "news",
+  ];
+  const keys = includeProtonDb
+    ? [...leading, "protonDb" as DetailSectionKey, ...trailing]
+    : [...leading, ...trailing];
+  return keys.map(detailSectionItem);
+}
 
 /** Reorder `items` to follow a user-arranged key list, keeping unknown keys
  *  (added in a later release) at the end in their shipped order. */
