@@ -45,13 +45,22 @@ function HeroElementVisual({ element }: { element: HeroElementKey }) {
         </span>
       );
     case "kpis":
+      // Three glass tiles, each a label row (icon + bar) over a value bar.
       return (
         <span className="studio-hero-visual studio-hero-visual--kpis" aria-hidden="true">
-          <i />
-          <i />
+          {[0, 1, 2].map((tile) => (
+            <span key={tile} className="studio-hero-kpi">
+              <span className="studio-hero-kpi__header">
+                <span className="studio-hero-kpi__icon" />
+                <span className="studio-hero-kpi__label" />
+              </span>
+              <span className="studio-hero-kpi__value" />
+            </span>
+          ))}
         </span>
       );
     case "actions":
+      // Primary filled pill + secondary outlined pill.
       return (
         <span className="studio-hero-visual studio-hero-visual--actions" aria-hidden="true">
           <i />
@@ -330,6 +339,7 @@ export function StudioPreview({
         }
       >
         <span className="studio-hero-mock__poster-art" aria-hidden="true" />
+        <span className="studio-hero-mock__poster-badge" aria-hidden="true" />
         {renderHeroEye("poster")}
       </div>
     );

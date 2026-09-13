@@ -2058,8 +2058,12 @@
 .studio-hero-mock {
   position: relative;
   flex-shrink: 0;
-  display: block;
-  min-height: clamp(122px, 21vh, 190px);
+  display: flex;
+  flex-direction: column;
+  /* Cinematic height, capped to a share of the preview's main column so it
+     always leaves room for the subtab bar and page items below. */
+  height: clamp(150px, 26vh, 240px);
+  max-height: 62%;
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--color-border-light);
@@ -2115,17 +2119,22 @@
 .studio-hero-mock__inner {
   position: relative;
   z-index: 2;
+  flex: 1;
+  min-height: 0;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-md);
   padding: var(--space-md);
 }
 
-/* Crisp 2:3 poster panel; docks left or right via its inline order. */
+/* Full-height 2:3 poster panel; docks left or right via its inline order.
+   Height tracks the card (minus the inner padding) and the width is derived
+   from the 2:3 ratio, so it reads as a real cover rather than a thumbnail. */
 .studio-hero-mock__poster {
   position: relative;
   flex: 0 0 auto;
-  width: clamp(38px, 13%, 58px);
+  height: 100%;
+  width: auto;
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-md);
   /* Visible so the gutter eye button isn't clipped by the panel. */
@@ -2151,6 +2160,19 @@
     color-mix(in srgb, var(--color-accent) 8%, transparent) 0 6px,
     transparent 6px 12px
   );
+}
+
+/* Small "Installed"-style badge docked to the poster's bottom-left. */
+.studio-hero-mock__poster-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  width: 34px;
+  height: 11px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-primary) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
 /* Content column — orderable block stack. */
@@ -2200,10 +2222,11 @@
   outline-offset: 2px;
 }
 
-/* Poster item hugs its 2:3 panel and centres in the hero. */
+/* Poster item hugs its 2:3 panel and stretches to the card's padded height. */
 .studio-hero-mock__item--poster {
   flex: 0 0 auto;
-  align-self: center;
+  align-self: stretch;
+  height: 100%;
   border-radius: var(--radius-md);
 }
 
@@ -2294,7 +2317,7 @@
 }
 
 .studio-hero-visual--title {
-  width: min(62%, 200px);
+  width: min(55%, 180px);
   height: 15px;
   border-radius: 3px;
   background: linear-gradient(
@@ -2340,37 +2363,86 @@
   border: 1px solid color-mix(in srgb, var(--color-accent) 42%, transparent);
 }
 
+/* KPI row — glass tiles matching the real KpiTile anatomy (label row + value). */
 .studio-hero-visual--kpis {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.studio-hero-kpi {
+  display: flex;
+  flex-direction: column;
   gap: 5px;
+  min-width: 54px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-primary) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border-light) 62%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
-.studio-hero-visual--kpis i {
-  width: 26px;
-  height: 22px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-surface) 62%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-border-light) 65%, transparent);
+.studio-hero-kpi__header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
+.studio-hero-kpi__icon {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-accent) 78%, transparent);
+}
+
+.studio-hero-kpi__label {
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+}
+
+.studio-hero-kpi__value {
+  width: 30px;
+  height: 7px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-primary) 78%, transparent);
+}
+
+/* Slight per-tile variation so the row reads as three distinct metrics. */
+.studio-hero-kpi:nth-child(1) .studio-hero-kpi__label { width: 20px; }
+.studio-hero-kpi:nth-child(2) .studio-hero-kpi__label { width: 28px; }
+.studio-hero-kpi:nth-child(3) .studio-hero-kpi__label { width: 16px; }
+.studio-hero-kpi:nth-child(1) .studio-hero-kpi__value { width: 34px; }
+.studio-hero-kpi:nth-child(2) .studio-hero-kpi__value { width: 26px; }
+.studio-hero-kpi:nth-child(3) .studio-hero-kpi__value { width: 30px; }
+
+/* Action pills — primary filled + secondary outlined, real button scale. */
 .studio-hero-visual--actions {
   display: flex;
-  gap: 5px;
+  align-items: center;
+  gap: 6px;
   justify-content: flex-end;
 }
 
 .studio-hero-visual--actions i {
-  height: 16px;
+  height: 20px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-accent) 62%, transparent);
 }
 
 .studio-hero-visual--actions i:first-child {
-  width: 48px;
+  width: 56px;
+  background: var(--color-accent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
 .studio-hero-visual--actions i:last-child {
-  width: 32px;
+  width: 72px;
+  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border-light) 70%, transparent);
 }
 
 /* ── Detail mocks inside the preview frame ──────────────────────────────── */
@@ -2407,12 +2479,12 @@
 
 /* Compact the hero mock at the tightest viewport presets. */
 .studio-preview-frame--compact .studio-hero-mock {
-  min-height: clamp(96px, 17vh, 148px);
+  height: clamp(124px, 21vh, 178px);
+  max-height: 58%;
 }
 
 .studio-preview-frame--compact .studio-hero-mock__inner {
   gap: 8px;
-  padding: 8px;
 }
 
 .studio-preview-frame--compact .studio-hero-mock__content {
@@ -2423,8 +2495,20 @@
   height: 12px;
 }
 
+.studio-preview-frame--compact .studio-hero-kpi {
+  min-width: 46px;
+  gap: 4px;
+  padding: 4px 6px;
+}
+
 .studio-preview-frame--compact .studio-subtab {
   font-size: 9px;
+}
+
+/* Handheld gets a slightly shorter card than desktop but taller than compact. */
+.studio-preview-frame--handheld .studio-hero-mock {
+  height: clamp(140px, 23vh, 208px);
+  max-height: 60%;
 }
 
 /* Let the main column (and its scrollable item list) shrink so the mocks
