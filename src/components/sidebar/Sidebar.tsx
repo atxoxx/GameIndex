@@ -6,6 +6,8 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLibraryFilters } from "../../hooks/useLibraryFilters";
 import { useSidebarCollapse } from "../../context/SidebarCollapseContext";
+import { useSettings } from "../../context/SettingsContext";
+import { SIDEBAR_SECTIONS } from "../../context/interfaceLayout";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   gameNameFromPath,
@@ -109,6 +111,7 @@ export default function Sidebar() {
 
   // ── Icon-rail & Resizing Context ──────────────────────────────────
   const { isIconRail, toggle: toggleIconRail } = useSidebarCollapse();
+  const { sidebarSectionVisible } = useSettings();
 
   // ── Pinned games state ───────────────────────────────────────────
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => loadPinnedIds());
@@ -823,8 +826,20 @@ export default function Sidebar() {
     }
   }, [bulkSelectedIds.size, combinedVisibleGames]);
 
+  // Sections switched off in Layout Studio (Global → Sidebar elements) are
+  // hidden by attribute in sidebar.css rather than conditionally rendered, so
+  // the sidebar keeps one stable DOM shape and no section loses its state.
+  const hiddenSidebarSections = SIDEBAR_SECTIONS.filter(
+    (section) => !sidebarSectionVisible[section.key],
+  )
+    .map((section) => section.key)
+    .join(" ");
+
   return (
-    <aside className="sidebar">
+    <aside
+      className="sidebar"
+      data-sidebar-hidden={hiddenSidebarSections || undefined}
+    >
       <SidebarHeader
         isIconRail={isIconRail}
         onToggleIconRail={toggleIconRail}

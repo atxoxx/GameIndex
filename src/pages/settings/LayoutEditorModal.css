@@ -1,0 +1,745 @@
+/* =============================================================================
+ * Layout Studio — big modal that hides/rearranges the main app interface
+ * (Settings → Interface → Open Layout Studio)
+ *
+ * Two columns: an interactive simplified preview of the shell on the left,
+ * the element controls for the active page on the right. `.studio-*` classes
+ * are scoped to the modal and never leak into the app chrome.
+ * ========================================================================== */
+
+.studio-modal {
+  width: min(1500px, 96vw);
+  height: min(92vh, 980px);
+  max-width: none;
+  max-height: none;
+}
+
+.studio-backdrop {
+  align-items: center;
+  padding: var(--space-lg);
+}
+
+.studio-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.studio-close:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.studio-close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Page tabs (top of the modal) ───────────────────────────────────────── */
+
+.studio-pages {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-xl);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.studio-pages__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-pages__tab:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.studio-pages__tab.is-active {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-accent);
+}
+
+.studio-pages__tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.studio-pages__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.studio-pages__count {
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+}
+
+/* ── Body: preview + controls ───────────────────────────────────────────── */
+
+.studio-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  gap: var(--space-xl);
+  padding: var(--space-xl);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .studio-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.studio-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.studio-pane--controls {
+  border-left: 1px solid var(--color-border);
+  padding-left: var(--space-xl);
+}
+
+@media (max-width: 1100px) {
+  .studio-pane--controls {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    padding-left: 0;
+    padding-top: var(--space-lg);
+  }
+}
+
+.studio-pane__title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.studio-pane__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.studio-pane__hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+.studio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.studio-group__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+/* ── Control rows ───────────────────────────────────────────────────────── */
+
+.studio-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-list__empty {
+  margin: 0;
+  padding: var(--space-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+.studio-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 7px var(--space-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  user-select: none;
+  transition: border-color var(--transition-fast),
+    background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-row:hover {
+  border-color: var(--color-border-light);
+}
+
+.studio-row.is-dragging {
+  opacity: 0.45;
+  border-color: var(--color-accent);
+}
+
+.studio-row.is-drop-target {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+
+.studio-row.is-hidden-item .studio-row__icon,
+.studio-row.is-hidden-item .studio-row__label {
+  opacity: 0.45;
+}
+
+.studio-row__handle {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.studio-row__handle:active {
+  cursor: grabbing;
+}
+
+.studio-row__icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.studio-row__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.studio-row__badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.studio-row__moves {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.studio-row__move,
+.studio-row__eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-row__move:hover:not(:disabled),
+.studio-row__eye:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.studio-row__move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.studio-row__eye[aria-pressed="true"] {
+  color: var(--color-accent);
+}
+
+.studio-row__move:focus-visible,
+.studio-row__eye:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Segmented control + reset buttons ─────────────────────────────────── */
+
+.studio-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  align-self: flex-start;
+}
+
+.studio-segmented button {
+  padding: 6px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.studio-segmented button:hover {
+  color: var(--color-text-primary);
+}
+
+.studio-segmented button.is-active {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
+  color: var(--color-accent);
+}
+
+.studio-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-reset:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.studio-done {
+  padding: 8px 22px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.studio-done:hover {
+  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+
+.studio-reset:focus-visible,
+.studio-done:focus-visible,
+.studio-segmented button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+ * Simplified app preview — every element is a control:
+ *   • drag  → reorder (header tabs, header buttons, page blocks)
+ *   • click → hide / show
+ * ========================================================================== */
+
+.studio-preview {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-primary);
+  overflow: hidden;
+  box-shadow: var(--elevation-2);
+}
+
+/* Reset the native button chrome once; the rules below paint each element.
+ * All preview rows are buttons so they are reachable by keyboard. */
+.studio-preview button {
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+
+.studio-preview button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Header */
+.studio-preview__topnav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 7px var(--space-sm);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.studio-preview__logo {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    140deg,
+    var(--color-accent),
+    color-mix(in srgb, var(--color-accent) 45%, transparent)
+  );
+  flex-shrink: 0;
+}
+
+.studio-preview__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+}
+
+.studio-preview__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview__tab:hover,
+.studio-preview__item:hover,
+.studio-preview__action:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.studio-preview__tab-label {
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studio-preview__grip {
+  flex-shrink: 0;
+  opacity: 0.4;
+}
+
+.studio-preview__tab:hover .studio-preview__grip,
+.studio-preview__item:hover .studio-preview__grip {
+  opacity: 0.9;
+}
+
+.studio-preview__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.studio-preview__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+/* Drag feedback, shared by every preview row. */
+.studio-preview__tab.is-dragging,
+.studio-preview__action.is-dragging,
+.studio-preview__item.is-dragging {
+  opacity: 0.4;
+}
+
+.studio-preview__tab.is-drop-target,
+.studio-preview__action.is-drop-target,
+.studio-preview__item.is-drop-target {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+/* Hidden elements stay visible but marked, so the state is legible. */
+.studio-preview__tab.is-off,
+.studio-preview__action.is-off,
+.studio-preview__section.is-off,
+.studio-preview__item.is-off {
+  opacity: 0.35;
+  outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  outline-offset: -1px;
+}
+
+/* Body */
+.studio-preview__body {
+  display: flex;
+  align-items: stretch;
+  min-height: 300px;
+  flex: 1;
+}
+
+.studio-preview.is-sidebar-right .studio-preview__body {
+  flex-direction: row-reverse;
+}
+
+.studio-preview__sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 132px;
+  flex-shrink: 0;
+  padding: var(--space-sm);
+  background: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border);
+}
+
+.studio-preview.is-sidebar-right .studio-preview__sidebar {
+  border-right: none;
+  border-left: 1px solid var(--color-border);
+}
+
+/* Sidebar sections (visibility only — the app cannot reorder them). */
+.studio-preview__section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview__section:hover {
+  border-color: var(--color-border-light);
+}
+
+.studio-preview__section--search {
+  height: 18px;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 85%, transparent);
+}
+
+.studio-preview__section--activeFilters {
+  padding: 2px;
+}
+
+.studio-preview__section--gameList {
+  flex: 1;
+  min-height: 0;
+}
+
+.studio-preview__section--statsFooter {
+  height: 16px;
+  background: color-mix(in srgb, var(--color-text-muted) 16%, transparent);
+}
+
+/* A-Z scrubber rail — an overlay in the real sidebar, so it is drawn over
+ * the list here too (and follows the sidebar to the right dock). */
+.studio-preview__rail {
+  position: absolute;
+  top: 10px;
+  bottom: 24px;
+  right: 2px;
+  width: 7px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-text-muted) 45%, transparent) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.studio-preview.is-sidebar-right .studio-preview__rail {
+  right: auto;
+  left: 2px;
+}
+
+.studio-preview__chips {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.studio-preview__chips i {
+  flex: 1;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.studio-preview__game {
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
+}
+
+.studio-preview__game:nth-child(even) {
+  width: 78%;
+}
+
+/* Main area */
+.studio-preview__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.studio-preview__main-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.studio-preview__main-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-preview__main-pill {
+  width: 54px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.studio-preview__generic,
+.studio-preview__items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.studio-preview__block {
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+}
+
+.studio-preview__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  flex: 1;
+}
+
+.studio-preview__grid .studio-preview__block {
+  min-height: 34px;
+}
+
+.studio-preview__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  transition: border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview__item.is-empty {
+  justify-content: center;
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
+  cursor: default;
+}

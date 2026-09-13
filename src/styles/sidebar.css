@@ -12,6 +12,15 @@
   box-shadow: inset 0 1px 0 var(--color-border-highlight), inset -1px 0 0 var(--color-border-faint);
 }
 
+/* Docked right (Layout Studio → Global): the separator and the inset
+ * highlight move to the sidebar's left edge so it still reads as attached
+ * to the main column. */
+html[data-sidebar-position="right"] .sidebar {
+  border-right: none;
+  border-left: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 1px 0 0 var(--color-border-faint);
+}
+
 /* Game-accent tint: when a game palette is live (auto game accent) the
  * sidebar picks up a subtle wash from the accent family. Gated on the
  * data-game-accent attribute set by GameHero / GameAccentSync so default
@@ -2680,6 +2689,12 @@ html[data-game-accent] .sidebar {
 }
 
 /* ── Interactive Resize Handle ── */
+/* Right-docked sidebar: the drag handle lives on the inner (left) edge. */
+html[data-sidebar-position="right"] .sidebar-resize-handle {
+  right: auto;
+  left: -3px;
+}
+
 .sidebar-resize-handle {
   position: absolute;
   top: 0;
@@ -2716,6 +2731,18 @@ html[data-game-accent] .sidebar {
 
 .sidebar-resize-handle:focus-visible {
   box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+/* ── Section visibility (Layout Studio → Global → Sidebar elements) ────
+ * Sidebar.tsx lists the switched-off sections in `data-sidebar-hidden`;
+ * these rules do the hiding. Attribute-driven so the sidebar keeps one
+ * stable DOM shape and hidden sections retain their internal state. */
+.sidebar[data-sidebar-hidden~="search"] .sidebar-header,
+.sidebar[data-sidebar-hidden~="activeFilters"] .sidebar-active-filters,
+.sidebar[data-sidebar-hidden~="gameList"] .sidebar-list,
+.sidebar[data-sidebar-hidden~="alphabetRail"] .sidebar-alphabet-scrubber,
+.sidebar[data-sidebar-hidden~="statsFooter"] .sidebar-stats-footer {
+  display: none !important;
 }
 
 /* ── Mini Stats Footer ── */

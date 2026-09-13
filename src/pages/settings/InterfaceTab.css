@@ -9,6 +9,70 @@
   width: 100%;
 }
 
+/* ── Layout Studio entry bar ─────────────────────────────────────────── */
+
+.interface-studio-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-accent) 12%, var(--color-surface)),
+    var(--color-surface) 60%
+  );
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, var(--color-border));
+  border-radius: var(--radius-lg);
+}
+
+.interface-studio-bar__icon {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.interface-studio-bar__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.interface-studio-bar__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.interface-studio-bar__desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.interface-studio-launch {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.interface-studio-launch:hover {
+  background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+}
+
+.interface-studio-launch:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* ── Top Subtab Navigation Bar (horizontally scrollable) ─────────────── */
 
 .interface-subtab-bar {

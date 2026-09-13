@@ -1,30 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useMemo, useState } from "react";
 import {
-  Activity,
   BadgeCheck,
-  ChartColumn,
   ChevronDown,
   ChevronUp,
-  Gamepad2,
   GripVertical,
-  HardDrive,
-  Heart,
-  Home,
   Info,
   Layout,
   LayoutGrid,
   LayoutList,
+  LayoutTemplate,
   List,
-  Monitor,
-  Puzzle,
   RotateCcw,
-  Rss,
   SlidersHorizontal,
-  Store,
-  Tag,
-  Trophy,
-  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
@@ -36,69 +23,28 @@ import {
 } from "../../context/SettingsContext";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
+import { NAV_BUTTON_ITEMS, NAV_TAB_ITEMS, moveKey, sortByOrder } from "./interfaceItems";
+import { useOrderDrag } from "./useOrderDrag";
+import LayoutEditorModal from "./LayoutEditorModal";
 import { playActionSound } from "../../utils/soundEffects";
 import "./InterfaceTab.css";
 
-type InterfaceSubtab =
-  | "layout"
-  | "navTabs"
-  | "navButtons"
-  | "badges"
-  | "widgets"
-  | "detailSections";
-
-const SUBTABS: { key: InterfaceSubtab; labelKey: string }[] = [
-  { key: "layout", labelKey: "settings.interface.subtabLayout" },
-  { key: "navTabs", labelKey: "settings.interface.subtabNavTabs" },
-  { key: "navButtons", labelKey: "settings.interface.subtabNavButtons" },
-  { key: "badges", labelKey: "settings.interface.subtabBadges" },
-  { key: "widgets", labelKey: "settings.interface.subtabWidgets" },
-  { key: "detailSections", labelKey: "settings.interface.subtabDetails" },
-];
-
-/** Catalog section id → subtab, so jump-bar / search deep links land on
- *  the right panel (same pattern as the Compatibility tab). */
-const SECTION_TO_SUBTAB: Record<string, InterfaceSubtab> = {
-  "interface-layout": "layout",
-  "interface-nav-tabs": "navTabs",
-  "interface-nav-buttons": "navButtons",
-  "interface-badges": "badges",
-  "interface-widgets": "widgets",
-  "interface-detail-sections": "detailSections",
-};
+/**
+ * The Interface tab is a single view. Everything it configures — layout
+ * preferences, navbar tabs/buttons, card badges, page widgets and detail
+ * sections — is stacked under one "Layout" heading, so nothing hides behind
+ * a sub-navigation layer. The catalog section ids below stay in place as
+ * deep-link targets: SettingsPage's useSectionScroll flashes and scrolls to
+ * `?section=<id>` on mount.
+ */
+const SUBTAB_LABEL_KEY = "settings.interface.subtabLayout";
 
 interface ItemDef {
   key: InterfaceItemKey;
   labelKey: string;
-  /** Optional leading glyph — used by the navbar tab order list. */
+  /** Optional leading glyph — used by the badge / widget toggle groups. */
   icon?: LucideIcon;
 }
-
-/** Top navbar tabs — labels reuse the existing `nav.*` keys. Order here is
- *  the shipped default; the live order comes from `navbarTabOrder`. */
-const NAV_TAB_ITEMS: ItemDef[] = [
-  { key: "navHome", labelKey: "nav.home", icon: Home },
-  { key: "navStore", labelKey: "nav.store", icon: Store },
-  { key: "navLibrary", labelKey: "nav.library", icon: Monitor },
-  { key: "navWishlist", labelKey: "nav.wishlist", icon: Heart },
-  { key: "navDeals", labelKey: "nav.deals", icon: Tag },
-  { key: "navActivity", labelKey: "nav.activity", icon: Activity },
-  { key: "navNews", labelKey: "nav.news", icon: Rss },
-  { key: "navEmulators", labelKey: "nav.emulators", icon: Gamepad2 },
-  { key: "navMods", labelKey: "nav.mods", icon: Puzzle },
-  { key: "navAchievements", labelKey: "nav.achievements", icon: Trophy },
-  { key: "navStorage", labelKey: "nav.storage", icon: HardDrive },
-  { key: "navCommunity", labelKey: "nav.community", icon: ChartColumn },
-  { key: "navFriends", labelKey: "nav.friends", icon: Users },
-];
-
-/** Right-cluster buttons in the top bar. */
-const NAV_BUTTON_ITEMS: ItemDef[] = [
-  { key: "btnDownloads", labelKey: "settings.interface.btnDownloads" },
-  { key: "btnSettings", labelKey: "settings.interface.btnSettings" },
-  { key: "btnDocs", labelKey: "settings.interface.btnDocs" },
-  { key: "btnBigScreen", labelKey: "settings.interface.btnBigScreen" },
-];
 
 /** Granular card-badge toggles. The first four refine the master
  *  "Show Card Badges" switch; the last two are independent overlays. */
@@ -180,7 +126,7 @@ function LayoutPanel() {
   const { t } = useLanguage();
 
   return (
-    <div className="interface-panel" role="tabpanel">
+    <div className="interface-panel" role="region">
       <SettingsSection
         id="interface-layout"
         icon={<Layout className="settings-section-icon" />}
@@ -323,87 +269,26 @@ function NavTabOrderList() {
     setInterfaceVisibility,
     uiSoundEnabled,
   } = useSettings();
-  const [dragKey, setDragKey] = useState<InterfaceItemKey | null>(null);
-  const [overKey, setOverKey] = useState<InterfaceItemKey | null>(null);
-  // Mirror of `overKey` for the window-level pointer listeners, which are
-  // subscribed once per drag instead of once per hovered row.
-  const overKeyRef = useRef<InterfaceItemKey | null>(null);
-
-  const orderedItems = useMemo(() => {
-    const rank = new Map(navbarTabOrder.map((key, index) => [key, index]));
-    return [...NAV_TAB_ITEMS].sort(
-      (a, b) =>
-        (rank.get(a.key) ?? Number.MAX_SAFE_INTEGER) -
-        (rank.get(b.key) ?? Number.MAX_SAFE_INTEGER),
-    );
-  }, [navbarTabOrder]);
+  const orderedItems = useMemo(
+    () => sortByOrder(NAV_TAB_ITEMS, navbarTabOrder),
+    [navbarTabOrder],
+  );
 
   const move = useCallback(
     (from: number, to: number) => {
-      if (from === to || to < 0 || to >= orderedItems.length) return;
-      const keys = orderedItems.map((item) => item.key);
-      const [moved] = keys.splice(from, 1);
-      keys.splice(to, 0, moved);
-      setNavbarTabOrder(keys);
+      setNavbarTabOrder(moveKey(orderedItems.map((item) => item.key), from, to));
       if (uiSoundEnabled) playActionSound();
     },
     [orderedItems, setNavbarTabOrder, uiSoundEnabled],
   );
 
-  // Pointer-driven reordering. HTML5 drag-and-drop is unreliable inside the
-  // Tauri webviews (the native drop handler intercepts it and WebKit needs
-  // a dataTransfer payload to start a drag), so the handle tracks the
-  // pointer directly: whichever row sits under the cursor becomes the drop
-  // target, and releasing commits the move.
-  useEffect(() => {
-    if (dragKey === null) return;
-    const trackPointer = (e: PointerEvent) => {
-      const row = document
-        .elementFromPoint(e.clientX, e.clientY)
-        ?.closest<HTMLElement>("[data-nav-tab-key]");
-      const key = row?.dataset.navTabKey as InterfaceItemKey | undefined;
-      if (key && key !== overKeyRef.current) {
-        overKeyRef.current = key;
-        setOverKey(key);
-      }
-    };
-    const finishDrag = () => {
-      const target = overKeyRef.current;
-      if (target !== null && target !== dragKey) {
-        move(
-          orderedItems.findIndex((item) => item.key === dragKey),
-          orderedItems.findIndex((item) => item.key === target),
-        );
-      }
-      overKeyRef.current = null;
-      setDragKey(null);
-      setOverKey(null);
-    };
-    window.addEventListener("pointermove", trackPointer);
-    window.addEventListener("pointerup", finishDrag);
-    window.addEventListener("pointercancel", finishDrag);
-    window.addEventListener("blur", finishDrag);
-    const previousCursor = document.body.style.cursor;
-    document.body.style.cursor = "grabbing";
-    return () => {
-      document.body.style.cursor = previousCursor;
-      window.removeEventListener("pointermove", trackPointer);
-      window.removeEventListener("pointerup", finishDrag);
-      window.removeEventListener("pointercancel", finishDrag);
-      window.removeEventListener("blur", finishDrag);
-    };
-  }, [dragKey, move, orderedItems]);
-
-  const startDrag = (key: InterfaceItemKey) => {
-    overKeyRef.current = key;
-    setDragKey(key);
-    setOverKey(key);
-  };
+  // Pointer-driven reordering (see useOrderDrag for why not HTML5 DnD).
+  const { containerRef, dragIndex, overIndex, startDrag } = useOrderDrag(move);
 
   return (
     <div style={columnGap}>
       <p className="nav-order-note">{t("settings.interface.tabOrderDesc")}</p>
-      <div className="nav-order-list" role="list">
+      <div className="nav-order-list" role="list" ref={containerRef}>
         {orderedItems.map((item, index) => {
           const Icon = item.icon;
           const label = t(item.labelKey);
@@ -412,9 +297,9 @@ function NavTabOrderList() {
             <div
               key={item.key}
               role="listitem"
-              data-nav-tab-key={item.key}
-              className={`nav-order-row${dragKey === item.key ? " is-dragging" : ""}${
-                overKey === item.key && dragKey !== null && dragKey !== item.key
+              data-order-index={index}
+              className={`nav-order-row${dragIndex === index ? " is-dragging" : ""}${
+                overIndex === index && dragIndex !== null && dragIndex !== index
                   ? " is-drop-target"
                   : ""
               }${visible ? "" : " is-hidden-tab"}`}
@@ -425,7 +310,7 @@ function NavTabOrderList() {
                 onPointerDown={(e) => {
                   if (e.button !== 0) return;
                   e.preventDefault();
-                  startDrag(item.key);
+                  startDrag(index);
                 }}
               >
                 <GripVertical size={15} aria-hidden="true" />
@@ -484,7 +369,7 @@ function NavTabsPanel() {
   const { t } = useLanguage();
   const { setNavbarTabOrder, uiSoundEnabled } = useSettings();
   return (
-    <div className="interface-panel" role="tabpanel">
+    <div className="interface-panel" role="region">
       <SettingsSection
         id="interface-nav-tabs"
         icon={<LayoutList className="settings-section-icon" />}
@@ -515,7 +400,7 @@ function NavButtonsPanel() {
   const { showNavbarNowPlaying, setShowNavbarNowPlaying, uiSoundEnabled } =
     useSettings();
   return (
-    <div className="interface-panel" role="tabpanel">
+    <div className="interface-panel" role="region">
       <SettingsSection
         id="interface-nav-buttons"
         icon={<SlidersHorizontal className="settings-section-icon" />}
@@ -545,7 +430,7 @@ function BadgesPanel() {
   const { t } = useLanguage();
   const { showCardBadges, setShowCardBadges, uiSoundEnabled } = useSettings();
   return (
-    <div className="interface-panel" role="tabpanel">
+    <div className="interface-panel" role="region">
       <SettingsSection
         id="interface-badges"
         icon={<BadgeCheck className="settings-section-icon" />}
@@ -577,7 +462,7 @@ function BadgesPanel() {
 function WidgetsPanel() {
   const { t } = useLanguage();
   return (
-    <div className="interface-panel" role="tabpanel">
+    <div className="interface-panel" role="region">
       <SettingsSection
         id="interface-widgets"
         icon={<LayoutGrid className="settings-section-icon" />}
@@ -679,7 +564,7 @@ function DetailSectionsPanel() {
   }, [showDeckVerified]);
 
   return (
-    <div className="interface-panel" role="tabpanel">
+    <div className="interface-panel" role="region">
       <SettingsSection
         id="interface-detail-sections"
         icon={<List className="settings-section-icon" />}
@@ -707,21 +592,36 @@ function DetailSectionsPanel() {
 
 export default function InterfaceTab() {
   const { t } = useLanguage();
-  const { isSimpleUi } = useSettings();
-  const [searchParams] = useSearchParams();
-  const sectionParam = searchParams.get("section");
+  const { isSimpleUi, uiSoundEnabled } = useSettings();
 
-  const [activeSubtab, setActiveSubtab] = useState<InterfaceSubtab>("layout");
-
-  // Sync active subtab when deep-linked or searched from the command palette.
-  useEffect(() => {
-    if (sectionParam && SECTION_TO_SUBTAB[sectionParam]) {
-      setActiveSubtab(SECTION_TO_SUBTAB[sectionParam]);
-    }
-  }, [sectionParam]);
+  const [studioOpen, setStudioOpen] = useState(false);
 
   return (
     <div className="interface-tab-shell">
+      {/* Layout Studio entry point — the visual, drag-and-drop way to hide and
+       *  rearrange the app chrome, with a live preview of the shell. */}
+      <div className="interface-studio-bar">
+        <LayoutTemplate className="interface-studio-bar__icon" size={20} aria-hidden="true" />
+        <div className="interface-studio-bar__text">
+          <span className="interface-studio-bar__title">
+            {t("settings.interface.studioTitle")}
+          </span>
+          <span className="interface-studio-bar__desc">
+            {t("settings.interface.studioOpenDesc")}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="interface-studio-launch"
+          onClick={() => {
+            if (uiSoundEnabled) playActionSound();
+            setStudioOpen(true);
+          }}
+        >
+          {t("settings.interface.studioOpen")}
+        </button>
+      </div>
+
       {/* Master note — Simple UI mode hides everything in this tab at once */}
       <div
         className="settings-behavior-card"
@@ -741,31 +641,28 @@ export default function InterfaceTab() {
         </span>
       </div>
 
-      {/* ── Subtab Pill Navigation (scrollable) ─────────────────────────── */}
-      <nav className="interface-subtab-bar" aria-label={t("settings.interface.subtabNav")}>
-        {SUBTABS.map((sub) => {
-          const isActive = activeSubtab === sub.key;
-          return (
-            <button
-              key={sub.key}
-              type="button"
-              className={`interface-subtab-btn ${isActive ? "active" : ""}`}
-              onClick={() => setActiveSubtab(sub.key)}
-              aria-selected={isActive}
-              role="tab"
-            >
-              {t(sub.labelKey)}
-            </button>
-          );
-        })}
+      {/* ── Single-section navigation bar ───────────────────────────────── */}
+      <nav
+        className="interface-subtab-bar"
+        aria-label={t("settings.interface.subtabNav")}
+      >
+        <button
+          type="button"
+          className="interface-subtab-btn active"
+          aria-current="page"
+        >
+          {t(SUBTAB_LABEL_KEY)}
+        </button>
       </nav>
 
-      {activeSubtab === "layout" && <LayoutPanel />}
-      {activeSubtab === "navTabs" && <NavTabsPanel />}
-      {activeSubtab === "navButtons" && <NavButtonsPanel />}
-      {activeSubtab === "badges" && <BadgesPanel />}
-      {activeSubtab === "widgets" && <WidgetsPanel />}
-      {activeSubtab === "detailSections" && <DetailSectionsPanel />}
+      <LayoutPanel />
+      <NavTabsPanel />
+      <NavButtonsPanel />
+      <BadgesPanel />
+      <WidgetsPanel />
+      <DetailSectionsPanel />
+
+      <LayoutEditorModal open={studioOpen} onClose={() => setStudioOpen(false)} />
     </div>
   );
 }

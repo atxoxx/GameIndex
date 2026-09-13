@@ -714,6 +714,41 @@ html[data-ui-hide-badge-compare="true"] .store-card__compare-btn {
   display: none !important;
 }
 
+/* ── Per-page widget toggles (Layout Studio → page tabs) ──────────────
+   PageLayoutBridge mirrors the *active* page's hidden widget categories to
+   `data-ui-page-hide` on <html>, so one rule per category is enough — no
+   page × widget matrix. Ordering uses the same attributes: the bridge sets
+   `data-ui-page-order` plus one `--ui-ord-<widget>` index per category, and
+   only page-level blocks (direct children of the page root) participate
+   because `order` needs a flex/grid parent. */
+html[data-ui-page-hide~="kpis"] .ui-item-kpis,
+html[data-ui-page-hide~="filters"] .ui-item-filters,
+html[data-ui-page-hide~="subtabs"] .ui-item-subtabs,
+html[data-ui-page-hide~="hero"] .ui-item-hero,
+html[data-ui-page-hide~="dashboard"] .ui-item-dashboard {
+  display: none !important;
+}
+
+html[data-ui-page-order="true"] .main-content > * > .ui-item-hero {
+  order: var(--ui-ord-hero, 0);
+}
+
+html[data-ui-page-order="true"] .main-content > * > .ui-item-kpis {
+  order: var(--ui-ord-kpis, 0);
+}
+
+html[data-ui-page-order="true"] .main-content > * > .ui-item-filters {
+  order: var(--ui-ord-filters, 0);
+}
+
+html[data-ui-page-order="true"] .main-content > * > .ui-item-subtabs {
+  order: var(--ui-ord-subtabs, 0);
+}
+
+html[data-ui-page-order="true"] .main-content > * > .ui-item-dashboard {
+  order: var(--ui-ord-dashboard, 0);
+}
+
 /* Simple mode hides every widget category at once (master "all off"). */
 html[data-ui-mode="simple"] .ui-item-kpis,
 html[data-ui-mode="simple"] .ui-item-filters,

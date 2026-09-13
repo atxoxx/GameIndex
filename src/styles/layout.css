@@ -57,6 +57,41 @@
   grid-template-columns: var(--sidebar-icon-rail-width) minmax(0, 1fr);
 }
 
+/* ── Sidebar docked right (Layout Studio → Global) ────────────────────
+ * SettingsContext mirrors the choice to `data-sidebar-position` on <html>.
+ * Only the grid areas/columns change — every rail/collapse rule above is
+ * restated so the right-hand dock keeps the same widths and motion. */
+html[data-sidebar-position="right"] .app-layout {
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-width);
+  grid-template-areas:
+    "topnav topnav"
+    "main sidebar";
+}
+
+html[data-sidebar-position="right"] .app-layout.sidebar-collapsed {
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-collapsed-width);
+}
+
+html[data-sidebar-position="right"] .app-layout.sidebar-icon-rail {
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-icon-rail-width);
+}
+
+html[data-sidebar-position="right"] .app-layout.sidebar-icon-rail .app-sidebar,
+html[data-sidebar-position="right"] .app-layout.sidebar-collapsed .app-sidebar {
+  animation-name: appSidebarSettleRight;
+}
+
+@keyframes appSidebarSettleRight {
+  from {
+    opacity: 0.35;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .app-topnav {
   grid-area: topnav;
   z-index: var(--z-nav);

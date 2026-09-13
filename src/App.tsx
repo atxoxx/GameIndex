@@ -46,6 +46,7 @@ import Splashscreen from "./components/Splashscreen";
 import LaunchSplashBridge from "./components/LaunchSplashBridge";
 import WindowReveal from "./components/WindowReveal";
 import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
+import PageLayoutBridge from "./components/PageLayoutBridge";
 import { GameAccentSync } from "./components/GameAccentSync";
 import { Skeleton } from "./components/ui/Skeleton";
 import "./App.css";
@@ -131,6 +132,7 @@ function AppShell() {
 
   return (
     <GamepadProvider enabled={isBigScreen}>
+      <PageLayoutBridge />
       <ResizeHandles />
       {!isBigScreen && <AppContextMenu />}
       <Suspense fallback={<PageLoadingFallback />}>

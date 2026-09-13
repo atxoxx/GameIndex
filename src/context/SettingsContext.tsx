@@ -35,6 +35,18 @@ import { applyAccentFamily } from "../utils/color";
 import { clampDeadzone } from "../hooks/gamepad/gamepadUtils";
 import { updateSoundConfig } from "../utils/soundEffects";
 import { SPLASH_ENABLED_KEY } from "./SplashContext";
+import {
+  normalizePageItemOrder,
+  normalizePageItemOrderMap,
+  normalizePageItemVisibilityMap,
+  normalizeSidebarSectionVisibility,
+  type InterfacePageKey,
+  type PageItemOrderMap,
+  type PageItemVisibilityMap,
+  type PageWidgetKey,
+  type SidebarSectionKey,
+  type SidebarSectionVisibility,
+} from "./interfaceLayout";
 
 // ── LocalStorage keys (one per localStorage-backed setting) ─────────────────
 //
@@ -101,6 +113,15 @@ const LS_INTERFACE_VISIBILITY = "gamelib.interface_visibility";
 // explicit; normalization on read drops unknown/duplicate keys and
 // appends newly added tabs so an upgrade never leaves one unrendered.
 const LS_NAVBAR_TAB_ORDER = "gamelib.navbar_tab_order";
+// Order of the top-right header buttons (Layout Studio → Global).
+const LS_NAVBAR_BUTTON_ORDER = "gamelib.navbar_button_order";
+// Which side the app sidebar docks to (Layout Studio → Global).
+const LS_SIDEBAR_POSITION = "gamelib.sidebar_position";
+// Sidebar top-level element visibility (Layout Studio → Global).
+const LS_SIDEBAR_SECTIONS_VISIBLE = "gamelib.sidebar_sections_visible";
+// Per-page widget visibility and order (Layout Studio → page tabs).
+const LS_PAGE_ITEM_VISIBILITY = "gamelib.page_item_visibility";
+const LS_PAGE_ITEM_ORDER = "gamelib.page_item_order";
 // Linux & Steam Deck support level (Settings → General)
 const LS_LINUX_SUPPORT_LEVEL = "gamelib.linux_support_level";
 
@@ -142,6 +163,7 @@ export interface MetricCapture {
 /** Temperature display unit for every hardware readout in the UI. */
 export type TempUnit = "c" | "f";
 
+export type SidebarPosition = "left" | "right";
 export type CommandPaletteMode = "simple" | "full";
 export type NavbarMode = "compact" | "full";
 export type UiDensityMode = "simple" | "complete";
@@ -271,11 +293,23 @@ export const DEFAULT_NAVBAR_TAB_ORDER: InterfaceItemKey[] = [
   "navFriends",
 ];
 
-/** Normalize a persisted navbar order: drop unknown and duplicate keys,
- *  then append every known tab that is missing so tabs added in later
+/** Canonical default order of the top-right header buttons — mirrors the
+ *  shipped markup in TopNav so "Reset" restores it exactly. */
+export const DEFAULT_NAVBAR_BUTTON_ORDER: InterfaceItemKey[] = [
+  "btnDownloads",
+  "btnSettings",
+  "btnDocs",
+  "btnBigScreen",
+];
+
+/** Normalize a persisted key order: drop unknown and duplicate keys, then
+ *  append every known key that is missing so elements added in later
  *  releases still show up at the end of the user's arrangement. */
-export function normalizeNavbarTabOrder(raw: unknown): InterfaceItemKey[] {
-  const known = new Set<string>(DEFAULT_NAVBAR_TAB_ORDER);
+function normalizeKeyOrder(
+  raw: unknown,
+  defaults: InterfaceItemKey[],
+): InterfaceItemKey[] {
+  const known = new Set<string>(defaults);
   const seen = new Set<string>();
   const ordered: InterfaceItemKey[] = [];
   if (Array.isArray(raw)) {
@@ -287,10 +321,22 @@ export function normalizeNavbarTabOrder(raw: unknown): InterfaceItemKey[] {
       ordered.push(value as InterfaceItemKey);
     }
   }
-  for (const key of DEFAULT_NAVBAR_TAB_ORDER) {
+  for (const key of defaults) {
     if (!seen.has(key)) ordered.push(key);
   }
   return ordered;
+}
+
+/** Normalize a persisted navbar order: drop unknown and duplicate keys,
+ *  then append every known tab that is missing so tabs added in later
+ *  releases still show up at the end of the user's arrangement. */
+export function normalizeNavbarTabOrder(raw: unknown): InterfaceItemKey[] {
+  return normalizeKeyOrder(raw, DEFAULT_NAVBAR_TAB_ORDER);
+}
+
+/** Same normalization for the header button cluster. */
+export function normalizeNavbarButtonOrder(raw: unknown): InterfaceItemKey[] {
+  return normalizeKeyOrder(raw, DEFAULT_NAVBAR_BUTTON_ORDER);
 }
 
 export interface SettingsContextValue {
@@ -394,6 +440,25 @@ export interface SettingsContextValue {
   /** User-arranged order of the top navbar tabs (Settings → Interface). */
   navbarTabOrder: InterfaceItemKey[];
   setNavbarTabOrder: (next: InterfaceItemKey[]) => void;
+  /** User-arranged order of the top-right header buttons (Layout Studio). */
+  navbarButtonOrder: InterfaceItemKey[];
+  setNavbarButtonOrder: (next: InterfaceItemKey[]) => void;
+  /** Which side the app sidebar docks to (Layout Studio → Global). */
+  sidebarPosition: SidebarPosition;
+  setSidebarPosition: (next: SidebarPosition) => void;
+  /** Show/hide the sidebar's top-level sections (Layout Studio → Global). */
+  sidebarSectionVisible: SidebarSectionVisibility;
+  setSidebarSectionVisible: (key: SidebarSectionKey, visible: boolean) => void;
+  /** Per-page widget visibility (Layout Studio → page tabs). */
+  pageItemVisible: PageItemVisibilityMap;
+  setPageItemVisible: (
+    page: InterfacePageKey,
+    widget: PageWidgetKey,
+    visible: boolean,
+  ) => void;
+  /** Per-page widget order (Layout Studio → page tabs). */
+  pageItemOrder: PageItemOrderMap;
+  setPageItemOrder: (page: InterfacePageKey, next: PageWidgetKey[]) => void;
 
   // ── Splash screens (Settings → Appearance) ──────────────────────
   /** Show the standalone launch splash while a game starts. Mirrors the
@@ -1268,6 +1333,103 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSetJSON(LS_NAVBAR_TAB_ORDER, normalized);
   }, []);
 
+  // Header button order (Layout Studio → Global). Same normalization as the
+  // tab order so TopNav always consumes a complete, duplicate-free list.
+  const [navbarButtonOrder, setNavbarButtonOrderState] = useState<
+    InterfaceItemKey[]
+  >(() => normalizeNavbarButtonOrder(lsGetJSON<unknown>(LS_NAVBAR_BUTTON_ORDER, null)));
+  const setNavbarButtonOrder = useCallback((next: InterfaceItemKey[]) => {
+    const normalized = normalizeNavbarButtonOrder(next);
+    setNavbarButtonOrderState(normalized);
+    lsSetJSON(LS_NAVBAR_BUTTON_ORDER, normalized);
+  }, []);
+
+  // Sidebar docking side (Layout Studio → Global). Mirrored to a
+  // `data-sidebar-position` attribute on <html> so layout.css can flip the
+  // app grid and sidebar.css can move the divider to the inner edge.
+  const [sidebarPosition, setSidebarPositionState] = useState<SidebarPosition>(() => {
+    const stored = lsGet(LS_SIDEBAR_POSITION) === "right" ? "right" : "left";
+    // Set before first paint so the app grid never flashes the wrong dock.
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.sidebarPosition = stored;
+    }
+    return stored;
+  });
+  const setSidebarPosition = useCallback((next: SidebarPosition) => {
+    setSidebarPositionState(next);
+    lsSet(LS_SIDEBAR_POSITION, next);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.sidebarPosition = sidebarPosition;
+  }, [sidebarPosition]);
+
+  // Sidebar section visibility (Layout Studio → Global). Same OFF-entries-only
+  // overrides pattern as the other maps so an upgrade adds new sections ON.
+  const [sidebarSectionVisible, setSidebarSectionVisibleState] =
+    useState<SidebarSectionVisibility>(() =>
+      normalizeSidebarSectionVisibility(
+        lsGetJSON<unknown>(LS_SIDEBAR_SECTIONS_VISIBLE, null),
+      ),
+    );
+  const setSidebarSectionVisible = useCallback(
+    (key: SidebarSectionKey, visible: boolean) => {
+      setSidebarSectionVisibleState((prev) => {
+        const next = { ...prev, [key]: visible };
+        const overrides: Partial<Record<SidebarSectionKey, boolean>> = {};
+        for (const section of Object.keys(next) as SidebarSectionKey[]) {
+          if (next[section] === false) overrides[section] = false;
+        }
+        lsSetJSON(LS_SIDEBAR_SECTIONS_VISIBLE, overrides);
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Per-page widget visibility + order (Layout Studio → page tabs). The
+  // runtime bridge (PageLayoutBridge) mirrors the *active* page's entries to
+  // `data-ui-page-hide` / `--ui-ord-*` so theme.css only needs one rule per
+  // widget category instead of one per page × widget.
+  const [pageItemVisible, setPageItemVisibleState] =
+    useState<PageItemVisibilityMap>(() =>
+      normalizePageItemVisibilityMap(lsGetJSON<unknown>(LS_PAGE_ITEM_VISIBILITY, null)),
+    );
+  const setPageItemVisible = useCallback(
+    (page: InterfacePageKey, widget: PageWidgetKey, visible: boolean) => {
+      setPageItemVisibleState((prev) => {
+        const pageEntry = { ...(prev[page] ?? {}) };
+        if (visible) delete pageEntry[widget];
+        else pageEntry[widget] = false;
+        const next = { ...prev };
+        if (Object.keys(pageEntry).length === 0) delete next[page];
+        else next[page] = pageEntry;
+        lsSetJSON(
+          LS_PAGE_ITEM_VISIBILITY,
+          normalizePageItemVisibilityMap(next),
+        );
+        return next;
+      });
+    },
+    [],
+  );
+
+  const [pageItemOrder, setPageItemOrderState] = useState<PageItemOrderMap>(() =>
+    normalizePageItemOrderMap(lsGetJSON<unknown>(LS_PAGE_ITEM_ORDER, null)),
+  );
+  const setPageItemOrder = useCallback(
+    (page: InterfacePageKey, next: PageWidgetKey[]) => {
+      const normalized = normalizePageItemOrder(page, next);
+      setPageItemOrderState((prev) => {
+        const merged = { ...prev, [page]: normalized };
+        lsSetJSON(LS_PAGE_ITEM_ORDER, merged);
+        return merged;
+      });
+    },
+    [],
+  );
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -1354,6 +1516,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setInterfaceVisibility,
       navbarTabOrder,
       setNavbarTabOrder,
+      navbarButtonOrder,
+      setNavbarButtonOrder,
+      sidebarPosition,
+      setSidebarPosition,
+      sidebarSectionVisible,
+      setSidebarSectionVisible,
+      pageItemVisible,
+      setPageItemVisible,
+      pageItemOrder,
+      setPageItemOrder,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1448,6 +1620,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setInterfaceVisibility,
       navbarTabOrder,
       setNavbarTabOrder,
+      navbarButtonOrder,
+      setNavbarButtonOrder,
+      sidebarPosition,
+      setSidebarPosition,
+      sidebarSectionVisible,
+      setSidebarSectionVisible,
+      pageItemVisible,
+      setPageItemVisible,
+      pageItemOrder,
+      setPageItemOrder,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,

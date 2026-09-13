@@ -122,7 +122,13 @@ export default function TopNav() {
   const activeDownloads = useActiveDownloadCount();
   const version = useAppVersion();
   const { isBigScreen, setBigScreen } = useBigScreen();
-  const { navbarMode, showNavbarNowPlaying, interfaceVisibility, navbarTabOrder } = useSettings();
+  const {
+    navbarMode,
+    showNavbarNowPlaying,
+    interfaceVisibility,
+    navbarTabOrder,
+    navbarButtonOrder,
+  } = useSettings();
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [unseenCommunity, setUnseenCommunity] = useState<number>(() => getUnseenCommunityItems());
@@ -425,32 +431,90 @@ export default function TopNav() {
               </button>
             )}
 
-            {interfaceVisibility.btnDownloads && (
-              <button
-                ref={downloadBtnRef}
-                type="button"
-                className={`topnav-btn topnav-btn-downloads${downloadsOpen || location.pathname.startsWith("/downloads") ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
-                onClick={() => setDownloadsOpen((o) => !o)}
-                onMouseEnter={() => preloadRoute("/downloads")}
-                onFocus={() => preloadRoute("/downloads")}
-                aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
-                aria-expanded={downloadsOpen}
-                aria-haspopup="dialog"
-                aria-controls={popoverId}
-                title={t("nav.downloads")}
-              >
-                <Download />
-                {activeDownloads > 0 && (
-                  <span
-                    className="topnav-btn-badge"
-                    role="status"
-                    aria-label={t("topnav.activeDownloads", { count: activeDownloads })}
-                  >
-                    {activeDownloads}
-                  </span>
-                )}
-              </button>
-            )}
+            {/* Action buttons follow the user's arrangement
+             *  (Layout Studio → Global → Header buttons). Hidden keys are
+             *  dropped here so both the button and its aria surface go away
+             *  together. */}
+            {navbarButtonOrder.map((key) => {
+              if (!interfaceVisibility[key]) return null;
+              switch (key) {
+                case "btnDownloads":
+                  return (
+                    <button
+                      key={key}
+                      ref={downloadBtnRef}
+                      type="button"
+                      className={`topnav-btn topnav-btn-downloads${downloadsOpen || location.pathname.startsWith("/downloads") ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
+                      onClick={() => setDownloadsOpen((o) => !o)}
+                      onMouseEnter={() => preloadRoute("/downloads")}
+                      onFocus={() => preloadRoute("/downloads")}
+                      aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
+                      aria-expanded={downloadsOpen}
+                      aria-haspopup="dialog"
+                      aria-controls={popoverId}
+                      title={t("nav.downloads")}
+                    >
+                      <Download />
+                      {activeDownloads > 0 && (
+                        <span
+                          className="topnav-btn-badge"
+                          role="status"
+                          aria-label={t("topnav.activeDownloads", { count: activeDownloads })}
+                        >
+                          {activeDownloads}
+                        </span>
+                      )}
+                    </button>
+                  );
+                case "btnSettings":
+                  return (
+                    <NavLink
+                      key={key}
+                      to="/settings"
+                      className={({ isActive }) =>
+                        `topnav-btn topnav-btn-settings${isActive ? " active" : ""}`
+                      }
+                      onMouseEnter={() => preloadRoute("/settings")}
+                      onFocus={() => preloadRoute("/settings")}
+                      aria-label={t("nav.settings")}
+                      title={t("nav.settings")}
+                    >
+                      <Settings />
+                    </NavLink>
+                  );
+                case "btnDocs":
+                  return (
+                    <NavLink
+                      key={key}
+                      to="/docs"
+                      className={({ isActive }) =>
+                        `topnav-btn topnav-btn-docs${isActive ? " active" : ""} ui-complete-only`
+                      }
+                      onMouseEnter={() => preloadRoute("/docs")}
+                      onFocus={() => preloadRoute("/docs")}
+                      aria-label={t("nav.docs")}
+                      title={t("nav.docs")}
+                    >
+                      <BookOpen />
+                    </NavLink>
+                  );
+                case "btnBigScreen":
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`topnav-btn topnav-btn-bigscreen${isBigScreen ? " active" : ""}`}
+                      onClick={() => setBigScreen(!isBigScreen)}
+                      aria-label={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
+                      title={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
+                    >
+                      <MonitorPlay />
+                    </button>
+                  );
+                default:
+                  return null;
+              }
+            })}
             <Suspense fallback={null}>
               <DownloadPopover
                 open={downloadsOpen}
@@ -462,45 +526,6 @@ export default function TopNav() {
                 id={popoverId}
               />
             </Suspense>
-            {interfaceVisibility.btnSettings && (
-              <NavLink
-                to="/settings"
-                className={({ isActive }) =>
-                  `topnav-btn topnav-btn-settings${isActive ? " active" : ""}`
-                }
-                onMouseEnter={() => preloadRoute("/settings")}
-                onFocus={() => preloadRoute("/settings")}
-                aria-label={t("nav.settings")}
-                title={t("nav.settings")}
-              >
-                <Settings />
-              </NavLink>
-            )}
-            {interfaceVisibility.btnDocs && (
-              <NavLink
-                to="/docs"
-                className={({ isActive }) =>
-                  `topnav-btn topnav-btn-docs${isActive ? " active" : ""} ui-complete-only`
-                }
-                onMouseEnter={() => preloadRoute("/docs")}
-                onFocus={() => preloadRoute("/docs")}
-                aria-label={t("nav.docs")}
-                title={t("nav.docs")}
-              >
-                <BookOpen />
-              </NavLink>
-            )}
-            {interfaceVisibility.btnBigScreen && (
-              <button
-                type="button"
-                className={`topnav-btn topnav-btn-bigscreen${isBigScreen ? " active" : ""}`}
-                onClick={() => setBigScreen(!isBigScreen)}
-                aria-label={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
-                title={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
-              >
-                <MonitorPlay />
-              </button>
-            )}
           </div>
           <WindowControls />
         </div>
