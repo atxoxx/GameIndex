@@ -215,7 +215,9 @@ Unlike launcher wrappers that are web wrappers or rely on remote servers, GameIn
 - **Family Sharing**: Titles shared with your account are detected and badged accordingly.
 
 > [!IMPORTANT]
-> Your Steam Profile and Game Details privacy must be set to **Public** in Steam Settings for the API to fetch your owned games and playtime accurately.`,
+> Your Steam Profile and Game Details privacy must be set to **Public** in Steam Settings for the API to fetch your owned games and playtime accurately.
+
+## Troubleshooting Steam sync\n- **Zero games returned**: the Steam profile and game details must both be **Public**; a private profile returns an empty list rather than an error.\n- **Wrong account**: the API key is bound to the account that generated it. Use the 17-digit SteamID64, not your vanity URL.\n- **Playtime looks stale**: Steam refreshes totals with a delay, so a session may take a few minutes to appear.\n- **Family sharing**: shared titles are marked with their owner, and their playtime is not counted towards your own totals.`,
       },
       {
         id: "gog",
@@ -240,7 +242,9 @@ Unlike launcher wrappers that are web wrappers or rely on remote servers, GameIn
 - DRM-free standalone GOG installers can be launched directly without needing the GOG client running in the background.
 
 > [!NOTE]
-> If GOG sync fails after several months, your session cookie may have expired. Simply click **Re-authenticate GOG** to refresh your session.`,
+> If GOG sync fails after several months, your session cookie may have expired. Simply click **Re-authenticate GOG** to refresh your session.
+
+## Managing GOG installations\n- **Offline installers**: point GameIndex at the folder where you keep GOG backup installers and they are matched to catalog entries.\n- **After moving a game**: re-scan the install folder so the launch path is updated; saves are read from the same directory.\n- **Optional client**: the GOG GALAXY client is not required for DRM-free titles, but keep it installed if you want cloud saves and automatic updates.`,
       },
       {
         id: "epic",
@@ -264,7 +268,9 @@ Unlike launcher wrappers that are web wrappers or rely on remote servers, GameIn
 - Many Epic Games titles support native DRM-free execution. GameIndex can launch these executables directly without launching the Epic Games Launcher, drastically reducing startup latency and background RAM usage.
 
 > [!TIP]
-> Claimed free games from Epic appear in your GameIndex library within seconds of clicking sync!`,
+> Claimed free games from Epic appear in your GameIndex library within seconds of clicking sync!
+
+## Epic troubleshooting\n- **Device code expired**: the authorization code is short-lived. Re-run **Authorize Epic Games** and confirm in the browser within a couple of minutes.\n- **Session dropped**: refresh tokens can be revoked from the Epic account page. Re-authorizing restores access without touching your installed files.\n- **Launcher not installed**: titles launched directly from their manifest still work, but first-time installs need the Epic client.`,
       },
       {
         id: "other-stores",
@@ -285,7 +291,9 @@ Unlike launcher wrappers that are web wrappers or rely on remote servers, GameIn
 
 ## Humble Bundle
 - Connect your Humble Bundle account via **Settings → Integrations → Humble**.
-- Access both your purchased Steam key history and DRM-free Humble Trove downloads.`,
+- Access both your purchased Steam key history and DRM-free Humble Trove downloads.
+
+## Manifest scanning tips\n- Re-scan after each install: manifests are written when a client finishes installing, not when it starts.\n- Ubisoft and Rockstar entries store their launch protocol; if a game launches the wrong store client, re-link its executable manually.\n- Titles sold only through these clients and never installed locally cannot be detected — add them with **Import** instead.`,
       },
       {
         id: "keychain",
@@ -307,7 +315,59 @@ Unlike launcher wrappers that are web wrappers or rely on remote servers, GameIn
 
 ## Zero Telemetry Policy
 - GameIndex never uploads your library list, store tokens, playtime logs, or telemetry to external servers.
-- All network requests are made directly from your client machine to official storefront endpoints (Steam, GOG, Epic, IGDB, SteamGridDB).`,
+- All network requests are made directly from your client machine to official storefront endpoints (Steam, GOG, Epic, IGDB, SteamGridDB).
+
+## Auditing stored credentials\n- **Windows**: open *Credential Manager → Windows Credentials* and look for GameIndex entries; deleting one forces a re-authentication.\n- **Linux**: use your keyring manager (GNOME Keyring, KWallet) to inspect or remove entries.\n- **Locked keyring**: if the keyring is locked at startup, sync fails until you unlock it — a common cause of "connect" buttons that seem to do nothing.\n- **Moving machines**: re-authenticate on the new device rather than copying keychain entries; hardware-backed encryption usually blocks a straight copy.`,
+      },
+      {
+        id: "humble",
+        categoryId: "integrations",
+        title: "Humble Bundle & Trove",
+        summary: "Connecting your Humble account to track Steam keys, DRM-free downloads and Trove entitlements.",
+        badge: "setup",
+        icon: KeyRound,
+        keywords: ["humble", "humble bundle", "trove", "keys", "drm-free", "bundles"],
+        relatedIds: ["steam", "other-stores", "downloads"],
+        body: `Humble Bundle is both a storefront and a bundle platform, and GameIndex indexes both sides of it.
+
+## Connecting Humble
+- Open **Settings → Integrations → Humble Bundle** and sign in through the secure webview.
+- The session cookie is written straight to your OS keychain — nothing is stored in a config file.
+- Press **Sync Humble** to pull your purchases, unredeemed keys and Trove entitlements.
+
+## Keys, bundles and the Trove
+- **Steam keys**: every purchased key is listed with its redemption state, so you can see what is still unused.
+- **DRM-free downloads**: direct installer links are matched to library entries wherever the title is recognisable.
+- **Humble Trove**: the subscriber catalog is browsable, and its downloads route through the built-in downloads engine.
+- **Bundle history**: past bundles are grouped by purchase date, so one bundle becomes a set of tracked entries.
+
+> **Tip:** Trove downloads are ordinary HTTP transfers, so they respect the global bandwidth limits you set in **Settings → Downloads**.`,
+      },
+      {
+        id: "metadata-sources",
+        categoryId: "integrations",
+        title: "Metadata & Artwork Sources",
+        summary: "Which provider supplies descriptions, artwork and ratings, and how to fix a wrong match.",
+        badge: "guide",
+        icon: Sparkles,
+        keywords: ["metadata", "igdb", "steamgriddb", "launchbox", "crackwatch", "artwork", "match"],
+        relatedIds: ["custom-artwork", "database-internals", "library"],
+        body: `Metadata and artwork come from several providers. Knowing which one does what turns a wrong cover into a two-second fix.
+
+## The providers
+- **IGDB**: descriptions, genres, release dates, ratings, screenshots and system requirements. Needs an IGDB/Twitch client key in **Settings → Integrations**.
+- **SteamGridDB**: portraits, heroes, logos and icons, including animated and community-made variants.
+- **Steam Web API**: playtime, achievements and official capsule art for owned titles.
+- **LaunchBox**: retro box art, cartridge scans and platform metadata.
+- **Crackwatch**: release and crack status shown on store and game pages.
+
+## When a match is wrong
+- Open the game and use **Edit → Media → Refresh metadata** to re-run the lookup.
+- Use **Search manually** to type the exact title and pick the correct entry from the provider list.
+- Set a **preferred provider order** so automatic refreshes always consult your favourite source first.
+- Lock artwork you already like so a refresh never overwrites it.
+
+> **Note:** API keys live in the OS keychain, never in plain-text configuration. Removing a key disables that provider immediately.`,
       },
     ],
   },
@@ -386,7 +446,9 @@ Unlike launcher wrappers that are web wrappers or rely on remote servers, GameIn
 Once you have configured a set of filters (e.g. *Installed RPGs with Controller Support*):
 1. Click the **Save Preset** button at the top of the filter panel.
 2. Enter a custom name (e.g. *"Cozy Deck Games"*).
-3. Your preset is pinned to the sidebar for instant one-click activation at any time!`,
+3. Your preset is pinned to the sidebar for instant one-click activation at any time!
+
+## Filter recipes worth saving\n- *Short and sweet*: play status **Backlog** + install size under **10 GB**.\n- *Couch co-op night*: controller support **yes** + multiplayer **local** + installed **yes**.\n- *Deck-ready*: Deck Verified + ProtonDB **Gold or better** + size under **64 GB**.\n- *Never finished*: play status **Playing** + last played older than **90 days**.\n- Combine a recipe with a search term to narrow it further, then press **Save Preset** so it is one click away.`,
       },
       {
         id: "sorting",
@@ -409,7 +471,9 @@ Once you have configured a set of filters (e.g. *Installed RPGs with Controller 
 
 ## Drive & Platform Grouping
 - Toggle **Group by Drive** to visually divide your library into sections corresponding to each physical drive or partition (e.g., \`C:\\\`, \`D:\\\`, \`E:\\\`).
-- Toggle **Group by Store** to separate your Steam, GOG, and DRM-free collections into distinct collapsible shelves.`,
+- Toggle **Group by Store** to separate your Steam, GOG, and DRM-free collections into distinct collapsible shelves.
+
+## Grouping in practice\n- Grouped sections collapse individually, so a 2 TB drive with 300 games can stay folded until you need it.\n- Sorting and grouping are remembered per page, so leaving the library and coming back keeps your arrangement.\n- Use a second key as a tie-breaker — for example *group by drive*, sort by **Install size** to find what to archive first.`,
       },
       {
         id: "managing",
@@ -433,7 +497,9 @@ Once you have configured a set of filters (e.g. *Installed RPGs with Controller 
 
 ## Custom Tags & Backlog Status
 - Assign custom tags (e.g. \`Short\`, \`LAN Party\`, \`Replay\`, \`Spooky\`).
-- Mark play status: **Backlog**, **Playing**, **Completed**, or **Abandoned** to track your gaming journey.`,
+- Mark play status: **Backlog**, **Playing**, **Completed**, or **Abandoned** to track your gaming journey.
+
+## Keeping the backlog honest\n- Move a game to **Playing** when you actually start it, and to **Completed** or **Dropped** when you stop — the status feeds the filters.\n- Rate games after finishing rather than on first launch; ratings become far more useful for choosing what to play next.\n- Review hidden games once in a while: a title hidden two years ago may be worth another look.`,
       },
       {
         id: "bulk-actions",
@@ -456,7 +522,9 @@ Once you have configured a set of filters (e.g. *Installed RPGs with Controller 
 - **Bulk Tag**: Add or remove custom tags across all selected games simultaneously.
 - **Bulk Hide / Unhide**: Clean up your library view in one click.
 - **Batch Metadata Refresh**: Re-query IGDB and SteamGridDB to fetch fresh covers, ratings, and player counts.
-- **Bulk Uninstall / Remove**: Remove shortcuts or launch uninstallers sequentially.`,
+- **Bulk Uninstall / Remove**: Remove shortcuts or launch uninstallers sequentially.
+
+## Bulk editing safely\n- The bulk bar always shows how many games are selected — check the count before running a destructive action.\n- Most bulk operations are reversible: hidden games can be unhidden and tags removed again, but **Remove** cannot undo an uninstall.\n- Bulk metadata refresh ignores entries whose artwork is locked, so individual overrides survive.\n- Selection is cleared when you change pages, so re-select before a second action.`,
       },
       {
         id: "updates",
@@ -472,7 +540,57 @@ Once you have configured a set of filters (e.g. *Installed RPGs with Controller 
 ## Update Indicators
 - When a newer version is identified, an **Update Available** accent badge appears on the top-right corner of the game tile.
 - Clicking the badge opens the version comparison dialog showing your installed version string versus the latest detected release notes and build number.
-- You can filter your library by **"Has Update"** to review all games with pending updates at a glance.`,
+- You can filter your library by **"Has Update"** to review all games with pending updates at a glance.
+
+## Update workflow\n- Versions are compared against the store manifest during sync; a badge appears as soon as a newer build is seen.\n- **Ignore this version** hides the badge until the next release, which is useful for deliberate downgrades.\n- Open the version dialog to see the installed build next to the detected one, plus a link to the store's patch notes.\n- Filter by **Has update** before a play session so you can decide whether updating is worth the download.`,
+      },
+      {
+        id: "import-scan",
+        categoryId: "library",
+        title: "Importing & Scanning Games",
+        summary: "Folder scans, single executables, batch imports and how deduplication keeps the library clean.",
+        badge: "setup",
+        icon: Download,
+        keywords: ["import", "scan", "folder", "executable", "batch", "deduplicate"],
+        relatedIds: ["library", "metadata-sources", "emulators"],
+        body: `Not every game comes from a store. Importing is how everything else — offline installers, itch.io builds, emulated titles and plain folders — joins the library.
+
+## Import methods
+- **Scan a folder**: point GameIndex at a directory and it walks the tree, matching executables against known games.
+- **Add a single executable**: pick one file and name the entry yourself.
+- **Batch import**: queue several folders in one pass.
+- **Drag and drop**: drop an executable or shortcut straight onto the Library window.
+
+## What a scan produces
+- One library entry per detected game, with a guessed title you can rename.
+- A launch target, working directory and icon captured automatically.
+- Optional enrichment from IGDB, SteamGridDB and LaunchBox.
+- **Deduplication**: an imported game that already exists in a synced store is merged rather than duplicated.
+
+> **Tip:** keep a single games root folder and re-scan it after adding titles — new games appear while existing entries keep their playtime, tags and notes.`,
+      },
+      {
+        id: "collections",
+        categoryId: "library",
+        title: "Collections & Smart Shelves",
+        summary: "Group games permanently with manual collections or self-updating smart collections.",
+        badge: "proTip",
+        icon: Library,
+        keywords: ["collections", "shelves", "smart collection", "grouping", "organize"],
+        relatedIds: ["filters", "library", "managing"],
+        body: `Filters are temporary; collections are permanent. Use them to group games the way you actually play them.
+
+## Creating a collection
+- Open the sidebar and pick **New collection**, then give it a name and an icon.
+- Add games by dragging tiles onto the shelf, or select several tiles and choose **Add to collection**.
+- Collections can be nested one level, so *Indies* can hold *Roguelikes* and *Metroidvanias*.
+
+## Smart collections
+- A **smart collection** is a saved rule set rather than a fixed list — for example *"Roguelikes under 5 GB that I have not finished"*.
+- Rules can mix tags, genres, play status, store, install size, release year and playtime.
+- Smart collections re-evaluate themselves whenever the library changes, and they sit in the sidebar like any other shelf.
+
+> **Tip:** collections live in your library database, so they travel with backups and never depend on an online account.`,
       },
     ],
   },
@@ -524,7 +642,9 @@ Once you have configured a set of filters (e.g. *Installed RPGs with Controller 
 - **Command-Line Arguments**: Pass parameters like \`-novid\`, \`-fullscreen\`, \`-dx11\`, or custom server IPs.
 - **Working Directory**: Specify a custom root folder for games that require assets relative to a specific directory.
 - **Run as Administrator (\`runas\`)**: Elevate permissions via UAC for legacy games that write saves to \`Program Files\`.
-- **Multiple Executable Profiles**: Add secondary binaries (e.g. Map Editor, Mod Configuration Utility, DirectX 11 vs DirectX 12).`,
+- **Multiple Executable Profiles**: Add secondary binaries (e.g. Map Editor, Mod Configuration Utility, DirectX 11 vs DirectX 12).
+
+## Launch profiles in practice\n- Give each profile a clear name — *DirectX 11*, *Modded*, *Benchmark*, *No-intro* — and mark one as the default for the tile's Play button.\n- Arguments are passed verbatim; keep one profile per working configuration instead of commenting arguments in and out.\n- Working directories matter for older games that load assets or configuration relative to their own folder.\n- Run as Administrator is required by a few legacy titles that write saves next to the executable.`,
       },
       {
         id: "hooks-scripts",
@@ -547,7 +667,9 @@ Execute commands, batch files (\`.bat\`), PowerShell scripts (\`.ps1\`), or shel
 Automatically trigger cleanups when the game process terminates:
 - Restore desktop resolution and multi-monitor configurations.
 - Sync save files to a private cloud or backup directory.
-- Terminate companion processes to save system memory.`,
+- Terminate companion processes to save system memory.
+
+## Script examples and safety\n- Pre-launch: switch to 1440p with a display tool, mount a virtual drive, or start a companion overlay.\n- Post-launch: restore resolution, sync saves to a backup folder, or stop helper processes.\n- Keep hooks short. A script that never exits delays the launch, so add a timeout to any waiting loop.\n- GameIndex logs hook output per launch; open the game's log view to see what a script printed.\n- Test hooks on a single game before rolling them out across a collection.`,
       },
       {
         id: "custom-artwork",
@@ -566,7 +688,9 @@ Automatically trigger cleanups when the game process terminates:
 
 ## Instant Drag-and-Drop
 - Want to use your own image? Simply drag any \`.png\`, \`.jpg\`, or \`.webp\` file from your file explorer directly onto the game page!
-- Dropzones for **Cover Poster**, **Hero Banner**, and **Title Logo** will illuminate automatically. Drop the image, and GameIndex caches it locally immediately.`,
+- Dropzones for **Cover Poster**, **Hero Banner**, and **Title Logo** will illuminate automatically. Drop the image, and GameIndex caches it locally immediately.
+
+## Artwork sizing cheat sheet\n- **Cover**: portrait, roughly 600×900.\n- **Hero**: landscape banner, 1920×620 or wider.\n- **Logo**: transparent PNG around 1024×1024.\n- **Icon**: square, 256×256.\n- WebP and PNG both work; animated WebP and APNG covers are supported for the grid.\n- Artwork is cached locally, so custom images keep working offline and travel in backups.`,
       },
       {
         id: "reviews-media",
@@ -583,7 +707,36 @@ Automatically trigger cleanups when the game process terminates:
 - **Screenshots**: High-resolution gallery with full-screen zoom and slideshow navigation.
 - **Trailers & Gameplay**: Watch official YouTube and Steam video trailers embedded seamlessly.
 - **Steam Community Reviews**: Read verified owner reviews with helpfulness sorting, language filtering, and review sentiment graphs.
-- **Web Links**: Quick access to official wikis, PCGamingWiki, Speedrun.com, and Discord servers. Links open in a clean in-app preview overlay.`,
+- **Web Links**: Quick access to official wikis, PCGamingWiki, Speedrun.com, and Discord servers. Links open in a clean in-app preview overlay.
+
+## Getting more out of media\n- Trailers stream in-app; if one stutters, the source may be throttling rather than the app.\n- Screenshots open in a lightbox with keyboard navigation between images.\n- Web links are sandboxed previews, so a page that blocks embedding offers an **Open in browser** button instead.\n- Community media is downloaded visibly and cached, and can be cleared from the game's cache controls.`,
+      },
+      {
+        id: "quick-actions",
+        categoryId: "game-details",
+        title: "Quick Actions & Context Menus",
+        summary: "Everything reachable from a tile: hover actions, the right-click menu and bulk variants.",
+        badge: "guide",
+        icon: SlidersHorizontal,
+        keywords: ["quick actions", "context menu", "right click", "hover", "shortcuts"],
+        relatedIds: ["gamedetails", "managing", "bulk-actions"],
+        body: `Most things you want to do with a game are one click away from its tile.
+
+## On hover
+- **Play** launches the default launch profile.
+- **Favorite** pins the game to the favorites shelf.
+- **Edit** opens the game editor.
+- **More** expands the full action list.
+
+## Right-click menu
+- **Play / Launch options** — pick an alternate executable or profile.
+- **Open folder** jumps to the install directory, the saves folder or the prefix.
+- **Relocate** moves the installation to another drive.
+- **Refresh metadata** and **Re-scrape artwork** fix wrong or missing data.
+- **Hide** removes the tile from normal views without touching any files.
+- **Store links** open the game's Steam, GOG, Epic or IGDB page.
+
+> **Tip:** hold Ctrl and right-click several tiles to apply the same action to all of them at once.`,
       },
     ],
   },
@@ -636,7 +789,9 @@ Automatically trigger cleanups when the game process terminates:
 - **User & Critic Ratings**: Side-by-side metascore, user score, and Steam sentiment.
 - **Average Length**: HowLongToBeat story vs completionist comparison.
 - **Shared & Unique Attributes**: Shared genres, multiplayer modes, engine, and themes.
-- **Pricing & Discounts**: Current lowest price across retailers with green winner highlights on the best deals.`,
+- **Pricing & Discounts**: Current lowest price across retailers with green winner highlights on the best deals.
+
+## Getting useful comparisons\n- Compare only games you would actually pick between; four slots fill quickly and long lists get unreadable.\n- Winner badges only appear on numeric rows, so a "win" on rating does not mean a better fit for your setup.\n- Use the compare tray together with the ownership column to avoid buying a game you already own elsewhere.\n- Close the tray to clear the selection; add games again from any store, library or deals card.`,
       },
       {
         id: "deals",
@@ -692,6 +847,55 @@ Automatically trigger cleanups when the game process terminates:
 - **Distraction-Free Article View**: Read articles with formatting, headers, and media intact inside the app.
 - Tracks unread states per feed so you always know what is new since your last session.`,
       },
+      {
+        id: "store-search",
+        categoryId: "discovery",
+        title: "Store Search & Filters",
+        summary: "Typo-tolerant search, stacked catalogue filters and shareable filter URLs.",
+        badge: "guide",
+        icon: ListFilter,
+        keywords: ["search", "filters", "store", "catalog", "shareable", "url"],
+        relatedIds: ["store", "wishlist", "game-compare"],
+        body: `The Store is only useful if you can find the exact thing you want. Search 2.0 is built for that.
+
+## Searching
+- Typing is **typo-tolerant**: a mistyped title still resolves to the right game.
+- Results update as you type and show ownership badges so you never buy a game twice.
+- Press the search hotkey to jump straight into the field from anywhere on the page.
+
+## Filtering the catalog
+- Stack **platform**, **genre**, **theme**, **perspective**, **game mode**, **release window** and **rating** filters.
+- Toggle **Only show games I own** or **Hide games I own** to switch between discovery and backlog mode.
+- Filter by **Crackwatch** status or **ProtonDB** tier to find games that actually run on your system.
+- Every filter combination produces a shareable URL you can bookmark or send to a friend.
+
+> **Tip:** filters stay active while you browse rails, so you can compare a candidate against the rest of your shortlist without losing your place.`,
+      },
+      {
+        id: "giveaways",
+        categoryId: "discovery",
+        title: "Giveaways, Playtests & Game Pass",
+        summary: "Free offers with live countdowns, open beta signups and the Game Pass catalog.",
+        badge: "guide",
+        icon: BadgePercent,
+        keywords: ["giveaway", "free games", "game pass", "playtest", "beta", "countdown"],
+        relatedIds: ["deals", "wishlist", "store"],
+        body: `Free is a price point too. Giveaways collects every legitimate way to expand your library for nothing.
+
+## What is tracked
+- **100% off offers** from the major storefronts and subscription services.
+- **Live countdowns** so you can see exactly how long a claim window stays open.
+- **Playtests and open betas** with signup links and platform requirements.
+- **Xbox Game Pass for PC** with arrival and leaving dates.
+- **Free weekends** for games you can try before buying.
+
+## Getting them into your library
+- Claimed Steam games appear after the next library sync.
+- Claims on other stores land with their normal sync.
+- Anything without a store client can be added as a manual entry through **Import**.
+
+> **Tip:** wishlist a giveaway game before it goes free and GameIndex highlights the offer, so you never miss the window.`,
+      },
     ],
   },
 
@@ -739,7 +943,9 @@ Automatically trigger cleanups when the game process terminates:
 
 ## Linux: MangoHud & GameScope
 - GameIndex automatically reads MangoHud CSV telemetry logs and GameScope statistics.
-- Simply toggle **Enable MangoHud** in **Game Details → Compatibility** — no extra configuration needed!`,
+- Simply toggle **Enable MangoHud** in **Game Details → Compatibility** — no extra configuration needed!
+
+## Sampling, overhead and troubleshooting\n- Sampling frequency is configurable. More frequent samples give sharper frametime graphs at a small CPU cost.\n- **Empty metrics after a session**: check that the telemetry source is running and that the game actually rendered frames — a launcher-only session has nothing to chart.\n- On Linux, MangoHud logs are read from the standard XDG data folder; a custom log path can be set in the compatibility tab.\n- Metrics are stored with the session, so deleting a session also removes its performance samples.`,
       },
       {
         id: "session-notes",
@@ -760,7 +966,57 @@ Automatically trigger cleanups when the game process terminates:
 - *"Defeated Malenia after 42 attempts using bloodhound step."*
 - *"Upgraded GPU drivers to 555.85 — fixed stutter in Novigrad."*
 - *"Completed Chapter 4 with Sarah in co-op mode."*
-- Notes are searchable and included in your \`.gibak\` data backups.`,
+- Notes are searchable and included in your \`.gibak\` data backups.
+
+## Notes in practice\n- Use short hashtags inside notes — §#boss§, §#config§, §#coop§ — and search for them from the Activity page.\n- Notes are indexed with the rest of the app, so a note is reachable from global search.\n- Export sessions as CSV to keep a plain-text copy of your diary outside the app.\n- Notes are included in §.gibak§ backups along with the sessions they belong to.`,
+      },
+      {
+        id: "sessions",
+        categoryId: "tracking",
+        title: "Playtime Tracking & Sessions",
+        summary: "How process detection, session lifecycles and manual correction work together.",
+        badge: "core",
+        icon: Activity,
+        keywords: ["sessions", "playtime", "detection", "process", "gantt", "correction"],
+        relatedIds: ["activity", "telemetry", "session-notes"],
+        body: `Every launch is recorded as a session — start and end time, duration, performance samples and notes. That history powers Activity, Achievements and Storage insights.
+
+## Behind the scenes
+- **Windows**: process-event polling matches the running executable to a library entry.
+- **Linux**: scanning follows wine and proton process trees, including launcher children.
+- Games started from GameIndex, Steam, a desktop shortcut or a file manager are all detected — you do not have to launch from the app.
+- When the process tree exits, the session is closed, playtime is written to SQLite and telemetry samples are attached.
+
+## Working with sessions
+- Open **Activity → Sessions** to correct a start or end time, split a session, or delete a mis-detected one.
+- Add **notes** to any row to keep a diary of progress, bosses and configuration changes.
+- Sessions feed the playtime totals on tiles, the Gantt timeline and achievement progress charts.
+
+> **Note:** if sessions look wrong, check the process detection interval and exclusions in Settings before editing data by hand.`,
+      },
+      {
+        id: "stats-export",
+        categoryId: "tracking",
+        title: "Stats, Charts & Exports",
+        summary: "Dashboard KPIs, Gantt and performance charts, plus PNG and CSV export.",
+        badge: "guide",
+        icon: LayoutDashboard,
+        keywords: ["stats", "charts", "export", "csv", "png", "kpi", "gantt"],
+        relatedIds: ["activity", "sessions", "telemetry"],
+        body: `Activity is not just for looking at — you can pull numbers out of it.
+
+## Charts and KPIs
+- Dashboard tiles summarise total playtime, session count, current streak and peak FPS.
+- The **Gantt** view shows what ran when across a day, a week or a month.
+- **Performance** charts plot FPS and frametime for the selected session.
+- **Sparklines** compare recent playtime across games at a glance.
+
+## Exporting
+- **Export chart** saves any graph as a PNG image, ready to paste into a forum post or a recap.
+- **Export sessions (CSV)** writes start, end, duration, game and notes for spreadsheet work.
+- Everything is computed locally from SQLite — no statistics leave your machine.
+
+> **Tip:** set the Activity range to *This year* before taking a screenshot and the dashboard becomes a tidy annual recap.`,
       },
     ],
   },
@@ -809,7 +1065,9 @@ Automatically trigger cleanups when the game process terminates:
 - Manually check off achievements as you earn them in-game.
 
 ## Local Save Parsing
-- GameIndex can parse achievement saves on disk from supported emulator cores and standalone wrappers, unlocking achievements automatically as your save file progresses.`,
+- GameIndex can parse achievement saves on disk from supported emulator cores and standalone wrappers, unlocking achievements automatically as your save file progresses.
+
+## Retro and DRM-free workflow\n- Mark progress as you play; the completion bar updates immediately and feeds the achievements hub totals.\n- For emulated titles, connect RetroAchievements first — local parsing then adds context instead of competing with it.\n- **Reset all** clears manual unlocks for a game so you can re-track after a fresh save or a re-implementation.\n- Manual unlocks never affect store achievements, and store achievements never overwrite manual ones.`,
       },
       {
         id: "community",
@@ -827,6 +1085,30 @@ Automatically trigger cleanups when the game process terminates:
 - **Library Overlap**: Compare your library against a friend's profile to discover mutual co-op and multiplayer titles you both own.
 - **Direct Messaging**: Lightweight, end-to-end encrypted direct messaging with read receipts.
 - **Zero Corporate Surveillance**: All presence relaying is opt-in and decentralized. Disable social features at any time in **Settings → Privacy & Data**.`,
+      },
+      {
+        id: "retroachievements",
+        categoryId: "achievements",
+        title: "RetroAchievements Setup",
+        summary: "Linking your RetroAchievements account so emulated games earn real achievements.",
+        badge: "setup",
+        icon: Trophy,
+        keywords: ["retroachievements", "retro", "emulator achievements", "ra", "points"],
+        relatedIds: ["achievements", "emulators", "manual-unlocks"],
+        body: `RetroAchievements brings modern achievement hunting to emulated games, and GameIndex treats it as a first-class source.
+
+## Setting up
+- Create a RetroAchievements account and copy your web API key.
+- Paste it in **Settings → Integrations → RetroAchievements** and press **Verify**.
+- Supported platforms include NES, SNES, N64, Game Boy, GBA, DS, Mega Drive, PlayStation and arcade boards.
+
+## What you get
+- Achievement lists, points, rarity and completion percentages per retro game.
+- Progress merges into the same hub as Steam, GOG and Epic achievements.
+- Mastery and badge states appear on retro tiles in the library.
+- Local save files are matched to the right game, so offline progress is credited on the next scan.
+
+> **Note:** hardcore-only achievements require the emulator to run in hardcore mode with no save states or cheats enabled.`,
       },
     ],
   },
@@ -875,7 +1157,9 @@ Automatically trigger cleanups when the game process terminates:
 
 ## Bandwidth Throttling
 - Set global download and upload speed limits in **Settings → Downloads**.
-- Schedule speed limits during working hours to prevent gaming downloads from saturating your home connection.`,
+- Schedule speed limits during working hours to prevent gaming downloads from saturating your home connection.
+
+## Bandwidth scheduling and seeding\n- Time-based limits let downloads saturate the line overnight and stay out of the way during the day.\n- **Seed after complete** obeys the ratio or time you set, then stops automatically to free the disk for the next job.\n- Port forwarding improves inbound peer connections; without it downloads still work but find fewer peers.\n- Added trackers and DHT settings are per-session and do not modify the torrent file on disk.`,
       },
       {
         id: "storage",
@@ -915,7 +1199,56 @@ Automatically trigger cleanups when the game process terminates:
 4. GameIndex copies all game files, verifies file integrity, deletes the old directory, and updates the executable path in SQLite automatically.
 
 > [!IMPORTANT]
-> The game remains fully launchable with all save files and launch arguments intact. You never need to reinstall or reconfigure shortcuts!`,
+> The game remains fully launchable with all save files and launch arguments intact. You never need to reinstall or reconfigure shortcuts!
+
+## Relocation checklist\n- Close the game before moving it — a locked executable fails the copy halfway through.\n- Make sure the target drive has enough free space for the full install plus a little headroom.\n- Steam-managed games should be moved with Steam's own library system, then re-scanned so GameIndex follows the new path.\n- After a move, launch once to confirm the game still finds its saves and configuration.`,
+      },
+      {
+        id: "debrid",
+        categoryId: "downloads-storage",
+        title: "Debrid & Premium Links",
+        summary: "Real-Debrid, AllDebrid and TorBox for cached, full-speed transfers.",
+        badge: "guide",
+        icon: Download,
+        keywords: ["debrid", "real-debrid", "alldebrid", "torbox", "premium", "cache"],
+        relatedIds: ["downloads", "torrent-controls", "disk-cleanup"],
+        body: `Debrid services turn slow free hosts into fast, resumable premium links, and GameIndex talks to them natively.
+
+## Supported services
+- **Real-Debrid**, **AllDebrid** and **TorBox**.
+- Paste the API token in **Settings → Downloads → Debrid** and the provider becomes available everywhere.
+
+## What it unlocks
+- **Instant availability**: check the debrid cache before downloading and start immediately when a file is already cached.
+- **Premium link generation**: convert supported host links into full-speed direct transfers.
+- **Server-side magnets**: resolve torrents remotely and receive an ordinary HTTP download with no local seeding.
+- **Automatic fallback**: if a debrid request fails, the scheduler falls back to a direct transfer instead of dropping the job.
+
+> **Tip:** cached debrid downloads do not depend on peer availability, which makes them the fastest path for large downloads.`,
+      },
+      {
+        id: "disk-cleanup",
+        categoryId: "downloads-storage",
+        title: "Finding & Reclaiming Disk Space",
+        summary: "Tracking down what is using the drive and what can safely be removed.",
+        badge: "guide",
+        icon: HardDrive,
+        keywords: ["disk space", "cleanup", "shader cache", "leftovers", "storage", "reclaim"],
+        relatedIds: ["storage", "relocation", "downloads"],
+        body: `Storage gets tight long before you expect it. GameIndex gives you the numbers to decide what to reclaim.
+
+## Finding the weight
+- On the Storage page, sort by size to rank every installation in the library.
+- Breakdowns separate **base game**, **mods**, **ROMs and emulators**, and **leftover installer files**.
+- Secondary Steam libraries and native Linux installs are measured, not estimated.
+
+## Reclaiming space
+- **Delete leftover installers** from the downloads history once extraction has finished.
+- **Prune shader caches** for games you have uninstalled — they can reach several gigabytes.
+- **Compact prefixes**: per-game Wine prefixes are convenient but large, so clear them when a game is finished.
+- The **stale install detector** flags games unplayed for months so you can archive them elsewhere with **Relocate**.
+
+> **Tip:** run **Recalculate sizes** after changing files outside GameIndex, otherwise the numbers are stale and cleanup decisions are wrong.`,
       },
     ],
   },
@@ -963,7 +1296,9 @@ Automatically trigger cleanups when the game process terminates:
 - Fetches authentic 3D box art, cartridge art, and original manual scans.
 
 ## Disc Stacking
-- Multi-disc games (e.g. *Final Fantasy VII Disc 1, 2, 3*) are automatically collapsed into a single library entry with an in-game disc switcher dropdown.`,
+- Multi-disc games (e.g. *Final Fantasy VII Disc 1, 2, 3*) are automatically collapsed into a single library entry with an in-game disc switcher dropdown.
+
+## Library hygiene\n- Set a preferred **region order** so multi-region dumps resolve to the version you actually want.\n- Use one-game-one-rom sets where possible; near-duplicates are detected and can be merged or hidden.\n- Multi-disc titles generate a playlist reference, so the emulator is handed the right disc without manual swapping.\n- Wrong matches can be corrected by renaming the file or by editing the entry's title and region directly.`,
       },
       {
         id: "save-states",
@@ -980,7 +1315,9 @@ Automatically trigger cleanups when the game process terminates:
 - Detects native emulator memory cards and state slots.
 - **Instant Snapshot**: Take a named snapshot of your save state with one click.
 - **Rollback & Restore**: Revert to previous boss checkpoints or earlier story chapters at any time.
-- Save files are automatically included in full GameIndex system backups.`,
+- Save files are automatically included in full GameIndex system backups.
+
+## A simple backup strategy\n- Keep one snapshot per session and prune the rest; snapshots are copies of a save, not the save itself.\n- Name snapshots after the milestone, not the date — *before-final-boss* is easier to find than *2026-03-14*.\n- If cloud sync writes to the same folder, snapshot after syncing to avoid capturing a half-written file.\n- Restores overwrite the live save, so take a fresh snapshot before rolling back.`,
       },
       {
         id: "mods",
@@ -1001,6 +1338,56 @@ Automatically trigger cleanups when the game process terminates:
 - **Load Order Management**: Drag and drop active mods to reorder priority.
 - **Conflict Detection**: Highlights mods that overwrite the same game files and warns you before launching.
 - **Disk Footprint**: See exactly how many gigabytes your mod folder consumes per title.`,
+      },
+      {
+        id: "bios-firmware",
+        categoryId: "emulators-mods",
+        title: "BIOS & Firmware Setup",
+        summary: "Pointing platforms at BIOS files, checking them before launch, and per-game overrides.",
+        badge: "setup",
+        icon: Settings,
+        keywords: ["bios", "firmware", "keys", "region", "emulator setup"],
+        relatedIds: ["emulators", "rom-management", "troubleshooting"],
+        body: `Some consoles refuse to boot without firmware files. GameIndex checks before you launch, not after.
+
+## BIOS and firmware
+- Each platform profile has a **BIOS directory** field; point it at your firmware folder.
+- The **BIOS check** lists required files, verifies checksums where they are known and warns about region mismatches.
+- Missing files block the launch with a clear message instead of producing a black screen.
+
+## Firmware and revisions
+- Disc-based systems may need a specific BIOS revision for a particular game to boot.
+- Keep multiple revisions and choose one per game with **per-game BIOS overrides**.
+- Modern handheld-style platforms expect a firmware dump plus key files; the platform profile lists what is needed.
+
+> **Note:** GameIndex never downloads firmware or keys. Only files you legally own are referenced.`,
+      },
+      {
+        id: "mod-load-order",
+        categoryId: "emulators-mods",
+        title: "Mod Load Order & Conflicts",
+        summary: "Prioritising mods, resolving file conflicts and saving load order profiles.",
+        badge: "proTip",
+        icon: Puzzle,
+        keywords: ["load order", "conflicts", "overwrite", "priority", "profiles", "mods"],
+        relatedIds: ["mods", "gamedetails", "troubleshooting"],
+        body: `Two mods editing the same file is the most common cause of "it worked yesterday". The Mods page makes ordering visible.
+
+## Load order
+- Drag mods to reorder priority; entries higher in the list win conflicts.
+- Save a named **load order profile** and switch between setups — for example a vanilla-plus list and an overhaul list.
+- Profiles are stored in the library database and included in backups.
+
+## Conflicts
+- **Conflict detection** compares file paths and lists the exact files two mods share.
+- A conflict badge appears on affected entries before you launch, not after a crash.
+- **Quick resolve** disables the lower-priority copy of a conflicting file where possible instead of disabling the whole mod.
+
+## Updates
+- Track which mods have newer files available on Steam Workshop or Nexus Mods.
+- Update, disable or uninstall individually, with bulk multi-select for long lists.
+
+> **Tip:** mod sizes are counted on the Storage page, so a heavily modded game shows its real footprint.`,
       },
     ],
   },
@@ -1053,7 +1440,9 @@ GameIndex automatically scans and recognizes all installed compatibility runners
 From any game's **Compatibility** tab, launch standard Windows management utilities with one click:
 - **Wine Configuration (\`winecfg\`)**: Configure Windows version (Win 10/11), audio drivers, and display settings.
 - **Registry Editor (\`regedit\`)**: Inspect or modify virtual Windows registry keys.
-- **Winetricks Verbs**: Install common runtimes (\`vcrun2022\`, \`dotnet48\`, \`d3dx9\`, \`corefonts\`) without terminal commands.`,
+- **Winetricks Verbs**: Install common runtimes (\`vcrun2022\`, \`dotnet48\`, \`d3dx9\`, \`corefonts\`) without terminal commands.
+
+## Prefix maintenance\n- Prefixes grow over time with each winetricks verb and installer; check their size on the Storage page.\n- **Back up prefix** before installing components, and restore it if a dependency breaks other games.\n- Resetting a prefix is the reliable fix for a corrupted Windows environment, but it also clears installed community dependencies.\n- Every wine tool launch is logged, and winetricks output is attached to the game's log view for debugging.`,
       },
       {
         id: "graphics-flags",
@@ -1073,7 +1462,9 @@ From any game's **Compatibility** tab, launch standard Windows management utilit
 - **Wayland Native**: Run games without XWayland translation overhead on modern compositors.
 
 ## GPU Pinning for Laptops & Multi-GPU
-- On laptops with hybrid graphics (Intel/AMD iGPU + NVIDIA dGPU), select your dedicated GPU in the dropdown. GameIndex injects the appropriate Vulkan and PRIME environment variables automatically.`,
+- On laptops with hybrid graphics (Intel/AMD iGPU + NVIDIA dGPU), select your dedicated GPU in the dropdown. GameIndex injects the appropriate Vulkan and PRIME environment variables automatically.
+
+## Flag troubleshooting\n- Change one flag at a time and relaunch; combining several at once makes regressions impossible to attribute.\n- **Reset to defaults** restores the recommended set for the current runner, which is a good baseline to test from.\n- Known conflicts are marked in the UI — for example forcing Wayland while the game expects XWayland.\n- Enable the DXVK HUD or MangoHud to verify a flag actually took effect.`,
       },
       {
         id: "steam-deck",
@@ -1093,7 +1484,59 @@ Configure Valve's micro-compositor directly inside GameIndex:
 - **HDR & Adaptive Sync**: Enable High Dynamic Range on Steam Deck OLED and variable refresh rate monitors.
 
 ## MangoHud Overlay
-- Enable the lightweight MangoHud performance overlay with preset density levels (battery, FPS counter, full telemetry graph).`,
+- Enable the lightweight MangoHud performance overlay with preset density levels (battery, FPS counter, full telemetry graph).
+
+## Deck-specific tips\n- The 40 Hz/40 FPS preset is the sweet spot for battery; drop to 30 for heavy titles and cap to 60 only when plugged in.\n- Support level **Deck Verified** hides advanced compatibility options; switch to **Full** to expose them.\n- Suspend and resume works for most titles, but online games and some anti-cheat clients drop their session.\n- Controller layouts are remembered per game, and Big Screen reads the same mappings as Game Mode.`,
+      },
+      {
+        id: "anticheat",
+        categoryId: "linux-deck",
+        title: "Anti-Cheat & Online Play",
+        summary: "Which anti-cheat systems work under Proton and how to enable runtime helpers.",
+        badge: "linux",
+        icon: ShieldCheck,
+        keywords: ["anti-cheat", "eac", "battleye", "multiplayer", "online", "proton"],
+        relatedIds: ["compatibility", "graphics-flags", "troubleshooting"],
+        body: `Anti-cheat support on Linux has improved a lot, but it is still the biggest caveat for competitive games.
+
+## Levels of support
+- **Officially supported kernel-level anti-cheat**: enable the bundled runtime helpers from the game's compatibility tab and online modes work.
+- **Unsupported kernel-level anti-cheat**: the game may launch, but online servers usually reject the client.
+- **Server-side anti-cheat**: generally fine through Proton.
+
+## What GameIndex does
+- Flags known anti-cheat systems on the game page so you know before installing.
+- Offers to enable the **EAC** and **BattlEye** runtime helpers where they are permitted.
+- Warns when a Proton or Wine option is known to break multiplayer, such as some async shader flags.
+
+## Practical advice
+- Keep Proton on a recent stable or GE-Proton build; anti-cheat support often depends on the runtime version.
+- Avoid injecting overlays or hooks into protected games — several anti-cheat systems treat hooking as tampering.
+
+> **Note:** never use anti-cheat bypasses. They break store agreements and can get your account banned.`,
+      },
+      {
+        id: "hdr-vrr",
+        categoryId: "linux-deck",
+        title: "HDR, VRR & Display Tuning",
+        summary: "Per-game HDR, adaptive sync, frame pacing and FPS caps on Linux and handhelds.",
+        badge: "linux",
+        icon: Monitor,
+        keywords: ["hdr", "vrr", "adaptive sync", "frame pacing", "refresh rate", "fsr"],
+        relatedIds: ["steam-deck", "graphics-flags", "compatibility"],
+        body: `Modern displays can do more than a fixed 60 Hz panel, and GameIndex exposes the options that matter.
+
+## HDR
+- Enable HDR per game from the compatibility tab; GameIndex passes the right environment variables to GameScope and Wine.
+- HDR applies to the selected game rather than your whole desktop, and works best with an HDR-enabled display mode.
+- Some titles also need an in-game HDR toggle; the game page notes when that is the case.
+
+## Variable refresh and frame pacing
+- **Adaptive sync** lets the display match the game's frame rate, removing tearing without the latency cost of vsync.
+- Pair VRR with an FPS cap slightly below the refresh ceiling for the smoothest frame pacing.
+- GameScope options add an internal FPS limit and FSR upscaling for demanding titles.
+
+> **Tip:** on a handheld, capping to 40 FPS with VRR enabled is often the best balance of battery life and smoothness.`,
       },
     ],
   },
@@ -1146,7 +1589,9 @@ Configure Valve's micro-compositor directly inside GameIndex:
 - **Light Mode**: Crisp, high-contrast daylight theme designed for bright rooms.
 
 ## Custom Accent Color
-- Choose any custom HEX or RGB accent color. GameIndex dynamically recalculates glow values, border mixes, and contrast text colors in real time!`,
+- Choose any custom HEX or RGB accent color. GameIndex dynamically recalculates glow values, border mixes, and contrast text colors in real time!
+
+## Building a consistent look\n- Pick a theme first, then set an accent that stays legible against it — low-contrast accents look great in a screenshot and terrible in a list.\n- OG-OLED users can test the pure black variant; on LCD panels the near-black default reads better in bright rooms.\n- Motion and sound toggles sit beside the themes, so a quiet, minimal setup is two switches away.\n- A light theme plus a warm accent is the most readable combination for daytime gaming.`,
       },
       {
         id: "backup",
@@ -1208,6 +1653,32 @@ Configure Valve's micro-compositor directly inside GameIndex:
 - Hide games you're done with instead of deleting them — they stay searchable.
 - On Linux, download a GE-Proton runner and set it as the default; most games just work.
 - Back up before big changes: it takes seconds and covers every config domain.`,
+      },
+      {
+        id: "discord-presence",
+        categoryId: "customization",
+        title: "Discord Rich Presence",
+        summary: "Showing what you are playing in Discord and exactly what is shared with friends.",
+        badge: "guide",
+        icon: Users,
+        keywords: ["discord", "rich presence", "status", "privacy", "sharing"],
+        relatedIds: ["interface", "community", "sessions"],
+        body: `If Discord is always open next to your game, Rich Presence lets it show what you are playing.
+
+## Setup
+- Enable **Rich Presence** in **Settings → Discord**.
+- Split the toggles if you prefer: show games you are playing, show games you are only browsing, or stay invisible while browsing the store.
+- Presence starts when a session starts and clears when the game exits, using the same detector that powers playtime.
+
+## What your friends see
+- The game's title and cover art.
+- Optionally, how long the current session has been running.
+- Nothing about your library, wishlist or store activity unless browsing presence is explicitly enabled.
+
+## Privacy
+- Rich Presence is entirely opt-in and local: it talks only to your Discord client, never to a GameIndex server.
+
+> **Note:** if presence does not appear, make sure the desktop Discord app is running — the web client cannot receive presence.`,
       },
     ],
   },
@@ -1274,7 +1745,9 @@ Configure Valve's micro-compositor directly inside GameIndex:
 
 ## FPS / Telemetry Not Showing
 - On Windows, ensure **RivaTuner Statistics Server (RTSS)** is running and has permission to hook 64-bit and 32-bit processes.
-- On Linux, verify that **MangoHud** is installed via your package manager (\`sudo pacman -S mangohud\` or \`flatpak install mangohud\`).`,
+- On Linux, verify that **MangoHud** is installed via your package manager (\`sudo pacman -S mangohud\` or \`flatpak install mangohud\`).
+
+## Collecting diagnostics\n- Export logs from the settings before restarting the app; a restart can clear the evidence you need.\n- Try once with plugins and overlays disabled, then re-enable them one by one to find the culprit.\n- **Reset settings** restores defaults without touching your library, notes or playtime.\n- If the library itself misbehaves, back up first and run a database integrity check before any manual edit.`,
       },
       {
         id: "database-internals",
@@ -1295,7 +1768,70 @@ Your SQLite database file (\`gamelib.db\`) is stored in your OS application data
 
 ## Reliability Features
 - **WAL Mode (Write-Ahead Logging)**: Prevents write locks from blocking read queries and guarantees ACID transaction safety even if the app process terminates unexpectedly.
-- **Automatic Schema Migrations**: Handled through append-only migration scripts (\`schema_vN.sql\`). Old schemas are automatically upgraded without data loss.`,
+- **Automatic Schema Migrations**: Handled through append-only migration scripts (\`schema_vN.sql\`). Old schemas are automatically upgraded without data loss.
+
+## Maintenance and recovery\n- Check for database bloat after large library changes; the built-in maintenance action compacts the file without losing data.\n- Never edit §gamelib.db§ while the app is running — WAL mode means an external write can conflict with an in-flight transaction.\n- Make a backup before manual edits, and keep the §.gibak§ export as your portable, human-readable copy.\n- If the app fails to open the database, close it, verify file permissions, and restore from the newest backup rather than deleting files.`,
+      },
+      {
+        id: "glossary",
+        categoryId: "reference",
+        title: "Glossary of Terms",
+        summary: "Short definitions of the store, Linux and app terms used across this guide.",
+        badge: "reference",
+        icon: BookOpen,
+        keywords: ["glossary", "terms", "definitions", "jargon", "reference"],
+        relatedIds: ["troubleshooting", "shortcuts", "database-internals"],
+        body: `Short definitions for the terms this guide uses.
+
+## Stores and sources
+- **DRM-free**: a game that runs without a store client checking a licence.
+- **Manifest**: the file a launcher maintains about installed games; GameIndex reads these for detection.
+- **IGDB / SteamGridDB**: metadata and artwork databases queried for descriptions and images.
+
+## Linux and compatibility
+- **Proton / Wine**: compatibility layers that run Windows games on Linux.
+- **Runner**: a specific Proton or Wine build, such as GE-Proton or Wine-GE.
+- **Prefix**: the virtual Windows drive a Wine or Proton game runs inside.
+- **DXVK / VKD3D**: translate Direct3D 9-11 and Direct3D 12 calls to Vulkan.
+- **MangoHud, GameMode, GameScope**: overlay, performance governor and micro-compositor used on Linux.
+
+## App concepts
+- **Session**: one tracked run of a game.
+- **Smart collection**: a saved rule that fills itself from your library.
+- **Preset**: a saved filter combination.
+- **.gibak**: GameIndex's backup archive format.
+
+> **Tip:** documentation search covers all of these terms, so you can jump from a single word straight to the full article.`,
+      },
+      {
+        id: "report-bugs",
+        categoryId: "reference",
+        title: "Reporting Bugs & Sharing Logs",
+        summary: "What to check first, what to include in a report, and how to export logs safely.",
+        badge: "guide",
+        icon: AlertTriangle,
+        keywords: ["bug", "report", "logs", "crash", "support", "feedback"],
+        relatedIds: ["troubleshooting", "database-internals", "backup"],
+        body: `A good bug report gets fixed faster. GameIndex makes it easy to attach the details that matter.
+
+## Before reporting
+- Check for updates in Settings — many issues are fixed in the newest build.
+- Search the troubleshooting article for the exact error message.
+- Repeat the action once with plugins and overlays disabled to rule out interference.
+
+## What to include
+- The **app version**, your operating system and its version.
+- Exact steps to reproduce, in order.
+- The affected game, store and compatibility runner if it only happens for one title.
+- Logs: open the logs panel in Settings, press **Export** and attach the archive.
+- Screenshots for visual glitches, including the page you were on.
+
+## Where to send it
+- The community issue tracker for bugs and crashes.
+- The community chat for quick questions and workarounds.
+- Feature requests are welcome too — describe the workflow you want, not only the button.
+
+> **Note:** logs contain file paths and game titles but never store tokens. Tokens stay in the OS keychain and are not written to log files.`,
       },
     ],
   },

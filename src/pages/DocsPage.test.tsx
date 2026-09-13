@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { LanguageProvider } from "../context/LanguageContext";
 import DocsPage from "./DocsPage";
+import { ALL_SUBCATEGORIES } from "../components/docs/docsContent";
 
 function renderDocsPage(initialRoute = "/docs") {
   return render(
@@ -19,7 +20,9 @@ describe("DocsPage", () => {
     renderDocsPage();
     expect(screen.getByRole("heading", { level: 1, name: "Documentation" })).toBeInTheDocument();
     expect(screen.getByText(/12 categories/i)).toBeInTheDocument();
-    expect(screen.getByText(/52 sections/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`${ALL_SUBCATEGORIES.length} sections`, "i"))
+    ).toBeInTheDocument();
   });
 
   it("renders the category dropdown and opens the menu on click", () => {
