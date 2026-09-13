@@ -2,18 +2,15 @@
  * Layout Studio — hides and rearranges the main app interface inside the
  * Interface settings tab (rendered in the page, not as a modal).
  *
- * Two columns: an interactive simplified preview of the shell on the left,
- * the element controls for the active page on the right. The studio owns its
- * own height so the page scrolls as one piece while the preview column stays
- * put and only the controls column scrolls internally. `.studio-*` classes are
- * scoped to the studio and never leak into the app chrome.
+ * Two columns: an interactive high-fidelity preview of the shell on the left,
+ * element controls with real-time search & filters on the right.
  * ========================================================================== */
 
 .studio {
   display: flex;
   flex-direction: column;
-  height: min(80vh, 940px);
-  min-height: 560px;
+  height: min(84vh, 980px);
+  min-height: 600px;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
@@ -67,20 +64,159 @@
   line-height: 1.4;
 }
 
+/* ── Presets & Profile Bar ────────────────────────────────────────────── */
+
+.studio-presets-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 8px var(--space-xl);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 80%, var(--color-bg-primary));
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.studio-presets-bar__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.studio-presets-bar__icon {
+  color: var(--color-accent);
+}
+
+.studio-presets-bar__list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.studio-presets-bar__list::-webkit-scrollbar {
+  display: none;
+}
+
+.studio-presets-bar__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.studio-presets-bar__chip:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-text-primary);
+  transform: translateY(-1px);
+}
+
+.studio-presets-bar__chip.is-custom {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+.studio-presets-bar__custom-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  background: var(--color-surface);
+  border-radius: var(--radius-full);
+  border: 1px dashed color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+.studio-presets-bar__custom-chip-wrap .studio-presets-bar__chip {
+  border: none;
+  background: transparent;
+  padding-right: 4px;
+}
+
+.studio-presets-bar__delete-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  transition: color var(--transition-fast);
+}
+
+.studio-presets-bar__delete-chip:hover {
+  color: var(--color-danger, #ef4444);
+}
+
+.studio-presets-bar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.studio-presets-bar__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-presets-bar__action-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.studio-icon-success {
+  color: #10b981;
+}
+
 /* ── Page tabs (top of the studio) ──────────────────────────────────────── */
 
-/* Page tabs wrap instead of scrolling sideways: every page stays reachable
- * with one glance (and one click) instead of hiding past the edge. */
 .studio-pages {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: var(--space-sm) var(--space-xl);
+  padding: 8px var(--space-xl);
   background: var(--color-bg-tertiary);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
-  max-height: 148px;
+  max-height: 120px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -89,7 +225,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 13px;
+  padding: 6px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   background: transparent;
@@ -127,6 +263,11 @@
   opacity: 0.55;
 }
 
+.studio-pages__landing-star {
+  color: #fbbf24;
+  margin-left: -2px;
+}
+
 .studio-pages__count {
   min-width: 17px;
   padding: 0 5px;
@@ -141,14 +282,12 @@
 
 /* ── Body: preview + controls ───────────────────────────────────────────── */
 
-/* The studio body never scrolls as a whole: the preview keeps its own column
- * and the controls scroll independently, so the preview is always in view. */
 .studio-body {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(400px, 0.85fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(420px, 0.85fr);
   gap: var(--space-lg);
-  padding: var(--space-lg) var(--space-xl);
+  padding: var(--space-md) var(--space-xl);
   align-items: stretch;
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
@@ -159,7 +298,7 @@
 .studio-pane {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   min-width: 0;
 }
 
@@ -170,26 +309,25 @@
 
 .studio-pane--controls {
   border-left: 1px solid var(--color-border);
-  padding-left: var(--space-xl);
-  padding-right: var(--space-sm);
+  padding-left: var(--space-lg);
+  padding-right: var(--space-xs);
   overflow-y: auto;
   max-height: 100%;
   min-height: 0;
   scrollbar-width: thin;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1120px) {
   .studio-body {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(220px, 42%) minmax(0, 1fr);
+    grid-template-rows: minmax(280px, 48%) minmax(0, 1fr);
   }
 
   .studio-pane--controls {
     border-left: none;
     border-top: 1px solid var(--color-border);
     padding-left: 0;
-    padding-right: var(--space-sm);
-    padding-top: var(--space-lg);
+    padding-top: var(--space-md);
   }
 }
 
@@ -202,51 +340,42 @@
   letter-spacing: 0.5px;
 }
 
-/* Sticky group jumps — the Global column is long, so the chips stay pinned
- * above the scrolling groups. */
-.studio-jumpbar {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: -4px 0 0;
-  padding: 4px 0 6px;
-  background: var(--color-bg-secondary);
-}
-
-.studio-jumpbar__chip {
-  padding: 4px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.studio-jumpbar__chip:hover {
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
-  color: var(--color-accent);
-}
-
-.studio-jumpbar__chip:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
 .studio-pane__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
+}
+
+.studio-pane__head-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.studio-landing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.studio-landing-chip:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.studio-landing-chip.is-landing {
+  background: color-mix(in srgb, #fbbf24 16%, transparent);
+  border-color: color-mix(in srgb, #fbbf24 40%, transparent);
+  color: #fbbf24;
 }
 
 .studio-pane__hint {
@@ -256,33 +385,783 @@
   color: var(--color-text-muted);
 }
 
-.studio-group {
+/* ── Preview Toolbar & Frame ────────────────────────────────────────────── */
+
+.studio-preview-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 8px;
+}
+
+.studio-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.studio-preview-toolbar__viewports {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.studio-preview-toolbar__vp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.studio-preview-toolbar__vp-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.studio-preview-toolbar__vp-btn.is-active {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+}
+
+.studio-preview-toolbar__inspect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.studio-preview-toolbar__inspect-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.studio-preview-toolbar__inspect-btn.is-active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.studio-preview-frame {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  justify-content: center;
+  transition: max-width var(--transition-normal);
+}
+
+.studio-preview-frame--desktop {
+  width: 100%;
+}
+
+.studio-preview-frame--handheld {
+  max-width: 90%;
+  margin: 0 auto;
+}
+
+.studio-preview-frame--ultrawide {
+  width: 100%;
+}
+
+.studio-preview-frame--compact {
+  max-width: 82%;
+  margin: 0 auto;
+}
+
+/* ── Simplified app preview ─────────────────────────────────────────────── */
+
+.studio-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-primary);
+  overflow: hidden;
+  box-shadow: var(--elevation-2);
+}
+
+.studio-preview.is-inspect-cursor {
+  cursor: crosshair;
+}
+
+.studio-preview.is-inspect-cursor button {
+  cursor: crosshair !important;
+}
+
+.studio-preview button {
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+
+.studio-preview button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Topbar Header */
+.studio-preview__topnav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: 7px var(--space-sm);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.studio-preview__logo {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    140deg,
+    var(--color-accent),
+    color-mix(in srgb, var(--color-accent) 45%, transparent)
+  );
+  flex-shrink: 0;
+  transition: box-shadow var(--transition-fast);
+}
+
+.studio-preview__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.studio-preview__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview__tab:hover,
+.studio-preview__item:hover,
+.studio-preview__action:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.studio-preview__tab-label {
+  white-space: nowrap;
+}
+
+.studio-preview__grip {
+  flex-shrink: 0;
+  opacity: 0.4;
+}
+
+.studio-preview__tab:hover .studio-preview__grip,
+.studio-preview__item:hover .studio-preview__grip {
+  opacity: 0.9;
+}
+
+.studio-preview__now-playing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold);
+  margin-left: auto;
+}
+
+.studio-preview__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.studio-preview__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+/* Drag feedback */
+.studio-preview__tab.is-dragging,
+.studio-preview__action.is-dragging,
+.studio-preview__item.is-dragging {
+  opacity: 0.4;
+}
+
+.studio-preview__tab.is-drop-target,
+.studio-preview__action.is-drop-target,
+.studio-preview__item.is-drop-target {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.studio-preview__tab.is-off,
+.studio-preview__action.is-off,
+.studio-preview__section.is-off,
+.studio-preview__item.is-off {
+  opacity: 0.3;
+  outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  outline-offset: -1px;
+}
+
+/* Pulsing highlight for inspected element */
+@keyframes studio-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 2px var(--color-accent), 0 0 12px color-mix(in srgb, var(--color-accent) 60%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--color-accent), 0 0 18px color-mix(in srgb, var(--color-accent) 90%, transparent);
+  }
+}
+
+.is-preview-lit {
+  animation: studio-pulse-glow 1.6s infinite ease-in-out !important;
+  border-color: var(--color-accent) !important;
+  z-index: 10;
+}
+
+/* Sidebar Body */
+.studio-preview__body {
+  display: flex;
+  align-items: stretch;
+  min-height: 180px;
+  flex: 1;
+}
+
+.studio-preview.is-sidebar-right .studio-preview__body {
+  flex-direction: row-reverse;
+}
+
+.studio-preview__sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 140px;
+  flex-shrink: 0;
+  padding: var(--space-sm);
+  background: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border);
+}
+
+.studio-preview.is-sidebar-right .studio-preview__sidebar {
+  border-right: none;
+  border-left: 1px solid var(--color-border);
+}
+
+.studio-preview__section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview__section:hover {
+  border-color: var(--color-border-light);
+}
+
+.studio-preview__section--search {
+  padding: 3px 5px;
+}
+
+.studio-preview__search-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 90%, transparent);
+  color: var(--color-text-muted);
+  font-size: 8px;
+}
+
+.studio-preview__chips {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.studio-preview__chips i {
+  flex: 1;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  font-style: normal;
+  font-size: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.studio-preview__section--gameList {
+  flex: 1;
+  min-height: 0;
+}
+
+.studio-preview__game-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.studio-preview__game-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+}
+
+.studio-preview__game-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  opacity: 0.6;
+}
+
+.studio-preview__game-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-muted) 18%, transparent);
+}
+
+.studio-preview__section--statsFooter {
+  padding: 3px 5px;
+  border-top: 1px solid var(--color-border);
+}
+
+.studio-preview__stats-inner {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  color: var(--color-text-muted);
+}
+
+.studio-preview__rail {
+  position: absolute;
+  top: 10px;
+  bottom: 24px;
+  right: 2px;
+  width: 6px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-text-muted) 45%, transparent) 0 2px,
+    transparent 2px 5px
+  );
+}
+
+.studio-preview.is-sidebar-right .studio-preview__rail {
+  right: auto;
+  left: 2px;
+}
+
+/* Main Content Area in Preview */
+.studio-preview__main {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
 }
 
-/* Sticky: with 13 navbar tabs and 5 sidebar sections in one column, the
- * heading of each group stays visible while its list scrolls past. */
+.studio-preview__main-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.studio-preview__main-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-preview__main-pill {
+  width: 54px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.studio-preview__generic,
+.studio-preview__items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.studio-preview__mock-hero {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 24%, var(--color-surface)),
+    color-mix(in srgb, var(--color-bg-tertiary) 60%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-text-primary);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.studio-preview__card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  flex: 1;
+}
+
+.studio-preview__mock-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 4px;
+}
+
+.studio-preview__mock-card-cover {
+  position: relative;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--color-accent) 15%, #18181b), #09090b);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.studio-preview__mini-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+  font-size: 8px;
+  font-weight: var(--font-weight-bold);
+  align-self: flex-start;
+  line-height: 1.1;
+}
+
+.studio-preview__mini-badge--plat {
+  background: rgba(0, 0, 0, 0.6);
+  color: #60a5fa;
+}
+
+.studio-preview__mini-badge--rating {
+  background: rgba(0, 0, 0, 0.6);
+  color: #fbbf24;
+}
+
+.studio-preview__mini-badge--installed {
+  background: color-mix(in srgb, #10b981 30%, transparent);
+  color: #34d399;
+}
+
+.studio-preview__mock-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.studio-preview__mock-card-title {
+  width: 45%;
+  height: 6px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-muted) 35%, transparent);
+}
+
+.studio-preview__mock-card-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 8px;
+  color: var(--color-text-muted);
+}
+
+.studio-preview__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  transition: border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview__item.is-empty {
+  justify-content: center;
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+/* ── Studio Controls Pane ───────────────────────────────────────────────── */
+
+.studio-controls-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-xl);
+}
+
+/* Search and Filters */
+.studio-search-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.studio-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.studio-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.studio-search-input {
+  width: 100%;
+  padding: 7px 28px 7px 30px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.studio-search-input:focus {
+  border-color: var(--color-accent);
+}
+
+.studio-search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.studio-search-clear:hover {
+  color: var(--color-text-primary);
+}
+
+.studio-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.studio-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.studio-filter-chip:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.studio-filter-chip.is-active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-accent);
+}
+
+.studio-filter-count {
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #fff);
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+}
+
+/* Sticky Jump Bar */
+.studio-jumpbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 0;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.05));
+}
+
+.studio-jumpbar__chip {
+  padding: 4px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.studio-jumpbar__chip:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
+}
+
+/* Section headers with batch & reset actions */
+.studio-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-xs);
+}
+
+.studio-section-head__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio-batch-btn,
+.studio-group-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.studio-batch-btn:hover,
+.studio-group-reset-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+  background: var(--color-surface-hover);
+}
+
+.studio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
 .studio-group__label {
   position: sticky;
-  top: 30px;
+  top: 34px;
   z-index: 2;
-  padding: 6px 0 4px;
+  padding: 6px 0 3px;
   background: var(--color-bg-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
 
-/* Group headings sit below the sticky jump bar, so anchors scroll clear of
- * both sticky layers. */
-.studio-pane__title {
-  scroll-margin-top: 34px;
-}
-
-/* ── Control rows ───────────────────────────────────────────────────────── */
-
+/* Row elements */
 .studio-list {
   display: flex;
   flex-direction: column;
@@ -309,11 +1188,18 @@
   border-radius: var(--radius-md);
   user-select: none;
   transition: border-color var(--transition-fast),
-    background var(--transition-fast), opacity var(--transition-fast);
+    background var(--transition-fast), opacity var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .studio-row:hover {
   border-color: var(--color-border-light);
+}
+
+.studio-row.is-highlighted {
+  border-color: var(--color-accent) !important;
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface)) !important;
+  box-shadow: 0 0 0 1px var(--color-accent);
 }
 
 .studio-row.is-dragging {
@@ -329,6 +1215,14 @@
 .studio-row.is-hidden-item .studio-row__icon,
 .studio-row.is-hidden-item .studio-row__label {
   opacity: 0.45;
+}
+
+.studio-row__modified-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
 }
 
 .studio-row__handle {
@@ -360,13 +1254,14 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* Switch / select rows (Global → Layout). They reuse the row surface but are
- * labels wrapping a control, and carry a secondary description line. */
 .studio-row--control {
   cursor: pointer;
-  padding: 9px var(--space-sm);
+  padding: 8px var(--space-sm);
 }
 
 .studio-row--control.is-disabled {
@@ -465,13 +1360,7 @@
   color: var(--color-accent);
 }
 
-.studio-row__move:focus-visible,
-.studio-row__eye:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-/* ── Segmented control + reset buttons ─────────────────────────────────── */
+/* ── Segmented Control & Buttons ────────────────────────────────────────── */
 
 .studio-segmented {
   display: inline-flex;
@@ -485,7 +1374,7 @@
 }
 
 .studio-segmented button {
-  padding: 6px 16px;
+  padding: 5px 14px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
@@ -531,341 +1420,122 @@
   border-color: var(--color-border-light);
 }
 
-.studio-reset:focus-visible,
-.studio-segmented button:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+/* ── Modals for Save / Import ───────────────────────────────────────────── */
+
+.studio-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  animation: studio-fade-in var(--transition-fast) ease;
 }
 
-/* =============================================================================
- * Simplified app preview — every element is a control:
- *   • drag  → reorder (header tabs, header buttons, page blocks)
- *   • click → hide / show
- * ========================================================================== */
+@keyframes studio-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
-.studio-preview {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
+.studio-modal {
+  width: 100%;
+  max-width: 440px;
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  background: var(--color-bg-primary);
-  overflow: hidden;
-  box-shadow: var(--elevation-2);
+  padding: var(--space-lg);
+  box-shadow: var(--elevation-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
-/* Reset the native button chrome once; the rules below paint each element.
- * All preview rows are buttons so they are reachable by keyboard. */
-.studio-preview button {
+.studio-modal--wide {
+  max-width: 540px;
+}
+
+.studio-modal__title {
   margin: 0;
-  padding: 0;
-  border: 1px solid transparent;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  user-select: none;
-  touch-action: none;
-}
-
-.studio-preview button:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-/* Header */
-.studio-preview__topnav {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-  padding: 7px var(--space-sm);
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border);
-  min-width: 0;
-}
-
-.studio-preview__logo {
-  width: 16px;
-  height: 16px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(
-    140deg,
-    var(--color-accent),
-    color-mix(in srgb, var(--color-accent) 45%, transparent)
-  );
-  flex-shrink: 0;
-}
-
-/* Tabs wrap rather than clip: a tab that would run past the frame edge is
- * always visible, and the action buttons keep their own space. */
-.studio-preview__tabs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.studio-preview__tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
-  color: var(--color-text-secondary);
-  font-size: 10px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: border-color var(--transition-fast), color var(--transition-fast),
-    background var(--transition-fast), opacity var(--transition-fast);
-}
-
-.studio-preview__tab:hover,
-.studio-preview__item:hover,
-.studio-preview__action:hover {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  border-color: var(--color-border-light);
 }
 
-.studio-preview__tab-label {
-  white-space: nowrap;
-}
-
-.studio-preview__grip {
-  flex-shrink: 0;
-  opacity: 0.4;
-}
-
-.studio-preview__tab:hover .studio-preview__grip,
-.studio-preview__item:hover .studio-preview__grip {
-  opacity: 0.9;
-}
-
-.studio-preview__actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.studio-preview__action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-tertiary);
+.studio-modal__desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  transition: border-color var(--transition-fast), color var(--transition-fast),
-    opacity var(--transition-fast);
+  line-height: 1.45;
 }
 
-/* Drag feedback, shared by every preview row. */
-.studio-preview__tab.is-dragging,
-.studio-preview__action.is-dragging,
-.studio-preview__item.is-dragging {
-  opacity: 0.4;
-}
-
-.studio-preview__tab.is-drop-target,
-.studio-preview__action.is-drop-target,
-.studio-preview__item.is-drop-target {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-}
-
-/* Hidden elements stay visible but marked, so the state is legible. */
-.studio-preview__tab.is-off,
-.studio-preview__action.is-off,
-.studio-preview__section.is-off,
-.studio-preview__item.is-off {
-  opacity: 0.35;
-  outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
-  outline-offset: -1px;
-}
-
-/* Body */
-.studio-preview__body {
-  display: flex;
-  align-items: stretch;
-  min-height: 160px;
-  flex: 1;
-}
-
-.studio-preview.is-sidebar-right .studio-preview__body {
-  flex-direction: row-reverse;
-}
-
-.studio-preview__sidebar {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 132px;
-  flex-shrink: 0;
-  padding: var(--space-sm);
-  background: var(--color-bg-secondary);
-  border-right: 1px solid var(--color-border);
-}
-
-.studio-preview.is-sidebar-right .studio-preview__sidebar {
-  border-right: none;
-  border-left: 1px solid var(--color-border);
-}
-
-/* Sidebar sections (visibility only — the app cannot reorder them). */
-.studio-preview__section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border-radius: var(--radius-sm);
-  transition: border-color var(--transition-fast), opacity var(--transition-fast);
-}
-
-.studio-preview__section:hover {
-  border-color: var(--color-border-light);
-}
-
-.studio-preview__section--search {
-  height: 18px;
-  background: color-mix(in srgb, var(--color-bg-tertiary) 85%, transparent);
-}
-
-.studio-preview__section--activeFilters {
-  padding: 2px;
-}
-
-.studio-preview__section--gameList {
-  flex: 1;
-  min-height: 0;
-}
-
-.studio-preview__section--statsFooter {
-  height: 16px;
-  background: color-mix(in srgb, var(--color-text-muted) 16%, transparent);
-}
-
-/* A-Z scrubber rail — an overlay in the real sidebar, so it is drawn over
- * the list here too (and follows the sidebar to the right dock). */
-.studio-preview__rail {
-  position: absolute;
-  top: 10px;
-  bottom: 24px;
-  right: 2px;
-  width: 7px;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-text-muted) 45%, transparent) 0 2px,
-    transparent 2px 6px
-  );
-}
-
-.studio-preview.is-sidebar-right .studio-preview__rail {
-  right: auto;
-  left: 2px;
-}
-
-.studio-preview__chips {
-  display: flex;
-  gap: 4px;
+.studio-modal__input,
+.studio-modal__textarea {
   width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  outline: none;
+  box-sizing: border-box;
 }
 
-.studio-preview__chips i {
-  flex: 1;
-  height: 12px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+.studio-modal__textarea {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  resize: vertical;
 }
 
-.studio-preview__game {
-  height: 14px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
+.studio-modal__input:focus,
+.studio-modal__textarea:focus {
+  border-color: var(--color-accent);
 }
 
-.studio-preview__game:nth-child(even) {
-  width: 78%;
-}
-
-/* Main area */
-.studio-preview__main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-}
-
-.studio-preview__main-head {
+.studio-modal__actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-sm);
+  margin-top: var(--space-xs);
 }
 
-.studio-preview__main-title {
+.studio-modal__btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-family: inherit;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.studio-preview__main-pill {
-  width: 54px;
-  height: 12px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
-}
-
-.studio-preview__generic,
-.studio-preview__items {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-}
-
-.studio-preview__block {
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
-}
-
-.studio-preview__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  flex: 1;
-}
-
-.studio-preview__grid .studio-preview__block {
-  min-height: 34px;
-}
-
-.studio-preview__item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
-  color: var(--color-text-secondary);
-  font-size: 10px;
-  font-weight: var(--font-weight-medium);
-  transition: border-color var(--transition-fast), opacity var(--transition-fast);
-}
-
-.studio-preview__item.is-empty {
-  justify-content: center;
+.studio-modal__btn--ghost {
   background: transparent;
-  border: 1px dashed var(--color-border);
-  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.studio-modal__btn--ghost:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.studio-modal__btn--primary {
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-contrast, #fff);
+}
+
+.studio-modal__btn--primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.studio-modal__btn--primary:disabled {
+  opacity: 0.5;
   cursor: default;
 }
