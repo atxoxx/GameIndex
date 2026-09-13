@@ -500,64 +500,66 @@ export default function NewsPage() {
   return (
     <div className="news-page page">
       {/* Header */}
-      <PageHeader
-        eyebrow={t("news.eyebrow")}
-        title={t("news.title")}
-        description={t("news.description")}
-        icon={
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 11a9 9 0 0 1 9 9" />
-            <path d="M4 4a16 16 0 0 1 16 16" />
-            <circle cx="5" cy="19" r="1" />
-          </svg>
-        }
-        actions={
-          <>
-            {showMarkAllRead && (
+      <div className="ui-item-newsHeader">
+        <PageHeader
+          eyebrow={t("news.eyebrow")}
+          title={t("news.title")}
+          description={t("news.description")}
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 11a9 9 0 0 1 9 9" />
+              <path d="M4 4a16 16 0 0 1 16 16" />
+              <circle cx="5" cy="19" r="1" />
+            </svg>
+          }
+          actions={
+            <>
+              {showMarkAllRead && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={markAllRead}
+                  title={t("newsPage.markAllRead")}
+                  aria-label={t("newsPage.markAllRead")}
+                  leftIcon={
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  }
+                >
+                  {t("news.markRead")}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={markAllRead}
-                title={t("newsPage.markAllRead")}
-                aria-label={t("newsPage.markAllRead")}
+                onClick={refresh}
+                title={t("common.refresh")}
+                aria-label={t("common.refresh")}
                 leftIcon={
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                   </svg>
                 }
-              >
-                {t("news.markRead")}
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={refresh}
-              title={t("common.refresh")}
-              aria-label={t("common.refresh")}
-              leftIcon={
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="23 4 23 10 17 10" />
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                </svg>
-              }
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleOpenSettings}
-              title={t("newsPage.manageFeeds")}
-              aria-label={t("newsPage.manageFeeds")}
-              leftIcon={
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-              }
-            />
-          </>
-        }
-      />
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenSettings}
+                title={t("newsPage.manageFeeds")}
+                aria-label={t("newsPage.manageFeeds")}
+                leftIcon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l.06-.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                }
+              />
+            </>
+          }
+        />
+      </div>
 
       {/* Hero Spotlight Section */}
       <div className="ui-complete-only ui-item-hero">
@@ -575,26 +577,28 @@ export default function NewsPage() {
       </div>
 
       {/* Categories + View Density + Search + Filters */}
-      <NewsToolbar
-        activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
-        countsByCategory={countsByCategory}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        timeFilter={timeFilter}
-        onTimeFilterChange={setTimeFilter}
-        readTimeFilter={readTimeFilter}
-        onReadTimeFilterChange={setReadTimeFilter}
-        sortBy={sortBy}
-        onSortByChange={setSortBy}
-        hasImagesOnly={hasImagesOnly}
-        onToggleHasImagesOnly={() => setHasImagesOnly((prev) => !prev)}
-        unreadOnly={unreadOnly}
-        onToggleUnreadOnly={() => setUnreadOnly((prev) => !prev)}
-        unreadTotal={unreadTotal}
-        density={density}
-        onDensityChange={handleDensityChange}
-      />
+      <div className="ui-item-newsToolbar">
+        <NewsToolbar
+          activeCategory={activeCategory}
+          onCategoryChange={setActiveCategory}
+          countsByCategory={countsByCategory}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          timeFilter={timeFilter}
+          onTimeFilterChange={setTimeFilter}
+          readTimeFilter={readTimeFilter}
+          onReadTimeFilterChange={setReadTimeFilter}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+          hasImagesOnly={hasImagesOnly}
+          onToggleHasImagesOnly={() => setHasImagesOnly((prev) => !prev)}
+          unreadOnly={unreadOnly}
+          onToggleUnreadOnly={() => setUnreadOnly((prev) => !prev)}
+          unreadTotal={unreadTotal}
+          density={density}
+          onDensityChange={handleDensityChange}
+        />
+      </div>
 
       {/* Source filter pills */}
       <div className="ui-complete-only ui-item-filters">
@@ -614,32 +618,34 @@ export default function NewsPage() {
       </div>
 
       {/* Article Grid */}
-      <NewsArticleGrid
-        articles={paginatedArticles}
-        totalCount={visibleArticles.length}
-        hasMore={hasMore}
-        loading={loading}
-        error={error}
-        density={density}
-        readLinks={readLinks}
-        savedLinks={new Set(savedArticles.map((s) => s.link))}
-        sourceNames={sourceNames}
-        activeSource={activeSource}
-        activeCategory={activeCategory}
-        searchQuery={searchQuery}
-        activeTag={activeTag}
-        relatedGameNames={relatedGameNames}
-        onCardClick={handleCardClick}
-        onToggleSave={handleToggleSave}
-        onToggleRead={(art) => toggleReadStatus(art.link)}
-        onLoadMore={() => setPage((p) => p + 1)}
-        onRetry={refresh}
-        onOpenSettings={handleOpenSettings}
-        onClearSearch={() => setSearchQuery("")}
-        onClearTag={() => setActiveTag(null)}
-        onSwitchToAll={() => setActiveCategory("all")}
-        onSelectTag={(tag) => setActiveTag(tag)}
-      />
+      <div className="ui-item-newsGrid">
+        <NewsArticleGrid
+          articles={paginatedArticles}
+          totalCount={visibleArticles.length}
+          hasMore={hasMore}
+          loading={loading}
+          error={error}
+          density={density}
+          readLinks={readLinks}
+          savedLinks={new Set(savedArticles.map((s) => s.link))}
+          sourceNames={sourceNames}
+          activeSource={activeSource}
+          activeCategory={activeCategory}
+          searchQuery={searchQuery}
+          activeTag={activeTag}
+          relatedGameNames={relatedGameNames}
+          onCardClick={handleCardClick}
+          onToggleSave={handleToggleSave}
+          onToggleRead={(art) => toggleReadStatus(art.link)}
+          onLoadMore={() => setPage((p) => p + 1)}
+          onRetry={refresh}
+          onOpenSettings={handleOpenSettings}
+          onClearSearch={() => setSearchQuery("")}
+          onClearTag={() => setActiveTag(null)}
+          onSwitchToAll={() => setActiveCategory("all")}
+          onSelectTag={(tag) => setActiveTag(tag)}
+        />
+      </div>
 
       {/* Article Preview & Reader Modal */}
       <NewsArticlePreview

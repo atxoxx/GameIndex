@@ -347,47 +347,51 @@ export function ActivityDashboard({
 
   return (
     <div className="activity__content">
-      <StatBand>
-        <StatCell
-          hero
-          icon={<Icons.Clock size={15} />}
-          label={t("activityDash.totalPlaytime")}
-          value={stats.playtimeStr}
-          delta={comparison?.playtime}
-        />
-        <StatCell
-          icon={<Icons.Gamepad2 size={15} />}
-          label={t("activityDash.gamesPlayed")}
-          value={stats.gamesPlayed}
-          delta={comparison?.games}
-        />
-        <StatCell
-          icon={<Icons.TrendingUp size={15} />}
-          label={t("activityDash.averagePerDay")}
-          value={stats.avgPerDayStr}
-          delta={comparison?.playtime}
-        />
-        <StatCell
-          icon={<Icons.Calendar size={15} />}
-          label={t("activityDash.sessions")}
-          value={stats.sessionsCount}
-          delta={comparison?.sessions}
-        />
-        <StatCell
-          icon={<Icons.Zap size={15} />}
-          label={t("activityDash.longestStreak")}
-          value={stats.longestStreak}
-        />
-      </StatBand>
+      <div className="ui-item-activityKpis">
+        <StatBand>
+          <StatCell
+            hero
+            icon={<Icons.Clock size={15} />}
+            label={t("activityDash.totalPlaytime")}
+            value={stats.playtimeStr}
+            delta={comparison?.playtime}
+          />
+          <StatCell
+            icon={<Icons.Gamepad2 size={15} />}
+            label={t("activityDash.gamesPlayed")}
+            value={stats.gamesPlayed}
+            delta={comparison?.games}
+          />
+          <StatCell
+            icon={<Icons.TrendingUp size={15} />}
+            label={t("activityDash.averagePerDay")}
+            value={stats.avgPerDayStr}
+            delta={comparison?.playtime}
+          />
+          <StatCell
+            icon={<Icons.Calendar size={15} />}
+            label={t("activityDash.sessions")}
+            value={stats.sessionsCount}
+            delta={comparison?.sessions}
+          />
+          <StatCell
+            icon={<Icons.Zap size={15} />}
+            label={t("activityDash.longestStreak")}
+            value={stats.longestStreak}
+          />
+        </StatBand>
+      </div>
 
       {!selectedGameId && (
-        <div className="activity__persona-container">
+        <div className="activity__persona-container ui-item-activityPersona">
           <GamerPersonaCard persona={gamerPersona} />
         </div>
       )}
 
-      <RecordsStrip records={records} />
-      <Milestones ladders={milestones} />
+      <div className="ui-item-activityRecords">
+        <RecordsStrip records={records} />
+        <Milestones ladders={milestones} />
+      </div>
 
       <div className="activity__dashboard-layout">
         <aside className="activity-game-sidebar">
@@ -480,7 +484,7 @@ export function ActivityDashboard({
         </aside>
 
         <div className="activity__dashboard-main">
-          <div className="activity-main-chart">
+          <div className="activity-main-chart ui-item-activityChart">
             <div className="activity-main-chart__header">
               <div className="activity-main-chart__header-left">
                 <h3 className="activity-main-chart__title">
@@ -604,86 +608,92 @@ export function ActivityDashboard({
             </div>
           )}
 
-          <div className="activity__two-column">
-            <div className="section-panel">
-              <h3 className="section-panel__title">
-                <Icons.Clock size={14} /> {t("activityInsights.timeOfDayTitle")}
-              </h3>
-              <TimeOfDayDistribution distribution={timeOfDayDist} compact={Boolean(selectedGameId)} />
+          <div className="ui-item-activityInsights">
+            <div className="activity__two-column">
+              <div className="section-panel">
+                <h3 className="section-panel__title">
+                  <Icons.Clock size={14} /> {t("activityInsights.timeOfDayTitle")}
+                </h3>
+                <TimeOfDayDistribution distribution={timeOfDayDist} compact={Boolean(selectedGameId)} />
+              </div>
+
+              <div className="section-panel">
+                <h3 className="section-panel__title">
+                  <Icons.Target size={14} /> {t("activityInsights.sessionLengthsTitle")}
+                </h3>
+                <SessionLengthDistribution
+                  buckets={sessionLengthDist.buckets}
+                  averageMinutes={sessionLengthDist.averageMinutes}
+                  longestMinutes={sessionLengthDist.longestMinutes}
+                  totalSessions={sessionLengthDist.totalSessions}
+                />
+              </div>
             </div>
 
             <div className="section-panel">
               <h3 className="section-panel__title">
-                <Icons.Target size={14} /> {t("activityInsights.sessionLengthsTitle")}
+                <Icons.Calendar size={14} /> {t("activityInsights.dayOfWeekTitle")}
               </h3>
-              <SessionLengthDistribution
-                buckets={sessionLengthDist.buckets}
-                averageMinutes={sessionLengthDist.averageMinutes}
-                longestMinutes={sessionLengthDist.longestMinutes}
-                totalSessions={sessionLengthDist.totalSessions}
-              />
+              <DayOfWeekDistribution distribution={dayOfWeekDist} compact={Boolean(selectedGameId)} />
             </div>
-          </div>
-
-          <div className="section-panel">
-            <h3 className="section-panel__title">
-              <Icons.Calendar size={14} /> {t("activityInsights.dayOfWeekTitle")}
-            </h3>
-            <DayOfWeekDistribution distribution={dayOfWeekDist} compact={Boolean(selectedGameId)} />
           </div>
 
           {!selectedGameId && (
             <>
-              <BacklogCompletionHub
-                games={games}
-                sessions={sessions}
-                onLaunchGame={onLaunchGame}
-              />
-              <div className="activity__two-column">
-                <div className="section-panel">
-                  <h3 className="section-panel__title">{t("activityDash.platformBreakdown")}</h3>
-                  {platformBreakdownSlices.length === 0 ? (
-                    <div className="activity-empty activity-empty--compact">
-                      <div className="activity-empty__icon">
-                        <Icons.Gamepad2 size={18} />
-                      </div>
-                      <div className="activity-empty__title">{t("activityDash.noPlatformData")}</div>
-                    </div>
-                  ) : (
-                    <div className="platform-breakdown__content">
-                      <DonutChart
-                        slices={platformBreakdownSlices}
-                        size={150}
-                        formatValue={(v) => `${Math.round(v * 10) / 10}h`}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="section-panel">
-                  <h3 className="section-panel__title">{t("activityDash.playtimeByGenre")}</h3>
-                  {genreBreakdownSlices.length === 0 ? (
-                    <div className="activity-empty activity-empty--compact">
-                      <div className="activity-empty__icon">
-                        <Icons.LayoutDashboard size={18} />
-                      </div>
-                      <div className="activity-empty__title">{t("activityDash.noGenreData")}</div>
-                    </div>
-                  ) : (
-                    <div className="genre-breakdown__content">
-                      <DonutChart
-                        slices={genreBreakdownSlices}
-                        size={150}
-                        formatValue={(v) => `${Math.round(v * 10) / 10}h`}
-                      />
-                    </div>
-                  )}
-                </div>
+              <div className="ui-item-activityBacklog">
+                <BacklogCompletionHub
+                  games={games}
+                  sessions={sessions}
+                  onLaunchGame={onLaunchGame}
+                />
               </div>
+              <div className="ui-item-activityBreakdown">
+                <div className="activity__two-column">
+                  <div className="section-panel">
+                    <h3 className="section-panel__title">{t("activityDash.platformBreakdown")}</h3>
+                    {platformBreakdownSlices.length === 0 ? (
+                      <div className="activity-empty activity-empty--compact">
+                        <div className="activity-empty__icon">
+                          <Icons.Gamepad2 size={18} />
+                        </div>
+                        <div className="activity-empty__title">{t("activityDash.noPlatformData")}</div>
+                      </div>
+                    ) : (
+                      <div className="platform-breakdown__content">
+                        <DonutChart
+                          slices={platformBreakdownSlices}
+                          size={150}
+                          formatValue={(v) => `${Math.round(v * 10) / 10}h`}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-              <div className="section-panel">
-                <h3 className="section-panel__title">{t("activityDash.weeklyHeatmap")}</h3>
-                <WeeklyHeatmap sessions={filteredSessions} timeframeDays={heatmapDays} />
+                  <div className="section-panel">
+                    <h3 className="section-panel__title">{t("activityDash.playtimeByGenre")}</h3>
+                    {genreBreakdownSlices.length === 0 ? (
+                      <div className="activity-empty activity-empty--compact">
+                        <div className="activity-empty__icon">
+                          <Icons.LayoutDashboard size={18} />
+                        </div>
+                        <div className="activity-empty__title">{t("activityDash.noGenreData")}</div>
+                      </div>
+                    ) : (
+                      <div className="genre-breakdown__content">
+                        <DonutChart
+                          slices={genreBreakdownSlices}
+                          size={150}
+                          formatValue={(v) => `${Math.round(v * 10) / 10}h`}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="section-panel">
+                  <h3 className="section-panel__title">{t("activityDash.weeklyHeatmap")}</h3>
+                  <WeeklyHeatmap sessions={filteredSessions} timeframeDays={heatmapDays} />
+                </div>
               </div>
             </>
           )}

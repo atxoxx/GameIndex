@@ -326,49 +326,53 @@ export default function AchievementsPage() {
   return (
     <div className="achievements-page page">
       {/* Page header */}
-      <PageHeader
-        eyebrow={t("achievementsPage.yourProgress")}
-        title={t("achievements.title")}
-        icon={
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
-            <circle cx="12" cy="8" r="6" />
-            <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
-          </svg>
-        }
-        actions={
-          <button
-            className="achievements-sync-btn"
-            onClick={handleSyncAll}
-            disabled={syncing}
-          >
-            {syncing ? (
-              <>
-                <span className="achievements-spinner" />
-                {syncProgress
-                  ? t("achievementsPage.syncingProgress", { current: syncProgress.current, total: syncProgress.total })
-                  : t("achievements.syncing")}
-              </>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                  <polyline points="23 4 23 10 17 10" />
-                  <polyline points="1 20 1 14 7 14" />
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                </svg>
-                {t("achievementsPage.syncAll")}
-              </>
-            )}
-          </button>
-        }
-      />
+      <div className="ui-item-achievementsHeader">
+        <PageHeader
+          eyebrow={t("achievementsPage.yourProgress")}
+          title={t("achievements.title")}
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
+              <circle cx="12" cy="8" r="6" />
+              <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+            </svg>
+          }
+          actions={
+            <button
+              className="achievements-sync-btn"
+              onClick={handleSyncAll}
+              disabled={syncing}
+            >
+              {syncing ? (
+                <>
+                  <span className="achievements-spinner" />
+                  {syncProgress
+                    ? t("achievementsPage.syncingProgress", { current: syncProgress.current, total: syncProgress.total })
+                    : t("achievements.syncing")}
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                    <polyline points="23 4 23 10 17 10" />
+                    <polyline points="1 20 1 14 7 14" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                  </svg>
+                  {t("achievementsPage.syncAll")}
+                </>
+              )}
+            </button>
+          }
+        />
+      </div>
 
       {/* Hero Summary & Gamerscore Panel */}
-      <AchievementsSummaryHero gamerscore={gamerscore} stats={stats} />
+      <div className="ui-item-achievementsHero">
+        <AchievementsSummaryHero gamerscore={gamerscore} stats={stats} />
+      </div>
 
       {/* Visual Analytics Grid: Rarity Distribution + Monthly Activity + Source Breakdown + Shelves */}
-      <div className="ui-complete-only ui-item-dashboard">
+      <div className="ui-complete-only ui-item-dashboard" style={{ display: "contents" }}>
         {stats.totalAchievements > 0 && (
-          <div className="achievements-analytics-grid">
+          <div className="achievements-analytics-grid ui-item-achievementsCharts">
             <AchievementsRarityChart
               rarityTotal={rarityTotal}
               rarityUnlocked={rarityUnlocked}
@@ -380,7 +384,7 @@ export default function AchievementsPage() {
 
         {/* Source Platform Breakdown */}
         {bySourceTotal > 0 && (
-          <div className="ach-card-section ach-source-breakdown-section">
+          <div className="ach-card-section ach-source-breakdown-section ui-item-achievementsSourceBreakdown">
             <div className="ach-card-section-head">
               <h3 className="achievements-section-title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
@@ -424,19 +428,21 @@ export default function AchievementsPage() {
           </div>
         )}
 
-        {/* Almost Done / Next Up Shelf */}
-        {almostDoneGames.length > 0 && (
-          <AchievementsAlmostDoneShelf games={almostDoneGames} />
-        )}
-
-        {/* Recent Unlocks Timeline Feed */}
-        {recentAchievements.length > 0 && (
-          <AchievementsRecentFeed recentAchievements={recentAchievements} />
+        {/* Almost Done / Next Up Shelf & Recent Feed */}
+        {(almostDoneGames.length > 0 || recentAchievements.length > 0) && (
+          <div className="ui-item-achievementsShelves" style={{ display: "flex", flexDirection: "column", gap: "var(--space-xl)" }}>
+            {almostDoneGames.length > 0 && (
+              <AchievementsAlmostDoneShelf games={almostDoneGames} />
+            )}
+            {recentAchievements.length > 0 && (
+              <AchievementsRecentFeed recentAchievements={recentAchievements} />
+            )}
+          </div>
         )}
       </div>
 
       {/* Games List / Leaderboard Section */}
-      <div className="achievements-games-section">
+      <div className="achievements-games-section ui-item-achievementsList">
         <div className="ach-section-header-row">
           <div className="ach-section-title-group">
             <h3 className="achievements-section-title">

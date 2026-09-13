@@ -725,29 +725,211 @@ html[data-ui-page-hide~="kpis"] .ui-item-kpis,
 html[data-ui-page-hide~="filters"] .ui-item-filters,
 html[data-ui-page-hide~="subtabs"] .ui-item-subtabs,
 html[data-ui-page-hide~="hero"] .ui-item-hero,
-html[data-ui-page-hide~="dashboard"] .ui-item-dashboard {
+html[data-ui-page-hide~="dashboard"] .ui-item-dashboard,
+/* Home */
+html[data-ui-page-hide~="homeQuickStats"] .ui-item-homeQuickStats,
+html[data-ui-page-hide~="homeContinuePlaying"] .ui-item-homeContinuePlaying,
+html[data-ui-page-hide~="homeRecentlyAdded"] .ui-item-homeRecentlyAdded,
+html[data-ui-page-hide~="homeQuickLaunch"] .ui-item-homeQuickLaunch,
+html[data-ui-page-hide~="homeActivity"] .ui-item-homeActivity,
+html[data-ui-page-hide~="homeAchievements"] .ui-item-homeAchievements,
+html[data-ui-page-hide~="homeFriends"] .ui-item-homeFriends,
+html[data-ui-page-hide~="homeDownloads"] .ui-item-homeDownloads,
+html[data-ui-page-hide~="homeWishlist"] .ui-item-homeWishlist,
+html[data-ui-page-hide~="homeDeals"] .ui-item-homeDeals,
+html[data-ui-page-hide~="homeNews"] .ui-item-homeNews,
+/* Library */
+html[data-ui-page-hide~="libContinuePlaying"] .ui-item-libContinuePlaying,
+html[data-ui-page-hide~="libRecentlyAdded"] .ui-item-libRecentlyAdded,
+html[data-ui-page-hide~="libToolbar"] .ui-item-libToolbar,
+html[data-ui-page-hide~="libFilterChips"] .ui-item-libFilterChips,
+html[data-ui-page-hide~="libPresets"] .ui-item-libPresets,
+html[data-ui-page-hide~="libFilterRail"] .ui-item-libFilterRail,
+html[data-ui-page-hide~="libGrid"] .ui-item-libGrid,
+/* Game Detail */
+html[data-ui-page-hide~="gameHero"] .ui-item-gameHero,
+html[data-ui-page-hide~="gameTabs"] .ui-item-gameTabs,
+html[data-ui-page-hide~="gameQuickStats"] .ui-item-gameQuickStats,
+html[data-ui-page-hide~="gameAbout"] .ui-item-gameAbout,
+html[data-ui-page-hide~="gameStoryline"] .ui-item-gameStoryline,
+html[data-ui-page-hide~="gameMedia"] .ui-item-gameMedia,
+html[data-ui-page-hide~="gameSysReq"] .ui-item-gameSysReq,
+html[data-ui-page-hide~="gameRelations"] .ui-item-gameRelations,
+html[data-ui-page-hide~="gamePulse"] .ui-item-gamePulse,
+html[data-ui-page-hide~="gameSidebarKpis"] .ui-item-gameSidebarKpis,
+html[data-ui-page-hide~="gameSpecs"] .ui-item-gameSpecs,
+/* Store */
+html[data-ui-page-hide~="storeHeader"] .ui-item-storeHeader,
+html[data-ui-page-hide~="storeFilters"] .ui-item-storeFilters,
+html[data-ui-page-hide~="storeToolbar"] .ui-item-storeToolbar,
+html[data-ui-page-hide~="storeGrid"] .ui-item-storeGrid,
+/* Wishlist */
+html[data-ui-page-hide~="wishlistHeader"] .ui-item-wishlistHeader,
+html[data-ui-page-hide~="wishlistToolbar"] .ui-item-wishlistToolbar,
+html[data-ui-page-hide~="wishlistGrid"] .ui-item-wishlistGrid,
+/* Deals */
+html[data-ui-page-hide~="dealsHeader"] .ui-item-dealsHeader,
+html[data-ui-page-hide~="dealsGrid"] .ui-item-dealsGrid,
+/* News */
+html[data-ui-page-hide~="newsHeader"] .ui-item-newsHeader,
+html[data-ui-page-hide~="newsToolbar"] .ui-item-newsToolbar,
+html[data-ui-page-hide~="newsGrid"] .ui-item-newsGrid,
+/* Activity */
+html[data-ui-page-hide~="activityHeader"] .ui-item-activityHeader,
+html[data-ui-page-hide~="activityToolbar"] .ui-item-activityToolbar,
+html[data-ui-page-hide~="activityKpis"] .ui-item-activityKpis,
+html[data-ui-page-hide~="activityPersona"] .ui-item-activityPersona,
+html[data-ui-page-hide~="activityRecords"] .ui-item-activityRecords,
+html[data-ui-page-hide~="activityChart"] .ui-item-activityChart,
+html[data-ui-page-hide~="activityInsights"] .ui-item-activityInsights,
+html[data-ui-page-hide~="activityBacklog"] .ui-item-activityBacklog,
+html[data-ui-page-hide~="activityBreakdown"] .ui-item-activityBreakdown,
+/* Storage */
+html[data-ui-page-hide~="storageHeader"] .ui-item-storageHeader,
+html[data-ui-page-hide~="storageHero"] .ui-item-storageHero,
+html[data-ui-page-hide~="storageControls"] .ui-item-storageControls,
+html[data-ui-page-hide~="storageList"] .ui-item-storageList,
+/* Downloads */
+html[data-ui-page-hide~="downloadsHeader"] .ui-item-downloadsHeader,
+html[data-ui-page-hide~="downloadsHero"] .ui-item-downloadsHero,
+html[data-ui-page-hide~="downloadsSparkline"] .ui-item-downloadsSparkline,
+html[data-ui-page-hide~="downloadsFilter"] .ui-item-downloadsFilter,
+html[data-ui-page-hide~="downloadsQueue"] .ui-item-downloadsQueue,
+/* Achievements */
+html[data-ui-page-hide~="achievementsHeader"] .ui-item-achievementsHeader,
+html[data-ui-page-hide~="achievementsHero"] .ui-item-achievementsHero,
+html[data-ui-page-hide~="achievementsCharts"] .ui-item-achievementsCharts,
+html[data-ui-page-hide~="achievementsSourceBreakdown"] .ui-item-achievementsSourceBreakdown,
+html[data-ui-page-hide~="achievementsShelves"] .ui-item-achievementsShelves,
+html[data-ui-page-hide~="achievementsList"] .ui-item-achievementsList,
+/* Friends */
+html[data-ui-page-hide~="friendsHeader"] .ui-item-friendsHeader,
+html[data-ui-page-hide~="friendsHero"] .ui-item-friendsHero,
+html[data-ui-page-hide~="friendsTabs"] .ui-item-friendsTabs,
+/* Emulators */
+html[data-ui-page-hide~="emuHeader"] .ui-item-emuHeader,
+html[data-ui-page-hide~="emuStats"] .ui-item-emuStats,
+html[data-ui-page-hide~="emuSidebar"] .ui-item-emuSidebar,
+html[data-ui-page-hide~="emuDetail"] .ui-item-emuDetail,
+/* Mods */
+html[data-ui-page-hide~="modsHeader"] .ui-item-modsHeader,
+html[data-ui-page-hide~="modsCockpit"] .ui-item-modsCockpit,
+html[data-ui-page-hide~="modsRail"] .ui-item-modsRail,
+html[data-ui-page-hide~="modsWorkspace"] .ui-item-modsWorkspace,
+/* Community */
+html[data-ui-page-hide~="communityHeader"] .ui-item-communityHeader,
+html[data-ui-page-hide~="communityTabs"] .ui-item-communityTabs,
+html[data-ui-page-hide~="communityContent"] .ui-item-communityContent {
   display: none !important;
 }
 
-html[data-ui-page-order="true"] .main-content > * > .ui-item-hero {
-  order: var(--ui-ord-hero, 0);
+/* Multi-column grid expansion when a pane is hidden */
+html[data-ui-page-hide~="emuSidebar"] .emulators-split,
+html[data-ui-page-hide~="emuDetail"] .emulators-split,
+html[data-ui-page-hide~="modsRail"] .mods-page-split,
+html[data-ui-page-hide~="modsWorkspace"] .mods-page-split {
+  grid-template-columns: 1fr;
 }
 
-html[data-ui-page-order="true"] .main-content > * > .ui-item-kpis {
-  order: var(--ui-ord-kpis, 0);
-}
-
-html[data-ui-page-order="true"] .main-content > * > .ui-item-filters {
-  order: var(--ui-ord-filters, 0);
-}
-
-html[data-ui-page-order="true"] .main-content > * > .ui-item-subtabs {
-  order: var(--ui-ord-subtabs, 0);
-}
-
-html[data-ui-page-order="true"] .main-content > * > .ui-item-dashboard {
-  order: var(--ui-ord-dashboard, 0);
-}
+html[data-ui-page-order="true"] .ui-item-hero { order: var(--ui-ord-hero, 0); }
+html[data-ui-page-order="true"] .ui-item-kpis { order: var(--ui-ord-kpis, 0); }
+html[data-ui-page-order="true"] .ui-item-filters { order: var(--ui-ord-filters, 0); }
+html[data-ui-page-order="true"] .ui-item-subtabs { order: var(--ui-ord-subtabs, 0); }
+html[data-ui-page-order="true"] .ui-item-dashboard { order: var(--ui-ord-dashboard, 0); }
+/* Home */
+html[data-ui-page-order="true"] .ui-item-homeQuickStats { order: var(--ui-ord-homeQuickStats, 0); }
+html[data-ui-page-order="true"] .ui-item-homeContinuePlaying { order: var(--ui-ord-homeContinuePlaying, 0); }
+html[data-ui-page-order="true"] .ui-item-homeRecentlyAdded { order: var(--ui-ord-homeRecentlyAdded, 0); }
+html[data-ui-page-order="true"] .ui-item-homeQuickLaunch { order: var(--ui-ord-homeQuickLaunch, 0); }
+html[data-ui-page-order="true"] .ui-item-homeActivity { order: var(--ui-ord-homeActivity, 0); }
+html[data-ui-page-order="true"] .ui-item-homeAchievements { order: var(--ui-ord-homeAchievements, 0); }
+html[data-ui-page-order="true"] .ui-item-homeFriends { order: var(--ui-ord-homeFriends, 0); }
+html[data-ui-page-order="true"] .ui-item-homeDownloads { order: var(--ui-ord-homeDownloads, 0); }
+html[data-ui-page-order="true"] .ui-item-homeWishlist { order: var(--ui-ord-homeWishlist, 0); }
+html[data-ui-page-order="true"] .ui-item-homeDeals { order: var(--ui-ord-homeDeals, 0); }
+html[data-ui-page-order="true"] .ui-item-homeNews { order: var(--ui-ord-homeNews, 0); }
+/* Library */
+html[data-ui-page-order="true"] .ui-item-libContinuePlaying { order: var(--ui-ord-libContinuePlaying, 0); }
+html[data-ui-page-order="true"] .ui-item-libRecentlyAdded { order: var(--ui-ord-libRecentlyAdded, 0); }
+html[data-ui-page-order="true"] .ui-item-libToolbar { order: var(--ui-ord-libToolbar, 0); }
+html[data-ui-page-order="true"] .ui-item-libFilterChips { order: var(--ui-ord-libFilterChips, 0); }
+html[data-ui-page-order="true"] .ui-item-libPresets { order: var(--ui-ord-libPresets, 0); }
+html[data-ui-page-order="true"] .ui-item-libFilterRail { order: var(--ui-ord-libFilterRail, 0); }
+html[data-ui-page-order="true"] .ui-item-libGrid { order: var(--ui-ord-libGrid, 0); }
+/* Game Detail */
+html[data-ui-page-order="true"] .ui-item-gameHero { order: var(--ui-ord-gameHero, 0); }
+html[data-ui-page-order="true"] .ui-item-gameTabs { order: var(--ui-ord-gameTabs, 0); }
+html[data-ui-page-order="true"] .ui-item-gameQuickStats { order: var(--ui-ord-gameQuickStats, 0); }
+html[data-ui-page-order="true"] .ui-item-gameAbout { order: var(--ui-ord-gameAbout, 0); }
+html[data-ui-page-order="true"] .ui-item-gameStoryline { order: var(--ui-ord-gameStoryline, 0); }
+html[data-ui-page-order="true"] .ui-item-gameMedia { order: var(--ui-ord-gameMedia, 0); }
+html[data-ui-page-order="true"] .ui-item-gameSysReq { order: var(--ui-ord-gameSysReq, 0); }
+html[data-ui-page-order="true"] .ui-item-gameRelations { order: var(--ui-ord-gameRelations, 0); }
+html[data-ui-page-order="true"] .ui-item-gamePulse { order: var(--ui-ord-gamePulse, 0); }
+html[data-ui-page-order="true"] .ui-item-gameSidebarKpis { order: var(--ui-ord-gameSidebarKpis, 0); }
+html[data-ui-page-order="true"] .ui-item-gameSpecs { order: var(--ui-ord-gameSpecs, 0); }
+/* Store */
+html[data-ui-page-order="true"] .ui-item-storeHeader { order: var(--ui-ord-storeHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-storeFilters { order: var(--ui-ord-storeFilters, 0); }
+html[data-ui-page-order="true"] .ui-item-storeToolbar { order: var(--ui-ord-storeToolbar, 0); }
+html[data-ui-page-order="true"] .ui-item-storeGrid { order: var(--ui-ord-storeGrid, 0); }
+/* Wishlist */
+html[data-ui-page-order="true"] .ui-item-wishlistHeader { order: var(--ui-ord-wishlistHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-wishlistToolbar { order: var(--ui-ord-wishlistToolbar, 0); }
+html[data-ui-page-order="true"] .ui-item-wishlistGrid { order: var(--ui-ord-wishlistGrid, 0); }
+/* Deals */
+html[data-ui-page-order="true"] .ui-item-dealsHeader { order: var(--ui-ord-dealsHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-dealsGrid { order: var(--ui-ord-dealsGrid, 0); }
+/* News */
+html[data-ui-page-order="true"] .ui-item-newsHeader { order: var(--ui-ord-newsHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-newsToolbar { order: var(--ui-ord-newsToolbar, 0); }
+html[data-ui-page-order="true"] .ui-item-newsGrid { order: var(--ui-ord-newsGrid, 0); }
+/* Activity */
+html[data-ui-page-order="true"] .ui-item-activityHeader { order: var(--ui-ord-activityHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-activityToolbar { order: var(--ui-ord-activityToolbar, 0); }
+html[data-ui-page-order="true"] .ui-item-activityKpis { order: var(--ui-ord-activityKpis, 0); }
+html[data-ui-page-order="true"] .ui-item-activityPersona { order: var(--ui-ord-activityPersona, 0); }
+html[data-ui-page-order="true"] .ui-item-activityRecords { order: var(--ui-ord-activityRecords, 0); }
+html[data-ui-page-order="true"] .ui-item-activityChart { order: var(--ui-ord-activityChart, 0); }
+html[data-ui-page-order="true"] .ui-item-activityInsights { order: var(--ui-ord-activityInsights, 0); }
+html[data-ui-page-order="true"] .ui-item-activityBacklog { order: var(--ui-ord-activityBacklog, 0); }
+html[data-ui-page-order="true"] .ui-item-activityBreakdown { order: var(--ui-ord-activityBreakdown, 0); }
+/* Storage */
+html[data-ui-page-order="true"] .ui-item-storageHeader { order: var(--ui-ord-storageHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-storageHero { order: var(--ui-ord-storageHero, 0); }
+html[data-ui-page-order="true"] .ui-item-storageControls { order: var(--ui-ord-storageControls, 0); }
+html[data-ui-page-order="true"] .ui-item-storageList { order: var(--ui-ord-storageList, 0); }
+/* Downloads */
+html[data-ui-page-order="true"] .ui-item-downloadsHeader { order: var(--ui-ord-downloadsHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-downloadsHero { order: var(--ui-ord-downloadsHero, 0); }
+html[data-ui-page-order="true"] .ui-item-downloadsSparkline { order: var(--ui-ord-downloadsSparkline, 0); }
+html[data-ui-page-order="true"] .ui-item-downloadsFilter { order: var(--ui-ord-downloadsFilter, 0); }
+html[data-ui-page-order="true"] .ui-item-downloadsQueue { order: var(--ui-ord-downloadsQueue, 0); }
+/* Achievements */
+html[data-ui-page-order="true"] .ui-item-achievementsHeader { order: var(--ui-ord-achievementsHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-achievementsHero { order: var(--ui-ord-achievementsHero, 0); }
+html[data-ui-page-order="true"] .ui-item-achievementsCharts { order: var(--ui-ord-achievementsCharts, 0); }
+html[data-ui-page-order="true"] .ui-item-achievementsSourceBreakdown { order: var(--ui-ord-achievementsSourceBreakdown, 0); }
+html[data-ui-page-order="true"] .ui-item-achievementsShelves { order: var(--ui-ord-achievementsShelves, 0); }
+html[data-ui-page-order="true"] .ui-item-achievementsList { order: var(--ui-ord-achievementsList, 0); }
+/* Friends */
+html[data-ui-page-order="true"] .ui-item-friendsHeader { order: var(--ui-ord-friendsHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-friendsHero { order: var(--ui-ord-friendsHero, 0); }
+html[data-ui-page-order="true"] .ui-item-friendsTabs { order: var(--ui-ord-friendsTabs, 0); }
+/* Emulators */
+html[data-ui-page-order="true"] .ui-item-emuHeader { order: var(--ui-ord-emuHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-emuStats { order: var(--ui-ord-emuStats, 0); }
+html[data-ui-page-order="true"] .ui-item-emuSidebar { order: var(--ui-ord-emuSidebar, 0); }
+html[data-ui-page-order="true"] .ui-item-emuDetail { order: var(--ui-ord-emuDetail, 0); }
+/* Mods */
+html[data-ui-page-order="true"] .ui-item-modsHeader { order: var(--ui-ord-modsHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-modsCockpit { order: var(--ui-ord-modsCockpit, 0); }
+html[data-ui-page-order="true"] .ui-item-modsRail { order: var(--ui-ord-modsRail, 0); }
+html[data-ui-page-order="true"] .ui-item-modsWorkspace { order: var(--ui-ord-modsWorkspace, 0); }
+/* Community */
+html[data-ui-page-order="true"] .ui-item-communityHeader { order: var(--ui-ord-communityHeader, 0); }
+html[data-ui-page-order="true"] .ui-item-communityTabs { order: var(--ui-ord-communityTabs, 0); }
+html[data-ui-page-order="true"] .ui-item-communityContent { order: var(--ui-ord-communityContent, 0); }
 
 /* Simple mode hides every widget category at once (master "all off"). */
 html[data-ui-mode="simple"] .ui-item-kpis,

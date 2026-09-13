@@ -29,7 +29,7 @@ import {
   sortByOrder,
 } from "../interfaceItems";
 import { playActionSound } from "../../../utils/soundEffects";
-import { StudioControls } from "./StudioControls";
+import { StudioControls, WIDGET_ICON } from "./StudioControls";
 import { StudioPresetsBar } from "./StudioPresetsBar";
 import { StudioPreview } from "./StudioPreview";
 import { getDefaultLayoutSnapshot, isItemModifiedFromDefault } from "./layoutPresets";
@@ -169,7 +169,7 @@ export default function LayoutStudio() {
     return order.map((key) => ({
       id: key,
       label: t(WIDGET_LABEL_KEY[key]),
-      icon: LayoutTemplate,
+      icon: WIDGET_ICON[key] ?? LayoutTemplate,
       hidden: hidden[key] === false,
       isModified: hidden[key] === false,
     }));

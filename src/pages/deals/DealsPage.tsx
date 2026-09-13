@@ -341,27 +341,29 @@ export default function DealsPage() {
 
   return (
     <div className="deals-page page">
-      <PageHeader
-        eyebrow={t("deals.eyebrow")}
-        title={t("deals.title")}
-        description={t("deals.description")}
-        icon={
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20 7h-3a2 2 0 0 1-2-2V3" />
-            <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
-            <path d="M9 7H4a2 2 0 0 0-2 2v1" />
-            <path d="M14 14l-3 3-3-3" />
-            <path d="M11 17V7" />
-          </svg>
-        }
-      />
+      <div className="ui-item-dealsHeader">
+        <PageHeader
+          eyebrow={t("deals.eyebrow")}
+          title={t("deals.title")}
+          description={t("deals.description")}
+          icon={
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20 7h-3a2 2 0 0 1-2-2V3" />
+              <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
+              <path d="M9 7H4a2 2 0 0 0-2 2v1" />
+              <path d="M14 14l-3 3-3-3" />
+              <path d="M11 17V7" />
+            </svg>
+          }
+        />
+      </div>
 
       {/* Hero Spotlight */}
       <div className="ui-complete-only ui-item-hero">
@@ -375,7 +377,7 @@ export default function DealsPage() {
       </div>
 
       {/* Subtabs */}
-      <div className="deals-subtabs" role="tablist">
+      <div className="deals-subtabs ui-item-subtabs" role="tablist">
         {subtabs.map((tab) => (
           <button
             key={tab.id}
@@ -397,65 +399,67 @@ export default function DealsPage() {
       </div>
 
       {/* Panels */}
-      {activeSubTab === "gamepass" && (
-        <GamePassPanel
-          filters={gpFilters}
-          setFilters={setGpFilters}
-          games={gpGames}
-          loading={gpLoading}
-          error={gpError}
-          empty={gpEmpty}
-          density="cinematic"
-          onOpenUrl={handleOpenUrl}
-          onInspect={handleInspectGamePass}
-          onReload={() => setGpReloadNonce((n) => n + 1)}
-        />
-      )}
+      <div className="ui-item-dealsGrid">
+        {activeSubTab === "gamepass" && (
+          <GamePassPanel
+            filters={gpFilters}
+            setFilters={setGpFilters}
+            games={gpGames}
+            loading={gpLoading}
+            error={gpError}
+            empty={gpEmpty}
+            density="cinematic"
+            onOpenUrl={handleOpenUrl}
+            onInspect={handleInspectGamePass}
+            onReload={() => setGpReloadNonce((n) => n + 1)}
+          />
+        )}
 
-      {activeSubTab === "isthereanydeal" && (
-        <DealsPanel
-          filters={dealFilters}
-          setFilters={setDealFilters}
-          deals={deals}
-          loading={dealsLoading}
-          error={dealsError}
-          empty={dealsEmpty}
-          density="cinematic"
-          onOpenUrl={handleOpenUrl}
-          onInspect={handleInspectDeal}
-          onReload={() => setDealsReloadNonce((n) => n + 1)}
-        />
-      )}
+        {activeSubTab === "isthereanydeal" && (
+          <DealsPanel
+            filters={dealFilters}
+            setFilters={setDealFilters}
+            deals={deals}
+            loading={dealsLoading}
+            error={dealsError}
+            empty={dealsEmpty}
+            density="cinematic"
+            onOpenUrl={handleOpenUrl}
+            onInspect={handleInspectDeal}
+            onReload={() => setDealsReloadNonce((n) => n + 1)}
+          />
+        )}
 
-      {activeSubTab === "giveaways" && (
-        <GiveawaysPanel
-          giveaways={giveaways}
-          loading={giveawaysLoading}
-          error={giveawaysError}
-          empty={giveawaysEmpty}
-          density="cinematic"
-          onOpenUrl={handleOpenUrl}
-          onInspect={handleInspectGiveaway}
-          onReload={() => setGiveawaysReloadNonce((n) => n + 1)}
-        />
-      )}
+        {activeSubTab === "giveaways" && (
+          <GiveawaysPanel
+            giveaways={giveaways}
+            loading={giveawaysLoading}
+            error={giveawaysError}
+            empty={giveawaysEmpty}
+            density="cinematic"
+            onOpenUrl={handleOpenUrl}
+            onInspect={handleInspectGiveaway}
+            onReload={() => setGiveawaysReloadNonce((n) => n + 1)}
+          />
+        )}
 
-      {activeSubTab === "playtester" && (
-        <PlaytesterPanel
-          filters={ptFilters}
-          setFilters={setPtFilters}
-          games={ptGames}
-          loading={ptLoading}
-          error={ptError}
-          empty={ptEmpty}
-          density="cinematic"
-          hasMore={ptHasMore}
-          loadingMore={ptLoadingMore}
-          onLoadMore={loadMorePlaytester}
-          onInspect={handleInspectPlaytester}
-          onReload={() => setPtReloadNonce((n) => n + 1)}
-        />
-      )}
+        {activeSubTab === "playtester" && (
+          <PlaytesterPanel
+            filters={ptFilters}
+            setFilters={setPtFilters}
+            games={ptGames}
+            loading={ptLoading}
+            error={ptError}
+            empty={ptEmpty}
+            density="cinematic"
+            hasMore={ptHasMore}
+            loadingMore={ptLoadingMore}
+            onLoadMore={loadMorePlaytester}
+            onInspect={handleInspectPlaytester}
+            onReload={() => setPtReloadNonce((n) => n + 1)}
+          />
+        )}
+      </div>
 
       {/* Deal Detail Modal */}
       <DealDetailModal

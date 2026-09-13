@@ -148,15 +148,17 @@ export default function ModsPage() {
 
   return (
     <div className="mods-page">
-      <PageHeader
-        eyebrow={t("mods.eyebrow")}
-        title={t("mods.title")}
-        description={t("mods.subtitle")}
-      />
+      <div className="ui-item-modsHeader">
+        <PageHeader
+          eyebrow={t("mods.eyebrow")}
+          title={t("mods.title")}
+          description={t("mods.subtitle")}
+        />
+      </div>
 
       {/* Global Cockpit Statistics Banner */}
       {candidates.length > 0 && (
-        <div className="mods-global-cockpit ui-complete-only ui-item-dashboard" role="region" aria-label={t("mods.eyebrow")}>
+        <div className="mods-global-cockpit ui-complete-only ui-item-dashboard ui-item-modsCockpit" role="region" aria-label={t("mods.eyebrow")}>
           <div className="mods-global-kpi">
             <span className="mods-global-kpi-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -258,7 +260,7 @@ export default function ModsPage() {
       ) : (
         <div className={`mods-page-split ${isRailCollapsed ? "rail-collapsed" : ""}`}>
           {/* ── Left Pane: Games Rail ─────────────────────────────── */}
-          <div className={`mods-games-pane ${isRailCollapsed ? "collapsed" : ""}`}>
+          <div className={`mods-games-pane ui-item-modsRail ${isRailCollapsed ? "collapsed" : ""}`}>
             {/* Rail Header */}
             <div className="mods-games-pane-header">
               <span className="mods-games-pane-title">
@@ -460,7 +462,7 @@ export default function ModsPage() {
           </div>
 
           {/* ── Right Pane: Manager Workspace ─────────────────────── */}
-          <div className="mods-page-manager">
+          <div className="mods-page-manager ui-item-modsWorkspace">
             {selectedGame ? (
               <>
                 <div className="mods-manager-game-bar">

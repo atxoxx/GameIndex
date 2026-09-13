@@ -147,20 +147,22 @@ export default function StatsPage() {
   return (
     <div className="stats-page-container">
       {/* ── Hero Cockpit Banner ──────────────────────────────────── */}
-      <StatsHeader
-        levelInfo={levelInfo}
-        persona={persona}
-        streak={streakInfo}
-        totalPlaytimeMin={totalPlaytimeMin}
-        totalSessions={totalSessionsCount}
-        totalGames={games.length}
-        timeframe={timeframe}
-        onTimeframeChange={handleTimeframeChange}
-        onExportJson={handleExportJson}
-      />
+      <div className="ui-item-communityHeader">
+        <StatsHeader
+          levelInfo={levelInfo}
+          persona={persona}
+          streak={streakInfo}
+          totalPlaytimeMin={totalPlaytimeMin}
+          totalSessions={totalSessionsCount}
+          totalGames={games.length}
+          timeframe={timeframe}
+          onTimeframeChange={handleTimeframeChange}
+          onExportJson={handleExportJson}
+        />
+      </div>
 
       {/* ── Subtab Navigation Bar ────────────────────────────────── */}
-      <div className="stats-subtab-bar" role="tablist" aria-label={t("stats.tabsLabel")}>
+      <div className="stats-subtab-bar ui-item-communityTabs" role="tablist" aria-label={t("stats.tabsLabel")}>
         <button
           type="button"
           role="tab"
@@ -218,7 +220,7 @@ export default function StatsPage() {
       </div>
 
       {/* ── Subtab Content Panels ────────────────────────────────── */}
-      <main className="stats-main-content">
+      <main className="stats-main-content ui-item-communityContent">
         {effectiveTab === "overview" && (
           <OverviewTab
             sessions={filteredSessions}

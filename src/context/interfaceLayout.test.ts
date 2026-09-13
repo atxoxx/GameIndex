@@ -39,34 +39,37 @@ describe("resolveInterfacePage", () => {
 
 describe("normalizePageItemOrder", () => {
   it("keeps a valid custom order", () => {
-    expect(normalizePageItemOrder("library", ["filters", "hero"])).toEqual([
-      "filters",
-      "hero",
-    ]);
+    const custom = [...(interfacePageDef("library")?.items ?? [])].reverse();
+    expect(normalizePageItemOrder("library", custom)).toEqual(custom);
   });
 
   it("appends page items missing from a partial order", () => {
-    const result = normalizePageItemOrder("storage", ["dashboard"]);
-    expect(result[0]).toBe("dashboard");
+    const result = normalizePageItemOrder("storage", ["storageList"]);
+    expect(result[0]).toBe("storageList");
     expect(new Set(result)).toEqual(
       new Set(interfacePageDef("storage")?.items ?? []),
     );
   });
 
   it("drops keys the page does not render", () => {
-    expect(normalizePageItemOrder("deals", ["filters", "hero"])).toEqual(["hero"]);
+    const result = normalizePageItemOrder("deals", ["unknownKey", "hero"]);
+    expect(result[0]).toBe("hero");
+    expect(result.includes("unknownKey" as any)).toBe(false);
+    expect(new Set(result)).toEqual(
+      new Set(interfacePageDef("deals")?.items ?? []),
+    );
   });
 });
 
 describe("normalizePageItemOrderMap", () => {
   it("normalizes each known page and ignores the rest", () => {
     const result = normalizePageItemOrderMap({
-      deals: ["hero"],
+      deals: ["dealsGrid"],
       global: ["hero"],
       nonsense: ["hero"],
     });
     const loose = result as Record<string, unknown>;
-    expect(result.deals).toEqual(["hero"]);
+    expect(result.deals?.[0]).toBe("dealsGrid");
     expect(loose.global).toBeUndefined();
     expect(loose.nonsense).toBeUndefined();
   });

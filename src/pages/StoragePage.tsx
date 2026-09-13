@@ -490,66 +490,72 @@ export default function StoragePage() {
   return (
     <div className="storage-page page">
       {/* ── Page Header ────────────────────────────────────────────── */}
-      <PageHeader
-        eyebrow={t("storage.eyebrow")}
-        title={t("storage.title")}
-        description={t("storage.description")}
-        icon={
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="2" width="20" height="20" rx="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <path d="M20.4 14.7 16.1 19l-1.8-1.8" />
-            <line x1="12" y1="6" x2="18" y2="6" />
-            <line x1="12" y1="10" x2="15" y2="10" />
-          </svg>
-        }
-      />
+      <div className="ui-item-storageHeader">
+        <PageHeader
+          eyebrow={t("storage.eyebrow")}
+          title={t("storage.title")}
+          description={t("storage.description")}
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M20.4 14.7 16.1 19l-1.8-1.8" />
+              <line x1="12" y1="6" x2="18" y2="6" />
+              <line x1="12" y1="10" x2="15" y2="10" />
+            </svg>
+          }
+        />
+      </div>
 
       {/* ── Hero Analytics Dashboard ───────────────────────────────── */}
-      <StorageHeroDashboard
-        games={installedGames}
-        staleCount={staleCount}
-        activeDrive={driveFilter}
-        onDriveClick={(label) => setDriveFilter((cur) => (cur === label ? null : label))}
-        onNavigateToCleanup={() => setViewMode("cleanup")}
-        onSelectGame={(g) => {
-          setSearch(g.name);
-          setViewMode("list");
-        }}
-      />
+      <div className="ui-item-storageHero">
+        <StorageHeroDashboard
+          games={installedGames}
+          staleCount={staleCount}
+          activeDrive={driveFilter}
+          onDriveClick={(label) => setDriveFilter((cur) => (cur === label ? null : label))}
+          onNavigateToCleanup={() => setViewMode("cleanup")}
+          onSelectGame={(g) => {
+            setSearch(g.name);
+            setViewMode("list");
+          }}
+        />
+      </div>
 
       {/* ── Unified Controls Bar ───────────────────────────────────── */}
-      <StorageControlsBar
-        allCount={counts.all}
-        sizedCount={counts.sized}
-        missingCount={counts.missing}
-        staleCount={counts.stale}
-        hasModsCount={counts.hasMods}
-        massiveCount={counts.massive}
-        largeCount={counts.large}
-        smallCount={counts.small}
-        filteredCount={sortedGames.length}
-        activeFilter={filter}
-        onFilterChange={setFilter}
-        activeDrive={driveFilter}
-        onClearDriveFilter={() => setDriveFilter(null)}
-        search={search}
-        onSearchChange={setSearch}
-        sort={sort}
-        onSortChange={setSort}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        unsizedGames={missingGames}
-        onRecalcComplete={refreshAll}
-        isRefreshingPaths={refreshingPaths}
-        onRefreshPaths={handleRefreshPaths}
-        selectMode={selectMode}
-        onToggleSelectMode={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-        onExportCsv={handleExportCsv}
-        onExportJson={handleExportJson}
-      />
+      <div className="ui-item-storageControls">
+        <StorageControlsBar
+          allCount={counts.all}
+          sizedCount={counts.sized}
+          missingCount={counts.missing}
+          staleCount={counts.stale}
+          hasModsCount={counts.hasMods}
+          massiveCount={counts.massive}
+          largeCount={counts.large}
+          smallCount={counts.small}
+          filteredCount={sortedGames.length}
+          activeFilter={filter}
+          onFilterChange={setFilter}
+          activeDrive={driveFilter}
+          onClearDriveFilter={() => setDriveFilter(null)}
+          search={search}
+          onSearchChange={setSearch}
+          sort={sort}
+          onSortChange={setSort}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          unsizedGames={missingGames}
+          onRecalcComplete={refreshAll}
+          isRefreshingPaths={refreshingPaths}
+          onRefreshPaths={handleRefreshPaths}
+          selectMode={selectMode}
+          onToggleSelectMode={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+          onExportCsv={handleExportCsv}
+          onExportJson={handleExportJson}
+        />
+      </div>
 
       {/* ── Floating Batch Selection Dock ──────────────────────────── */}
       {selectMode && (viewMode === "list" || viewMode === "grid") && (
@@ -570,7 +576,7 @@ export default function StoragePage() {
 
       {/* ── View Mode: List or Grid ────────────────────────────────── */}
       {(viewMode === "list" || viewMode === "grid") && (
-        <>
+        <div className="ui-item-storageList">
           {sortedGames.length === 0 ? (
             <div className="storage__empty-state">
               <div className="storage__empty-state-icon">
@@ -674,7 +680,7 @@ export default function StoragePage() {
               ))}
             </ul>
           )}
-        </>
+        </div>
       )}
 
       {/* ── View Mode: Storage Cleanup Assistant ───────────────────── */}

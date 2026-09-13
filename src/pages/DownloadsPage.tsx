@@ -280,56 +280,62 @@ export default function DownloadsPage() {
 
   return (
     <div className="dl-page page">
-      <PageHeader
-        eyebrow={t("downloads.eyebrow")}
-        title={t("downloads.title")}
-        description={t("downloads.description")}
-        actions={
-          <Button
-            variant="primary"
-            onClick={() => setAddModalOpen(true)}
-            leftIcon={
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ width: 15, height: 15 }}
-                aria-hidden="true"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            }
-          >
-            {t("downloads.addDownload")}
-          </Button>
-        }
-      />
+      <div className="ui-item-downloadsHeader">
+        <PageHeader
+          eyebrow={t("downloads.eyebrow")}
+          title={t("downloads.title")}
+          description={t("downloads.description")}
+          actions={
+            <Button
+              variant="primary"
+              onClick={() => setAddModalOpen(true)}
+              leftIcon={
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ width: 15, height: 15 }}
+                  aria-hidden="true"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              }
+            >
+              {t("downloads.addDownload")}
+            </Button>
+          }
+        />
+      </div>
 
       {/* Hero Control Center & Network Sparkline */}
-      <BandwidthHero onOpenStats={() => setStatsModalOpen(true)} />
-      <div className="ui-complete-only ui-item-dashboard">
+      <div className="ui-item-downloadsHero">
+        <BandwidthHero onOpenStats={() => setStatsModalOpen(true)} />
+      </div>
+      <div className="ui-complete-only ui-item-dashboard ui-item-downloadsSparkline">
         <BandwidthSparkline />
       </div>
 
       {/* Filter and View Mode Switcher */}
-      <DownloadsFilterBar
-        query={query}
-        onQueryChange={setQuery}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        sort={sort}
-        onSortChange={setSort}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        counts={counts}
-      />
+      <div className="ui-item-downloadsFilter">
+        <DownloadsFilterBar
+          query={query}
+          onQueryChange={setQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          sort={sort}
+          onSortChange={setSort}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          counts={counts}
+        />
+      </div>
 
       {/* Main Downloads List / Grid / Table Section */}
-      <section className="dl-section" aria-label={t("downloads.title")}>
+      <section className="dl-section ui-item-downloadsQueue" aria-label={t("downloads.title")}>
         <div className="dl-section-header">
           <h3 className="dl-section-title">
             {statusFilter === "all"

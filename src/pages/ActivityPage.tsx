@@ -287,64 +287,66 @@ export default function ActivityPage() {
 
   return (
     <div className="activity__container">
-      <PageHeader
-        eyebrow={t("activity.eyebrow")}
-        title={t("activity.title")}
-        actions={
-          <div className="activity__header-meta-actions">
-            <div className="activity__header-quick-stats">
-              <span className="activity__quick-stat">
-                <strong>{scopedSummaryStats.playtimeStr}</strong>
-              </span>
-              <span className="activity__quick-stat-sep">•</span>
-              <span className="activity__quick-stat">
-                {scopedSummaryStats.sessionsCount} {t("activity.sessions")}
-              </span>
-              <span className="activity__quick-stat-sep">•</span>
-              <span className="activity__quick-stat">
-                {scopedSummaryStats.gamesCount} {t("activity.gamesPlayed")}
-              </span>
-            </div>
+      <div className="ui-item-activityHeader">
+        <PageHeader
+          eyebrow={t("activity.eyebrow")}
+          title={t("activity.title")}
+          actions={
+            <div className="activity__header-meta-actions">
+              <div className="activity__header-quick-stats">
+                <span className="activity__quick-stat">
+                  <strong>{scopedSummaryStats.playtimeStr}</strong>
+                </span>
+                <span className="activity__quick-stat-sep">•</span>
+                <span className="activity__quick-stat">
+                  {scopedSummaryStats.sessionsCount} {t("activity.sessions")}
+                </span>
+                <span className="activity__quick-stat-sep">•</span>
+                <span className="activity__quick-stat">
+                  {scopedSummaryStats.gamesCount} {t("activity.gamesPlayed")}
+                </span>
+              </div>
 
-            <div className="activity__export-actions ui-complete-only ui-item-filters">
-              <button
-                type="button"
-                className="activity__icon-btn activity__icon-btn--primary"
-                onClick={() => setManualSessionOpen(true)}
-                title={t("activityManual.logSessionBtn")}
-              >
-                <Icons.Plus size={13} />
-              </button>
-              <button
-                type="button"
-                className="activity__icon-btn"
-                onClick={handleCaptureScreenshot}
-                title={t("activity.capture")}
-              >
-                <Icons.Camera size={13} />
-              </button>
-              <button
-                type="button"
-                className="activity__icon-btn"
-                onClick={handleExportCSV}
-                title={t("activity.exportCsv")}
-              >
-                <Icons.Download size={13} />
-              </button>
-              <button
-                type="button"
-                className="activity__icon-btn"
-                onClick={handleExportJSON}
-                title={t("activity.exportJson")}
-              >
-                <Icons.FileText size={13} />
-              </button>
+              <div className="activity__export-actions ui-complete-only ui-item-filters">
+                <button
+                  type="button"
+                  className="activity__icon-btn activity__icon-btn--primary"
+                  onClick={() => setManualSessionOpen(true)}
+                  title={t("activityManual.logSessionBtn")}
+                >
+                  <Icons.Plus size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="activity__icon-btn"
+                  onClick={handleCaptureScreenshot}
+                  title={t("activity.capture")}
+                >
+                  <Icons.Camera size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="activity__icon-btn"
+                  onClick={handleExportCSV}
+                  title={t("activity.exportCsv")}
+                >
+                  <Icons.Download size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="activity__icon-btn"
+                  onClick={handleExportJSON}
+                  title={t("activity.exportJson")}
+                >
+                  <Icons.FileText size={13} />
+                </button>
+              </div>
             </div>
-          </div>
-        }
-      />
+          }
+        />
+      </div>
 
-      <div className="act-toolbar">
+      <div className="act-toolbar ui-item-activityToolbar">
         <div className="act-toolbar__left">
           <Segmented<TabType>
             ariaLabel={t("nav.activity")}

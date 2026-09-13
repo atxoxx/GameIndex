@@ -1813,24 +1813,26 @@ export default function FriendsPage() {
   return (
     <div className="friends-page page">
       {/* Tab Navigation Toolbar */}
-      <FriendsToolbar
-        activeTab={effectiveTab}
-        onSelectTab={setActiveTab}
-        friendsCount={friends.filter((f) => !f.blocked).length}
-        unseenCounts={unseenCounts}
-        isSyncing={isSyncing}
-        lastSyncedTime={lastSyncedTime}
-        onSyncNow={() => performSync(true)}
-        onOpenP2pModal={() => setShowP2pModal(true)}
-      />
+      <div className="ui-item-friendsHeader">
+        <FriendsToolbar
+          activeTab={effectiveTab}
+          onSelectTab={setActiveTab}
+          friendsCount={friends.filter((f) => !f.blocked).length}
+          unseenCounts={unseenCounts}
+          isSyncing={isSyncing}
+          lastSyncedTime={lastSyncedTime}
+          onSyncNow={() => performSync(true)}
+          onOpenP2pModal={() => setShowP2pModal(true)}
+        />
+      </div>
 
       {/* Hero Stats Summary */}
-      <div className="ui-complete-only ui-item-kpis">
+      <div className="ui-complete-only ui-item-kpis ui-item-friendsHero">
         <FriendsHeroStats friends={friends} sessions={sessions} myGameIds={myGameIds} />
       </div>
 
       {/* Main Tab Panels */}
-      <div className="friends-panel">
+      <div className="friends-panel ui-item-friendsTabs">
         {effectiveTab === "friends" && (
           <FriendsListTab
             friends={friends}

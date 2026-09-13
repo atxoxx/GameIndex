@@ -21,11 +21,106 @@
 
 /** Widget categories a page can render. Mirrors the `.ui-item-*` markers. */
 export type PageWidgetKey =
+  // Generic legacy / shared
   | "hero"
   | "kpis"
   | "filters"
   | "subtabs"
-  | "dashboard";
+  | "dashboard"
+  // Home
+  | "homeQuickStats"
+  | "homeContinuePlaying"
+  | "homeRecentlyAdded"
+  | "homeQuickLaunch"
+  | "homeActivity"
+  | "homeAchievements"
+  | "homeFriends"
+  | "homeDownloads"
+  | "homeWishlist"
+  | "homeDeals"
+  | "homeNews"
+  // Library
+  | "libContinuePlaying"
+  | "libRecentlyAdded"
+  | "libToolbar"
+  | "libFilterChips"
+  | "libPresets"
+  | "libFilterRail"
+  | "libGrid"
+  // Game Detail
+  | "gameHero"
+  | "gameTabs"
+  | "gameQuickStats"
+  | "gameAbout"
+  | "gameStoryline"
+  | "gameMedia"
+  | "gameSysReq"
+  | "gameRelations"
+  | "gamePulse"
+  | "gameSidebarKpis"
+  | "gameSpecs"
+  // Store
+  | "storeHeader"
+  | "storeFilters"
+  | "storeToolbar"
+  | "storeGrid"
+  // Wishlist
+  | "wishlistHeader"
+  | "wishlistToolbar"
+  | "wishlistGrid"
+  // Deals
+  | "dealsHeader"
+  | "dealsGrid"
+  // News
+  | "newsHeader"
+  | "newsToolbar"
+  | "newsGrid"
+  // Activity
+  | "activityHeader"
+  | "activityToolbar"
+  | "activityKpis"
+  | "activityPersona"
+  | "activityRecords"
+  | "activityChart"
+  | "activityInsights"
+  | "activityBacklog"
+  | "activityBreakdown"
+  // Storage
+  | "storageHeader"
+  | "storageHero"
+  | "storageControls"
+  | "storageList"
+  // Downloads
+  | "downloadsHeader"
+  | "downloadsHero"
+  | "downloadsSparkline"
+  | "downloadsFilter"
+  | "downloadsQueue"
+  // Achievements
+  | "achievementsHeader"
+  | "achievementsHero"
+  | "achievementsCharts"
+  | "achievementsSourceBreakdown"
+  | "achievementsShelves"
+  | "achievementsList"
+  // Friends
+  | "friendsHeader"
+  | "friendsHero"
+  | "friendsTabs"
+  // Emulators
+  | "emuHeader"
+  | "emuStats"
+  | "emuSidebar"
+  | "emuDetail"
+  // Mods
+  | "modsHeader"
+  | "modsCockpit"
+  | "modsRail"
+  | "modsWorkspace"
+  // Community
+  | "communityHeader"
+  | "communityTabs"
+  | "communityContent";
 
 export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "hero",
@@ -33,6 +128,100 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "filters",
   "subtabs",
   "dashboard",
+  // Home
+  "homeQuickStats",
+  "homeContinuePlaying",
+  "homeRecentlyAdded",
+  "homeQuickLaunch",
+  "homeActivity",
+  "homeAchievements",
+  "homeFriends",
+  "homeDownloads",
+  "homeWishlist",
+  "homeDeals",
+  "homeNews",
+  // Library
+  "libContinuePlaying",
+  "libRecentlyAdded",
+  "libToolbar",
+  "libFilterChips",
+  "libPresets",
+  "libFilterRail",
+  "libGrid",
+  // Game Detail
+  "gameHero",
+  "gameTabs",
+  "gameQuickStats",
+  "gameAbout",
+  "gameStoryline",
+  "gameMedia",
+  "gameSysReq",
+  "gameRelations",
+  "gamePulse",
+  "gameSidebarKpis",
+  "gameSpecs",
+  // Store
+  "storeHeader",
+  "storeFilters",
+  "storeToolbar",
+  "storeGrid",
+  // Wishlist
+  "wishlistHeader",
+  "wishlistToolbar",
+  "wishlistGrid",
+  // Deals
+  "dealsHeader",
+  "dealsGrid",
+  // News
+  "newsHeader",
+  "newsToolbar",
+  "newsGrid",
+  // Activity
+  "activityHeader",
+  "activityToolbar",
+  "activityKpis",
+  "activityPersona",
+  "activityRecords",
+  "activityChart",
+  "activityInsights",
+  "activityBacklog",
+  "activityBreakdown",
+  // Storage
+  "storageHeader",
+  "storageHero",
+  "storageControls",
+  "storageList",
+  // Downloads
+  "downloadsHeader",
+  "downloadsHero",
+  "downloadsSparkline",
+  "downloadsFilter",
+  "downloadsQueue",
+  // Achievements
+  "achievementsHeader",
+  "achievementsHero",
+  "achievementsCharts",
+  "achievementsSourceBreakdown",
+  "achievementsShelves",
+  "achievementsList",
+  // Friends
+  "friendsHeader",
+  "friendsHero",
+  "friendsTabs",
+  // Emulators
+  "emuHeader",
+  "emuStats",
+  "emuSidebar",
+  "emuDetail",
+  // Mods
+  "modsHeader",
+  "modsCockpit",
+  "modsRail",
+  "modsWorkspace",
+  // Community
+  "communityHeader",
+  "communityTabs",
+  "communityContent",
 ];
 
 /** Widget key → the CSS class the pages mark their blocks with. */
@@ -42,6 +231,100 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   filters: "ui-item-filters",
   subtabs: "ui-item-subtabs",
   dashboard: "ui-item-dashboard",
+  // Home
+  homeQuickStats: "ui-item-homeQuickStats",
+  homeContinuePlaying: "ui-item-homeContinuePlaying",
+  homeRecentlyAdded: "ui-item-homeRecentlyAdded",
+  homeQuickLaunch: "ui-item-homeQuickLaunch",
+  homeActivity: "ui-item-homeActivity",
+  homeAchievements: "ui-item-homeAchievements",
+  homeFriends: "ui-item-homeFriends",
+  homeDownloads: "ui-item-homeDownloads",
+  homeWishlist: "ui-item-homeWishlist",
+  homeDeals: "ui-item-homeDeals",
+  homeNews: "ui-item-homeNews",
+  // Library
+  libContinuePlaying: "ui-item-libContinuePlaying",
+  libRecentlyAdded: "ui-item-libRecentlyAdded",
+  libToolbar: "ui-item-libToolbar",
+  libFilterChips: "ui-item-libFilterChips",
+  libPresets: "ui-item-libPresets",
+  libFilterRail: "ui-item-libFilterRail",
+  libGrid: "ui-item-libGrid",
+  // Game Detail
+  gameHero: "ui-item-gameHero",
+  gameTabs: "ui-item-gameTabs",
+  gameQuickStats: "ui-item-gameQuickStats",
+  gameAbout: "ui-item-gameAbout",
+  gameStoryline: "ui-item-gameStoryline",
+  gameMedia: "ui-item-gameMedia",
+  gameSysReq: "ui-item-gameSysReq",
+  gameRelations: "ui-item-gameRelations",
+  gamePulse: "ui-item-gamePulse",
+  gameSidebarKpis: "ui-item-gameSidebarKpis",
+  gameSpecs: "ui-item-gameSpecs",
+  // Store
+  storeHeader: "ui-item-storeHeader",
+  storeFilters: "ui-item-storeFilters",
+  storeToolbar: "ui-item-storeToolbar",
+  storeGrid: "ui-item-storeGrid",
+  // Wishlist
+  wishlistHeader: "ui-item-wishlistHeader",
+  wishlistToolbar: "ui-item-wishlistToolbar",
+  wishlistGrid: "ui-item-wishlistGrid",
+  // Deals
+  dealsHeader: "ui-item-dealsHeader",
+  dealsGrid: "ui-item-dealsGrid",
+  // News
+  newsHeader: "ui-item-newsHeader",
+  newsToolbar: "ui-item-newsToolbar",
+  newsGrid: "ui-item-newsGrid",
+  // Activity
+  activityHeader: "ui-item-activityHeader",
+  activityToolbar: "ui-item-activityToolbar",
+  activityKpis: "ui-item-activityKpis",
+  activityPersona: "ui-item-activityPersona",
+  activityRecords: "ui-item-activityRecords",
+  activityChart: "ui-item-activityChart",
+  activityInsights: "ui-item-activityInsights",
+  activityBacklog: "ui-item-activityBacklog",
+  activityBreakdown: "ui-item-activityBreakdown",
+  // Storage
+  storageHeader: "ui-item-storageHeader",
+  storageHero: "ui-item-storageHero",
+  storageControls: "ui-item-storageControls",
+  storageList: "ui-item-storageList",
+  // Downloads
+  downloadsHeader: "ui-item-downloadsHeader",
+  downloadsHero: "ui-item-downloadsHero",
+  downloadsSparkline: "ui-item-downloadsSparkline",
+  downloadsFilter: "ui-item-downloadsFilter",
+  downloadsQueue: "ui-item-downloadsQueue",
+  // Achievements
+  achievementsHeader: "ui-item-achievementsHeader",
+  achievementsHero: "ui-item-achievementsHero",
+  achievementsCharts: "ui-item-achievementsCharts",
+  achievementsSourceBreakdown: "ui-item-achievementsSourceBreakdown",
+  achievementsShelves: "ui-item-achievementsShelves",
+  achievementsList: "ui-item-achievementsList",
+  // Friends
+  friendsHeader: "ui-item-friendsHeader",
+  friendsHero: "ui-item-friendsHero",
+  friendsTabs: "ui-item-friendsTabs",
+  // Emulators
+  emuHeader: "ui-item-emuHeader",
+  emuStats: "ui-item-emuStats",
+  emuSidebar: "ui-item-emuSidebar",
+  emuDetail: "ui-item-emuDetail",
+  // Mods
+  modsHeader: "ui-item-modsHeader",
+  modsCockpit: "ui-item-modsCockpit",
+  modsRail: "ui-item-modsRail",
+  modsWorkspace: "ui-item-modsWorkspace",
+  // Community
+  communityHeader: "ui-item-communityHeader",
+  communityTabs: "ui-item-communityTabs",
+  communityContent: "ui-item-communityContent",
 };
 
 /** Widget key → translation key used in the settings UI. */
@@ -51,6 +334,100 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   filters: "settings.interface.widgetFilters",
   subtabs: "settings.interface.widgetSubtabs",
   dashboard: "settings.interface.widgetDashboard",
+  // Home
+  homeQuickStats: "settings.interface.widgetHomeQuickStats",
+  homeContinuePlaying: "settings.interface.widgetHomeContinuePlaying",
+  homeRecentlyAdded: "settings.interface.widgetHomeRecentlyAdded",
+  homeQuickLaunch: "settings.interface.widgetHomeQuickLaunch",
+  homeActivity: "settings.interface.widgetHomeActivity",
+  homeAchievements: "settings.interface.widgetHomeAchievements",
+  homeFriends: "settings.interface.widgetHomeFriends",
+  homeDownloads: "settings.interface.widgetHomeDownloads",
+  homeWishlist: "settings.interface.widgetHomeWishlist",
+  homeDeals: "settings.interface.widgetHomeDeals",
+  homeNews: "settings.interface.widgetHomeNews",
+  // Library
+  libContinuePlaying: "settings.interface.widgetLibContinuePlaying",
+  libRecentlyAdded: "settings.interface.widgetLibRecentlyAdded",
+  libToolbar: "settings.interface.widgetLibToolbar",
+  libFilterChips: "settings.interface.widgetLibFilterChips",
+  libPresets: "settings.interface.widgetLibPresets",
+  libFilterRail: "settings.interface.widgetLibFilterRail",
+  libGrid: "settings.interface.widgetLibGrid",
+  // Game Detail
+  gameHero: "settings.interface.widgetGameHero",
+  gameTabs: "settings.interface.widgetGameTabs",
+  gameQuickStats: "settings.interface.widgetGameQuickStats",
+  gameAbout: "settings.interface.widgetGameAbout",
+  gameStoryline: "settings.interface.widgetGameStoryline",
+  gameMedia: "settings.interface.widgetGameMedia",
+  gameSysReq: "settings.interface.widgetGameSysReq",
+  gameRelations: "settings.interface.widgetGameRelations",
+  gamePulse: "settings.interface.widgetGamePulse",
+  gameSidebarKpis: "settings.interface.widgetGameSidebarKpis",
+  gameSpecs: "settings.interface.widgetGameSpecs",
+  // Store
+  storeHeader: "settings.interface.widgetStoreHeader",
+  storeFilters: "settings.interface.widgetStoreFilters",
+  storeToolbar: "settings.interface.widgetStoreToolbar",
+  storeGrid: "settings.interface.widgetStoreGrid",
+  // Wishlist
+  wishlistHeader: "settings.interface.widgetWishlistHeader",
+  wishlistToolbar: "settings.interface.widgetWishlistToolbar",
+  wishlistGrid: "settings.interface.widgetWishlistGrid",
+  // Deals
+  dealsHeader: "settings.interface.widgetDealsHeader",
+  dealsGrid: "settings.interface.widgetDealsGrid",
+  // News
+  newsHeader: "settings.interface.widgetNewsHeader",
+  newsToolbar: "settings.interface.widgetNewsToolbar",
+  newsGrid: "settings.interface.widgetNewsGrid",
+  // Activity
+  activityHeader: "settings.interface.widgetActivityHeader",
+  activityToolbar: "settings.interface.widgetActivityToolbar",
+  activityKpis: "settings.interface.widgetActivityKpis",
+  activityPersona: "settings.interface.widgetActivityPersona",
+  activityRecords: "settings.interface.widgetActivityRecords",
+  activityChart: "settings.interface.widgetActivityChart",
+  activityInsights: "settings.interface.widgetActivityInsights",
+  activityBacklog: "settings.interface.widgetActivityBacklog",
+  activityBreakdown: "settings.interface.widgetActivityBreakdown",
+  // Storage
+  storageHeader: "settings.interface.widgetStorageHeader",
+  storageHero: "settings.interface.widgetStorageHero",
+  storageControls: "settings.interface.widgetStorageControls",
+  storageList: "settings.interface.widgetStorageList",
+  // Downloads
+  downloadsHeader: "settings.interface.widgetDownloadsHeader",
+  downloadsHero: "settings.interface.widgetDownloadsHero",
+  downloadsSparkline: "settings.interface.widgetDownloadsSparkline",
+  downloadsFilter: "settings.interface.widgetDownloadsFilter",
+  downloadsQueue: "settings.interface.widgetDownloadsQueue",
+  // Achievements
+  achievementsHeader: "settings.interface.widgetAchievementsHeader",
+  achievementsHero: "settings.interface.widgetAchievementsHero",
+  achievementsCharts: "settings.interface.widgetAchievementsCharts",
+  achievementsSourceBreakdown: "settings.interface.widgetAchievementsSourceBreakdown",
+  achievementsShelves: "settings.interface.widgetAchievementsShelves",
+  achievementsList: "settings.interface.widgetAchievementsList",
+  // Friends
+  friendsHeader: "settings.interface.widgetFriendsHeader",
+  friendsHero: "settings.interface.widgetFriendsHero",
+  friendsTabs: "settings.interface.widgetFriendsTabs",
+  // Emulators
+  emuHeader: "settings.interface.widgetEmuHeader",
+  emuStats: "settings.interface.widgetEmuStats",
+  emuSidebar: "settings.interface.widgetEmuSidebar",
+  emuDetail: "settings.interface.widgetEmuDetail",
+  // Mods
+  modsHeader: "settings.interface.widgetModsHeader",
+  modsCockpit: "settings.interface.widgetModsCockpit",
+  modsRail: "settings.interface.widgetModsRail",
+  modsWorkspace: "settings.interface.widgetModsWorkspace",
+  // Community
+  communityHeader: "settings.interface.widgetCommunityHeader",
+  communityTabs: "settings.interface.widgetCommunityTabs",
+  communityContent: "settings.interface.widgetCommunityContent",
 };
 
 // ── Pages ───────────────────────────────────────────────────────────────────
@@ -89,21 +466,198 @@ export interface InterfacePageDef {
  */
 export const INTERFACE_PAGES: InterfacePageDef[] = [
   { key: "global", labelKey: "settings.interface.studioPageGlobal", routes: [], items: [] },
-  { key: "home", labelKey: "nav.home", routes: ["/home"], items: ["hero", "dashboard"] },
-  { key: "library", labelKey: "nav.library", routes: ["/library"], items: ["hero", "filters"] },
-  { key: "game", labelKey: "settings.interface.studioPageGame", routes: ["/library/"], items: ["kpis"] },
-  { key: "store", labelKey: "nav.store", routes: ["/store"], items: ["hero", "filters"] },
-  { key: "wishlist", labelKey: "nav.wishlist", routes: ["/wishlist"], items: ["filters"] },
-  { key: "deals", labelKey: "nav.deals", routes: ["/deals"], items: ["hero"] },
-  { key: "news", labelKey: "nav.news", routes: ["/news"], items: ["hero", "filters"] },
-  { key: "activity", labelKey: "nav.activity", routes: ["/activity"], items: ["filters", "subtabs"] },
-  { key: "achievements", labelKey: "nav.achievements", routes: ["/achievements"], items: ["dashboard"] },
-  { key: "downloads", labelKey: "nav.downloads", routes: ["/downloads"], items: ["dashboard"] },
-  { key: "storage", labelKey: "nav.storage", routes: ["/storage"], items: ["kpis", "filters", "dashboard"] },
-  { key: "community", labelKey: "nav.community", routes: ["/community"], items: ["subtabs"] },
-  { key: "friends", labelKey: "nav.friends", routes: ["/friends"], items: ["kpis", "subtabs"] },
-  { key: "emulators", labelKey: "nav.emulators", routes: ["/emulators"], items: ["filters", "dashboard"] },
-  { key: "mods", labelKey: "nav.mods", routes: ["/mods"], items: ["dashboard"] },
+  {
+    key: "home",
+    labelKey: "nav.home",
+    routes: ["/home"],
+    items: [
+      "hero",
+      "homeQuickStats",
+      "homeContinuePlaying",
+      "homeRecentlyAdded",
+      "homeQuickLaunch",
+      "homeActivity",
+      "homeAchievements",
+      "homeFriends",
+      "homeDownloads",
+      "homeWishlist",
+      "homeDeals",
+      "homeNews",
+    ],
+  },
+  {
+    key: "library",
+    labelKey: "nav.library",
+    routes: ["/library"],
+    items: [
+      "hero",
+      "libContinuePlaying",
+      "libRecentlyAdded",
+      "libToolbar",
+      "libFilterChips",
+      "libPresets",
+      "libFilterRail",
+      "libGrid",
+    ],
+  },
+  {
+    key: "game",
+    labelKey: "settings.interface.studioPageGame",
+    routes: ["/library/"],
+    items: [
+      "gameHero",
+      "gameTabs",
+      "gameQuickStats",
+      "gameAbout",
+      "gameStoryline",
+      "gameMedia",
+      "gameSysReq",
+      "gameRelations",
+      "gamePulse",
+      "gameSidebarKpis",
+      "gameSpecs",
+    ],
+  },
+  {
+    key: "store",
+    labelKey: "nav.store",
+    routes: ["/store"],
+    items: [
+      "storeHeader",
+      "hero",
+      "storeFilters",
+      "storeToolbar",
+      "storeGrid",
+    ],
+  },
+  {
+    key: "wishlist",
+    labelKey: "nav.wishlist",
+    routes: ["/wishlist"],
+    items: [
+      "wishlistHeader",
+      "wishlistToolbar",
+      "filters",
+      "wishlistGrid",
+    ],
+  },
+  {
+    key: "deals",
+    labelKey: "nav.deals",
+    routes: ["/deals"],
+    items: [
+      "dealsHeader",
+      "hero",
+      "subtabs",
+      "dealsGrid",
+    ],
+  },
+  {
+    key: "news",
+    labelKey: "nav.news",
+    routes: ["/news"],
+    items: [
+      "newsHeader",
+      "hero",
+      "newsToolbar",
+      "filters",
+      "newsGrid",
+    ],
+  },
+  {
+    key: "activity",
+    labelKey: "nav.activity",
+    routes: ["/activity"],
+    items: [
+      "activityHeader",
+      "activityToolbar",
+      "activityKpis",
+      "activityPersona",
+      "activityRecords",
+      "activityChart",
+      "activityInsights",
+      "activityBacklog",
+      "activityBreakdown",
+    ],
+  },
+  {
+    key: "achievements",
+    labelKey: "nav.achievements",
+    routes: ["/achievements"],
+    items: [
+      "achievementsHeader",
+      "achievementsHero",
+      "achievementsCharts",
+      "achievementsSourceBreakdown",
+      "achievementsShelves",
+      "achievementsList",
+    ],
+  },
+  {
+    key: "downloads",
+    labelKey: "nav.downloads",
+    routes: ["/downloads"],
+    items: [
+      "downloadsHeader",
+      "downloadsHero",
+      "downloadsSparkline",
+      "downloadsFilter",
+      "downloadsQueue",
+    ],
+  },
+  {
+    key: "storage",
+    labelKey: "nav.storage",
+    routes: ["/storage"],
+    items: [
+      "storageHeader",
+      "storageHero",
+      "storageControls",
+      "storageList",
+    ],
+  },
+  {
+    key: "community",
+    labelKey: "nav.community",
+    routes: ["/community"],
+    items: [
+      "communityHeader",
+      "communityTabs",
+      "communityContent",
+    ],
+  },
+  {
+    key: "friends",
+    labelKey: "nav.friends",
+    routes: ["/friends"],
+    items: [
+      "friendsHeader",
+      "friendsHero",
+      "friendsTabs",
+    ],
+  },
+  {
+    key: "emulators",
+    labelKey: "nav.emulators",
+    routes: ["/emulators"],
+    items: [
+      "emuHeader",
+      "emuStats",
+      "emuSidebar",
+      "emuDetail",
+    ],
+  },
+  {
+    key: "mods",
+    labelKey: "nav.mods",
+    routes: ["/mods"],
+    items: [
+      "modsHeader",
+      "modsCockpit",
+      "modsRail",
+      "modsWorkspace",
+    ],
+  },
 ];
 
 /** Page key → default widget order. Derived from the registry above. */

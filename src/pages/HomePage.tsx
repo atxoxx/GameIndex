@@ -93,37 +93,37 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      {/* 1. Cinematic Multi-Candidate Spotlight Hero. In Simple mode the
-          dense spotlight is replaced by a compact friendly header with a
-          single clear action, so a new user sees an obvious first step. */}
-      {isSimpleUi ? (
-        <header className="home-simple-header">
-          <h1 className="home-simple-title">{t("home.simple.title")}</h1>
-          <p className="home-simple-subtitle">{t("home.simple.subtitle")}</p>
-          <div className="home-simple-actions">
-            <button
-              type="button"
-              className="home-simple-btn home-simple-btn--primary"
-              onClick={() => navigate("/store")}
-            >
-              {t("home.simple.browseStore")}
-            </button>
-            <button
-              type="button"
-              className="home-simple-btn"
-              onClick={() => navigate("/library")}
-            >
-              {t("home.simple.yourLibrary")}
-            </button>
-          </div>
-        </header>
-      ) : (
-        <HomeHero games={games} onOpenGame={openGame} />
-      )}
+      {/* 1. Cinematic Multi-Candidate Spotlight Hero */}
+      <div className="ui-item-hero">
+        {isSimpleUi ? (
+          <header className="home-simple-header">
+            <h1 className="home-simple-title">{t("home.simple.title")}</h1>
+            <p className="home-simple-subtitle">{t("home.simple.subtitle")}</p>
+            <div className="home-simple-actions">
+              <button
+                type="button"
+                className="home-simple-btn home-simple-btn--primary"
+                onClick={() => navigate("/store")}
+              >
+                {t("home.simple.browseStore")}
+              </button>
+              <button
+                type="button"
+                className="home-simple-btn"
+                onClick={() => navigate("/library")}
+              >
+                {t("home.simple.yourLibrary")}
+              </button>
+            </div>
+          </header>
+        ) : (
+          <HomeHero games={games} onOpenGame={openGame} />
+        )}
+      </div>
 
       {/* 2. Glanceable Quick Stats Bar */}
       {sectionsConfig.quickStats && !isEmpty && (
-        <div className="ui-complete-only ui-item-dashboard">
+        <div className="ui-complete-only ui-item-homeQuickStats">
           <HomeQuickStats />
         </div>
       )}
@@ -150,28 +150,60 @@ export default function HomePage() {
       <div className="home-dashboard">
         {/* Left Sidebar: Quick Launch, Activity, Achievements, Friends */}
         <aside className="home-dashboard__sidebar">
-          {sectionsConfig.quickLaunch && !isEmpty && <HomeQuickLaunch />}
-          <div className="ui-complete-only ui-item-dashboard">
-            {sectionsConfig.activity && <HomeActivityRecap />}
-            {sectionsConfig.achievements && <HomeAchievements />}
-            {sectionsConfig.friends && <HomeFriendsFeed />}
-          </div>
+          {sectionsConfig.quickLaunch && !isEmpty && (
+            <div className="ui-item-homeQuickLaunch">
+              <HomeQuickLaunch />
+            </div>
+          )}
+          {sectionsConfig.activity && (
+            <div className="ui-complete-only ui-item-homeActivity">
+              <HomeActivityRecap />
+            </div>
+          )}
+          {sectionsConfig.achievements && (
+            <div className="ui-complete-only ui-item-homeAchievements">
+              <HomeAchievements />
+            </div>
+          )}
+          {sectionsConfig.friends && (
+            <div className="ui-complete-only ui-item-homeFriends">
+              <HomeFriendsFeed />
+            </div>
+          )}
         </aside>
 
         {/* Right Main Column: Rails, Downloads, Discovery */}
         <div className="home-dashboard__main">
           {sectionsConfig.continuePlaying && !isEmpty && (
-            <ContinuePlayingRail games={games} onCardClick={openGame} />
+            <div className="ui-item-homeContinuePlaying">
+              <ContinuePlayingRail games={games} onCardClick={openGame} />
+            </div>
           )}
           {sectionsConfig.recentlyAdded && !isEmpty && games.length >= 4 && (
-            <RecentlyAddedRail games={games} onCardClick={openGame} />
+            <div className="ui-item-homeRecentlyAdded">
+              <RecentlyAddedRail games={games} onCardClick={openGame} />
+            </div>
           )}
-          {sectionsConfig.downloads && <HomeDownloads />}
-          <div className="ui-complete-only ui-item-dashboard">
-            {sectionsConfig.wishlist && <HomeWishlistRail />}
-            {sectionsConfig.deals && <HomeDealsRail onInspect={handleInspectDeal} />}
-            {sectionsConfig.news && <HomeNewsRail onSelectArticle={handleSelectArticle} />}
-          </div>
+          {sectionsConfig.downloads && (
+            <div className="ui-item-homeDownloads">
+              <HomeDownloads />
+            </div>
+          )}
+          {sectionsConfig.wishlist && (
+            <div className="ui-complete-only ui-item-homeWishlist">
+              <HomeWishlistRail />
+            </div>
+          )}
+          {sectionsConfig.deals && (
+            <div className="ui-complete-only ui-item-homeDeals">
+              <HomeDealsRail onInspect={handleInspectDeal} />
+            </div>
+          )}
+          {sectionsConfig.news && (
+            <div className="ui-complete-only ui-item-homeNews">
+              <HomeNewsRail onSelectArticle={handleSelectArticle} />
+            </div>
+          )}
         </div>
       </div>
 

@@ -115,7 +115,9 @@ export default function StorePage() {
         c.bulkMode || c.compareGames.length > 0 ? " store-page--docked" : ""
       }`}
     >
-      <StoreHeader catalogue={c} />
+      <div className="ui-item-storeHeader">
+        <StoreHeader catalogue={c} />
+      </div>
 
       {/* Featured Spotlight Showcase */}
       <div className="fade-up ui-complete-only ui-item-hero" style={{ "--d": "120ms" } as CSSProperties}>
@@ -123,31 +125,37 @@ export default function StorePage() {
       </div>
 
       <div className="store-layout store-layout-in" style={{ "--d": "200ms" } as CSSProperties}>
-        <StoreFilterPanel catalogue={c} />
+        <div className="ui-item-storeFilters" style={{ display: "contents" }}>
+          <StoreFilterPanel catalogue={c} />
+        </div>
 
         <div className="store-main">
-          <StoreToolbar catalogue={c} />
+          <div className="ui-item-storeToolbar">
+            <StoreToolbar catalogue={c} />
+          </div>
 
-          <StoreGameGrid
-            games={c.displayedGames}
-            loading={c.loading}
-            error={c.error}
-            hasMore={c.hasMore}
-            onLoadMore={c.loadMore}
-            onCardClick={c.onCardClick}
-            isSourceFilterActive={c.isSourceFilterActive}
-            isSourceCheckPending={c.sourceChecksPending > 0}
-            isInLibrary={c.isInLibrary}
-            onHide={c.onHide}
-            onCompare={c.toggleCompare}
-            compareSlugs={c.compareSlugs}
-            bulkMode={c.bulkMode}
-            selectedSlugs={c.selectedSlugs}
-            onToggleSelect={c.toggleSelect}
-            onClearFilters={c.resetFilters}
-            onClearSearch={() => c.applyExternalQuery("")}
-            onCardHover={setStoreCardHover}
-          />
+          <div className="ui-item-storeGrid">
+            <StoreGameGrid
+              games={c.displayedGames}
+              loading={c.loading}
+              error={c.error}
+              hasMore={c.hasMore}
+              onLoadMore={c.loadMore}
+              onCardClick={c.onCardClick}
+              isSourceFilterActive={c.isSourceFilterActive}
+              isSourceCheckPending={c.sourceChecksPending > 0}
+              isInLibrary={c.isInLibrary}
+              onHide={c.onHide}
+              onCompare={c.toggleCompare}
+              compareSlugs={c.compareSlugs}
+              bulkMode={c.bulkMode}
+              selectedSlugs={c.selectedSlugs}
+              onToggleSelect={c.toggleSelect}
+              onClearFilters={c.resetFilters}
+              onClearSearch={() => c.applyExternalQuery("")}
+              onCardHover={setStoreCardHover}
+            />
+          </div>
         </div>
 
         {c.bulkMode && (

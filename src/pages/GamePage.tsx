@@ -337,28 +337,34 @@ function GameDetail({ game }: { game: Game }) {
       </div>
 
       {/* Hero Banner */}
-      <GameHero
-        game={game}
-        steamAppId={heroSteamAppId}
-        onLaunch={handleLaunch}
-      />
+      <div className="ui-item-gameHero">
+        <GameHero
+          game={game}
+          steamAppId={heroSteamAppId}
+          onLaunch={handleLaunch}
+        />
+      </div>
 
       {/* Sticky Segmented Tabs with Sliding Indicator */}
-      <GameTabs
-        tabs={tabs}
-        activeTab={effectiveTab}
-        onChange={handleTabChange}
-      />
+      <div className="ui-item-gameTabs">
+        <GameTabs
+          tabs={tabs}
+          activeTab={effectiveTab}
+          onChange={handleTabChange}
+        />
+      </div>
 
       {/* Tab Content Panels */}
       {effectiveTab === "overview" && (
         <>
           {/* Overview Quick Stats Command Bar */}
-          <GameQuickStatsBar
-            game={game}
-            steamAppId={heroSteamAppId}
-            sizeUnit={sizeUnit}
-          />
+          <div className="ui-item-gameQuickStats">
+            <GameQuickStatsBar
+              game={game}
+              steamAppId={heroSteamAppId}
+              sizeUnit={sizeUnit}
+            />
+          </div>
 
           <div className="game-content-grid">
             <div className="game-main-col">
@@ -381,26 +387,32 @@ function GameDetail({ game }: { game: Game }) {
               />
 
               {/* 1. About & Story Synopsis */}
-              <AboutSection game={game} />
+              <div className="ui-item-gameAbout">
+                <AboutSection game={game} />
+              </div>
               
-              <div className="ui-complete-only">
+              <div className="ui-complete-only ui-item-gameStoryline">
                 <StorylineSection game={game} />
               </div>
 
               {/* 2. Interactive Media Showcase */}
-              <GameMediaSpotlight
-                game={game}
-                onOpenLightbox={handleOpenScreenshot}
-                steamAppId={heroSteamAppId}
-              />
+              <div className="ui-item-gameMedia">
+                <GameMediaSpotlight
+                  game={game}
+                  onOpenLightbox={handleOpenScreenshot}
+                  steamAppId={heroSteamAppId}
+                />
+              </div>
 
               {/* 3. Hardware & System Requirements */}
               {detailSectionVisible.systemRequirements && (
-                <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
+                <div className="ui-item-gameSysReq">
+                  <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
+                </div>
               )}
 
               {/* 4. Franchise & Similar Games */}
-              <div className="ui-complete-only">
+              <div className="ui-complete-only ui-item-gameRelations">
                 {detailSectionVisible.gameRelations && (
                   <GameRelationsCard
                     mode="library"
@@ -417,13 +429,15 @@ function GameDetail({ game }: { game: Game }) {
             <div className="game-side-col">
               {/* Personal Play Pulse */}
               {detailSectionVisible.activity && (
-                <GameActivityPulseCard
-                  game={game}
-                  onNavigateTab={(tab) => handleTabChange(tab)}
-                />
+                <div className="ui-item-gamePulse">
+                  <GameActivityPulseCard
+                    game={game}
+                    onNavigateTab={(tab) => handleTabChange(tab)}
+                  />
+                </div>
               )}
 
-              <div className="side-group">
+              <div className="side-group ui-item-gameSidebarKpis">
                 <InfoKpiCard
                   game={game}
                   sizeUnit={sizeUnit}
@@ -438,14 +452,14 @@ function GameDetail({ game }: { game: Game }) {
                 <RatingsKpiCard game={game} />
                 {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
               </div>
-              <div className="side-group ui-complete-only ui-item-kpis">
+              <div className="side-group ui-complete-only ui-item-gameSpecs">
                 <SpecsCard game={game} />
                 {showDeckVerified && detailSectionVisible.protonDb && (
                   <ProtonDBCard steamAppId={game.steamAppId} />
                 )}
                 <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
               </div>
-              <div className="side-group ui-complete-only ui-item-kpis">
+              <div className="side-group ui-complete-only ui-item-gameSpecs">
                 {detailSectionVisible.releases && <ReleasesCard game={game} />}
                 <LanguagesSection game={game} />
               </div>

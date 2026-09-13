@@ -277,41 +277,43 @@ export default function WishlistPage() {
 
   return (
     <div className="wishlist-page page">
-      <PageHeader
-        eyebrow={t("wishlist.eyebrow")}
-        title={t("wishlist.title")}
-        description={t("wishlist.description")}
-        icon={
-          <svg
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-          </svg>
-        }
-        actions={
-          <>
-            <span className="wishlist-page-count">
-              {wishlist.length === 0
-                ? t("wishlist.empty")
-                : t("wishlist.gamesCount", { count: wishlist.length, plural: wishlist.length !== 1 ? "s" : "" })}
-            </span>
-            {wishlist.length > 0 && (
-                <button
-                  type="button"
-                  className="wishlist-clear-btn"
-                  onClick={() => setConfirmClear(true)}
-                >
-                  {t("wishlist.clearAll")}
-                </button>
-            )}
-          </>
-        }
-      />
+      <div className="ui-item-wishlistHeader">
+        <PageHeader
+          eyebrow={t("wishlist.eyebrow")}
+          title={t("wishlist.title")}
+          description={t("wishlist.description")}
+          icon={
+            <svg
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+          }
+          actions={
+            <>
+              <span className="wishlist-page-count">
+                {wishlist.length === 0
+                  ? t("wishlist.empty")
+                  : t("wishlist.gamesCount", { count: wishlist.length, plural: wishlist.length !== 1 ? "s" : "" })}
+              </span>
+              {wishlist.length > 0 && (
+                  <button
+                    type="button"
+                    className="wishlist-clear-btn"
+                    onClick={() => setConfirmClear(true)}
+                  >
+                    {t("wishlist.clearAll")}
+                  </button>
+              )}
+            </>
+          }
+        />
+      </div>
 
       {wishlist.length === 0 ? (
         <div
@@ -368,7 +370,7 @@ export default function WishlistPage() {
       ) : (
         <>
           {/* ── Toolbar ─────────────────────────────────────────────── */}
-          <div className="wishlist-toolbar">
+          <div className="wishlist-toolbar ui-item-wishlistToolbar">
             <div className="wishlist-search">
               <svg
                 viewBox="0 0 24 24"
@@ -559,7 +561,7 @@ export default function WishlistPage() {
             </button>
             </div>
           ) : (
-            <div className="wishlist-page-grid">
+            <div className="wishlist-page-grid ui-item-wishlistGrid">
               {visible.map((entry) => (
                 <WishlistCard
                   key={entry.slug}

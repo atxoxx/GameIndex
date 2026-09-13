@@ -324,74 +324,86 @@ export default function LibraryPage() {
 
   return (
     <div className="lib-page">
-      <div className="lib-hero-stack ui-complete-only ui-item-hero">
-        <LibraryHero
-          games={games}
-          activeStatus={filters.status}
-          activePlayStatus={filters.playStatus}
-          onFilterStatus={setStatus}
-          onFilterPlayStatus={setPlayStatus}
-          onCardClick={handleCardClick}
-        />
+      <div className="lib-hero-stack ui-complete-only">
+        <div className="ui-item-hero">
+          <LibraryHero
+            games={games}
+            activeStatus={filters.status}
+            activePlayStatus={filters.playStatus}
+            onFilterStatus={setStatus}
+            onFilterPlayStatus={setPlayStatus}
+            onCardClick={handleCardClick}
+          />
+        </div>
 
-        {!isLibraryEmpty && <ContinuePlayingRail games={games} onCardClick={handleCardClick} />}
+        {!isLibraryEmpty && (
+          <div className="ui-item-libContinuePlaying">
+            <ContinuePlayingRail games={games} onCardClick={handleCardClick} />
+          </div>
+        )}
 
         {!isLibraryEmpty && games.length >= 4 && (
-          <RecentlyAddedRail games={games} onCardClick={handleCardClick} />
+          <div className="ui-item-libRecentlyAdded">
+            <RecentlyAddedRail games={games} onCardClick={handleCardClick} />
+          </div>
         )}
       </div>
 
       {!isLibraryEmpty && (
-        <LibraryToolbar
-          title={toolbarTitle}
-          count={toolbarCount}
-          countActive={hasFilters}
-          search={filters.search}
-          onSearchChange={setSearch}
-          selectedGenres={filters.genres}
-          selectedPlatforms={filters.platforms}
-          availableGenres={availableGenres}
-          availablePlatforms={availablePlatforms}
-          onGenresChange={setGenres}
-          onPlatformsChange={setPlatforms}
-          sort={filters.sort}
-          onSortChange={setSort}
-          groupBy={groupBy}
-          onGroupByChange={setGroupBy}
-          density={density}
-          onDensityChange={setDensity}
-          bulkMode={bulkMode}
-          onToggleBulkMode={() => {
-            setBulkMode(!bulkMode);
-            clearSelection();
-          }}
-          onExport={() => setExportOpen(true)}
-          onToggleFilters={() => setFiltersOpen(!filtersOpen)}
-          filtersOpen={filtersOpen}
-          activeFilterCount={activeFilterCount}
-        />
+        <div className="ui-item-libToolbar">
+          <LibraryToolbar
+            title={toolbarTitle}
+            count={toolbarCount}
+            countActive={hasFilters}
+            search={filters.search}
+            onSearchChange={setSearch}
+            selectedGenres={filters.genres}
+            selectedPlatforms={filters.platforms}
+            availableGenres={availableGenres}
+            availablePlatforms={availablePlatforms}
+            onGenresChange={setGenres}
+            onPlatformsChange={setPlatforms}
+            sort={filters.sort}
+            onSortChange={setSort}
+            groupBy={groupBy}
+            onGroupByChange={setGroupBy}
+            density={density}
+            onDensityChange={setDensity}
+            bulkMode={bulkMode}
+            onToggleBulkMode={() => {
+              setBulkMode(!bulkMode);
+              clearSelection();
+            }}
+            onExport={() => setExportOpen(true)}
+            onToggleFilters={() => setFiltersOpen(!filtersOpen)}
+            filtersOpen={filtersOpen}
+            activeFilterCount={activeFilterCount}
+          />
+        </div>
       )}
 
       {!isLibraryEmpty && (
-        <LibraryFilterChips
-          filters={filters}
-          resultCount={filteredGames.length}
-          onRemoveSearch={removeSearch}
-          onRemoveGenre={removeGenre}
-          onRemovePlatform={removePlatform}
-          onRemoveYear={removeYear}
-          onRemoveRating={removeRating}
-          onRemoveStatus={removeStatus}
-          onRemovePlayStatus={removePlayStatus}
-          onRemoveSource={removeSource}
-          onResetAll={reset}
-        />
+        <div className="ui-item-libFilterChips">
+          <LibraryFilterChips
+            filters={filters}
+            resultCount={filteredGames.length}
+            onRemoveSearch={removeSearch}
+            onRemoveGenre={removeGenre}
+            onRemovePlatform={removePlatform}
+            onRemoveYear={removeYear}
+            onRemoveRating={removeRating}
+            onRemoveStatus={removeStatus}
+            onRemovePlayStatus={removePlayStatus}
+            onRemoveSource={removeSource}
+            onResetAll={reset}
+          />
+        </div>
       )}
 
       {/* Saved Presets — minimal chip row using existing styles */}
       {!isLibraryEmpty && (
         <div
-          className="lib-chips ui-complete-only ui-item-filters"
+          className="lib-chips ui-complete-only ui-item-libPresets"
           style={{ marginTop: "8px", flexWrap: "wrap" } as React.CSSProperties}
           aria-label={t("library.presets.title")}
         >
@@ -445,9 +457,11 @@ export default function LibraryPage() {
         <LibraryEmptyState />
       ) : (
         <div className="lib-layout">
-          <LibraryFilterRail collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}>
-            <LibraryFilterSidebar {...sidebarProps} />
-          </LibraryFilterRail>
+          <div className="ui-item-libFilterRail" style={{ display: "contents" }}>
+            <LibraryFilterRail collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}>
+              <LibraryFilterSidebar {...sidebarProps} />
+            </LibraryFilterRail>
+          </div>
 
           {/* Left-side overlay for compact widths; toggled from the toolbar */}
           {createPortal(
@@ -487,7 +501,7 @@ export default function LibraryPage() {
             document.body
           )}
 
-          <div className="lib-main">
+          <div className="lib-main ui-item-libGrid">
             {filteredGames.length === 0 ? (
               <LibraryFilteredEmpty onReset={reset} />
             ) : (
