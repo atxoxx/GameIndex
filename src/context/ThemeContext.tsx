@@ -39,6 +39,61 @@ export interface ThemeConfig {
   mode?: CustomThemeMode;
 }
 
+export type UiStyleId = "classic" | "materialyou" | "steam" | "epic" | "modern" | "liquidglass";
+
+export interface UiStyleConfig {
+  id: UiStyleId;
+  name: string;
+  badge: string;
+  desc: string;
+  themeId: string;
+}
+
+export const UI_STYLES: UiStyleConfig[] = [
+  {
+    id: "classic",
+    name: "Classic",
+    badge: "Default",
+    desc: "Original balanced gaming aesthetic with tactile borders and clean geometry.",
+    themeId: "dark",
+  },
+  {
+    id: "materialyou",
+    name: "Material You 3",
+    badge: "M3 Expressive",
+    desc: "Tonal container surfaces, hyper-rounded pills, and soft elevation.",
+    themeId: "materialyou",
+  },
+  {
+    id: "steam",
+    name: "Steam Client",
+    badge: "Valve Gaming",
+    desc: "Industrial charcoal-navy, linear gradient header, and boxy cyan buttons.",
+    themeId: "steam",
+  },
+  {
+    id: "epic",
+    name: "Epic Launcher",
+    badge: "Stealth Flat",
+    desc: "Flat obsidian slabs, sharp micro-radii, and bold uppercase action buttons.",
+    themeId: "epic",
+  },
+  {
+    id: "modern",
+    name: "Neo-Modern",
+    badge: "Studio Minimal",
+    desc: "Hairline 1px precision borders, zinc-950 canvas, and top spotlight wash.",
+    themeId: "modern",
+  },
+  {
+    id: "liquidglass",
+    name: "Liquid Glass",
+    badge: "Frosted Acrylic",
+    desc: "Translucent frosted glass layers floating over an iridescent aurora mesh.",
+    themeId: "liquidglass",
+  },
+];
+
 /** Well-known built-in themes. */
 const BUILTIN_THEMES: ThemeConfig[] = [
   {
@@ -47,7 +102,27 @@ const BUILTIN_THEMES: ThemeConfig[] = [
   },
   {
     id: "dark",
-    meta: { name: "Default Dark", descriptor: "vibrant" },
+    meta: { name: "Classic", descriptor: "vibrant" },
+  },
+  {
+    id: "materialyou",
+    meta: { name: "Material You 3", descriptor: "vibrant" },
+  },
+  {
+    id: "steam",
+    meta: { name: "Steam Client", descriptor: "vibrant" },
+  },
+  {
+    id: "epic",
+    meta: { name: "Epic Launcher", descriptor: "minimal" },
+  },
+  {
+    id: "modern",
+    meta: { name: "Neo-Modern", descriptor: "minimal" },
+  },
+  {
+    id: "liquidglass",
+    meta: { name: "Liquid Glass", descriptor: "vibrant" },
   },
   {
     id: "light",
@@ -126,13 +201,14 @@ const BUILTIN_THEMES: ThemeConfig[] = [
 const STORAGE_KEY = "gamelib-theme";
 const SYSTEM_SYNC_KEY = "gamelib-theme-system-sync";
 const CUSTOM_THEMES_KEY = "gamelib-custom-themes";
+const UI_STYLE_STORAGE_KEY = "gamelib-ui-style";
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function loadThemes(): ThemeConfig[] {
+function loadCustomThemes(): ThemeConfig[] {
   try {
     const raw = localStorage.getItem(CUSTOM_THEMES_KEY);
-    if (!raw) return [...BUILTIN_THEMES];
+    if (!raw) return [];
     const parsed: Array<{ id?: string; meta?: ThemeMeta; colors?: unknown; mode?: string }> =
       JSON.parse(raw);
     const custom: ThemeConfig[] = [];
@@ -146,14 +222,18 @@ function loadThemes(): ThemeConfig[] {
         mode: entry.mode === "light" || entry.mode === "dark" ? entry.mode : detectMode(colors),
       });
     }
-    return [...BUILTIN_THEMES, ...custom];
+    return custom;
   } catch {
-    return [...BUILTIN_THEMES];
+    return [];
   }
 }
 
 function applyTheme(themeId: string) {
   document.documentElement.setAttribute("data-theme", themeId);
+}
+
+function applyUiStyle(styleId: string) {
+  document.documentElement.setAttribute("data-ui-style", styleId);
 }
 
 function resolveSystemTheme(): "dark" | "light" {
@@ -196,6 +276,10 @@ interface ThemeContextValue {
   systemSync: boolean;
   /** Toggle system preference sync. */
   setSystemSync: (on: boolean) => void;
+  /** Currently active overall UI style id. */
+  uiStyle: UiStyleId;
+  /** Switch to a UI style by id. Persisted to localStorage. */
+  setUiStyle: (styleId: UiStyleId) => void;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -210,7 +294,9 @@ const ThemeContext =
 // ── Provider ───────────────────────────────────────────────────────────
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [themes, setThemes] = useState<ThemeConfig[]>(loadThemes);
+  const [customThemes, setCustomThemes] = useState<ThemeConfig[]>(loadCustomThemes);
+  const themes = useMemo(() => [...BUILTIN_THEMES, ...customThemes], [customThemes]);
+
   const [systemSync, setSystemSyncState] = useState<boolean>(() => {
     try {
       return localStorage.getItem(SYSTEM_SYNC_KEY) === "true";
@@ -227,10 +313,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  const [uiStyle, setUiStyleState] = useState<UiStyleId>(() => {
+    try {
+      const saved = localStorage.getItem(UI_STYLE_STORAGE_KEY) as UiStyleId;
+      if (saved && UI_STYLES.some((s) => s.id === saved)) return saved;
+      return "classic";
+    } catch {
+      return "classic";
+    }
+  });
+
   // Apply theme on mount and on change
   useEffect(() => {
     applyTheme(currentTheme);
   }, [currentTheme]);
+
+  // Apply UI style on mount and on change
+  useEffect(() => {
+    applyUiStyle(uiStyle);
+  }, [uiStyle]);
 
   // Custom themes live in localStorage, not in themes.css, so their token
   // blocks are generated and injected as a single runtime stylesheet.
@@ -293,6 +394,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const setUiStyle = useCallback(
+    (styleId: UiStyleId) => {
+      setUiStyleState(styleId);
+      try {
+        localStorage.setItem(UI_STYLE_STORAGE_KEY, styleId);
+      } catch {
+        /* ignore */
+      }
+    },
+    []
+  );
+
   const setSystemSync = useCallback(
     (on: boolean) => {
       setSystemSyncState(on);
@@ -315,7 +428,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 
   const addCustomTheme = useCallback((theme: ThemeConfig) => {
-    setThemes((prev) => {
+    setCustomThemes((prev) => {
       const filtered = prev.filter((t) => t.id !== theme.id);
       const next = [...filtered, { ...theme, meta: { ...theme.meta, isCustom: true } }];
       persistCustomThemes(next);
@@ -326,7 +439,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const removeCustomTheme = useCallback((themeId: string) => {
     // Never remove builtins
     if (BUILTIN_THEMES.some((b) => b.id === themeId)) return;
-    setThemes((prev) => {
+    setCustomThemes((prev) => {
       const next = prev.filter((t) => t.id !== themeId);
       persistCustomThemes(next);
       return next;
@@ -346,8 +459,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       removeCustomTheme,
       systemSync,
       setSystemSync,
+      uiStyle,
+      setUiStyle,
     }),
-    [currentTheme, setTheme, themes, addCustomTheme, removeCustomTheme, systemSync, setSystemSync]
+    [currentTheme, setTheme, themes, addCustomTheme, removeCustomTheme, systemSync, setSystemSync, uiStyle, setUiStyle]
   );
 
   return (

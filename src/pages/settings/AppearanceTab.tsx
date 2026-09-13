@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { useTheme, type ThemeConfig, type ThemeDescriptor } from "../../context/ThemeContext";
+import { useTheme, UI_STYLES, type ThemeConfig, type ThemeDescriptor, type UiStyleId } from "../../context/ThemeContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay } from "lucide-react";
+import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay, LayoutTemplate } from "lucide-react";
 import { Button, ConfirmModal } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -26,6 +26,11 @@ import {
 const THEME_PREVIEW_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
   adaptive:    { bg: "#07070d", text: "#f5f6fc", accent: "#7c66ff" },
   dark:        { bg: "#08090c", text: "#f3f5fa", accent: "#635bff" },
+  materialyou: { bg: "#141218", text: "#e6e1e5", accent: "#d0bcff" },
+  steam:       { bg: "#10151d", text: "#ebeef2", accent: "#66c0f4" },
+  epic:        { bg: "#121212", text: "#f5f5f5", accent: "#0078f2" },
+  modern:      { bg: "#09090b", text: "#fafafa", accent: "#6366f1" },
+  liquidglass: { bg: "#070913", text: "#ffffff", accent: "#00f0ff" },
   light:       { bg: "#f2f5f9", text: "#0f172a", accent: "#6d28d9" },
   nord:        { bg: "#242933", text: "#eceff4", accent: "#88c0d0" },
   cyberpunk:   { bg: "#050508", text: "#f8fafd", accent: "#00f0ff" },
@@ -91,8 +96,60 @@ function getDescriptorLabel(descriptor: ThemeDescriptor, t: (k: string) => strin
   }
 }
 
+function getUiStyleInfo(
+  id: UiStyleId,
+  fallback: (typeof UI_STYLES)[number],
+  t: (k: string) => string,
+) {
+  switch (id) {
+    case "classic":
+      return {
+        name: t("settings.uiStyle.classic.name"),
+        badge: t("settings.uiStyle.classic.badge"),
+        desc: t("settings.uiStyle.classic.desc"),
+      };
+    case "materialyou":
+      return {
+        name: t("settings.uiStyle.materialyou.name"),
+        badge: t("settings.uiStyle.materialyou.badge"),
+        desc: t("settings.uiStyle.materialyou.desc"),
+      };
+    case "steam":
+      return {
+        name: t("settings.uiStyle.steam.name"),
+        badge: t("settings.uiStyle.steam.badge"),
+        desc: t("settings.uiStyle.steam.desc"),
+      };
+    case "epic":
+      return {
+        name: t("settings.uiStyle.epic.name"),
+        badge: t("settings.uiStyle.epic.badge"),
+        desc: t("settings.uiStyle.epic.desc"),
+      };
+    case "modern":
+      return {
+        name: t("settings.uiStyle.modern.name"),
+        badge: t("settings.uiStyle.modern.badge"),
+        desc: t("settings.uiStyle.modern.desc"),
+      };
+    case "liquidglass":
+      return {
+        name: t("settings.uiStyle.liquidglass.name"),
+        badge: t("settings.uiStyle.liquidglass.badge"),
+        desc: t("settings.uiStyle.liquidglass.desc"),
+      };
+    default:
+      return {
+        name: fallback.name,
+        badge: fallback.badge,
+        desc: fallback.desc,
+      };
+  }
+}
+
+
 export default function AppearanceTab() {
-  const { currentTheme, setTheme, themes, systemSync, setSystemSync, removeCustomTheme, addCustomTheme } = useTheme();
+  const { currentTheme, setTheme, themes, uiStyle, setUiStyle, systemSync, setSystemSync, removeCustomTheme, addCustomTheme } = useTheme();
   const {
     accentColor,
     setAccentColor,
@@ -121,6 +178,11 @@ export default function AppearanceTab() {
   } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
+  const colorThemes = useMemo(
+    () => themes.filter((th) => !["materialyou", "steam", "epic", "modern", "liquidglass"].includes(th.id)),
+    [themes]
+  );
+
   const accentSwatches = useMemo(
     () =>
       ACCENT_PRESETS.map((p) => ({
@@ -134,6 +196,12 @@ export default function AppearanceTab() {
     setTheme(themeId);
     const themeMeta = themes.find((th) => th.id === themeId)?.meta;
     showToast(t("settings.themeChanged", { theme: themeMeta?.name ?? themeId }), "success");
+  }
+
+  function handleStyleSelect(styleId: UiStyleId) {
+    setUiStyle(styleId);
+    const styleName = UI_STYLES.find((s) => s.id === styleId)?.name ?? styleId;
+    showToast(t("settings.themeChanged", { theme: styleName }), "success");
   }
 
   function openCreator() {
@@ -228,10 +296,57 @@ export default function AppearanceTab() {
   return (
     <>
       <SettingsSection
+        id="appearance-ui-styles"
+        icon={<LayoutTemplate size={18} />}
+        title={t("settings.section.appearanceStyles")}
+        desc={t("settings.appearance.stylesDesc")}
+      >
+        <div className="ui-styles-grid">
+          {UI_STYLES.map((style) => {
+            const isActive = uiStyle === style.id;
+            const styleInfo = getUiStyleInfo(style.id, style, t);
+            return (
+              <div
+                key={style.id}
+                className={`ui-style-card${isActive ? " active" : ""}`}
+                onClick={() => handleStyleSelect(style.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleStyleSelect(style.id);
+                  }
+                }}
+                aria-pressed={isActive}
+              >
+                <div className={`ui-style-preview ui-style-preview--${style.id}`}>
+                  <div className={`ui-style-mock ui-style-mock--${style.id}`}>
+                    <span className="ui-style-mock-tag">GameIndex</span>
+                    <span className={`ui-style-mock-pill ui-style-mock-pill--${style.id}`}>
+                      {style.id === "epic" ? "PLAY NOW" : "Play"}
+                    </span>
+                  </div>
+                </div>
+                <div className="ui-style-card-content">
+                  <div className="ui-style-card-header">
+                    <span className="ui-style-card-title">{styleInfo.name}</span>
+                    <span className="ui-style-badge">{styleInfo.badge}</span>
+                  </div>
+                  <span className="ui-style-card-desc">{styleInfo.desc}</span>
+                </div>
+                {isActive && <span className="ui-style-active-pill">{t("settingsPage.active")}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
         id="appearance-themes"
         icon={<PaletteIcon />}
-        title={t("settings.section.appearanceThemes")}
-        desc={t("settings.appearance.desc")}
+        title={t("settings.section.appearanceColors")}
+        desc={t("settings.appearance.colorsDesc")}
         actions={
           <>
             <Button
@@ -262,7 +377,7 @@ export default function AppearanceTab() {
           onChange={handleImportFiles}
         />
         <div className="theme-grid">
-          {themes.map((theme) => {
+          {colorThemes.map((theme) => {
             const isActive = currentTheme === theme.id;
             const colors =
               theme.meta.isCustom && theme.colors

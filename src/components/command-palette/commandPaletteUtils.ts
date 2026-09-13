@@ -14,6 +14,11 @@ const MAX_RECENTS = 25;
 export const THEME_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
   adaptive: { bg: "#07070d", text: "#f5f6fc", accent: "#7c66ff" },
   dark: { bg: "#08090c", text: "#f3f5fa", accent: "#635bff" },
+  materialyou: { bg: "#141218", text: "#e6e1e5", accent: "#d0bcff" },
+  steam: { bg: "#10151d", text: "#ebeef2", accent: "#66c0f4" },
+  epic: { bg: "#121212", text: "#f5f5f5", accent: "#0078f2" },
+  modern: { bg: "#09090b", text: "#fafafa", accent: "#6366f1" },
+  liquidglass: { bg: "#070913", text: "#ffffff", accent: "#00f0ff" },
   light: { bg: "#f8fafc", text: "#0f172a", accent: "#6d28d9" },
   nord: { bg: "#242933", text: "#eceff4", accent: "#88c0d0" },
   cyberpunk: { bg: "#050508", text: "#f8fafd", accent: "#00f0ff" },
