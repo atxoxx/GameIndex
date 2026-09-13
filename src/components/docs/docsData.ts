@@ -23,6 +23,7 @@ import {
   Palette,
   Puzzle,
   Rocket,
+  Search,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -180,6 +181,48 @@ Unlike launcher wrappers that are web wrappers or rely on remote servers, GameIn
 
 > [!TIP]
 > You can also press **\`/\`** while on the Store, Storage, Downloads, or Documentation pages to instantly focus search inputs.`,
+      },
+      {
+        id: "home",
+        categoryId: "getting-started",
+        title: "The Home Dashboard",
+        summary: "Your launch dashboard: spotlight hero, continue playing, quick stats and customizable rails.",
+        badge: "core",
+        icon: LayoutDashboard,
+        keywords: ["home", "dashboard", "hero", "quick stats", "continue playing", "recent", "widgets"],
+        relatedIds: ["layout", "library", "activity"],
+        body: `The **Home** page is GameIndex's dashboard: what you played last, what is downloading and what is worth a look next. It is the default landing page.
+
+## What is on the dashboard
+- **Spotlight hero**: recent games shown large, with a direct route back into your last session.
+- **Quick stats**: library totals and playtime at a glance.
+- **Widgets** in the left column: quick launch, weekly activity, achievements and the friends feed.
+- **Continue playing** and **recently added** rails, so resuming or checking a fresh import takes one click.
+- **Active downloads**, the **wishlist**, **deals** and **news** rails on the right.
+
+## Making it yours
+- Press **Customize** above the dashboard to toggle individual sections on or off.
+- In **Simple UI mode** the dense dashboard is replaced by a short welcome header with **Browse store** and **Your library** buttons.
+- Pick the page that opens on launch in **Settings → Launcher → Landing page**.
+
+> **Tip:** every rail is keyboard- and controller-navigable, so Home is a fine entry point for a couch session too.
+
+## A good daily routine
+- Start on Home and check the continue-playing row; it usually answers "what next" immediately.
+- Glance at recently added after an import, so nothing sits unnamed or without artwork.
+- Watch the downloads rail instead of opening the Downloads page for a single transfer.
+- Keep the wishlist short so the deals and wishlist rails stay useful rather than noisy.`,
+      },
+      {
+        id: "globalsearch",
+        categoryId: "getting-started",
+        title: "Global Search & Quick Find",
+        summary: "Every search surface in the app: the palette trigger, sidebar filtering, per-page search and settings search.",
+        badge: "guide",
+        icon: Search,
+        keywords: ["search", "quick find", "filter", "ctrl+k", "slash", "settings search", "docs search"],
+        relatedIds: ["commandpalette", "store-search", "shortcuts"],
+        body: `GameIndex has several search surfaces, and knowing which one to reach for saves the most time.\n\n## From anywhere\n- **\`Ctrl+K\`** (or **\`Cmd+K\`**) — or the **search button in the top bar** — opens the command palette: games, pages, settings, actions and a calculator in one field.\n- Type a few letters and press \`Enter\`; the palette searches your library, the store and your recent commands together.\n\n## Per-page search\n- **\`/\`** focuses the search field on pages that have one — Store, Storage, Downloads, Documentation and Settings.\n- **Sidebar search** filters the library as you type and keeps working while you scroll.\n- **Settings search** matches tab names, section titles and keywords such as *HDR* or *deadzone*, so you can jump straight to a control.\n- **Documentation search** looks inside every article body, so a single term like *prefix* lands on the full page.\n\n## Getting better results\n- Prefer a distinctive word over a fragment of a sentence; search matches words, not intent.\n- Use the palette to **go** somewhere and page search to **narrow** what is already in front of you.\n- In the Store, search and filters stack, and the resulting combination is shareable as a URL.\n- If a search looks empty, clear the active filters first — a hidden-platform filter can hide good results.\n\n> **Tip:** the palette remembers recent commands, so the second search of the day is usually a two-key affair.`,
       },
     ],
   },
@@ -1680,6 +1723,28 @@ Configure Valve's micro-compositor directly inside GameIndex:
 
 > **Note:** if presence does not appear, make sure the desktop Discord app is running — the web client cannot receive presence.`,
       },
+      {
+        id: "plugins",
+        categoryId: "customization",
+        title: "Plugins & Search Providers",
+        summary: "Importing, trusting and managing community download-search plugins.",
+        badge: "guide",
+        icon: Puzzle,
+        keywords: ["plugins", "extensions", "search providers", "trust gate", "sha256", "javascript"],
+        relatedIds: ["downloads", "interface", "troubleshooting"],
+        body: `Plugins extend GameIndex with community-written download-search providers. They are optional \`.js\` files that you import yourself.\n\n## Installing a plugin\n1. Open **Settings → Plugins**.\n2. Press **Import plugin** and choose a \`.js\` file on disk.\n3. GameIndex reads and validates the file, then shows a **trust gate**: name, description, source URL, the file's SHA-256 hash and a plain-language warning.\n4. Review the details and confirm — nothing is written or enabled until you do.\n\n## Managing installed plugins\n- Enable or disable a plugin without removing it, so a misbehaving provider can be switched off quickly.\n- Remove plugins you no longer use.\n- The list surfaces the error text a plugin reported the last time it failed.\n- **Bulk import** scans several files at once and reports which ones were skipped, and why.\n\n## Safety and troubleshooting\n- Only import plugins you trust: a plugin contributes code that the app runs, so treat unknown files like any other download.\n- If the publisher lists a SHA-256 hash, compare it with the value shown in the trust gate before installing.\n- A plugin that reports a runtime error can be disabled to restore normal search behaviour.\n- If a provider returns nothing, check that its plugin is enabled and that any API key or endpoint it needs is still valid.\n\n> **Note:** plugins only contribute download search results; the trust gate is your chance to review one before it runs.`,
+      },
+      {
+        id: "launcher",
+        categoryId: "customization",
+        title: "Launcher, Startup & Tray",
+        summary: "Landing page, auto-start, close-to-tray, minimize-on-launch and Windows elevation prompts.",
+        badge: "guide",
+        icon: Rocket,
+        keywords: ["launcher", "startup", "autostart", "tray", "landing page", "uac", "elevation", "window"],
+        relatedIds: ["interface", "downloads", "backup"],
+        body: `**Settings → Launcher** controls how the app starts, how the window behaves and when Windows asks for permission.\n\n## Startup\n- **Landing page**: choose which page opens on launch — Home, Library, Store, Wishlist, Deals, Activity, Achievements, Downloads, Storage, News or Community.\n- **Auto-start on boot**: start GameIndex with your session, so a sync or a download can carry on in the background.\n\n## Window and tray\n- **Close to tray**: the close button hides the window instead of quitting, keeping downloads and playtime tracking alive.\n- **Minimize on launch**: the window steps aside when a game starts.\n- **Restore on exit**: bring GameIndex back to the front when the game closes.\n\n## Elevation prompts (Windows)\n- **Disable elevation prompts** suppresses the UAC dialog for elevated launches.\n- Leave it off unless the repeated prompts genuinely get in the way; per-game **Run as Administrator** keeps working either way.\n\n> **Tip:** close-to-tray plus auto-start is the usual combination for a machine that also acts as an always-on download box.\n\n## Choosing the right behaviour\n- Point the landing page at the page you open first every session; the command palette reaches the rest.\n- Turn off close-to-tray if you would rather quit the app cleanly from the close button.\n- Minimize and restore on exit help with a game that fights for focus on a multi-monitor setup.\n- On a laptop, leaving auto-start off is usually the better trade-off for battery life.`,
+      },
     ],
   },
 
@@ -1737,17 +1802,42 @@ Configure Valve's micro-compositor directly inside GameIndex:
 
 ## Store Sync Failures
 - **Steam Sync Returns 0 Games**: Verify your Steam profile and game details privacy settings are set to **Public**.
-- **GOG Cookie Expired**: Re-open **Settings → Integrations → GOG** and click **Connect GOG** to refresh your session cookie.
+- **GOG Cookie Expired**: Re-open **Settings → Integrations → GOG** and click **Connect GOG** to refresh your session cookie.\n- **Epic authorization expired**: the device code is short-lived. Re-run **Authorize Epic Games** and confirm in the browser within a couple of minutes.\n- **Sync finishes but games are missing**: hidden games and platform filters can hide entries, so clear the filters and enable **Show hidden games** before assuming the sync failed.\n- **The same game appears twice**: re-run the import scan and let deduplication merge the entries, or hide the duplicate you do not want.\n- **Wrong cover or description**: use **Edit → Media → Refresh metadata**, or **Search manually** to pick the correct match. Locked artwork is never overwritten.
 
 ## Game Launches But Fails to Start
 - **UAC Elevation Required**: If the game requires administrator rights, edit the game in GameIndex and toggle **Run as Administrator**.
-- **Missing DirectX / Visual C++**: Run the game's official prerequisites installer located in its \`_CommonRedist\` directory.
+- **Missing DirectX / Visual C++**: Run the game's official prerequisites installer located in its \`_CommonRedist\` directory.\n- **Black screen or instant exit**: on Linux check the per-game runner and prefix first, then read the captured Wine/Proton log from the game page. On Windows confirm the executable and working directory are correct.\n- **The wrong store client opens**: re-link the executable, or choose the correct launch profile for the tile's Play button.\n- **First install needs the store client**: a title that runs DRM-free afterwards still needs Steam, Epic or GOG installed the first time.
 
 ## FPS / Telemetry Not Showing
 - On Windows, ensure **RivaTuner Statistics Server (RTSS)** is running and has permission to hook 64-bit and 32-bit processes.
 - On Linux, verify that **MangoHud** is installed via your package manager (\`sudo pacman -S mangohud\` or \`flatpak install mangohud\`).
+- **The overlay shows zeroes**: it is drawing but the source is not reporting — restart RTSS or verify that MangoHud writes its CSV log.
+- **Metrics stop after a driver update**: restart the telemetry tool, since the hooks usually need a restart after a display driver change.
 
-## Collecting diagnostics\n- Export logs from the settings before restarting the app; a restart can clear the evidence you need.\n- Try once with plugins and overlays disabled, then re-enable them one by one to find the culprit.\n- **Reset settings** restores defaults without touching your library, notes or playtime.\n- If the library itself misbehaves, back up first and run a database integrity check before any manual edit.`,
+## Downloads & Storage
+- **A download sits at 0%**: try another source, or resolve it through a debrid service so it no longer depends on peers.
+- **Download blocked by domain**: the host is on the block list in **Settings → Downloads**. Remove it only if you trust it.
+- **Transfers are slow**: raise the global bandwidth limit and stop seeding while downloading on a limited connection.
+- **Extraction fails**: re-download the archive or verify its checksum — a partial transfer usually only surfaces at extraction.
+- **Sizes look wrong**: run **Recalculate sizes** after moving files outside the app, and remember that Wine prefixes and shader caches use space too.
+
+## Playtime & Sessions
+- **A session was not recorded**: games started outside GameIndex are detected through process polling, but a launcher that hands off to a child process can confuse detection — check the interval and exclusions in Settings.
+- **One session shows up as two**: merge or edit the extra row in **Activity → Sessions**.
+- **A family-shared game adds no playtime**: shared titles are badged and excluded from your own totals.
+
+## Linux & Compatibility
+- **The game will not start under Proton**: try another runner first — GE-Proton is a good default — then read the captured log before changing flags.
+- **Prefix errors or a missing drive_c**: create a fresh per-game prefix, or check that the existing one is not corrupted.
+- **Online multiplayer rejects you**: the title's anti-cheat is unsupported on Linux, and there is no safe workaround.
+- **Wayland-specific glitches**: try the X11 session or the native Wayland toggle in the compatibility tab.
+
+## Window & Tray Behaviour
+- **The app seems to close when I hit X**: close-to-tray is on, so it hides in the tray instead of quitting. Reopen it from the tray icon.
+- **The window disappeared after launching a game**: minimize-on-launch hid it; restore from the tray or enable restore-on-exit.
+- **Hotkeys do nothing in-game**: exclusive fullscreen can swallow global hotkeys — use borderless windowed mode or a controller.
+
+## Collecting diagnostics\n- Export logs from the settings before restarting the app; a restart can clear the evidence you need.\n- Try once with plugins and overlays disabled, then re-enable them one by one to find the culprit.\n- **Reset settings** restores defaults without touching your library, notes or playtime.\n- If the library itself misbehaves, back up first and run a database integrity check before any manual edit.\n- Game-specific hook output and Wine/Proton logs are kept per launch, so export the newest one when reporting a launch problem.`,
       },
       {
         id: "database-internals",
