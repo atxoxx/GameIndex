@@ -167,7 +167,7 @@ unsafe fn write_exception(pinfo: *mut EXCEPTION_POINTERS) {
         return;
     }
     let rec = &*info.ExceptionRecord;
-    let code = rec.ExceptionCode as u32;
+    let code = rec.ExceptionCode.0 as u32;
     if !is_fatal_code(code) {
         return;
     }
@@ -221,7 +221,7 @@ unsafe fn faulting_module(addr: usize) -> (String, usize) {
         windows::core::PCWSTR(addr as *const u16),
         &mut hmod,
     );
-    if ok.is_err() || hmod.is_null() {
+    if ok.is_err() || hmod.is_invalid() {
         return (String::from("<unknown>"), 0);
     }
     let base = hmod.0 as usize;
