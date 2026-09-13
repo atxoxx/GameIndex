@@ -567,13 +567,6 @@ export function StudioControls({
             >
               {t("settings.interface.studioWidgetsAllPages")}
             </button>
-            <button
-              type="button"
-              className="studio-jumpbar__chip"
-              onClick={() => scrollToGroup("studio-group-details")}
-            >
-              {t("settings.detailSections.title")}
-            </button>
           </nav>
 
           {/* Group 1: General Shell Layout */}
@@ -932,55 +925,6 @@ export function StudioControls({
               />
             ))}
           </div>
-
-          {/* Group 6: Detail sections */}
-          <div className="studio-section-head" id="studio-group-details">
-            <h3 className="studio-pane__title">{t("settings.detailSections.title")}</h3>
-            <div className="studio-section-head__actions">
-              {onBatchToggleGroup && (
-                <>
-                  <button
-                    type="button"
-                    className="studio-batch-btn"
-                    onClick={() => onBatchToggleGroup("details", true)}
-                    title={t("settings.interface.showAll")}
-                  >
-                    <CheckCheck size={12} aria-hidden="true" />
-                    <span>{t("settings.interface.showAll")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="studio-batch-btn"
-                    onClick={() => onBatchToggleGroup("details", false)}
-                    title={t("settings.interface.hideAll")}
-                  >
-                    <EyeOff size={12} aria-hidden="true" />
-                    <span>{t("settings.interface.hideAll")}</span>
-                  </button>
-                </>
-              )}
-              {onResetGroup && (
-                <button
-                  type="button"
-                  className="studio-group-reset-btn"
-                  onClick={() => onResetGroup("details")}
-                  title={t("settings.interface.resetGroup")}
-                >
-                  <RotateCcw size={12} aria-hidden="true" />
-                  <span>{t("settings.interface.resetGroup")}</span>
-                </button>
-              )}
-            </div>
-          </div>
-          <p className="studio-pane__hint">{t("settings.detailSections.desc")}</p>
-          <OrderList
-            label={t("settings.detailSections.title")}
-            items={filteredDetails}
-            visibilityOnly
-            onToggle={onToggleDetailSection}
-            highlightedId={highlightedId}
-            onHoverItem={onHoverItem}
-          />
         </>
       ) : (
         <>
@@ -1030,6 +974,59 @@ export function StudioControls({
             highlightedId={highlightedId}
             onHoverItem={onHoverItem}
           />
+
+          {/* Game Detail Sections & Tabs (relocated from Global to Game Page) */}
+          {activePage === "game" && (
+            <div className="studio-detail-sections-subgroup">
+              <div className="studio-section-head" id="studio-group-details">
+                <h3 className="studio-pane__title">{t("settings.detailSections.title")}</h3>
+                <div className="studio-section-head__actions">
+                  {onBatchToggleGroup && (
+                    <>
+                      <button
+                        type="button"
+                        className="studio-batch-btn"
+                        onClick={() => onBatchToggleGroup("details", true)}
+                        title={t("settings.interface.showAll")}
+                      >
+                        <CheckCheck size={12} aria-hidden="true" />
+                        <span>{t("settings.interface.showAll")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="studio-batch-btn"
+                        onClick={() => onBatchToggleGroup("details", false)}
+                        title={t("settings.interface.hideAll")}
+                      >
+                        <EyeOff size={12} aria-hidden="true" />
+                        <span>{t("settings.interface.hideAll")}</span>
+                      </button>
+                    </>
+                  )}
+                  {onResetGroup && (
+                    <button
+                      type="button"
+                      className="studio-group-reset-btn"
+                      onClick={() => onResetGroup("details")}
+                      title={t("settings.interface.resetGroup")}
+                    >
+                      <RotateCcw size={12} aria-hidden="true" />
+                      <span>{t("settings.interface.resetGroup")}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="studio-pane__hint">{t("settings.detailSections.desc")}</p>
+              <OrderList
+                label={t("settings.detailSections.title")}
+                items={filteredDetails}
+                visibilityOnly
+                onToggle={onToggleDetailSection}
+                highlightedId={highlightedId}
+                onHoverItem={onHoverItem}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

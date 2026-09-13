@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bookmark,
   Check,
+  ChevronDown,
   Download,
   Flame,
   Gamepad2,
+  type LucideIcon,
   Plus,
   Sliders,
   Sparkles,
@@ -47,6 +49,32 @@ export function StudioPresetsBar({
   const [importJsonText, setImportJsonText] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [SelectedIcon, setSelectedIcon] = useState<LucideIcon | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isDropdownOpen]);
+
   const getPresetIcon = (id: string) => {
     switch (id) {
       case "balanced":
@@ -70,12 +98,20 @@ export function StudioPresetsBar({
     setCustomPresets(loadCustomPresets());
     setSaveName("");
     setShowSaveModal(false);
+    setActivePresetId(created.id);
+    setSelectedLabel(created.customName || created.id);
+    setSelectedIcon(() => Bookmark);
     showToast(t("settings.interface.presetSavedToast", { name: created.customName }), "success");
   };
 
   const handleDeleteCustom = (id: string, name: string) => {
     deleteCustomPreset(id);
     setCustomPresets(loadCustomPresets());
+    if (activePresetId === id) {
+      setActivePresetId(null);
+      setSelectedLabel(null);
+      setSelectedIcon(null);
+    }
     showToast(t("settings.interface.presetDeletedToast", { name }), "info");
   };
 
@@ -101,6 +137,9 @@ export function StudioPresetsBar({
     onImportSnapshot(parsed);
     setShowImportModal(false);
     setImportJsonText("");
+    setActivePresetId(null);
+    setSelectedLabel(null);
+    setSelectedIcon(null);
     showToast(t("settings.interface.importSuccessToast"), "success");
   };
 
@@ -111,48 +150,120 @@ export function StudioPresetsBar({
         <span>{t("settings.interface.presetsTitle")}</span>
       </div>
 
-      <div className="studio-presets-bar__list">
-        {BUILTIN_PRESETS.map((preset) => {
-          const Icon = getPresetIcon(preset.id);
-          return (
-            <button
-              key={preset.id}
-              type="button"
-              className="studio-presets-bar__chip"
-              onClick={() => onApplyPreset(preset)}
-              title={t(preset.descKey)}
-            >
-              <Icon size={12} aria-hidden="true" />
-              <span>{t(preset.nameKey)}</span>
-            </button>
-          );
-        })}
+      <div className="studio-presets-dropdown" ref={dropdownRef}>
+        <button
+          type="button"
+          className={`studio-presets-dropdown__trigger${isDropdownOpen ? " is-open" : ""}`}
+          onClick={() => setIsDropdownOpen((prev) => !prev)}
+          aria-expanded={isDropdownOpen}
+          aria-haspopup="listbox"
+        >
+          {SelectedIcon ? (
+            <SelectedIcon size={13} className="studio-presets-dropdown__trigger-icon" aria-hidden="true" />
+          ) : (
+            <Sparkles size={13} className="studio-presets-dropdown__trigger-icon" aria-hidden="true" />
+          )}
+          <span className="studio-presets-dropdown__trigger-text">
+            {selectedLabel || t("settings.interface.presetsSelect")}
+          </span>
+          <ChevronDown
+            size={13}
+            className={`studio-presets-dropdown__chevron${isDropdownOpen ? " is-open" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
 
-        {customPresets.map((preset) => (
-          <div key={preset.id} className="studio-presets-bar__custom-chip-wrap">
-            <button
-              type="button"
-              className="studio-presets-bar__chip is-custom"
-              onClick={() => onApplyPreset(preset)}
-              title={preset.customName}
-            >
-              <Bookmark size={12} aria-hidden="true" />
-              <span>{preset.customName}</span>
-            </button>
-            <button
-              type="button"
-              className="studio-presets-bar__delete-chip"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteCustom(preset.id, preset.customName || "");
-              }}
-              title={t("settings.interface.deletePreset")}
-              aria-label={t("settings.interface.deletePreset")}
-            >
-              <Trash2 size={11} aria-hidden="true" />
-            </button>
+        {isDropdownOpen && (
+          <div className="studio-presets-dropdown__menu" role="listbox">
+            <div className="studio-presets-dropdown__group">
+              <span className="studio-presets-dropdown__group-title">
+                {t("settings.interface.presetsBuiltin")}
+              </span>
+              {BUILTIN_PRESETS.map((preset) => {
+                const Icon = getPresetIcon(preset.id);
+                const isSelected = activePresetId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    className={`studio-presets-dropdown__item${isSelected ? " is-selected" : ""}`}
+                    onClick={() => {
+                      onApplyPreset(preset);
+                      setActivePresetId(preset.id);
+                      setSelectedLabel(t(preset.nameKey));
+                      setSelectedIcon(() => Icon);
+                      setIsDropdownOpen(false);
+                    }}
+                  >
+                    <Icon size={14} className="studio-presets-dropdown__item-icon" aria-hidden="true" />
+                    <div className="studio-presets-dropdown__item-text">
+                      <span className="studio-presets-dropdown__item-name">{t(preset.nameKey)}</span>
+                      <span className="studio-presets-dropdown__item-desc">{t(preset.descKey)}</span>
+                    </div>
+                    {isSelected && (
+                      <Check size={13} className="studio-presets-dropdown__check" aria-hidden="true" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {customPresets.length > 0 && (
+              <div className="studio-presets-dropdown__group">
+                <div className="studio-presets-dropdown__divider" />
+                <span className="studio-presets-dropdown__group-title">
+                  {t("settings.interface.presetsCustom")}
+                </span>
+                {customPresets.map((preset) => {
+                  const isSelected = activePresetId === preset.id;
+                  return (
+                    <div
+                      key={preset.id}
+                      className={`studio-presets-dropdown__item studio-presets-dropdown__item--custom${
+                        isSelected ? " is-selected" : ""
+                      }`}
+                      onClick={() => {
+                        onApplyPreset(preset);
+                        setActivePresetId(preset.id);
+                        setSelectedLabel(preset.customName || preset.id);
+                        setSelectedIcon(() => Bookmark);
+                        setIsDropdownOpen(false);
+                      }}
+                      role="option"
+                      aria-selected={isSelected}
+                    >
+                      <Bookmark
+                        size={14}
+                        className="studio-presets-dropdown__item-icon"
+                        aria-hidden="true"
+                      />
+                      <span className="studio-presets-dropdown__item-name">
+                        {preset.customName || preset.id}
+                      </span>
+                      {isSelected && (
+                        <Check size={13} className="studio-presets-dropdown__check" aria-hidden="true" />
+                      )}
+                      <button
+                        type="button"
+                        className="studio-presets-dropdown__delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCustom(preset.id, preset.customName || "");
+                        }}
+                        title={t("settings.interface.deletePreset")}
+                        aria-label={t("settings.interface.deletePreset")}
+                      >
+                        <Trash2 size={12} aria-hidden="true" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        ))}
+        )}
       </div>
 
       <div className="studio-presets-bar__actions">

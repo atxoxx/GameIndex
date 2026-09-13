@@ -1,17 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   Clock,
-  Crosshair,
   EyeOff,
   Gamepad2,
   GripVertical,
-  Laptop,
-  Monitor,
   Search,
-  Smartphone,
   Sparkles,
   Star,
-  Tv,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import {
@@ -37,6 +32,8 @@ export interface StudioPreviewProps {
   showNowPlaying?: boolean;
   showCardBadgesMaster?: boolean;
   highlightedId?: string | null;
+  viewport?: ViewportPreset;
+  inspectMode?: boolean;
   onReorderNavTabs: (from: number, to: number) => void;
   onReorderNavButtons: (from: number, to: number) => void;
   onReorderPageItems: (from: number, to: number) => void;
@@ -58,6 +55,8 @@ export function StudioPreview({
   showNowPlaying = true,
   showCardBadgesMaster = true,
   highlightedId,
+  viewport = "desktop",
+  inspectMode = false,
   onReorderNavTabs,
   onReorderNavButtons,
   onReorderPageItems,
@@ -70,9 +69,6 @@ export function StudioPreview({
   const { t } = useLanguage();
   const isGlobal = page === "global";
   const pageDef = interfacePageDef(page);
-
-  const [viewport, setViewport] = useState<ViewportPreset>("desktop");
-  const [inspectMode, setInspectMode] = useState(false);
 
   const tabsDrag = useOrderDrag(onReorderNavTabs);
   const buttonsDrag = useOrderDrag(onReorderNavButtons);
@@ -144,59 +140,6 @@ export function StudioPreview({
 
   return (
     <div className="studio-preview-container">
-      {/* Top toolbar: Viewport presets + Inspect mode toggle */}
-      <div className="studio-preview-toolbar">
-        <div className="studio-preview-toolbar__viewports">
-          <button
-            type="button"
-            className={`studio-preview-toolbar__vp-btn${viewport === "desktop" ? " is-active" : ""}`}
-            onClick={() => setViewport("desktop")}
-            title={t("settings.interface.viewportDesktop")}
-          >
-            <Monitor size={13} aria-hidden="true" />
-            <span>16:9</span>
-          </button>
-          <button
-            type="button"
-            className={`studio-preview-toolbar__vp-btn${viewport === "handheld" ? " is-active" : ""}`}
-            onClick={() => setViewport("handheld")}
-            title={t("settings.interface.viewportHandheld")}
-          >
-            <Smartphone size={13} aria-hidden="true" />
-            <span>16:10</span>
-          </button>
-          <button
-            type="button"
-            className={`studio-preview-toolbar__vp-btn${viewport === "ultrawide" ? " is-active" : ""}`}
-            onClick={() => setViewport("ultrawide")}
-            title={t("settings.interface.viewportUltrawide")}
-          >
-            <Tv size={13} aria-hidden="true" />
-            <span>21:9</span>
-          </button>
-          <button
-            type="button"
-            className={`studio-preview-toolbar__vp-btn${viewport === "compact" ? " is-active" : ""}`}
-            onClick={() => setViewport("compact")}
-            title={t("settings.interface.viewportCompact")}
-          >
-            <Laptop size={13} aria-hidden="true" />
-            <span>4:3</span>
-          </button>
-        </div>
-
-        <button
-          type="button"
-          className={`studio-preview-toolbar__inspect-btn${inspectMode ? " is-active" : ""}`}
-          onClick={() => setInspectMode((prev) => !prev)}
-          title={t("settings.interface.inspectModeTooltip")}
-          aria-pressed={inspectMode}
-        >
-          <Crosshair size={13} aria-hidden="true" />
-          <span>{t("settings.interface.inspectMode")}</span>
-        </button>
-      </div>
-
       {/* Frame wrapper for aspect ratio simulation */}
       <div className={`studio-preview-frame studio-preview-frame--${viewport}`}>
         <div
@@ -244,7 +187,7 @@ export function StudioPreview({
                   }
                 >
                   <GripVertical className="studio-preview__grip" size={10} aria-hidden="true" />
-                  <tab.icon size={11} aria-hidden="true" />
+                  <tab.icon size={11} className="studio-preview__tab-icon" aria-hidden="true" />
                   <span className="studio-preview__tab-label">{tab.label}</span>
                 </button>
               ))}
@@ -452,12 +395,12 @@ export function StudioPreview({
                     >
                       <GripVertical
                         className="studio-preview__grip"
-                        size={11}
+                        size={12}
                         aria-hidden="true"
                       />
-                      <item.icon size={12} aria-hidden="true" />
-                      <span>{item.label}</span>
-                      {item.hidden && <EyeOff size={11} aria-hidden="true" />}
+                      <item.icon size={13} className="studio-preview__item-icon" aria-hidden="true" />
+                      <span className="studio-preview__item-label">{item.label}</span>
+                      {item.hidden && <EyeOff size={12} className="studio-preview__item-off-icon" aria-hidden="true" />}
                     </button>
                   ))}
 

@@ -3,11 +3,13 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
+  Crosshair,
   Download,
   Gamepad2,
   HardDrive,
   Heart,
   Home,
+  Laptop,
   LayoutTemplate,
   List,
   type LucideIcon,
@@ -16,10 +18,12 @@ import {
   Puzzle,
   RotateCcw,
   Rss,
+  Smartphone,
   Star,
   Store,
   Tag,
   Trophy,
+  Tv,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -61,6 +65,7 @@ import type {
   LayoutSnapshot,
   OrderListItem,
   StudioGroupKey,
+  ViewportPreset,
 } from "./types";
 import "../LayoutStudio.css";
 
@@ -124,6 +129,8 @@ export default function LayoutStudio() {
 
   const [activePage, setActivePage] = useState<InterfacePageKey>("global");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [viewport, setViewport] = useState<ViewportPreset>("desktop");
+  const [inspectMode, setInspectMode] = useState(false);
   const pagesNavRef = useRef<HTMLElement>(null);
   const [canScrollPagesLeft, setCanScrollPagesLeft] = useState(false);
   const [canScrollPagesRight, setCanScrollPagesRight] = useState(false);
@@ -494,9 +501,14 @@ export default function LayoutStudio() {
       const def = interfacePageDef(page);
       for (const key of def?.items ?? []) setPageItemVisible(page, key, true);
       setPageItemOrder(page, DEFAULT_PAGE_ITEM_ORDER[page] ?? []);
+      if (page === "game") {
+        for (const section of buildDetailSectionItems(true)) {
+          setDetailSectionVisible(section.key, true);
+        }
+      }
       playSound();
     },
-    [setPageItemVisible, setPageItemOrder, playSound],
+    [setPageItemVisible, setPageItemOrder, setDetailSectionVisible, playSound],
   );
 
   const resetEverything = useCallback(() => {
@@ -651,14 +663,17 @@ export default function LayoutStudio() {
       const hiddenSidebar = SIDEBAR_SECTIONS.filter(
         (section) => !sidebarSectionVisible[section.key],
       ).length;
+      return hiddenItems + hiddenSidebar;
+    }
+    const entry = pageItemVisible[page];
+    const pageHidden = entry ? Object.values(entry).filter((visible) => visible === false).length : 0;
+    if (page === "game") {
       const hiddenDetailSections = buildDetailSectionItems(showDeckVerified).filter(
         (section) => !detailSectionVisible[section.key],
       ).length;
-      return hiddenItems + hiddenSidebar + hiddenDetailSections;
+      return pageHidden + hiddenDetailSections;
     }
-    const entry = pageItemVisible[page];
-    if (!entry) return 0;
-    return Object.values(entry).filter((visible) => visible === false).length;
+    return pageHidden;
   };
 
   return (
@@ -764,11 +779,68 @@ export default function LayoutStudio() {
       <div className="studio-body">
         {/* Left Pane: Interactive Live Preview */}
         <section className="studio-pane studio-pane--preview">
-          <h3 className="studio-pane__title">
-            {t("settings.interface.studioPreview")}
-          </h3>
+          <div className="studio-preview-pane-head">
+            <h3 className="studio-pane__title">
+              {t("settings.interface.studioPreview")}
+            </h3>
+
+            {/* Viewport ratios & Inspect mode toggle outside of preview */}
+            <div className="studio-preview-toolbar">
+              <div className="studio-preview-toolbar__viewports">
+                <button
+                  type="button"
+                  className={`studio-preview-toolbar__vp-btn${viewport === "desktop" ? " is-active" : ""}`}
+                  onClick={() => setViewport("desktop")}
+                  title={t("settings.interface.viewportDesktop")}
+                >
+                  <Monitor size={13} aria-hidden="true" />
+                  <span>16:9</span>
+                </button>
+                <button
+                  type="button"
+                  className={`studio-preview-toolbar__vp-btn${viewport === "handheld" ? " is-active" : ""}`}
+                  onClick={() => setViewport("handheld")}
+                  title={t("settings.interface.viewportHandheld")}
+                >
+                  <Smartphone size={13} aria-hidden="true" />
+                  <span>16:10</span>
+                </button>
+                <button
+                  type="button"
+                  className={`studio-preview-toolbar__vp-btn${viewport === "ultrawide" ? " is-active" : ""}`}
+                  onClick={() => setViewport("ultrawide")}
+                  title={t("settings.interface.viewportUltrawide")}
+                >
+                  <Tv size={13} aria-hidden="true" />
+                  <span>21:9</span>
+                </button>
+                <button
+                  type="button"
+                  className={`studio-preview-toolbar__vp-btn${viewport === "compact" ? " is-active" : ""}`}
+                  onClick={() => setViewport("compact")}
+                  title={t("settings.interface.viewportCompact")}
+                >
+                  <Laptop size={13} aria-hidden="true" />
+                  <span>4:3</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className={`studio-preview-toolbar__inspect-btn${inspectMode ? " is-active" : ""}`}
+                onClick={() => setInspectMode((prev) => !prev)}
+                title={t("settings.interface.inspectModeTooltip")}
+                aria-pressed={inspectMode}
+              >
+                <Crosshair size={13} aria-hidden="true" />
+                <span>{t("settings.interface.inspectMode")}</span>
+              </button>
+            </div>
+          </div>
 
           <StudioPreview
+            viewport={viewport}
+            inspectMode={inspectMode}
             navTabs={navTabItems}
             navButtons={navButtonItems}
             sidebarPosition={sidebarPosition}
