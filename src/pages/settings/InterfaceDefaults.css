@@ -1,0 +1,20 @@
+/* =============================================================================
+ * Interface Defaults — the global shell controls relocated out of the Layout
+ * Studio's right-hand pane into standard settings sections below the studio.
+ * ========================================================================== */
+
+/* Responsive card grid for the toggle groups (badges, widgets, detail
+ * sections, layout modes). Mirrors the Launcher tab's card grid so the two
+ * surfaces read as one settings family. */
+.interface-defaults-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-md);
+}
+
+/* Narrow single-control rows (scale select, sidebar side, landing page) so
+ * they don't stretch to the full content width. Matches the language
+ * picker's 360px cap. */
+.interface-defaults-control {
+  max-width: 420px;
+}

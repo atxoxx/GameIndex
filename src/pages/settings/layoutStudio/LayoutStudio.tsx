@@ -46,7 +46,6 @@ import {
   useSettings,
   type DetailSectionKey,
   type InterfaceItemKey,
-  type LandingPage,
 } from "../../../context/SettingsContext";
 import {
   DEFAULT_DETAIL_TAB_ORDER,
@@ -77,15 +76,14 @@ import {
   sortByOrder,
 } from "../interfaceItems";
 import { playActionSound } from "../../../utils/soundEffects";
-import { StudioControls, WIDGET_ICON } from "./StudioControls";
 import { StudioPresetsBar } from "./StudioPresetsBar";
+import { WIDGET_ICON } from "./widgetIcons";
 import { StudioPreview } from "./StudioPreview";
 import { getDefaultLayoutSnapshot, isItemModifiedFromDefault } from "./layoutPresets";
 import type {
   LayoutPreset,
   LayoutSnapshot,
   OrderListItem,
-  StudioGroupKey,
   ViewportPreset,
 } from "./types";
 import "../LayoutStudio.css";
@@ -174,7 +172,6 @@ export default function LayoutStudio() {
     setHeroElementVisible,
     showDeckVerified,
     landingPage,
-    setLandingPage,
   } = useSettings();
 
   const [activePage, setActivePage] = useState<InterfacePageKey>("global");
@@ -268,39 +265,6 @@ export default function LayoutStudio() {
         ),
       })),
     [navbarButtonOrder, interfaceVisibility, defaultSnapshot, t],
-  );
-
-  const sidebarItems = useMemo<OrderListItem[]>(
-    () =>
-      SIDEBAR_SECTIONS.map((section) => ({
-        id: section.key,
-        label: t(section.labelKey),
-        icon: LayoutTemplate,
-        hidden: !sidebarSectionVisible[section.key],
-        isModified: isItemModifiedFromDefault(
-          section.key,
-          sidebarSectionVisible[section.key],
-          defaultSnapshot,
-        ),
-      })),
-    [sidebarSectionVisible, defaultSnapshot, t],
-  );
-
-  const detailSectionItems = useMemo<OrderListItem[]>(
-    () =>
-      buildDetailSectionItems(showDeckVerified).map((section) => ({
-        id: section.key,
-        label: t(section.titleKey),
-        hint: t(section.descKey),
-        icon: List,
-        hidden: !detailSectionVisible[section.key],
-        isModified: isItemModifiedFromDefault(
-          section.key,
-          detailSectionVisible[section.key],
-          defaultSnapshot,
-        ),
-      })),
-    [showDeckVerified, detailSectionVisible, defaultSnapshot, t],
   );
 
   // ── Detail tabs & hero elements (game + store) ─────────────────────────────
@@ -476,30 +440,6 @@ export default function LayoutStudio() {
   );
 
   // ── Toggle Handlers ───────────────────────────────────────────────────────
-  const toggleGlobalItem = useCallback(
-    (id: string, hidden: boolean) => {
-      setInterfaceVisibility(id as InterfaceItemKey, !hidden);
-      playSound();
-    },
-    [setInterfaceVisibility, playSound],
-  );
-
-  const toggleSidebarSection = useCallback(
-    (id: string, hidden: boolean) => {
-      setSidebarSectionVisible(id as SidebarSectionKey, !hidden);
-      playSound();
-    },
-    [setSidebarSectionVisible, playSound],
-  );
-
-  const toggleDetailSection = useCallback(
-    (id: string, hidden: boolean) => {
-      setDetailSectionVisible(id as DetailSectionKey, !hidden);
-      playSound();
-    },
-    [setDetailSectionVisible, playSound],
-  );
-
   const toggleDetailTab = useCallback(
     (id: string, hidden: boolean) => {
       if (!activeDetailScope) return;
@@ -519,15 +459,6 @@ export default function LayoutStudio() {
       playSound();
     },
     [activeDetailScope, setHeroElementVisible, playSound],
-  );
-
-  const togglePageItem = useCallback(
-    (id: string, hidden: boolean) => {
-      if (activePage === "global") return;
-      setPageItemVisible(activePage, id as PageWidgetKey, !hidden);
-      playSound();
-    },
-    [activePage, setPageItemVisible, playSound],
   );
 
   const toggleInterfaceItemById = useCallback(
@@ -734,106 +665,6 @@ export default function LayoutStudio() {
     playSound,
   ]);
 
-  const resetGroup = useCallback(
-    (group: StudioGroupKey) => {
-      switch (group) {
-        case "layout":
-          setUiDensityMode("complete");
-          setNavbarMode("full");
-          setCommandPaletteMode("full");
-          setShowGameArtBackdrop(true);
-          setUiScale("auto");
-          break;
-        case "header":
-          setNavbarTabOrder(DEFAULT_NAVBAR_TAB_ORDER);
-          setNavbarButtonOrder(DEFAULT_NAVBAR_BUTTON_ORDER);
-          for (const item of [...NAV_TAB_ITEMS, ...NAV_BUTTON_ITEMS]) {
-            setInterfaceVisibility(item.key, true);
-          }
-          setShowNavbarNowPlaying(true);
-          break;
-        case "sidebar":
-          setSidebarPosition("left");
-          for (const s of SIDEBAR_SECTIONS) setSidebarSectionVisible(s.key, true);
-          break;
-        case "badges":
-          setShowCardBadges(true);
-          for (const b of BADGE_ITEMS) setInterfaceVisibility(b.key, true);
-          break;
-        case "widgets":
-          for (const w of WIDGET_ITEMS) setInterfaceVisibility(w.key, true);
-          break;
-        case "details":
-          for (const d of buildDetailSectionItems(true)) {
-            setDetailSectionVisible(d.key, true);
-          }
-          for (const scope of DETAIL_SCOPES) {
-            setDetailTabOrder(scope, DEFAULT_DETAIL_TAB_ORDER[scope]);
-            setHeroElementOrder(scope, HERO_ELEMENTS);
-            for (const key of HERO_ELEMENTS) setHeroElementVisible(scope, key, true);
-          }
-          break;
-      }
-      playSound();
-    },
-    [
-      setUiDensityMode,
-      setNavbarMode,
-      setCommandPaletteMode,
-      setShowGameArtBackdrop,
-      setUiScale,
-      setNavbarTabOrder,
-      setNavbarButtonOrder,
-      setInterfaceVisibility,
-      setShowNavbarNowPlaying,
-      setSidebarPosition,
-      setSidebarSectionVisible,
-      setShowCardBadges,
-      setDetailSectionVisible,
-      setDetailTabOrder,
-      setHeroElementOrder,
-      setHeroElementVisible,
-      playSound,
-    ],
-  );
-
-  const batchToggleGroup = useCallback(
-    (group: StudioGroupKey, visible: boolean) => {
-      switch (group) {
-        case "header":
-          for (const item of [...NAV_TAB_ITEMS, ...NAV_BUTTON_ITEMS]) {
-            setInterfaceVisibility(item.key, visible);
-          }
-          setShowNavbarNowPlaying(visible);
-          break;
-        case "sidebar":
-          for (const s of SIDEBAR_SECTIONS) setSidebarSectionVisible(s.key, visible);
-          break;
-        case "badges":
-          setShowCardBadges(visible);
-          for (const b of BADGE_ITEMS) setInterfaceVisibility(b.key, visible);
-          break;
-        case "widgets":
-          for (const w of WIDGET_ITEMS) setInterfaceVisibility(w.key, visible);
-          break;
-        case "details":
-          for (const d of buildDetailSectionItems(true)) {
-            setDetailSectionVisible(d.key, visible);
-          }
-          break;
-      }
-      playSound();
-    },
-    [
-      setInterfaceVisibility,
-      setShowNavbarNowPlaying,
-      setSidebarSectionVisible,
-      setShowCardBadges,
-      setDetailSectionVisible,
-      playSound,
-    ],
-  );
-
   // ── Inspection scroll helper ──────────────────────────────────────────────
   const handleInspectElement = useCallback((id: string) => {
     setHighlightedId(id);
@@ -969,9 +800,9 @@ export default function LayoutStudio() {
         )}
       </div>
 
-      {/* Studio Body: Preview (Left) + Controls (Right) */}
+      {/* Studio Body */}
       <div className="studio-body">
-        {/* Left Pane: Interactive Live Preview */}
+        {/* Interactive Live Preview */}
         <section className="studio-pane studio-pane--preview">
           <div className="studio-preview-pane-head">
             <h3 className="studio-pane__title">
@@ -1030,6 +861,18 @@ export default function LayoutStudio() {
                 <span>{t("settings.interface.inspectMode")}</span>
               </button>
             </div>
+
+            {activePage !== "global" && (
+              <button
+                type="button"
+                className="studio-reset"
+                onClick={() => resetPage(activePage)}
+                title={t("settings.interface.studioResetPage")}
+              >
+                <RotateCcw size={13} aria-hidden="true" />
+                {t("settings.interface.studioResetPage")}
+              </button>
+            )}
           </div>
 
           <StudioPreview
@@ -1065,49 +908,6 @@ export default function LayoutStudio() {
           <p className="studio-pane__hint">
             {t("settings.interface.studioPreviewHint")}
           </p>
-        </section>
-
-        {/* Right Pane: Controls */}
-        <section className="studio-pane studio-pane--controls">
-          <StudioControls
-            activePage={activePage}
-            uiScale={uiScale}
-            uiDensityMode={uiDensityMode}
-            navbarMode={navbarMode}
-            commandPaletteMode={commandPaletteMode}
-            showGameArtBackdrop={showGameArtBackdrop}
-            showCardBadges={showCardBadges}
-            showNavbarNowPlaying={showNavbarNowPlaying}
-            sidebarPosition={sidebarPosition}
-            interfaceVisibility={interfaceVisibility}
-            landingPage={landingPage}
-            navTabItems={navTabItems}
-            navButtonItems={navButtonItems}
-            sidebarItems={sidebarItems}
-            detailSectionItems={detailSectionItems}
-            pageItems={pageItems}
-            highlightedId={highlightedId}
-            onHoverItem={setHighlightedId}
-            onSetUiScale={setUiScale}
-            onSetUiDensityMode={setUiDensityMode}
-            onSetNavbarMode={setNavbarMode}
-            onSetCommandPaletteMode={setCommandPaletteMode}
-            onSetShowGameArtBackdrop={setShowGameArtBackdrop}
-            onSetShowCardBadges={setShowCardBadges}
-            onSetShowNavbarNowPlaying={setShowNavbarNowPlaying}
-            onSetSidebarPosition={setSidebarPosition}
-            onToggleGlobalItem={toggleGlobalItem}
-            onToggleSidebarSection={toggleSidebarSection}
-            onToggleDetailSection={toggleDetailSection}
-            onTogglePageItem={togglePageItem}
-            onReorderNavTabs={handleReorderNavTabs}
-            onReorderNavButtons={handleReorderNavButtons}
-            onReorderPageItems={handleReorderPageItems}
-            onResetPage={resetPage}
-            onResetGroup={resetGroup}
-            onBatchToggleGroup={batchToggleGroup}
-            onSetLandingPage={(pageKey) => setLandingPage(pageKey as LandingPage)}
-          />
         </section>
       </div>
     </section>
