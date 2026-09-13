@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   Clock,
+  Eye,
   EyeOff,
   Gamepad2,
   GripVertical,
@@ -23,13 +24,9 @@ const SIDEBAR_LABEL_KEY: Record<string, string> = Object.fromEntries(
   SIDEBAR_SECTIONS.map((section) => [section.key, section.labelKey]),
 );
 
-/** Tiny stand-in for an element inside the preview's hero mock. */
+/** Tiny stand-in for a content element inside the preview's hero mock. */
 function HeroElementVisual({ element }: { element: HeroElementKey }) {
   switch (element) {
-    case "background":
-      return <span className="studio-hero-visual studio-hero-visual--background" aria-hidden="true" />;
-    case "poster":
-      return <span className="studio-hero-visual studio-hero-visual--poster" aria-hidden="true" />;
     case "title":
       return <span className="studio-hero-visual studio-hero-visual--title" aria-hidden="true" />;
     case "meta":
@@ -199,6 +196,143 @@ export function StudioPreview({
     return `${label} — ${t(
       hidden ? "settings.interface.studioShow" : "settings.interface.studioHide",
     )}`;
+  };
+
+  // ── Hero mock layout ───────────────────────────────────────────────────
+  // Mirrors the real GameHero's inline-`order` model: the poster docks left
+  // or right relative to the content column, the content blocks stack in the
+  // persisted order, and an adjacent, trailing kpis+actions pair collapses
+  // into a footer row pinned to the bottom of the card.
+  const heroItemByKey = new Map(heroElementItems.map((item) => [item.id, item]));
+  const heroIndex = (key: string) =>
+    heroElementItems.findIndex((item) => item.id === key);
+  const backgroundItem = heroItemByKey.get("background");
+  const posterItem = heroItemByKey.get("poster");
+
+  const contentOrderKeys = ["title", "meta", "genres", "kpis", "actions"]
+    .filter((key) => heroItemByKey.has(key))
+    .sort((a, b) => heroIndex(a) - heroIndex(b));
+
+  const kpisPos = contentOrderKeys.indexOf("kpis");
+  const actionsPos = contentOrderKeys.indexOf("actions");
+  const groupFooter =
+    kpisPos !== -1 && actionsPos !== -1 && Math.abs(kpisPos - actionsPos) === 1;
+
+  let trailingStart = contentOrderKeys.length;
+  while (trailingStart > 0) {
+    const key = contentOrderKeys[trailingStart - 1];
+    if (key === "kpis" || key === "actions") trailingStart--;
+    else break;
+  }
+  const pinTrailingFooter =
+    trailingStart < contentOrderKeys.length && trailingStart > 0;
+  const boundaryKey = pinTrailingFooter ? contentOrderKeys[trailingStart] : null;
+  const contentOrder = contentOrderKeys.length
+    ? Math.min(...contentOrderKeys.map((key) => heroIndex(key)))
+    : Number.POSITIVE_INFINITY;
+  const posterOrder = heroIndex("poster");
+
+  const heroElementClass = (base: string, key: string, item: OrderListItem) => {
+    const index = heroIndex(key);
+    const isDragging = heroDrag.dragIndex === index;
+    const isDropTarget =
+      heroDrag.overIndex === index &&
+      heroDrag.dragIndex !== null &&
+      heroDrag.dragIndex !== index;
+    return [
+      base,
+      item.hidden ? "is-off" : "",
+      isDragging ? "is-dragging" : "",
+      isDropTarget ? "is-drop-target" : "",
+      highlightedId === item.id ? "is-preview-lit" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  // Icon-only hide/show control, parked in the element's left gutter. It is
+  // revealed on element hover (or in inspect mode) so it never paints text or
+  // covers the element's own visuals at rest.
+  const renderHeroEye = (key: string) => {
+    const item = heroItemByKey.get(key);
+    if (!item) return null;
+    const label = toggleTitle(item.label, item.hidden, item.id);
+    return (
+      <button
+        type="button"
+        className="studio-hero-mock__eye"
+        aria-label={label}
+        title={label}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (inspectMode && onInspectElement) onInspectElement(item.id);
+          else onToggleHeroElement(item.id, !item.hidden);
+        }}
+      >
+        {item.hidden ? (
+          <EyeOff size={10} aria-hidden="true" />
+        ) : (
+          <Eye size={10} aria-hidden="true" />
+        )}
+      </button>
+    );
+  };
+
+  // One orderable hero element: the wrapper is the drag source and the
+  // click-to-toggle target; `renderHeroEye` is the explicit hide button.
+  const renderHeroItem = (key: string, pinned = false) => {
+    const item = heroItemByKey.get(key);
+    if (!item) return null;
+    const index = heroIndex(key);
+    return (
+      <div
+        key={key}
+        data-order-index={index}
+        className={heroElementClass(
+          `studio-hero-mock__item studio-hero-mock__item--${key}`,
+          key,
+          item,
+        )}
+        style={{ order: index, marginTop: pinned ? "auto" : undefined }}
+        title={toggleTitle(item.label, item.hidden, item.id)}
+        onPointerDown={startRowDrag(heroDrag, index)}
+        onClick={() =>
+          handleItemInteraction(heroDrag, item.id, () =>
+            onToggleHeroElement(item.id, !item.hidden),
+          )
+        }
+      >
+        <HeroElementVisual element={item.id as HeroElementKey} />
+        {renderHeroEye(key)}
+      </div>
+    );
+  };
+
+  const renderHeroPoster = () => {
+    if (!posterItem) return null;
+    const index = heroIndex("poster");
+    return (
+      <div
+        data-order-index={index}
+        className={heroElementClass(
+          "studio-hero-mock__item studio-hero-mock__item--poster studio-hero-mock__poster",
+          "poster",
+          posterItem,
+        )}
+        style={{ order: posterOrder }}
+        title={toggleTitle(posterItem.label, posterItem.hidden, posterItem.id)}
+        onPointerDown={startRowDrag(heroDrag, index)}
+        onClick={() =>
+          handleItemInteraction(heroDrag, posterItem.id, () =>
+            onToggleHeroElement(posterItem.id, !posterItem.hidden),
+          )
+        }
+      >
+        <span className="studio-hero-mock__poster-art" aria-hidden="true" />
+        {renderHeroEye("poster")}
+      </div>
+    );
   };
 
   return (
@@ -439,62 +573,107 @@ export function StudioPreview({
                 <>
                   {showDetailMocks && (
                     <>
-                      {/* Editable hero mock — blocks reorder/hide in place */}
+                      {/* Editable hero mock — mirrors the real GameHero composition */}
                       <div
-                        className="studio-hero-editor__mock studio-preview__detail-hero"
+                        className={`studio-hero-mock${inspectMode ? " is-inspect" : ""}`}
                         role="group"
                         ref={heroDrag.containerRef}
                         aria-label={t("settings.interface.studioHeroElementsTitle")}
                       >
-                        {heroElementItems.map((item, index) => {
-                          const isLit = highlightedId === item.id;
-                          const isDragging = heroDrag.dragIndex === index;
-                          const isDropTarget =
-                            heroDrag.overIndex === index &&
-                            heroDrag.dragIndex !== null &&
-                            heroDrag.dragIndex !== index;
-                          const className = [
-                            "studio-hero-block",
-                            `studio-hero-block--${item.id}`,
-                            item.hidden ? "is-off" : "",
-                            isDragging ? "is-dragging" : "",
-                            isDropTarget ? "is-drop-target" : "",
-                            isLit ? "is-preview-lit" : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ");
-                          return (
+                        {/* background: full-bleed art layer + scrim behind everything */}
+                        {backgroundItem && (
+                          <>
+                            <span
+                              className={heroElementClass(
+                                "studio-hero-mock__bg",
+                                "background",
+                                backgroundItem,
+                              )}
+                              data-order-index={heroIndex("background")}
+                              aria-hidden="true"
+                            />
+                            <span className="studio-hero-mock__scrim" aria-hidden="true" />
                             <button
-                              key={item.id}
                               type="button"
-                              data-order-index={index}
-                              className={className}
-                              aria-pressed={!item.hidden}
-                              title={toggleTitle(item.label, item.hidden, item.id)}
-                              onPointerDown={startRowDrag(heroDrag, index)}
+                              className="studio-hero-mock__bg-eye"
+                              data-order-index={heroIndex("background")}
+                              aria-label={toggleTitle(
+                                backgroundItem.label,
+                                backgroundItem.hidden,
+                                backgroundItem.id,
+                              )}
+                              title={toggleTitle(
+                                backgroundItem.label,
+                                backgroundItem.hidden,
+                                backgroundItem.id,
+                              )}
+                              onPointerDown={startRowDrag(heroDrag, heroIndex("background"))}
                               onClick={() =>
-                                handleItemInteraction(heroDrag, item.id, () =>
-                                  onToggleHeroElement(item.id, !item.hidden),
+                                handleItemInteraction(heroDrag, backgroundItem.id, () =>
+                                  onToggleHeroElement(
+                                    backgroundItem.id,
+                                    !backgroundItem.hidden,
+                                  ),
                                 )
                               }
                             >
-                              <span className="studio-hero-block__head">
-                                <GripVertical
-                                  className="studio-preview__grip"
-                                  size={10}
-                                  aria-hidden="true"
-                                />
-                                <item.icon
-                                  size={10}
-                                  className="studio-hero-block__icon"
-                                  aria-hidden="true"
-                                />
-                                <span className="studio-hero-block__label">{item.label}</span>
-                              </span>
-                              <HeroElementVisual element={item.id as HeroElementKey} />
+                              {backgroundItem.hidden ? (
+                                <EyeOff size={11} aria-hidden="true" />
+                              ) : (
+                                <Eye size={11} aria-hidden="true" />
+                              )}
                             </button>
-                          );
-                        })}
+                          </>
+                        )}
+
+                        <div className="studio-hero-mock__inner">
+                          {/* poster: 2:3 panel, docks left/right by its order */}
+                          {renderHeroPoster()}
+
+                          {/* content column: orderable block stack */}
+                          <div
+                            className="studio-hero-mock__content"
+                            style={{ order: contentOrder }}
+                          >
+                            {groupFooter ? (
+                              <>
+                                <div
+                                  key="footer"
+                                  className="studio-hero-mock__footer"
+                                  style={{
+                                    order: Math.min(
+                                      heroIndex("kpis"),
+                                      heroIndex("actions"),
+                                    ),
+                                    marginTop:
+                                      pinTrailingFooter &&
+                                      (boundaryKey === "kpis" || boundaryKey === "actions")
+                                        ? "auto"
+                                        : undefined,
+                                  }}
+                                >
+                                  {renderHeroItem("kpis")}
+                                  {renderHeroItem("actions")}
+                                </div>
+                                {contentOrderKeys
+                                  .filter((key) => key !== "kpis" && key !== "actions")
+                                  .map((key) =>
+                                    renderHeroItem(
+                                      key,
+                                      pinTrailingFooter && boundaryKey === key,
+                                    ),
+                                  )}
+                              </>
+                            ) : (
+                              contentOrderKeys.map((key) =>
+                                renderHeroItem(
+                                  key,
+                                  pinTrailingFooter && boundaryKey === key,
+                                ),
+                              )
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       {/* Editable detail subtab bar mock — overview stays visible */}

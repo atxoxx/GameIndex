@@ -2055,125 +2055,237 @@
 
 /* ── Hero element mock (Layout Studio → Game/Store) ──────────────────────── */
 
-.studio-hero-editor__mock {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 8px;
-  min-height: 120px;
-  padding: 12px;
-  border-radius: var(--radius-md);
+.studio-hero-mock {
+  position: relative;
+  flex-shrink: 0;
+  display: block;
+  min-height: clamp(122px, 21vh, 190px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-secondary);
+  isolation: isolate;
+}
+
+/* Backdrop element: absolute full-bleed art layer (order is intentionally
+   ignored, matching the real GameHero — only visibility gates it). */
+.studio-hero-mock__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--color-accent) 20%, var(--color-surface)),
-    color-mix(in srgb, var(--color-bg-tertiary) 60%, transparent)
+    color-mix(in srgb, var(--color-accent) 42%, var(--color-bg-tertiary)),
+    color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-primary))
   );
-  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  transition: opacity var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.studio-hero-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-bg-primary) 72%, transparent);
-  border: 1px solid var(--color-border);
-  font-family: inherit;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.studio-hero-block.is-preview-lit {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
-}
-
-.studio-hero-block--background { flex: 1 1 100%; }
-.studio-hero-block--poster { flex: 0 0 auto; }
-.studio-hero-block--title { flex: 1 1 180px; }
-.studio-hero-block--meta { flex: 1 1 160px; }
-.studio-hero-block--genres { flex: 1 1 140px; }
-.studio-hero-block--kpis { flex: 1 1 140px; }
-.studio-hero-block--actions { flex: 1 1 120px; }
-
-.studio-hero-block:hover {
-  border-color: var(--color-border-light);
-}
-
-.studio-hero-block.is-highlighted {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-primary));
-}
-
-.studio-hero-block.is-dragging {
-  opacity: 0.45;
-  border-color: var(--color-accent);
-}
-
-.studio-hero-block.is-drop-target {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-}
-
-.studio-hero-block.is-off {
-  opacity: 0.4;
+.studio-hero-mock__bg.is-off {
+  opacity: 0.25;
   outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
   outline-offset: -1px;
 }
 
-.studio-hero-block.is-off .studio-hero-visual {
+.studio-hero-mock__bg.is-dragging {
+  opacity: 0.4;
+}
+
+.studio-hero-mock__bg.is-drop-target,
+.studio-hero-mock__bg.is-preview-lit {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+/* Legibility scrim over the art (always present). */
+.studio-hero-mock__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 100% at 50% 40%, transparent 50%, var(--scrim-dark-mid) 100%),
+    linear-gradient(90deg,
+      var(--scrim-dark) 0%,
+      color-mix(in srgb, var(--scrim-dark) 72%, transparent) 42%,
+      color-mix(in srgb, var(--scrim-dark) 30%, transparent) 100%),
+    linear-gradient(0deg, color-mix(in srgb, var(--scrim-dark) 55%, transparent), transparent 58%);
+}
+
+.studio-hero-mock__inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+/* Crisp 2:3 poster panel; docks left or right via its inline order. */
+.studio-hero-mock__poster {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(38px, 13%, 58px);
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-md);
+  /* Visible so the gutter eye button isn't clipped by the panel. */
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 42%, var(--color-border-light));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent) 55%, var(--color-surface)),
+    var(--color-bg-primary)
+  );
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-3);
+  transition: opacity var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.studio-hero-mock__poster-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  background: repeating-linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent) 8%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+/* Content column — orderable block stack. */
+.studio-hero-mock__content {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+/* One orderable hero element. At rest it is pure visual; its edit affordance
+   (the eye button) only appears on hover or in inspect mode. */
+.studio-hero-mock__item {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--radius-xs);
+  cursor: grab;
+  transition: opacity var(--transition-fast);
+}
+
+.studio-hero-mock__item:active {
+  cursor: grabbing;
+}
+
+.studio-hero-mock__item.is-off {
+  outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  outline-offset: 2px;
+}
+
+/* Hidden elements keep their slot but dim their visual (the eye stays legible). */
+.studio-hero-mock__item.is-off > .studio-hero-visual,
+.studio-hero-mock__item.is-off > .studio-hero-mock__poster-art {
+  opacity: 0.35;
   filter: grayscale(1);
 }
 
-.studio-hero-block__head {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.studio-hero-block__handle {
-  display: inline-flex;
-  color: var(--color-text-muted);
+.studio-hero-mock__item.is-dragging {
   opacity: 0.4;
-  cursor: grab;
-  transition: opacity var(--transition-fast), color var(--transition-fast);
 }
 
-.studio-hero-block:hover .studio-hero-block__handle {
-  opacity: 0.9;
-  color: var(--color-accent);
+.studio-hero-mock__item.is-drop-target,
+.studio-hero-mock__item.is-preview-lit {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
-.studio-hero-block__icon {
-  flex-shrink: 0;
-  color: var(--color-text-muted);
+/* Poster item hugs its 2:3 panel and centres in the hero. */
+.studio-hero-mock__item--poster {
+  flex: 0 0 auto;
+  align-self: center;
+  border-radius: var(--radius-md);
 }
 
-.studio-hero-block__label {
-  font-size: 10px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-.studio-hero-block__eye {
+/* Icon-only hide/show button in the element's left gutter. Hidden at rest,
+   revealed on element hover (or in inspect mode) so it never paints over the
+   element's own visuals. */
+.studio-hero-mock__eye {
+  position: absolute;
+  top: 0;
+  left: -12px;
+  z-index: 6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: auto;
+  width: 12px;
+  height: 12px;
   padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 82%, transparent);
+  color: var(--color-text-secondary);
   cursor: pointer;
-  transition: color var(--transition-fast);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
-.studio-hero-block__eye:hover {
+.studio-hero-mock__item:hover > .studio-hero-mock__eye,
+.studio-hero-mock__item:focus-within > .studio-hero-mock__eye,
+.studio-hero-mock.is-inspect .studio-hero-mock__eye {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.studio-hero-mock__eye:hover {
   color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Background edit chip: a card-level control in the top-right corner, shown
+   on card hover or in inspect mode. */
+.studio-hero-mock__bg-eye {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 82%, transparent);
+  color: var(--color-text-secondary);
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-hero-mock:hover .studio-hero-mock__bg-eye,
+.studio-hero-mock.is-inspect .studio-hero-mock__bg-eye {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.studio-hero-mock__bg-eye:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Footer: KPI tiles (left) + action pills (right). */
+.studio-hero-mock__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
 }
 
 .studio-hero-visual {
@@ -2181,103 +2293,87 @@
   flex-shrink: 0;
 }
 
-.studio-hero-visual--background {
-  width: 100%;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(
-    120deg,
-    color-mix(in srgb, var(--color-accent) 45%, var(--color-bg-tertiary)),
-    color-mix(in srgb, var(--color-bg-primary) 80%, transparent)
-  );
-}
-
-.studio-hero-visual--poster {
-  width: 34px;
-  height: 51px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--color-accent) 50%, var(--color-surface)),
-    var(--color-bg-primary)
-  );
-  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-}
-
 .studio-hero-visual--title {
-  width: 90%;
-  height: 12px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--color-text-primary) 65%, transparent);
+  width: min(62%, 200px);
+  height: 15px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-text-primary) 78%, transparent),
+    color-mix(in srgb, var(--color-text-primary) 58%, transparent)
+  );
+  box-shadow: 0 1px 8px color-mix(in srgb, var(--scrim-dark-mid) 70%, transparent);
 }
 
 .studio-hero-visual--meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding-top: 1px;
 }
 
 .studio-hero-visual--meta i {
   height: 4px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--color-text-muted) 55%, transparent);
+  background: color-mix(in srgb, var(--color-text-secondary) 55%, transparent);
+}
+
+.studio-hero-visual--meta i:first-child {
+  width: min(58%, 150px);
 }
 
 .studio-hero-visual--meta i:last-child {
-  width: 60%;
+  width: min(38%, 100px);
 }
 
 .studio-hero-visual--genres {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
 }
 
 .studio-hero-visual--genres i {
-  width: 28px;
-  height: 12px;
+  width: 30px;
+  height: 13px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 42%, transparent);
 }
 
 .studio-hero-visual--kpis {
   display: flex;
-  gap: 4px;
+  gap: 5px;
 }
 
 .studio-hero-visual--kpis i {
   width: 26px;
-  height: 24px;
+  height: 22px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
-  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border-light) 65%, transparent);
 }
 
 .studio-hero-visual--actions {
   display: flex;
-  gap: 4px;
+  gap: 5px;
+  justify-content: flex-end;
 }
 
 .studio-hero-visual--actions i {
-  height: 14px;
+  height: 16px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 62%, transparent);
 }
 
 .studio-hero-visual--actions i:first-child {
-  width: 42px;
+  width: 48px;
 }
 
 .studio-hero-visual--actions i:last-child {
-  width: 28px;
+  width: 32px;
 }
 
 /* ── Detail mocks inside the preview frame ──────────────────────────────── */
-
-.studio-preview__detail-hero {
-  flex-shrink: 0;
-}
 
 /* The real subtab bar scrolls horizontally; keep it on one line here too. */
 .studio-preview__main .studio-subtab-bar {
@@ -2309,74 +2405,25 @@
   font-size: 9.5px;
 }
 
-/* Compact the hero mock so it reads as a real hero at every viewport preset. */
-.studio-preview__main .studio-hero-editor__mock {
+/* Compact the hero mock at the tightest viewport presets. */
+.studio-preview-frame--compact .studio-hero-mock {
+  min-height: clamp(96px, 17vh, 148px);
+}
+
+.studio-preview-frame--compact .studio-hero-mock__inner {
+  gap: 8px;
+  padding: 8px;
+}
+
+.studio-preview-frame--compact .studio-hero-mock__content {
   gap: 5px;
-  min-height: 0;
-  padding: 6px 8px;
 }
 
-.studio-preview__main .studio-hero-block {
-  gap: 4px;
-  padding: 4px 5px;
+.studio-preview-frame--compact .studio-hero-visual--title {
+  height: 12px;
 }
 
-.studio-preview__main .studio-hero-block--title { flex: 1 1 110px; }
-.studio-preview__main .studio-hero-block--meta { flex: 1 1 100px; }
-.studio-preview__main .studio-hero-block--genres { flex: 1 1 90px; }
-.studio-preview__main .studio-hero-block--kpis { flex: 1 1 90px; }
-.studio-preview__main .studio-hero-block--actions { flex: 1 1 80px; }
-
-.studio-preview__main .studio-hero-block__label {
-  font-size: 8px;
-}
-
-.studio-preview__main .studio-hero-visual--background {
-  height: 18px;
-}
-
-.studio-preview__main .studio-hero-visual--poster {
-  width: 22px;
-  height: 33px;
-}
-
-.studio-preview__main .studio-hero-visual--title {
-  height: 8px;
-}
-
-.studio-preview__main .studio-hero-visual--meta i {
-  height: 3px;
-}
-
-.studio-preview__main .studio-hero-visual--genres i {
-  width: 18px;
-  height: 9px;
-}
-
-.studio-preview__main .studio-hero-visual--kpis i {
-  width: 18px;
-  height: 15px;
-}
-
-.studio-preview__main .studio-hero-visual--actions i {
-  height: 10px;
-}
-
-.studio-preview__main .studio-hero-visual--actions i:first-child {
-  width: 28px;
-}
-
-.studio-preview__main .studio-hero-visual--actions i:last-child {
-  width: 18px;
-}
-
-/* Tightest presets: shave the mock down a little more. */
-.studio-preview-frame--compact .studio-preview__main .studio-hero-block__label,
-.studio-preview-frame--handheld .studio-preview__main .studio-hero-block__label {
-  font-size: 7px;
-}
-
-.studio-preview-frame--compact .studio-preview__main .studio-subtab {
+.studio-preview-frame--compact .studio-subtab {
   font-size: 9px;
 }
 
