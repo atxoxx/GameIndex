@@ -13,11 +13,16 @@ interface GameQuickStatsBarProps {
   isStoreMode?: boolean;
 }
 
-function formatRelativeTime(timestamp: number | undefined, neverText: string): string {
+type Translate = (key: string, vars?: Record<string, unknown>) => string;
+
+function formatRelativeTime(
+  timestamp: number | undefined,
+  neverText: string,
+  t: Translate
+): string {
   if (!timestamp || timestamp <= 0) return neverText;
-  const now = Date.now();
-  const diffMs = now - timestamp;
-  if (diffMs < 0) return "Just now";
+  const diffMs = Date.now() - timestamp;
+  if (diffMs < 0) return t("game.quickStats.justNow");
 
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
@@ -26,19 +31,19 @@ function formatRelativeTime(timestamp: number | undefined, neverText: string): s
 
   if (diffDays === 0) {
     if (diffHours === 0) {
-      if (diffMin <= 1) return "Just now";
-      return `${diffMin}m ago`;
+      if (diffMin <= 1) return t("game.quickStats.justNow");
+      return t("game.quickStats.minutesAgo", { n: diffMin });
     }
-    return `${diffHours}h ago`;
+    return t("game.quickStats.hoursAgo", { n: diffHours });
   }
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 30) return `${diffDays}d ago`;
+  if (diffDays === 1) return t("game.quickStats.yesterday");
+  if (diffDays < 30) return t("game.quickStats.daysAgo", { n: diffDays });
   if (diffDays < 365) {
     const months = Math.floor(diffDays / 30);
-    return `${months}mo ago`;
+    return t("game.quickStats.monthsAgo", { n: months });
   }
   const years = Math.floor(diffDays / 365);
-  return `${years}y ago`;
+  return t("game.quickStats.yearsAgo", { n: years });
 }
 
 export default function GameQuickStatsBar({
@@ -78,7 +83,7 @@ export default function GameQuickStatsBar({
 
   // 4. Last played
   const lastPlayedRelative = useMemo(() => {
-    return formatRelativeTime(game.lastPlayed, t("game.quickStats.neverPlayed"));
+    return formatRelativeTime(game.lastPlayed, t("game.quickStats.neverPlayed"), t);
   }, [game.lastPlayed, t]);
 
   const scoreClass =
