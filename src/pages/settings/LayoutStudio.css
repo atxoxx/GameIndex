@@ -1943,3 +1943,456 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* ── Detail subtab bar mock (Layout Studio preview → Game/Store) ─────────── */
+
+.studio-subtab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.studio-subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  user-select: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.studio-subtab.is-preview-lit {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.studio-subtab:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.studio-subtab.is-highlighted {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+}
+
+.studio-subtab.is-dragging {
+  opacity: 0.45;
+  border-color: var(--color-accent);
+}
+
+.studio-subtab.is-drop-target {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.studio-subtab.is-off {
+  opacity: 0.35;
+  outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  outline-offset: -1px;
+}
+
+.studio-subtab.is-off .studio-subtab__label {
+  text-decoration: line-through;
+}
+
+.studio-subtab__handle {
+  display: inline-flex;
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  cursor: grab;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.studio-subtab:hover .studio-subtab__handle {
+  opacity: 0.9;
+  color: var(--color-accent);
+}
+
+.studio-subtab__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.studio-subtab__label {
+  white-space: nowrap;
+}
+
+.studio-subtab__eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.studio-subtab__eye:hover:not(:disabled) {
+  color: var(--color-accent);
+}
+
+.studio-subtab__eye:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── Hero element mock (Layout Studio → Game/Store) ──────────────────────── */
+
+.studio-hero-editor__mock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  min-height: 120px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 20%, var(--color-surface)),
+    color-mix(in srgb, var(--color-bg-tertiary) 60%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.studio-hero-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-primary) 72%, transparent);
+  border: 1px solid var(--color-border);
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.studio-hero-block.is-preview-lit {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.studio-hero-block--background { flex: 1 1 100%; }
+.studio-hero-block--poster { flex: 0 0 auto; }
+.studio-hero-block--title { flex: 1 1 180px; }
+.studio-hero-block--meta { flex: 1 1 160px; }
+.studio-hero-block--genres { flex: 1 1 140px; }
+.studio-hero-block--kpis { flex: 1 1 140px; }
+.studio-hero-block--actions { flex: 1 1 120px; }
+
+.studio-hero-block:hover {
+  border-color: var(--color-border-light);
+}
+
+.studio-hero-block.is-highlighted {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-primary));
+}
+
+.studio-hero-block.is-dragging {
+  opacity: 0.45;
+  border-color: var(--color-accent);
+}
+
+.studio-hero-block.is-drop-target {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.studio-hero-block.is-off {
+  opacity: 0.4;
+  outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  outline-offset: -1px;
+}
+
+.studio-hero-block.is-off .studio-hero-visual {
+  filter: grayscale(1);
+}
+
+.studio-hero-block__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio-hero-block__handle {
+  display: inline-flex;
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  cursor: grab;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.studio-hero-block:hover .studio-hero-block__handle {
+  opacity: 0.9;
+  color: var(--color-accent);
+}
+
+.studio-hero-block__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.studio-hero-block__label {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.studio-hero-block__eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.studio-hero-block__eye:hover {
+  color: var(--color-accent);
+}
+
+.studio-hero-visual {
+  display: block;
+  flex-shrink: 0;
+}
+
+.studio-hero-visual--background {
+  width: 100%;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-accent) 45%, var(--color-bg-tertiary)),
+    color-mix(in srgb, var(--color-bg-primary) 80%, transparent)
+  );
+}
+
+.studio-hero-visual--poster {
+  width: 34px;
+  height: 51px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent) 50%, var(--color-surface)),
+    var(--color-bg-primary)
+  );
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.studio-hero-visual--title {
+  width: 90%;
+  height: 12px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-primary) 65%, transparent);
+}
+
+.studio-hero-visual--meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.studio-hero-visual--meta i {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-muted) 55%, transparent);
+}
+
+.studio-hero-visual--meta i:last-child {
+  width: 60%;
+}
+
+.studio-hero-visual--genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.studio-hero-visual--genres i {
+  width: 28px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.studio-hero-visual--kpis {
+  display: flex;
+  gap: 4px;
+}
+
+.studio-hero-visual--kpis i {
+  width: 26px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.studio-hero-visual--actions {
+  display: flex;
+  gap: 4px;
+}
+
+.studio-hero-visual--actions i {
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+.studio-hero-visual--actions i:first-child {
+  width: 42px;
+}
+
+.studio-hero-visual--actions i:last-child {
+  width: 28px;
+}
+
+/* ── Detail mocks inside the preview frame ──────────────────────────────── */
+
+.studio-preview__detail-hero {
+  flex-shrink: 0;
+}
+
+/* The real subtab bar scrolls horizontally; keep it on one line here too. */
+.studio-preview__main .studio-subtab-bar {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 3px;
+  padding: 3px 5px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border)) transparent;
+}
+
+.studio-preview__main .studio-subtab-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.studio-preview__main .studio-subtab-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-preview__main .studio-subtab-bar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  border-radius: var(--radius-full);
+}
+
+.studio-preview__main .studio-subtab {
+  gap: 3px;
+  padding: 2px 6px;
+  font-size: 9.5px;
+}
+
+/* Compact the hero mock so it reads as a real hero at every viewport preset. */
+.studio-preview__main .studio-hero-editor__mock {
+  gap: 5px;
+  min-height: 0;
+  padding: 6px 8px;
+}
+
+.studio-preview__main .studio-hero-block {
+  gap: 4px;
+  padding: 4px 5px;
+}
+
+.studio-preview__main .studio-hero-block--title { flex: 1 1 110px; }
+.studio-preview__main .studio-hero-block--meta { flex: 1 1 100px; }
+.studio-preview__main .studio-hero-block--genres { flex: 1 1 90px; }
+.studio-preview__main .studio-hero-block--kpis { flex: 1 1 90px; }
+.studio-preview__main .studio-hero-block--actions { flex: 1 1 80px; }
+
+.studio-preview__main .studio-hero-block__label {
+  font-size: 8px;
+}
+
+.studio-preview__main .studio-hero-visual--background {
+  height: 18px;
+}
+
+.studio-preview__main .studio-hero-visual--poster {
+  width: 22px;
+  height: 33px;
+}
+
+.studio-preview__main .studio-hero-visual--title {
+  height: 8px;
+}
+
+.studio-preview__main .studio-hero-visual--meta i {
+  height: 3px;
+}
+
+.studio-preview__main .studio-hero-visual--genres i {
+  width: 18px;
+  height: 9px;
+}
+
+.studio-preview__main .studio-hero-visual--kpis i {
+  width: 18px;
+  height: 15px;
+}
+
+.studio-preview__main .studio-hero-visual--actions i {
+  height: 10px;
+}
+
+.studio-preview__main .studio-hero-visual--actions i:first-child {
+  width: 28px;
+}
+
+.studio-preview__main .studio-hero-visual--actions i:last-child {
+  width: 18px;
+}
+
+/* Tightest presets: shave the mock down a little more. */
+.studio-preview-frame--compact .studio-preview__main .studio-hero-block__label,
+.studio-preview-frame--handheld .studio-preview__main .studio-hero-block__label {
+  font-size: 7px;
+}
+
+.studio-preview-frame--compact .studio-preview__main .studio-subtab {
+  font-size: 9px;
+}
+
+/* Let the main column (and its scrollable item list) shrink so the mocks
+   never push the frame past its bounds at any viewport preset. */
+.studio-preview__main {
+  min-height: 0;
+}
+
+.studio-preview__items {
+  min-height: 0;
+}
+
+.studio-preview-frame--compact .studio-preview__main,
+.studio-preview-frame--handheld .studio-preview__main {
+  gap: 5px;
+  padding: 6px 10px;
+}
+

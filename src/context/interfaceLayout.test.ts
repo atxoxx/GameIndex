@@ -1,11 +1,23 @@
 import { describe, it, expect } from "vitest";
 import {
+  DEFAULT_DETAIL_TAB_ORDER,
+  DEFAULT_HERO_ELEMENT_ORDER,
   DEFAULT_SIDEBAR_SECTION_VISIBILITY,
+  DETAIL_TABS,
+  HERO_ELEMENTS,
   interfacePageDef,
+  normalizeDetailTabOrder,
+  normalizeDetailTabOrderMap,
+  normalizeHeroElementOrder,
+  normalizeHeroElementOrderMap,
+  normalizeHeroElementVisibilityMap,
   normalizePageItemOrder,
   normalizePageItemOrderMap,
   normalizePageItemVisibilityMap,
   normalizeSidebarSectionVisibility,
+  resolveDetailTabOrder,
+  resolveHeroElementHidden,
+  resolveHeroElementOrder,
   resolveInterfacePage,
 } from "./interfaceLayout";
 import { moveKey, sortByOrder, NAV_TAB_ITEMS } from "../pages/settings/interfaceItems";
@@ -129,5 +141,132 @@ describe("header item helpers", () => {
     const result = normalizeNavbarButtonOrder(["btnBigScreen"]);
     expect(result[0]).toBe("btnBigScreen");
     expect(result).toHaveLength(4);
+  });
+});
+
+describe("normalizeDetailTabOrder", () => {
+  it("keeps a valid custom order", () => {
+    const custom = [...DETAIL_TABS.game].reverse();
+    expect(normalizeDetailTabOrder("game", custom)).toEqual(custom);
+  });
+
+  it("drops unknown/duplicate keys and appends missing tabs", () => {
+    const result = normalizeDetailTabOrder("game", ["notes", "notes", "bogus", "overview"]);
+    expect(result.slice(0, 2)).toEqual(["notes", "overview"]);
+    expect(result).toHaveLength(DETAIL_TABS.game.length);
+    expect(new Set(result)).toEqual(new Set(DETAIL_TABS.game));
+  });
+
+  it("falls back to the shipped order for malformed input", () => {
+    expect(normalizeDetailTabOrder("store", null)).toEqual(DETAIL_TABS.store);
+    expect(normalizeDetailTabOrder("store", ["nope"])).toEqual(DETAIL_TABS.store);
+    expect(DEFAULT_DETAIL_TAB_ORDER).toBe(DETAIL_TABS);
+  });
+});
+
+describe("normalizeDetailTabOrderMap", () => {
+  it("normalizes each known scope and ignores junk scopes", () => {
+    const result = normalizeDetailTabOrderMap({
+      game: ["news"],
+      junk: ["news"],
+      global: ["overview"],
+    });
+    expect(result.game?.[0]).toBe("news");
+    expect(result.game).toHaveLength(DETAIL_TABS.game.length);
+    const loose = result as Record<string, unknown>;
+    expect(loose.junk).toBeUndefined();
+    expect(loose.global).toBeUndefined();
+  });
+
+  it("returns an empty map for malformed input", () => {
+    expect(normalizeDetailTabOrderMap(null)).toEqual({});
+    expect(normalizeDetailTabOrderMap("game")).toEqual({});
+  });
+});
+
+describe("resolveDetailTabOrder", () => {
+  it("uses the stored order when present", () => {
+    expect(resolveDetailTabOrder({ game: ["news"] }, "game")).toEqual(["news"]);
+  });
+
+  it("falls back to the shipped order", () => {
+    expect(resolveDetailTabOrder({}, "store")).toEqual(DETAIL_TABS.store);
+  });
+});
+
+describe("normalizeHeroElementOrder", () => {
+  it("keeps a valid custom order", () => {
+    const custom = [...HERO_ELEMENTS].reverse();
+    expect(normalizeHeroElementOrder("game", custom)).toEqual(custom);
+  });
+
+  it("drops unknown/duplicate keys and appends missing elements", () => {
+    const result = normalizeHeroElementOrder("game", ["title", "title", "nope"]);
+    expect(result[0]).toBe("title");
+    expect(result).toHaveLength(HERO_ELEMENTS.length);
+    expect(new Set(result)).toEqual(new Set(HERO_ELEMENTS));
+  });
+
+  it("falls back to the shipped order for malformed input", () => {
+    expect(normalizeHeroElementOrder("store", null)).toEqual(HERO_ELEMENTS);
+    expect(normalizeHeroElementOrder("store", 42)).toEqual(HERO_ELEMENTS);
+    expect(DEFAULT_HERO_ELEMENT_ORDER).toBe(HERO_ELEMENTS);
+  });
+});
+
+describe("normalizeHeroElementOrderMap", () => {
+  it("normalizes each known scope and ignores junk scopes", () => {
+    const result = normalizeHeroElementOrderMap({
+      store: ["actions"],
+      junk: ["actions"],
+    });
+    expect(result.store?.[0]).toBe("actions");
+    expect(result.store).toHaveLength(HERO_ELEMENTS.length);
+    expect((result as Record<string, unknown>).junk).toBeUndefined();
+  });
+
+  it("returns an empty map for malformed input", () => {
+    expect(normalizeHeroElementOrderMap(null)).toEqual({});
+    expect(normalizeHeroElementOrderMap([])).toEqual({});
+  });
+});
+
+describe("normalizeHeroElementVisibilityMap", () => {
+  it("keeps only OFF entries for known scopes and keys", () => {
+    const result = normalizeHeroElementVisibilityMap({
+      game: { title: false, poster: true, nope: false },
+      store: { kpis: false },
+      junk: { actions: false },
+    });
+    expect(result.game).toEqual({ title: false });
+    expect(result.store).toEqual({ kpis: false });
+    expect((result as Record<string, unknown>).junk).toBeUndefined();
+  });
+
+  it("drops ON-only and malformed input", () => {
+    expect(normalizeHeroElementVisibilityMap(null)).toEqual({});
+    expect(normalizeHeroElementVisibilityMap({ game: { title: true } })).toEqual({});
+  });
+});
+
+describe("resolveHeroElementOrder", () => {
+  it("uses the stored order when present", () => {
+    expect(resolveHeroElementOrder({ store: ["actions"] }, "store")).toEqual(["actions"]);
+  });
+
+  it("falls back to the shipped order", () => {
+    expect(resolveHeroElementOrder({}, "game")).toEqual(HERO_ELEMENTS);
+  });
+});
+
+describe("resolveHeroElementHidden", () => {
+  it("returns the stored OFF entries", () => {
+    expect(resolveHeroElementHidden({ game: { title: false } }, "game")).toEqual({
+      title: false,
+    });
+  });
+
+  it("falls back to nothing hidden", () => {
+    expect(resolveHeroElementHidden({}, "store")).toEqual({});
   });
 });

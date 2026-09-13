@@ -10,6 +10,9 @@ import type {
   UiScale,
 } from "../../../context/SettingsContext";
 import type {
+  DetailTabOrderMap,
+  HeroElementOrderMap,
+  HeroElementVisibilityMap,
   PageItemOrderMap,
   PageItemVisibilityMap,
   SidebarSectionVisibility,
@@ -51,6 +54,12 @@ export interface LayoutSnapshot {
   showCardBadges: boolean;
   showNavbarNowPlaying: boolean;
   detailSectionVisible: DetailSectionVisibility;
+  /** Per-scope order of the detail-page tab bar (game + store). */
+  detailTabOrder: DetailTabOrderMap;
+  /** Per-scope order of the hero element blocks (game + store). */
+  heroElementOrder: HeroElementOrderMap;
+  /** OFF-only per-scope hero element visibility overrides. */
+  heroElementVisibility: HeroElementVisibilityMap;
   uiScale: UiScale;
 }
 

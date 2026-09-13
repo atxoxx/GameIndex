@@ -797,3 +797,178 @@ export function normalizeSidebarSectionVisibility(raw: unknown): SidebarSectionV
   }
   return next;
 }
+
+// ── Detail-page tabs (game + store detail) ─────────────────────────────
+export type DetailTabScope = "game" | "store";
+export type DetailTabKey =
+  | "overview" | "reviews" | "activity" | "notes"
+  | "achievements" | "mods" | "weblinks" | "news";
+
+export const DETAIL_TABS: Record<DetailTabScope, DetailTabKey[]> = {
+  game: ["overview", "reviews", "activity", "notes", "achievements", "mods", "weblinks", "news"],
+  store: ["overview", "reviews", "achievements", "weblinks", "news"],
+};
+export const DEFAULT_DETAIL_TAB_ORDER = DETAIL_TABS; // shipped order
+
+const DETAIL_TAB_SCOPES = Object.keys(DETAIL_TABS) as DetailTabScope[];
+
+// Tab label i18n keys (reuse existing keys — do NOT invent new ones here).
+export const DETAIL_TAB_LABEL_KEY: Record<DetailTabKey, string> = {
+  overview: "game.tab.overview",
+  reviews: "game.tab.reviews",
+  activity: "game.tab.activity",
+  notes: "notes.title",
+  achievements: "game.tab.achievements",
+  mods: "game.tab.mods",
+  weblinks: "game.tab.weblinks",
+  news: "game.tab.news",
+};
+
+export type DetailTabOrderMap = Partial<Record<DetailTabScope, DetailTabKey[]>>;
+
+/** Normalize like normalizePageItemOrder: drop unknown/dupes, append missing known keys. */
+export function normalizeDetailTabOrder(
+  scope: DetailTabScope,
+  raw: unknown,
+): DetailTabKey[] {
+  const known = DETAIL_TABS[scope];
+  const allowed = new Set<string>(known);
+  const seen = new Set<string>();
+  const ordered: DetailTabKey[] = [];
+  if (Array.isArray(raw)) {
+    for (const value of raw) {
+      if (typeof value !== "string" || !allowed.has(value) || seen.has(value)) continue;
+      seen.add(value);
+      ordered.push(value as DetailTabKey);
+    }
+  }
+  for (const key of known) {
+    if (!seen.has(key)) ordered.push(key);
+  }
+  return ordered;
+}
+
+/** Normalize the whole persisted detail-tab order map. */
+export function normalizeDetailTabOrderMap(raw: unknown): DetailTabOrderMap {
+  if (!raw || typeof raw !== "object") return {};
+  const source = raw as Record<string, unknown>;
+  const next: DetailTabOrderMap = {};
+  for (const scope of DETAIL_TAB_SCOPES) {
+    const value = source[scope];
+    if (value === undefined) continue;
+    next[scope] = normalizeDetailTabOrder(scope, value);
+  }
+  return next;
+}
+
+/** Resolve the effective tab order for a scope, falling back to the shipped order. */
+export function resolveDetailTabOrder(
+  map: DetailTabOrderMap,
+  scope: DetailTabScope,
+): DetailTabKey[] {
+  return map[scope] ?? DETAIL_TABS[scope];
+}
+
+// ── Hero elements (game + store detail) ────────────────────────────────
+export type HeroScope = "game" | "store";
+export type HeroElementKey =
+  | "background" | "poster" | "title" | "meta" | "genres" | "kpis" | "actions";
+
+export const HERO_ELEMENTS: HeroElementKey[] = [
+  "background", "poster", "title", "meta", "genres", "kpis", "actions",
+];
+export const DEFAULT_HERO_ELEMENT_ORDER = HERO_ELEMENTS;
+
+const HERO_SCOPES: HeroScope[] = ["game", "store"];
+
+/** Both scopes ship the same element set today; keyed per scope so a future
+ *  split doesn't require a call-site change. */
+const HERO_ELEMENTS_BY_SCOPE: Record<HeroScope, HeroElementKey[]> = {
+  game: HERO_ELEMENTS,
+  store: HERO_ELEMENTS,
+};
+
+// New i18n keys the Studio lane will add; declare them here.
+export const HERO_ELEMENT_LABEL_KEY: Record<HeroElementKey, string> = {
+  background: "settings.interface.heroElementBackground",
+  poster: "settings.interface.heroElementPoster",
+  title: "settings.interface.heroElementTitle",
+  meta: "settings.interface.heroElementMeta",
+  genres: "settings.interface.heroElementGenres",
+  kpis: "settings.interface.heroElementKpis",
+  actions: "settings.interface.heroElementActions",
+};
+
+export type HeroElementOrderMap = Partial<Record<HeroScope, HeroElementKey[]>>;
+export type HeroElementVisibilityMap =
+  Partial<Record<HeroScope, Partial<Record<HeroElementKey, boolean>>>>;
+
+/** Normalize a persisted hero order: drop unknown/dupes, append missing known keys. */
+export function normalizeHeroElementOrder(
+  scope: HeroScope,
+  raw: unknown,
+): HeroElementKey[] {
+  const known = HERO_ELEMENTS_BY_SCOPE[scope];
+  const allowed = new Set<string>(known);
+  const seen = new Set<string>();
+  const ordered: HeroElementKey[] = [];
+  if (Array.isArray(raw)) {
+    for (const value of raw) {
+      if (typeof value !== "string" || !allowed.has(value) || seen.has(value)) continue;
+      seen.add(value);
+      ordered.push(value as HeroElementKey);
+    }
+  }
+  for (const key of known) {
+    if (!seen.has(key)) ordered.push(key);
+  }
+  return ordered;
+}
+
+/** Normalize the whole persisted hero element order map. */
+export function normalizeHeroElementOrderMap(raw: unknown): HeroElementOrderMap {
+  if (!raw || typeof raw !== "object") return {};
+  const source = raw as Record<string, unknown>;
+  const next: HeroElementOrderMap = {};
+  for (const scope of HERO_SCOPES) {
+    const value = source[scope];
+    if (value === undefined) continue;
+    next[scope] = normalizeHeroElementOrder(scope, value);
+  }
+  return next;
+}
+
+/** OFF-only persistence, same as normalizePageItemVisibilityMap: keep only
+ *  known scopes, known element keys and explicit OFF entries. */
+export function normalizeHeroElementVisibilityMap(raw: unknown): HeroElementVisibilityMap {
+  if (!raw || typeof raw !== "object") return {};
+  const source = raw as Record<string, unknown>;
+  const allowed = new Set<string>(HERO_ELEMENTS);
+  const next: HeroElementVisibilityMap = {};
+  for (const scope of HERO_SCOPES) {
+    const value = source[scope];
+    if (!value || typeof value !== "object") continue;
+    const entry: Partial<Record<HeroElementKey, boolean>> = {};
+    for (const [key, visible] of Object.entries(value as Record<string, unknown>)) {
+      if (allowed.has(key) && visible === false) entry[key as HeroElementKey] = false;
+    }
+    if (Object.keys(entry).length > 0) next[scope] = entry;
+  }
+  return next;
+}
+
+/** Resolve the effective hero order for a scope, falling back to the shipped order. */
+export function resolveHeroElementOrder(
+  map: HeroElementOrderMap,
+  scope: HeroScope,
+): HeroElementKey[] {
+  return map[scope] ?? HERO_ELEMENTS;
+}
+
+/** Resolve the OFF-only hidden entries for a scope. */
+export function resolveHeroElementHidden(
+  map: HeroElementVisibilityMap,
+  scope: HeroScope,
+): Partial<Record<HeroElementKey, boolean>> {
+  return map[scope] ?? {};
+}

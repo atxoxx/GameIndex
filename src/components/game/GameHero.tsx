@@ -1,11 +1,20 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { KpiTile } from "../ui";
 import PageWidget from "../PageWidget";
 import { type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
-import { useSettings } from "../../context/SettingsContext";
+import { useSettings, useHeroElementLayout } from "../../context/SettingsContext";
 import { applyGameAccentFamily } from "../../utils/color";
 import { useAchievements } from "../../context/AchievementContext";
+import { HERO_ELEMENTS, type HeroElementKey } from "../../context/interfaceLayout";
 import {
   useSteamGridArt,
   usePrefetchImage,
@@ -27,10 +36,18 @@ import { usePublishGameArtwork } from "../../utils/activeGameArtwork";
  *  Unifying the two through this one component keeps the banner, poster,
  *  glass KPI strip and info layout perfectly consistent.
  *
- *  Fixed-height design (see `--hero-h`): the hero is a single rounded card
- *  with a blurred art backdrop (banner / trailer), a crisp 2:3 poster
- *  anchored on the left, and a content column on the right holding the
- *  eyebrow + title/logo, the meta row, the KPI strip and the action cluster.
+ *  The hero is a single rounded card with a blurred art backdrop (banner /
+ *  trailer), a crisp 2:3 poster docked left (or right), and a content column
+ *  holding the eyebrow + title/logo, the meta row, the genre chips + friends
+ *  strip, and the KPI strip + action cluster.
+ *
+ *  Settings → Interface can hide and reorder the elements per scope (`game`
+ *  for the Library page, `store` for the Store detail page). The persisted
+ *  order is applied with CSS `order` on a stable wrapper per element, so the
+ *  layout is content-driven: hiding elements collapses the card cleanly
+ *  instead of leaving gaps. The shipped order reproduces the previous hero
+ *  exactly (poster left; title / meta / genres stacked; KPI strip and action
+ *  cluster as a footer row at the bottom).
  */
 
 interface GameHeroProps {
@@ -47,13 +64,13 @@ interface GameHeroProps {
   /** Source image for the per-game accent tint (defaults to cover/banner). */
   accentSrc?: string | null;
   /** Small label above the logo/title (e.g. "GameLib Store"). */
-  eyebrow?: React.ReactNode;
+  eyebrow?: ReactNode;
   /** Resolved Steam app id for the "Players Now" KPI. */
   steamAppId?: number | null;
   /** Info-row meta fragments (Store). Library derives its own when omitted. */
-  metaItems?: React.ReactNode[];
+  metaItems?: ReactNode[];
   /** Right-aligned action cluster (Store). Library uses <GameLaunchActions>. */
-  actions?: React.ReactNode;
+  actions?: ReactNode;
   /** Friends-playing strip target (defaults to the game when present). */
   friends?: { gameName: string; gameId: string } | null;
   /** Banner height profile. Defaults to "cinematic" for Library, "compact" for Store. */
@@ -63,6 +80,14 @@ interface GameHeroProps {
   /** Genre tags to show as chips */
   genres?: string[];
 }
+
+/** Content-column elements, in their shipped order. `background` and `poster`
+ *  live outside the column (absolute layer / inner flex row) and are handled
+ *  separately in the dock logic below. */
+const CONTENT_KEYS: HeroElementKey[] = ["title", "meta", "genres", "kpis", "actions"];
+
+/** The two elements that form the footer row when they are adjacent. */
+const FOOTER_KEYS: HeroElementKey[] = ["kpis", "actions"];
 
 function formatHeroPlayTime(playTime: string): string {
   if (!playTime) return "0h";
@@ -212,17 +237,23 @@ export default function GameHero({
   const achPercent = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : null;
 
   const variant = variantProp ?? (isGame ? "cinematic" : "compact");
-  const heroClassName = [
-    "game-hero",
-    `game-hero--${variant}`,
-    isGame ? "" : "game-hero--store",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const posterSrc = coverUrl ?? sgdbGridUrl;
-  const showPoster = !!posterSrc && !coverErrored;
   const friends = friendsProp ?? (isGame ? { gameName: game.name, gameId: game.id } : null);
+
+  // ── Layout Studio: per-scope element order + visibility ──────────────
+  // The hero is shared by the Library game page (scope "game") and the Store
+  // detail page (scope "store"), so the persisted layout is resolved from the
+  // active scope. `order` is always complete; `hidden` only carries OFF keys.
+  const heroScope = isGame ? "game" : "store";
+  const { order, hidden } = useHeroElementLayout(heroScope);
+
+  const isElementVisible = (key: HeroElementKey) => hidden[key] !== false;
+
+  // Defensive index lookup: the persisted order is normalized to include every
+  // key, but a missing/unknown key must never break the ordering.
+  const orderIndex = (key: HeroElementKey) => {
+    const index = order.indexOf(key);
+    return index === -1 ? HERO_ELEMENTS.indexOf(key) : index;
+  };
 
   // ── Info-row meta ────────────────────────────────────────────
   const ratingBadgeClass =
@@ -308,6 +339,154 @@ export default function GameHero({
     </>
   );
 
+  // ── Element payloads ─────────────────────────────────────────────────
+  // The `title` block is the eyebrow + logo/title; `meta` and `genres` are
+  // split out of the old `.game-hero__head` so each is independently orderable.
+  const blockInner: Record<string, ReactNode> = {
+    title: (
+      <div className="game-hero__head">
+        {eyebrow && <span className="game-hero__eyebrow">{eyebrow}</span>}
+
+        {logoUrl && !logoErrored ? (
+          <img
+            src={logoUrl}
+            alt={name}
+            className="game-hero-logo"
+            onError={() => setLogoErrored(true)}
+          />
+        ) : (
+          <h1 className="game-hero-title">{name}</h1>
+        )}
+      </div>
+    ),
+    meta: <div className="game-hero-meta">{metaRow}</div>,
+    genres: (
+      <>
+        {genres.length > 0 && (
+          <div className="game-hero-genres">
+            {genres.slice(0, 4).map((g) => (
+              <span key={g} className="game-hero-genre-chip">
+                {g}
+              </span>
+            ))}
+          </div>
+        )}
+        {friends && (
+          <FriendsPlayingStrip gameName={friends.gameName} gameId={friends.gameId} />
+        )}
+      </>
+    ),
+    kpis: (
+      <PageWidget page="game" widget="kpis">
+        <div className="game-hero__kpis ui-item-kpis">{kpis}</div>
+      </PageWidget>
+    ),
+    actions: (
+      <div className="game-hero__actions">
+        {actions ??
+          (isGame ? <GameLaunchActions game={game!} onLaunch={onLaunch!} size="sm" /> : null)}
+      </div>
+    ),
+  };
+
+  // The genre block only exists when it has something to show (matching the
+  // old conditional chips + friends render); the others always render so the
+  // footer keeps its structure.
+  const canRenderBlock = (key: HeroElementKey) =>
+    key === "genres" ? genres.length > 0 || !!friends : true;
+
+  // Visible content keys, sorted into their persisted order.
+  const visibleContentKeys = CONTENT_KEYS.filter(
+    (key) => isElementVisible(key) && canRenderBlock(key)
+  ).sort((a, b) => orderIndex(a) - orderIndex(b));
+
+  // `kpis` + `actions` sit side by side as a footer row when they are
+  // adjacent in the order. Grouping them and positioning the group at the
+  // earlier index is equivalent to placing each individually, so the row can
+  // both stay together and move above/below the other blocks.
+  const kpisPos = visibleContentKeys.indexOf("kpis");
+  const actionsPos = visibleContentKeys.indexOf("actions");
+  const groupFooter =
+    kpisPos !== -1 && actionsPos !== -1 && Math.abs(kpisPos - actionsPos) === 1;
+
+  // Pin the trailing run of footer blocks to the bottom of the card (as the
+  // shipped layout does) with an auto top margin, so hiding the head blocks
+  // doesn't leave the footer floating mid-card. If the footer isn't last, we
+  // let it follow the chosen order naturally.
+  let trailingStart = visibleContentKeys.length;
+  while (trailingStart > 0) {
+    const key = visibleContentKeys[trailingStart - 1];
+    if (FOOTER_KEYS.includes(key)) trailingStart--;
+    else break;
+  }
+  const pinTrailingFooter =
+    trailingStart < visibleContentKeys.length && trailingStart > 0;
+  const boundaryKey = pinTrailingFooter ? visibleContentKeys[trailingStart] : null;
+
+  // The content column docks against the poster: whichever side has the
+  // smaller order index sits first in the `.game-hero__inner` row, so moving
+  // the poster after a content block docks it to the right.
+  const contentOrder = visibleContentKeys.length
+    ? Math.min(...visibleContentKeys.map(orderIndex))
+    : Number.POSITIVE_INFINITY;
+  const posterOrder = orderIndex("poster");
+
+  const posterSrc = coverUrl ?? sgdbGridUrl;
+  const showPoster = !!posterSrc && !coverErrored;
+  const posterHiddenByUser = !isElementVisible("poster");
+  const posterVisible = !posterHiddenByUser && showPoster;
+  const showAmbientArt =
+    isElementVisible("background") && !!ambientSrc && showGameArtBackdrop && isInView;
+
+  const heroClassName = [
+    "game-hero",
+    `game-hero--${variant}`,
+    isGame ? "" : "game-hero--store",
+    // Only an explicit hide collapses the card; a game that simply has no
+    // poster (or whose art failed to load) keeps the original backdrop cap.
+    posterHiddenByUser ? "game-hero--no-poster" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const blockStyle = (index: number, pinned: boolean): CSSProperties => ({
+    order: index,
+    marginTop: pinned ? "auto" : undefined,
+  });
+
+  const renderBlock = (key: HeroElementKey, pinned: boolean) => (
+    <div
+      key={key}
+      className={`game-hero__block game-hero__block--${key}`}
+      style={blockStyle(orderIndex(key), pinned)}
+    >
+      {blockInner[key]}
+    </div>
+  );
+
+  const contentNodes: ReactNode[] = [];
+  if (groupFooter) {
+    const footerPinned =
+      pinTrailingFooter && (boundaryKey === "kpis" || boundaryKey === "actions");
+    contentNodes.push(
+      <div
+        key="footer"
+        className="game-hero__footer"
+        style={{
+          order: Math.min(orderIndex("kpis"), orderIndex("actions")),
+          marginTop: footerPinned ? "auto" : undefined,
+        }}
+      >
+        {renderBlock("kpis", false)}
+        {renderBlock("actions", false)}
+      </div>
+    );
+  }
+  for (const key of visibleContentKeys) {
+    if (groupFooter && FOOTER_KEYS.includes(key)) continue;
+    contentNodes.push(renderBlock(key, pinTrailingFooter && boundaryKey === key));
+  }
+
   return (
     <div
       ref={heroRef}
@@ -322,11 +501,13 @@ export default function GameHero({
           : undefined
       }
     >
-      {/* Background art: a blurred copy of the banner/cover with glow */}
-      {ambientSrc && showGameArtBackdrop && isInView ? (
+      {/* Background art: a blurred copy of the banner/cover with glow.
+          Absolutely positioned — its order index is intentionally ignored;
+          only visibility gates it (plus the existing art-backdrop setting). */}
+      {showAmbientArt ? (
         <>
           <img
-            src={ambientSrc}
+            src={ambientSrc!}
             alt=""
             aria-hidden="true"
             style={{ display: "none" }}
@@ -344,9 +525,13 @@ export default function GameHero({
       <div className="game-hero__scrim" aria-hidden="true" />
 
       <div className="game-hero__inner">
-        {/* 2:3 poster on the left with badge */}
-        {showPoster && (
-          <div className="game-hero__poster" aria-hidden="true">
+        {/* 2:3 poster — docks left or right based on its order index. */}
+        {posterVisible && (
+          <div
+            className="game-hero__poster"
+            style={{ order: posterOrder }}
+            aria-hidden="true"
+          >
             <img
               src={posterSrc!}
               alt=""
@@ -369,46 +554,15 @@ export default function GameHero({
           </div>
         )}
 
-        {/* Content column */}
-        <div className="game-hero__content">
-          <div className="game-hero__head">
-            {eyebrow && <span className="game-hero__eyebrow">{eyebrow}</span>}
-
-            {logoUrl && !logoErrored ? (
-              <img
-                src={logoUrl}
-                alt={name}
-                className="game-hero-logo"
-                onError={() => setLogoErrored(true)}
-              />
-            ) : (
-              <h1 className="game-hero-title">{name}</h1>
-            )}
-            <div className="game-hero-meta">{metaRow}</div>
-            {genres.length > 0 && (
-              <div className="game-hero-genres">
-                {genres.slice(0, 4).map((g) => (
-                  <span key={g} className="game-hero-genre-chip">
-                    {g}
-                  </span>
-                ))}
-              </div>
-            )}
-            {friends && (
-              <FriendsPlayingStrip gameName={friends.gameName} gameId={friends.gameId} />
-            )}
+        {/* Content column — an orderable block stack. */}
+        {visibleContentKeys.length > 0 && (
+          <div
+            className="game-hero__content"
+            style={{ order: contentOrder }}
+          >
+            {contentNodes}
           </div>
-
-          <div className="game-hero__footer">
-            <PageWidget page="game" widget="kpis">
-              <div className="game-hero__kpis ui-item-kpis">{kpis}</div>
-            </PageWidget>
-            <div className="game-hero__actions">
-              {actions ??
-                (isGame ? <GameLaunchActions game={game!} onLaunch={onLaunch!} size="sm" /> : null)}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

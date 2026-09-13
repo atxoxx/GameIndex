@@ -802,14 +802,17 @@
   transform: translateX(0);
 }
 
-/* ── GameHero (fixed-height poster + content layout) ────────
-   A single rounded card with a fixed height (--hero-h). A blurred
-   banner/trailer backdrop fills the card; a scrim keeps the left
-   content legible. A crisp 2:3 poster sits on the left; the content
-   column on the right stacks the head (eyebrow + title + meta) on top
-   and the footer (KPI strip + actions) on the bottom. The height is
-   capped so the hero never dominates the page, and collapses to an
-   auto-height stacked layout on narrow viewports. */
+/* ── GameHero (content-driven poster + content layout) ──────
+   A single rounded card whose height is driven by its content, with a
+   backdrop min-height cap so it never dominates the page (--hero-h) and
+   collapses to zero when the poster is hidden. A blurred banner/trailer
+   backdrop fills the card; a scrim keeps the content legible. A crisp 2:3
+   poster sits on the left (or right — its CSS `order` docks it against the
+   content column); the content column stacks individually orderable
+   element blocks. The footer blocks (KPI strip + actions) are pinned to
+   the bottom of the card by an auto top margin so hiding head blocks
+   doesn't leave a gap. Blocks are wrapped in `.game-hero__block--<key>`
+   and ordered inline by SettingsContext's hero element layout. */
 
 .game-hero {
   --hero-h: 370px;
@@ -849,6 +852,13 @@
  * content and shouldn't dominate the store page. */
 .game-hero--compact {
   --hero-h: 320px;
+}
+
+/* No poster → no reason for the tall backdrop cap. The card collapses to
+ * its content (the content column carries its own padding) so hiding the
+ * poster from Settings → Interface doesn't strand an empty art block. */
+.game-hero--no-poster {
+  min-height: 0;
 }
 
 /* Backdrop art layer (z 0): banner image or gradient. A slow Ken Burns
@@ -947,13 +957,16 @@
 
 /* Inner grid: poster (left) + content (right). The layer is
  * transparent to pointer events so clicks fall through to the
- * backdrop; only the interactive controls below re-enable them. */
+ * backdrop; only the interactive controls below re-enable them.
+ * Height is content-driven (the poster normally sets it); the outer
+ * `.game-hero` min-height is the only floor, so hiding blocks collapses
+ * the card cleanly. */
 .game-hero__inner {
   position: relative;
   z-index: 2;
   flex: 1 1 auto;
   height: auto;
-  min-height: clamp(260px, 42vh, var(--hero-h));
+  min-height: 0;
   display: flex;
   align-items: center;
   gap: var(--space-xl);
@@ -1002,15 +1015,40 @@
   display: block;
 }
 
-/* Content column. */
+/* Content column: an orderable stack of element blocks. The gap matches
+ * the old `.game-hero__head` rhythm; the footer blocks are pinned with an
+ * auto top margin (inline) instead of `justify-content: space-between`,
+ * which only worked with a fixed two-child structure. */
 .game-hero__content {
   flex: 1 1 auto;
   min-width: 0;
   align-self: stretch;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: var(--space-md);
+  justify-content: flex-start;
+  gap: var(--space-sm);
+}
+
+/* One wrapper per orderable hero element. `order` is applied inline from
+ * the persisted layout; the class names let specific blocks opt into
+ * layout tweaks without touching the others. */
+.game-hero__block {
+  min-width: 0;
+}
+
+/* Genres + friends strip travel together (one reorderable block), so the
+ * block owns the stacking the old `.game-hero__head` used to provide. */
+.game-hero__block--genres {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+/* FriendsPlayingStrip renders nothing when nobody is playing — collapse
+ * the block so an empty genres element can't add a phantom gap. */
+.game-hero__block--genres:empty {
+  display: none;
 }
 
 .game-hero__head {

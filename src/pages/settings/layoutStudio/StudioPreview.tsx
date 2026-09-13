@@ -12,6 +12,8 @@ import { useLanguage } from "../../../context/LanguageContext";
 import {
   SIDEBAR_SECTIONS,
   interfacePageDef,
+  type DetailTabScope,
+  type HeroElementKey,
   type InterfacePageKey,
 } from "../../../context/interfaceLayout";
 import { useOrderDrag } from "../useOrderDrag";
@@ -20,6 +22,49 @@ import type { OrderListItem, ViewportPreset } from "./types";
 const SIDEBAR_LABEL_KEY: Record<string, string> = Object.fromEntries(
   SIDEBAR_SECTIONS.map((section) => [section.key, section.labelKey]),
 );
+
+/** Tiny stand-in for an element inside the preview's hero mock. */
+function HeroElementVisual({ element }: { element: HeroElementKey }) {
+  switch (element) {
+    case "background":
+      return <span className="studio-hero-visual studio-hero-visual--background" aria-hidden="true" />;
+    case "poster":
+      return <span className="studio-hero-visual studio-hero-visual--poster" aria-hidden="true" />;
+    case "title":
+      return <span className="studio-hero-visual studio-hero-visual--title" aria-hidden="true" />;
+    case "meta":
+      return (
+        <span className="studio-hero-visual studio-hero-visual--meta" aria-hidden="true">
+          <i />
+          <i />
+        </span>
+      );
+    case "genres":
+      return (
+        <span className="studio-hero-visual studio-hero-visual--genres" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      );
+    case "kpis":
+      return (
+        <span className="studio-hero-visual studio-hero-visual--kpis" aria-hidden="true">
+          <i />
+          <i />
+        </span>
+      );
+    case "actions":
+      return (
+        <span className="studio-hero-visual studio-hero-visual--actions" aria-hidden="true">
+          <i />
+          <i />
+        </span>
+      );
+    default:
+      return null;
+  }
+}
 
 export interface StudioPreviewProps {
   navTabs: OrderListItem[];
@@ -34,6 +79,10 @@ export interface StudioPreviewProps {
   highlightedId?: string | null;
   viewport?: ViewportPreset;
   inspectMode?: boolean;
+  /** Detail-page mocks rendered in the main area (game + store only). */
+  detailTabItems: OrderListItem[];
+  heroElementItems: OrderListItem[];
+  detailScope: DetailTabScope | null;
   onReorderNavTabs: (from: number, to: number) => void;
   onReorderNavButtons: (from: number, to: number) => void;
   onReorderPageItems: (from: number, to: number) => void;
@@ -42,6 +91,10 @@ export interface StudioPreviewProps {
   onTogglePageItem: (id: string) => void;
   onToggleSidebarSection: (id: string) => void;
   onInspectElement?: (id: string) => void;
+  onReorderDetailTabs: (from: number, to: number) => void;
+  onToggleDetailTab: (id: string, hidden: boolean) => void;
+  onReorderHeroElements: (from: number, to: number) => void;
+  onToggleHeroElement: (id: string, hidden: boolean) => void;
 }
 
 export function StudioPreview({
@@ -57,6 +110,9 @@ export function StudioPreview({
   highlightedId,
   viewport = "desktop",
   inspectMode = false,
+  detailTabItems,
+  heroElementItems,
+  detailScope,
   onReorderNavTabs,
   onReorderNavButtons,
   onReorderPageItems,
@@ -65,14 +121,21 @@ export function StudioPreview({
   onTogglePageItem,
   onToggleSidebarSection,
   onInspectElement,
+  onReorderDetailTabs,
+  onToggleDetailTab,
+  onReorderHeroElements,
+  onToggleHeroElement,
 }: StudioPreviewProps) {
   const { t } = useLanguage();
   const isGlobal = page === "global";
   const pageDef = interfacePageDef(page);
+  const showDetailMocks = detailScope !== null && (page === "game" || page === "store");
 
   const tabsDrag = useOrderDrag(onReorderNavTabs);
   const buttonsDrag = useOrderDrag(onReorderNavButtons);
   const itemsDrag = useOrderDrag(onReorderPageItems);
+  const detailTabsDrag = useOrderDrag(onReorderDetailTabs);
+  const heroDrag = useOrderDrag(onReorderHeroElements);
 
   const isTabActive = (tabId: string) => {
     const pageFromId = tabId.replace(/^nav/, "").toLowerCase();
@@ -373,43 +436,167 @@ export function StudioPreview({
                   </div>
                 </div>
               ) : (
-                <div className="studio-preview__items" ref={itemsDrag.containerRef}>
-                  {pageItems.map((item, index) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      data-order-index={index}
-                      className={rowClass(
-                        "studio-preview__item",
-                        itemsDrag,
-                        index,
-                        item.hidden,
-                        item.id,
-                      )}
-                      aria-pressed={!item.hidden}
-                      title={toggleTitle(item.label, item.hidden, item.id)}
-                      onPointerDown={startRowDrag(itemsDrag, index)}
-                      onClick={() =>
-                        handleItemInteraction(itemsDrag, item.id, () => onTogglePageItem(item.id))
-                      }
-                    >
-                      <GripVertical
-                        className="studio-preview__grip"
-                        size={12}
-                        aria-hidden="true"
-                      />
-                      <item.icon size={13} className="studio-preview__item-icon" aria-hidden="true" />
-                      <span className="studio-preview__item-label">{item.label}</span>
-                      {item.hidden && <EyeOff size={12} className="studio-preview__item-off-icon" aria-hidden="true" />}
-                    </button>
-                  ))}
+                <>
+                  {showDetailMocks && (
+                    <>
+                      {/* Editable hero mock — blocks reorder/hide in place */}
+                      <div
+                        className="studio-hero-editor__mock studio-preview__detail-hero"
+                        role="group"
+                        ref={heroDrag.containerRef}
+                        aria-label={t("settings.interface.studioHeroElementsTitle")}
+                      >
+                        {heroElementItems.map((item, index) => {
+                          const isLit = highlightedId === item.id;
+                          const isDragging = heroDrag.dragIndex === index;
+                          const isDropTarget =
+                            heroDrag.overIndex === index &&
+                            heroDrag.dragIndex !== null &&
+                            heroDrag.dragIndex !== index;
+                          const className = [
+                            "studio-hero-block",
+                            `studio-hero-block--${item.id}`,
+                            item.hidden ? "is-off" : "",
+                            isDragging ? "is-dragging" : "",
+                            isDropTarget ? "is-drop-target" : "",
+                            isLit ? "is-preview-lit" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ");
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              data-order-index={index}
+                              className={className}
+                              aria-pressed={!item.hidden}
+                              title={toggleTitle(item.label, item.hidden, item.id)}
+                              onPointerDown={startRowDrag(heroDrag, index)}
+                              onClick={() =>
+                                handleItemInteraction(heroDrag, item.id, () =>
+                                  onToggleHeroElement(item.id, !item.hidden),
+                                )
+                              }
+                            >
+                              <span className="studio-hero-block__head">
+                                <GripVertical
+                                  className="studio-preview__grip"
+                                  size={10}
+                                  aria-hidden="true"
+                                />
+                                <item.icon
+                                  size={10}
+                                  className="studio-hero-block__icon"
+                                  aria-hidden="true"
+                                />
+                                <span className="studio-hero-block__label">{item.label}</span>
+                              </span>
+                              <HeroElementVisual element={item.id as HeroElementKey} />
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                  {pageItems.length === 0 && (
-                    <div className="studio-preview__item is-empty">
-                      <span>{t("settings.interface.studioPageItemsEmpty")}</span>
-                    </div>
+                      {/* Editable detail subtab bar mock — overview stays visible */}
+                      <div
+                        className="studio-subtab-bar"
+                        role="group"
+                        ref={detailTabsDrag.containerRef}
+                        aria-label={t("settings.interface.studioDetailTabsTitle")}
+                      >
+                        {detailTabItems.map((item, index) => {
+                          const isOverview = item.id === "overview";
+                          const isLit = highlightedId === item.id;
+                          const isDragging = detailTabsDrag.dragIndex === index;
+                          const isDropTarget =
+                            detailTabsDrag.overIndex === index &&
+                            detailTabsDrag.dragIndex !== null &&
+                            detailTabsDrag.dragIndex !== index;
+                          const className = [
+                            "studio-subtab",
+                            item.hidden ? "is-off" : "",
+                            isDragging ? "is-dragging" : "",
+                            isDropTarget ? "is-drop-target" : "",
+                            isLit ? "is-preview-lit" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ");
+                          const title = inspectMode
+                            ? `${item.label} — ${t("settings.interface.inspectElementHint")}`
+                            : isOverview
+                              ? `${item.label} — ${t("settings.interface.studioAlwaysVisible")}`
+                              : toggleTitle(item.label, item.hidden, item.id);
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              data-order-index={index}
+                              className={className}
+                              aria-pressed={!item.hidden}
+                              title={title}
+                              onPointerDown={startRowDrag(detailTabsDrag, index)}
+                              onClick={() =>
+                                handleItemInteraction(detailTabsDrag, item.id, () => {
+                                  if (!isOverview) onToggleDetailTab(item.id, !item.hidden);
+                                })
+                              }
+                            >
+                              <GripVertical
+                                className="studio-preview__grip"
+                                size={10}
+                                aria-hidden="true"
+                              />
+                              <item.icon
+                                size={11}
+                                className="studio-preview__tab-icon"
+                                aria-hidden="true"
+                              />
+                              <span className="studio-preview__tab-label">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
-                </div>
+
+                  <div className="studio-preview__items" ref={itemsDrag.containerRef}>
+                    {pageItems.map((item, index) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        data-order-index={index}
+                        className={rowClass(
+                          "studio-preview__item",
+                          itemsDrag,
+                          index,
+                          item.hidden,
+                          item.id,
+                        )}
+                        aria-pressed={!item.hidden}
+                        title={toggleTitle(item.label, item.hidden, item.id)}
+                        onPointerDown={startRowDrag(itemsDrag, index)}
+                        onClick={() =>
+                          handleItemInteraction(itemsDrag, item.id, () => onTogglePageItem(item.id))
+                        }
+                      >
+                        <GripVertical
+                          className="studio-preview__grip"
+                          size={12}
+                          aria-hidden="true"
+                        />
+                        <item.icon size={13} className="studio-preview__item-icon" aria-hidden="true" />
+                        <span className="studio-preview__item-label">{item.label}</span>
+                        {item.hidden && <EyeOff size={12} className="studio-preview__item-off-icon" aria-hidden="true" />}
+                      </button>
+                    ))}
+
+                    {pageItems.length === 0 && (
+                      <div className="studio-preview__item is-empty">
+                        <span>{t("settings.interface.studioPageItemsEmpty")}</span>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>

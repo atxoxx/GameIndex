@@ -6,7 +6,7 @@ import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../types/game";
 import { useWishlistContext } from "../context/WishlistContext";
-import { useSettings, type DetailSectionKey } from "../context/SettingsContext";
+import { useSettings, useDetailTabOrder, type DetailSectionKey } from "../context/SettingsContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { setActiveGameArtwork } from "../utils/activeGameArtwork";
 import { Button } from "../components/ui";
@@ -373,6 +373,8 @@ export default function StoreGameDetail() {
     setLightboxOpen(true);
   }, []);
 
+  const storeTabOrder = useDetailTabOrder("store");
+
   const tabs = useMemo(() => {
     const allTabs = [
       { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
@@ -386,8 +388,10 @@ export default function StoreGameDetail() {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
     ];
-    return allTabs.filter((tab) => isTabVisible(tab.id));
-  }, [t, data?.websites, isTabVisible]);
+    return allTabs
+      .sort((a, b) => storeTabOrder.indexOf(a.id) - storeTabOrder.indexOf(b.id))
+      .filter((tab) => isTabVisible(tab.id));
+  }, [t, data?.websites, isTabVisible, storeTabOrder]);
 
   if (loading) return <StoreGameLoadingSkeleton />;
   if (error) return <StoreGameError message={error} onRetry={fetchData} />;

@@ -36,10 +36,27 @@ import { clampDeadzone } from "../hooks/gamepad/gamepadUtils";
 import { updateSoundConfig } from "../utils/soundEffects";
 import { SPLASH_ENABLED_KEY } from "./SplashContext";
 import {
+  DETAIL_TABS,
+  HERO_ELEMENTS,
+  normalizeDetailTabOrder,
+  normalizeDetailTabOrderMap,
+  normalizeHeroElementOrder,
+  normalizeHeroElementOrderMap,
+  normalizeHeroElementVisibilityMap,
   normalizePageItemOrder,
   normalizePageItemOrderMap,
   normalizePageItemVisibilityMap,
   normalizeSidebarSectionVisibility,
+  resolveDetailTabOrder,
+  resolveHeroElementOrder,
+  resolveHeroElementHidden,
+  type DetailTabKey,
+  type DetailTabOrderMap,
+  type DetailTabScope,
+  type HeroElementKey,
+  type HeroElementOrderMap,
+  type HeroElementVisibilityMap,
+  type HeroScope,
   type InterfacePageKey,
   type PageItemOrderMap,
   type PageItemVisibilityMap,
@@ -122,6 +139,10 @@ const LS_SIDEBAR_SECTIONS_VISIBLE = "gamelib.sidebar_sections_visible";
 // Per-page widget visibility and order (Layout Studio → page tabs).
 const LS_PAGE_ITEM_VISIBILITY = "gamelib.page_item_visibility";
 const LS_PAGE_ITEM_ORDER = "gamelib.page_item_order";
+// Detail-page tab order + hero element order/visibility (Settings → Interface).
+const LS_DETAIL_TAB_ORDER = "gamelib.detail_tab_order";
+const LS_HERO_ELEMENT_ORDER = "gamelib.hero_element_order";
+const LS_HERO_ELEMENT_VISIBILITY = "gamelib.hero_element_visibility";
 // Linux & Steam Deck support level (Settings → General)
 const LS_LINUX_SUPPORT_LEVEL = "gamelib.linux_support_level";
 
@@ -459,6 +480,20 @@ export interface SettingsContextValue {
   /** Per-page widget order (Layout Studio → page tabs). */
   pageItemOrder: PageItemOrderMap;
   setPageItemOrder: (page: InterfacePageKey, next: PageWidgetKey[]) => void;
+  /** Per-scope detail-page tab order (Settings → Interface). Tab visibility
+   *  itself reuses `detailSectionVisible`; this is order only. */
+  detailTabOrder: DetailTabOrderMap;
+  setDetailTabOrder: (scope: DetailTabScope, next: DetailTabKey[]) => void;
+  /** Per-scope hero element order (Settings → Interface). */
+  heroElementOrder: HeroElementOrderMap;
+  setHeroElementOrder: (scope: HeroScope, next: HeroElementKey[]) => void;
+  /** OFF-only per-scope hero element visibility overrides. */
+  heroElementVisibility: HeroElementVisibilityMap;
+  setHeroElementVisible: (
+    scope: HeroScope,
+    key: HeroElementKey,
+    visible: boolean,
+  ) => void;
 
   // ── Splash screens (Settings → Appearance) ──────────────────────
   /** Show the standalone launch splash while a game starts. Mirrors the
@@ -1430,6 +1465,69 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // Detail-page tab order (Settings → Interface). Normalized on read and on
+  // every write so the detail pages always consume a complete, duplicate-free
+  // list; visibility reuses `detailSectionVisible` above (no separate map).
+  const [detailTabOrder, setDetailTabOrderState] = useState<DetailTabOrderMap>(
+    () => normalizeDetailTabOrderMap(lsGetJSON<unknown>(LS_DETAIL_TAB_ORDER, null)),
+  );
+  const setDetailTabOrder = useCallback(
+    (scope: DetailTabScope, next: DetailTabKey[]) => {
+      const normalized = normalizeDetailTabOrder(scope, next);
+      setDetailTabOrderState((prev) => {
+        const merged = { ...prev, [scope]: normalized };
+        lsSetJSON(LS_DETAIL_TAB_ORDER, merged);
+        return merged;
+      });
+    },
+    [],
+  );
+
+  // Hero element order (Settings → Interface). The element set is shared by
+  // both scopes; persistence is per-scope so game and store can differ.
+  const [heroElementOrder, setHeroElementOrderState] = useState<HeroElementOrderMap>(
+    () => normalizeHeroElementOrderMap(lsGetJSON<unknown>(LS_HERO_ELEMENT_ORDER, null)),
+  );
+  const setHeroElementOrder = useCallback(
+    (scope: HeroScope, next: HeroElementKey[]) => {
+      const normalized = normalizeHeroElementOrder(scope, next);
+      setHeroElementOrderState((prev) => {
+        const merged = { ...prev, [scope]: normalized };
+        lsSetJSON(LS_HERO_ELEMENT_ORDER, merged);
+        return merged;
+      });
+    },
+    [],
+  );
+
+  // Hero element visibility (Settings → Interface). Same OFF-entries-only
+  // overrides pattern as the sidebar/page maps so an upgrade adds new
+  // elements visible.
+  const [heroElementVisibility, setHeroElementVisibilityState] =
+    useState<HeroElementVisibilityMap>(() =>
+      normalizeHeroElementVisibilityMap(
+        lsGetJSON<unknown>(LS_HERO_ELEMENT_VISIBILITY, null),
+      ),
+    );
+  const setHeroElementVisible = useCallback(
+    (scope: HeroScope, key: HeroElementKey, visible: boolean) => {
+      setHeroElementVisibilityState((prev) => {
+        const scopeEntry = { ...(prev[scope] ?? {}) };
+        if (visible) delete scopeEntry[key];
+        else scopeEntry[key] = false;
+        const next = { ...prev };
+        if (Object.keys(scopeEntry).length === 0) delete next[scope];
+        else next[scope] = scopeEntry;
+        lsSetJSON(
+          LS_HERO_ELEMENT_VISIBILITY,
+          normalizeHeroElementVisibilityMap(next),
+        );
+        return next;
+      });
+    },
+    [],
+  );
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -1526,6 +1624,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setPageItemVisible,
       pageItemOrder,
       setPageItemOrder,
+      detailTabOrder,
+      setDetailTabOrder,
+      heroElementOrder,
+      setHeroElementOrder,
+      heroElementVisibility,
+      setHeroElementVisible,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1630,6 +1734,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setPageItemVisible,
       pageItemOrder,
       setPageItemOrder,
+      detailTabOrder,
+      setDetailTabOrder,
+      heroElementOrder,
+      setHeroElementOrder,
+      heroElementVisibility,
+      setHeroElementVisible,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1701,4 +1811,26 @@ export function useSidebarSectionVisible(key: SidebarSectionKey): boolean {
   const ctx = useContext(SettingsContext);
   if (!ctx) return true;
   return ctx.sidebarSectionVisible[key] !== false;
+}
+
+/** Effective detail-page tab order for a scope. Defaults to the shipped order
+ *  outside a SettingsProvider (isolated tests, static renders). */
+export function useDetailTabOrder(scope: DetailTabScope): DetailTabKey[] {
+  const ctx = useContext(SettingsContext);
+  if (!ctx) return DETAIL_TABS[scope];
+  return resolveDetailTabOrder(ctx.detailTabOrder, scope);
+}
+
+/** Effective hero element order + OFF-only hidden entries for a scope.
+ *  Defaults to the shipped order and nothing hidden outside a provider. */
+export function useHeroElementLayout(scope: HeroScope): {
+  order: HeroElementKey[];
+  hidden: Partial<Record<HeroElementKey, boolean>>;
+} {
+  const ctx = useContext(SettingsContext);
+  if (!ctx) return { order: HERO_ELEMENTS, hidden: {} };
+  return {
+    order: resolveHeroElementOrder(ctx.heroElementOrder, scope),
+    hidden: resolveHeroElementHidden(ctx.heroElementVisibility, scope),
+  };
 }

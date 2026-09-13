@@ -5,16 +5,24 @@ import {
   ChevronRight,
   Crosshair,
   Download,
+  FileText,
+  GalleryHorizontal,
   Gamepad2,
+  Globe,
   HardDrive,
   Heart,
   Home,
   Laptop,
+  LayoutDashboard,
+  LayoutGrid,
   LayoutTemplate,
   List,
   type LucideIcon,
+  MessageSquare,
   Monitor,
   MonitorPlay,
+  Newspaper,
+  PlayCircle,
   Puzzle,
   RotateCcw,
   Rss,
@@ -22,10 +30,14 @@ import {
   Star,
   Store,
   Tag,
+  Tags,
   Trophy,
   Tv,
+  Type,
   UserCheck,
   Users,
+  Wallpaper,
+  Wrench,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import {
@@ -37,11 +49,20 @@ import {
   type LandingPage,
 } from "../../../context/SettingsContext";
 import {
+  DEFAULT_DETAIL_TAB_ORDER,
   DEFAULT_PAGE_ITEM_ORDER,
+  DETAIL_TAB_LABEL_KEY,
+  HERO_ELEMENTS,
+  HERO_ELEMENT_LABEL_KEY,
   INTERFACE_PAGES,
   SIDEBAR_SECTIONS,
   WIDGET_LABEL_KEY,
   interfacePageDef,
+  resolveDetailTabOrder,
+  resolveHeroElementOrder,
+  type DetailTabKey,
+  type DetailTabScope,
+  type HeroElementKey,
   type InterfacePageKey,
   type PageWidgetKey,
   type SidebarSectionKey,
@@ -88,6 +109,29 @@ const PAGE_ICONS: Record<InterfacePageKey, LucideIcon> = {
   mods: Puzzle,
 };
 
+const DETAIL_SCOPES: DetailTabScope[] = ["game", "store"];
+
+const DETAIL_TAB_ICON: Record<DetailTabKey, LucideIcon> = {
+  overview: LayoutDashboard,
+  reviews: MessageSquare,
+  activity: Activity,
+  notes: FileText,
+  achievements: Trophy,
+  mods: Wrench,
+  weblinks: Globe,
+  news: Newspaper,
+};
+
+const HERO_ELEMENT_ICON: Record<HeroElementKey, LucideIcon> = {
+  background: Wallpaper,
+  poster: GalleryHorizontal,
+  title: Type,
+  meta: List,
+  genres: Tags,
+  kpis: LayoutGrid,
+  actions: PlayCircle,
+};
+
 export default function LayoutStudio() {
   const { t } = useLanguage();
   const {
@@ -122,6 +166,12 @@ export default function LayoutStudio() {
     setShowNavbarNowPlaying,
     detailSectionVisible,
     setDetailSectionVisible,
+    detailTabOrder,
+    setDetailTabOrder,
+    heroElementOrder,
+    setHeroElementOrder,
+    heroElementVisibility,
+    setHeroElementVisible,
     showDeckVerified,
     landingPage,
     setLandingPage,
@@ -253,6 +303,39 @@ export default function LayoutStudio() {
     [showDeckVerified, detailSectionVisible, defaultSnapshot, t],
   );
 
+  // ── Detail tabs & hero elements (game + store) ─────────────────────────────
+  const activeDetailScope = useMemo<DetailTabScope | null>(
+    () => (activePage === "game" ? "game" : activePage === "store" ? "store" : null),
+    [activePage],
+  );
+
+  const detailTabItems = useMemo<OrderListItem[]>(() => {
+    if (!activeDetailScope) return [];
+    return resolveDetailTabOrder(detailTabOrder, activeDetailScope).map((key) => {
+      const hidden =
+        key !== "overview" && detailSectionVisible[key as DetailSectionKey] === false;
+      return {
+        id: key,
+        label: t(DETAIL_TAB_LABEL_KEY[key]),
+        icon: DETAIL_TAB_ICON[key],
+        hidden,
+        isModified: hidden,
+      };
+    });
+  }, [activeDetailScope, detailTabOrder, detailSectionVisible, t]);
+
+  const heroElementItems = useMemo<OrderListItem[]>(() => {
+    if (!activeDetailScope) return [];
+    const hiddenMap = heroElementVisibility[activeDetailScope] ?? {};
+    return resolveHeroElementOrder(heroElementOrder, activeDetailScope).map((key) => ({
+      id: key,
+      label: t(HERO_ELEMENT_LABEL_KEY[key]),
+      icon: HERO_ELEMENT_ICON[key],
+      hidden: hiddenMap[key] === false,
+      isModified: hiddenMap[key] === false,
+    }));
+  }, [activeDetailScope, heroElementOrder, heroElementVisibility, t]);
+
   // ── Per-page list ─────────────────────────────────────────────────────────
   const pageItems = useMemo<OrderListItem[]>(() => {
     if (!pageDef || activePage === "global") return [];
@@ -288,6 +371,9 @@ export default function LayoutStudio() {
       showCardBadges,
       showNavbarNowPlaying,
       detailSectionVisible,
+      detailTabOrder,
+      heroElementOrder,
+      heroElementVisibility,
       uiScale,
     }),
     [
@@ -305,6 +391,9 @@ export default function LayoutStudio() {
       showCardBadges,
       showNavbarNowPlaying,
       detailSectionVisible,
+      detailTabOrder,
+      heroElementOrder,
+      heroElementVisibility,
       uiScale,
     ],
   );
@@ -354,6 +443,38 @@ export default function LayoutStudio() {
     [activePage, pageItems, setPageItemOrder, playSound],
   );
 
+  const handleReorderDetailTabs = useCallback(
+    (from: number, to: number) => {
+      if (!activeDetailScope) return;
+      setDetailTabOrder(
+        activeDetailScope,
+        moveKey(
+          detailTabItems.map((item) => item.id) as DetailTabKey[],
+          from,
+          to,
+        ),
+      );
+      playSound();
+    },
+    [activeDetailScope, detailTabItems, setDetailTabOrder, playSound],
+  );
+
+  const handleReorderHeroElements = useCallback(
+    (from: number, to: number) => {
+      if (!activeDetailScope) return;
+      setHeroElementOrder(
+        activeDetailScope,
+        moveKey(
+          heroElementItems.map((item) => item.id) as HeroElementKey[],
+          from,
+          to,
+        ),
+      );
+      playSound();
+    },
+    [activeDetailScope, heroElementItems, setHeroElementOrder, playSound],
+  );
+
   // ── Toggle Handlers ───────────────────────────────────────────────────────
   const toggleGlobalItem = useCallback(
     (id: string, hidden: boolean) => {
@@ -377,6 +498,27 @@ export default function LayoutStudio() {
       playSound();
     },
     [setDetailSectionVisible, playSound],
+  );
+
+  const toggleDetailTab = useCallback(
+    (id: string, hidden: boolean) => {
+      if (!activeDetailScope) return;
+      const key = id as DetailTabKey;
+      // `overview` has no detail-section key and is always visible.
+      if (key === "overview") return;
+      setDetailSectionVisible(key as DetailSectionKey, !hidden);
+      playSound();
+    },
+    [activeDetailScope, setDetailSectionVisible, playSound],
+  );
+
+  const toggleHeroElement = useCallback(
+    (id: string, hidden: boolean) => {
+      if (!activeDetailScope) return;
+      setHeroElementVisible(activeDetailScope, id as HeroElementKey, !hidden);
+      playSound();
+    },
+    [activeDetailScope, setHeroElementVisible, playSound],
   );
 
   const togglePageItem = useCallback(
@@ -450,6 +592,26 @@ export default function LayoutStudio() {
           setDetailSectionVisible(k as DetailSectionKey, v);
         }
       }
+      if (snapshot.detailTabOrder) {
+        for (const scope of DETAIL_SCOPES) {
+          const next = snapshot.detailTabOrder[scope];
+          if (next) setDetailTabOrder(scope, next);
+        }
+      }
+      if (snapshot.heroElementOrder) {
+        for (const scope of DETAIL_SCOPES) {
+          const next = snapshot.heroElementOrder[scope];
+          if (next) setHeroElementOrder(scope, next);
+        }
+      }
+      if (snapshot.heroElementVisibility) {
+        for (const scope of DETAIL_SCOPES) {
+          const hidden = snapshot.heroElementVisibility[scope] ?? {};
+          for (const key of HERO_ELEMENTS) {
+            setHeroElementVisible(scope, key, hidden[key] !== false);
+          }
+        }
+      }
       if (snapshot.uiScale) setUiScale(snapshot.uiScale);
       playSound();
     },
@@ -466,6 +628,9 @@ export default function LayoutStudio() {
       setShowCardBadges,
       setShowNavbarNowPlaying,
       setDetailSectionVisible,
+      setDetailTabOrder,
+      setHeroElementOrder,
+      setHeroElementVisible,
       setUiScale,
       playSound,
     ],
@@ -501,6 +666,11 @@ export default function LayoutStudio() {
       const def = interfacePageDef(page);
       for (const key of def?.items ?? []) setPageItemVisible(page, key, true);
       setPageItemOrder(page, DEFAULT_PAGE_ITEM_ORDER[page] ?? []);
+      if (page === "game" || page === "store") {
+        setDetailTabOrder(page, DEFAULT_DETAIL_TAB_ORDER[page]);
+        setHeroElementOrder(page, HERO_ELEMENTS);
+        for (const key of HERO_ELEMENTS) setHeroElementVisible(page, key, true);
+      }
       if (page === "game") {
         for (const section of buildDetailSectionItems(true)) {
           setDetailSectionVisible(section.key, true);
@@ -508,7 +678,15 @@ export default function LayoutStudio() {
       }
       playSound();
     },
-    [setPageItemVisible, setPageItemOrder, setDetailSectionVisible, playSound],
+    [
+      setPageItemVisible,
+      setPageItemOrder,
+      setDetailTabOrder,
+      setHeroElementOrder,
+      setHeroElementVisible,
+      setDetailSectionVisible,
+      playSound,
+    ],
   );
 
   const resetEverything = useCallback(() => {
@@ -527,6 +705,11 @@ export default function LayoutStudio() {
     for (const section of buildDetailSectionItems(true)) {
       setDetailSectionVisible(section.key, true);
     }
+    for (const scope of DETAIL_SCOPES) {
+      setDetailTabOrder(scope, DEFAULT_DETAIL_TAB_ORDER[scope]);
+      setHeroElementOrder(scope, HERO_ELEMENTS);
+      for (const key of HERO_ELEMENTS) setHeroElementVisible(scope, key, true);
+    }
     setUiDensityMode("complete");
     setNavbarMode("full");
     setCommandPaletteMode("full");
@@ -540,6 +723,9 @@ export default function LayoutStudio() {
     setShowCardBadges,
     setShowNavbarNowPlaying,
     setDetailSectionVisible,
+    setDetailTabOrder,
+    setHeroElementOrder,
+    setHeroElementVisible,
     setUiDensityMode,
     setNavbarMode,
     setCommandPaletteMode,
@@ -581,6 +767,11 @@ export default function LayoutStudio() {
           for (const d of buildDetailSectionItems(true)) {
             setDetailSectionVisible(d.key, true);
           }
+          for (const scope of DETAIL_SCOPES) {
+            setDetailTabOrder(scope, DEFAULT_DETAIL_TAB_ORDER[scope]);
+            setHeroElementOrder(scope, HERO_ELEMENTS);
+            for (const key of HERO_ELEMENTS) setHeroElementVisible(scope, key, true);
+          }
           break;
       }
       playSound();
@@ -599,6 +790,9 @@ export default function LayoutStudio() {
       setSidebarSectionVisible,
       setShowCardBadges,
       setDetailSectionVisible,
+      setDetailTabOrder,
+      setHeroElementOrder,
+      setHeroElementVisible,
       playSound,
     ],
   );
@@ -847,6 +1041,9 @@ export default function LayoutStudio() {
             sidebarVisible={sidebarSectionVisible}
             page={activePage}
             pageItems={pageItems}
+            detailTabItems={detailTabItems}
+            heroElementItems={heroElementItems}
+            detailScope={activeDetailScope}
             badgesVisible={interfaceVisibility}
             showNowPlaying={showNavbarNowPlaying}
             showCardBadgesMaster={showCardBadges}
@@ -859,6 +1056,10 @@ export default function LayoutStudio() {
             onTogglePageItem={togglePageItemById}
             onToggleSidebarSection={toggleSidebarSectionById}
             onInspectElement={handleInspectElement}
+            onReorderDetailTabs={handleReorderDetailTabs}
+            onToggleDetailTab={toggleDetailTab}
+            onReorderHeroElements={handleReorderHeroElements}
+            onToggleHeroElement={toggleHeroElement}
           />
 
           <p className="studio-pane__hint">

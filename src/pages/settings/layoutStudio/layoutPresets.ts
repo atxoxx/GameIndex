@@ -5,6 +5,8 @@ import {
   type InterfaceItemKey,
 } from "../../../context/SettingsContext";
 import {
+  DEFAULT_DETAIL_TAB_ORDER,
+  DEFAULT_HERO_ELEMENT_ORDER,
   DEFAULT_SIDEBAR_SECTION_VISIBILITY,
   DEFAULT_PAGE_ITEM_ORDER,
 } from "../../../context/interfaceLayout";
@@ -33,6 +35,15 @@ export function getDefaultLayoutSnapshot(): LayoutSnapshot {
     showCardBadges: true,
     showNavbarNowPlaying: true,
     detailSectionVisible,
+    detailTabOrder: {
+      game: [...DEFAULT_DETAIL_TAB_ORDER.game],
+      store: [...DEFAULT_DETAIL_TAB_ORDER.store],
+    },
+    heroElementOrder: {
+      game: [...DEFAULT_HERO_ELEMENT_ORDER],
+      store: [...DEFAULT_HERO_ELEMENT_ORDER],
+    },
+    heroElementVisibility: {},
     uiScale: "auto",
   };
 }
@@ -271,6 +282,15 @@ export function importLayoutFromJson(jsonStr: string): Partial<LayoutSnapshot> |
     }
     if (layout.detailSectionVisible && typeof layout.detailSectionVisible === "object") {
       result.detailSectionVisible = layout.detailSectionVisible;
+    }
+    if (layout.detailTabOrder && typeof layout.detailTabOrder === "object") {
+      result.detailTabOrder = layout.detailTabOrder;
+    }
+    if (layout.heroElementOrder && typeof layout.heroElementOrder === "object") {
+      result.heroElementOrder = layout.heroElementOrder;
+    }
+    if (layout.heroElementVisibility && typeof layout.heroElementVisibility === "object") {
+      result.heroElementVisibility = layout.heroElementVisibility;
     }
     if (typeof layout.uiScale === "string") {
       result.uiScale = layout.uiScale;

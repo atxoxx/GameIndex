@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useGames, useGameById, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
-import { useSettings, type DetailSectionKey } from "../context/SettingsContext";
+import { useSettings, useDetailTabOrder, type DetailSectionKey } from "../context/SettingsContext";
 import { useActivity } from "../context/ActivityContext";
 import { EditGameModal } from "../components/game/EditGameModal";
 import PageWidget from "../components/PageWidget";
@@ -256,6 +256,8 @@ function GameDetail({ game }: { game: Game }) {
   const gameSessions = useMemo(() => getGameSessions(game.id), [getGameSessions, game.id]);
   const sessionCount = gameSessions.length;
 
+  const gameTabOrder = useDetailTabOrder("game");
+
   // Tab definitions with icons and live counts
   const tabs = useMemo(() => {
     const allTabs = [
@@ -288,8 +290,10 @@ function GameDetail({ game }: { game: Game }) {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
     ];
-    return allTabs.filter((tab) => isTabVisible(tab.id));
-  }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible]);
+    return allTabs
+      .sort((a, b) => gameTabOrder.indexOf(a.id) - gameTabOrder.indexOf(b.id))
+      .filter((tab) => isTabVisible(tab.id));
+  }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible, gameTabOrder]);
 
   return (
     <div className="game-page">
