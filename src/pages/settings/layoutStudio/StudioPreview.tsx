@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Clock,
   Crosshair,
@@ -78,12 +78,28 @@ export function StudioPreview({
   const buttonsDrag = useOrderDrag(onReorderNavButtons);
   const itemsDrag = useOrderDrag(onReorderPageItems);
 
+  const isTabActive = (tabId: string) => {
+    const pageFromId = tabId.replace(/^nav/, "").toLowerCase();
+    return page.toLowerCase() === pageFromId || (page === "game" && pageFromId === "library");
+  };
+
+  useEffect(() => {
+    if (!tabsDrag.containerRef.current) return;
+    const activeEl = tabsDrag.containerRef.current.querySelector<HTMLElement>(
+      ".studio-preview__tab.is-active",
+    );
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    }
+  }, [page]);
+
   const rowClass = (
     base: string,
     drag: ReturnType<typeof useOrderDrag>,
     index: number,
     hidden: boolean,
     id?: string,
+    isActive?: boolean,
   ) => {
     const isTarget =
       drag.overIndex === index &&
@@ -92,7 +108,9 @@ export function StudioPreview({
     const isLit = id && highlightedId === id;
     return `${base}${hidden ? " is-off" : ""}${
       drag.dragIndex === index ? " is-dragging" : ""
-    }${isTarget ? " is-drop-target" : ""}${isLit ? " is-preview-lit" : ""}`;
+    }${isTarget ? " is-drop-target" : ""}${isLit ? " is-preview-lit" : ""}${
+      isActive ? " is-active" : ""
+    }`;
   };
 
   const handleItemInteraction = (
@@ -196,13 +214,28 @@ export function StudioPreview({
               title="GameIndex App Brand"
             />
 
-            <div className="studio-preview__tabs" ref={tabsDrag.containerRef}>
+            <div
+              className="studio-preview__tabs"
+              ref={tabsDrag.containerRef}
+              onWheel={(e) => {
+                if (e.deltaY !== 0) {
+                  e.currentTarget.scrollLeft += e.deltaY;
+                }
+              }}
+            >
               {navTabs.map((tab, index) => (
                 <button
                   key={tab.id}
                   type="button"
                   data-order-index={index}
-                  className={rowClass("studio-preview__tab", tabsDrag, index, tab.hidden, tab.id)}
+                  className={rowClass(
+                    "studio-preview__tab",
+                    tabsDrag,
+                    index,
+                    tab.hidden,
+                    tab.id,
+                    isTabActive(tab.id),
+                  )}
                   aria-pressed={!tab.hidden}
                   title={toggleTitle(tab.label, tab.hidden, tab.id)}
                   onPointerDown={startRowDrag(tabsDrag, index)}
@@ -224,6 +257,7 @@ export function StudioPreview({
                 }`}
                 title={t("settings.appearance.navbarNowPlayingTitle")}
               >
+                <span className="studio-preview__now-playing-pulse" aria-hidden="true" />
                 <Gamepad2 size={10} aria-hidden="true" />
                 <span>Playing</span>
               </div>

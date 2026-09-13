@@ -6543,6 +6543,8 @@ export const ru: TranslationDict = {
   "settings.interface.studioTitle": "Студия разметки",
   "settings.interface.studioSubtitle": "Настройте интерфейс приложения. Изменения применяются сразу — предпросмотр это упрощённый вид реального интерфейса.",
   "settings.interface.studioPages": "Страницы для настройки",
+  "settings.interface.scrollPagesLeft": "Прокрутить страницы влево",
+  "settings.interface.scrollPagesRight": "Прокрутить страницы вправо",
   "settings.interface.studioPageGlobal": "Общее",
   "settings.interface.studioPageGame": "Страница игры",
   "settings.interface.studioPreview": "Предпросмотр",

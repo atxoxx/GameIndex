@@ -6542,6 +6542,8 @@ export const de: TranslationDict = {
   "settings.interface.studioTitle": "Layout-Studio",
   "settings.interface.studioSubtitle": "Ordne die Oberfläche der App. Änderungen wirken sofort – die Vorschau ist eine vereinfachte Ansicht der echten UI.",
   "settings.interface.studioPages": "Seiten zum Bearbeiten",
+  "settings.interface.scrollPagesLeft": "Seiten nach links scrollen",
+  "settings.interface.scrollPagesRight": "Seiten nach rechts scrollen",
   "settings.interface.studioPageGlobal": "Global",
   "settings.interface.studioPageGame": "Spielseite",
   "settings.interface.studioPreview": "Vorschau",

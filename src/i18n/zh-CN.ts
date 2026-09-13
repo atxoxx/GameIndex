@@ -6542,6 +6542,8 @@ export const zhCN: TranslationDict = {
   "settings.interface.studioTitle": "布局工作室",
   "settings.interface.studioSubtitle": "调整应用界面。更改立即生效——预览是真实界面的简化视图。",
   "settings.interface.studioPages": "要编辑的页面",
+  "settings.interface.scrollPagesLeft": "向左滚动页面标签",
+  "settings.interface.scrollPagesRight": "向右滚动页面标签",
   "settings.interface.studioPageGlobal": "全局",
   "settings.interface.studioPageGame": "游戏页面",
   "settings.interface.studioPreview": "预览",

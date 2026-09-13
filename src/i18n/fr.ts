@@ -6542,6 +6542,8 @@ export const fr: TranslationDict = {
   "settings.interface.studioTitle": "Studio de mise en page",
   "settings.interface.studioSubtitle": "Organisez l'interface de l'application. Les changements s'appliquent immédiatement — l'aperçu est une version simplifiée de l'interface réelle.",
   "settings.interface.studioPages": "Pages à modifier",
+  "settings.interface.scrollPagesLeft": "Faire défiler les pages vers la gauche",
+  "settings.interface.scrollPagesRight": "Faire défiler les pages vers la droite",
   "settings.interface.studioPageGlobal": "Global",
   "settings.interface.studioPageGame": "Page de jeu",
   "settings.interface.studioPreview": "Aperçu",

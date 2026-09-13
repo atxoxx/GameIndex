@@ -6532,6 +6532,8 @@ export const en: TranslationDict = {
   "settings.interface.studioTitle": "Layout Studio",
   "settings.interface.studioSubtitle": "Arrange the app interface. Changes apply immediately — the preview is a simplified view of the real UI.",
   "settings.interface.studioPages": "Pages to edit",
+  "settings.interface.scrollPagesLeft": "Scroll pages left",
+  "settings.interface.scrollPagesRight": "Scroll pages right",
   "settings.interface.studioPageGlobal": "Global",
   "settings.interface.studioPageGame": "Game Page",
   "settings.interface.studioPreview": "Preview",

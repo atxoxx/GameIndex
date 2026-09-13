@@ -6543,6 +6543,8 @@ export const es: TranslationDict = {
   "settings.interface.studioTitle": "Estudio de diseño",
   "settings.interface.studioSubtitle": "Organiza la interfaz de la app. Los cambios se aplican al instante: la vista previa es una versión simplificada de la UI real.",
   "settings.interface.studioPages": "Páginas para editar",
+  "settings.interface.scrollPagesLeft": "Desplazar páginas a la izquierda",
+  "settings.interface.scrollPagesRight": "Desplazar páginas a la derecha",
   "settings.interface.studioPageGlobal": "Global",
   "settings.interface.studioPageGame": "Página de juego",
   "settings.interface.studioPreview": "Vista previa",

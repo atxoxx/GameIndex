@@ -1,5 +1,28 @@
-import { useCallback, useMemo, useState } from "react";
-import { LayoutTemplate, List, RotateCcw, Star } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Gamepad2,
+  HardDrive,
+  Heart,
+  Home,
+  LayoutTemplate,
+  List,
+  type LucideIcon,
+  Monitor,
+  MonitorPlay,
+  Puzzle,
+  RotateCcw,
+  Rss,
+  Star,
+  Store,
+  Tag,
+  Trophy,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import {
   DEFAULT_NAVBAR_BUTTON_ORDER,
@@ -40,6 +63,25 @@ import type {
   StudioGroupKey,
 } from "./types";
 import "../LayoutStudio.css";
+
+const PAGE_ICONS: Record<InterfacePageKey, LucideIcon> = {
+  global: LayoutTemplate,
+  home: Home,
+  library: Gamepad2,
+  game: MonitorPlay,
+  store: Store,
+  wishlist: Heart,
+  deals: Tag,
+  news: Rss,
+  activity: Activity,
+  achievements: Trophy,
+  downloads: Download,
+  storage: HardDrive,
+  community: Users,
+  friends: UserCheck,
+  emulators: Monitor,
+  mods: Puzzle,
+};
 
 export default function LayoutStudio() {
   const { t } = useLanguage();
@@ -82,6 +124,53 @@ export default function LayoutStudio() {
 
   const [activePage, setActivePage] = useState<InterfacePageKey>("global");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const pagesNavRef = useRef<HTMLElement>(null);
+  const [canScrollPagesLeft, setCanScrollPagesLeft] = useState(false);
+  const [canScrollPagesRight, setCanScrollPagesRight] = useState(false);
+
+  const updatePagesScrollButtons = useCallback(() => {
+    const el = pagesNavRef.current;
+    if (!el) return;
+    setCanScrollPagesLeft(el.scrollLeft > 4);
+    setCanScrollPagesRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = pagesNavRef.current;
+    if (!el) return;
+    updatePagesScrollButtons();
+    el.addEventListener("scroll", updatePagesScrollButtons, { passive: true });
+    window.addEventListener("resize", updatePagesScrollButtons);
+    return () => {
+      el.removeEventListener("scroll", updatePagesScrollButtons);
+      window.removeEventListener("resize", updatePagesScrollButtons);
+    };
+  }, [updatePagesScrollButtons]);
+
+  useEffect(() => {
+    const el = pagesNavRef.current;
+    if (!el) return;
+    const activeTab = el.querySelector<HTMLElement>(".studio-pages__tab.is-active");
+    if (activeTab) {
+      activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    }
+    updatePagesScrollButtons();
+  }, [activePage, updatePagesScrollButtons]);
+
+  const handlePagesWheel = useCallback((e: React.WheelEvent<HTMLElement>) => {
+    if (e.deltaY === 0) return;
+    const el = pagesNavRef.current;
+    if (!el) return;
+    e.preventDefault();
+    el.scrollLeft += e.deltaY;
+  }, []);
+
+  const scrollPages = useCallback((direction: "left" | "right") => {
+    const el = pagesNavRef.current;
+    if (!el) return;
+    const amount = 240;
+    el.scrollBy({ left: direction === "left" ? -amount : amount, behavior: "smooth" });
+  }, []);
 
   const playSound = useCallback(() => {
     if (uiSoundEnabled) playActionSound();
@@ -606,47 +695,70 @@ export default function LayoutStudio() {
       />
 
       {/* Page Tabs */}
-      <nav
-        className="studio-pages"
-        role="tablist"
-        aria-label={t("settings.interface.studioPages")}
-      >
-        {INTERFACE_PAGES.map((p) => {
-          const hiddenCount = hiddenCountForPage(p.key);
-          const isActive = p.key === activePage;
-          const isLanding = landingPage === p.key;
-          return (
-            <button
-              key={p.key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`studio-pages__tab${isActive ? " is-active" : ""}`}
-              onClick={() => setActivePage(p.key)}
-            >
-              {p.key === "global" ? (
-                <LayoutTemplate size={14} aria-hidden="true" />
-              ) : (
-                <span className="studio-pages__dot" aria-hidden="true" />
-              )}
-              <span>{t(p.labelKey)}</span>
-              {isLanding && (
-                <span title={t("settings.interface.isLandingPage")}>
-                  <Star
-                    size={10}
-                    className="studio-pages__landing-star"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  />
-                </span>
-              )}
-              {hiddenCount > 0 && (
-                <span className="studio-pages__count">{hiddenCount}</span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      <div className="studio-pages-bar">
+        {canScrollPagesLeft && (
+          <button
+            type="button"
+            className="studio-pages-scroll-btn studio-pages-scroll-btn--left"
+            onClick={() => scrollPages("left")}
+            aria-label={t("settings.interface.scrollPagesLeft")}
+            title={t("settings.interface.scrollPagesLeft")}
+          >
+            <ChevronLeft size={16} aria-hidden="true" />
+          </button>
+        )}
+        <nav
+          ref={pagesNavRef}
+          className="studio-pages"
+          role="tablist"
+          aria-label={t("settings.interface.studioPages")}
+          onWheel={handlePagesWheel}
+        >
+          {INTERFACE_PAGES.map((p) => {
+            const hiddenCount = hiddenCountForPage(p.key);
+            const isActive = p.key === activePage;
+            const isLanding = landingPage === p.key;
+            const PageIcon = PAGE_ICONS[p.key] ?? LayoutTemplate;
+            return (
+              <button
+                key={p.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`studio-pages__tab${isActive ? " is-active" : ""}`}
+                onClick={() => setActivePage(p.key)}
+              >
+                <PageIcon size={14} aria-hidden="true" className="studio-pages__tab-icon" />
+                <span>{t(p.labelKey)}</span>
+                {isLanding && (
+                  <span title={t("settings.interface.isLandingPage")}>
+                    <Star
+                      size={10}
+                      className="studio-pages__landing-star"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    />
+                  </span>
+                )}
+                {hiddenCount > 0 && (
+                  <span className="studio-pages__count">{hiddenCount}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+        {canScrollPagesRight && (
+          <button
+            type="button"
+            className="studio-pages-scroll-btn studio-pages-scroll-btn--right"
+            onClick={() => scrollPages("right")}
+            aria-label={t("settings.interface.scrollPagesRight")}
+            title={t("settings.interface.scrollPagesRight")}
+          >
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        )}
+      </div>
 
       {/* Studio Body: Preview (Left) + Controls (Right) */}
       <div className="studio-body">
