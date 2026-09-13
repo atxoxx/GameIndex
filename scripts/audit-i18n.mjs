@@ -21,6 +21,11 @@
  *     ...
  *   };
  *
+ * The in-app guide strings (`docs.*`) are split out of the base files into
+ * `src/i18n/docs/docs<Locale>.ts` packs (loaded on demand — see
+ * `ensureDocsLoaded()` in src/i18n/index.ts). Parity is checked over the
+ * base dictionary plus its pack, so both are audited as one language.
+ *
  * The parser is tolerant: it accepts both single and double quoted keys and
  * both `export const <name>` and `export default` export styles.
  */
@@ -42,6 +47,15 @@ const LOCALE_FILES = {
   ru: "ru.ts",
   "zh-CN": "zh-CN.ts",
 };
+const DOCS_FILES = {
+  en: "docsEn.ts",
+  de: "docsDe.ts",
+  es: "docsEs.ts",
+  fr: "docsFr.ts",
+  ru: "docsRu.ts",
+  "zh-CN": "docsZhCN.ts",
+};
+const DOCS_DIR = join(I18N_DIR, "docs");
 
 // ---------------------------------------------------------------------------
 // Parsing
@@ -154,6 +168,18 @@ function parseLocaleKeys(filePath) {
   return entries;
 }
 
+/**
+ * Parse a locale's base dictionary merged with its on-demand `docs.*` pack,
+ * matching the runtime behaviour of ensureLocaleLoaded() + ensureDocsLoaded().
+ */
+function parseLocaleDictionary(locale) {
+  const keys = parseLocaleKeys(join(I18N_DIR, LOCALE_FILES[locale]));
+  for (const [k, v] of parseLocaleKeys(join(DOCS_DIR, DOCS_FILES[locale]))) {
+    keys.set(k, v);
+  }
+  return keys;
+}
+
 /** Extract placeholder names {foo} from a value string. */
 function placeholders(value) {
   const out = new Set();
@@ -208,13 +234,11 @@ function scanSourceKeys() {
 const errors = [];
 const warnings = [];
 
-const enPath = join(I18N_DIR, LOCALE_FILES.en);
-const en = parseLocaleKeys(enPath);
+const en = parseLocaleDictionary("en");
 
 // --- 1. + 2. Locale parity ------------------------------------------------
 for (const locale of LOCALES.slice(1)) {
-  const file = join(I18N_DIR, LOCALE_FILES[locale]);
-  const keys = parseLocaleKeys(file);
+  const keys = parseLocaleDictionary(locale);
 
   const missing = [...en.keys()].filter((k) => !keys.has(k));
   const surplus = [...keys.keys()].filter((k) => !en.has(k));
@@ -259,7 +283,7 @@ report.push("=== i18n audit ===");
 report.push(`Locales checked: ${LOCALES.join(", ")}`);
 report.push(`en.ts (source of truth): ${en.size} keys`);
 for (const locale of LOCALES.slice(1)) {
-  const keys = parseLocaleKeys(join(I18N_DIR, LOCALE_FILES[locale]));
+  const keys = parseLocaleDictionary(locale);
   report.push(`  ${locale}: ${keys.size} keys`);
 }
 report.push("");

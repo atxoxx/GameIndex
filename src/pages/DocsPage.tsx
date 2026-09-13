@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
+import { useDocsDictionary } from "../hooks/useDocsDictionary";
 import {
   ALL_SUBCATEGORIES,
   DOC_CATEGORIES,
@@ -57,7 +58,7 @@ function getScrollContainer(node: HTMLElement | null): HTMLElement {
   );
 }
 
-export default function DocsPage() {
+function DocsPageContent() {
   const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1047,4 +1048,15 @@ export default function DocsPage() {
       )}
     </div>
   );
+}
+
+/**
+ * Route entry point. The guide strings (`docs.*`) ship in a per-locale
+ * pack rather than the base dictionary, so hold the page until the active
+ * language's pack has merged — otherwise the first frame renders raw keys.
+ */
+export default function DocsPage() {
+  const docsReady = useDocsDictionary();
+  if (!docsReady) return null;
+  return <DocsPageContent />;
 }

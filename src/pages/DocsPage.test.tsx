@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { LanguageProvider } from "../context/LanguageContext";
 import DocsPage from "./DocsPage";
 import { ALL_SUBCATEGORIES } from "../components/docs/docsContent";
+import { ensureDocsLoaded } from "../i18n";
 
 function renderDocsPage(initialRoute = "/docs") {
   return render(
@@ -16,6 +17,12 @@ function renderDocsPage(initialRoute = "/docs") {
 }
 
 describe("DocsPage", () => {
+  // Guide strings (`docs.*`) are a lazy per-locale pack — load English up
+  // front so the page mounts translated, as it does in the app.
+  beforeAll(async () => {
+    await ensureDocsLoaded("en");
+  });
+
   it("renders the hero with title, subtitle, and stats", () => {
     renderDocsPage();
     expect(screen.getByRole("heading", { level: 1, name: "Documentation" })).toBeInTheDocument();

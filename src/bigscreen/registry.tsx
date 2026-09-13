@@ -17,6 +17,16 @@
 import type { ReactNode } from "react";
 import { lazy } from "react";
 import { useBigScreen } from "../context/BigScreenContext";
+import { ensureDocsLoaded, getActiveLocale } from "../i18n";
+
+// The in-app guide strings (`docs.*`) ship in a per-locale pack, not the
+// base dictionary. Both Docs routes await that pack inside their lazy
+// factory so the route's Suspense skeleton covers it — the page then mounts
+// fully translated instead of flashing raw keys.
+const loadGuideStrings = () =>
+  ensureDocsLoaded(getActiveLocale()).catch(() => {
+    /* translate() falls back to English */
+  });
 
 // Desktop pages — each becomes its own Vite chunk via React.lazy.
 const HomePage = lazy(() => import("../pages/HomePage"));
@@ -26,7 +36,10 @@ const StorePage = lazy(() => import("../pages/StorePage"));
 const StoreGameDetail = lazy(() => import("../pages/StoreGameDetail"));
 const CommunityPage = lazy(() => import("../pages/CommunityPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
-const DocsPage = lazy(() => import("../pages/DocsPage"));
+const DocsPage = lazy(async () => {
+  const [mod] = await Promise.all([import("../pages/DocsPage"), loadGuideStrings()]);
+  return mod;
+});
 const FriendsPage = lazy(() => import("../pages/FriendsPage"));
 const ActivityPage = lazy(() => import("../pages/ActivityPage"));
 const StoragePage = lazy(() => import("../pages/StoragePage"));
@@ -59,9 +72,13 @@ const BigScreenModsPage = lazy(
 const BigScreenEmulatorsPage = lazy(
   () => import("../components/bigscreen/BigScreenEmulatorsPage"),
 );
-const BigScreenDocsPage = lazy(
-  () => import("../components/bigscreen/BigScreenDocsPage"),
-);
+const BigScreenDocsPage = lazy(async () => {
+  const [mod] = await Promise.all([
+    import("../components/bigscreen/BigScreenDocsPage"),
+    loadGuideStrings(),
+  ]);
+  return mod;
+});
 const BigScreenLibrary = lazy(
   () => import("../components/library/BigScreenLibrary"),
 );

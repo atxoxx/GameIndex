@@ -3,10 +3,10 @@
  * Bundle-size gate for CI. Fails the build when the emitted JS regresses
  * past the budgets below. Run after `npm run build` (needs dist/assets).
  *
- * Budgets are in raw bytes and deliberately carry headroom over today's
- * bundle (entry ~733 KB, locales up to ~537 KB) so the gate catches
- * regressions rather than normal churn. Tighten them toward the stretch
- * targets (entry ≤ 450 KB) as the P1/P2 bundle work lands.
+ * Budgets are in raw bytes and deliberately carry headroom so the gate
+ * catches regressions rather than normal churn. Only the base locale
+ * dictionaries are measured here; the in-app guide strings (`docs.*`) ship
+ * as separate on-demand packs and are not part of the language switch cost.
  */
 import { readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -17,7 +17,7 @@ const assetsDir = join(root, "dist", "assets");
 
 const BUDGETS = {
   entry: 950_000, // index-*.js — cold-boot critical path
-  locale: 560_000, // de/fr/es/ru/zh-CN dictionaries (rich docs guide pushes ru highest)
+  locale: 560_000, // de/fr/es/ru/zh-CN base dictionaries (ru highest: 2-byte Cyrillic UTF-8)
   total: 9_500_000, // all JS combined (< 10 MB bundle target)
 };
 
