@@ -2544,7 +2544,7 @@
 
 .quick-stats-tile__mini-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-info), var(--color-accent));
+  background: var(--color-accent);
   border-radius: var(--radius-full);
   transition: width 400ms var(--ease-standard);
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 50%, transparent);

@@ -80,7 +80,6 @@
 [data-platform="linux"] .docs-toc__progress-fill,
 [data-platform="linux"]
   .splashscreen-progress-fill:not(.splashscreen-progress-fill--error),
-[data-platform="linux"] .quick-stats-tile__mini-fill,
 [data-platform="linux"] .act-milestones__bar-fill,
 [data-platform="linux"] .act-ladder__seg-fill,
 [data-platform="linux"] .act-tod__slot-bar,
