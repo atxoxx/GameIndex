@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { PageHeader } from "../components/ui";
@@ -8,7 +9,7 @@ import { useSettings } from "../context/SettingsContext";
 import { useIntegrations } from "./settings/useIntegrations";
 import { isSettingsTab, useSettingsCatalog } from "./settings/settingsCatalog";
 import { useSectionScroll } from "./settings/useSectionScroll";
-import SettingsSidebar from "./settings/SettingsSidebar";
+import SettingsTopNav from "./settings/SettingsTopNav";
 import SettingsJumpBar from "./settings/SettingsJumpBar";
 import GeneralTab from "./settings/GeneralTab";
 import AppearanceTab from "./settings/AppearanceTab";
@@ -54,23 +55,51 @@ export default function SettingsPage() {
     ),
   );
 
+  const [showSubtabs, setShowSubtabs] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem("gamelib.settings.showSubtabs");
+      return stored === null ? true : stored === "true";
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleSubtabs = () => {
+    setShowSubtabs((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("gamelib.settings.showSubtabs", String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   // Unknown or missing tab → canonical General URL (covers `/settings`).
   if (!validTab) {
     return <Navigate to="/settings/general" replace />;
   }
 
+  const activeCategory = catalog.groups.find((g) =>
+    g.items.some((item) => item.tab === activeTab),
+  );
+
   return (
-    <div className="settings-shell">
-      <SettingsSidebar
+    <div className="settings-shell settings-shell--toptabs">
+      <SettingsTopNav
         groups={catalog.groups}
+        activeTab={activeTab}
         searchIndex={catalog.searchIndex}
         connectedIntegrations={integrations.connectedIntegrations}
+        showSubtabs={showSubtabs}
+        onToggleSubtabs={handleToggleSubtabs}
         t={t}
       />
 
       <main className="settings-content">
         <PageHeader
-          eyebrow={t("settings.title")}
+          eyebrow={activeCategory?.label ?? t("settings.title")}
           title={t(meta.labelKey)}
           description={t(meta.descKey)}
           icon={meta.icon || <SettingsGearIcon />}

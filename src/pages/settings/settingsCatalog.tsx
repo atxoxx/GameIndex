@@ -24,6 +24,7 @@ import {
   DiscordIcon,
   BackupIcon,
   CompatibilityIcon,
+  SettingsGearIcon,
 } from "./settingsIcons";
 
 /**
@@ -440,11 +441,12 @@ export function buildSettingsCatalog(
     },
   };
 
-  /** Sidebar groups — tabs only. */
+  /** Sidebar and topnav groups — tabs only. */
   const groups: SettingsNavGroup[] = [
     {
       id: "personalize",
       label: t("settings.group.personalize"),
+      icon: <PaletteIcon />,
       items: [
         { tab: "general", label: t("settings.general"), icon: <GlobeIcon /> },
         { tab: "appearance", label: t("settings.appearance"), icon: <PaletteIcon /> },
@@ -455,6 +457,7 @@ export function buildSettingsCatalog(
     {
       id: "connections",
       label: t("settings.group.connections"),
+      icon: <IntegrationsIcon />,
       items: [
         {
           tab: "integrations",
@@ -471,6 +474,7 @@ export function buildSettingsCatalog(
     {
       id: "downloads",
       label: t("settings.group.downloads"),
+      icon: <DownloadIcon />,
       items: [
         { tab: "downloads", label: t("nav.downloads"), icon: <DownloadIcon /> },
         { tab: "plugins", label: t("settings.tab.plugins"), icon: <PluginIcon /> },
@@ -479,6 +483,7 @@ export function buildSettingsCatalog(
     {
       id: "system",
       label: t("settings.group.system"),
+      icon: <SettingsGearIcon />,
       items: [
         { tab: "launcher", label: t("settings.tab.launcher"), icon: <RocketIcon /> },
         ...(showFullLinuxUi
@@ -531,3 +536,22 @@ export function buildSettingsCatalog(
 }
 
 export type SettingsCatalog = ReturnType<typeof buildSettingsCatalog>;
+
+/** Find which category group owns a given settings tab. */
+export function getCategoryForTab(tab: SettingsTab): string {
+  if (
+    tab === "general" ||
+    tab === "appearance" ||
+    tab === "interface" ||
+    tab === "hardware"
+  ) {
+    return "personalize";
+  }
+  if (tab === "integrations" || tab === "discord") {
+    return "connections";
+  }
+  if (tab === "downloads" || tab === "plugins") {
+    return "downloads";
+  }
+  return "system";
+}

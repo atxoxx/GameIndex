@@ -21,6 +21,394 @@
   box-sizing: border-box;
 }
 
+.settings-shell--toptabs {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: none;
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl) var(--space-3xl);
+}
+
+/* ── TopNav Bar (Sticky Category & Subtabs strip) ──────────────────── */
+
+.settings-topnav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in srgb, var(--color-surface-raised) 85%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-xs);
+  position: relative;
+}
+
+/* Brand top accent edge */
+.settings-topnav-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--brand-gradient);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+/* Primary row: brand + categories + search + actions */
+.settings-topnav-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: 2px var(--space-xs);
+}
+
+.settings-topnav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.2px;
+  flex-shrink: 0;
+}
+
+.settings-topnav-brand svg {
+  width: 18px;
+  height: 18px;
+  color: var(--color-accent);
+}
+
+/* Category tabs list */
+.settings-category-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 3px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.settings-category-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 var(--space-md);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.settings-category-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.settings-category-tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.settings-category-tab.active {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.settings-category-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.settings-category-tab.active .settings-category-tab-icon {
+  color: var(--color-accent);
+}
+
+.settings-category-tab-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.settings-category-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-full);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.settings-category-tab-badge--highlight {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  animation: updatePulse 2s ease-in-out infinite;
+}
+
+/* Right cluster */
+.settings-topnav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.settings-topnav-actions .settings-search {
+  margin: 0;
+  width: 210px;
+  transition: width var(--transition-fast);
+}
+
+.settings-topnav-actions .settings-search:focus-within {
+  width: 250px;
+}
+
+.settings-topnav-actions .settings-search-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+  width: 340px;
+  max-width: 90vw;
+}
+
+/* Connected status pill */
+.settings-topnav-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.settings-topnav-status-pill:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.settings-topnav-status-pill svg {
+  width: 13px;
+  height: 13px;
+  color: var(--color-accent);
+}
+
+.settings-topnav-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+}
+
+/* Subtabs toggle button */
+.settings-subtabs-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.settings-subtabs-toggle:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.settings-subtabs-toggle.active {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 36%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.settings-subtabs-toggle svg {
+  flex-shrink: 0;
+}
+
+/* Subtabs secondary row */
+.settings-subtabs-strip-container {
+  overflow: hidden;
+  max-height: 80px;
+  opacity: 1;
+  transition: max-height 220ms var(--ease-standard), opacity 180ms ease, margin 220ms ease, padding 220ms ease;
+  margin-top: var(--space-xs);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.settings-subtabs-strip-container--collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top-color: transparent;
+  pointer-events: none;
+}
+
+.settings-subtabs-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.settings-subtabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-subtab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.settings-subtab-item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.settings-subtab-item.active {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.settings-subtab-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.settings-subtab-item.active .settings-subtab-item-icon {
+  color: var(--color-accent);
+}
+
+.settings-subtab-item-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.settings-subtab-item-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-full);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.settings-subtab-item-badge--highlight {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 36%, transparent);
+  animation: updatePulse 2s ease-in-out infinite;
+}
+
+/* Compact indicator shown when subtabs are collapsed */
+.settings-compact-subtab-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px var(--space-xs) 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.settings-compact-subtab-label {
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.settings-compact-subtab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.settings-compact-subtab-icon svg {
+  width: 12px;
+  height: 12px;
+  color: var(--color-accent);
+}
+
 /* ── Sidebar panel ──────────────────────────────────────────────────── */
 
 .settings-sidebar {
@@ -544,7 +932,7 @@
 /* Smooth-scroll anchors land with breathing room under the sticky bar. */
 .settings-content [id],
 .settings-section[id] {
-  scroll-margin-top: 80px;
+  scroll-margin-top: 130px;
 }
 
 /* The content column already spaces children via `gap`; neutralise the
@@ -678,6 +1066,36 @@
   }
 }
 
+@media (max-width: 900px) {
+  .settings-topnav-primary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+
+  .settings-topnav-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .settings-topnav-actions .settings-search {
+    flex: 1;
+    width: auto;
+  }
+
+  .settings-topnav-actions .settings-search-results {
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+
+  .settings-category-tabs {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .settings-shell {
     animation: none;
@@ -685,6 +1103,10 @@
 
   .settings-search-results {
     animation: none;
+  }
+
+  .settings-subtabs-strip-container {
+    transition: none;
   }
 }
 

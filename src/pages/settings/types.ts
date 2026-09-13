@@ -28,6 +28,7 @@ export interface SettingsNavItem {
 export interface SettingsNavGroup {
   id: string;
   label: string;
+  icon?: ReactNode;
   items: SettingsNavItem[];
 }
 
