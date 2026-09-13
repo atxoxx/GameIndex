@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { SortKey, GroupKey } from "./utils";
 import { Button } from "../../components/ui";
+import PageWidget from "../../components/PageWidget";
 import { BulkRecalcBar } from "./BulkRecalcBar";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
@@ -302,6 +303,7 @@ export function StorageControlsBar({
           </div>
 
           {/* Group-by Segmented Control */}
+          <PageWidget page="storage" widget="filters">
           <div className="storage-tool-item ui-complete-only ui-item-filters">
             <span className="storage-tool-label">{t("storage.groupBy")}</span>
             <div className="storage-groupby-segment" role="group" aria-label={t("storage.groupBy")}>
@@ -318,6 +320,7 @@ export function StorageControlsBar({
               ))}
             </div>
           </div>
+          </PageWidget>
 
           {/* Action buttons cluster */}
           <div className="storage-controls-actions">
@@ -361,6 +364,7 @@ export function StorageControlsBar({
             </Button>
 
             {/* Export Report Menu */}
+            <PageWidget page="storage" widget="filters">
             <div className="storage-export-dropdown ui-complete-only ui-item-filters" ref={exportRef}>
               <Button
                 variant="ghost"
@@ -411,6 +415,7 @@ export function StorageControlsBar({
                 </div>
               )}
             </div>
+            </PageWidget>
           </div>
         </div>
       )}

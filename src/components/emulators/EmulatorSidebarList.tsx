@@ -6,6 +6,7 @@ import {
   getPlatformCategory,
 } from "../../types/emulator";
 import type { EmuFilter } from "./EmulatorStatsHeader";
+import PageWidget from "../PageWidget";
 
 export type SortKey = "name" | "games" | "platform" | "dateAdded";
 export type SortDir = "asc" | "desc";
@@ -218,6 +219,7 @@ function EmulatorSidebarListBase({
       </div>
 
       {/* Category & Status Filter Dropdowns */}
+      <PageWidget page="emulators" widget="filters">
       <div className="emulators-sort ui-complete-only ui-item-filters">
         <label className="emulators-sort-label" htmlFor="emu-category-select">
           {t("library.groupBy.platform")}
@@ -253,6 +255,7 @@ function EmulatorSidebarListBase({
           ))}
         </select>
       </div>
+      </PageWidget>
 
       <div className="emulators-sort">
         <label className="emulators-sort-label" htmlFor="emu-sort-select">

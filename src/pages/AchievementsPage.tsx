@@ -16,6 +16,7 @@ import {
   sourceOfPayload,
 } from "../components/achievements/AchievementSourceBadge";
 import { PageHeader } from "../components/ui";
+import PageWidget from "../components/PageWidget";
 
 import {
   calculateLibraryGamerscore,
@@ -326,6 +327,7 @@ export default function AchievementsPage() {
   return (
     <div className="achievements-page page">
       {/* Page header */}
+      <PageWidget page="achievements" widget="achievementsHeader">
       <div className="ui-item-achievementsHeader">
         <PageHeader
           eyebrow={t("achievementsPage.yourProgress")}
@@ -363,15 +365,20 @@ export default function AchievementsPage() {
           }
         />
       </div>
+      </PageWidget>
 
       {/* Hero Summary & Gamerscore Panel */}
+      <PageWidget page="achievements" widget="achievementsHero">
       <div className="ui-item-achievementsHero">
         <AchievementsSummaryHero gamerscore={gamerscore} stats={stats} />
       </div>
+      </PageWidget>
 
       {/* Visual Analytics Grid: Rarity Distribution + Monthly Activity + Source Breakdown + Shelves */}
+      <PageWidget page="achievements" widget="dashboard">
       <div className="ui-complete-only ui-item-dashboard" style={{ display: "contents" }}>
         {stats.totalAchievements > 0 && (
+          <PageWidget page="achievements" widget="achievementsCharts">
           <div className="achievements-analytics-grid ui-item-achievementsCharts">
             <AchievementsRarityChart
               rarityTotal={rarityTotal}
@@ -380,10 +387,12 @@ export default function AchievementsPage() {
             />
             <AchievementsActivityChart activity={monthlyActivity} />
           </div>
+          </PageWidget>
         )}
 
         {/* Source Platform Breakdown */}
         {bySourceTotal > 0 && (
+          <PageWidget page="achievements" widget="achievementsSourceBreakdown">
           <div className="ach-card-section ach-source-breakdown-section ui-item-achievementsSourceBreakdown">
             <div className="ach-card-section-head">
               <h3 className="achievements-section-title">
@@ -426,10 +435,12 @@ export default function AchievementsPage() {
               </div>
             </div>
           </div>
+          </PageWidget>
         )}
 
         {/* Almost Done / Next Up Shelf & Recent Feed */}
         {(almostDoneGames.length > 0 || recentAchievements.length > 0) && (
+          <PageWidget page="achievements" widget="achievementsShelves">
           <div className="ui-item-achievementsShelves" style={{ display: "flex", flexDirection: "column", gap: "var(--space-xl)" }}>
             {almostDoneGames.length > 0 && (
               <AchievementsAlmostDoneShelf games={almostDoneGames} />
@@ -438,10 +449,13 @@ export default function AchievementsPage() {
               <AchievementsRecentFeed recentAchievements={recentAchievements} />
             )}
           </div>
+          </PageWidget>
         )}
       </div>
+      </PageWidget>
 
       {/* Games List / Leaderboard Section */}
+      <PageWidget page="achievements" widget="achievementsList">
       <div className="achievements-games-section ui-item-achievementsList">
         <div className="ach-section-header-row">
           <div className="ach-section-title-group">
@@ -619,6 +633,7 @@ export default function AchievementsPage() {
           </div>
         )}
       </div>
+      </PageWidget>
     </div>
   );
 }

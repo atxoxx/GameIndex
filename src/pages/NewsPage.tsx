@@ -10,6 +10,7 @@ import {
 } from "../hooks/useNewsFeeds";
 import { useToast } from "../context/ToastContext";
 import { PageHeader, Button } from "../components/ui";
+import PageWidget from "../components/PageWidget";
 import { useLanguage } from "../context/LanguageContext";
 import { useGames } from "../context/GameContext";
 import { useWishlist } from "../hooks/useWishlist";
@@ -500,6 +501,7 @@ export default function NewsPage() {
   return (
     <div className="news-page page">
       {/* Header */}
+      <PageWidget page="news" widget="newsHeader">
       <div className="ui-item-newsHeader">
         <PageHeader
           eyebrow={t("news.eyebrow")}
@@ -560,8 +562,10 @@ export default function NewsPage() {
           }
         />
       </div>
+      </PageWidget>
 
       {/* Hero Spotlight Section */}
+      <PageWidget page="news" widget="hero">
       <div className="ui-complete-only ui-item-hero">
         {activeCategory === "all" && !searchQuery && !activeTag && (
           <NewsHeroSpotlight
@@ -575,8 +579,10 @@ export default function NewsPage() {
           />
         )}
       </div>
+      </PageWidget>
 
       {/* Categories + View Density + Search + Filters */}
+      <PageWidget page="news" widget="newsToolbar">
       <div className="ui-item-newsToolbar">
         <NewsToolbar
           activeCategory={activeCategory}
@@ -599,8 +605,10 @@ export default function NewsPage() {
           onDensityChange={handleDensityChange}
         />
       </div>
+      </PageWidget>
 
       {/* Source filter pills */}
+      <PageWidget page="news" widget="filters">
       <div className="ui-complete-only ui-item-filters">
         <NewsSourcePills
           sourceNames={sourceNames}
@@ -616,8 +624,10 @@ export default function NewsPage() {
           onSourceChange={setSourceFilter}
         />
       </div>
+      </PageWidget>
 
       {/* Article Grid */}
+      <PageWidget page="news" widget="newsGrid">
       <div className="ui-item-newsGrid">
         <NewsArticleGrid
           articles={paginatedArticles}
@@ -646,6 +656,7 @@ export default function NewsPage() {
           onSelectTag={(tag) => setActiveTag(tag)}
         />
       </div>
+      </PageWidget>
 
       {/* Article Preview & Reader Modal */}
       <NewsArticlePreview

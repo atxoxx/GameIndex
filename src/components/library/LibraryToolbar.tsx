@@ -7,6 +7,7 @@ import LibrarySortMenu from "./LibrarySortMenu";
 import LibraryGroupMenu from "./LibraryGroupMenu";
 import type { LibraryGroupBy } from "./LibraryGroupMenu";
 import MultiSelectDropdown from "../ui/MultiSelectDropdown";
+import PageWidget from "../PageWidget";
 
 export type { LibraryGroupBy };
 
@@ -128,41 +129,47 @@ export default function LibraryToolbar({
 
         {/* Genre filter dropdown */}
         {availableGenres.length > 0 && onGenresChange && (
-          <div className="lib-toolbar-dropdown ui-complete-only ui-item-filters">
-            <MultiSelectDropdown
-              label={t("edit.label.genres")}
-              placeholder={t("edit.label.genres")}
-              options={availableGenres}
-              selected={selectedGenres}
-              onChange={onGenresChange}
-              clearLabel={t("common.clear")}
-              searchPlaceholder={t("store.filters.searchGenres")}
-              noResultsLabel={t("common.noResults")}
-            />
-          </div>
+          <PageWidget page="library" widget="filters">
+            <div className="lib-toolbar-dropdown ui-complete-only ui-item-filters">
+              <MultiSelectDropdown
+                label={t("edit.label.genres")}
+                placeholder={t("edit.label.genres")}
+                options={availableGenres}
+                selected={selectedGenres}
+                onChange={onGenresChange}
+                clearLabel={t("common.clear")}
+                searchPlaceholder={t("store.filters.searchGenres")}
+                noResultsLabel={t("common.noResults")}
+              />
+            </div>
+          </PageWidget>
         )}
 
         {/* Platform filter dropdown */}
         {availablePlatforms.length > 0 && onPlatformsChange && (
-          <div className="lib-toolbar-dropdown ui-complete-only ui-item-filters">
-            <MultiSelectDropdown
-              label={t("store.compare.platforms")}
-              placeholder={t("store.compare.platforms")}
-              options={availablePlatforms}
-              selected={selectedPlatforms}
-              onChange={onPlatformsChange}
-              clearLabel={t("common.clear")}
-              searchPlaceholder={t("store.filters.searchPlatforms")}
-              noResultsLabel={t("common.noResults")}
-            />
-          </div>
+          <PageWidget page="library" widget="filters">
+            <div className="lib-toolbar-dropdown ui-complete-only ui-item-filters">
+              <MultiSelectDropdown
+                label={t("store.compare.platforms")}
+                placeholder={t("store.compare.platforms")}
+                options={availablePlatforms}
+                selected={selectedPlatforms}
+                onChange={onPlatformsChange}
+                clearLabel={t("common.clear")}
+                searchPlaceholder={t("store.filters.searchPlatforms")}
+                noResultsLabel={t("common.noResults")}
+              />
+            </div>
+          </PageWidget>
         )}
 
         {/* Group By selector */}
         {onGroupByChange && (
-          <div className="ui-complete-only ui-item-filters">
-            <LibraryGroupMenu value={groupBy} onChange={onGroupByChange} />
-          </div>
+          <PageWidget page="library" widget="filters">
+            <div className="ui-complete-only ui-item-filters">
+              <LibraryGroupMenu value={groupBy} onChange={onGroupByChange} />
+            </div>
+          </PageWidget>
         )}
 
         {/* Divider between facet controls and view controls */}

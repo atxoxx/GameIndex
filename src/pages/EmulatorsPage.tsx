@@ -27,6 +27,7 @@ import {
   type BiosCheckResult,
 } from "../types/emulator";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
+import PageWidget from "../components/PageWidget";
 import "../styles/page-emulators.css";
 
 import EmulatorStatsHeader, { type EmuFilter } from "../components/emulators/EmulatorStatsHeader";
@@ -675,7 +676,8 @@ export default function EmulatorsPage() {
 
   return (
     <div className="emulators-page">
-      <div className="ui-item-emuHeader">
+      <PageWidget page="emulators" widget="emuHeader">
+        <div className="ui-item-emuHeader">
         <PageHeader
           eyebrow={t("emulators.eyebrow")}
           title={t("emulators.title")}
@@ -763,19 +765,25 @@ export default function EmulatorsPage() {
             </>
           }
         />
-      </div>
+        </div>
+      </PageWidget>
 
-      <div className="ui-complete-only ui-item-dashboard ui-item-emuStats">
-        <EmulatorStatsHeader
-          stats={stats}
-          activeFilter={filter}
-          onFilterChange={setFilter}
-        />
-      </div>
+      <PageWidget page="emulators" widget="dashboard">
+        <PageWidget page="emulators" widget="emuStats">
+          <div className="ui-complete-only ui-item-dashboard ui-item-emuStats">
+            <EmulatorStatsHeader
+              stats={stats}
+              activeFilter={filter}
+              onFilterChange={setFilter}
+            />
+          </div>
+        </PageWidget>
+      </PageWidget>
 
       <div className="emulators-split">
         {/* Left: Searchable list & filters */}
-        <div className="ui-item-emuSidebar">
+        <PageWidget page="emulators" widget="emuSidebar">
+          <div className="ui-item-emuSidebar">
           <EmulatorSidebarList
             rows={rows}
             selectedId={selectedId}
@@ -791,10 +799,12 @@ export default function EmulatorsPage() {
             sortDir={sortDir}
             onToggleSortDir={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
           />
-        </div>
+          </div>
+        </PageWidget>
 
         {/* Right: Selected emulator showcase & ROM manager */}
-        <section className="emulators-detail-pane ui-item-emuDetail">
+        <PageWidget page="emulators" widget="emuDetail">
+          <section className="emulators-detail-pane ui-item-emuDetail">
             {!selectedRow ? (
               <div className="emulators-detail-empty">
                 <span className="emulators-detail-empty-glyph">🕹️</span>
@@ -870,7 +880,8 @@ export default function EmulatorsPage() {
               </div>
             )}
           </section>
-        </div>
+        </PageWidget>
+      </div>
 
       {/* ROM context menu */}
       {contextRom && romMenu.state && (

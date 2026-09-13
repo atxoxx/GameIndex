@@ -15,6 +15,7 @@ import { ActivitySessions } from "./activity/ActivitySessions";
 import { ActivityPerformance } from "./activity/ActivityPerformance";
 import * as Icons from "./activity/Icons";
 import { PageHeader } from "../components/ui";
+import PageWidget from "../components/PageWidget";
 import { Segmented, ManualSessionModal } from "../components/activity";
 import type { DateRangeKey } from "../components/activity";
 import { useLanguage } from "../context/LanguageContext";
@@ -287,6 +288,7 @@ export default function ActivityPage() {
 
   return (
     <div className="activity__container">
+      <PageWidget page="activity" widget="activityHeader">
       <div className="ui-item-activityHeader">
         <PageHeader
           eyebrow={t("activity.eyebrow")}
@@ -307,6 +309,7 @@ export default function ActivityPage() {
                 </span>
               </div>
 
+              <PageWidget page="activity" widget="filters">
               <div className="activity__export-actions ui-complete-only ui-item-filters">
                 <button
                   type="button"
@@ -341,11 +344,14 @@ export default function ActivityPage() {
                   <Icons.FileText size={13} />
                 </button>
               </div>
+              </PageWidget>
             </div>
           }
         />
       </div>
+      </PageWidget>
 
+      <PageWidget page="activity" widget="activityToolbar">
       <div className="act-toolbar ui-item-activityToolbar">
         <div className="act-toolbar__left">
           <Segmented<TabType>
@@ -384,6 +390,7 @@ export default function ActivityPage() {
           </select>
 
           {effectiveTab === "dashboard" && (
+            <PageWidget page="activity" widget="subtabs">
             <div className="ui-complete-only ui-item-subtabs" style={{ display: "contents" }}>
               <Segmented<AggregationType>
                 ariaLabel={t("activity.interval")}
@@ -405,9 +412,11 @@ export default function ActivityPage() {
                 ]}
               />
             </div>
+            </PageWidget>
           )}
         </div>
       </div>
+      </PageWidget>
 
       <main className="activity__main">
         {effectiveTab === "dashboard" && (

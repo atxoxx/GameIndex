@@ -515,17 +515,22 @@ export default function TopNav() {
                   return null;
               }
             })}
-            <Suspense fallback={null}>
-              <DownloadPopover
-                open={downloadsOpen}
-                onClose={() => {
-                  setDownloadsOpen(false);
-                  downloadBtnRef.current?.focus();
-                }}
-                anchorRef={downloadBtnRef}
-                id={popoverId}
-              />
-            </Suspense>
+            {/* Only mount the popover while its trigger is visible — a hidden
+             *  downloads button means the popover is unreachable, so its
+             *  (lazy) chunk should never be requested. */}
+            {interfaceVisibility.btnDownloads && (
+              <Suspense fallback={null}>
+                <DownloadPopover
+                  open={downloadsOpen}
+                  onClose={() => {
+                    setDownloadsOpen(false);
+                    downloadBtnRef.current?.focus();
+                  }}
+                  anchorRef={downloadBtnRef}
+                  id={popoverId}
+                />
+              </Suspense>
+            )}
           </div>
           <WindowControls />
         </div>

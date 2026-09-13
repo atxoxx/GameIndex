@@ -5,6 +5,7 @@ import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
+import PageWidget from "../components/PageWidget";
 import { ConfirmModal, PageHeader } from "../components/ui";
 import {
   DEFAULT_SORT,
@@ -490,6 +491,7 @@ export default function StoragePage() {
   return (
     <div className="storage-page page">
       {/* ── Page Header ────────────────────────────────────────────── */}
+      <PageWidget page="storage" widget="storageHeader">
       <div className="ui-item-storageHeader">
         <PageHeader
           eyebrow={t("storage.eyebrow")}
@@ -506,8 +508,10 @@ export default function StoragePage() {
           }
         />
       </div>
+      </PageWidget>
 
       {/* ── Hero Analytics Dashboard ───────────────────────────────── */}
+      <PageWidget page="storage" widget="storageHero">
       <div className="ui-item-storageHero">
         <StorageHeroDashboard
           games={installedGames}
@@ -521,8 +525,10 @@ export default function StoragePage() {
           }}
         />
       </div>
+      </PageWidget>
 
       {/* ── Unified Controls Bar ───────────────────────────────────── */}
+      <PageWidget page="storage" widget="storageControls">
       <div className="ui-item-storageControls">
         <StorageControlsBar
           allCount={counts.all}
@@ -556,6 +562,7 @@ export default function StoragePage() {
           onExportJson={handleExportJson}
         />
       </div>
+      </PageWidget>
 
       {/* ── Floating Batch Selection Dock ──────────────────────────── */}
       {selectMode && (viewMode === "list" || viewMode === "grid") && (
@@ -576,6 +583,7 @@ export default function StoragePage() {
 
       {/* ── View Mode: List or Grid ────────────────────────────────── */}
       {(viewMode === "list" || viewMode === "grid") && (
+        <PageWidget page="storage" widget="storageList">
         <div className="ui-item-storageList">
           {sortedGames.length === 0 ? (
             <div className="storage__empty-state">
@@ -681,6 +689,7 @@ export default function StoragePage() {
             </ul>
           )}
         </div>
+        </PageWidget>
       )}
 
       {/* ── View Mode: Storage Cleanup Assistant ───────────────────── */}

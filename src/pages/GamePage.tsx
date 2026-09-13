@@ -6,6 +6,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useSettings, type DetailSectionKey } from "../context/SettingsContext";
 import { useActivity } from "../context/ActivityContext";
 import { EditGameModal } from "../components/game/EditGameModal";
+import PageWidget from "../components/PageWidget";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
 import { type Game } from "../types/game";
@@ -337,34 +338,40 @@ function GameDetail({ game }: { game: Game }) {
       </div>
 
       {/* Hero Banner */}
-      <div className="ui-item-gameHero">
-        <GameHero
-          game={game}
-          steamAppId={heroSteamAppId}
-          onLaunch={handleLaunch}
-        />
-      </div>
+      <PageWidget page="game" widget="gameHero">
+        <div className="ui-item-gameHero">
+          <GameHero
+            game={game}
+            steamAppId={heroSteamAppId}
+            onLaunch={handleLaunch}
+          />
+        </div>
+      </PageWidget>
 
       {/* Sticky Segmented Tabs with Sliding Indicator */}
-      <div className="ui-item-gameTabs">
-        <GameTabs
-          tabs={tabs}
-          activeTab={effectiveTab}
-          onChange={handleTabChange}
-        />
-      </div>
+      <PageWidget page="game" widget="gameTabs">
+        <div className="ui-item-gameTabs">
+          <GameTabs
+            tabs={tabs}
+            activeTab={effectiveTab}
+            onChange={handleTabChange}
+          />
+        </div>
+      </PageWidget>
 
       {/* Tab Content Panels */}
       {effectiveTab === "overview" && (
         <>
           {/* Overview Quick Stats Command Bar */}
-          <div className="ui-item-gameQuickStats">
-            <GameQuickStatsBar
-              game={game}
-              steamAppId={heroSteamAppId}
-              sizeUnit={sizeUnit}
-            />
-          </div>
+          <PageWidget page="game" widget="gameQuickStats">
+            <div className="ui-item-gameQuickStats">
+              <GameQuickStatsBar
+                game={game}
+                steamAppId={heroSteamAppId}
+                sizeUnit={sizeUnit}
+              />
+            </div>
+          </PageWidget>
 
           <div className="game-content-grid">
             <div className="game-main-col">
@@ -387,82 +394,100 @@ function GameDetail({ game }: { game: Game }) {
               />
 
               {/* 1. About & Story Synopsis */}
-              <div className="ui-item-gameAbout">
-                <AboutSection game={game} />
-              </div>
+              <PageWidget page="game" widget="gameAbout">
+                <div className="ui-item-gameAbout">
+                  <AboutSection game={game} />
+                </div>
+              </PageWidget>
               
-              <div className="ui-complete-only ui-item-gameStoryline">
-                <StorylineSection game={game} />
-              </div>
+              <PageWidget page="game" widget="gameStoryline">
+                <div className="ui-complete-only ui-item-gameStoryline">
+                  <StorylineSection game={game} />
+                </div>
+              </PageWidget>
 
               {/* 2. Interactive Media Showcase */}
-              <div className="ui-item-gameMedia">
-                <GameMediaSpotlight
-                  game={game}
-                  onOpenLightbox={handleOpenScreenshot}
-                  steamAppId={heroSteamAppId}
-                />
-              </div>
+              <PageWidget page="game" widget="gameMedia">
+                <div className="ui-item-gameMedia">
+                  <GameMediaSpotlight
+                    game={game}
+                    onOpenLightbox={handleOpenScreenshot}
+                    steamAppId={heroSteamAppId}
+                  />
+                </div>
+              </PageWidget>
 
               {/* 3. Hardware & System Requirements */}
               {detailSectionVisible.systemRequirements && (
-                <div className="ui-item-gameSysReq">
-                  <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
-                </div>
+                <PageWidget page="game" widget="gameSysReq">
+                  <div className="ui-item-gameSysReq">
+                    <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
+                  </div>
+                </PageWidget>
               )}
 
               {/* 4. Franchise & Similar Games */}
-              <div className="ui-complete-only ui-item-gameRelations">
-                {detailSectionVisible.gameRelations && (
-                  <GameRelationsCard
-                    mode="library"
-                    currentGame={game}
-                    currentGameId={game.id}
-                    similarGames={game.similarGames}
-                    collectionId={game.collectionId}
-                    collectionName={game.collection}
-                  />
-                )}
-              </div>
+              <PageWidget page="game" widget="gameRelations">
+                <div className="ui-complete-only ui-item-gameRelations">
+                  {detailSectionVisible.gameRelations && (
+                    <GameRelationsCard
+                      mode="library"
+                      currentGame={game}
+                      currentGameId={game.id}
+                      similarGames={game.similarGames}
+                      collectionId={game.collectionId}
+                      collectionName={game.collection}
+                    />
+                  )}
+                </div>
+              </PageWidget>
             </div>
 
             <div className="game-side-col">
               {/* Personal Play Pulse */}
               {detailSectionVisible.activity && (
-                <div className="ui-item-gamePulse">
-                  <GameActivityPulseCard
-                    game={game}
-                    onNavigateTab={(tab) => handleTabChange(tab)}
-                  />
-                </div>
+                <PageWidget page="game" widget="gamePulse">
+                  <div className="ui-item-gamePulse">
+                    <GameActivityPulseCard
+                      game={game}
+                      onNavigateTab={(tab) => handleTabChange(tab)}
+                    />
+                  </div>
+                </PageWidget>
               )}
 
-              <div className="side-group ui-item-gameSidebarKpis">
-                <InfoKpiCard
-                  game={game}
-                  sizeUnit={sizeUnit}
-                  onEditSize={() => setEditing(true)}
-                />
-                {detailSectionVisible.steamFeatures && (
-                  <SteamFeaturesCard
-                    steamAppId={game.steamAppId ?? heroSteamAppId}
-                    gameName={game.name}
+              <PageWidget page="game" widget="gameSidebarKpis">
+                <div className="side-group ui-item-gameSidebarKpis">
+                  <InfoKpiCard
+                    game={game}
+                    sizeUnit={sizeUnit}
+                    onEditSize={() => setEditing(true)}
                   />
-                )}
-                <RatingsKpiCard game={game} />
-                {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
-              </div>
-              <div className="side-group ui-complete-only ui-item-gameSpecs">
-                <SpecsCard game={game} />
-                {showDeckVerified && detailSectionVisible.protonDb && (
-                  <ProtonDBCard steamAppId={game.steamAppId} />
-                )}
-                <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
-              </div>
-              <div className="side-group ui-complete-only ui-item-gameSpecs">
-                {detailSectionVisible.releases && <ReleasesCard game={game} />}
-                <LanguagesSection game={game} />
-              </div>
+                  {detailSectionVisible.steamFeatures && (
+                    <SteamFeaturesCard
+                      steamAppId={game.steamAppId ?? heroSteamAppId}
+                      gameName={game.name}
+                    />
+                  )}
+                  <RatingsKpiCard game={game} />
+                  {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
+                </div>
+              </PageWidget>
+              <PageWidget page="game" widget="gameSpecs">
+                <div className="side-group ui-complete-only ui-item-gameSpecs">
+                  <SpecsCard game={game} />
+                  {showDeckVerified && detailSectionVisible.protonDb && (
+                    <ProtonDBCard steamAppId={game.steamAppId} />
+                  )}
+                  <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
+                </div>
+              </PageWidget>
+              <PageWidget page="game" widget="gameSpecs">
+                <div className="side-group ui-complete-only ui-item-gameSpecs">
+                  {detailSectionVisible.releases && <ReleasesCard game={game} />}
+                  <LanguagesSection game={game} />
+                </div>
+              </PageWidget>
             </div>
           </div>
         </>

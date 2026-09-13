@@ -9,6 +9,7 @@ import { useGameCardArt } from "../../hooks/useGameCardArt";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { useInterfaceItemVisible } from "../../context/SettingsContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
@@ -195,6 +196,8 @@ function StoreGameCardBase({
   const showBody = density !== "compact";
   const genresToShow = density === "cinematic" ? 4 : density === "list" ? 3 : 2;
   const showHeart = Boolean(onToggleWishlist);
+  const showCrack = useInterfaceItemVisible("badgeCrackwatch");
+  const showCompare = useInterfaceItemVisible("badgeCompare");
 
   const releaseYear = game.firstReleaseDate
     ? new Date(game.firstReleaseDate).getFullYear()
@@ -313,7 +316,7 @@ function StoreGameCardBase({
             <span className="store-card-empty-dash">–</span>
           )}
 
-          {crackStatus && (
+          {showCrack && crackStatus && (
             <span
               className={`store-card-cw-badge${crackStatus.isCracked ? " cw-cracked" : " cw-uncracked"}`}
               title={crackStatus.isCracked ? t("store.gameCard.cracked") : t("store.gameCard.uncracked")}
@@ -491,7 +494,7 @@ function StoreGameCardBase({
           </span>
         )}
 
-        {crackStatus && (
+        {showCrack && crackStatus && (
           <span
             className={`store-card-cw-badge ui-complete-only${crackStatus.isCracked ? " cw-cracked" : " cw-uncracked"}`}
             title={crackStatus.isCracked ? t("store.gameCard.cracked") : t("store.gameCard.uncracked")}
@@ -555,7 +558,7 @@ function StoreGameCardBase({
           </button>
         )}
 
-        {onCompare && (
+        {showCompare && onCompare && (
           <button
             type="button"
             className={`store-card-compare ui-complete-only${inCompare ? " active" : ""}`}

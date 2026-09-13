@@ -6,8 +6,7 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLibraryFilters } from "../../hooks/useLibraryFilters";
 import { useSidebarCollapse } from "../../context/SidebarCollapseContext";
-import { useSettings } from "../../context/SettingsContext";
-import { SIDEBAR_SECTIONS } from "../../context/interfaceLayout";
+import { useSidebarSectionVisible } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   gameNameFromPath,
@@ -111,7 +110,15 @@ export default function Sidebar() {
 
   // ── Icon-rail & Resizing Context ──────────────────────────────────
   const { isIconRail, toggle: toggleIconRail } = useSidebarCollapse();
-  const { sidebarSectionVisible } = useSettings();
+
+  // ── Layout Studio → Global → Sidebar elements ─────────────────────
+  // Hidden sections are unmounted (not just CSS-hidden) so their effects
+  // and DOM are fully removed.
+  const searchVisible = useSidebarSectionVisible("search");
+  const activeFiltersVisible = useSidebarSectionVisible("activeFilters");
+  const gameListVisible = useSidebarSectionVisible("gameList");
+  const alphabetRailVisible = useSidebarSectionVisible("alphabetRail");
+  const statsFooterVisible = useSidebarSectionVisible("statsFooter");
 
   // ── Pinned games state ───────────────────────────────────────────
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => loadPinnedIds());
@@ -826,21 +833,9 @@ export default function Sidebar() {
     }
   }, [bulkSelectedIds.size, combinedVisibleGames]);
 
-  // Sections switched off in Layout Studio (Global → Sidebar elements) are
-  // hidden by attribute in sidebar.css rather than conditionally rendered, so
-  // the sidebar keeps one stable DOM shape and no section loses its state.
-  const hiddenSidebarSections = SIDEBAR_SECTIONS.filter(
-    (section) => !sidebarSectionVisible[section.key],
-  )
-    .map((section) => section.key)
-    .join(" ");
-
   return (
-    <aside
-      className="sidebar"
-      data-sidebar-hidden={hiddenSidebarSections || undefined}
-    >
-      <SidebarHeader
+    <aside className="sidebar">
+      {searchVisible && <SidebarHeader
         isIconRail={isIconRail}
         onToggleIconRail={toggleIconRail}
         searchQuery={filterState.search}
@@ -879,9 +874,9 @@ export default function Sidebar() {
         onExpandAllGroups={handleExpandAllGroups}
         onCollapseAllGroups={handleCollapseAllGroups}
         hasGroups={dynamicGroups.length > 0}
-      />
+      />}
 
-      <SidebarActiveFilters
+      {activeFiltersVisible && <SidebarActiveFilters
         filterState={filterState}
         onRemoveStatus={removeStatus}
         onRemoveSource={removeSource}
@@ -894,12 +889,12 @@ export default function Sidebar() {
           reset();
           setQuickPreset("all");
         }}
-      />
+      />}
 
       <hr className="sidebar-divider" />
 
       {/* Main scrollable game list */}
-      <div
+      {gameListVisible && <div
         className="sidebar-list"
         onClick={handleListClick}
         onContextMenu={handleListContextMenu}
@@ -1135,10 +1130,10 @@ export default function Sidebar() {
             onCancel={() => setBulkSelectedIds(new Set())}
           />
         )}
-      </div>
+      </div>}
 
       {/* Alphabet Scrubber Rail (when sorted alphabetically or grouped by letter) */}
-      {!isIconRail && availableLetters.length > 3 && (
+      {alphabetRailVisible && !isIconRail && availableLetters.length > 3 && (
         <SidebarAlphabetScrubber
           availableLetters={availableLetters}
           onSelectLetter={handleSelectLetter}
@@ -1146,7 +1141,7 @@ export default function Sidebar() {
       )}
 
       {/* Library Stats Footer */}
-      {!isIconRail && (
+      {statsFooterVisible && !isIconRail && (
         <SidebarStatsFooter
           stats={sidebarStats}
           isFilteringActive={isFilteringActive}

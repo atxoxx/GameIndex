@@ -90,6 +90,7 @@ import FriendsLeaderboardTab from "../components/friends/FriendsLeaderboardTab";
 import FriendsRaceTab from "../components/friends/FriendsRaceTab";
 import FriendsProfileTab from "../components/friends/FriendsProfileTab";
 import { nextOccurrence } from "../components/friends/friendsUtils";
+import PageWidget from "../components/PageWidget";
 
 import AddFriendModal from "../components/friends/AddFriendModal";
 import FriendsCirclesModal from "../components/friends/FriendsCirclesModal";
@@ -1813,6 +1814,7 @@ export default function FriendsPage() {
   return (
     <div className="friends-page page">
       {/* Tab Navigation Toolbar */}
+      <PageWidget page="friends" widget="friendsHeader">
       <div className="ui-item-friendsHeader">
         <FriendsToolbar
           activeTab={effectiveTab}
@@ -1825,13 +1827,19 @@ export default function FriendsPage() {
           onOpenP2pModal={() => setShowP2pModal(true)}
         />
       </div>
+      </PageWidget>
 
       {/* Hero Stats Summary */}
+      <PageWidget page="friends" widget="kpis">
+      <PageWidget page="friends" widget="friendsHero">
       <div className="ui-complete-only ui-item-kpis ui-item-friendsHero">
         <FriendsHeroStats friends={friends} sessions={sessions} myGameIds={myGameIds} />
       </div>
+      </PageWidget>
+      </PageWidget>
 
       {/* Main Tab Panels */}
+      <PageWidget page="friends" widget="friendsTabs">
       <div className="friends-panel ui-item-friendsTabs">
         {effectiveTab === "friends" && (
           <FriendsListTab
@@ -1993,6 +2001,7 @@ export default function FriendsPage() {
           />
         )}
       </div>
+      </PageWidget>
 
       {/* Modals */}
       <AddFriendModal

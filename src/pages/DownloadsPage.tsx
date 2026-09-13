@@ -20,6 +20,7 @@ import DownloadsFilterBar, { type DownloadViewMode } from "../components/downloa
 import DownloadRow from "../components/downloads/DownloadRow";
 import { DownloadGridCard } from "../components/downloads/DownloadGridCard";
 import DownloadStatsModal from "../components/downloads/DownloadStatsModal";
+import PageWidget from "../components/PageWidget";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-downloads.css";
@@ -280,6 +281,7 @@ export default function DownloadsPage() {
 
   return (
     <div className="dl-page page">
+      <PageWidget page="downloads" widget="downloadsHeader">
       <div className="ui-item-downloadsHeader">
         <PageHeader
           eyebrow={t("downloads.eyebrow")}
@@ -310,16 +312,24 @@ export default function DownloadsPage() {
           }
         />
       </div>
+      </PageWidget>
 
       {/* Hero Control Center & Network Sparkline */}
+      <PageWidget page="downloads" widget="downloadsHero">
       <div className="ui-item-downloadsHero">
         <BandwidthHero onOpenStats={() => setStatsModalOpen(true)} />
       </div>
+      </PageWidget>
+      <PageWidget page="downloads" widget="dashboard">
+      <PageWidget page="downloads" widget="downloadsSparkline">
       <div className="ui-complete-only ui-item-dashboard ui-item-downloadsSparkline">
         <BandwidthSparkline />
       </div>
+      </PageWidget>
+      </PageWidget>
 
       {/* Filter and View Mode Switcher */}
+      <PageWidget page="downloads" widget="downloadsFilter">
       <div className="ui-item-downloadsFilter">
         <DownloadsFilterBar
           query={query}
@@ -333,8 +343,10 @@ export default function DownloadsPage() {
           counts={counts}
         />
       </div>
+      </PageWidget>
 
       {/* Main Downloads List / Grid / Table Section */}
+      <PageWidget page="downloads" widget="downloadsQueue">
       <section className="dl-section ui-item-downloadsQueue" aria-label={t("downloads.title")}>
         <div className="dl-section-header">
           <h3 className="dl-section-title">
@@ -445,6 +457,7 @@ export default function DownloadsPage() {
           </div>
         )}
       </section>
+      </PageWidget>
 
       {/* Delete Single from disk confirmation */}
       <ConfirmModal

@@ -6,6 +6,7 @@ import { useWishlistContext } from "../context/WishlistContext";
 import { requestShareToFriends } from "./friendSuggestionSignal";
 import type { StoreGameSummary, WishlistEntry } from "../types/game";
 import { PageHeader } from "../components/ui";
+import PageWidget from "../components/PageWidget";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-wishlist.css";
 import "../styles/wishlist.css";
@@ -277,6 +278,7 @@ export default function WishlistPage() {
 
   return (
     <div className="wishlist-page page">
+      <PageWidget page="wishlist" widget="wishlistHeader">
       <div className="ui-item-wishlistHeader">
         <PageHeader
           eyebrow={t("wishlist.eyebrow")}
@@ -314,6 +316,7 @@ export default function WishlistPage() {
           }
         />
       </div>
+      </PageWidget>
 
       {wishlist.length === 0 ? (
         <div
@@ -370,6 +373,7 @@ export default function WishlistPage() {
       ) : (
         <>
           {/* ── Toolbar ─────────────────────────────────────────────── */}
+          <PageWidget page="wishlist" widget="wishlistToolbar">
           <div className="wishlist-toolbar ui-item-wishlistToolbar">
             <div className="wishlist-search">
               <svg
@@ -429,6 +433,7 @@ export default function WishlistPage() {
 
             <div className="wishlist-toolbar-end">
               {(availableGenres.length > 0 || availablePlatforms.length > 0) && (
+                <PageWidget page="wishlist" widget="filters">
                 <div className="wishlist-filter-wrap ui-complete-only ui-item-filters" ref={filtersRef}>
                   <button
                     type="button"
@@ -523,6 +528,7 @@ export default function WishlistPage() {
                     </div>
                   )}
                 </div>
+                </PageWidget>
               )}
 
               <label className="wishlist-sort">
@@ -541,6 +547,7 @@ export default function WishlistPage() {
               </label>
             </div>
           </div>
+          </PageWidget>
 
           {/* ── Result count ───────────────────────────────────────── */}
           <p className="wishlist-result-count">
@@ -561,17 +568,19 @@ export default function WishlistPage() {
             </button>
             </div>
           ) : (
-            <div className="wishlist-page-grid ui-item-wishlistGrid">
-              {visible.map((entry) => (
-                <WishlistCard
-                  key={entry.slug}
-                  entry={entry}
-                  onOpen={() => handleCardClick(entry)}
-                  onToggle={() => toggle(entry)}
-                  onNoteChange={(note) => setNote(entry.slug, note)}
-                />
-              ))}
-            </div>
+            <PageWidget page="wishlist" widget="wishlistGrid">
+              <div className="wishlist-page-grid ui-item-wishlistGrid">
+                {visible.map((entry) => (
+                  <WishlistCard
+                    key={entry.slug}
+                    entry={entry}
+                    onOpen={() => handleCardClick(entry)}
+                    onToggle={() => toggle(entry)}
+                    onNoteChange={(note) => setNote(entry.slug, note)}
+                  />
+                ))}
+              </div>
+            </PageWidget>
           )}
         </>
       )}

@@ -9,6 +9,7 @@ import type {
   PlaytesterFeed,
 } from "../../types/deals";
 import { PageHeader } from "../../components/ui";
+import PageWidget from "../../components/PageWidget";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   type SubTab,
@@ -341,6 +342,7 @@ export default function DealsPage() {
 
   return (
     <div className="deals-page page">
+      <PageWidget page="deals" widget="dealsHeader">
       <div className="ui-item-dealsHeader">
         <PageHeader
           eyebrow={t("deals.eyebrow")}
@@ -364,8 +366,10 @@ export default function DealsPage() {
           }
         />
       </div>
+      </PageWidget>
 
       {/* Hero Spotlight */}
+      <PageWidget page="deals" widget="hero">
       <div className="ui-complete-only ui-item-hero">
         <DealsHeroSpotlight
           deals={deals}
@@ -375,8 +379,10 @@ export default function DealsPage() {
           onInspect={setSelectedTarget}
         />
       </div>
+      </PageWidget>
 
       {/* Subtabs */}
+      <PageWidget page="deals" widget="subtabs">
       <div className="deals-subtabs ui-item-subtabs" role="tablist">
         {subtabs.map((tab) => (
           <button
@@ -397,8 +403,10 @@ export default function DealsPage() {
           </button>
         ))}
       </div>
+      </PageWidget>
 
       {/* Panels */}
+      <PageWidget page="deals" widget="dealsGrid">
       <div className="ui-item-dealsGrid">
         {activeSubTab === "gamepass" && (
           <GamePassPanel
@@ -460,6 +468,7 @@ export default function DealsPage() {
           />
         )}
       </div>
+      </PageWidget>
 
       {/* Deal Detail Modal */}
       <DealDetailModal

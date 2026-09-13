@@ -1,4 +1,5 @@
 import { useLanguage } from "../../context/LanguageContext";
+import { useWidgetVisible } from "../../context/SettingsContext";
 import type { FriendsTabKey, UnseenCounts } from "./friendsTypes";
 import {
   UsersIcon,
@@ -37,6 +38,7 @@ export default function FriendsToolbar({
   onOpenP2pModal,
 }: FriendsToolbarProps) {
   const { t } = useLanguage();
+  const subtabsVisible = useWidgetVisible("friends", "subtabs");
 
   const activityBadge =
     unseenCounts.sessions + unseenCounts.recs + unseenCounts.suggestions;
@@ -80,6 +82,7 @@ export default function FriendsToolbar({
           {unseenCounts.dms > 0 && <span className="friends-tab-count">{unseenCounts.dms}</span>}
         </button>
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -91,7 +94,9 @@ export default function FriendsToolbar({
           <span>{t("friends.tab.sessions")}</span>
           {unseenCounts.sessions > 0 && <span className="friends-tab-count">{unseenCounts.sessions}</span>}
         </button>
+        )}
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -103,7 +108,9 @@ export default function FriendsToolbar({
           <span>{t("friends.tab.recs")}</span>
           {unseenCounts.recs > 0 && <span className="friends-tab-count">{unseenCounts.recs}</span>}
         </button>
+        )}
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -115,7 +122,9 @@ export default function FriendsToolbar({
           <span>{t("friends.tab.suggestions")}</span>
           {unseenCounts.suggestions > 0 && <span className="friends-tab-count">{unseenCounts.suggestions}</span>}
         </button>
+        )}
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -126,7 +135,9 @@ export default function FriendsToolbar({
           <CompareIcon />
           <span>{t("friends.tab.compare")}</span>
         </button>
+        )}
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -137,7 +148,9 @@ export default function FriendsToolbar({
           <LeaderboardIcon />
           <span>{t("friends.tab.leaderboard")}</span>
         </button>
+        )}
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -148,6 +161,7 @@ export default function FriendsToolbar({
           <TrophyIcon />
           <span>{t("friends.tab.race")}</span>
         </button>
+        )}
 
         <button
           type="button"

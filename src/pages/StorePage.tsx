@@ -15,6 +15,7 @@ import StoreGameGrid from "../components/store/StoreGameGrid";
 import StoreBulkBar from "../components/store/StoreBulkBar";
 import StoreCompareTray from "../components/store/StoreCompareTray";
 import StoreCompareModal from "../components/store/StoreCompareModal";
+import PageWidget from "../components/PageWidget";
 import "../styles/page-store.css";
 
 export default function StorePage() {
@@ -115,47 +116,57 @@ export default function StorePage() {
         c.bulkMode || c.compareGames.length > 0 ? " store-page--docked" : ""
       }`}
     >
-      <div className="ui-item-storeHeader">
-        <StoreHeader catalogue={c} />
-      </div>
+      <PageWidget page="store" widget="storeHeader">
+        <div className="ui-item-storeHeader">
+          <StoreHeader catalogue={c} />
+        </div>
+      </PageWidget>
 
       {/* Featured Spotlight Showcase */}
-      <div className="fade-up ui-complete-only ui-item-hero" style={{ "--d": "120ms" } as CSSProperties}>
-        <StoreFeaturedHero onPickGame={c.onCardClick} />
-      </div>
+      <PageWidget page="store" widget="hero">
+        <div className="fade-up ui-complete-only ui-item-hero" style={{ "--d": "120ms" } as CSSProperties}>
+          <StoreFeaturedHero onPickGame={c.onCardClick} />
+        </div>
+      </PageWidget>
 
       <div className="store-layout store-layout-in" style={{ "--d": "200ms" } as CSSProperties}>
-        <div className="ui-item-storeFilters" style={{ display: "contents" }}>
-          <StoreFilterPanel catalogue={c} />
-        </div>
+        <PageWidget page="store" widget="storeFilters">
+          <div className="ui-item-storeFilters" style={{ display: "contents" }}>
+            <StoreFilterPanel catalogue={c} />
+          </div>
+        </PageWidget>
 
         <div className="store-main">
-          <div className="ui-item-storeToolbar">
-            <StoreToolbar catalogue={c} />
-          </div>
+          <PageWidget page="store" widget="storeToolbar">
+            <div className="ui-item-storeToolbar">
+              <StoreToolbar catalogue={c} />
+            </div>
+          </PageWidget>
 
-          <div className="ui-item-storeGrid">
-            <StoreGameGrid
-              games={c.displayedGames}
-              loading={c.loading}
-              error={c.error}
-              hasMore={c.hasMore}
-              onLoadMore={c.loadMore}
-              onCardClick={c.onCardClick}
-              isSourceFilterActive={c.isSourceFilterActive}
-              isSourceCheckPending={c.sourceChecksPending > 0}
-              isInLibrary={c.isInLibrary}
-              onHide={c.onHide}
-              onCompare={c.toggleCompare}
-              compareSlugs={c.compareSlugs}
-              bulkMode={c.bulkMode}
-              selectedSlugs={c.selectedSlugs}
-              onToggleSelect={c.toggleSelect}
-              onClearFilters={c.resetFilters}
-              onClearSearch={() => c.applyExternalQuery("")}
-              onCardHover={setStoreCardHover}
-            />
-          </div>
+          <PageWidget page="store" widget="storeGrid">
+            <div className="ui-item-storeGrid">
+              <StoreGameGrid
+                games={c.displayedGames}
+                loading={c.loading}
+                error={c.error}
+                hasMore={c.hasMore}
+                onLoadMore={c.loadMore}
+                onCardClick={c.onCardClick}
+                isSourceFilterActive={c.isSourceFilterActive}
+                isSourceCheckPending={c.sourceChecksPending > 0}
+                isInLibrary={c.isInLibrary}
+                onHide={c.onHide}
+                onCompare={c.toggleCompare}
+                compareSlugs={c.compareSlugs}
+                bulkMode={c.bulkMode}
+                selectedSlugs={c.selectedSlugs}
+                onToggleSelect={c.toggleSelect}
+                onClearFilters={c.resetFilters}
+                onClearSearch={() => c.applyExternalQuery("")}
+                onCardHover={setStoreCardHover}
+              />
+            </div>
+          </PageWidget>
         </div>
 
         {c.bulkMode && (

@@ -9,6 +9,7 @@ import { type Game } from "../types/game";
 import type { DealItem } from "../types/deals";
 import type { NewsArticle } from "../hooks/useNewsFeeds";
 import { loadSavedArticles, toggleSavedArticle } from "./communityStorage";
+import PageWidget from "../components/PageWidget";
 import HomeHero from "../components/hero/HomeHero";
 import HomeQuickStats from "../components/home/HomeQuickStats";
 import HomeQuickLaunch from "../components/home/HomeQuickLaunch";
@@ -94,115 +95,141 @@ export default function HomePage() {
   return (
     <div className="home-page">
       {/* 1. Cinematic Multi-Candidate Spotlight Hero */}
-      <div className="ui-item-hero">
-        {isSimpleUi ? (
-          <header className="home-simple-header">
-            <h1 className="home-simple-title">{t("home.simple.title")}</h1>
-            <p className="home-simple-subtitle">{t("home.simple.subtitle")}</p>
-            <div className="home-simple-actions">
-              <button
-                type="button"
-                className="home-simple-btn home-simple-btn--primary"
-                onClick={() => navigate("/store")}
-              >
-                {t("home.simple.browseStore")}
-              </button>
-              <button
-                type="button"
-                className="home-simple-btn"
-                onClick={() => navigate("/library")}
-              >
-                {t("home.simple.yourLibrary")}
-              </button>
-            </div>
-          </header>
-        ) : (
-          <HomeHero games={games} onOpenGame={openGame} />
-        )}
-      </div>
+      <PageWidget page="home" widget="hero">
+        <div className="ui-item-hero">
+          {isSimpleUi ? (
+            <header className="home-simple-header">
+              <h1 className="home-simple-title">{t("home.simple.title")}</h1>
+              <p className="home-simple-subtitle">{t("home.simple.subtitle")}</p>
+              <div className="home-simple-actions">
+                <button
+                  type="button"
+                  className="home-simple-btn home-simple-btn--primary"
+                  onClick={() => navigate("/store")}
+                >
+                  {t("home.simple.browseStore")}
+                </button>
+                <button
+                  type="button"
+                  className="home-simple-btn"
+                  onClick={() => navigate("/library")}
+                >
+                  {t("home.simple.yourLibrary")}
+                </button>
+              </div>
+            </header>
+          ) : (
+            <HomeHero games={games} onOpenGame={openGame} />
+          )}
+        </div>
+      </PageWidget>
 
       {/* 2. Glanceable Quick Stats Bar */}
       {sectionsConfig.quickStats && !isEmpty && (
-        <div className="ui-complete-only ui-item-homeQuickStats">
-          <HomeQuickStats />
-        </div>
+        <PageWidget page="home" widget="homeQuickStats">
+          <div className="ui-complete-only ui-item-homeQuickStats">
+            <HomeQuickStats />
+          </div>
+        </PageWidget>
       )}
 
       {/* 3. Dashboard Grid Header with Customization Trigger */}
-      <div className="home-dashboard-header ui-complete-only ui-item-dashboard">
-        <h2 className="home-dashboard-title">{t("stats.tab.overview")}</h2>
-        <button
-          type="button"
-          className="home-customize-btn"
-          onClick={() => setCustomizeOpen(true)}
-          title={t("home.customize.title")}
-          aria-label={t("home.customize.title")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-          <span>{t("home.customize.title")}</span>
-        </button>
-      </div>
+      <PageWidget page="home" widget="dashboard">
+        <div className="home-dashboard-header ui-complete-only ui-item-dashboard">
+          <h2 className="home-dashboard-title">{t("stats.tab.overview")}</h2>
+          <button
+            type="button"
+            className="home-customize-btn"
+            onClick={() => setCustomizeOpen(true)}
+            title={t("home.customize.title")}
+            aria-label={t("home.customize.title")}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <span>{t("home.customize.title")}</span>
+          </button>
+        </div>
+      </PageWidget>
 
       {/* 4. Two-column Player Dashboard */}
       <div className="home-dashboard">
         {/* Left Sidebar: Quick Launch, Activity, Achievements, Friends */}
         <aside className="home-dashboard__sidebar">
           {sectionsConfig.quickLaunch && !isEmpty && (
-            <div className="ui-item-homeQuickLaunch">
-              <HomeQuickLaunch />
-            </div>
+            <PageWidget page="home" widget="homeQuickLaunch">
+              <div className="ui-item-homeQuickLaunch">
+                <HomeQuickLaunch />
+              </div>
+            </PageWidget>
           )}
           {sectionsConfig.activity && (
-            <div className="ui-complete-only ui-item-homeActivity">
-              <HomeActivityRecap />
-            </div>
+            <PageWidget page="home" widget="homeActivity">
+              <div className="ui-complete-only ui-item-homeActivity">
+                <HomeActivityRecap />
+              </div>
+            </PageWidget>
           )}
           {sectionsConfig.achievements && (
-            <div className="ui-complete-only ui-item-homeAchievements">
-              <HomeAchievements />
-            </div>
+            <PageWidget page="home" widget="homeAchievements">
+              <div className="ui-complete-only ui-item-homeAchievements">
+                <HomeAchievements />
+              </div>
+            </PageWidget>
           )}
           {sectionsConfig.friends && (
-            <div className="ui-complete-only ui-item-homeFriends">
-              <HomeFriendsFeed />
-            </div>
+            <PageWidget page="home" widget="homeFriends">
+              <div className="ui-complete-only ui-item-homeFriends">
+                <HomeFriendsFeed />
+              </div>
+            </PageWidget>
           )}
         </aside>
 
         {/* Right Main Column: Rails, Downloads, Discovery */}
         <div className="home-dashboard__main">
           {sectionsConfig.continuePlaying && !isEmpty && (
-            <div className="ui-item-homeContinuePlaying">
-              <ContinuePlayingRail games={games} onCardClick={openGame} />
-            </div>
+            <PageWidget page="home" widget="homeContinuePlaying">
+              <div className="ui-item-homeContinuePlaying">
+                <ContinuePlayingRail games={games} onCardClick={openGame} />
+              </div>
+            </PageWidget>
           )}
           {sectionsConfig.recentlyAdded && !isEmpty && games.length >= 4 && (
-            <div className="ui-item-homeRecentlyAdded">
-              <RecentlyAddedRail games={games} onCardClick={openGame} />
-            </div>
+            <PageWidget page="home" widget="homeRecentlyAdded">
+              <div className="ui-item-homeRecentlyAdded">
+                <RecentlyAddedRail games={games} onCardClick={openGame} />
+              </div>
+            </PageWidget>
           )}
           {sectionsConfig.downloads && (
-            <div className="ui-item-homeDownloads">
-              <HomeDownloads />
-            </div>
+            <PageWidget page="home" widget="homeDownloads">
+              <div className="ui-item-homeDownloads">
+                <HomeDownloads />
+              </div>
+            </PageWidget>
           )}
           {sectionsConfig.wishlist && (
-            <div className="ui-complete-only ui-item-homeWishlist">
-              <HomeWishlistRail />
-            </div>
+            <PageWidget page="home" widget="homeWishlist">
+              <div className="ui-complete-only ui-item-homeWishlist">
+                <HomeWishlistRail />
+              </div>
+            </PageWidget>
           )}
           {sectionsConfig.deals && (
-            <div className="ui-complete-only ui-item-homeDeals">
-              <HomeDealsRail onInspect={handleInspectDeal} />
-            </div>
+            <PageWidget page="home" widget="homeDeals">
+              <div className="ui-complete-only ui-item-homeDeals">
+                <HomeDealsRail onInspect={handleInspectDeal} />
+              </div>
+            </PageWidget>
           )}
           {sectionsConfig.news && (
-            <div className="ui-complete-only ui-item-homeNews">
-              <HomeNewsRail onSelectArticle={handleSelectArticle} />
-            </div>
+            <PageWidget page="home" widget="homeNews">
+              <div className="ui-complete-only ui-item-homeNews">
+                <HomeNewsRail onSelectArticle={handleSelectArticle} />
+              </div>
+            </PageWidget>
           )}
         </div>
       </div>

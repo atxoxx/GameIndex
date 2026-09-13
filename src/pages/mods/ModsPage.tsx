@@ -10,6 +10,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { usePresence } from "../../context/PresenceContext";
 import { Button, PageHeader } from "../../components/ui";
 import ModManager from "../../components/mods/ModManager";
+import PageWidget from "../../components/PageWidget";
 import { ENGINE_LABELS, type ModEngine, type ModsOverviewEntry } from "../../types/mods";
 import type { Game } from "../../types/game";
 import "../../styles/page-mods.css";
@@ -148,17 +149,21 @@ export default function ModsPage() {
 
   return (
     <div className="mods-page">
-      <div className="ui-item-modsHeader">
+      <PageWidget page="mods" widget="modsHeader">
+        <div className="ui-item-modsHeader">
         <PageHeader
           eyebrow={t("mods.eyebrow")}
           title={t("mods.title")}
           description={t("mods.subtitle")}
         />
-      </div>
+        </div>
+      </PageWidget>
 
       {/* Global Cockpit Statistics Banner */}
       {candidates.length > 0 && (
-        <div className="mods-global-cockpit ui-complete-only ui-item-dashboard ui-item-modsCockpit" role="region" aria-label={t("mods.eyebrow")}>
+        <PageWidget page="mods" widget="dashboard">
+        <PageWidget page="mods" widget="modsCockpit">
+          <div className="mods-global-cockpit ui-complete-only ui-item-dashboard ui-item-modsCockpit" role="region" aria-label={t("mods.eyebrow")}>
           <div className="mods-global-kpi">
             <span className="mods-global-kpi-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -241,7 +246,9 @@ export default function ModsPage() {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        </PageWidget>
+        </PageWidget>
       )}
 
       {candidates.length === 0 ? (
@@ -260,6 +267,7 @@ export default function ModsPage() {
       ) : (
         <div className={`mods-page-split ${isRailCollapsed ? "rail-collapsed" : ""}`}>
           {/* ── Left Pane: Games Rail ─────────────────────────────── */}
+          <PageWidget page="mods" widget="modsRail">
           <div className={`mods-games-pane ui-item-modsRail ${isRailCollapsed ? "collapsed" : ""}`}>
             {/* Rail Header */}
             <div className="mods-games-pane-header">
@@ -460,8 +468,10 @@ export default function ModsPage() {
               })}
             </div>
           </div>
+          </PageWidget>
 
           {/* ── Right Pane: Manager Workspace ─────────────────────── */}
+          <PageWidget page="mods" widget="modsWorkspace">
           <div className="mods-page-manager ui-item-modsWorkspace">
             {selectedGame ? (
               <>
@@ -503,6 +513,7 @@ export default function ModsPage() {
               <div className="mods-detail-empty">{t("mods.selectGame")}</div>
             )}
           </div>
+          </PageWidget>
         </div>
       )}
     </div>

@@ -19,6 +19,7 @@ import GameNewsTab from "../components/game/GameNewsTab";
 import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
 import StoreGameLoadingSkeleton from "../components/store/StoreGameLoadingSkeleton";
+import PageWidget from "../components/PageWidget";
 import {
   IconOverview,
   IconMessageSquare,
@@ -584,17 +585,21 @@ export default function StoreGameDetail() {
                 <RatingsKpiCard game={mockGame} />
                 {detailSectionVisible.timeToBeat && <TimeToBeatCard game={mockGame} />}
               </div>
-              <div className="side-group ui-complete-only ui-item-kpis">
-                <SpecsCard game={mockGame} />
-                {showDeckVerified && detailSectionVisible.protonDb && (
-                  <ProtonDBCard steamAppId={steamAppId} />
-                )}
-                <CrackWatchCard gameName={data.title} appId={steamAppId} />
-              </div>
-              <div className="side-group ui-complete-only ui-item-kpis">
-                {detailSectionVisible.releases && <ReleasesCard game={mockGame} />}
-                <LanguagesSection game={mockGame} />
-              </div>
+              <PageWidget page="store" widget="kpis">
+                <div className="side-group ui-complete-only ui-item-kpis">
+                  <SpecsCard game={mockGame} />
+                  {showDeckVerified && detailSectionVisible.protonDb && (
+                    <ProtonDBCard steamAppId={steamAppId} />
+                  )}
+                  <CrackWatchCard gameName={data.title} appId={steamAppId} />
+                </div>
+              </PageWidget>
+              <PageWidget page="store" widget="kpis">
+                <div className="side-group ui-complete-only ui-item-kpis">
+                  {detailSectionVisible.releases && <ReleasesCard game={mockGame} />}
+                  <LanguagesSection game={mockGame} />
+                </div>
+              </PageWidget>
             </div>
           </div>
         </>

@@ -35,6 +35,7 @@ import {
   type DateRangeKey,
 } from "../../components/activity";
 import * as Icons from "./Icons";
+import PageWidget from "../../components/PageWidget";
 
 export interface ActivityDashboardProps {
   sessions: GameSession[];
@@ -347,6 +348,7 @@ export function ActivityDashboard({
 
   return (
     <div className="activity__content">
+      <PageWidget page="activity" widget="activityKpis">
       <div className="ui-item-activityKpis">
         <StatBand>
           <StatCell
@@ -381,17 +383,22 @@ export function ActivityDashboard({
           />
         </StatBand>
       </div>
+      </PageWidget>
 
       {!selectedGameId && (
+        <PageWidget page="activity" widget="activityPersona">
         <div className="activity__persona-container ui-item-activityPersona">
           <GamerPersonaCard persona={gamerPersona} />
         </div>
+        </PageWidget>
       )}
 
+      <PageWidget page="activity" widget="activityRecords">
       <div className="ui-item-activityRecords">
         <RecordsStrip records={records} />
         <Milestones ladders={milestones} />
       </div>
+      </PageWidget>
 
       <div className="activity__dashboard-layout">
         <aside className="activity-game-sidebar">
@@ -484,6 +491,7 @@ export function ActivityDashboard({
         </aside>
 
         <div className="activity__dashboard-main">
+          <PageWidget page="activity" widget="activityChart">
           <div className="activity-main-chart ui-item-activityChart">
             <div className="activity-main-chart__header">
               <div className="activity-main-chart__header-left">
@@ -601,6 +609,7 @@ export function ActivityDashboard({
               )}
             </div>
           </div>
+          </PageWidget>
 
           {selectedGame && selectedGameCompletion?.hasTimeToBeat && (
             <div className="section-panel">
@@ -608,6 +617,7 @@ export function ActivityDashboard({
             </div>
           )}
 
+          <PageWidget page="activity" widget="activityInsights">
           <div className="ui-item-activityInsights">
             <div className="activity__two-column">
               <div className="section-panel">
@@ -637,9 +647,11 @@ export function ActivityDashboard({
               <DayOfWeekDistribution distribution={dayOfWeekDist} compact={Boolean(selectedGameId)} />
             </div>
           </div>
+          </PageWidget>
 
           {!selectedGameId && (
             <>
+              <PageWidget page="activity" widget="activityBacklog">
               <div className="ui-item-activityBacklog">
                 <BacklogCompletionHub
                   games={games}
@@ -647,6 +659,8 @@ export function ActivityDashboard({
                   onLaunchGame={onLaunchGame}
                 />
               </div>
+              </PageWidget>
+              <PageWidget page="activity" widget="activityBreakdown">
               <div className="ui-item-activityBreakdown">
                 <div className="activity__two-column">
                   <div className="section-panel">
@@ -695,6 +709,7 @@ export function ActivityDashboard({
                   <WeeklyHeatmap sessions={filteredSessions} timeframeDays={heatmapDays} />
                 </div>
               </div>
+              </PageWidget>
             </>
           )}
         </div>

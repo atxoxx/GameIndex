@@ -3,6 +3,8 @@ import type { Game } from "../../types/game";
 import { formatSize } from "../../types/game";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useLanguage } from "../../context/LanguageContext";
+import { useWidgetVisible } from "../../context/SettingsContext";
+import PageWidget from "../../components/PageWidget";
 import {
   driveBuckets,
   platformBuckets,
@@ -33,6 +35,7 @@ export function StorageHeroDashboard({
 }: Props) {
   const { t } = useLanguage();
   const { unit } = useSizeUnit();
+  const kpisVisible = useWidgetVisible("storage", "kpis");
 
   const total = useMemo(() => totalBytesWithMods(games), [games]);
   const coverage = useMemo(() => sizeCoverage(games), [games]);
@@ -236,6 +239,7 @@ export function StorageHeroDashboard({
         )}
 
         {/* KPI 4: Storage Health / Cleanup Opportunity */}
+        {kpisVisible && (
         <div
           className={`storage-kpi-card storage-kpi-card--interactive ui-complete-only ui-item-kpis ${
             staleCount > 0 ? "storage-kpi-card--alert" : ""
@@ -287,6 +291,7 @@ export function StorageHeroDashboard({
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* ── Multi-Drive Partition Cards & Visualizer ──────────────────── */}
@@ -446,6 +451,7 @@ export function StorageHeroDashboard({
 
       {/* ── Platform Distribution Strip ──────────────────────────────── */}
       {platforms.length > 1 && (
+        <PageWidget page="storage" widget="dashboard">
         <div className="storage-platform-strip ui-complete-only ui-item-dashboard">
           <div className="storage-platform-title">{t("storageHeader.byPlatform")}</div>
           <div className="storage-platform-chips">
@@ -461,6 +467,7 @@ export function StorageHeroDashboard({
             })}
           </div>
         </div>
+        </PageWidget>
       )}
     </section>
   );

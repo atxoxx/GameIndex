@@ -2,9 +2,10 @@ import { useState, useMemo, useCallback } from "react";
 import { useActivity } from "../../context/ActivityContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useGames } from "../../context/GameContext";
-import { useSettings } from "../../context/SettingsContext";
+import { useSettings, useWidgetVisible } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import PageWidget from "../../components/PageWidget";
 
 import { StatsHeader } from "./StatsHeader";
 import { OverviewTab } from "./tabs/OverviewTab";
@@ -39,6 +40,7 @@ export default function StatsPage() {
   const { cache: achievementCache } = useAchievements();
   const { games } = useGames();
   const { hideAchievementProgress, isSimpleUi } = useSettings();
+  const subtabsVisible = useWidgetVisible("community", "subtabs");
 
   // Persistent Active Tab & Timeframe
   const [activeTab, setActiveTab] = useState<StatsSubtab>(() => loadActiveSubtab());
@@ -147,7 +149,8 @@ export default function StatsPage() {
   return (
     <div className="stats-page-container">
       {/* ── Hero Cockpit Banner ──────────────────────────────────── */}
-      <div className="ui-item-communityHeader">
+      <PageWidget page="community" widget="communityHeader">
+        <div className="ui-item-communityHeader">
         <StatsHeader
           levelInfo={levelInfo}
           persona={persona}
@@ -159,9 +162,11 @@ export default function StatsPage() {
           onTimeframeChange={handleTimeframeChange}
           onExportJson={handleExportJson}
         />
-      </div>
+        </div>
+      </PageWidget>
 
       {/* ── Subtab Navigation Bar ────────────────────────────────── */}
+      <PageWidget page="community" widget="communityTabs">
       <div className="stats-subtab-bar ui-item-communityTabs" role="tablist" aria-label={t("stats.tabsLabel")}>
         <button
           type="button"
@@ -174,6 +179,7 @@ export default function StatsPage() {
           <span>{t("stats.tab.overview")}</span>
         </button>
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -184,6 +190,7 @@ export default function StatsPage() {
           <span className="stats-subtab-icon">📈</span>
           <span>{t("stats.tab.trends")}</span>
         </button>
+        )}
 
         <button
           type="button"
@@ -196,6 +203,7 @@ export default function StatsPage() {
           <span>{t("stats.tab.achievements")}</span>
         </button>
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -206,7 +214,9 @@ export default function StatsPage() {
           <span className="stats-subtab-icon">📸</span>
           <span>{t("stats.tab.captures")}</span>
         </button>
+        )}
 
+        {subtabsVisible && (
         <button
           type="button"
           role="tab"
@@ -217,9 +227,12 @@ export default function StatsPage() {
           <span className="stats-subtab-icon">🎖️</span>
           <span>{t("stats.tab.milestones")}</span>
         </button>
+        )}
       </div>
+      </PageWidget>
 
       {/* ── Subtab Content Panels ────────────────────────────────── */}
+      <PageWidget page="community" widget="communityContent">
       <main className="stats-main-content ui-item-communityContent">
         {effectiveTab === "overview" && (
           <OverviewTab
@@ -262,6 +275,7 @@ export default function StatsPage() {
           />
         )}
       </main>
+      </PageWidget>
     </div>
   );
 }

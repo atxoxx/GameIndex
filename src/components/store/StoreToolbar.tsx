@@ -2,6 +2,7 @@ import StoreSortDropdown from "./StoreSortDropdown";
 import StoreSearchBar from "./StoreSearchBar";
 import StoreSearchPalette from "./StoreSearchPalette";
 import DensityToggle from "../DensityToggle";
+import PageWidget from "../PageWidget";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -68,21 +69,23 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
           {c.activeFilterCount > 0 && <span className="store-filter-trigger-badge">{c.activeFilterCount}</span>}
         </button>
 
-        <button
-          type="button"
-          className={`store-toolbar-toggle ui-complete-only ui-item-filters${c.bulkMode ? " active" : ""}`}
-          onClick={() => {
-            c.setBulkMode(!c.bulkMode);
-            c.clearSelection();
-          }}
-          title={t("storeToolbar.selectMultiple")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polyline points="9 11 12 14 22 4" />
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-          </svg>
-          <span>{t("store.selectLabel")}</span>
-        </button>
+        <PageWidget page="store" widget="filters">
+          <button
+            type="button"
+            className={`store-toolbar-toggle ui-complete-only ui-item-filters${c.bulkMode ? " active" : ""}`}
+            onClick={() => {
+              c.setBulkMode(!c.bulkMode);
+              c.clearSelection();
+            }}
+            title={t("storeToolbar.selectMultiple")}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="9 11 12 14 22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            <span>{t("store.selectLabel")}</span>
+          </button>
+        </PageWidget>
 
         <div className="store-density-toolbar" aria-label={t("store.toolbar.layoutControls")}>
           <DensityToggle density={c.density} onChange={c.setDensity} />

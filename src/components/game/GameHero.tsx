@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { KpiTile } from "../ui";
+import PageWidget from "../PageWidget";
 import { type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
 import { useSettings } from "../../context/SettingsContext";
@@ -399,7 +400,9 @@ export default function GameHero({
           </div>
 
           <div className="game-hero__footer">
-            <div className="game-hero__kpis ui-item-kpis">{kpis}</div>
+            <PageWidget page="game" widget="kpis">
+              <div className="game-hero__kpis ui-item-kpis">{kpis}</div>
+            </PageWidget>
             <div className="game-hero__actions">
               {actions ??
                 (isGame ? <GameLaunchActions game={game!} onLaunch={onLaunch!} size="sm" /> : null)}

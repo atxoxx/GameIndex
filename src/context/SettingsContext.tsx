@@ -1653,3 +1653,52 @@ export function useSettings(): SettingsContextValue {
   }
   return ctx;
 }
+
+// ── Visibility helpers (Settings → Interface / Layout Studio) ───────────────
+//
+// The Layout Studio toggles used to be pure CSS (`display: none`), which still
+// mounted every hidden component: its effects, subscriptions and data fetches
+// kept running for something the user could not see. These helpers let a
+// consumer *not render* a hidden element instead, so it costs nothing.
+//
+// All of them are null-safe: outside a SettingsProvider (isolated component
+// tests, static renders) an element defaults to visible.
+
+/** Generic page-widget categories that are also gated by a global Interface
+ *  toggle (`widgetHero`, `widgetKpis`, …) in addition to the per-page map. */
+const GENERIC_WIDGET_INTERFACE_KEY: Partial<Record<PageWidgetKey, InterfaceItemKey>> = {
+  hero: "widgetHero",
+  kpis: "widgetKpis",
+  filters: "widgetFilters",
+  subtabs: "widgetSubtabs",
+  dashboard: "widgetDashboard",
+};
+
+/** Whether a global Interface element (nav item, badge, generic widget) is
+ *  currently switched on. */
+export function useInterfaceItemVisible(key: InterfaceItemKey): boolean {
+  const ctx = useContext(SettingsContext);
+  if (!ctx) return true;
+  return ctx.interfaceVisibility[key] !== false;
+}
+
+/** Whether a page widget should be mounted at all. Combines the per-page
+ *  Layout Studio map with the global generic toggle for the shared categories
+ *  (`hero`, `kpis`, `filters`, `subtabs`, `dashboard`). */
+export function useWidgetVisible(
+  page: InterfacePageKey,
+  widget: PageWidgetKey,
+): boolean {
+  const ctx = useContext(SettingsContext);
+  if (!ctx) return true;
+  const globalKey = GENERIC_WIDGET_INTERFACE_KEY[widget];
+  if (globalKey && ctx.interfaceVisibility[globalKey] === false) return false;
+  return ctx.pageItemVisible[page]?.[widget] !== false;
+}
+
+/** Whether a sidebar top-level section should be mounted. */
+export function useSidebarSectionVisible(key: SidebarSectionKey): boolean {
+  const ctx = useContext(SettingsContext);
+  if (!ctx) return true;
+  return ctx.sidebarSectionVisible[key] !== false;
+}

@@ -22,6 +22,7 @@ import { EditGameModal } from "../components/game/EditGameModal";
 import LibraryGameCard from "../components/library/LibraryGameCard";
 import LibraryExportModal from "../components/library/LibraryExportModal";
 import LibraryBulkBar from "../components/library/LibraryBulkBar";
+import PageWidget from "../components/PageWidget";
 import { ConfirmModal } from "../components/ui/ConfirmModal";
 import { useFilterPresets } from "../hooks/useFilterPresets";
 import type { FilterPreset } from "../hooks/libraryFilters";
@@ -325,33 +326,40 @@ export default function LibraryPage() {
   return (
     <div className="lib-page">
       <div className="lib-hero-stack ui-complete-only">
-        <div className="ui-item-hero">
-          <LibraryHero
-            games={games}
-            activeStatus={filters.status}
-            activePlayStatus={filters.playStatus}
-            onFilterStatus={setStatus}
-            onFilterPlayStatus={setPlayStatus}
-            onCardClick={handleCardClick}
-          />
-        </div>
+        <PageWidget page="library" widget="hero">
+          <div className="ui-item-hero">
+            <LibraryHero
+              games={games}
+              activeStatus={filters.status}
+              activePlayStatus={filters.playStatus}
+              onFilterStatus={setStatus}
+              onFilterPlayStatus={setPlayStatus}
+              onCardClick={handleCardClick}
+            />
+          </div>
+        </PageWidget>
 
         {!isLibraryEmpty && (
-          <div className="ui-item-libContinuePlaying">
-            <ContinuePlayingRail games={games} onCardClick={handleCardClick} />
-          </div>
+          <PageWidget page="library" widget="libContinuePlaying">
+            <div className="ui-item-libContinuePlaying">
+              <ContinuePlayingRail games={games} onCardClick={handleCardClick} />
+            </div>
+          </PageWidget>
         )}
 
         {!isLibraryEmpty && games.length >= 4 && (
-          <div className="ui-item-libRecentlyAdded">
-            <RecentlyAddedRail games={games} onCardClick={handleCardClick} />
-          </div>
+          <PageWidget page="library" widget="libRecentlyAdded">
+            <div className="ui-item-libRecentlyAdded">
+              <RecentlyAddedRail games={games} onCardClick={handleCardClick} />
+            </div>
+          </PageWidget>
         )}
       </div>
 
       {!isLibraryEmpty && (
-        <div className="ui-item-libToolbar">
-          <LibraryToolbar
+        <PageWidget page="library" widget="libToolbar">
+          <div className="ui-item-libToolbar">
+            <LibraryToolbar
             title={toolbarTitle}
             count={toolbarCount}
             countActive={hasFilters}
@@ -379,12 +387,14 @@ export default function LibraryPage() {
             filtersOpen={filtersOpen}
             activeFilterCount={activeFilterCount}
           />
-        </div>
+          </div>
+        </PageWidget>
       )}
 
       {!isLibraryEmpty && (
-        <div className="ui-item-libFilterChips">
-          <LibraryFilterChips
+        <PageWidget page="library" widget="libFilterChips">
+          <div className="ui-item-libFilterChips">
+            <LibraryFilterChips
             filters={filters}
             resultCount={filteredGames.length}
             onRemoveSearch={removeSearch}
@@ -397,16 +407,18 @@ export default function LibraryPage() {
             onRemoveSource={removeSource}
             onResetAll={reset}
           />
-        </div>
+          </div>
+        </PageWidget>
       )}
 
       {/* Saved Presets — minimal chip row using existing styles */}
       {!isLibraryEmpty && (
-        <div
-          className="lib-chips ui-complete-only ui-item-libPresets"
-          style={{ marginTop: "8px", flexWrap: "wrap" } as React.CSSProperties}
-          aria-label={t("library.presets.title")}
-        >
+        <PageWidget page="library" widget="libPresets">
+          <div
+            className="lib-chips ui-complete-only ui-item-libPresets"
+            style={{ marginTop: "8px", flexWrap: "wrap" } as React.CSSProperties}
+            aria-label={t("library.presets.title")}
+          >
           {hasFilters && (
             <button type="button" className="lib-chip-reset" onClick={handleSavePreset}>
               {t("library.presets.savePreset")}
@@ -450,18 +462,21 @@ export default function LibraryPage() {
               ))}
             </>
           )}
-        </div>
+          </div>
+        </PageWidget>
       )}
 
       {isLibraryEmpty ? (
         <LibraryEmptyState />
       ) : (
         <div className="lib-layout">
-          <div className="ui-item-libFilterRail" style={{ display: "contents" }}>
-            <LibraryFilterRail collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}>
-              <LibraryFilterSidebar {...sidebarProps} />
-            </LibraryFilterRail>
-          </div>
+          <PageWidget page="library" widget="libFilterRail">
+            <div className="ui-item-libFilterRail" style={{ display: "contents" }}>
+              <LibraryFilterRail collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}>
+                <LibraryFilterSidebar {...sidebarProps} />
+              </LibraryFilterRail>
+            </div>
+          </PageWidget>
 
           {/* Left-side overlay for compact widths; toggled from the toolbar */}
           {createPortal(
@@ -501,21 +516,23 @@ export default function LibraryPage() {
             document.body
           )}
 
-          <div className="lib-main ui-item-libGrid">
-            {filteredGames.length === 0 ? (
-              <LibraryFilteredEmpty onReset={reset} />
-            ) : (
-              <LibraryVirtualGrid
-                items={filteredGames}
-                density={density}
-                isBigScreen={false}
-                editorial={editorial}
-                groupBy={groupBy}
-                resetKey={filterResetKey}
-                renderItem={renderCard}
-              />
-            )}
-          </div>
+          <PageWidget page="library" widget="libGrid">
+            <div className="lib-main ui-item-libGrid">
+              {filteredGames.length === 0 ? (
+                <LibraryFilteredEmpty onReset={reset} />
+              ) : (
+                <LibraryVirtualGrid
+                  items={filteredGames}
+                  density={density}
+                  isBigScreen={false}
+                  editorial={editorial}
+                  groupBy={groupBy}
+                  resetKey={filterResetKey}
+                  renderItem={renderCard}
+                />
+              )}
+            </div>
+          </PageWidget>
         </div>
       )}
 
