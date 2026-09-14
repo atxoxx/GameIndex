@@ -4329,6 +4329,8 @@ export const en: TranslationDict = {
   "sidebar.density.detailed": "Detailed",
   "sidebar.density.standard": "Standard",
   "sidebar.densityLabel": "Display Density",
+  "sidebar.dropExeHint": "Drop game executables here to import them",
+  "sidebar.dropInvalidFile": "Only game executables (.exe, .bat, .sh) can be imported by dragging",
   "sidebar.expand": "Expand sidebar",
   "sidebar.expandAllGroups": "Expand all",
   "sidebar.expandSection": "Expand section",

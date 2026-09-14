@@ -4321,6 +4321,8 @@ export const ru: TranslationDict = {
   "sidebar.density.detailed": "Подробный",
   "sidebar.density.standard": "Стандартный",
   "sidebar.densityLabel": "Плотность отображения",
+  "sidebar.dropExeHint": "Перетащите сюда исполняемые файлы игр, чтобы импортировать их",
+  "sidebar.dropInvalidFile": "Перетаскиванием можно импортировать только исполняемые файлы игр (.exe, .bat, .sh)",
   "sidebar.expand": "Развернуть боковую панель",
   "sidebar.expandAllGroups": "Развернуть все",
   "sidebar.expandSection": "Развернуть раздел",

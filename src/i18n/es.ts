@@ -4321,6 +4321,8 @@ export const es: TranslationDict = {
   "sidebar.density.detailed": "Detallado",
   "sidebar.density.standard": "Estándar",
   "sidebar.densityLabel": "Densidad de visualización",
+  "sidebar.dropExeHint": "Suelta aquí ejecutables de juego para importarlos",
+  "sidebar.dropInvalidFile": "Solo los ejecutables de juego (.exe, .bat, .sh) se pueden importar arrastrando",
   "sidebar.expand": "Expandir barra lateral",
   "sidebar.expandAllGroups": "Expandir todo",
   "sidebar.expandSection": "Expandir sección",

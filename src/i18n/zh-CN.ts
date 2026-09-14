@@ -4321,6 +4321,8 @@ export const zhCN: TranslationDict = {
   "sidebar.density.detailed": "详细",
   "sidebar.density.standard": "标准",
   "sidebar.densityLabel": "显示密度",
+  "sidebar.dropExeHint": "将游戏可执行文件拖到此处即可导入",
+  "sidebar.dropInvalidFile": "只有游戏可执行文件（.exe、.bat、.sh）可以通过拖放导入",
   "sidebar.expand": "展开侧边栏",
   "sidebar.expandAllGroups": "展开全部",
   "sidebar.expandSection": "展开分区",

@@ -4316,6 +4316,8 @@ export const fr: TranslationDict = {
   "sidebar.density.detailed": "Détaillé",
   "sidebar.density.standard": "Standard",
   "sidebar.densityLabel": "Densité d'affichage",
+  "sidebar.dropExeHint": "Déposez ici des exécutables de jeu pour les importer",
+  "sidebar.dropInvalidFile": "Seuls les exécutables de jeu (.exe, .bat, .sh) peuvent être importés par glisser-déposer",
   "sidebar.expand": "Déplier la barre latérale",
   "sidebar.expandAllGroups": "Tout déplier",
   "sidebar.expandSection": "Déplier la section",

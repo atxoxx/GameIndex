@@ -4321,6 +4321,8 @@ export const de: TranslationDict = {
   "sidebar.density.detailed": "Detailliert",
   "sidebar.density.standard": "Standard",
   "sidebar.densityLabel": "Anzeigedichte",
+  "sidebar.dropExeHint": "Spiel-Executables hier ablegen, um sie zu importieren",
+  "sidebar.dropInvalidFile": "Nur Spiel-Executables (.exe, .bat, .sh) können per Drag & Drop importiert werden",
   "sidebar.expand": "Seitenleiste erweitern",
   "sidebar.expandAllGroups": "Alle erweitern",
   "sidebar.expandSection": "Abschnitt ausklappen",

@@ -5,6 +5,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLibraryFilters } from "../../hooks/useLibraryFilters";
+import { useOsFileDrop } from "../../hooks/useOsFileDrop";
+import { commonParentDir, isImportableExecutablePath } from "../../utils/exeDrop";
 import { useSidebarCollapse } from "../../context/SidebarCollapseContext";
 import { useSidebarSectionVisible } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -525,6 +527,37 @@ export default function Sidebar() {
       console.error("Failed to select folders for scan:", err);
     }
   }
+
+  // ── Drop-to-import (OS file explorer) ────────────────────────────
+  const handleFileDrop = useCallback(
+    (paths: string[]) => {
+      const executables = paths.filter(isImportableExecutablePath);
+      if (executables.length === 0) {
+        showToast(t("sidebar.dropInvalidFile"), "error");
+        return;
+      }
+
+      const fresh = executables.filter(
+        (path) => !existingPathsSet.has(path.toLowerCase().trim())
+      );
+      if (fresh.length === 0) {
+        showToast(t("sidebar.allExesInLibrary"), "info");
+        return;
+      }
+
+      const modifiedAt = Math.round(Date.now() / 1000);
+      setScannedExes(fresh.map((path) => ({ path, size: 0, modifiedAt })));
+      setImportRootPath(commonParentDir(fresh));
+      setShowImportModal(true);
+    },
+    [existingPathsSet, showToast, t]
+  );
+
+  // An already-open import modal keeps ownership of the dropped files it is
+  // showing, so a second drop is ignored until it closes.
+  const isFileDragOver = useOsFileDrop(handleFileDrop, {
+    enabled: !showImportModal && !showScanProgressModal,
+  });
 
   const handleScanComplete = useCallback(
     (exes: ExeInfo[], rootPath: string) => {
@@ -1129,6 +1162,30 @@ export default function Sidebar() {
         )}
 
       {/* Modals & Popovers */}
+      {isFileDragOver &&
+        createPortal(
+          <div className="exe-drop-overlay" aria-hidden="true">
+            <div className="exe-drop-card">
+              <span className="exe-drop-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </span>
+              <span className="exe-drop-title">{t("sidebar.dropExeHint")}</span>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {showImportModal && (
         <ImportModal
           exeInfos={scannedExes}
