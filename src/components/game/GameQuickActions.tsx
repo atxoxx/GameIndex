@@ -5,13 +5,15 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useGames } from "../../context/GameContext";
 import { useSettings } from "../../context/SettingsContext";
 import type { Game } from "../../types/game";
+import { EDIT_GAME_TABS, type EditGameTab } from "./editGameTabs";
 
 export interface GameQuickActionsProps {
   game?: Game;
   gameName: string;
   steamAppId?: number | null;
   executablePath?: string | null;
-  onEdit?: () => void;
+  /** Opens the edit modal on the given tab. */
+  onEditTab?: (tab: EditGameTab) => void;
   onRemove?: () => void;
   onToggleTrack?: () => void;
   isStoreMode?: boolean;
@@ -23,7 +25,7 @@ export default function GameQuickActions({
   gameName,
   steamAppId,
   executablePath,
-  onEdit,
+  onEditTab,
   onRemove,
   onToggleTrack,
   isStoreMode,
@@ -282,7 +284,7 @@ export default function GameQuickActions({
           )}
 
           {/* Edit / Untrack / Remove actions in Library Mode */}
-          {!isStoreMode && (onEdit || onRemove || game) && (
+          {!isStoreMode && (onEditTab || onRemove || game) && (
             <>
               <div className="game-quick-actions__divider" />
               {game && (
@@ -312,22 +314,29 @@ export default function GameQuickActions({
                   )}
                 </button>
               )}
-              {onEdit && (
-                <button
-                  type="button"
-                  className="game-quick-actions__item"
-                  role="menuitem"
-                  onClick={() => {
-                    setOpen(false);
-                    onEdit();
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                  <span>{t("common.edit")}</span>
-                </button>
+              {onEditTab && (
+                <>
+                  <div className="game-quick-actions__section-title">
+                    {t("library.context.editGame")}
+                  </div>
+                  {EDIT_GAME_TABS.filter(
+                    (tab) => tab.key !== "compatibility" || showFullLinuxUi
+                  ).map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className="game-quick-actions__item"
+                      role="menuitem"
+                      onClick={() => {
+                        setOpen(false);
+                        onEditTab(tab.key);
+                      }}
+                    >
+                      {tab.icon}
+                      <span>{t(tab.labelKey)}</span>
+                    </button>
+                  ))}
+                </>
               )}
               {onRemove && (
                 <button

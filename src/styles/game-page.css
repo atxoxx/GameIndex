@@ -464,6 +464,31 @@
   gap: var(--space-sm);
 }
 
+/* Always-visible shortcuts into the edit modal's sections. These mirror the
+   entries in the quick-actions menu so the same jump is one click away. */
+.game-edit-tab-shortcuts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding-left: var(--space-sm);
+  border-left: 1px solid var(--color-border-light);
+}
+
+.game-edit-tab-shortcuts:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.game-edit-tab-shortcuts .game-edit-btn svg {
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.game-edit-tab-shortcuts .game-edit-btn:hover svg {
+  color: var(--color-accent);
+}
+
 .game-edit-btn {
   display: inline-flex;
   align-items: center;

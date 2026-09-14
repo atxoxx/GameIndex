@@ -165,6 +165,34 @@ describe("EditGameModal save", () => {
   });
 });
 
+describe("EditGameModal initial tab", () => {
+  it("opens directly on the requested section", () => {
+    render(
+      <EditGameModal game={makeGame()} initialTab="media" onClose={() => {}} />
+    );
+
+    expect(screen.getByRole("tab", { name: "Media & Images" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute(
+      "aria-selected",
+      "false"
+    );
+  });
+
+  it("supports the proton/wine section too", () => {
+    render(
+      <EditGameModal game={makeGame()} initialTab="compatibility" onClose={() => {}} />
+    );
+
+    expect(screen.getByRole("tab", { name: "Proton / Wine" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+  });
+});
+
 describe("EditGameModal runner selection", () => {
   const runner = {
     id: "steam-proton-9",

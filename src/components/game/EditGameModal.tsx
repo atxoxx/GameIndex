@@ -24,6 +24,7 @@ import {
 } from "../../types/game";
 import type { SteamLaunchOption } from "../../types/steam";
 import { Button } from "../../components/ui";
+import { EDIT_GAME_TABS, type EditGameTab } from "./editGameTabs";
 import { EditImageSlot } from "./EditImageSlot";
 import { MediaFetchBrowser } from "./MediaFetchBrowser";
 import { UrlListEditor } from "./UrlListEditor";
@@ -70,15 +71,16 @@ const COMMON_LAUNCH_ARGS = [
   { label: "-high", desc: "High CPU priority" },
 ];
 
-type EditTab = "details" | "media" | "launch" | "compatibility";
 type CompatSubtab = "runner" | "graphics" | "tools" | "env" | "maintenance";
 
 interface EditGameModalProps {
   game: Game;
   onClose: () => void;
+  /** Section to show on mount, so callers can deep-link into one tab. */
+  initialTab?: EditGameTab;
 }
 
-export function EditGameModal({ game, onClose }: EditGameModalProps) {
+export function EditGameModal({ game, onClose, initialTab = "details" }: EditGameModalProps) {
   const { showToast } = useToast();
   const { updateGame, getGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
@@ -92,7 +94,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   // saved `enabled` value overrides the platform default.
   const compatEnabledByDefault = isLinuxHost && /\.exe$/i.test(game.path || "");
 
-  const [editTab, setEditTab] = useState<EditTab>("details");
+  const [editTab, setEditTab] = useState<EditGameTab>(initialTab);
   const activeEditTab = editTab === "compatibility" && !showFullLinuxUi ? "details" : editTab;
 
   const [editName, setEditName] = useState(game.name);
@@ -1213,55 +1215,11 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       ? String(globalCompatSettings.gamescopeRefreshRate)
       : globalSettingNone;
 
-  const tabs: { key: EditTab; label: string; icon: ReactNode }[] = [
-    {
-      key: "details",
-      label: t("edit.tab.details"),
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <line x1="10" y1="9" x2="8" y2="9" />
-        </svg>
-      ),
-    },
-    {
-      key: "media",
-      label: t("edit.tab.media"),
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <circle cx="8.5" cy="8.5" r="1.5" />
-          <polyline points="21 15 16 10 5 21" />
-        </svg>
-      ),
-    },
-    {
-      key: "launch",
-      label: t("edit.tab.launch"),
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
-      ),
-    },
-    ...(showFullLinuxUi
-      ? [
-          {
-            key: "compatibility" as const,
-            label: t("edit.tab.compatibility") || "Proton / Wine",
-            icon: (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-            ),
-          },
-        ]
-      : []),
-  ];
+  const tabs: { key: EditGameTab; label: string; icon: ReactNode }[] = EDIT_GAME_TABS.filter(
+    // The compatibility tab has no UI to show on hosts that aren't running
+    // games through Wine/Proton.
+    (tab) => tab.key !== "compatibility" || showFullLinuxUi
+  ).map((tab) => ({ key: tab.key, label: t(tab.labelKey), icon: tab.icon }));
 
   return createPortal(
     <div className="modal-backdrop" onClick={onClose}>

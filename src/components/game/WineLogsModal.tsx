@@ -7,12 +7,15 @@ import { useToast } from "../../context/ToastContext";
 import { useGames, useGameById } from "../../context/GameContext";
 import { Button, Badge } from "../ui";
 import { formatSize, type WineLogResult } from "../../types/game";
+import { EDIT_GAME_TABS, type EditGameTab } from "./editGameTabs";
 import "./WineLogsModal.css";
 
 interface WineLogsModalProps {
   gameId: string;
   gameName: string;
   onClose: () => void;
+  /** Jumps into the edit modal on the given tab (the caller closes the logs). */
+  onOpenEditTab?: (tab: EditGameTab) => void;
 }
 
 /** Poll interval for live log tailing (ms). */
@@ -26,7 +29,7 @@ const VERBOSE_OPTIONS: { value: string; labelKey: string }[] = [
   { value: "all", labelKey: "compatibility.debugAllVerbose" },
 ];
 
-export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps) {
+export function WineLogsModal({ gameId, gameName, onClose, onOpenEditTab }: WineLogsModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { updateGame } = useGames();
@@ -266,6 +269,29 @@ export function WineLogsModal({ gameId, gameName, onClose }: WineLogsModalProps)
             </svg>
           </button>
         </div>
+
+        {/* Edit Game shortcuts — jump straight into the runner settings that
+            produced this log, or the metadata/launch sections around them. */}
+        {onOpenEditTab && (
+          <div className="wine-logs-edit-strip">
+            <span className="wine-logs-edit-strip__label">
+              {t("library.context.editGame")}
+            </span>
+            <div className="wine-logs-edit-strip__actions">
+              {EDIT_GAME_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className="wine-logs-edit-btn"
+                  onClick={() => onOpenEditTab(tab.key)}
+                >
+                  {tab.icon}
+                  <span>{t(tab.labelKey)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Toolbar & Metadata */}
         <div className="wine-logs-toolbar">

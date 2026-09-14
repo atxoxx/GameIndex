@@ -6,6 +6,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useSettings, useDetailTabOrder, type DetailSectionKey } from "../context/SettingsContext";
 import { useActivity } from "../context/ActivityContext";
 import { EditGameModal } from "../components/game/EditGameModal";
+import { EDIT_GAME_TABS, type EditGameTab } from "../components/game/editGameTabs";
 import PageWidget from "../components/PageWidget";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
@@ -134,7 +135,9 @@ function GameDetail({ game }: { game: Game }) {
     getGameAchievements(game.id)?.total ?? game.steamAchievements?.length ?? null;
 
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-  const [editing, setEditing] = useState(false);
+  // Which edit-modal section to open, or null while the modal is closed.
+  const [editTab, setEditTab] = useState<EditGameTab | null>(null);
+  const editing = editTab !== null;
   const [wineLogsOpen, setWineLogsOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -329,12 +332,34 @@ function GameDetail({ game }: { game: Game }) {
             </button>
           )}
 
+          {/* Edit-modal sections, one click away without opening a menu */}
+          <div
+            className="game-edit-tab-shortcuts"
+            role="group"
+            aria-label={t("library.context.editGame")}
+          >
+            {EDIT_GAME_TABS.filter(
+              (tab) => tab.key !== "compatibility" || showFullLinuxUi
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className="game-edit-btn"
+                onClick={() => setEditTab(tab.key)}
+                title={t(tab.labelKey)}
+              >
+                {tab.icon}
+                <span>{t(tab.labelKey)}</span>
+              </button>
+            ))}
+          </div>
+
           <GameQuickActions
             game={game}
             gameName={game.name}
             steamAppId={game.steamAppId}
             executablePath={game.path}
-            onEdit={() => setEditing(true)}
+            onEditTab={setEditTab}
             onRemove={() => setShowRemoveConfirm(true)}
             onOpenWineLogs={showFullLinuxUi ? () => setWineLogsOpen(true) : undefined}
           />
@@ -465,7 +490,7 @@ function GameDetail({ game }: { game: Game }) {
                   <InfoKpiCard
                     game={game}
                     sizeUnit={sizeUnit}
-                    onEditSize={() => setEditing(true)}
+                    onEditSize={() => setEditTab("details")}
                   />
                   {detailSectionVisible.steamFeatures && (
                     <SteamFeaturesCard
@@ -543,7 +568,14 @@ function GameDetail({ game }: { game: Game }) {
       {effectiveTab === "news" && <GameNewsTab game={game} />}
 
       {/* Edit Game Modal */}
-      {editing && <EditGameModal game={game} onClose={() => setEditing(false)} />}
+      {editTab && (
+        <EditGameModal
+          key={editTab}
+          game={game}
+          initialTab={editTab}
+          onClose={() => setEditTab(null)}
+        />
+      )}
 
       {/* Unified Image Lightbox */}
       <ImageLightbox
@@ -571,6 +603,10 @@ function GameDetail({ game }: { game: Game }) {
           gameId={game.id}
           gameName={game.name}
           onClose={() => setWineLogsOpen(false)}
+          onOpenEditTab={(tab) => {
+            setWineLogsOpen(false);
+            setEditTab(tab);
+          }}
         />
       )}
     </div>

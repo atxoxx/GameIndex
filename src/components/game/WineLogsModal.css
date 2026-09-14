@@ -250,6 +250,63 @@
   border: 1px solid var(--color-border-light);
 }
 
+/* ─── Edit Game shortcuts ──────────────────────────────────── */
+.wine-logs-edit-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px var(--space-xl);
+  background: color-mix(in srgb, var(--color-bg-primary) 70%, var(--color-bg-tertiary));
+  border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.wine-logs-edit-strip__label {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  flex-shrink: 0;
+}
+
+.wine-logs-edit-strip__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.wine-logs-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.wine-logs-edit-btn:hover {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-tertiary));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.wine-logs-edit-btn svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
 /* ─── File path strip ──────────────────────────────────────── */
 .wine-logs-path-strip {
   display: flex;
