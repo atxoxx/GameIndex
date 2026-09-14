@@ -6,6 +6,11 @@
    uppercase micro-labels, block buttons, rule-underlined page headers.
    Colour-agnostic: theme tokens only, so it renders under light, OLED,
    high-contrast and user-authored palettes alike.
+
+   Round 2 — app-wide propagation: the token block zeroes the whole elevation
+   ladder (flat is the identity) and swaps in fast, near-linear motion, so every
+   feature page sheds its shadows and snaps, plus an identical app-wide
+   label-typography layer and a high-contrast guard.
    ============================================================================= */
 
 [data-ui-style="epic"] {
@@ -19,6 +24,32 @@
   --epic-fill: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
   --epic-chrome: color var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), outline-color var(--duration-fast) var(--ease-standard);
   --epic-control: color var(--duration-normal) var(--ease-standard), background-color var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), outline-color var(--duration-normal) var(--ease-standard);
+
+  /* ── App-wide propagation: elevation + motion ──────────────────────────────
+     Flat is the identity, so the whole elevation ladder collapses to `none`
+     app-wide — feature pages lose their drop shadows, not just chrome. */
+  --elevation-1: 0 0 transparent;
+  --elevation-2: 0 0 transparent;
+  --elevation-3: 0 0 transparent;
+  --elevation-4: 0 0 transparent;
+  --elevation-5: 0 0 transparent;
+  --shadow-xs: 0 0 transparent;
+  --shadow-sm: 0 0 transparent;
+  --shadow-md: 0 0 transparent;
+  --shadow-lg: 0 0 transparent;
+  --shadow-xl: 0 0 transparent;
+
+  /* Fast, near-linear timing — no easing flourish, just immediate response. */
+  --ease-standard: linear;
+  --ease-enter: cubic-bezier(0.2, 0, 0.3, 1);
+  --ease-exit: cubic-bezier(0.7, 0, 0.8, 0.3);
+  --ease-out: linear;
+  --ease-in-out: linear;
+  --duration-instant: 60ms;
+  --duration-fast: 90ms;
+  --duration-normal: 120ms;
+  --duration-slow: 170ms;
+  --duration-slower: 220ms;
 }
 
 /* ── Canvas ─────────────────────────────────────────────────────────────── */
@@ -323,4 +354,59 @@
 [data-theme="highcontrast"][data-ui-style="epic"] .store-game-card:hover { box-shadow: none !important; }
 [data-theme="highcontrast"][data-ui-style="epic"] :focus-visible {
   outline: 3px solid var(--color-accent) !important; outline-offset: 2px !important; box-shadow: none !important;
+}
+
+/* ── App-wide labels (shared selector map across the five styled UI styles) ──
+   Identical selectors in every styled file; only the declared values differ.
+   `:where()` keeps this layer at ZERO specificity, so it can never outrank the
+   per-style primitive rules; `!important` still lets it reach feature CSS the
+   primitives do not cover (feature CSS is non-important). Typography only — no
+   colour, shape, layout, padding or size. The guard chain excludes prose and
+   structural containers (tables, tab bars, plural badge/chip wrappers,
+   rows/lists/groups) and the picker's own previews. */
+[data-ui-style="epic"] :where(
+  [class*="-badge"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-chip"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-pill"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-tag"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-eyebrow"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-kicker"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  .ui-badge,
+  .filter-pill,
+  .spec-pill
+) {
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  font-weight: var(--font-weight-extrabold) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ── High-contrast guard for the app-wide token overrides ─────────────────
+   ui-styles/index.css loads after themes.css, so a `[data-ui-style]` token
+   block would otherwise clobber the high-contrast theme's shadow removal.
+   This compound (0,2,0) outranks both the theme block and the style block. */
+[data-theme="highcontrast"][data-ui-style="epic"] {
+  --elevation-1: 0 0 transparent;
+  --elevation-2: 0 0 transparent;
+  --elevation-3: 0 0 transparent;
+  --elevation-4: 0 0 transparent;
+  --elevation-5: 0 0 transparent;
+  --shadow-xs: 0 0 transparent;
+  --shadow-sm: 0 0 transparent;
+  --shadow-md: 0 0 transparent;
+  --shadow-lg: 0 0 transparent;
+  --shadow-xl: 0 0 transparent;
+  --color-accent-glow: transparent;
+}
+
+/* Reduced motion: per-element transition shorthands (with !important) outrank
+   the universal 0.01ms reset above, so zero the motion tokens they read from. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="epic"] {
+    --duration-instant: 0.01ms;
+    --duration-fast: 0.01ms;
+    --duration-normal: 0.01ms;
+    --duration-slow: 0.01ms;
+    --duration-slower: 0.01ms;
+  }
 }

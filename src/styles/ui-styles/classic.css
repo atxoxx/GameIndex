@@ -27,6 +27,10 @@
      so the base stylesheets stay the single source of truth.
    • Responsive size/padding/font-size is never forced — base media queries stay
      in charge, so 1280px / 4K breakpoints behave exactly as shipped.
+   • App-wide propagation (round 2): classic deliberately leaves the theme's
+     `--elevation-*`, `--shadow-*` and motion tokens untouched, so it remains the
+     unmodified reference every other style is measured against. It still closes
+     the high-contrast shadow gap and normalises app-wide label typography.
    ============================================================================= */
 
 [data-ui-style="classic"] {
@@ -56,6 +60,12 @@
     border-color var(--duration-normal) var(--ease-standard),
     box-shadow var(--duration-normal) var(--ease-standard),
     transform var(--duration-normal) var(--ease-standard);
+
+  /* ── App-wide propagation: elevation + motion ─────────────────────────────
+     Intentionally NOT overridden. Classic is the baseline reference, and the
+     theme's own elevation ladder (including its light-theme tuning) must reach
+     every feature page unchanged. The high-contrast guard at the end of this
+     file is the only token re-assert. */
 }
 
 /* ── Canvas ───────────────────────────────────────────────────────────────
@@ -696,4 +706,34 @@
   outline: 3px solid var(--color-accent) !important;
   outline-offset: 2px !important;
   box-shadow: none !important;
+}
+
+/* ── High-contrast guard for the app-wide token overrides ─────────────────
+   ui-styles/index.css loads after themes.css, so a `[data-ui-style]` token
+   block would otherwise clobber the high-contrast theme's shadow removal.
+   This compound (0,2,0) outranks both the theme block and the style block. */
+[data-theme="highcontrast"][data-ui-style="classic"] {
+  --elevation-1: 0 0 transparent;
+  --elevation-2: 0 0 transparent;
+  --elevation-3: 0 0 transparent;
+  --elevation-4: 0 0 transparent;
+  --elevation-5: 0 0 transparent;
+  --shadow-xs: 0 0 transparent;
+  --shadow-sm: 0 0 transparent;
+  --shadow-md: 0 0 transparent;
+  --shadow-lg: 0 0 transparent;
+  --shadow-xl: 0 0 transparent;
+  --color-accent-glow: transparent;
+}
+
+/* Reduced motion: per-element transition shorthands (with !important) outrank
+   the universal 0.01ms reset above, so zero the motion tokens they read from. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="classic"] {
+    --duration-instant: 0.01ms;
+    --duration-fast: 0.01ms;
+    --duration-normal: 0.01ms;
+    --duration-slow: 0.01ms;
+    --duration-slower: 0.01ms;
+  }
 }

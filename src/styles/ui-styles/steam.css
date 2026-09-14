@@ -19,12 +19,17 @@
    left alone. Steam-owned states are restated, and contextual variants (game
    accent, right dock, running cards, list rows, warn, confirm dialogs) are
    re-asserted afterwards.
+
+   Round 2 — app-wide propagation: the token block also redefines the elevation
+   ladder (tight, hard-edged, high-contrast drop shadows) and short snappy
+   durations, so every feature page inherits the industrial feel, plus an
+   identical app-wide label-typography layer and a high-contrast guard.
    ============================================================================= */
 
 [data-ui-style="steam"] {
   /* Radius ladder — the only place raw px belongs. */
   --radius-xs: 2px; --radius-sm: 2px; --radius-md: 3px;
-  --radius-lg: 4px; --radius-xl: 6px; --radius-2xl: 8px; --radius-3xl: 48px;
+  --radius-lg: 4px; --radius-xl: 6px; --radius-2xl: 8px; --radius-3xl: 10px;
 
   /* Steam-local aliases: lit top bevel, sunken tray, focus ring, timings. */
   --steam-bevel: inset 0 1px 0 var(--color-border-highlight);
@@ -43,6 +48,33 @@
   --steam-control: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard),
     border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard),
     transform var(--duration-normal) var(--ease-standard);
+
+  /* ── App-wide propagation: elevation + motion ──────────────────────────────
+     Tight, high-contrast drop shadows with short offsets — hard-edged rather
+     than diffuse. Ink comes from the mode-agnostic scrim token so the shadows
+     stay correct on white as well as OLED. */
+  --elevation-1: 0 1px 1px color-mix(in srgb, var(--color-scrim) 42%, transparent);
+  --elevation-2: 0 2px 3px color-mix(in srgb, var(--color-scrim) 52%, transparent);
+  --elevation-3: 0 3px 7px color-mix(in srgb, var(--color-scrim) 58%, transparent);
+  --elevation-4: 0 6px 14px color-mix(in srgb, var(--color-scrim) 64%, transparent);
+  --elevation-5: 0 10px 26px color-mix(in srgb, var(--color-scrim) 72%, transparent);
+  --shadow-xs: var(--elevation-1);
+  --shadow-sm: var(--elevation-2);
+  --shadow-md: var(--elevation-3);
+  --shadow-lg: var(--elevation-4);
+  --shadow-xl: var(--elevation-5);
+
+  /* Snappy, near-industrial timing — short durations, firm decelerate. */
+  --ease-standard: cubic-bezier(0.3, 0, 0.2, 1);
+  --ease-enter: cubic-bezier(0.3, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.6, 0, 0.8, 0.2);
+  --ease-out: cubic-bezier(0.3, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.5, 0, 0.5, 1);
+  --duration-instant: 60ms;
+  --duration-fast: 100ms;
+  --duration-normal: 140ms;
+  --duration-slow: 220ms;
+  --duration-slower: 320ms;
 }
 
 /* ── Canvas ─────────────────────────────────────────────────────────────── */
@@ -573,4 +605,59 @@
 [data-theme="highcontrast"][data-ui-style="steam"] .store-game-card:hover { box-shadow: none !important; }
 [data-theme="highcontrast"][data-ui-style="steam"] :focus-visible {
   outline: 3px solid var(--color-accent) !important; outline-offset: 2px !important; box-shadow: none !important;
+}
+
+/* ── App-wide labels (shared selector map across the five styled UI styles) ──
+   Identical selectors in every styled file; only the declared values differ.
+   `:where()` keeps this layer at ZERO specificity, so it can never outrank the
+   per-style primitive rules; `!important` still lets it reach feature CSS the
+   primitives do not cover (feature CSS is non-important). Typography only — no
+   colour, shape, layout, padding or size. The guard chain excludes prose and
+   structural containers (tables, tab bars, plural badge/chip wrappers,
+   rows/lists/groups) and the picker's own previews. */
+[data-ui-style="steam"] :where(
+  [class*="-badge"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-chip"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-pill"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-tag"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-eyebrow"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-kicker"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  .ui-badge,
+  .filter-pill,
+  .spec-pill
+) {
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  font-weight: var(--font-weight-bold) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ── High-contrast guard for the app-wide token overrides ─────────────────
+   ui-styles/index.css loads after themes.css, so a `[data-ui-style]` token
+   block would otherwise clobber the high-contrast theme's shadow removal.
+   This compound (0,2,0) outranks both the theme block and the style block. */
+[data-theme="highcontrast"][data-ui-style="steam"] {
+  --elevation-1: 0 0 transparent;
+  --elevation-2: 0 0 transparent;
+  --elevation-3: 0 0 transparent;
+  --elevation-4: 0 0 transparent;
+  --elevation-5: 0 0 transparent;
+  --shadow-xs: 0 0 transparent;
+  --shadow-sm: 0 0 transparent;
+  --shadow-md: 0 0 transparent;
+  --shadow-lg: 0 0 transparent;
+  --shadow-xl: 0 0 transparent;
+  --color-accent-glow: transparent;
+}
+
+/* Reduced motion: per-element transition shorthands (with !important) outrank
+   the universal 0.01ms reset above, so zero the motion tokens they read from. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="steam"] {
+    --duration-instant: 0.01ms;
+    --duration-fast: 0.01ms;
+    --duration-normal: 0.01ms;
+    --duration-slow: 0.01ms;
+    --duration-slower: 0.01ms;
+  }
 }

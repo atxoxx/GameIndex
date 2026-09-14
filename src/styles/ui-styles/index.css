@@ -11,6 +11,7 @@
    whole family reads as one system and stays easy to diff across styles.
    ============================================================================= */
 
+/* Import order matters: this file MUST be imported after themes.css — the per-style token blocks rely on later cascade position to override the theme's elevation ladder. */
 @import "./classic.css";
 @import "./materialyou.css";
 @import "./steam.css";

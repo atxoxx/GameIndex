@@ -21,6 +21,12 @@
      (badges, pills, small controls, scrollbars) stay flat translucent.
    • Responsive size/padding/font-size is never forced, so the 1280px / 4K
      breakpoints behave exactly as shipped.
+
+   Round 2 — app-wide propagation: the token block also redefines the elevation
+   ladder (deep, diffuse, soft depth), the motion tokens (slower, gentle enter)
+   and — as the one glass exception — the blur ladder and `--color-surface-glass`,
+   so every feature page floats, plus an identical app-wide label-typography
+   layer and a high-contrast guard covering all of it.
    ============================================================================= */
 
 [data-ui-style="liquidglass"] {
@@ -53,6 +59,40 @@
 
   --lg-chrome-fast: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
   --lg-control: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+
+  /* ── App-wide propagation: elevation + motion ──────────────────────────────
+     Deep, diffuse, soft depth — large blurs and long offsets so every feature
+     surface floats. Ink is the mode-agnostic scrim token (dark on white and on
+     OLED alike), never --color-text-primary. */
+  --elevation-1: 0 2px 8px color-mix(in srgb, var(--color-scrim) 12%, transparent);
+  --elevation-2: 0 2px 6px color-mix(in srgb, var(--color-scrim) 10%, transparent), 0 8px 24px color-mix(in srgb, var(--color-scrim) 14%, transparent);
+  --elevation-3: 0 4px 12px color-mix(in srgb, var(--color-scrim) 12%, transparent), 0 16px 40px color-mix(in srgb, var(--color-scrim) 18%, transparent);
+  --elevation-4: 0 8px 20px color-mix(in srgb, var(--color-scrim) 15%, transparent), 0 24px 56px color-mix(in srgb, var(--color-scrim) 22%, transparent);
+  --elevation-5: 0 12px 32px color-mix(in srgb, var(--color-scrim) 18%, transparent), 0 36px 88px color-mix(in srgb, var(--color-scrim) 28%, transparent);
+  --shadow-xs: var(--elevation-1);
+  --shadow-sm: var(--elevation-2);
+  --shadow-md: var(--elevation-3);
+  --shadow-lg: var(--elevation-4);
+  --shadow-xl: var(--elevation-5);
+
+  /* Slow, gentle liquid timing — long decelerate-in so surfaces settle. */
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-instant: 120ms;
+  --duration-fast: 200ms;
+  --duration-normal: 320ms;
+  --duration-slow: 420ms;
+  --duration-slower: 620ms;
+
+  /* Bounded glass extras (the one sanctioned token deviation): a deeper blur
+     ladder and a mode-agnostic glass tint. High-contrast resets both below. */
+  --blur-sm: 12px;
+  --blur-md: 22px;
+  --blur-lg: 34px;
+  --color-surface-glass: color-mix(in srgb, var(--color-bg-secondary) 58%, transparent);
 }
 
 /* ── Canvas ─────────────────────────────────────────────────────────────── */
@@ -478,4 +518,69 @@
   outline: 3px solid var(--color-accent) !important;
   outline-offset: 2px !important;
   box-shadow: none !important;
+}
+
+/* ── App-wide labels (shared selector map across the five styled UI styles) ──
+   Identical selectors in every styled file; only the declared values differ.
+   `:where()` keeps this layer at ZERO specificity, so it can never outrank the
+   per-style primitive rules; `!important` still lets it reach feature CSS the
+   primitives do not cover (feature CSS is non-important). Typography only — no
+   colour, shape, layout, padding or size. The guard chain excludes prose and
+   structural containers (tables, tab bars, plural badge/chip wrappers,
+   rows/lists/groups) and the picker's own previews. */
+[data-ui-style="liquidglass"] :where(
+  [class*="-badge"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-chip"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-pill"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-tag"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-eyebrow"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  [class*="-kicker"]:not([class*="-badges"]):not([class*="-chips"]):not([class*="-pills"]):not([class*="-tags"]):not([class*="-wrapper"]):not([class*="-wrap"]):not([class*="-container"]):not([class*="-row"]):not([class*="-group"]):not([class*="-list"]):not([class*="-body"]):not([class*="-desc"]):not([class*="-text"]):not([class*="-content"]):not([class*="-message"]):not([class*="-help"]):not([class*="-label"]):not([class*="-header"]):not([class*="-title"]):not([class*="-heading"]):not([class*="ui-style-"]),
+  .ui-badge,
+  .filter-pill,
+  .spec-pill
+) {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: var(--font-weight-semibold) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ── High-contrast guard for the app-wide token overrides ─────────────────
+   ui-styles/index.css loads after themes.css, so a `[data-ui-style]` token
+   block would otherwise clobber the high-contrast theme's shadow removal.
+   This compound (0,2,0) outranks both the theme block and the style block.
+   Blur/glass are reverted to flat opaque so forced-contrast stays legible. */
+[data-theme="highcontrast"][data-ui-style="liquidglass"] {
+  --elevation-1: 0 0 transparent;
+  --elevation-2: 0 0 transparent;
+  --elevation-3: 0 0 transparent;
+  --elevation-4: 0 0 transparent;
+  --elevation-5: 0 0 transparent;
+  --shadow-xs: 0 0 transparent;
+  --shadow-sm: 0 0 transparent;
+  --shadow-md: 0 0 transparent;
+  --shadow-lg: 0 0 transparent;
+  --shadow-xl: 0 0 transparent;
+  --blur-sm: 0px;
+  --blur-md: 0px;
+  --blur-lg: 0px;
+  --color-surface-glass: var(--color-bg-secondary);
+  --color-accent-glow: transparent;
+  --lg-blur-shell: none;
+  --lg-blur-chrome: none;
+  --lg-blur-card: none;
+  --lg-blur-menu: none;
+  --lg-blur-overlay: none;
+}
+
+/* Reduced motion: per-element transition shorthands (with !important) outrank
+   the universal 0.01ms reset above, so zero the motion tokens they read from. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="liquidglass"] {
+    --duration-instant: 0.01ms;
+    --duration-fast: 0.01ms;
+    --duration-normal: 0.01ms;
+    --duration-slow: 0.01ms;
+    --duration-slower: 0.01ms;
+  }
 }
