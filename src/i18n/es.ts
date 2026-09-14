@@ -6427,6 +6427,7 @@ export const es: TranslationDict = {
   "settings.interface.setAsLandingPage": "Establecer como página de inicio predeterminada",
   "settings.interface.isLandingPage": "Página de inicio",
   "settings.interface.makeLandingPage": "Fijar inicio",
+  "settings.interface.studioTopBarTitle": "Barra superior",
   "settings.interface.studioDetailTabsTitle": "Pestañas de detalle",
   "settings.interface.studioDetailTabsHint": "Arrastra una pestaña para reordenarla; haz clic en el ojo para ocultarla. Resumen siempre se muestra.",
   "settings.interface.studioHeroElementsTitle": "Elementos del hero",

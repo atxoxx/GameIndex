@@ -51,16 +51,24 @@ import {
   DEFAULT_DETAIL_TAB_ORDER,
   DEFAULT_PAGE_ITEM_ORDER,
   DETAIL_TAB_LABEL_KEY,
+  DETAIL_TOP_BAR,
+  DETAIL_TOP_BAR_LABEL_KEY,
+  DEFAULT_DETAIL_TOP_BAR_ORDER,
   HERO_ELEMENTS,
   HERO_ELEMENT_LABEL_KEY,
   INTERFACE_PAGES,
   SIDEBAR_SECTIONS,
   WIDGET_LABEL_KEY,
   interfacePageDef,
+  isDetailSectionKeyAvailable,
+  isDetailTopBarKeyAvailable,
   resolveDetailTabOrder,
+  resolveDetailTopBarHidden,
+  resolveDetailTopBarOrder,
   resolveHeroElementOrder,
   type DetailTabKey,
   type DetailTabScope,
+  type DetailTopBarKey,
   type HeroElementKey,
   type InterfacePageKey,
   type PageWidgetKey,
@@ -73,6 +81,7 @@ import {
 } from "../../../context/heroGrid";
 import {
   BADGE_ITEMS,
+  DETAIL_TOP_BAR_ICONS,
   NAV_BUTTON_ITEMS,
   NAV_TAB_ITEMS,
   WIDGET_ITEMS,
@@ -171,6 +180,10 @@ export default function LayoutStudio() {
     setDetailSectionVisible,
     detailTabOrder,
     setDetailTabOrder,
+    detailTopBarOrder,
+    setDetailTopBarOrder,
+    detailTopBarVisibility,
+    setDetailTopBarVisible,
     heroElementOrder,
     setHeroElementOrder,
     heroElementVisibility,
@@ -178,6 +191,7 @@ export default function LayoutStudio() {
     heroGridLayout,
     setHeroGridLayout,
     resetHeroGridLayout,
+    showFullLinuxUi,
     showDeckVerified,
     landingPage,
   } = useSettings();
@@ -308,6 +322,36 @@ export default function LayoutStudio() {
     }));
   }, [activeDetailScope, heroElementOrder, heroElementVisibility, t]);
 
+  const detailTopBarItems = useMemo<OrderListItem[]>(() => {
+    if (!activeDetailScope) return [];
+    const labels = DETAIL_TOP_BAR_LABEL_KEY[activeDetailScope];
+    const hiddenMap = resolveDetailTopBarHidden(detailTopBarVisibility, activeDetailScope);
+    return resolveDetailTopBarOrder(detailTopBarOrder, activeDetailScope)
+      // Linux-only buttons (Wine Logs, Compatibility) are not offered on hosts
+      // that can't render them, so the studio never advertises a no-op chip.
+      .filter((key) => isDetailTopBarKeyAvailable(key, { showFullLinuxUi }))
+      .map((key) => ({
+        id: key,
+        // Every shipped key has a label for its scope; the fallback just keeps
+        // a future key from rendering blank.
+        label: t(labels[key] ?? key),
+        icon: DETAIL_TOP_BAR_ICONS[key],
+        hidden: hiddenMap[key] === false,
+        isModified: hiddenMap[key] === false,
+      }));
+  }, [activeDetailScope, detailTopBarOrder, detailTopBarVisibility, showFullLinuxUi, t]);
+
+  /** Every detail section this host can actually render. Deck-only sections
+   *  (ProtonDB) drop out unless the Deck-verified capability is on, so the
+   *  hidden count and the reset loops can't act on something invisible. */
+  const availableDetailSectionKeys = useMemo<DetailSectionKey[]>(
+    () =>
+      buildDetailSectionItems(true)
+        .map((section) => section.key)
+        .filter((key) => isDetailSectionKeyAvailable(key, { showDeckVerified })),
+    [showDeckVerified],
+  );
+
   // ── Per-page list ─────────────────────────────────────────────────────────
   const pageItems = useMemo<OrderListItem[]>(() => {
     if (!pageDef || activePage === "global") return [];
@@ -344,6 +388,8 @@ export default function LayoutStudio() {
       showNavbarNowPlaying,
       detailSectionVisible,
       detailTabOrder,
+      detailTopBarOrder,
+      detailTopBarVisibility,
       heroElementOrder,
       heroElementVisibility,
       heroGridLayout,
@@ -365,6 +411,8 @@ export default function LayoutStudio() {
       showNavbarNowPlaying,
       detailSectionVisible,
       detailTabOrder,
+      detailTopBarOrder,
+      detailTopBarVisibility,
       heroElementOrder,
       heroElementVisibility,
       heroGridLayout,
@@ -449,6 +497,32 @@ export default function LayoutStudio() {
     [activeDetailScope, heroElementItems, setHeroElementOrder, playSound],
   );
 
+  const handleReorderDetailTopBar = useCallback(
+    (from: number, to: number) => {
+      if (!activeDetailScope) return;
+      // The mock only renders available keys, so translate its indices back
+      // into the *full* order before moving. That keeps a gated key (Wine Logs
+      // on Windows) exactly where the user left it instead of letting the
+      // append-only normalizer shuffle it to the end.
+      const fullOrder = resolveDetailTopBarOrder(detailTopBarOrder, activeDetailScope);
+      const fromKey = detailTopBarItems[from]?.id as DetailTopBarKey | undefined;
+      const toKey = detailTopBarItems[to]?.id as DetailTopBarKey | undefined;
+      if (!fromKey || !toKey) return;
+      setDetailTopBarOrder(
+        activeDetailScope,
+        moveKey(fullOrder, fullOrder.indexOf(fromKey), fullOrder.indexOf(toKey)),
+      );
+      playSound();
+    },
+    [
+      activeDetailScope,
+      detailTopBarItems,
+      detailTopBarOrder,
+      setDetailTopBarOrder,
+      playSound,
+    ],
+  );
+
   // ── Hero grid (Layout Studio → Game/Store hero) ───────────────────────────
   // The authored 12-column layout for the scope, or null in flex mode. The
   // mock edits it live; every commit writes straight back to the context.
@@ -507,6 +581,15 @@ export default function LayoutStudio() {
       playSound();
     },
     [activeDetailScope, setHeroElementVisible, playSound],
+  );
+
+  const toggleDetailTopBar = useCallback(
+    (id: string, hidden: boolean) => {
+      if (!activeDetailScope) return;
+      setDetailTopBarVisible(activeDetailScope, id as DetailTopBarKey, !hidden);
+      playSound();
+    },
+    [activeDetailScope, setDetailTopBarVisible, playSound],
   );
 
   const toggleInterfaceItemById = useCallback(
@@ -597,6 +680,18 @@ export default function LayoutStudio() {
           if (next) setDetailTabOrder(scope, next);
         }
       }
+      for (const scope of DETAIL_SCOPES) {
+        const next = snapshot.detailTopBarOrder?.[scope];
+        // A scope with no entry (or a snapshot without the field at all) falls
+        // back to the shipped order and nothing hidden.
+        if (next) setDetailTopBarOrder(scope, next);
+        else setDetailTopBarOrder(scope, DEFAULT_DETAIL_TOP_BAR_ORDER[scope]);
+
+        const hidden = snapshot.detailTopBarVisibility?.[scope] ?? {};
+        for (const key of DETAIL_TOP_BAR[scope]) {
+          setDetailTopBarVisible(scope, key, hidden[key] !== false);
+        }
+      }
       if (snapshot.heroElementOrder) {
         for (const scope of DETAIL_SCOPES) {
           const next = snapshot.heroElementOrder[scope];
@@ -635,6 +730,8 @@ export default function LayoutStudio() {
       setShowNavbarNowPlaying,
       setDetailSectionVisible,
       setDetailTabOrder,
+      setDetailTopBarOrder,
+      setDetailTopBarVisible,
       setHeroElementOrder,
       setHeroElementVisible,
       setHeroGridLayout,
@@ -676,13 +773,15 @@ export default function LayoutStudio() {
       setPageItemOrder(page, DEFAULT_PAGE_ITEM_ORDER[page] ?? []);
       if (page === "game" || page === "store") {
         setDetailTabOrder(page, DEFAULT_DETAIL_TAB_ORDER[page]);
+        setDetailTopBarOrder(page, DEFAULT_DETAIL_TOP_BAR_ORDER[page]);
+        for (const key of DETAIL_TOP_BAR[page]) setDetailTopBarVisible(page, key, true);
         setHeroElementOrder(page, HERO_ELEMENTS);
         for (const key of HERO_ELEMENTS) setHeroElementVisible(page, key, true);
         resetHeroGridLayout(page);
       }
       if (page === "game") {
-        for (const section of buildDetailSectionItems(true)) {
-          setDetailSectionVisible(section.key, true);
+        for (const key of availableDetailSectionKeys) {
+          setDetailSectionVisible(key, true);
         }
       }
       playSound();
@@ -691,10 +790,13 @@ export default function LayoutStudio() {
       setPageItemVisible,
       setPageItemOrder,
       setDetailTabOrder,
+      setDetailTopBarOrder,
+      setDetailTopBarVisible,
       setHeroElementOrder,
       setHeroElementVisible,
       resetHeroGridLayout,
       setDetailSectionVisible,
+      availableDetailSectionKeys,
       playSound,
     ],
   );
@@ -712,11 +814,13 @@ export default function LayoutStudio() {
     }
     setShowCardBadges(true);
     setShowNavbarNowPlaying(true);
-    for (const section of buildDetailSectionItems(true)) {
-      setDetailSectionVisible(section.key, true);
+    for (const key of availableDetailSectionKeys) {
+      setDetailSectionVisible(key, true);
     }
     for (const scope of DETAIL_SCOPES) {
       setDetailTabOrder(scope, DEFAULT_DETAIL_TAB_ORDER[scope]);
+      setDetailTopBarOrder(scope, DEFAULT_DETAIL_TOP_BAR_ORDER[scope]);
+      for (const key of DETAIL_TOP_BAR[scope]) setDetailTopBarVisible(scope, key, true);
       setHeroElementOrder(scope, HERO_ELEMENTS);
       for (const key of HERO_ELEMENTS) setHeroElementVisible(scope, key, true);
       resetHeroGridLayout(scope);
@@ -734,7 +838,10 @@ export default function LayoutStudio() {
     setShowCardBadges,
     setShowNavbarNowPlaying,
     setDetailSectionVisible,
+    availableDetailSectionKeys,
     setDetailTabOrder,
+    setDetailTopBarOrder,
+    setDetailTopBarVisible,
     setHeroElementOrder,
     setHeroElementVisible,
     resetHeroGridLayout,
@@ -774,8 +881,8 @@ export default function LayoutStudio() {
     const entry = pageItemVisible[page];
     const pageHidden = entry ? Object.values(entry).filter((visible) => visible === false).length : 0;
     if (page === "game") {
-      const hiddenDetailSections = buildDetailSectionItems(showDeckVerified).filter(
-        (section) => !detailSectionVisible[section.key],
+      const hiddenDetailSections = availableDetailSectionKeys.filter(
+        (key) => !detailSectionVisible[key],
       ).length;
       return pageHidden + hiddenDetailSections;
     }
@@ -966,6 +1073,7 @@ export default function LayoutStudio() {
             page={activePage}
             pageItems={pageItems}
             detailTabItems={detailTabItems}
+            detailTopBarItems={detailTopBarItems}
             heroElementItems={heroElementItems}
             detailScope={activeDetailScope}
             globalVisibility={interfaceVisibility}
@@ -982,6 +1090,8 @@ export default function LayoutStudio() {
             onInspectElement={handleInspectElement}
             onReorderDetailTabs={handleReorderDetailTabs}
             onToggleDetailTab={toggleDetailTab}
+            onReorderDetailTopBar={handleReorderDetailTopBar}
+            onToggleDetailTopBar={toggleDetailTopBar}
             onReorderHeroElements={handleReorderHeroElements}
             onToggleHeroElement={toggleHeroElement}
             onToggleGlobalItem={toggleInterfaceItemById}

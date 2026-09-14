@@ -126,6 +126,7 @@ export interface StudioPreviewProps {
   inspectMode?: boolean;
   /** Detail-page mocks rendered in the main area (game + store only). */
   detailTabItems: OrderListItem[];
+  detailTopBarItems: OrderListItem[];
   heroElementItems: OrderListItem[];
   detailScope: DetailTabScope | null;
   onReorderNavTabs: (from: number, to: number) => void;
@@ -138,6 +139,8 @@ export interface StudioPreviewProps {
   onInspectElement?: (id: string) => void;
   onReorderDetailTabs: (from: number, to: number) => void;
   onToggleDetailTab: (id: string, hidden: boolean) => void;
+  onReorderDetailTopBar: (from: number, to: number) => void;
+  onToggleDetailTopBar: (id: string, hidden: boolean) => void;
   onReorderHeroElements: (from: number, to: number) => void;
   onToggleHeroElement: (id: string, hidden: boolean) => void;
   /** Toggle a global `interfaceVisibility` item — card badges and widget masters. */
@@ -174,6 +177,7 @@ export function StudioPreview({
   viewport = "desktop",
   inspectMode = false,
   detailTabItems,
+  detailTopBarItems,
   heroElementItems,
   detailScope,
   onReorderNavTabs,
@@ -186,6 +190,8 @@ export function StudioPreview({
   onInspectElement,
   onReorderDetailTabs,
   onToggleDetailTab,
+  onReorderDetailTopBar,
+  onToggleDetailTopBar,
   onReorderHeroElements,
   onToggleHeroElement,
   onToggleGlobalItem,
@@ -684,12 +690,15 @@ export function StudioPreview({
                     widgetItems={pageItems}
                     heroElementItems={heroElementItems}
                     detailTabItems={detailTabItems}
+                    detailTopBarItems={detailTopBarItems}
                     onReorderWidgets={onReorderPageItems}
                     onToggleWidget={onTogglePageItem}
                     onReorderHeroElements={onReorderHeroElements}
                     onToggleHeroElement={onToggleHeroElement}
                     onReorderDetailTabs={onReorderDetailTabs}
                     onToggleDetailTab={onToggleDetailTab}
+                    onReorderDetailTopBar={onReorderDetailTopBar}
+                    onToggleDetailTopBar={onToggleDetailTopBar}
                     onInspectElement={onInspectElement}
                     heroPlacement={heroGridLayout ?? undefined}
                     onHeroGridChange={onHeroGridChange}

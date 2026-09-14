@@ -6426,6 +6426,7 @@ export const de: TranslationDict = {
   "settings.interface.setAsLandingPage": "Als Standard-Startseite festlegen",
   "settings.interface.isLandingPage": "Startseite",
   "settings.interface.makeLandingPage": "Als Startseite",
+  "settings.interface.studioTopBarTitle": "Obere Leiste",
   "settings.interface.studioDetailTabsTitle": "Detail-Tabs",
   "settings.interface.studioDetailTabsHint": "Ziehe einen Tab, um seine Reihenfolge zu ändern; klicke aufs Auge, um ihn auszublenden. Übersicht wird immer angezeigt.",
   "settings.interface.studioHeroElementsTitle": "Hero-Elemente",

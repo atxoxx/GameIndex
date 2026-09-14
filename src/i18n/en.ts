@@ -6416,6 +6416,7 @@ export const en: TranslationDict = {
   "settings.interface.setAsLandingPage": "Set as default startup landing page",
   "settings.interface.isLandingPage": "Landing page",
   "settings.interface.makeLandingPage": "Set as landing",
+  "settings.interface.studioTopBarTitle": "Top bar",
   "settings.interface.studioDetailTabsTitle": "Detail tabs",
   "settings.interface.studioDetailTabsHint": "Drag a tab to reorder it; click the eye to hide it. Overview is always shown.",
   "settings.interface.studioHeroElementsTitle": "Hero elements",

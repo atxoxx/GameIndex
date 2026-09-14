@@ -9,6 +9,8 @@ import {
   DEFAULT_HERO_ELEMENT_ORDER,
   DEFAULT_SIDEBAR_SECTION_VISIBILITY,
   DEFAULT_PAGE_ITEM_ORDER,
+  normalizeDetailTopBarOrderMap,
+  normalizeDetailTopBarVisibilityMap,
 } from "../../../context/interfaceLayout";
 import { normalizeHeroGridLayoutMap } from "../../../context/heroGrid";
 import { buildDetailSectionItems } from "../interfaceItems";
@@ -46,6 +48,9 @@ export function getDefaultLayoutSnapshot(): LayoutSnapshot {
     },
     heroElementVisibility: {},
     heroGridLayout: {},
+    // Empty => shipped top-bar order and nothing hidden.
+    detailTopBarOrder: {},
+    detailTopBarVisibility: {},
     uiScale: "auto",
   };
 }
@@ -101,6 +106,9 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
       // Explicitly empty => applying the preset resets any authored hero grid
       // back to the shipped flex layout.
       heroGridLayout: {},
+      // Empty => this preset also resets the detail top bar to shipped.
+      detailTopBarOrder: {},
+      detailTopBarVisibility: {},
     },
   },
   {
@@ -140,6 +148,9 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
       },
       // Reset any authored hero grid to flex when this preset is applied.
       heroGridLayout: {},
+      // Empty => this preset also resets the detail top bar to shipped.
+      detailTopBarOrder: {},
+      detailTopBarVisibility: {},
     },
   },
   {
@@ -179,6 +190,9 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
       ) as LayoutSnapshot["detailSectionVisible"],
       // Reset any authored hero grid to flex when this preset is applied.
       heroGridLayout: {},
+      // Empty => this preset also resets the detail top bar to shipped.
+      detailTopBarOrder: {},
+      detailTopBarVisibility: {},
     },
   },
 ];
@@ -303,6 +317,14 @@ export function importLayoutFromJson(jsonStr: string): Partial<LayoutSnapshot> |
     }
     if (layout.heroGridLayout && typeof layout.heroGridLayout === "object") {
       result.heroGridLayout = normalizeHeroGridLayoutMap(layout.heroGridLayout);
+    }
+    if (layout.detailTopBarOrder && typeof layout.detailTopBarOrder === "object") {
+      result.detailTopBarOrder = normalizeDetailTopBarOrderMap(layout.detailTopBarOrder);
+    }
+    if (layout.detailTopBarVisibility && typeof layout.detailTopBarVisibility === "object") {
+      result.detailTopBarVisibility = normalizeDetailTopBarVisibilityMap(
+        layout.detailTopBarVisibility,
+      );
     }
     if (typeof layout.uiScale === "string") {
       result.uiScale = layout.uiScale;

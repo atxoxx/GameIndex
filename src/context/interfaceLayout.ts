@@ -972,3 +972,181 @@ export function resolveHeroElementHidden(
 ): Partial<Record<HeroElementKey, boolean>> {
   return map[scope] ?? {};
 }
+
+// ── Detail-page top bar (game + store detail) ──────────────────────────
+//
+// Mirrors the hero-element lane above: per-scope order (append-only
+// normalization) plus OFF-only visibility overrides. Hidden buttons are meant
+// to be *removed* from the bar by the consumer, not merely styled away.
+export type DetailTopBarScope = "game" | "store";
+
+export type DetailTopBarKey =
+  | "back"
+  | "wineLogs"
+  | "editDetails"
+  | "editMedia"
+  | "editLaunch"
+  | "editCompatibility"
+  | "quickActions";
+
+/** Shipped order per scope. */
+export const DETAIL_TOP_BAR: Record<DetailTopBarScope, DetailTopBarKey[]> = {
+  game: ["back", "wineLogs", "editDetails", "editMedia", "editLaunch", "editCompatibility", "quickActions"],
+  store: ["back", "quickActions"],
+};
+export const DEFAULT_DETAIL_TOP_BAR_ORDER: Record<DetailTopBarScope, DetailTopBarKey[]> = DETAIL_TOP_BAR;
+
+/** Label key per scope (the back link differs: game vs store). */
+export const DETAIL_TOP_BAR_LABEL_KEY: Record<DetailTopBarScope, Partial<Record<DetailTopBarKey, string>>> = {
+  game: {
+    back: "page.game.returnToLibrary",
+    wineLogs: "wineLogs.button",
+    editDetails: "edit.tab.details",
+    editMedia: "edit.tab.media",
+    editLaunch: "edit.tab.launch",
+    editCompatibility: "edit.tab.compatibility",
+    quickActions: "gamePage.quickActions",
+  },
+  store: {
+    back: "nav.store",
+    quickActions: "gamePage.quickActions",
+  },
+};
+
+export type DetailTopBarOrderMap = Partial<Record<DetailTopBarScope, DetailTopBarKey[]>>;
+export type DetailTopBarVisibilityMap =
+  Partial<Record<DetailTopBarScope, Partial<Record<DetailTopBarKey, boolean>>>>;
+
+const DETAIL_TOP_BAR_SCOPES: DetailTopBarScope[] = ["game", "store"];
+
+/** Type guard: is a value a top-bar key shipped for this scope? */
+export function isDetailTopBarKeyForScope(
+  scope: DetailTopBarScope,
+  key: unknown,
+): key is DetailTopBarKey {
+  return typeof key === "string" && DETAIL_TOP_BAR[scope].includes(key as DetailTopBarKey);
+}
+
+/** Normalize a persisted top-bar order: drop unknown/dupes, append missing
+ *  known keys (append-only, so newly shipped buttons still render). */
+export function normalizeDetailTopBarOrder(
+  scope: DetailTopBarScope,
+  raw: unknown,
+): DetailTopBarKey[] {
+  const known = DETAIL_TOP_BAR[scope];
+  const allowed = new Set<string>(known);
+  const seen = new Set<string>();
+  const ordered: DetailTopBarKey[] = [];
+  if (Array.isArray(raw)) {
+    for (const value of raw) {
+      if (typeof value !== "string" || !allowed.has(value) || seen.has(value)) continue;
+      seen.add(value);
+      ordered.push(value as DetailTopBarKey);
+    }
+  }
+  for (const key of known) {
+    if (!seen.has(key)) ordered.push(key);
+  }
+  return ordered;
+}
+
+/** Normalize the whole persisted top-bar order map. */
+export function normalizeDetailTopBarOrderMap(raw: unknown): DetailTopBarOrderMap {
+  if (!raw || typeof raw !== "object") return {};
+  const source = raw as Record<string, unknown>;
+  const next: DetailTopBarOrderMap = {};
+  for (const scope of DETAIL_TOP_BAR_SCOPES) {
+    const value = source[scope];
+    if (value === undefined) continue;
+    next[scope] = normalizeDetailTopBarOrder(scope, value);
+  }
+  return next;
+}
+
+/** OFF-only persistence, same as normalizeHeroElementVisibilityMap: keep only
+ *  known top-bar keys and explicit OFF entries for one scope. */
+export function normalizeDetailTopBarVisibility(
+  scope: DetailTopBarScope,
+  raw: unknown,
+): Partial<Record<DetailTopBarKey, boolean>> {
+  if (!raw || typeof raw !== "object") return {};
+  const allowed = new Set<string>(DETAIL_TOP_BAR[scope]);
+  const entry: Partial<Record<DetailTopBarKey, boolean>> = {};
+  for (const [key, visible] of Object.entries(raw as Record<string, unknown>)) {
+    if (allowed.has(key) && visible === false) entry[key as DetailTopBarKey] = false;
+  }
+  return entry;
+}
+
+/** Normalize the whole persisted top-bar visibility map. */
+export function normalizeDetailTopBarVisibilityMap(raw: unknown): DetailTopBarVisibilityMap {
+  if (!raw || typeof raw !== "object") return {};
+  const source = raw as Record<string, unknown>;
+  const next: DetailTopBarVisibilityMap = {};
+  for (const scope of DETAIL_TOP_BAR_SCOPES) {
+    const value = source[scope];
+    if (!value || typeof value !== "object") continue;
+    const entry = normalizeDetailTopBarVisibility(scope, value);
+    if (Object.keys(entry).length > 0) next[scope] = entry;
+  }
+  return next;
+}
+
+/** Resolve the effective top-bar order for a scope, falling back to the shipped order. */
+export function resolveDetailTopBarOrder(
+  map: DetailTopBarOrderMap,
+  scope: DetailTopBarScope,
+): DetailTopBarKey[] {
+  return map[scope] ?? DETAIL_TOP_BAR[scope];
+}
+
+/** Resolve the OFF-only hidden entries for a scope. */
+export function resolveDetailTopBarHidden(
+  map: DetailTopBarVisibilityMap,
+  scope: DetailTopBarScope,
+): Partial<Record<DetailTopBarKey, boolean>> {
+  return map[scope] ?? {};
+}
+
+// ── Detail-UI capability gates (shared by runtime + Layout Studio) ──────
+//
+// `showFullLinuxUi` / `showDeckVerified` are derived in SettingsContext from
+// the host platform + the user's Linux support level. These helpers turn those
+// two flags into a single source of truth so the runtime detail pages and the
+// Layout Studio can never disagree about which items a host can actually offer.
+
+/** Host capabilities that gate Linux-only / Deck detail UI. */
+export interface DetailUiCapabilities {
+  showFullLinuxUi: boolean;
+  showDeckVerified: boolean;
+}
+
+/** Top-bar keys that require the full Linux UI (Wine/Proton tooling). */
+export const LINUX_ONLY_DETAIL_TOP_BAR_KEYS: readonly DetailTopBarKey[] = [
+  "wineLogs",
+  "editCompatibility",
+];
+
+/** True when the host can actually offer this top-bar key. */
+export function isDetailTopBarKeyAvailable(
+  key: DetailTopBarKey,
+  caps: { showFullLinuxUi: boolean },
+): boolean {
+  return caps.showFullLinuxUi || !LINUX_ONLY_DETAIL_TOP_BAR_KEYS.includes(key);
+}
+
+/**
+ * Detail sections that require the Deck-verified capability. Typed as plain
+ * `string` rather than `DetailSectionKey`: the latter lives in
+ * SettingsContext.tsx, which imports this module, so a type-only import here
+ * would introduce a circular dependency.
+ */
+export const DECK_ONLY_DETAIL_SECTION_KEYS: readonly string[] = ["protonDb"];
+
+/** True when the host can actually offer this detail section. */
+export function isDetailSectionKeyAvailable(
+  key: string,
+  caps: { showDeckVerified: boolean },
+): boolean {
+  return caps.showDeckVerified || !DECK_ONLY_DETAIL_SECTION_KEYS.includes(key);
+}

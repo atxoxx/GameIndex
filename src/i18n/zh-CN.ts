@@ -6426,6 +6426,7 @@ export const zhCN: TranslationDict = {
   "settings.interface.setAsLandingPage": "设为默认启动页",
   "settings.interface.isLandingPage": "启动页",
   "settings.interface.makeLandingPage": "设为启动页",
+  "settings.interface.studioTopBarTitle": "顶部栏",
   "settings.interface.studioDetailTabsTitle": "详情标签页",
   "settings.interface.studioDetailTabsHint": "拖动标签页可调整顺序；点击眼睛图标可隐藏。概览始终显示。",
   "settings.interface.studioHeroElementsTitle": "主视觉元素",

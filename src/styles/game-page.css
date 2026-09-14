@@ -442,14 +442,23 @@
   word-break: break-all;
 }
 
-/* Top Bar */
+/* Top Bar
+ *
+ * The bar's children are rendered flat from the persisted top-bar order (see
+ * useDetailTopBarLayout), so alignment can't rely on a fixed two-slot
+ * structure. Instead the back link owns `margin-inline-end: auto`: it stays
+ * pinned to the inline start and every button after it clusters at the inline
+ * end — the classic look — while still travelling with the user's order. */
 .game-top-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
   min-width: 0;
+  gap: var(--space-sm);
   margin-bottom: var(--space-lg);
+}
+.game-top-bar__back {
+  margin-inline-end: auto;
 }
 .game-top-bar__actions {
   display: flex;

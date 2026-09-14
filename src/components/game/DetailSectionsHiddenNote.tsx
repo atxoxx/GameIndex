@@ -1,6 +1,7 @@
 import type { DetailSectionKey } from "../../context/SettingsContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { isDetailSectionKeyAvailable } from "../../context/interfaceLayout";
 
 /**
  * DetailSectionsHiddenNote
@@ -21,9 +22,15 @@ interface DetailSectionsHiddenNoteProps {
 
 export default function DetailSectionsHiddenNote({ sections }: DetailSectionsHiddenNoteProps) {
   const { t } = useLanguage();
-  const { detailSectionVisible } = useSettings();
+  const { detailSectionVisible, showDeckVerified } = useSettings();
 
-  const hidden = sections.filter((key) => !detailSectionVisible[key]);
+  // Only name sections the host can actually render: a Deck-only section the
+  // user hid while Deck UI was on must not be listed once the level is lowered.
+  const hidden = sections.filter(
+    (key) =>
+      !detailSectionVisible[key] &&
+      isDetailSectionKeyAvailable(key, { showDeckVerified }),
+  );
   if (hidden.length === 0) return null;
 
   return (

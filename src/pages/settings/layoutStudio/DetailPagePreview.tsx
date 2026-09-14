@@ -850,6 +850,97 @@ function DetailTabBar({
   );
 }
 
+// ── Detail top-bar mock ──────────────────────────────────────────────────────
+
+interface DetailTopBarProps {
+  items: OrderListItem[];
+  inspectMode: boolean;
+  highlightedId?: string | null;
+  frozen: boolean;
+  onReorder: (from: number, to: number) => void;
+  onToggle: (id: string, hidden: boolean) => void;
+  onInspect?: (id: string) => void;
+}
+
+/**
+ * Editable stand-in for the real `.game-top-bar`. Mirrors the page's flat,
+ * order-driven markup: the `back` chip carries `margin-inline-end: auto` so it
+ * pins to the inline start and the action chips cluster at the inline end.
+ * Hidden buttons stay in place (dimmed) so they can be switched back on.
+ */
+function DetailTopBar({
+  items,
+  inspectMode,
+  highlightedId,
+  frozen,
+  onReorder,
+  onToggle,
+  onInspect,
+}: DetailTopBarProps) {
+  const { t } = useLanguage();
+  const drag = useOrderDrag(onReorder);
+
+  const title = (item: OrderListItem) =>
+    inspectMode
+      ? `${item.label} — ${t("settings.interface.inspectElementHint")}`
+      : `${item.label} — ${t(
+          item.hidden ? "settings.interface.studioShow" : "settings.interface.studioHide",
+        )}`;
+
+  const startDrag = (i: number) => (e: React.PointerEvent) => {
+    if (e.button !== 0 || inspectMode) return;
+    drag.startDrag(i);
+  };
+
+  return (
+    <div
+      className={`studio-detail-topbar${frozen ? " is-frozen" : ""}`}
+      role="group"
+      ref={drag.containerRef}
+      aria-label={t("settings.interface.studioTopBarTitle")}
+    >
+      {items.map((item, i) => {
+        const isBack = item.id === "back";
+        const isDragging = drag.dragIndex === i;
+        const isDropTarget = drag.overIndex === i && drag.dragIndex !== null && drag.dragIndex !== i;
+        const className = [
+          "studio-detail-topbar__item",
+          isBack ? "studio-detail-topbar__item--back" : "studio-detail-topbar__item--action",
+          item.hidden ? "is-off" : "",
+          isDragging ? "is-dragging" : "",
+          isDropTarget ? "is-drop-target" : "",
+          highlightedId === item.id ? "is-preview-lit" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        return (
+          <button
+            key={item.id}
+            type="button"
+            data-order-index={i}
+            className={className}
+            aria-pressed={!item.hidden}
+            title={title(item)}
+            onPointerDown={startDrag(i)}
+            onClick={() => {
+              if (drag.movedRef.current) return;
+              if (inspectMode && onInspect) onInspect(item.id);
+              else onToggle(item.id, !item.hidden);
+            }}
+          >
+            <GripVertical className="studio-preview__grip" size={10} aria-hidden="true" />
+            <item.icon size={12} className="studio-detail-topbar__icon" aria-hidden="true" />
+            <span className="studio-detail-topbar__label">{item.label}</span>
+            {item.hidden && (
+              <EyeOff size={11} className="studio-detail-topbar__off" aria-hidden="true" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Full-width widget slot (hero / tabs / quick stats) ───────────────────────
 
 interface FullSlotProps {
@@ -926,12 +1017,15 @@ export interface DetailPagePreviewProps {
   widgetItems: OrderListItem[];
   heroElementItems: OrderListItem[];
   detailTabItems: OrderListItem[];
+  detailTopBarItems: OrderListItem[];
   onReorderWidgets: (from: number, to: number) => void;
   onToggleWidget: (id: string) => void;
   onReorderHeroElements: (from: number, to: number) => void;
   onToggleHeroElement: (id: string, hidden: boolean) => void;
   onReorderDetailTabs: (from: number, to: number) => void;
   onToggleDetailTab: (id: string, hidden: boolean) => void;
+  onReorderDetailTopBar: (from: number, to: number) => void;
+  onToggleDetailTopBar: (id: string, hidden: boolean) => void;
   onInspectElement?: (id: string) => void;
   /** Authored 12-column hero layout for the scope; null/undefined => flex. */
   heroPlacement?: HeroPlacement;
@@ -952,12 +1046,15 @@ export function DetailPagePreview({
   widgetItems,
   heroElementItems,
   detailTabItems,
+  detailTopBarItems,
   onReorderWidgets,
   onToggleWidget,
   onReorderHeroElements,
   onToggleHeroElement,
   onReorderDetailTabs,
   onToggleDetailTab,
+  onReorderDetailTopBar,
+  onToggleDetailTopBar,
   onInspectElement,
   heroPlacement,
   onHeroGridChange,
@@ -1138,6 +1235,21 @@ export function DetailPagePreview({
       role="group"
       aria-label={t("settings.interface.studioPreview")}
     >
+      {/* Top bar: the buttons above the hero — before the hero, as shipped.
+       *  The list is already platform-filtered upstream, so a scope whose keys
+       *  are all gated away simply renders no bar rather than an empty shell. */}
+      {detailTopBarItems.length > 0 && (
+        <DetailTopBar
+          items={detailTopBarItems}
+          inspectMode={inspectMode}
+          highlightedId={highlightedId}
+          frozen={draggingWidgets}
+          onReorder={onReorderDetailTopBar}
+          onToggle={onToggleDetailTopBar}
+          onInspect={onInspectElement}
+        />
+      )}
+
       {/* Full-width shell: hero, tab bar, quick stats — in the page's real order. */}
       <div className="studio-detail__full">
         {isInteractive ? (

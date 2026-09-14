@@ -1,14 +1,20 @@
 import {
   Activity,
+  ArrowLeft,
   BookOpen,
   ChartColumn,
+  Clock,
   Download,
+  EllipsisVertical,
+  FileText,
   Gamepad2,
   HardDrive,
   Heart,
   Home,
+  Image,
   Monitor,
   MonitorPlay,
+  Play,
   Puzzle,
   Rss,
   Settings,
@@ -16,8 +22,10 @@ import {
   Tag,
   Trophy,
   Users,
+  Wine,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { DetailTopBarKey } from "../../context/interfaceLayout";
 import type { DetailSectionKey, InterfaceItemKey } from "../../context/SettingsContext";
 
 /**
@@ -64,6 +72,21 @@ export const NAV_BUTTON_ITEMS: InterfaceItemDef[] = [
 export const NAV_ITEM_BY_KEY: Record<string, InterfaceItemDef> = Object.fromEntries(
   [...NAV_TAB_ITEMS, ...NAV_BUTTON_ITEMS].map((item) => [item.key, item]),
 );
+
+/**
+ * Icons for the detail-page top-bar items (game + store). Labels/intent live
+ * in `DETAIL_TOP_BAR_LABEL_KEY` (context/interfaceLayout.ts); the glyphs live
+ * here so both detail pages and the Layout Studio render the same icon.
+ */
+export const DETAIL_TOP_BAR_ICONS: Record<DetailTopBarKey, LucideIcon> = {
+  back: ArrowLeft,
+  wineLogs: Wine,
+  editDetails: FileText,
+  editMedia: Image,
+  editLaunch: Play,
+  editCompatibility: Clock,
+  quickActions: EllipsisVertical,
+};
 
 /** Granular card-badge toggles. The first four refine the master "Show Card
  *  Badges" switch; the last two are independent overlays. */

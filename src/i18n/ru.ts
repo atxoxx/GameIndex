@@ -6427,6 +6427,7 @@ export const ru: TranslationDict = {
   "settings.interface.setAsLandingPage": "Сделать стартовой страницей по умолчанию",
   "settings.interface.isLandingPage": "Стартовая страница",
   "settings.interface.makeLandingPage": "Сделать стартовой",
+  "settings.interface.studioTopBarTitle": "Верхняя панель",
   "settings.interface.studioDetailTabsTitle": "Вкладки деталей",
   "settings.interface.studioDetailTabsHint": "Перетащите вкладку, чтобы изменить порядок; нажмите на глаз, чтобы скрыть её. Обзор отображается всегда.",
   "settings.interface.studioHeroElementsTitle": "Элементы hero-блока",

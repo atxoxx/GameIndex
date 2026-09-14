@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo, type ReactNode } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useGames, useGameById, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
-import { useSettings, useDetailTabOrder, type DetailSectionKey } from "../context/SettingsContext";
+import {
+  useSettings,
+  useDetailTabOrder,
+  useDetailTopBarLayout,
+  type DetailSectionKey,
+} from "../context/SettingsContext";
+import {
+  isDetailTopBarKeyAvailable,
+  type DetailTopBarKey,
+} from "../context/interfaceLayout";
 import { useActivity } from "../context/ActivityContext";
 import { EditGameModal } from "../components/game/EditGameModal";
 import { EDIT_GAME_TABS, type EditGameTab } from "../components/game/editGameTabs";
@@ -83,6 +92,18 @@ const VALID_TABS = new Set<GamePageTab>([
   "news",
 ]);
 
+/**
+ * Detail-top-bar keys that open an edit-modal section. The bar's keys are
+ * namespaced (`editDetails`) while the modal's tabs are bare (`details`), so
+ * this is the one place that maps the two.
+ */
+const EDIT_TAB_FOR_TOP_BAR: Partial<Record<DetailTopBarKey, EditGameTab>> = {
+  editDetails: "details",
+  editMedia: "media",
+  editLaunch: "launch",
+  editCompatibility: "compatibility",
+};
+
 function GameNotFound() {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -117,6 +138,7 @@ function GameDetail({ game }: { game: Game }) {
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
   const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
+  const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("game");
   const { getGameAchievements } = useAchievements();
   const {
     notes: gameNotes,
@@ -298,63 +320,99 @@ function GameDetail({ game }: { game: Game }) {
       .filter((tab) => isTabVisible(tab.id));
   }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible, gameTabOrder]);
 
-  return (
-    <div className="game-page">
-      {/* Top Bar with Return Link and Edit / Remove actions */}
-      <div className="game-top-bar">
-        <button
-          className="game-back-link"
-          onClick={handleBack}
-          aria-label={t("gamePage.returnToLibrary")}
+  // The top bar renders straight from the persisted order/visibility. Items the
+  // platform can't offer (Wine Logs / Compatibility on non-Linux hosts) are
+  // skipped even when visible, matching the old hardcoded gate. Contiguous
+  // edit-modal shortcuts are chunked into one `.game-edit-tab-shortcuts` group
+  // so the divider between the back link and the action cluster survives.
+  const renderTopBar = () => {
+    const nodes: ReactNode[] = [];
+    let group: ReactNode[] = [];
+    let groupKey = "";
+    const flushGroup = () => {
+      if (group.length === 0) return;
+      nodes.push(
+        <div
+          key={`edit-group:${groupKey}`}
+          className="game-edit-tab-shortcuts"
+          role="group"
+          aria-label={t("library.context.editGame")}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          <span>{t("page.game.returnToLibrary")}</span>
-        </button>
+          {group}
+        </div>,
+      );
+      group = [];
+      groupKey = "";
+    };
 
-        <div className="game-top-bar__actions">
-          {showFullLinuxUi && (
-            <button
-              type="button"
-              className="game-edit-btn"
-              onClick={() => setWineLogsOpen(true)}
-              title={t("wineLogs.tooltip") || "Wine / Proton Logs"}
-            >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10 9 9 9 8 9" />
-              </svg>
-              <span>{t("wineLogs.button") || "Wine Logs"}</span>
-            </button>
-          )}
+    for (const key of topBarOrder) {
+      if (topBarHidden[key]) continue;
+      // Shared capability gate: the Layout Studio hides the same keys via this
+      // helper, so a host that cannot offer them never renders them here.
+      if (!isDetailTopBarKeyAvailable(key, { showFullLinuxUi })) continue;
 
-          {/* Edit-modal sections, one click away without opening a menu */}
-          <div
-            className="game-edit-tab-shortcuts"
-            role="group"
-            aria-label={t("library.context.editGame")}
+      if (key === "wineLogs") {
+        flushGroup();
+        nodes.push(
+          <button
+            key="wineLogs"
+            type="button"
+            className="game-edit-btn"
+            onClick={() => setWineLogsOpen(true)}
+            title={t("wineLogs.tooltip") || "Wine / Proton Logs"}
           >
-            {EDIT_GAME_TABS.filter(
-              (tab) => tab.key !== "compatibility" || showFullLinuxUi
-            ).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                className="game-edit-btn"
-                onClick={() => setEditTab(tab.key)}
-                title={t(tab.labelKey)}
-              >
-                {tab.icon}
-                <span>{t(tab.labelKey)}</span>
-              </button>
-            ))}
-          </div>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            <span>{t("wineLogs.button") || "Wine Logs"}</span>
+          </button>,
+        );
+        continue;
+      }
 
+      const editTab = EDIT_TAB_FOR_TOP_BAR[key];
+      if (editTab) {
+        const def = EDIT_GAME_TABS.find((entry) => entry.key === editTab);
+        if (!def) continue;
+        if (!groupKey) groupKey = key;
+        group.push(
+          <button
+            key={key}
+            type="button"
+            className="game-edit-btn"
+            onClick={() => setEditTab(editTab)}
+            title={t(def.labelKey)}
+          >
+            {def.icon}
+            <span>{t(def.labelKey)}</span>
+          </button>,
+        );
+        continue;
+      }
+
+      flushGroup();
+      if (key === "back") {
+        nodes.push(
+          <button
+            key="back"
+            className="game-back-link game-top-bar__back"
+            onClick={handleBack}
+            aria-label={t("gamePage.returnToLibrary")}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            <span>{t("page.game.returnToLibrary")}</span>
+          </button>,
+        );
+      } else if (key === "quickActions") {
+        nodes.push(
           <GameQuickActions
+            key="quickActions"
             game={game}
             gameName={game.name}
             steamAppId={game.steamAppId}
@@ -362,9 +420,19 @@ function GameDetail({ game }: { game: Game }) {
             onEditTab={setEditTab}
             onRemove={() => setShowRemoveConfirm(true)}
             onOpenWineLogs={showFullLinuxUi ? () => setWineLogsOpen(true) : undefined}
-          />
-        </div>
-      </div>
+          />,
+        );
+      }
+    }
+
+    flushGroup();
+    return nodes;
+  };
+
+  return (
+    <div className="game-page">
+      {/* Top Bar with Return Link and Edit / Remove actions */}
+      <div className="game-top-bar">{renderTopBar()}</div>
 
       {/* Hero Banner */}
       <PageWidget page="game" widget="gameHero">

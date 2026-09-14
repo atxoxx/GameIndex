@@ -6,7 +6,7 @@ import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../types/game";
 import { useWishlistContext } from "../context/WishlistContext";
-import { useSettings, useDetailTabOrder, type DetailSectionKey } from "../context/SettingsContext";
+import { useSettings, useDetailTabOrder, useDetailTopBarLayout, type DetailSectionKey } from "../context/SettingsContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { setActiveGameArtwork } from "../utils/activeGameArtwork";
 import { Button } from "../components/ui";
@@ -123,6 +123,9 @@ export default function StoreGameDetail() {
   const { t } = useLanguage();
   const { unit: sizeUnit } = useSizeUnit();
   const { isSimpleUi, detailSectionVisible, showDeckVerified } = useSettings();
+  // Top-bar order/visibility, resolved before the loading/error early returns
+  // so the hook order stays stable.
+  const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("store");
 
   const [data, setData] = useState<GameMetadataResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -435,20 +438,34 @@ export default function StoreGameDetail() {
     <div className="game-page store-detail-page">
       {/* Top Breadcrumb Bar */}
       <div className="game-top-bar">
-        <button className="game-back-link" onClick={() => navigate("/store")}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          <span className="brand-text">{t("nav.store")}</span>
-        </button>
-
-        <div className="game-top-bar__actions">
-          <GameQuickActions
-            gameName={data.title}
-            steamAppId={steamAppId ?? null}
-            isStoreMode={true}
-          />
-        </div>
+        {topBarOrder.map((key) => {
+          if (topBarHidden[key]) return null;
+          if (key === "back") {
+            return (
+              <button
+                key="back"
+                className="game-back-link game-top-bar__back"
+                onClick={() => navigate("/store")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                <span className="brand-text">{t("nav.store")}</span>
+              </button>
+            );
+          }
+          if (key === "quickActions") {
+            return (
+              <GameQuickActions
+                key="quickActions"
+                gameName={data.title}
+                steamAppId={steamAppId ?? null}
+                isStoreMode={true}
+              />
+            );
+          }
+          return null;
+        })}
       </div>
 
       {/* Cinematic Hero */}

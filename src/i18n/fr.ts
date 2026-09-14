@@ -6426,6 +6426,7 @@ export const fr: TranslationDict = {
   "settings.interface.setAsLandingPage": "Définir comme page de démarrage par défaut",
   "settings.interface.isLandingPage": "Page de démarrage",
   "settings.interface.makeLandingPage": "Fixer démarrage",
+  "settings.interface.studioTopBarTitle": "Barre supérieure",
   "settings.interface.studioDetailTabsTitle": "Onglets de détail",
   "settings.interface.studioDetailTabsHint": "Faites glisser un onglet pour le réordonner ; cliquez sur l'œil pour le masquer. Vue d'ensemble est toujours affichée.",
   "settings.interface.studioHeroElementsTitle": "Éléments du hero",

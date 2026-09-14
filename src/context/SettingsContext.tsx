@@ -37,9 +37,13 @@ import { updateSoundConfig } from "../utils/soundEffects";
 import { SPLASH_ENABLED_KEY } from "./SplashContext";
 import {
   DETAIL_TABS,
+  DETAIL_TOP_BAR,
   HERO_ELEMENTS,
   normalizeDetailTabOrder,
   normalizeDetailTabOrderMap,
+  normalizeDetailTopBarOrder,
+  normalizeDetailTopBarOrderMap,
+  normalizeDetailTopBarVisibilityMap,
   normalizeHeroElementOrder,
   normalizeHeroElementOrderMap,
   normalizeHeroElementVisibilityMap,
@@ -48,11 +52,17 @@ import {
   normalizePageItemVisibilityMap,
   normalizeSidebarSectionVisibility,
   resolveDetailTabOrder,
+  resolveDetailTopBarOrder,
+  resolveDetailTopBarHidden,
   resolveHeroElementOrder,
   resolveHeroElementHidden,
   type DetailTabKey,
   type DetailTabOrderMap,
   type DetailTabScope,
+  type DetailTopBarKey,
+  type DetailTopBarOrderMap,
+  type DetailTopBarScope,
+  type DetailTopBarVisibilityMap,
   type HeroElementKey,
   type HeroElementOrderMap,
   type HeroElementVisibilityMap,
@@ -150,6 +160,9 @@ const LS_PAGE_ITEM_ORDER = "gamelib.page_item_order";
 const LS_DETAIL_TAB_ORDER = "gamelib.detail_tab_order";
 const LS_HERO_ELEMENT_ORDER = "gamelib.hero_element_order";
 const LS_HERO_ELEMENT_VISIBILITY = "gamelib.hero_element_visibility";
+// Detail-page top-bar order + OFF-only visibility (Settings → Interface).
+const LS_DETAIL_TOP_BAR_ORDER = "gamelib.detail_top_bar_order";
+const LS_DETAIL_TOP_BAR_VISIBILITY = "gamelib.detail_top_bar_visibility";
 // Optional hero grid layout per scope (Layout Studio → hero grid). Absent =>
 // the hero keeps rendering its flex/`order` layout.
 const LS_HERO_GRID_LAYOUT = "gamelib.hero_grid_layout";
@@ -509,6 +522,17 @@ export interface SettingsContextValue {
   heroGridLayout: HeroGridLayoutMap;
   setHeroGridLayout: (scope: HeroScope, next: HeroGridLayout) => void;
   resetHeroGridLayout: (scope: HeroScope) => void;
+  /** Per-scope order of the detail-page top bar (game + store). */
+  detailTopBarOrder: DetailTopBarOrderMap;
+  setDetailTopBarOrder: (scope: DetailTopBarScope, next: DetailTopBarKey[]) => void;
+  /** OFF-only per-scope top-bar visibility overrides. A hidden item is
+   *  removed from the bar completely, not just styled away. */
+  detailTopBarVisibility: DetailTopBarVisibilityMap;
+  setDetailTopBarVisible: (
+    scope: DetailTopBarScope,
+    key: DetailTopBarKey,
+    visible: boolean,
+  ) => void;
 
   // ── Splash screens (Settings → Appearance) ──────────────────────
   /** Show the standalone launch splash while a game starts. Mirrors the
@@ -1569,6 +1593,53 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Detail-page top-bar order (Settings → Interface). Same append-only
+  // normalization as the hero element lane: unknown keys and duplicates are
+  // dropped and any newly shipped buttons are appended so nothing goes
+  // unrendered on upgrade.
+  const [detailTopBarOrder, setDetailTopBarOrderState] = useState<DetailTopBarOrderMap>(
+    () => normalizeDetailTopBarOrderMap(lsGetJSON<unknown>(LS_DETAIL_TOP_BAR_ORDER, null)),
+  );
+  const setDetailTopBarOrder = useCallback(
+    (scope: DetailTopBarScope, next: DetailTopBarKey[]) => {
+      const normalized = normalizeDetailTopBarOrder(scope, next);
+      setDetailTopBarOrderState((prev) => {
+        const merged = { ...prev, [scope]: normalized };
+        lsSetJSON(LS_DETAIL_TOP_BAR_ORDER, merged);
+        return merged;
+      });
+    },
+    [],
+  );
+
+  // Detail-page top-bar visibility (Settings → Interface). OFF-only overrides,
+  // exactly like heroElementVisibility: a visible item deletes the override so
+  // new buttons default to shown.
+  const [detailTopBarVisibility, setDetailTopBarVisibilityState] =
+    useState<DetailTopBarVisibilityMap>(() =>
+      normalizeDetailTopBarVisibilityMap(
+        lsGetJSON<unknown>(LS_DETAIL_TOP_BAR_VISIBILITY, null),
+      ),
+    );
+  const setDetailTopBarVisible = useCallback(
+    (scope: DetailTopBarScope, key: DetailTopBarKey, visible: boolean) => {
+      setDetailTopBarVisibilityState((prev) => {
+        const scopeEntry = { ...(prev[scope] ?? {}) };
+        if (visible) delete scopeEntry[key];
+        else scopeEntry[key] = false;
+        const next = { ...prev };
+        if (Object.keys(scopeEntry).length === 0) delete next[scope];
+        else next[scope] = scopeEntry;
+        lsSetJSON(
+          LS_DETAIL_TOP_BAR_VISIBILITY,
+          normalizeDetailTopBarVisibilityMap(next),
+        );
+        return next;
+      });
+    },
+    [],
+  );
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -1674,6 +1745,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       heroGridLayout,
       setHeroGridLayout,
       resetHeroGridLayout,
+      detailTopBarOrder,
+      setDetailTopBarOrder,
+      detailTopBarVisibility,
+      setDetailTopBarVisible,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1787,6 +1862,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       heroGridLayout,
       setHeroGridLayout,
       resetHeroGridLayout,
+      detailTopBarOrder,
+      setDetailTopBarOrder,
+      detailTopBarVisibility,
+      setDetailTopBarVisible,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1889,4 +1968,18 @@ export function useHeroGridLayout(scope: HeroScope): HeroGridLayout | null {
   const ctx = useContext(SettingsContext);
   if (!ctx) return null;
   return resolveHeroGridLayout(ctx.heroGridLayout, scope);
+}
+
+/** Effective detail-page top-bar order + OFF-only hidden entries for a scope.
+ *  Defaults to the shipped order and nothing hidden outside a provider. */
+export function useDetailTopBarLayout(scope: DetailTopBarScope): {
+  order: DetailTopBarKey[];
+  hidden: Partial<Record<DetailTopBarKey, boolean>>;
+} {
+  const ctx = useContext(SettingsContext);
+  if (!ctx) return { order: DETAIL_TOP_BAR[scope], hidden: {} };
+  return {
+    order: resolveDetailTopBarOrder(ctx.detailTopBarOrder, scope),
+    hidden: resolveDetailTopBarHidden(ctx.detailTopBarVisibility, scope),
+  };
 }

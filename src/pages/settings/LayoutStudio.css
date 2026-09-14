@@ -2262,6 +2262,100 @@
   min-width: 0;
 }
 
+/* ── Detail top-bar mock (buttons above the hero) ────────────────────────── */
+
+.studio-detail-topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* Two classes so the rule beats the shared `.studio-preview button` reset. */
+.studio-preview .studio-detail-topbar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: grab;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-detail-topbar__item:active {
+  cursor: grabbing;
+}
+
+.studio-detail-topbar__item:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+/* The back chip is the inline-start anchor: it owns the free space, so every
+   action chip after it clusters at the inline end — matching the real bar and
+   still moving with the user's order. Prefixed so it beats the button reset's
+   `margin: 0`. */
+.studio-preview .studio-detail-topbar__item--back {
+  margin-inline-end: auto;
+}
+
+.studio-detail-topbar__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.studio-detail-topbar__item:hover .studio-detail-topbar__icon {
+  color: var(--color-accent);
+}
+
+.studio-detail-topbar__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studio-detail-topbar__off {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+/* Hidden: stay in place, dimmed and dashed, so they can be switched back on. */
+.studio-detail-topbar__item.is-off {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-text-muted) 60%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+  color: var(--color-text-muted);
+}
+
+.studio-detail-topbar__item.is-dragging {
+  opacity: 0.45;
+  border-color: var(--color-accent);
+}
+
+.studio-detail-topbar__item.is-drop-target {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.studio-detail-topbar__item.is-preview-lit {
+  border-color: var(--color-accent);
+}
+
 /* ── Full-width widget slot (hero / tabs / quick stats) ──────────────────── */
 
 .studio-detail-slot {
@@ -2747,13 +2841,15 @@
 }
 
 /* ── Nested-drag freeze ─────────────────────────────────────────────────────
- * While a page-widget drag is in flight, the hero/tab mocks stop responding to
- * the pointer so only their slot row is picked as the drop target. */
+ * While a page-widget drag is in flight, the hero/tab/top-bar mocks stop
+ * responding to the pointer so only their slot row is picked as the drop
+ * target. */
 .studio-hero-mock.is-frozen .studio-hero-mock__item,
 .studio-hero-mock.is-frozen .studio-hero-mock__grid-item,
 .studio-hero-mock.is-frozen .studio-hero-mock__bg,
 .studio-hero-mock.is-frozen .studio-hero-mock__bg-eye,
-.studio-subtab-bar.is-frozen .studio-subtab {
+.studio-subtab-bar.is-frozen .studio-subtab,
+.studio-detail-topbar.is-frozen .studio-detail-topbar__item {
   pointer-events: none;
 }
 

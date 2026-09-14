@@ -11,6 +11,8 @@ import type {
 } from "../../../context/SettingsContext";
 import type {
   DetailTabOrderMap,
+  DetailTopBarOrderMap,
+  DetailTopBarVisibilityMap,
   HeroElementOrderMap,
   HeroElementVisibilityMap,
   PageItemOrderMap,
@@ -63,6 +65,12 @@ export interface LayoutSnapshot {
   heroElementVisibility: HeroElementVisibilityMap;
   /** Optional per-scope hero grid layout; empty => the shipped flex layout. */
   heroGridLayout: HeroGridLayoutMap;
+  /** Per-scope order of the detail-page top bar (game + store). Optional so
+   *  existing snapshot builders that predate this lane stay valid; presets
+   *  still populate it explicitly. */
+  detailTopBarOrder?: DetailTopBarOrderMap;
+  /** OFF-only per-scope detail-page top-bar visibility overrides. */
+  detailTopBarVisibility?: DetailTopBarVisibilityMap;
   uiScale: UiScale;
 }
 
