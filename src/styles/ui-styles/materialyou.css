@@ -1,0 +1,445 @@
+/* =============================================================================
+   4. UI Style: Material You (M3 Expressive — Tonal Containers & Pill Geometry)
+   ─────────────────────────────────────────────────────────────────────────────
+   A floating, accent-tinted shell with generous margin. Surfaces are *tonal
+   containers* — accent mixed into a theme surface, never flat neutral — lifted
+   by soft, wide elevation. Controls round to capsules, cards to 28px, and
+   interaction answers with tonal fill + glow + a small vertical lift, never a
+   text-blurring scale. Signature: the full-capsule pill FAB.
+   Token-driven only (`--color-*` / `--color-surface*` + color-mix of those), so
+   every theme reskins it for free; the radius ladder is the one place raw px
+   lives. Every rule is `!important`, every resting property restates its
+   hover/active/focus quartet, and runtime variants (game-accent chrome,
+   docked-right sidebar, running cards, card density, warn cards, confirm
+   dialogs, list store cards) are re-asserted after their generic rule.
+   Responsive size / padding / font-size is never forced.
+   ============================================================================= */
+[data-ui-style="materialyou"] {
+  /* Canonical M3 radius ladder — hard, expressive rounding. */
+  --radius-xs: 8px; --radius-sm: 14px; --radius-md: 20px; --radius-lg: 28px; --radius-xl: 36px; --radius-2xl: 48px; --radius-3xl: 60px;
+
+  /* Tonal strength ladder — the light theme raises it below, because the same
+     accent mix that reads on a dark surface vanishes over pure white. */
+  --m3-strength-low: 4%; --m3-strength-mid: 8%; --m3-strength-high: 15%;
+
+  /* Internal aliases — referenced only inside this layer. */
+  --m3-outline: color-mix(in srgb, var(--color-text-primary) 12%, transparent); --m3-outline-strong: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+  --m3-tonal-low: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-surface));
+  --m3-tonal: color-mix(in srgb, var(--color-accent) var(--m3-strength-mid), var(--color-surface-raised));
+  --m3-tonal-high: color-mix(in srgb, var(--color-accent) var(--m3-strength-high), var(--color-surface-raised));
+  --m3-bevel: inset 0 1px 0 var(--color-border-highlight);
+  /* One local focus ring — every :focus-visible in this layer reads from it. */
+  --m3-ring: 0 0 0 3px var(--color-focus-ring);
+  --m3-control: color var(--duration-normal) var(--ease-standard), background-color var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard),
+    filter var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+  --m3-surface: background-color var(--duration-slow) var(--ease-standard), border-color var(--duration-slow) var(--ease-standard),
+    box-shadow var(--duration-slow) var(--ease-standard), transform var(--duration-slow) var(--ease-standard);
+}
+
+/* Light surfaces swallow a low accent mix, so the tonal ladder steps up before
+   the M3 containers read as toned rather than generic white. */
+[data-theme="light"][data-ui-style="materialyou"] {
+  --m3-strength-low: 8%; --m3-strength-mid: 14%; --m3-strength-high: 22%;
+}
+
+/* ── Canvas ─────────────────────────────────────────────────────────────── */
+[data-ui-style="materialyou"] .app-layout {
+  padding: var(--space-sm) !important; background-color: var(--color-bg-primary) !important;
+  background-image:
+    radial-gradient(ellipse 90% 60% at 50% -12%, color-mix(in srgb, var(--color-accent) 16%, transparent) 0%, transparent 68%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 10%, transparent) 0%, transparent 70%),
+    var(--color-bg-gradient) !important;
+}
+[data-ui-style="materialyou"] .app-main {
+  margin: var(--space-xs) !important; border-radius: var(--radius-xl) !important; border: 1px solid var(--m3-outline) !important; background-color: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-bg-secondary)) !important;
+  background-image: var(--mesh-gradient) !important; box-shadow: var(--m3-bevel), var(--elevation-4) !important;
+}
+
+/* ── Top navigation ─────────────────────────────────────────────────────── */
+[data-ui-style="materialyou"] .topnav {
+  background: color-mix(in srgb, var(--color-bg-primary) 84%, transparent) !important; backdrop-filter: blur(var(--blur-md)) !important; -webkit-backdrop-filter: blur(var(--blur-md)) !important;
+  border-bottom: 1px solid var(--m3-outline) !important; border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+  box-shadow: var(--m3-bevel) !important;
+}
+/* Preserve the runtime per-game accent chrome wash (ordered after the generic bar). */
+[data-ui-style="materialyou"][data-game-accent] .topnav {
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-bg-primary)) !important; border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent) 24%, transparent) !important;
+}
+[data-ui-style="materialyou"] .topnav-logo__word { color: var(--color-accent) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-extrabold) !important; letter-spacing: -0.03em !important; }
+[data-ui-style="materialyou"] .topnav-logo__version {
+  border-radius: var(--radius-full) !important; color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)) !important;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent) !important;
+  font-weight: var(--font-weight-semibold) !important; font-variant-numeric: tabular-nums !important;
+}
+[data-ui-style="materialyou"] .topnav-tabs {
+  border-radius: var(--radius-full) !important; border: 1px solid var(--m3-outline) !important; box-shadow: var(--m3-bevel) !important; background: color-mix(in srgb, var(--color-text-primary) 6%, var(--color-surface-raised)) !important;
+}
+[data-ui-style="materialyou"] .topnav-tab { border-radius: var(--radius-full) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-medium) !important; transition: var(--m3-control) !important; }
+[data-ui-style="materialyou"] .topnav-tab:not(.active):hover { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; }
+[data-ui-style="materialyou"] .topnav-tab.active {
+  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: 0 2px 12px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent) !important;
+}
+[data-ui-style="materialyou"] .topnav-tab:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .topnav-btn--cmd {
+  border-radius: var(--radius-full) !important; border: 1px solid var(--m3-outline) !important; background: var(--m3-tonal) !important; color: var(--color-text-secondary) !important; box-shadow: var(--m3-bevel) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .topnav-btn--cmd:hover {
+  color: var(--color-accent) !important; background: var(--m3-tonal-high) !important; border-color: var(--color-accent-border) !important; box-shadow: var(--m3-bevel), 0 0 16px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .topnav-btn--cmd:active { background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface-raised)) !important; transform: translateY(1px) !important; }
+[data-ui-style="materialyou"] .topnav-now-playing-chip {
+  border-radius: var(--radius-full) !important; border: 1px solid color-mix(in srgb, var(--color-success) 34%, transparent) !important; background: color-mix(in srgb, var(--color-success) 13%, var(--color-surface-raised)) !important;
+  box-shadow: var(--m3-bevel), 0 0 12px color-mix(in srgb, var(--color-success) 22%, transparent) !important;
+  transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .topnav-now-playing-chip:hover {
+  background: color-mix(in srgb, var(--color-success) 20%, var(--color-surface-raised)) !important; border-color: var(--color-success) !important; box-shadow: var(--m3-bevel), 0 0 18px color-mix(in srgb, var(--color-success) 36%, transparent) !important;
+}
+[data-ui-style="materialyou"] .topnav-now-playing-chip:active { transform: translateY(1px) !important; }
+[data-ui-style="materialyou"] .topnav-now-playing-chip:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+/* A tonal navigation rail: no hard divider, just a hairline and a wash. */
+[data-ui-style="materialyou"] .sidebar { border: none !important; border-radius: 0 !important; background: var(--m3-tonal-low) !important; box-shadow: var(--m3-bevel), inset -1px 0 0 var(--m3-outline) !important; }
+/* Preserve the runtime per-game accent wash. */
+[data-ui-style="materialyou"][data-game-accent] .sidebar {
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary)) !important; box-shadow: var(--m3-bevel), inset -1px 0 0 color-mix(in srgb, var(--color-accent) 24%, transparent) !important;
+}
+/* Docked-right flips the hairline edge to the sidebar's left side. */
+[data-ui-style="materialyou"][data-sidebar-position="right"] .sidebar { box-shadow: var(--m3-bevel), inset 1px 0 0 var(--m3-outline) !important; }
+[data-ui-style="materialyou"][data-sidebar-position="right"][data-game-accent] .sidebar { box-shadow: var(--m3-bevel), inset 1px 0 0 color-mix(in srgb, var(--color-accent) 24%, transparent) !important; }
+[data-ui-style="materialyou"] .sidebar-search {
+  border-radius: var(--radius-full) !important; background: var(--m3-tonal) !important; border: 1px solid var(--m3-outline) !important; box-shadow: var(--m3-bevel) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .sidebar-search:hover { border-color: var(--m3-outline-strong) !important; background: var(--m3-tonal-high) !important; }
+[data-ui-style="materialyou"] .sidebar-search:focus-within { border-color: var(--color-accent) !important; background: var(--m3-tonal-high) !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .sidebar-game-item { border-radius: var(--radius-full) !important; transition: var(--m3-control) !important; }
+[data-ui-style="materialyou"] .sidebar-game-item:hover:not(.active) { background: var(--m3-tonal) !important; box-shadow: var(--m3-bevel) !important; }
+[data-ui-style="materialyou"] .sidebar-game-item:active:not(.active) { background: var(--m3-tonal-high) !important; }
+[data-ui-style="materialyou"] .sidebar-game-item.active {
+  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface-raised)) !important; box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 26%, transparent), var(--m3-bevel) !important;
+}
+[data-ui-style="materialyou"] .sidebar-game-item.active:hover { background: color-mix(in srgb, var(--color-accent) 29%, var(--color-surface-raised)) !important; }
+[data-ui-style="materialyou"] .sidebar-game-item.bulk-selected,
+[data-ui-style="materialyou"] .sidebar-game-item.bulk-selected:hover { background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface-raised)) !important; }
+[data-ui-style="materialyou"] .sidebar-game-item:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+/* M3 pill navigation has no left rail indicator. */
+[data-ui-style="materialyou"] .sidebar-game-item::after { display: none !important; }
+/* Full-width rows round to --radius-sm; 4K intentionally widens to --radius-md. */
+[data-ui-style="materialyou"] .app-sidebar:not(.sidebar-icon-rail) .sidebar-game-icon { border-radius: var(--radius-sm) !important; }
+@media (min-width: 2561px) {
+  [data-ui-style="materialyou"] .app-sidebar:not(.sidebar-icon-rail) .sidebar-game-icon { border-radius: var(--radius-md) !important; }
+}
+/* M3 type is sentence-case, medium weight, no tracking — the accent keeps the
+   hierarchy the uppercase treatment used to carry. The base sidebar tracks the
+   inner title text separately, so both nodes are re-set here. */
+[data-ui-style="materialyou"] .sidebar-section-header,
+[data-ui-style="materialyou"] .sidebar-section-header .sidebar-section-title-text { text-transform: none !important; letter-spacing: normal !important; }
+[data-ui-style="materialyou"] .sidebar-section-header { color: var(--color-accent) !important; font-weight: var(--font-weight-medium) !important; }
+[data-ui-style="materialyou"] .sidebar-filter-btn {
+  border-radius: var(--radius-full) !important; background: var(--m3-tonal) !important; border: 1px solid var(--m3-outline) !important; color: var(--color-text-secondary) !important; box-shadow: var(--m3-bevel) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .sidebar-filter-btn:hover { color: var(--color-text-primary) !important; background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 40%, transparent) !important; }
+[data-ui-style="materialyou"] .sidebar-filter-btn.active {
+  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: 0 2px 12px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .sidebar-filter-btn:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .sidebar-section-toggle {
+  border-radius: var(--radius-full) !important; color: var(--color-text-muted) !important; font-weight: var(--font-weight-medium) !important; text-transform: none !important; letter-spacing: normal !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .sidebar-section-toggle:hover { color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important; }
+[data-ui-style="materialyou"] .sidebar-section-toggle:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .sidebar-filter-popover {
+  background: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-surface-raised)) !important; border: 1px solid var(--m3-outline) !important; border-radius: var(--radius-lg) !important;
+  box-shadow: var(--elevation-5), 0 0 0 1px color-mix(in srgb, var(--color-accent) 14%, transparent) !important;
+}
+[data-ui-style="materialyou"] .sidebar-view-options-menu {
+  background: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-surface-raised)) !important; border: 1px solid var(--m3-outline) !important; border-radius: var(--radius-lg) !important; box-shadow: var(--elevation-4) !important;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+[data-ui-style="materialyou"] .ui-btn { border-radius: var(--radius-full) !important; font-weight: var(--font-weight-semibold) !important; transition: var(--m3-control) !important; }
+[data-ui-style="materialyou"] .ui-btn--sm,
+[data-ui-style="materialyou"] .ui-btn--lg { border-radius: var(--radius-full) !important; }
+[data-ui-style="materialyou"] .ui-btn--primary {
+  background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent), 0 4px 16px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08) !important; transform: translateY(-1px) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 34%, transparent), 0 8px 26px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--primary:active:not(:disabled) {
+  filter: brightness(0.96) !important; transform: translateY(0) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 20%, transparent), 0 2px 10px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--secondary {
+  background: var(--m3-tonal) !important; color: var(--color-accent) !important; border-color: color-mix(in srgb, var(--color-accent) 22%, transparent) !important; box-shadow: var(--m3-bevel) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--secondary:hover:not(:disabled) {
+  background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 42%, transparent) !important; transform: translateY(-1px) !important; box-shadow: var(--m3-bevel), 0 4px 16px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--secondary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface-raised)) !important; transform: translateY(0) !important; box-shadow: var(--m3-bevel) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--ghost { background: transparent !important; color: var(--color-text-secondary) !important; border-color: transparent !important; }
+[data-ui-style="materialyou"] .ui-btn--ghost:hover:not(:disabled) { background: var(--m3-tonal) !important; color: var(--color-text-primary) !important; border-color: transparent !important; transform: translateY(-1px) !important; }
+[data-ui-style="materialyou"] .ui-btn--ghost:active:not(:disabled) { background: var(--m3-tonal-high) !important; transform: translateY(0) !important; }
+[data-ui-style="materialyou"] .ui-btn--danger {
+  background: var(--color-danger) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 20%, transparent), 0 4px 16px color-mix(in srgb, var(--color-danger) 32%, transparent) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--danger:hover:not(:disabled) {
+  filter: brightness(1.08) !important; transform: translateY(-1px) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent), 0 8px 24px color-mix(in srgb, var(--color-danger) 44%, transparent) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--danger:active:not(:disabled) { filter: brightness(0.96) !important; transform: translateY(0) !important; }
+[data-ui-style="materialyou"] .ui-btn:focus-visible,
+[data-ui-style="materialyou"] .ui-btn--primary:focus-visible,
+[data-ui-style="materialyou"] .ui-btn--secondary:focus-visible,
+[data-ui-style="materialyou"] .ui-btn--ghost:focus-visible,
+[data-ui-style="materialyou"] .ui-btn--danger:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .ui-btn__icon { display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important; }
+[data-ui-style="materialyou"] .ui-btn__label { display: inline-flex !important; align-items: center !important; min-width: 0 !important; }
+[data-ui-style="materialyou"] .lib-card-list-play-btn {
+  border-radius: var(--radius-full) !important; background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: 0 3px 14px var(--color-accent-glow) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .lib-card-list-play-btn:hover { transform: translateY(-1px) !important; box-shadow: 0 6px 20px var(--color-accent-glow) !important; }
+[data-ui-style="materialyou"] .lib-card-list-play-btn:active { transform: translateY(0) !important; }
+[data-ui-style="materialyou"] .lib-card-list-play-btn:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .lib-card-list-play-btn.running { background: var(--color-success) !important; box-shadow: 0 3px 14px color-mix(in srgb, var(--color-success) 34%, transparent) !important; }
+
+/* ── Cards & surfaces ───────────────────────────────────────────────────── */
+/* Generic card chrome excludes the tonal variants and the flat list rows,
+   which carry their own geometry. */
+[data-ui-style="materialyou"] .ui-card:not(.ui-card--surface):not(.ui-card--glass):not(.ui-card--raised),
+[data-ui-style="materialyou"] .lib-card:not(.lib-card--list),
+[data-ui-style="materialyou"] .kpi-tile,
+[data-ui-style="materialyou"] .store-game-card:not(.store-game-card-list) {
+  border-radius: var(--radius-lg) !important; border: 1px solid var(--m3-outline) !important; background: var(--m3-tonal-low) !important; box-shadow: var(--m3-bevel), var(--elevation-2) !important; overflow: hidden !important; transition: var(--m3-surface) !important;
+}
+[data-ui-style="materialyou"] .ui-card__header { border-bottom: 1px solid var(--m3-outline) !important; color: var(--color-text-primary) !important; font-weight: var(--font-weight-semibold) !important; }
+[data-ui-style="materialyou"] .ui-card__body { color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important; }
+[data-ui-style="materialyou"] .lib-card:not(.lib-card--list):hover,
+[data-ui-style="materialyou"] .store-game-card:not(.store-game-card-list):hover,
+[data-ui-style="materialyou"] .kpi-tile--clickable:hover {
+  transform: translateY(-4px) !important; background: var(--m3-tonal) !important; border-color: color-mix(in srgb, var(--color-accent) 45%, transparent) !important;
+  box-shadow: 0 10px 34px var(--color-accent-glow), var(--m3-bevel) !important;
+}
+/* Running cards re-assert their success frame after the generic hover. */
+[data-ui-style="materialyou"] .lib-card.running:not(.lib-card--list),
+[data-ui-style="materialyou"] .lib-card.running:not(.lib-card--list):hover {
+  border-color: var(--color-success) !important;
+  box-shadow: 0 0 28px color-mix(in srgb, var(--color-success) 42%, transparent), inset 0 0 12px color-mix(in srgb, var(--color-success) 20%, transparent) !important;
+}
+[data-ui-style="materialyou"] .lib-card:not(.lib-card--list):focus-visible,
+[data-ui-style="materialyou"] .store-game-card:not(.store-game-card-list):focus-visible,
+[data-ui-style="materialyou"] .kpi-tile--clickable:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .lib-card-cover { border-radius: var(--radius-md) !important; margin: var(--space-2xs) var(--space-2xs) 0 !important; background: var(--color-surface) !important; overflow: hidden !important; }
+/* The animated crossfade owns its own opacity/visibility transition. */
+[data-ui-style="materialyou"] .lib-card-cover img:not(.lib-card-cover-animated) {
+  display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important; transition: transform var(--duration-slow) var(--ease-standard) !important;
+}
+/* Signature: the full-capsule pill FAB. */
+[data-ui-style="materialyou"] .lib-card-fab {
+  display: inline-flex !important; align-items: center !important; justify-content: center !important; padding: 0 var(--space-md) !important; min-width: calc(var(--space-3xl) + var(--space-sm)) !important; min-height: calc(var(--space-3xl) - var(--space-sm)) !important;
+  border-radius: var(--radius-full) !important; border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 24%, transparent) !important;
+  background: var(--color-accent) !important; color: var(--color-accent-contrast) !important;
+  box-shadow: var(--m3-bevel), 0 6px 22px var(--color-accent-glow) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .lib-card-fab:hover { filter: brightness(1.08) !important; transform: translateY(-2px) !important; box-shadow: var(--m3-bevel), 0 10px 30px var(--color-accent-glow) !important; }
+[data-ui-style="materialyou"] .lib-card-fab:active { filter: brightness(0.96) !important; transform: translateY(0) !important; }
+[data-ui-style="materialyou"] .lib-card-fab:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .lib-hero { border-radius: var(--radius-xl) !important; border: 1px solid var(--m3-outline) !important; background: var(--m3-tonal-low) !important; box-shadow: var(--m3-bevel), var(--elevation-3) !important; }
+/* The list-layout store card stays a flat row, only lightly re-toned. */
+[data-ui-style="materialyou"] .store-game-card.store-game-card-list { border-radius: var(--radius-md) !important; border: 1px solid var(--m3-outline) !important; background: var(--color-surface) !important; }
+[data-ui-style="materialyou"] .store-game-card.store-game-card-list:hover { background: var(--m3-tonal) !important; border-color: var(--color-accent-border) !important; box-shadow: 0 2px 14px var(--color-accent-glow) !important; }
+[data-ui-style="materialyou"] .store-game-card.store-game-card-list.selected { border-color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface)) !important; }
+
+/* ── Density ────────────────────────────────────────────────────────────── */
+/* M3 is airy by identity. The cue stays bounded and never touches chrome the
+   responsive breakpoints already resize (topnav tabs, sidebar rows/icons,
+   window controls, settings grids). */
+[data-ui-style="materialyou"] .ui-card__body { padding: var(--space-xl) var(--space-2xl) !important; }
+[data-ui-style="materialyou"] .ui-btn:not(.ui-btn--sm) { min-height: calc(var(--space-3xl) - var(--space-md)) !important; }
+[data-ui-style="materialyou"] .settings-behavior-card { min-height: calc(var(--space-3xl) + var(--space-lg)) !important; }
+
+/* ── Badges · chips · pills ─────────────────────────────────────────────── */
+[data-ui-style="materialyou"] .ui-badge { border-radius: var(--radius-full) !important; font-weight: var(--font-weight-bold) !important; box-shadow: none !important; }
+[data-ui-style="materialyou"] .ui-badge--default {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, var(--color-surface-raised)) !important; color: var(--color-text-secondary) !important; border-color: var(--m3-outline) !important;
+}
+[data-ui-style="materialyou"] .ui-badge--success {
+  background: color-mix(in srgb, var(--color-success) 16%, var(--color-surface-raised)) !important; color: var(--color-success) !important; border-color: color-mix(in srgb, var(--color-success) 32%, transparent) !important;
+}
+[data-ui-style="materialyou"] .ui-badge--warning {
+  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface-raised)) !important; color: var(--color-warning) !important; border-color: color-mix(in srgb, var(--color-warning) 32%, transparent) !important;
+}
+[data-ui-style="materialyou"] .ui-badge--danger {
+  background: color-mix(in srgb, var(--color-danger) 16%, var(--color-surface-raised)) !important; color: var(--color-danger) !important; border-color: color-mix(in srgb, var(--color-danger) 32%, transparent) !important;
+}
+[data-ui-style="materialyou"] .ui-badge--info {
+  background: color-mix(in srgb, var(--color-info) 16%, var(--color-surface-raised)) !important; color: var(--color-info) !important; border-color: color-mix(in srgb, var(--color-info) 32%, transparent) !important;
+}
+[data-ui-style="materialyou"] .ui-badge--accent {
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface-raised)) !important; color: var(--color-accent) !important; border-color: color-mix(in srgb, var(--color-accent) 32%, transparent) !important;
+}
+[data-ui-style="materialyou"] .lib-card-badge,
+[data-ui-style="materialyou"] .lib-card-platform { border-radius: var(--radius-full) !important; font-weight: var(--font-weight-bold) !important; }
+[data-ui-style="materialyou"] .lib-card-platform {
+  color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface-raised)) !important; border-color: color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
+}
+/* Cinematic density deliberately neutralises the platform pill. */
+[data-ui-style="materialyou"] .lib-card.density-cinematic .lib-card-platform {
+  color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important; border-color: transparent !important;
+}
+[data-ui-style="materialyou"] .filter-pill,
+[data-ui-style="materialyou"] .sidebar-active-filter {
+  border-radius: var(--radius-full) !important; color: var(--color-text-secondary) !important; background: var(--m3-tonal) !important; border: 1px solid var(--m3-outline) !important; font-weight: var(--font-weight-medium) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .filter-pill:hover,
+[data-ui-style="materialyou"] .sidebar-active-filter:hover { color: var(--color-text-primary) !important; background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 42%, transparent) !important; }
+[data-ui-style="materialyou"] .filter-pill.active,
+[data-ui-style="materialyou"] .sidebar-active-filter.active {
+  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: 0 2px 10px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .filter-pill:focus-visible,
+[data-ui-style="materialyou"] .sidebar-active-filter:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .spec-pill {
+  border-radius: var(--radius-full) !important; color: var(--color-text-secondary) !important; background: var(--m3-tonal) !important; border: 1px solid var(--m3-outline) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .spec-pill:hover {
+  color: var(--color-accent) !important; background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 40%, transparent) !important; transform: translateY(-1px) !important;
+}
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+[data-ui-style="materialyou"] .settings-section {
+  border-radius: var(--radius-lg) !important; border: 1px solid var(--m3-outline) !important; background: var(--m3-tonal-low) !important; box-shadow: var(--m3-bevel), var(--elevation-2) !important;
+}
+[data-ui-style="materialyou"] .settings-row { display: flex !important; flex-direction: column !important; gap: var(--space-md) !important; }
+[data-ui-style="materialyou"] .settings-label { color: var(--color-text-secondary) !important; font-weight: var(--font-weight-medium) !important; text-transform: none !important; letter-spacing: normal !important; }
+[data-ui-style="materialyou"] .settings-control { display: flex !important; flex-direction: column !important; gap: var(--space-xs) !important; }
+[data-ui-style="materialyou"] .settings-input,
+[data-ui-style="materialyou"] .settings-select {
+  border-radius: var(--radius-md) !important; border: 1px solid var(--m3-outline) !important; background-color: var(--m3-tonal) !important; color: var(--color-text-primary) !important; box-shadow: var(--m3-bevel) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .settings-input:hover,
+[data-ui-style="materialyou"] .settings-select:hover { border-color: var(--m3-outline-strong) !important; background-color: var(--m3-tonal-high) !important; }
+[data-ui-style="materialyou"] .settings-input:focus,
+[data-ui-style="materialyou"] .settings-select:focus { border-color: var(--color-accent) !important; background-color: var(--m3-tonal-high) !important; box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .settings-checkbox-label { color: var(--color-text-secondary) !important; }
+[data-ui-style="materialyou"] .settings-checkbox-label:hover { color: var(--color-text-primary) !important; }
+[data-ui-style="materialyou"] .settings-checkbox-label input[type="checkbox"] { border: 1px solid var(--color-border-light) !important; border-radius: var(--radius-xs) !important; background-color: var(--m3-tonal) !important; }
+[data-ui-style="materialyou"] .settings-checkbox-label input[type="checkbox"]:hover { border-color: var(--color-text-muted) !important; }
+[data-ui-style="materialyou"] .settings-checkbox-label input[type="checkbox"]:checked { background-color: var(--color-accent) !important; border-color: var(--color-accent) !important; }
+[data-ui-style="materialyou"] .settings-checkbox-label input[type="checkbox"]:focus-visible { box-shadow: var(--m3-ring) !important; }
+[data-ui-style="materialyou"] .settings-behavior-card { border-radius: var(--radius-lg) !important; border: 1px solid var(--m3-outline) !important; background: var(--m3-tonal) !important; }
+[data-ui-style="materialyou"] .settings-behavior-card:hover { border-color: color-mix(in srgb, var(--color-accent) 38%, transparent) !important; background: var(--m3-tonal-high) !important; }
+/* Warning variant keeps its hazard tint (re-asserted after the hover rule). */
+[data-ui-style="materialyou"] .settings-behavior-card--warn {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border)) !important; background: color-mix(in srgb, var(--color-warning) 6%, var(--color-surface-raised)) !important;
+}
+[data-ui-style="materialyou"] .settings-behavior-card--warn:hover {
+  border-color: color-mix(in srgb, var(--color-warning) 62%, var(--color-border)) !important; background: color-mix(in srgb, var(--color-warning) 11%, var(--color-surface-raised)) !important;
+}
+[data-ui-style="materialyou"] .settings-subtabs-bar { gap: var(--space-xs) !important; }
+[data-ui-style="materialyou"] .settings-subtab-item {
+  border-radius: var(--radius-full) !important; background: var(--m3-tonal) !important; border: 1px solid var(--m3-outline) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-medium) !important; transition: var(--m3-control) !important;
+}
+[data-ui-style="materialyou"] .settings-subtab-item:hover { background: var(--m3-tonal-high) !important; color: var(--color-text-primary) !important; border-color: color-mix(in srgb, var(--color-accent) 38%, transparent) !important; }
+[data-ui-style="materialyou"] .settings-subtab-item.active {
+  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: 0 3px 12px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .settings-subtab-item:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+
+/* ── Page headers ───────────────────────────────────────────────────────── */
+[data-ui-style="materialyou"] .page-header { border-bottom: 1px solid var(--m3-outline) !important; }
+[data-ui-style="materialyou"] .page-header::after {
+  width: var(--space-3xl) !important; height: 3px !important; border-radius: var(--radius-full) !important; background: var(--color-accent) !important; box-shadow: 0 0 14px var(--color-accent-glow) !important;
+}
+[data-ui-style="materialyou"] .page-header__eyebrow { display: block !important; }
+[data-ui-style="materialyou"] .page-header__title { color: var(--color-text-primary) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-bold) !important; letter-spacing: -0.02em !important; }
+[data-ui-style="materialyou"] .page-header__icon { border-radius: var(--radius-lg) !important; color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface-raised)) !important; }
+[data-ui-style="materialyou"] .page-header__description { color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important; }
+[data-ui-style="materialyou"] .page-header__actions { gap: var(--space-sm) !important; }
+
+/* ── Overlays · menus · tooltips ────────────────────────────────────────── */
+[data-ui-style="materialyou"] .modal-backdrop { background: var(--color-scrim) !important; backdrop-filter: var(--blur-scrim) !important; -webkit-backdrop-filter: var(--blur-scrim) !important; }
+[data-ui-style="materialyou"] .modal {
+  border-radius: var(--radius-lg) !important; border: 1px solid var(--m3-outline) !important; background-color: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-bg-secondary)) !important;
+  box-shadow: var(--m3-bevel), var(--elevation-5) !important;
+}
+[data-ui-style="materialyou"] .modal-header { border-bottom: 1px solid var(--m3-outline) !important; }
+[data-ui-style="materialyou"] .modal-body { overflow-y: auto !important; }
+[data-ui-style="materialyou"] .modal-footer { border-top: 1px solid var(--m3-outline) !important; }
+[data-ui-style="materialyou"] .modal-title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; }
+/* Confirm dialogs keep their danger-tinted frame (re-asserted after .modal). */
+[data-ui-style="materialyou"] .confirm-modal {
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, var(--color-border)) !important; box-shadow: var(--elevation-5), 0 0 32px color-mix(in srgb, var(--color-danger) 18%, transparent) !important;
+}
+[data-ui-style="materialyou"] .confirm-modal .modal-header {
+  background: color-mix(in srgb, var(--color-danger) 5%, var(--color-surface-raised)) !important; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important;
+}
+[data-ui-style="materialyou"] .confirm-modal .modal-footer {
+  background: color-mix(in srgb, var(--color-danger) 4%, var(--color-surface-raised)) !important; border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important;
+}
+[data-ui-style="materialyou"] .context-menu {
+  border-radius: var(--radius-md) !important; border: 1px solid var(--m3-outline) !important; background: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-surface-raised)) !important;
+  box-shadow: var(--elevation-4) !important; padding: var(--space-2xs) !important;
+}
+[data-ui-style="materialyou"] .context-menu-item { border-radius: var(--radius-sm) !important; color: var(--color-text-primary) !important; transition: var(--m3-control) !important; }
+[data-ui-style="materialyou"] .context-menu-item:hover { background: var(--m3-tonal) !important; }
+[data-ui-style="materialyou"] .context-menu-item:active { background: var(--m3-tonal-high) !important; }
+[data-ui-style="materialyou"] .context-menu-item:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
+/* Action-tinted rows keep their semantic hues. */
+[data-ui-style="materialyou"] .context-menu-item.play-action { color: var(--color-accent) !important; }
+[data-ui-style="materialyou"] .context-menu-item.play-action:hover { background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; }
+[data-ui-style="materialyou"] .context-menu-item.remove-action { color: var(--color-danger) !important; }
+[data-ui-style="materialyou"] .context-menu-item.remove-action:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent) !important; }
+[data-ui-style="materialyou"] .context-menu-separator { height: 1px !important; background: var(--m3-outline) !important; }
+[data-ui-style="materialyou"] .ui-tooltip { animation-duration: var(--duration-fast) !important; }
+[data-ui-style="materialyou"] .ui-tooltip__content {
+  border-radius: var(--radius-md) !important; border: 1px solid var(--m3-outline) !important; background: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-surface-raised)) !important;
+  color: var(--color-text-primary) !important; box-shadow: var(--elevation-3) !important;
+}
+[data-ui-style="materialyou"] .ui-tooltip__arrow { background: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-surface-raised)) !important; border-color: var(--m3-outline) !important; }
+
+/* ── Primitives ─────────────────────────────────────────────────────────── */
+[data-ui-style="materialyou"] .ui-skeleton { border-radius: var(--radius-md) !important; background: var(--m3-tonal) !important; }
+[data-ui-style="materialyou"] .ui-skeleton--text { border-radius: var(--radius-xs) !important; }
+[data-ui-style="materialyou"] .ui-skeleton--circle { border-radius: 50% !important; }
+[data-ui-style="materialyou"] .ui-skeleton--rect { border-radius: var(--radius-md) !important; }
+[data-ui-style="materialyou"] .empty-state { color: var(--color-text-muted) !important; }
+[data-ui-style="materialyou"] .filter-slider { background: var(--m3-outline) !important; border-radius: var(--radius-full) !important; accent-color: var(--color-accent) !important; }
+[data-ui-style="materialyou"] .filter-slider::-webkit-slider-thumb,
+[data-ui-style="materialyou"] .filter-slider::-moz-range-thumb { background: var(--color-accent) !important; border: 2px solid var(--color-surface-raised) !important; border-radius: 50% !important; }
+
+/* ── Scrollbars (capsule thumb, transparent track) ──────────────────────── */
+/* 8px rail (--space-sm); the thumb insets itself with a transparent border
+   rather than a heavy bordered track. */
+[data-ui-style="materialyou"] ::-webkit-scrollbar { width: var(--space-sm) !important; height: var(--space-sm) !important; }
+[data-ui-style="materialyou"] ::-webkit-scrollbar-track { background: transparent !important; border: none !important; }
+[data-ui-style="materialyou"] ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text-muted) 10%, transparent) !important; border-radius: var(--radius-full) !important; border: 2px solid transparent !important; background-clip: padding-box !important;
+}
+[data-ui-style="materialyou"] ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-text-muted) 48%, transparent) !important; background-clip: padding-box !important; }
+[data-ui-style="materialyou"] .sidebar-list::-webkit-scrollbar { width: var(--space-xs) !important; }
+[data-ui-style="materialyou"] .sidebar-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border) 90%, transparent) !important; border: 1px solid transparent !important; border-radius: var(--radius-full) !important; background-clip: padding-box !important;
+}
+[data-ui-style="materialyou"] .sidebar-list::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-text-muted) 55%, transparent) !important; background-clip: padding-box !important; }
+/* Firefox fallback — matches the webkit capsule treatment. */
+[data-ui-style="materialyou"] * { scrollbar-width: thin !important; scrollbar-color: color-mix(in srgb, var(--color-text-muted) 24%, transparent) transparent !important; }
+
+/* Motion safety: M3 states read through tonal fill + glow, never motion alone. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="materialyou"] *, [data-ui-style="materialyou"] *::before, [data-ui-style="materialyou"] *::after {
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; scroll-behavior: auto !important;
+  }
+}
+
+/* High-contrast theme: flatten decorative shadow/glow and lean on a single
+   hard focus outline so state never depends on low-opacity effects. */
+[data-theme="highcontrast"][data-ui-style="materialyou"] .lib-card:hover,
+[data-theme="highcontrast"][data-ui-style="materialyou"] .store-game-card:hover { box-shadow: none !important; }
+[data-theme="highcontrast"][data-ui-style="materialyou"] :focus-visible {
+  outline: 3px solid var(--color-accent) !important; outline-offset: 2px !important; box-shadow: none !important;
+}

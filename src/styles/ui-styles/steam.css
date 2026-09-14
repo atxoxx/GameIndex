@@ -1,0 +1,576 @@
+/* =============================================================================
+   3. UI Style: Steam Client (Industrial Charcoal Shelf & Inset Wells)
+   ─────────────────────────────────────────────────────────────────────────────
+   Identity: dense, boxy Valve-era chrome — thick 2px rules, near-square corners,
+   beveled gradient buttons and sunken inset trays that read like a physical rack,
+   with cyan-glow hovers that never lift. Signature detail: beveled shelf tabs
+   sitting in inset wells.
+
+   Colour-agnostic by construction: only theme tokens are referenced. Depth is
+   built from an ink that reads on pure black — a `--color-text-primary` / border
+   lip (`--steam-well`, the 2px shell rails) plus a `--color-scrim` inner shadow —
+   so the industrial recess survives light, OLED and high-contrast palettes
+   instead of flattening into "epic minus the colour". Bevels come from
+   `--color-border-highlight` / `--color-accent-contrast`, never a literal.
+
+   Deliberate restraint: geometry / surface / typography and a bounded density
+   shift are asserted, but any size or padding a base media query re-tunes
+   (topnav tabs/buttons, sidebar rows/icons, window controls, settings grids) is
+   left alone. Steam-owned states are restated, and contextual variants (game
+   accent, right dock, running cards, list rows, warn, confirm dialogs) are
+   re-asserted afterwards.
+   ============================================================================= */
+
+[data-ui-style="steam"] {
+  /* Radius ladder — the only place raw px belongs. */
+  --radius-xs: 2px; --radius-sm: 2px; --radius-md: 3px;
+  --radius-lg: 4px; --radius-xl: 6px; --radius-2xl: 8px; --radius-3xl: 48px;
+
+  /* Steam-local aliases: lit top bevel, sunken tray, focus ring, timings. */
+  --steam-bevel: inset 0 1px 0 var(--color-border-highlight);
+  --steam-bevel-faint: inset 0 1px 0 var(--color-border-faint);
+  /* Recess built from inks that stay visible on pure black: a lit lip from
+     the foreground ink plus a scrim inner shadow. Never a bg-primary mix —
+     on OLED / high-contrast that flattens to nothing and the identity dies. */
+  --steam-well: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 14%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 7%, transparent),
+    inset 0 2px 4px color-mix(in srgb, var(--color-scrim) 55%, transparent);
+  /* One focus vocabulary: an inset accent lip that survives clipping plus a
+     soft outer halo. Every :focus-visible below uses this single alias. */
+  --steam-ring: inset 0 0 0 2px var(--color-accent), var(--ring-accent-soft);
+  --steam-chrome-fast: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  --steam-control: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard),
+    transform var(--duration-normal) var(--ease-standard);
+}
+
+/* ── Canvas ─────────────────────────────────────────────────────────────── */
+[data-ui-style="steam"] .app-layout {
+  padding: 0 !important;
+  background-color: var(--color-bg-primary) !important;
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 4%, var(--color-bg-secondary)) 0%, var(--color-bg-primary) 100%) !important;
+}
+[data-ui-style="steam"] .app-main {
+  margin: 0 !important; border-radius: 0 !important; border: none !important;
+  border-left: 2px solid color-mix(in srgb, var(--color-text-primary) 14%, transparent) !important;
+  box-shadow: var(--steam-bevel) !important;
+}
+
+/* ── Top navigation ─────────────────────────────────────────────────────── */
+[data-ui-style="steam"] .topnav {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 5%, var(--color-bg-secondary)) 0%, var(--color-bg-primary) 100%) !important;
+  border-bottom: 2px solid color-mix(in srgb, var(--color-text-primary) 22%, transparent) !important;
+  box-shadow: var(--steam-bevel), var(--elevation-2) !important;
+}
+/* Preserve the runtime per-game accent wash. */
+[data-ui-style="steam"][data-game-accent] .topnav {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary)) 0%,
+    color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-primary)) 100%) !important;
+  border-bottom: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
+}
+[data-ui-style="steam"] .topnav-logo__word {
+  text-transform: uppercase !important; font-weight: var(--font-weight-extrabold) !important; letter-spacing: 0.05em !important;
+}
+[data-ui-style="steam"] .topnav-logo__version {
+  border-radius: var(--radius-xs) !important; text-transform: uppercase !important;
+  letter-spacing: 0.06em !important; font-weight: var(--font-weight-bold) !important; color: var(--color-text-secondary) !important;
+}
+/* Beveled shelf tray: a recessed well with a faint lit lip. */
+[data-ui-style="steam"] .topnav-tabs {
+  border-radius: var(--radius-md) !important;
+  background: color-mix(in srgb, var(--color-bg-primary) 78%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
+  box-shadow: var(--steam-well) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+[data-ui-style="steam"] .topnav-tab {
+  border-radius: var(--radius-xs) !important; text-transform: uppercase !important; letter-spacing: 0.05em !important;
+  font-weight: var(--font-weight-semibold) !important; color: var(--color-text-secondary) !important;
+  transition: var(--steam-chrome-fast) !important;
+}
+[data-ui-style="steam"] .topnav-tab:not(.active):hover {
+  color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important;
+  transform: none !important;
+}
+[data-ui-style="steam"] .topnav-tab.active {
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%) !important;
+  color: var(--color-accent-contrast) !important; transform: none !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 40%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-accent-active) 55%, transparent), 0 2px 8px var(--color-accent-glow) !important;
+}
+[data-ui-style="steam"] .topnav-tab:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .topnav-btn--cmd {
+  border-radius: var(--radius-sm) !important; border: 1px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
+  background: color-mix(in srgb, var(--color-bg-secondary) 70%, transparent) !important;
+  box-shadow: var(--steam-bevel) !important; transition: var(--steam-chrome-fast) !important;
+}
+[data-ui-style="steam"] .topnav-btn--cmd:hover {
+  color: var(--color-accent) !important; border-color: var(--color-accent-border) !important; background: var(--color-bg-hover) !important;
+  box-shadow: 0 0 14px var(--color-accent-glow), var(--steam-bevel) !important; transform: none !important;
+}
+[data-ui-style="steam"] .topnav-btn--cmd:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .topnav-now-playing-chip {
+  border-radius: var(--radius-xs) !important; border: 1px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
+  transition: var(--steam-chrome-fast) !important;
+}
+[data-ui-style="steam"] .topnav-now-playing-chip:hover { transform: none !important; }
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+[data-ui-style="steam"] .sidebar {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 4%, var(--color-bg-secondary)) 0%,
+    var(--color-bg-secondary) 100%) !important;
+  border-right: 2px solid color-mix(in srgb, var(--color-text-primary) 18%, transparent) !important;
+  box-shadow: var(--steam-bevel) !important;
+}
+/* Docked-right flips the rule to the left edge. */
+[data-ui-style="steam"][data-sidebar-position="right"] .sidebar {
+  border-right: none !important;
+  border-left: 2px solid color-mix(in srgb, var(--color-text-primary) 18%, transparent) !important;
+  box-shadow: var(--steam-bevel) !important;
+}
+/* Preserve the runtime per-game accent wash (ordered after the dock flip). */
+[data-ui-style="steam"][data-game-accent] .sidebar {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)) 0%,
+    var(--color-bg-secondary) 100%) !important;
+  border-right: 2px solid color-mix(in srgb, var(--color-accent) 26%, transparent) !important;
+}
+[data-ui-style="steam"] .sidebar-search {
+  border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-bg-primary) 80%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 15%, transparent) !important;
+  box-shadow: var(--steam-well) !important;
+}
+[data-ui-style="steam"] .sidebar-search:focus-within {
+  border-color: var(--color-accent) !important; background: var(--color-bg-secondary) !important;
+  box-shadow: var(--ring-accent-soft), var(--steam-well) !important;
+}
+/* Flat shelf rows: no gaps, hairline separators, left accent block. */
+[data-ui-style="steam"] .sidebar-game-item {
+  border-radius: 0 !important; margin: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text-primary) 6%, transparent) !important;
+  transition: background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard) !important;
+}
+[data-ui-style="steam"] .sidebar-game-item:hover:not(.active) {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent) !important; box-shadow: none !important;
+}
+[data-ui-style="steam"] .sidebar-game-item.active {
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface-raised)) !important;
+  border-left: 3px solid var(--color-accent) !important; border-radius: 0 !important;
+  box-shadow: inset 3px 0 12px color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+}
+[data-ui-style="steam"] .sidebar-game-item.active:hover {
+  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface-raised)) !important;
+}
+[data-ui-style="steam"] .sidebar-game-item::after { border-radius: 0 !important; }
+[data-ui-style="steam"] .sidebar-game-item:focus-visible {
+  outline: none !important;
+  box-shadow: var(--steam-ring) !important;
+}
+[data-ui-style="steam"] .sidebar-game-icon { border-radius: var(--radius-sm) !important; }
+[data-ui-style="steam"] .sidebar-section-header {
+  text-transform: uppercase !important; font-weight: var(--font-weight-bold) !important; letter-spacing: 0.09em !important;
+  color: var(--color-text-muted) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important;
+}
+[data-ui-style="steam"] .sidebar-filter-btn {
+  border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-bg-tertiary) 86%, transparent) !important;
+  border: 1px solid var(--color-border) !important; box-shadow: var(--steam-bevel) !important;
+  transition: var(--steam-chrome-fast) !important;
+}
+[data-ui-style="steam"] .sidebar-filter-btn:hover {
+  color: var(--color-text-primary) !important; border-color: var(--color-border-light) !important; background: var(--color-bg-hover) !important;
+}
+[data-ui-style="steam"] .sidebar-filter-btn.active {
+  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important;
+  border-color: var(--color-accent) !important; box-shadow: 0 2px 10px var(--color-accent-glow) !important;
+}
+[data-ui-style="steam"] .sidebar-filter-btn:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .sidebar-section-toggle {
+  border-radius: var(--radius-xs) !important; color: var(--color-text-muted) !important;
+  font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.08em !important;
+  transition: var(--steam-chrome-fast) !important;
+}
+[data-ui-style="steam"] .sidebar-section-toggle:hover {
+  color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-muted) 12%, transparent) !important;
+}
+[data-ui-style="steam"] .sidebar-section-toggle:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .sidebar-filter-popover {
+  background: var(--color-bg-secondary) !important; border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-lg) !important; box-shadow: var(--elevation-4), var(--steam-bevel) !important;
+}
+[data-ui-style="steam"] .sidebar-view-options-menu {
+  background: var(--color-surface-raised) !important; border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-lg) !important; box-shadow: var(--elevation-4) !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+[data-ui-style="steam"] .ui-btn {
+  border-radius: var(--radius-md) !important; font-weight: var(--font-weight-semibold) !important;
+  letter-spacing: 0.01em !important; transition: var(--steam-control) !important;
+}
+[data-ui-style="steam"] .ui-btn--sm { border-radius: var(--radius-xs) !important; }
+[data-ui-style="steam"] .ui-btn--lg { border-radius: var(--radius-lg) !important; }
+/* Beveled accent gradient — the classic valve shelf button. */
+[data-ui-style="steam"] .ui-btn--primary,
+[data-ui-style="steam"] .lib-card-list-play-btn {
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%) !important;
+  color: var(--color-accent-contrast) !important; border: 1px solid var(--color-accent-border) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 38%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-accent-active) 55%, transparent), var(--elevation-2) !important;
+}
+[data-ui-style="steam"] .ui-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.12) !important; transform: none !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 48%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-accent-active) 55%, transparent), 0 0 16px var(--color-accent-glow) !important;
+}
+[data-ui-style="steam"] .ui-btn--primary:active:not(:disabled) {
+  transform: none !important;
+  box-shadow: inset 0 2px 6px color-mix(in srgb, var(--color-bg-primary) 45%, transparent) !important;
+}
+[data-ui-style="steam"] .ui-btn--primary:focus-visible,
+[data-ui-style="steam"] .lib-card-list-play-btn:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .ui-btn--secondary {
+  background: linear-gradient(180deg, var(--color-bg-hover) 0%, var(--color-bg-tertiary) 100%) !important;
+  color: var(--color-text-primary) !important; border: 1px solid var(--color-border) !important;
+  box-shadow: var(--steam-bevel), var(--elevation-1) !important;
+}
+[data-ui-style="steam"] .ui-btn--secondary:hover:not(:disabled) {
+  background: var(--color-bg-hover) !important; border-color: var(--color-border-light) !important; transform: none !important;
+  box-shadow: var(--steam-bevel), var(--elevation-2) !important;
+}
+[data-ui-style="steam"] .ui-btn--secondary:active:not(:disabled) {
+  transform: none !important;
+  box-shadow: inset 0 2px 4px color-mix(in srgb, var(--color-bg-primary) 40%, transparent) !important;
+}
+[data-ui-style="steam"] .ui-btn--secondary:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .ui-btn--ghost {
+  background: transparent !important; color: var(--color-text-secondary) !important; border-color: transparent !important;
+}
+[data-ui-style="steam"] .ui-btn--ghost:hover:not(:disabled) {
+  background: var(--color-bg-hover) !important; color: var(--color-text-primary) !important;
+  border-color: var(--color-border) !important; transform: none !important;
+}
+[data-ui-style="steam"] .ui-btn--ghost:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .ui-btn--danger {
+  background: var(--color-danger) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-bg-primary) 30%, transparent), var(--elevation-2) !important;
+}
+[data-ui-style="steam"] .ui-btn--danger:hover:not(:disabled) { filter: brightness(1.1) !important; transform: none !important; }
+[data-ui-style="steam"] .ui-btn__icon { display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important; }
+[data-ui-style="steam"] .ui-btn__label { display: inline-flex !important; align-items: center !important; min-width: 0 !important; }
+[data-ui-style="steam"] .lib-card-list-play-btn {
+  border-radius: var(--radius-md) !important; font-weight: var(--font-weight-semibold) !important;
+  transition: var(--steam-control) !important;
+}
+[data-ui-style="steam"] .lib-card-list-play-btn:hover {
+  transform: none !important; box-shadow: 0 0 14px var(--color-accent-glow) !important;
+}
+[data-ui-style="steam"] .lib-card-list-play-btn.running { background: var(--color-success) !important; }
+
+/* ── Cards & surfaces ───────────────────────────────────────────────────── */
+[data-ui-style="steam"] .ui-card,
+[data-ui-style="steam"] .lib-card:not(.lib-card--list),
+[data-ui-style="steam"] .store-game-card:not(.store-game-card-list),
+[data-ui-style="steam"] .kpi-tile {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent) !important;
+  background: color-mix(in srgb, var(--color-surface-raised) 94%, var(--color-bg-primary)) !important;
+  transition: border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard),
+    background-color var(--duration-normal) var(--ease-standard) !important;
+}
+/* The generic fill must not flatten the three ui.css surfaces. */
+[data-ui-style="steam"] .ui-card--surface { background: var(--color-surface) !important; }
+[data-ui-style="steam"] .ui-card--glass { background: var(--color-surface-raised) !important; }
+[data-ui-style="steam"] .ui-card--raised {
+  background: color-mix(in srgb, var(--color-surface-raised) 94%, var(--color-bg-primary)) !important;
+  box-shadow: var(--steam-bevel), var(--elevation-2) !important;
+}
+/* Density: card chrome sits one step tighter than default. Card bodies are
+   not re-tuned by any media query, so a bounded shift here is safe. */
+[data-ui-style="steam"] .ui-card__header {
+  padding: var(--space-md) var(--space-lg) !important;
+  border-bottom: 1px solid var(--color-border) !important; color: var(--color-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important; letter-spacing: 0.01em !important;
+}
+[data-ui-style="steam"] .ui-card__body {
+  padding: var(--space-lg) !important;
+  color: var(--color-text-secondary) !important; line-height: var(--line-height-normal) !important;
+}
+[data-ui-style="steam"] .lib-card-cover { background: var(--color-surface) !important; overflow: hidden !important; }
+[data-ui-style="steam"] .lib-card-cover img:not(.lib-card-cover-animated) {
+  display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important;
+}
+/* Cyan-glow hovers: outline + halo, never a lift. List rows opt out. */
+[data-ui-style="steam"] .lib-card:hover:not(.lib-card--list),
+[data-ui-style="steam"] .store-game-card:not(.store-game-card-list):hover {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 2px var(--color-accent), 0 0 20px var(--color-accent-glow) !important; transform: none !important;
+}
+/* The running card owns its success frame — re-asserted after the generic
+   hover so a pointer never swaps the success glow back to cyan. */
+[data-ui-style="steam"] .lib-card.running { border-color: var(--color-success) !important; }
+[data-ui-style="steam"] .lib-card.running:hover {
+  border-color: var(--color-success) !important;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--color-success) 45%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--color-success) 18%, transparent) !important;
+}
+/* List rows keep their own flat, full-width treatment (base rules win now
+   that the generic card selector excludes .lib-card--list). */
+[data-ui-style="steam"] .lib-card--list {
+  padding: var(--space-2xs) var(--space-xs) !important; min-height: 0 !important;
+}
+[data-ui-style="steam"] .store-game-card.store-game-card-list {
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 14%, transparent) !important;
+  background: var(--color-bg-secondary) !important;
+  padding: var(--space-xs) var(--space-md) !important; min-height: 0 !important;
+}
+[data-ui-style="steam"] .store-game-card.store-game-card-list:hover {
+  background: var(--color-bg-hover) !important; border-color: var(--color-accent-border) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent) !important; transform: none !important;
+}
+/* Selected rows hold their accent frame after the hover state. */
+[data-ui-style="steam"] .store-game-card.store-game-card-list.selected {
+  border-color: var(--color-accent) !important;
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)) !important;
+}
+[data-ui-style="steam"] .lib-card-fab {
+  border-radius: var(--radius-sm) !important;
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%) !important;
+  color: var(--color-accent-contrast) !important; border: 1px solid var(--color-accent-border) !important;
+}
+[data-ui-style="steam"] .lib-hero {
+  border-radius: var(--radius-lg) !important; box-shadow: var(--steam-bevel), var(--elevation-3) !important;
+}
+
+/* ── Badges · chips · pills ─────────────────────────────────────────────── */
+[data-ui-style="steam"] .ui-badge {
+  border-radius: var(--radius-xs) !important; font-weight: var(--font-weight-bold) !important;
+  text-transform: uppercase !important; letter-spacing: 0.06em !important; box-shadow: var(--steam-bevel-faint) !important;
+}
+[data-ui-style="steam"] .ui-badge--default { background: var(--color-bg-tertiary) !important; color: var(--color-text-secondary) !important; border-color: var(--color-border) !important; }
+[data-ui-style="steam"] .ui-badge--success { background: color-mix(in srgb, var(--color-success) 14%, transparent) !important; color: var(--color-success) !important; border-color: color-mix(in srgb, var(--color-success) 30%, transparent) !important; }
+[data-ui-style="steam"] .ui-badge--warning { background: color-mix(in srgb, var(--color-warning) 14%, transparent) !important; color: var(--color-warning) !important; border-color: color-mix(in srgb, var(--color-warning) 30%, transparent) !important; }
+[data-ui-style="steam"] .ui-badge--danger { background: color-mix(in srgb, var(--color-danger) 14%, transparent) !important; color: var(--color-danger) !important; border-color: color-mix(in srgb, var(--color-danger) 30%, transparent) !important; }
+[data-ui-style="steam"] .ui-badge--info { background: color-mix(in srgb, var(--color-info) 14%, transparent) !important; color: var(--color-info) !important; border-color: color-mix(in srgb, var(--color-info) 30%, transparent) !important; }
+[data-ui-style="steam"] .ui-badge--accent { background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; color: var(--color-accent) !important; border-color: color-mix(in srgb, var(--color-accent) 30%, transparent) !important; }
+[data-ui-style="steam"] .lib-card-badge,
+[data-ui-style="steam"] .lib-card-platform {
+  border-radius: var(--radius-xs) !important; font-weight: var(--font-weight-bold) !important;
+  text-transform: uppercase !important; letter-spacing: 0.05em !important;
+}
+[data-ui-style="steam"] .lib-card-platform {
+  color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important;
+}
+/* Cinematic density deliberately neutralises the platform pill. */
+[data-ui-style="steam"] .lib-card.density-cinematic .lib-card-platform {
+  color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
+}
+[data-ui-style="steam"] .filter-pill,
+[data-ui-style="steam"] .sidebar-active-filter {
+  border-radius: var(--radius-xs) !important; color: var(--color-text-secondary) !important;
+  background: var(--color-bg-tertiary) !important; border: 1px solid var(--color-border) !important;
+  font-weight: var(--font-weight-semibold) !important; text-transform: uppercase !important; letter-spacing: 0.04em !important;
+}
+[data-ui-style="steam"] .filter-pill:hover,
+[data-ui-style="steam"] .sidebar-active-filter:hover {
+  color: var(--color-text-primary) !important; border-color: var(--color-accent) !important; background: var(--color-bg-hover) !important;
+}
+[data-ui-style="steam"] .filter-pill.active,
+[data-ui-style="steam"] .sidebar-active-filter.active {
+  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important;
+  border-color: var(--color-accent) !important; box-shadow: 0 2px 8px var(--color-accent-glow) !important;
+}
+[data-ui-style="steam"] .filter-pill:focus-visible,
+[data-ui-style="steam"] .sidebar-active-filter:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .spec-pill {
+  border-radius: var(--radius-xs) !important; color: var(--color-text-secondary) !important;
+  background: var(--color-bg-tertiary) !important; border: 1px solid var(--color-border) !important;
+  font-weight: var(--font-weight-semibold) !important; text-transform: uppercase !important; letter-spacing: 0.04em !important;
+}
+[data-ui-style="steam"] .spec-pill:hover {
+  color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-tertiary)) !important;
+  border-color: var(--color-accent) !important; transform: none !important;
+}
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+[data-ui-style="steam"] .settings-section {
+  background: var(--color-surface) !important; border: 1px solid color-mix(in srgb, var(--color-text-primary) 14%, transparent) !important;
+  border-radius: var(--radius-lg) !important;
+}
+[data-ui-style="steam"] .settings-row { gap: var(--space-md) !important; }
+[data-ui-style="steam"] .settings-label {
+  color: var(--color-text-secondary) !important; font-weight: var(--font-weight-semibold) !important;
+  text-transform: uppercase !important; letter-spacing: 0.07em !important;
+}
+[data-ui-style="steam"] .settings-control { display: flex !important; flex-direction: column !important; gap: var(--space-xs) !important; }
+[data-ui-style="steam"] .settings-input,
+[data-ui-style="steam"] .settings-select {
+  border-radius: var(--radius-sm) !important; background-color: color-mix(in srgb, var(--color-bg-primary) 82%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
+  color: var(--color-text-primary) !important; box-shadow: var(--steam-well) !important;
+}
+[data-ui-style="steam"] .settings-select:hover { border-color: var(--color-border-light) !important; }
+[data-ui-style="steam"] .settings-input:focus,
+[data-ui-style="steam"] .settings-select:focus {
+  border-color: var(--color-accent) !important; background-color: var(--color-bg-secondary) !important;
+  box-shadow: var(--ring-accent-soft) !important;
+}
+[data-ui-style="steam"] .settings-checkbox-label { color: var(--color-text-secondary) !important; }
+[data-ui-style="steam"] .settings-checkbox-label:hover { color: var(--color-text-primary) !important; }
+[data-ui-style="steam"] .settings-checkbox-label input[type="checkbox"] {
+  border: 1px solid var(--color-border-light) !important; border-radius: var(--radius-xs) !important;
+  background-color: var(--color-bg-tertiary) !important;
+}
+[data-ui-style="steam"] .settings-checkbox-label input[type="checkbox"]:hover { border-color: var(--color-text-muted) !important; }
+[data-ui-style="steam"] .settings-checkbox-label input[type="checkbox"]:checked {
+  background-color: var(--color-accent) !important; border-color: var(--color-accent) !important;
+}
+[data-ui-style="steam"] .settings-checkbox-label input[type="checkbox"]:focus-visible { box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .settings-behavior-card {
+  background: var(--color-surface) !important; border: 1px solid var(--color-border) !important; border-radius: var(--radius-lg) !important;
+}
+[data-ui-style="steam"] .settings-behavior-card:hover {
+  border-color: var(--color-border-light) !important; background: color-mix(in srgb, var(--color-bg-secondary) 40%, var(--color-surface)) !important;
+}
+/* Warn variant preserves its amber frame (ordered after the generic card). */
+[data-ui-style="steam"] .settings-behavior-card--warn {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border)) !important;
+  background: color-mix(in srgb, var(--color-warning) 5%, var(--color-surface)) !important;
+}
+[data-ui-style="steam"] .settings-behavior-card--warn:hover {
+  border-color: color-mix(in srgb, var(--color-warning) 60%, var(--color-border)) !important;
+}
+[data-ui-style="steam"] .settings-subtabs-bar { gap: var(--space-xs) !important; }
+[data-ui-style="steam"] .settings-subtab-item {
+  border-radius: var(--radius-xs) !important; background: var(--color-bg-tertiary) !important;
+  border: 1px solid var(--color-border) !important; color: var(--color-text-secondary) !important;
+  font-weight: var(--font-weight-semibold) !important; text-transform: uppercase !important; letter-spacing: 0.04em !important;
+}
+[data-ui-style="steam"] .settings-subtab-item:hover {
+  background: var(--color-bg-hover) !important; color: var(--color-text-primary) !important; border-color: var(--color-border-light) !important;
+}
+[data-ui-style="steam"] .settings-subtab-item.active {
+  color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-accent) 16%, transparent) !important;
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 25%, transparent) !important;
+}
+[data-ui-style="steam"] .settings-subtab-item:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+
+/* ── Page headers ───────────────────────────────────────────────────────── */
+[data-ui-style="steam"] .page-header {
+  border-bottom: 2px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
+}
+/* Heavy flat accent underline bar. */
+[data-ui-style="steam"] .page-header::after {
+  width: var(--space-2xl) !important; height: 3px !important; border-radius: 0 !important; background: var(--color-accent) !important;
+}
+[data-ui-style="steam"] .page-header__eyebrow {
+  display: block !important; text-transform: uppercase !important; letter-spacing: 0.14em !important;
+  color: var(--color-accent) !important; font-weight: var(--font-weight-bold) !important;
+}
+/* Uppercase title is part of the identity — headings only, never body copy. */
+[data-ui-style="steam"] .page-header__title {
+  text-transform: uppercase !important; letter-spacing: 0.01em !important;
+  color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important;
+}
+[data-ui-style="steam"] .page-header__icon {
+  border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent) !important; color: var(--color-accent) !important;
+}
+[data-ui-style="steam"] .page-header__description {
+  color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important;
+}
+[data-ui-style="steam"] .page-header__actions { gap: var(--space-sm) !important; }
+
+/* ── Overlays · menus · tooltips ────────────────────────────────────────── */
+[data-ui-style="steam"] .modal-backdrop {
+  background: var(--color-scrim) !important; backdrop-filter: var(--blur-scrim) !important; -webkit-backdrop-filter: var(--blur-scrim) !important;
+}
+[data-ui-style="steam"] .modal {
+  border-radius: var(--radius-lg) !important; border: 1px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
+  background-color: var(--color-bg-secondary) !important; box-shadow: var(--steam-bevel), var(--elevation-4) !important;
+}
+[data-ui-style="steam"] .modal-header { border-bottom: 1px solid var(--color-border) !important; }
+[data-ui-style="steam"] .modal-body { overflow-y: auto !important; }
+[data-ui-style="steam"] .modal-footer { border-top: 1px solid var(--color-border) !important; }
+/* Confirm dialogs keep their danger-tinted hairline frame. */
+[data-ui-style="steam"] .confirm-modal .modal-header { border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important; }
+[data-ui-style="steam"] .confirm-modal .modal-footer { border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important; }
+[data-ui-style="steam"] .modal-title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; }
+[data-ui-style="steam"] .context-menu {
+  background: var(--color-surface-raised) !important; border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-md) !important; box-shadow: var(--elevation-4) !important;
+}
+[data-ui-style="steam"] .context-menu-item {
+  border-radius: var(--radius-xs) !important; color: var(--color-text-primary) !important;
+  font-weight: var(--font-weight-medium) !important; transition: var(--steam-chrome-fast) !important;
+}
+[data-ui-style="steam"] .context-menu-item:hover { background: var(--color-bg-hover) !important; }
+[data-ui-style="steam"] .context-menu-item.play-action { color: var(--color-accent) !important; }
+[data-ui-style="steam"] .context-menu-item.play-action:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent) !important; }
+[data-ui-style="steam"] .context-menu-item.remove-action { color: var(--color-danger) !important; }
+[data-ui-style="steam"] .context-menu-item.remove-action:hover { background: color-mix(in srgb, var(--color-danger) 8%, transparent) !important; }
+[data-ui-style="steam"] .context-menu-item:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
+[data-ui-style="steam"] .context-menu-separator { height: 1px !important; background: var(--color-border) !important; }
+[data-ui-style="steam"] .ui-tooltip { animation-duration: var(--duration-fast) !important; }
+[data-ui-style="steam"] .ui-tooltip__content {
+  background: var(--color-surface-raised) !important; border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-md) !important; color: var(--color-text-primary) !important; box-shadow: var(--elevation-3) !important;
+}
+[data-ui-style="steam"] .ui-tooltip__arrow { background: var(--color-surface-raised) !important; border-color: var(--color-border-light) !important; }
+
+/* ── Primitives ─────────────────────────────────────────────────────────── */
+[data-ui-style="steam"] .ui-skeleton { background: var(--color-bg-tertiary) !important; border-radius: var(--radius-sm) !important; }
+[data-ui-style="steam"] .ui-skeleton--text { border-radius: var(--radius-xs) !important; }
+[data-ui-style="steam"] .ui-skeleton--circle { border-radius: 50% !important; }
+[data-ui-style="steam"] .ui-skeleton--rect { border-radius: var(--radius-sm) !important; }
+[data-ui-style="steam"] .empty-state { color: var(--color-text-muted) !important; }
+[data-ui-style="steam"] .filter-slider {
+  background: var(--color-border) !important; border-radius: var(--radius-xs) !important; accent-color: var(--color-accent) !important;
+}
+[data-ui-style="steam"] .filter-slider::-webkit-slider-thumb {
+  background: var(--color-accent) !important; border: 2px solid var(--color-surface-raised) !important; border-radius: var(--radius-xs) !important;
+}
+[data-ui-style="steam"] .filter-slider::-moz-range-thumb {
+  background: var(--color-accent) !important; border: 2px solid var(--color-surface-raised) !important; border-radius: var(--radius-xs) !important;
+}
+
+/* ── Scrollbars (quiet industrial rail) ─────────────────────────────────── */
+[data-ui-style="steam"] ::-webkit-scrollbar { width: var(--space-sm) !important; height: var(--space-sm) !important; }
+[data-ui-style="steam"] ::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--color-bg-primary) 40%, transparent) !important;
+  border: none !important;
+}
+[data-ui-style="steam"] ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text-muted) 32%, transparent) !important;
+  border-radius: var(--radius-xs) !important; border: 1px solid transparent !important; background-clip: padding-box !important;
+}
+[data-ui-style="steam"] ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-text-muted) 52%, transparent) !important; background-clip: padding-box !important;
+}
+/* Firefox fallback — matches the webkit rail. */
+[data-ui-style="steam"] * {
+  scrollbar-width: thin !important;
+  scrollbar-color: color-mix(in srgb, var(--color-text-muted) 26%, transparent) transparent !important;
+}
+
+/* Motion safety: state never depends on motion, so reduced-motion users get
+   near-instant settling instead of eased transitions anywhere in the shell. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="steam"] *,
+  [data-ui-style="steam"] *::before,
+  [data-ui-style="steam"] *::after {
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; scroll-behavior: auto !important;
+  }
+}
+
+/* High-contrast guard: the glow language disappears and soft box-shadow
+   rings stop reading, so hover and focus fall back to a hard outline. */
+[data-theme="highcontrast"][data-ui-style="steam"] .lib-card:hover,
+[data-theme="highcontrast"][data-ui-style="steam"] .store-game-card:hover { box-shadow: none !important; }
+[data-theme="highcontrast"][data-ui-style="steam"] :focus-visible {
+  outline: 3px solid var(--color-accent) !important; outline-offset: 2px !important; box-shadow: none !important;
+}

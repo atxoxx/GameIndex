@@ -1,0 +1,326 @@
+/* =============================================================================
+   UI Style: Epic — Stealth Brutalist
+   Flat obsidian slabs, hard 90° corners and 2–3px rails. No lift, no shadow:
+   interaction answers instantly with a razor accent outline (hover) or a left
+   accent bar (selection). Type stays architectural — bold, wide-tracked
+   uppercase micro-labels, block buttons, rule-underlined page headers.
+   Colour-agnostic: theme tokens only, so it renders under light, OLED,
+   high-contrast and user-authored palettes alike.
+   ============================================================================= */
+
+[data-ui-style="epic"] {
+  /* Zero-radius ladder: the hard 90° corner is the entire identity. */
+  --radius-xs: 0px; --radius-sm: 0px; --radius-md: 0px;
+  --radius-lg: 0px; --radius-xl: 0px; --radius-2xl: 0px; --radius-3xl: 0px;
+
+  /* Epic-local aliases — pure token references, no literal colour. */
+  --epic-hairline: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --epic-hairline-strong: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+  --epic-fill: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  --epic-chrome: color var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), outline-color var(--duration-fast) var(--ease-standard);
+  --epic-control: color var(--duration-normal) var(--ease-standard), background-color var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), outline-color var(--duration-normal) var(--ease-standard);
+}
+
+/* ── Canvas ─────────────────────────────────────────────────────────────── */
+[data-ui-style="epic"] .app-layout { background-color: var(--color-bg-primary) !important; background-image: none !important; }
+[data-ui-style="epic"] .app-main { margin: 0 !important; border: none !important; border-left: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background-color: var(--color-bg-secondary) !important; background-image: none !important; box-shadow: none !important; }
+
+/* ── Top navigation ─────────────────────────────────────────────────────── */
+[data-ui-style="epic"] .topnav { background: var(--color-bg-primary) !important; border-bottom: 2px solid var(--epic-hairline) !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+/* Preserve the runtime per-game accent chrome wash, flat and rule-bordered. */
+[data-ui-style="epic"][data-game-accent] .topnav { background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-primary)) !important; border-bottom: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .topnav-logo__word { color: var(--color-accent) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-extrabold) !important; text-transform: uppercase !important; letter-spacing: 0.14em !important; }
+[data-ui-style="epic"] .topnav-logo__version { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: transparent !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.1em !important; font-variant-numeric: tabular-nums !important; }
+[data-ui-style="epic"] .topnav-tabs { gap: 0 !important; border: none !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; mask-image: none !important; -webkit-mask-image: none !important; }
+[data-ui-style="epic"] .topnav-tab { border-radius: 0 !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; box-shadow: none !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .topnav-tab:not(.active):hover { color: var(--color-text-primary) !important; background: var(--epic-fill) !important; outline: 2px solid var(--color-accent) !important; outline-offset: -2px !important; box-shadow: none !important; transform: none !important; }
+[data-ui-style="epic"] .topnav-tab.active { color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-radius: 0 !important; outline: 2px solid var(--color-accent) !important; outline-offset: -2px !important; box-shadow: none !important; }
+[data-ui-style="epic"] .topnav-btn--cmd { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: transparent !important; color: var(--color-text-secondary) !important; box-shadow: none !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .topnav-btn--cmd:hover { color: var(--color-accent) !important; border-color: var(--color-accent) !important; background: transparent !important; box-shadow: none !important; transform: none !important; }
+[data-ui-style="epic"] .topnav-now-playing-chip { border: 2px solid color-mix(in srgb, var(--color-success) 55%, transparent) !important; border-radius: 0 !important; background: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-secondary)) !important; box-shadow: none !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .topnav-now-playing-chip:hover { border-color: var(--color-success) !important; background: color-mix(in srgb, var(--color-success) 20%, var(--color-bg-secondary)) !important; box-shadow: none !important; transform: none !important; }
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+[data-ui-style="epic"] .sidebar { background: var(--color-bg-primary) !important; border-right: 2px solid var(--epic-hairline) !important; box-shadow: none !important; }
+/* Docked right flips the rail to the left edge. */
+[data-ui-style="epic"][data-sidebar-position="right"] .sidebar { border-right: none !important; border-left: 2px solid var(--epic-hairline) !important; }
+/* Preserve the runtime per-game accent wash (ordered after the dock flip). */
+[data-ui-style="epic"][data-game-accent] .sidebar { background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-primary)) !important; border-right: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent) !important; box-shadow: none !important; }
+[data-ui-style="epic"][data-game-accent][data-sidebar-position="right"] .sidebar { border-right: none !important; border-left: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent) !important; }
+[data-ui-style="epic"] .sidebar-search { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-bg-secondary) !important; box-shadow: none !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .sidebar-search:focus-within { border-color: var(--color-accent) !important; outline: 2px solid var(--color-accent) !important; outline-offset: 2px !important; }
+[data-ui-style="epic"] .sidebar-game-item { margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard) !important; }
+[data-ui-style="epic"] .sidebar-game-item:hover:not(.active) { background: var(--epic-fill) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .sidebar-game-item.active { background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface)) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .sidebar-game-item.active:hover { background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface)) !important; }
+[data-ui-style="epic"] .sidebar-game-item.bulk-selected, [data-ui-style="epic"] .sidebar-game-item.bulk-selected:hover { background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface)) !important; }
+/* Selection indicator becomes a full-height left block; hover shows it too. */
+[data-ui-style="epic"] .sidebar-game-item::after { width: 4px !important; height: 100% !important; border-radius: 0 !important; background: transparent !important; }
+[data-ui-style="epic"] .sidebar-game-item:hover:not(.active)::after, [data-ui-style="epic"] .sidebar-game-item.active::after, [data-ui-style="epic"] .sidebar-game-item.bulk-selected::after { background: var(--color-accent) !important; }
+/* The taller icon-rail card keeps its shorter, rail-scoped bar. */
+[data-ui-style="epic"] .app-sidebar.sidebar-icon-rail .sidebar-game-item::after { height: 32px !important; }
+[data-ui-style="epic"] .sidebar-game-icon { border-radius: 0 !important; box-shadow: none !important; }
+[data-ui-style="epic"] .sidebar-game-item:hover .sidebar-game-icon { transform: none !important; box-shadow: none !important; }
+[data-ui-style="epic"] .sidebar-section-header { color: var(--color-text-secondary) !important; font-weight: var(--font-weight-extrabold) !important; text-transform: uppercase !important; letter-spacing: 0.14em !important; border-bottom: 2px solid var(--epic-hairline) !important; }
+[data-ui-style="epic"] .sidebar-filter-btn { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-bg-tertiary) !important; color: var(--color-text-secondary) !important; box-shadow: none !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .sidebar-filter-btn:hover { color: var(--color-text-primary) !important; border-color: var(--color-accent) !important; background: var(--color-bg-tertiary) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .sidebar-filter-btn.active { color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .sidebar-section-toggle { border-radius: 0 !important; color: var(--color-text-muted) !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.1em !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .sidebar-section-toggle:hover { color: var(--color-text-primary) !important; background: var(--epic-fill) !important; }
+[data-ui-style="epic"] .sidebar-filter-popover { background: var(--color-bg-secondary) !important; border: 2px solid var(--epic-hairline-strong) !important; border-radius: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+[data-ui-style="epic"] .sidebar-view-options-menu { background: var(--color-surface-raised) !important; border: 2px solid var(--epic-hairline-strong) !important; border-radius: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+[data-ui-style="epic"] .ui-btn { border-radius: 0 !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.07em !important; box-shadow: none !important; transition: var(--epic-control) !important; }
+[data-ui-style="epic"] .ui-btn--sm, [data-ui-style="epic"] .ui-btn--lg { border-radius: 0 !important; }
+[data-ui-style="epic"] .ui-btn--primary { background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: none !important; }
+[data-ui-style="epic"] .ui-btn--primary:hover:not(:disabled) { background: var(--color-accent-hover) !important; box-shadow: none !important; transform: none !important; }
+[data-ui-style="epic"] .ui-btn--primary:active:not(:disabled) { background: var(--color-accent-active) !important; }
+[data-ui-style="epic"] .ui-btn--secondary { background: transparent !important; color: var(--color-text-primary) !important; border: 2px solid var(--epic-hairline-strong) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .ui-btn--secondary:hover:not(:disabled) { background: transparent !important; color: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: none !important; transform: none !important; }
+[data-ui-style="epic"] .ui-btn--secondary:active:not(:disabled) { background: var(--epic-fill) !important; }
+[data-ui-style="epic"] .ui-btn--ghost { background: transparent !important; color: var(--color-text-secondary) !important; border-color: transparent !important; }
+[data-ui-style="epic"] .ui-btn--ghost:hover:not(:disabled) { background: var(--epic-fill) !important; color: var(--color-text-primary) !important; border-color: transparent !important; transform: none !important; }
+[data-ui-style="epic"] .ui-btn--ghost:active:not(:disabled) { background: var(--epic-hairline) !important; }
+[data-ui-style="epic"] .ui-btn--danger { background: var(--color-danger) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: none !important; }
+[data-ui-style="epic"] .ui-btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--color-danger) 85%, var(--color-text-primary)) !important; box-shadow: none !important; transform: none !important; }
+[data-ui-style="epic"] .ui-btn__icon { display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important; }
+[data-ui-style="epic"] .ui-btn__label { display: inline-flex !important; align-items: center !important; min-width: 0 !important; }
+[data-ui-style="epic"] .lib-card-list-play-btn { border: 2px solid transparent !important; border-radius: 0 !important; background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; box-shadow: none !important; transition: var(--epic-control) !important; }
+[data-ui-style="epic"] .lib-card-list-play-btn:hover { background: var(--color-accent-hover) !important; box-shadow: none !important; transform: none !important; }
+[data-ui-style="epic"] .lib-card-list-play-btn.running { background: var(--color-success) !important; }
+
+/* ── Cards & surfaces ───────────────────────────────────────────────────── */
+[data-ui-style="epic"] .ui-card { border-radius: 0 !important; overflow: hidden !important; transition: border-color var(--duration-normal) var(--ease-standard), outline-color var(--duration-normal) var(--ease-standard) !important; }
+/* Restate each material variant so the generic slab never clobbers its tint. */
+[data-ui-style="epic"] .ui-card--surface,
+[data-ui-style="epic"] .ui-card--glass,
+[data-ui-style="epic"] .ui-card--raised { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; box-shadow: none !important; }
+[data-ui-style="epic"] .ui-card--surface { background: var(--color-surface) !important; }
+[data-ui-style="epic"] .ui-card--glass,
+[data-ui-style="epic"] .ui-card--raised { background: var(--color-surface-raised) !important; }
+[data-ui-style="epic"] .ui-card__header { border-bottom: 2px solid var(--epic-hairline) !important; color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.1em !important; }
+[data-ui-style="epic"] .ui-card__body { color: var(--color-text-secondary) !important; }
+[data-ui-style="epic"] .lib-card:not(.lib-card--list), [data-ui-style="epic"] .store-game-card:not(.store-game-card-list), [data-ui-style="epic"] .kpi-tile { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-surface-raised) !important; box-shadow: none !important; transition: border-color var(--duration-fast) var(--ease-standard), outline-color var(--duration-fast) var(--ease-standard) !important; }
+[data-ui-style="epic"] .lib-card:not(.lib-card--list) { overflow: hidden !important; }
+[data-ui-style="epic"] .lib-card:not(.lib-card--list):hover, [data-ui-style="epic"] .store-game-card:not(.store-game-card-list):hover, [data-ui-style="epic"] .kpi-tile--clickable:hover { border-color: var(--color-accent) !important; outline: 2px solid var(--color-accent) !important; outline-offset: -2px !important; box-shadow: none !important; transform: none !important; }
+/* A running card keeps its live success rail instead of the accent outline. */
+[data-ui-style="epic"] .lib-card.running, [data-ui-style="epic"] .lib-card.running:hover { border-color: var(--color-success) !important; outline: 2px solid var(--color-success) !important; outline-offset: -2px !important; box-shadow: 0 0 16px color-mix(in srgb, var(--color-success) 35%, transparent) !important; }
+[data-ui-style="epic"] .lib-card-cover { border-radius: 0 !important; background: var(--color-surface) !important; overflow: hidden !important; }
+[data-ui-style="epic"] .lib-card-cover img { border-radius: 0 !important; }
+[data-ui-style="epic"] .lib-card:not(.lib-card--list):hover .lib-card-cover img { transform: none !important; }
+[data-ui-style="epic"] .lib-card-fab { border: 2px solid transparent !important; border-radius: 0 !important; background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .lib-hero { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-surface-raised) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .kpi-tile::before { height: 2px !important; background: var(--color-accent) !important; opacity: 0.7 !important; }
+/* Library list rows wear the same flat epic slab, never the generic card frame. */
+[data-ui-style="epic"] .lib-card.lib-card--list { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-bg-secondary) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .lib-card.lib-card--list:hover { border-color: var(--color-accent) !important; background: var(--color-bg-tertiary) !important; box-shadow: none !important; }
+/* List-layout store row keeps its grid, worn as a flat epic slab. */
+[data-ui-style="epic"] .store-game-card.store-game-card-list { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-bg-secondary) !important; box-shadow: none !important; outline: none !important; }
+[data-ui-style="epic"] .store-game-card.store-game-card-list:hover { border-color: var(--color-accent) !important; background: var(--color-bg-tertiary) !important; box-shadow: none !important; outline: none !important; }
+/* Selected list row re-asserted after the generic hover (mirrors page-store.css). */
+[data-ui-style="epic"] .store-game-card.store-game-card-list.selected, [data-ui-style="epic"] .store-game-card.store-game-card-list.selected:hover { border-color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)) !important; outline: none !important; }
+
+/* ── Badges · chips · pills ─────────────────────────────────────────────── */
+[data-ui-style="epic"] .ui-badge { border-radius: 0 !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; box-shadow: none !important; }
+[data-ui-style="epic"] .ui-badge--default { background: var(--color-bg-tertiary) !important; color: var(--color-text-secondary) !important; border-color: var(--epic-hairline) !important; }
+[data-ui-style="epic"] .ui-badge--success { background: color-mix(in srgb, var(--color-success) 12%, transparent) !important; color: var(--color-success) !important; border-color: color-mix(in srgb, var(--color-success) 35%, transparent) !important; }
+[data-ui-style="epic"] .ui-badge--warning { background: color-mix(in srgb, var(--color-warning) 12%, transparent) !important; color: var(--color-warning) !important; border-color: color-mix(in srgb, var(--color-warning) 35%, transparent) !important; }
+[data-ui-style="epic"] .ui-badge--danger { background: color-mix(in srgb, var(--color-danger) 12%, transparent) !important; color: var(--color-danger) !important; border-color: color-mix(in srgb, var(--color-danger) 35%, transparent) !important; }
+[data-ui-style="epic"] .ui-badge--info { background: color-mix(in srgb, var(--color-info) 12%, transparent) !important; color: var(--color-info) !important; border-color: color-mix(in srgb, var(--color-info) 35%, transparent) !important; }
+[data-ui-style="epic"] .ui-badge--accent { background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important; color: var(--color-accent) !important; border-color: color-mix(in srgb, var(--color-accent) 35%, transparent) !important; }
+[data-ui-style="epic"] .lib-card-badge, [data-ui-style="epic"] .lib-card-platform { border-radius: 0 !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; }
+[data-ui-style="epic"] .lib-card-platform { color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important; }
+/* Cinematic density deliberately neutralises the platform pill. */
+[data-ui-style="epic"] .lib-card.density-cinematic .lib-card-platform { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important; }
+[data-ui-style="epic"] .filter-pill, [data-ui-style="epic"] .sidebar-active-filter { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-bg-tertiary) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; box-shadow: none !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .filter-pill:hover, [data-ui-style="epic"] .sidebar-active-filter:hover { color: var(--color-text-primary) !important; border-color: var(--color-accent) !important; background: var(--color-bg-tertiary) !important; }
+[data-ui-style="epic"] .filter-pill.active, [data-ui-style="epic"] .sidebar-active-filter.active { color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .spec-pill { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-bg-tertiary) !important; color: var(--color-text-secondary) !important; box-shadow: none !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .spec-pill:hover { background: var(--color-bg-tertiary) !important; border-color: var(--color-accent) !important; color: var(--color-accent) !important; transform: none !important; }
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+[data-ui-style="epic"] .settings-section { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-surface) !important; box-shadow: none !important; }
+/* Reserve the accent left rail for the first/active section so pages stay calm. */
+[data-ui-style="epic"] .settings-section:first-of-type { border-left: 3px solid var(--color-accent) !important; }
+[data-ui-style="epic"] .settings-row { display: flex !important; flex-direction: column !important; gap: var(--space-md) !important; }
+[data-ui-style="epic"] .settings-label { color: var(--color-text-secondary) !important; font-weight: var(--font-weight-semibold) !important; text-transform: uppercase !important; letter-spacing: 0.06em !important; }
+[data-ui-style="epic"] .settings-control { display: flex !important; flex-direction: column !important; gap: var(--space-xs) !important; }
+[data-ui-style="epic"] .settings-input, [data-ui-style="epic"] .settings-select { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background-color: var(--color-bg-tertiary) !important; color: var(--color-text-primary) !important; box-shadow: none !important; transition: var(--epic-control) !important; }
+[data-ui-style="epic"] .settings-select:hover { border-color: var(--color-accent) !important; background-color: var(--color-bg-tertiary) !important; }
+[data-ui-style="epic"] .settings-input:focus, [data-ui-style="epic"] .settings-select:focus { border-color: var(--color-accent) !important; background-color: var(--color-bg-tertiary) !important; outline: 2px solid var(--color-accent) !important; outline-offset: 2px !important; box-shadow: none !important; }
+[data-ui-style="epic"] .settings-checkbox-label { color: var(--color-text-secondary) !important; }
+[data-ui-style="epic"] .settings-checkbox-label:hover { color: var(--color-text-primary) !important; }
+[data-ui-style="epic"] .settings-checkbox-label input[type="checkbox"] { border: 2px solid var(--epic-hairline-strong) !important; border-radius: 0 !important; background-color: var(--color-bg-tertiary) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .settings-checkbox-label input[type="checkbox"]:hover { border-color: var(--color-accent) !important; }
+[data-ui-style="epic"] .settings-checkbox-label input[type="checkbox"]:checked { background-color: var(--color-accent) !important; border-color: var(--color-accent) !important; }
+[data-ui-style="epic"] .settings-behavior-card { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-surface) !important; box-shadow: none !important; transition: border-color var(--duration-fast) var(--ease-standard) !important; }
+[data-ui-style="epic"] .settings-behavior-card:hover { border-color: var(--color-accent) !important; background: var(--color-surface) !important; }
+/* Warning behavior cards keep their danger-tinted rail. */
+[data-ui-style="epic"] .settings-behavior-card--warn { border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border)) !important; background: color-mix(in srgb, var(--color-warning) 5%, var(--color-surface)) !important; }
+[data-ui-style="epic"] .settings-behavior-card--warn:hover { border-color: color-mix(in srgb, var(--color-warning) 70%, var(--color-border)) !important; }
+[data-ui-style="epic"] .settings-subtabs-bar { gap: var(--space-xs) !important; }
+[data-ui-style="epic"] .settings-subtab-item { border: 2px solid var(--epic-hairline) !important; border-radius: 0 !important; background: var(--color-bg-tertiary) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.06em !important; box-shadow: none !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .settings-subtab-item:hover { background: var(--color-bg-tertiary) !important; color: var(--color-text-primary) !important; border-color: var(--color-accent) !important; }
+[data-ui-style="epic"] .settings-subtab-item.active { color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: none !important; }
+
+/* ── Page headers ───────────────────────────────────────────────────────── */
+[data-ui-style="epic"] .page-header { border-bottom: 2px solid var(--epic-hairline) !important; }
+/* Signature detail: the accent rule spans the header block at rail weight. */
+[data-ui-style="epic"] .page-header::after { width: 100% !important; height: 2px !important; border-radius: 0 !important; background: var(--color-accent) !important; }
+[data-ui-style="epic"] .page-header__eyebrow { display: block !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.16em !important; }
+[data-ui-style="epic"] .page-header__title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.04em !important; }
+[data-ui-style="epic"] .page-header__icon { border: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent) !important; border-radius: 0 !important; background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important; color: var(--color-accent) !important; }
+[data-ui-style="epic"] .page-header__description { color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important; }
+[data-ui-style="epic"] .page-header__actions { gap: var(--space-sm) !important; }
+
+/* ── Overlays · menus · tooltips ────────────────────────────────────────── */
+[data-ui-style="epic"] .modal-backdrop { background: var(--color-scrim) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+[data-ui-style="epic"] .modal { border: 2px solid var(--epic-hairline-strong) !important; border-radius: 0 !important; background-color: var(--color-bg-secondary) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .modal-header { border-bottom: 2px solid var(--epic-hairline) !important; }
+[data-ui-style="epic"] .modal-body { overflow-y: auto !important; }
+[data-ui-style="epic"] .modal-footer { border-top: 2px solid var(--epic-hairline) !important; }
+[data-ui-style="epic"] .modal-title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; }
+/* Confirm dialogs keep their danger-tinted rails. */
+[data-ui-style="epic"] .confirm-modal { border: 2px solid color-mix(in srgb, var(--color-danger) 45%, var(--color-border)) !important; border-radius: 0 !important; box-shadow: none !important; }
+[data-ui-style="epic"] .confirm-modal .modal-header { border-bottom: 2px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border)) !important; }
+[data-ui-style="epic"] .confirm-modal .modal-footer { border-top: 2px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border)) !important; }
+[data-ui-style="epic"] .context-menu, [data-ui-style="epic"] .ctx-menu { border: 2px solid var(--epic-hairline-strong) !important; border-radius: 0 !important; background: var(--color-surface-raised) !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+[data-ui-style="epic"] .context-menu-item { border-radius: 0 !important; color: var(--color-text-primary) !important; transition: var(--epic-chrome) !important; }
+[data-ui-style="epic"] .context-menu-item:hover { background: var(--epic-fill) !important; }
+[data-ui-style="epic"] .context-menu-item.play-action { color: var(--color-accent) !important; }
+[data-ui-style="epic"] .context-menu-item.play-action:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important; }
+[data-ui-style="epic"] .context-menu-item.remove-action { color: var(--color-danger) !important; }
+[data-ui-style="epic"] .context-menu-item.remove-action:hover { background: color-mix(in srgb, var(--color-danger) 10%, transparent) !important; }
+[data-ui-style="epic"] .context-menu-separator { height: 2px !important; background: var(--color-border) !important; }
+[data-ui-style="epic"] .ui-tooltip { border-radius: 0 !important; animation-duration: var(--duration-fast) !important; }
+[data-ui-style="epic"] .ui-tooltip__content { border: 2px solid var(--epic-hairline-strong) !important; border-radius: 0 !important; background: var(--color-surface-raised) !important; color: var(--color-text-primary) !important; box-shadow: none !important; }
+[data-ui-style="epic"] .ui-tooltip__arrow { background: var(--color-surface-raised) !important; border-color: var(--epic-hairline-strong) !important; }
+
+/* ── Primitives ─────────────────────────────────────────────────────────── */
+[data-ui-style="epic"] .ui-skeleton { border-radius: 0 !important; background: var(--color-bg-tertiary) !important; }
+[data-ui-style="epic"] .ui-skeleton--text, [data-ui-style="epic"] .ui-skeleton--circle, [data-ui-style="epic"] .ui-skeleton--rect { border-radius: 0 !important; }
+[data-ui-style="epic"] .empty-state { color: var(--color-text-muted) !important; }
+[data-ui-style="epic"] .filter-slider { border-radius: 0 !important; background: var(--color-border) !important; accent-color: var(--color-accent) !important; }
+[data-ui-style="epic"] .filter-slider::-webkit-slider-thumb, [data-ui-style="epic"] .filter-slider::-moz-range-thumb { border: 2px solid var(--color-surface-raised) !important; border-radius: 0 !important; background: var(--color-accent) !important; }
+
+/* ── Keyboard focus: one razor ring across every epic control ───────────── */
+[data-ui-style="epic"] .ui-btn:focus-visible,
+[data-ui-style="epic"] .topnav-tab:focus-visible,
+[data-ui-style="epic"] .topnav-btn--cmd:focus-visible,
+[data-ui-style="epic"] .topnav-now-playing-chip:focus-visible,
+[data-ui-style="epic"] .sidebar-filter-btn:focus-visible,
+[data-ui-style="epic"] .sidebar-section-toggle:focus-visible,
+[data-ui-style="epic"] .filter-pill:focus-visible,
+[data-ui-style="epic"] .sidebar-active-filter:focus-visible,
+[data-ui-style="epic"] .settings-subtab-item:focus-visible,
+[data-ui-style="epic"] .settings-input:focus-visible,
+[data-ui-style="epic"] .settings-select:focus-visible,
+[data-ui-style="epic"] .lib-card:focus-visible,
+[data-ui-style="epic"] .store-game-card:focus-visible,
+[data-ui-style="epic"] .lib-card--list:focus-visible,
+[data-ui-style="epic"] .kpi-tile:focus-visible,
+[data-ui-style="epic"] .ui-badge:focus-visible,
+[data-ui-style="epic"] .settings-checkbox-label input[type="checkbox"]:focus-visible { outline: 2px solid var(--color-accent) !important; outline-offset: 2px !important; box-shadow: none !important; }
+/* Full-bleed rows keep the ring inside the row box. */
+[data-ui-style="epic"] .sidebar-game-item:focus-visible,
+[data-ui-style="epic"] .context-menu-item:focus-visible { outline: 2px solid var(--color-accent) !important; outline-offset: -2px !important; box-shadow: none !important; }
+
+/* ── Scrollbars (hard-edged rail) ───────────────────────────────────────── */
+[data-ui-style="epic"] ::-webkit-scrollbar { width: var(--space-sm) !important; height: var(--space-sm) !important; }
+[data-ui-style="epic"] ::-webkit-scrollbar-track { background: transparent !important; }
+[data-ui-style="epic"] ::-webkit-scrollbar-thumb { border: 2px solid transparent !important; border-radius: 0 !important; background: color-mix(in srgb, var(--color-text-muted) 22%, transparent) !important; background-clip: padding-box !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+[data-ui-style="epic"] ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-text-muted) 50%, transparent) !important; background-clip: padding-box !important; }
+[data-ui-style="epic"] .sidebar-list::-webkit-scrollbar { width: var(--space-xs) !important; }
+[data-ui-style="epic"] .sidebar-list::-webkit-scrollbar-thumb { border: 1px solid transparent !important; border-radius: 0 !important; background: color-mix(in srgb, var(--color-border) 90%, transparent) !important; background-clip: padding-box !important; }
+[data-ui-style="epic"] .sidebar-list::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-text-muted) 55%, transparent) !important; background-clip: padding-box !important; }
+/* Firefox fallback — matches the webkit rail. */
+[data-ui-style="epic"] * { scrollbar-width: thin !important; scrollbar-color: color-mix(in srgb, var(--color-text-muted) 22%, transparent) transparent !important; }
+
+/* Motion safety: epic communicates state with hard swaps, never motion, so
+   reduced-motion users get near-instant settling across the whole surface. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="epic"] *, [data-ui-style="epic"] *::before, [data-ui-style="epic"] *::after {
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; scroll-behavior: auto !important;
+  }
+}
+
+/* ── Pill & chip sweep: square the --radius-full consumers ────────────────
+   The zeroed ladder does not reach primitives that hard-code --radius-full,
+   so the pill-shaped badges, chips, counts and tags that carry it are
+   squared explicitly. True circles (avatars, dots, progress) keep their
+   radius and are deliberately absent from this list. Every class below is
+   emitted somewhere in the TSX. */
+[data-ui-style="epic"] .about-section__source-pill, [data-ui-style="epic"] .ach-game-card-perfect-tag, [data-ui-style="epic"] .ach-journey-count-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .ach-rarity-filter-pill, [data-ui-style="epic"] .ach-recent-feed-rarity-pill, [data-ui-style="epic"] .ach-source-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .ach-tab-perfect-pill, [data-ui-style="epic"] .achievement-card-points-tag, [data-ui-style="epic"] .achievements-perfect-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .act-add-modal__result-badge, [data-ui-style="epic"] .act-backlog-badge, [data-ui-style="epic"] .act-inspector-tag { border-radius: 0 !important; }
+[data-ui-style="epic"] .act-link-modal__badge, [data-ui-style="epic"] .act-milestone-chip, [data-ui-style="epic"] .act-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .act-session__pill, [data-ui-style="epic"] .act-ttb__status-badge, [data-ui-style="epic"] .activity-gantt__tooltip-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .cmd-active-scope-pill, [data-ui-style="epic"] .cmd-footer-counter, [data-ui-style="epic"] .cmd-scope-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .compare-vs-badge, [data-ui-style="epic"] .ctx-badge, [data-ui-style="epic"] .cw-status-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .deals-card-badge, [data-ui-style="epic"] .deals-detail-meta-pill, [data-ui-style="epic"] .deals-detail-owned-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .deals-detail-wishlisted-badge, [data-ui-style="epic"] .deals-giveaway-card-mature-badge, [data-ui-style="epic"] .deals-giveaway-card-timer-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .deals-spotlight-badge, [data-ui-style="epic"] .deals-spotlight-timer-chip, [data-ui-style="epic"] .deals-subtab-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .dl-add-cache-badge, [data-ui-style="epic"] .dl-file-cat-pill, [data-ui-style="epic"] .dl-format-tag { border-radius: 0 !important; }
+[data-ui-style="epic"] .dl-hero-speed-badge, [data-ui-style="epic"] .dl-modal-status-badge, [data-ui-style="epic"] .dl-popover-tab-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .dl-section-count, [data-ui-style="epic"] .dl-sparkline-stat-pill, [data-ui-style="epic"] .dl-stats-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .dl-stats-tab-count, [data-ui-style="epic"] .dl-swarm-badge, [data-ui-style="epic"] .dm-reaction-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .dm-thread-unread-badge, [data-ui-style="epic"] .docs-category-head__count, [data-ui-style="epic"] .docs-meta-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .docs-quickcard__badge, [data-ui-style="epic"] .docs-stat-pill, [data-ui-style="epic"] .edit-launch-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .edit-launch-card-counter, [data-ui-style="epic"] .edit-preview-status-pill, [data-ui-style="epic"] .emu-games-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .emu-games-total-pill, [data-ui-style="epic"] .emu-group-count, [data-ui-style="epic"] .emu-rom-running-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .emu-status-pill, [data-ui-style="epic"] .emu-storage-platform-tag, [data-ui-style="epic"] .emulators-list-pane-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .folder-scan-feed-badge, [data-ui-style="epic"] .friends-tab-badge, [data-ui-style="epic"] .friends-tab-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .game-hero__poster-badge, [data-ui-style="epic"] .game-hero-genre-chip, [data-ui-style="epic"] .game-hero-rating-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .game-news-badge, [data-ui-style="epic"] .game-news-category-count, [data-ui-style="epic"] .game-news-category-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .game-news-source-pill, [data-ui-style="epic"] .game-relations-group-count, [data-ui-style="epic"] .game-section-title__count { border-radius: 0 !important; }
+[data-ui-style="epic"] .game-tab-count, [data-ui-style="epic"] .gamescope-pill-btn, [data-ui-style="epic"] .hltb-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .home-deal-tile__discount, [data-ui-style="epic"] .home-hero__pill, [data-ui-style="epic"] .hw-gpu-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .hw-spec-count, [data-ui-style="epic"] .import-confirm-chip, [data-ui-style="epic"] .import-review-selected-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .info-appid-pill, [data-ui-style="epic"] .info-dl-value-tag, [data-ui-style="epic"] .integration-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .integration-chip, [data-ui-style="epic"] .integration-chip-icon, [data-ui-style="epic"] .invite-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .invitee-check-pill, [data-ui-style="epic"] .leaderboard-pill, [data-ui-style="epic"] .lib-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .lib-chip-reset, [data-ui-style="epic"] .lib-filter-count-badge, [data-ui-style="epic"] .lib-group-count-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .lib-hero-filter-count, [data-ui-style="epic"] .lib-hero-filter-pill, [data-ui-style="epic"] .media-fetch-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .media-fetch-filter-chip, [data-ui-style="epic"] .media-fetch-source-count, [data-ui-style="epic"] .media-spotlight__counter { border-radius: 0 !important; }
+[data-ui-style="epic"] .media-spotlight__expand-pill, [data-ui-style="epic"] .metadata-genre-tag, [data-ui-style="epic"] .mods-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .mods-conflict-status-pill, [data-ui-style="epic"] .mods-engine-chip, [data-ui-style="epic"] .mods-filter-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .mods-games-pane-count, [data-ui-style="epic"] .mods-nexus-domain-chip, [data-ui-style="epic"] .mods-state-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .mods-tab-preset-pill, [data-ui-style="epic"] .msd__option-count, [data-ui-style="epic"] .news-card-readtime-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .news-category-tab-badge, [data-ui-style="epic"] .news-hero-featured-chip, [data-ui-style="epic"] .news-hero-readtime-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .news-hero-tag-clear, [data-ui-style="epic"] .news-hero-tag-pill, [data-ui-style="epic"] .news-source-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .note-tag, [data-ui-style="epic"] .note-tag-filter, [data-ui-style="epic"] .ownership-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .pdb-tier-badge, [data-ui-style="epic"] .performance-tier-chip, [data-ui-style="epic"] .performance-timeline__badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .prefix-filter-pill, [data-ui-style="epic"] .prefix-game-chip, [data-ui-style="epic"] .quick-stats__compat-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .quick-stats__status-badge, [data-ui-style="epic"] .race-lead-badge, [data-ui-style="epic"] .recs-view-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .recs-view-pill-count, [data-ui-style="epic"] .roster-rsvp-badge, [data-ui-style="epic"] .rsvp-mini-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .runner-view-pill-badge, [data-ui-style="epic"] .rv-chip, [data-ui-style="epic"] .rv-context-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .rv-kpi-pill, [data-ui-style="epic"] .rv-reaction-badge, [data-ui-style="epic"] .rv-row-badge-ea { border-radius: 0 !important; }
+[data-ui-style="epic"] .rv-row-badge-free, [data-ui-style="epic"] .rv-row-pill, [data-ui-style="epic"] .rv-source-seg-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .session-chat-count, [data-ui-style="epic"] .session-countdown, [data-ui-style="epic"] .session-countdown-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .session-duration-tag, [data-ui-style="epic"] .session-recurrence-tag, [data-ui-style="epic"] .settings-backup-row-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .settings-category-tab-badge, [data-ui-style="epic"] .settings-compact-subtab-chip, [data-ui-style="epic"] .settings-nav-item-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .settings-plugins-item-badge, [data-ui-style="epic"] .settings-subtab-item-badge, [data-ui-style="epic"] .settings-topnav-status-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .settings-wipe-count, [data-ui-style="epic"] .splashscreen-badge, [data-ui-style="epic"] .splashscreen-tip-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .stats-filter-pill, [data-ui-style="epic"] .stats-fps-overall-pill, [data-ui-style="epic"] .stats-section-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .steam-ctrl-badge, [data-ui-style="epic"] .steam-player-count, [data-ui-style="epic"] .steam-stats-popover-section-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .steam-stats-popover-skeleton-pill, [data-ui-style="epic"] .storage-drive-active-chip, [data-ui-style="epic"] .storage-kpi-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .storage-platform-chip, [data-ui-style="epic"] .storage-view-badge, [data-ui-style="epic"] .store-card-cw-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .store-card-inlib-pill, [data-ui-style="epic"] .store-compare-best-badge, [data-ui-style="epic"] .store-compare-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .store-filter-count-badge, [data-ui-style="epic"] .store-filter-match-count, [data-ui-style="epic"] .store-filter-preset-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .store-search-filter-chip, [data-ui-style="epic"] .store-search-filter-chip-remove, [data-ui-style="epic"] .store-search-popular-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .store-spotlight-genre-pill, [data-ui-style="epic"] .store-spotlight-tag, [data-ui-style="epic"] .store-spotlight-trailer-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .studio-chip, [data-ui-style="epic"] .studio-detail-badge, [data-ui-style="epic"] .studio-detail-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .studio-detail-tag, [data-ui-style="epic"] .studio-hero-editor__chip, [data-ui-style="epic"] .studio-hero-mock__poster-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .studio-pages__count, [data-ui-style="epic"] .studio-preview__chips, [data-ui-style="epic"] .studio-preview__main-pill { border-radius: 0 !important; }
+[data-ui-style="epic"] .system-requirements-card__row-tag, [data-ui-style="epic"] .system-requirements-card__source-pill, [data-ui-style="epic"] .ttb-source-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .wine-logs-line-count, [data-ui-style="epic"] .wishlist-filter-badge, [data-ui-style="epic"] .wl-source-tab-count { border-radius: 0 !important; }
+
+/* ── High-contrast guard: flat fills, one loud focus ring ───────────────── */
+[data-theme="highcontrast"][data-ui-style="epic"] .lib-card:hover,
+[data-theme="highcontrast"][data-ui-style="epic"] .store-game-card:hover { box-shadow: none !important; }
+[data-theme="highcontrast"][data-ui-style="epic"] :focus-visible {
+  outline: 3px solid var(--color-accent) !important; outline-offset: 2px !important; box-shadow: none !important;
+}

@@ -1,0 +1,481 @@
+/* =============================================================================
+   UI Style: Liquid Glass (Frosted Acrylic over an Iridescent Aurora Mesh)
+   ─────────────────────────────────────────────────────────────────────────────
+   Translucent surfaces float on an aurora wash, each one a layer of
+   `backdrop-filter` frost ringed by a hairline glass edge, an inset specular
+   gloss and generous 8–56px rounding.
+
+   Colour-agnostic by construction: only theme tokens are referenced, so the
+   palette stays correct under light, high-contrast, OLED and user palettes.
+   The aurora mesh is built from `color-mix()` accent translucency, which washes
+   softly over light backgrounds instead of turning into a neon field.
+
+   Deliberate restraint:
+   • Geometry / surface / glass / focus are asserted with `!important`.
+   • Every resting property is paired with restated hover + active + focus, and
+     contextual variants (game-accent chrome, docked-right sidebar, card
+     variants, `--kpi`, density, list rows, store list rows, `--warn`, confirm
+     modal) are re-asserted *after* the generic rule that would clobber them.
+   • One local focus ring (`--lg-focus`) serves every `:focus-visible`.
+   • Blur is a ladder, not a default: big surfaces spend real blur; atoms
+     (badges, pills, small controls, scrollbars) stay flat translucent.
+   • Responsive size/padding/font-size is never forced, so the 1280px / 4K
+     breakpoints behave exactly as shipped.
+   ============================================================================= */
+
+[data-ui-style="liquidglass"] {
+  /* Radius ladder — 8 · 12 · 18 · 24 · 32 · 44 · 56. */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-2xl: 44px;
+  --radius-3xl: 56px;
+
+  /* Local glass vocabulary. */
+  --lg-sheen: inset 0 1px 0 var(--color-border-highlight);
+  --lg-recess: inset 0 -1px 0 var(--color-border-faint);
+  --lg-edge: 1px solid var(--color-border-light);
+  --lg-glass: color-mix(in srgb, var(--color-surface-raised) 52%, transparent);
+  --lg-glass-strong: color-mix(in srgb, var(--color-surface) 62%, transparent);
+
+  /* Glass strength ladder — child saturation stays below the shell's so it
+     cannot compound to neon. */
+  --lg-blur-shell: blur(40px) saturate(150%);
+  --lg-blur-chrome: blur(var(--blur-lg)) saturate(140%);
+  --lg-blur-overlay: blur(48px) saturate(160%);
+  --lg-blur-menu: blur(40px) saturate(160%);
+  --lg-blur-card: blur(26px) saturate(145%);
+
+  /* One local focus ring for every `:focus-visible` in this file. */
+  --lg-focus: var(--ring-accent);
+
+  --lg-chrome-fast: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  --lg-control: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+}
+
+/* ── Canvas ─────────────────────────────────────────────────────────────── */
+[data-ui-style="liquidglass"] .app-layout {
+  background-color: var(--color-bg-primary) !important;
+  background-image:
+    radial-gradient(58% 46% at 8% 6%, color-mix(in srgb, var(--color-accent) 26%, transparent) 0%, transparent 68%),
+    radial-gradient(52% 42% at 96% 12%, color-mix(in srgb, var(--color-accent-2) 22%, transparent) 0%, transparent 66%),
+    radial-gradient(64% 52% at 52% 100%, color-mix(in srgb, var(--color-accent) 18%, transparent) 0%, transparent 72%),
+    radial-gradient(46% 40% at 82% 82%, color-mix(in srgb, var(--color-accent-hover) 16%, transparent) 0%, transparent 66%),
+    var(--color-bg-gradient) !important;
+  background-attachment: fixed !important;
+}
+
+/* Light palettes get a softer wash so the mesh reads pastel, not neon. */
+[data-ui-style="liquidglass"][data-theme="light"] .app-layout {
+  background-image:
+    radial-gradient(58% 46% at 8% 6%, color-mix(in srgb, var(--color-accent) 13%, transparent) 0%, transparent 70%),
+    radial-gradient(52% 42% at 96% 12%, color-mix(in srgb, var(--color-accent-2) 11%, transparent) 0%, transparent 68%),
+    radial-gradient(64% 52% at 52% 100%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 74%),
+    radial-gradient(46% 40% at 82% 82%, color-mix(in srgb, var(--color-accent-hover) 8%, transparent) 0%, transparent 68%),
+    var(--color-bg-gradient) !important;
+}
+
+/* One thick pane of frosted acrylic. `overflow` is left to `.app-main`'s own
+   `overflow-y: auto` — clipping here would kill the app scroll. */
+[data-ui-style="liquidglass"] .app-main { border-radius: var(--radius-xl) !important; margin: var(--space-md) !important; background: color-mix(in srgb, var(--color-bg-secondary) 46%, transparent) !important; border: var(--lg-edge) !important; backdrop-filter: var(--lg-blur-shell) !important; -webkit-backdrop-filter: var(--lg-blur-shell) !important; box-shadow: var(--lg-sheen), var(--lg-recess), var(--elevation-5) !important; }
+
+/* ── Top navigation ─────────────────────────────────────────────────────── */
+[data-ui-style="liquidglass"] .topnav { background: color-mix(in srgb, var(--color-bg-primary) 42%, transparent) !important; border-bottom: var(--lg-edge) !important; backdrop-filter: var(--lg-blur-chrome) !important; -webkit-backdrop-filter: var(--lg-blur-chrome) !important; box-shadow: var(--lg-sheen), var(--elevation-2) !important; }
+
+/* Preserve the runtime per-game accent chrome wash. */
+[data-ui-style="liquidglass"][data-game-accent] .topnav { background: color-mix(in srgb, var(--color-accent) 14%, color-mix(in srgb, var(--color-bg-primary) 55%, transparent)) !important; border-bottom-color: color-mix(in srgb, var(--color-accent) 34%, transparent) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent) 48%, transparent), var(--elevation-2) !important; }
+
+/* Edge glow, never text glow — a text-shadow smears the wordmark under light
+   themes and fights legibility under high-contrast. */
+[data-ui-style="liquidglass"] .topnav-logo__word { color: var(--color-accent) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-extrabold) !important; letter-spacing: -0.03em !important; }
+
+[data-ui-style="liquidglass"] .topnav-logo__version { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important; border: 1px solid var(--color-border-light) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-semibold) !important; font-variant-numeric: tabular-nums !important; box-shadow: var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .topnav-tabs { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-text-primary) 9%, transparent) !important; border: 1px solid var(--color-border-light) !important; box-shadow: var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .topnav-tab { border-radius: var(--radius-full) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-medium) !important; transition: var(--lg-chrome-fast), transform var(--duration-fast) var(--ease-standard) !important; }
+
+[data-ui-style="liquidglass"] .topnav-tab:not(.active):hover { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 12%, transparent) !important; box-shadow: var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .topnav-tab.active { color: var(--color-accent-contrast) !important; background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 92%, transparent), color-mix(in srgb, var(--color-accent-2) 84%, transparent)) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 4px 18px var(--color-accent-glow) !important; transform: translateY(-1px) !important; }
+
+[data-ui-style="liquidglass"] .topnav-btn--cmd { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important; border: 1px solid var(--color-border-light) !important; color: var(--color-text-secondary) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-chrome-fast), transform var(--duration-fast) var(--ease-standard) !important; }
+
+[data-ui-style="liquidglass"] .topnav-btn--cmd:hover { color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; border-color: var(--color-accent-border) !important; box-shadow: var(--lg-sheen), 0 0 18px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .topnav-btn--cmd:focus-visible { outline: none !important; box-shadow: var(--lg-focus) !important; }
+
+[data-ui-style="liquidglass"] .topnav-now-playing-chip { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important; border: 1px solid var(--color-border-light) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-chrome-fast), transform var(--duration-fast) var(--ease-standard) !important; }
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+[data-ui-style="liquidglass"] .sidebar { background: color-mix(in srgb, var(--color-bg-secondary) 46%, transparent) !important; border-right: var(--lg-edge) !important; backdrop-filter: var(--lg-blur-chrome) !important; -webkit-backdrop-filter: var(--lg-blur-chrome) !important; box-shadow: inset -1px 0 0 var(--color-border-faint) !important; }
+
+/* Docked-right flips the glass edge + inset highlight to the left. */
+[data-ui-style="liquidglass"][data-sidebar-position="right"] .sidebar { border-right: none !important; border-left: var(--lg-edge) !important; box-shadow: inset 1px 0 0 var(--color-border-faint) !important; }
+
+/* Preserve the runtime per-game accent wash (ordered after the dock flip). */
+[data-ui-style="liquidglass"][data-game-accent] .sidebar { background: color-mix(in srgb, var(--color-accent) 12%, color-mix(in srgb, var(--color-bg-secondary) 48%, transparent)) !important; border-right: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent) !important; box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-accent) 22%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-search { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-text-primary) 8%, transparent) !important; border: 1px solid var(--color-border-light) !important; box-shadow: var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-search:focus-within { border-color: var(--color-accent-border) !important; box-shadow: var(--lg-focus), var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-game-item { border-radius: var(--radius-md) !important; transition: var(--lg-control) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-game-item:hover:not(.active) { background: color-mix(in srgb, var(--color-text-primary) 9%, transparent) !important; box-shadow: var(--lg-sheen) !important; }
+
+/* Selection is ONE cue: the base 3px accent rail (`::after`), restated below.
+   No second border or outer glow is layered on top of it. */
+[data-ui-style="liquidglass"] .sidebar-game-item.active { background: color-mix(in srgb, var(--color-accent) 20%, transparent) !important; box-shadow: inset 4px 0 12px -4px var(--color-accent-glow), var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-game-item.active:hover { background: color-mix(in srgb, var(--color-accent) 28%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-game-item.bulk-selected,
+[data-ui-style="liquidglass"] .sidebar-game-item.bulk-selected:hover { background: color-mix(in srgb, var(--color-accent) 20%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-game-item::after { border-radius: var(--radius-full) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-game-item.active::after,
+[data-ui-style="liquidglass"] .sidebar-game-item.bulk-selected::after { background: var(--color-accent) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-game-item:focus-visible { outline: none !important; box-shadow: var(--lg-focus), inset 0 0 0 2px var(--color-accent) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-game-icon { border: 1px solid var(--color-border-light) !important; box-shadow: var(--lg-sheen) !important; }
+
+/* The icon rail and the 4K breakpoint own their icon widths, so rounding is
+   scoped to full-width rows and re-asserted at 4K. */
+[data-ui-style="liquidglass"] .app-sidebar:not(.sidebar-icon-rail) .sidebar-game-icon { border-radius: var(--radius-sm) !important; }
+
+@media (min-width: 2561px) {
+  [data-ui-style="liquidglass"] .app-sidebar:not(.sidebar-icon-rail) .sidebar-game-icon { border-radius: var(--radius-md) !important; }
+}
+
+[data-ui-style="liquidglass"] .sidebar-section-header { color: var(--color-text-secondary) !important; font-weight: var(--font-weight-semibold) !important; letter-spacing: 0.04em !important; }
+
+[data-ui-style="liquidglass"] .sidebar-filter-btn { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-text-primary) 9%, transparent) !important; border: 1px solid var(--color-border-light) !important; color: var(--color-text-secondary) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-chrome-fast) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-filter-btn:hover { color: var(--color-text-primary) !important; border-color: var(--color-accent-border) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-filter-btn.active { color: var(--color-accent-contrast) !important; background: color-mix(in srgb, var(--color-accent) 86%, transparent) !important; border-color: color-mix(in srgb, var(--color-accent) 60%, transparent) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 0 16px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-filter-btn:focus-visible { outline: none !important; box-shadow: var(--lg-focus) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-section-toggle { border-radius: var(--radius-xs) !important; color: var(--color-text-muted) !important; font-weight: var(--font-weight-bold) !important; letter-spacing: 0.05em !important; transition: var(--lg-chrome-fast) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-section-toggle:hover { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 12%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-section-toggle:focus-visible { outline: none !important; box-shadow: var(--lg-focus) !important; }
+
+/* Popovers + view menus share one frosted overlay treatment. */
+[data-ui-style="liquidglass"] .sidebar-filter-popover,
+[data-ui-style="liquidglass"] .sidebar-view-options-menu { border-radius: var(--radius-lg) !important; background: var(--lg-glass-strong) !important; border: 1px solid var(--color-border-light) !important; backdrop-filter: var(--lg-blur-menu) !important; -webkit-backdrop-filter: var(--lg-blur-menu) !important; box-shadow: var(--lg-sheen), var(--elevation-5) !important; }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+/* Atoms stay flat translucent: the resting shell already supplies the frost,
+   so a second blur + sheen + elevation on every button is redundant stacking. */
+[data-ui-style="liquidglass"] .ui-btn { border-radius: var(--radius-md) !important; font-weight: var(--font-weight-semibold) !important; border: 1px solid var(--color-border-light) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-control) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--sm { border-radius: var(--radius-sm) !important; }
+[data-ui-style="liquidglass"] .ui-btn--lg { border-radius: var(--radius-lg) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--primary { background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 88%, transparent), color-mix(in srgb, var(--color-accent-2) 80%, transparent)) !important; color: var(--color-accent-contrast) !important; border-color: color-mix(in srgb, var(--color-accent-contrast) 40%, transparent) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 8px 28px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--primary:hover:not(:disabled) { transform: translateY(-2px) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 12px 36px var(--color-accent-glow), 0 0 22px color-mix(in srgb, var(--color-accent) 45%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--primary:active:not(:disabled) { transform: translateY(0) scale(0.99) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 4px 16px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--secondary { background: color-mix(in srgb, var(--color-text-primary) 11%, transparent) !important; color: var(--color-text-primary) !important; border-color: var(--color-border-light) !important; box-shadow: var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important; border-color: var(--color-accent-border) !important; transform: translateY(-2px) !important; box-shadow: var(--lg-sheen), var(--elevation-3) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--ghost { background: transparent !important; color: var(--color-text-secondary) !important; border-color: transparent !important; box-shadow: none !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--color-text-primary) 12%, transparent) !important; color: var(--color-text-primary) !important; border-color: var(--color-border-light) !important; box-shadow: var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--danger { background: color-mix(in srgb, var(--color-danger) 82%, transparent) !important; color: var(--color-accent-contrast) !important; border-color: color-mix(in srgb, var(--color-danger) 60%, transparent) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 6px 22px color-mix(in srgb, var(--color-danger) 40%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn--danger:hover:not(:disabled) { transform: translateY(-2px) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 10px 30px color-mix(in srgb, var(--color-danger) 52%, transparent) !important; }
+
+/* One press state covers every variant; the primary keeps its own glow above. */
+[data-ui-style="liquidglass"] .ui-btn:active:not(:disabled) { transform: translateY(0) scale(0.99) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn:focus-visible { outline: none !important; box-shadow: var(--lg-focus), var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .ui-btn__icon { display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important; }
+
+[data-ui-style="liquidglass"] .ui-btn__label { display: inline-flex !important; align-items: center !important; min-width: 0 !important; }
+
+[data-ui-style="liquidglass"] .lib-card-list-play-btn { border-radius: var(--radius-full) !important; background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 88%, transparent), color-mix(in srgb, var(--color-accent-2) 80%, transparent)) !important; color: var(--color-accent-contrast) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 6px 22px var(--color-accent-glow) !important; transition: var(--lg-control) !important; }
+
+[data-ui-style="liquidglass"] .lib-card-list-play-btn:hover { transform: scale(1.06) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 10px 30px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .lib-card-list-play-btn:active { transform: scale(0.98) !important; }
+
+[data-ui-style="liquidglass"] .lib-card-list-play-btn.running { background: color-mix(in srgb, var(--color-success) 82%, transparent) !important; border-color: color-mix(in srgb, var(--color-success) 55%, transparent) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 6px 22px color-mix(in srgb, var(--color-success) 40%, transparent) !important; }
+
+/* ── Cards & surfaces ───────────────────────────────────────────────────── */
+/* Generic geometry/frost for every card. */
+[data-ui-style="liquidglass"] .ui-card { border-radius: var(--radius-xl) !important; border: var(--lg-edge) !important; backdrop-filter: var(--lg-blur-card) !important; -webkit-backdrop-filter: var(--lg-blur-card) !important; box-shadow: var(--lg-sheen), var(--elevation-3) !important; overflow: hidden !important; transition: var(--lg-control) !important; }
+
+/* Variant identity: the generic fills must not flatten `surface`/`glass`/
+   `raised`, so each variant fill is restated after the group above. */
+[data-ui-style="liquidglass"] .ui-card:not(.ui-card--surface):not(.ui-card--glass):not(.ui-card--raised) { background: var(--lg-glass) !important; }
+
+[data-ui-style="liquidglass"] .ui-card--surface { background: var(--lg-glass) !important; }
+
+[data-ui-style="liquidglass"] .ui-card--glass { background: color-mix(in srgb, var(--color-surface-raised) 58%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .ui-card--raised { background: var(--lg-glass-strong) !important; box-shadow: var(--lg-sheen), var(--elevation-4) !important; }
+
+[data-ui-style="liquidglass"] .ui-card--raised:hover { transform: translateY(-2px) !important; }
+
+[data-ui-style="liquidglass"] .ui-card:hover { border-color: color-mix(in srgb, var(--color-accent) 40%, transparent) !important; box-shadow: var(--lg-sheen), var(--elevation-4), 0 0 22px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .ui-card:focus-visible { outline: none !important; box-shadow: var(--lg-focus), var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .ui-card__header { padding: var(--space-lg) var(--space-xl) !important; border-bottom: 1px solid var(--color-border-light) !important; color: var(--color-text-primary) !important; font-weight: var(--font-weight-semibold) !important; background: color-mix(in srgb, var(--color-text-primary) 5%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .ui-card__body { padding: var(--space-xl) !important; color: var(--color-text-secondary) !important; }
+
+/* Library tiles, store tiles and KPI tiles share one frosted shell. */
+[data-ui-style="liquidglass"] .lib-card:not(.lib-card--list),
+[data-ui-style="liquidglass"] .store-game-card,
+[data-ui-style="liquidglass"] .kpi-tile { border-radius: var(--radius-lg) !important; background: var(--lg-glass) !important; border: var(--lg-edge) !important; backdrop-filter: var(--lg-blur-card) !important; -webkit-backdrop-filter: var(--lg-blur-card) !important; box-shadow: var(--lg-sheen), var(--elevation-3) !important; overflow: hidden !important; transition: var(--lg-control) !important; }
+
+/* Hover is edge brightening + a capped lift: text never scales, so labels
+   stay crisp instead of shimmering under the transform. */
+[data-ui-style="liquidglass"] .lib-card:not(.lib-card--list):hover,
+[data-ui-style="liquidglass"] .store-game-card:hover { transform: translateY(-3px) !important; border-color: color-mix(in srgb, var(--color-accent) 55%, transparent) !important; box-shadow: var(--lg-sheen), var(--elevation-4), 0 0 22px color-mix(in srgb, var(--color-accent) 38%, transparent) !important; }
+
+/* A live session keeps its success rail + glow, re-asserted after the hover. */
+[data-ui-style="liquidglass"] .lib-card.running,
+[data-ui-style="liquidglass"] .lib-card.running:hover { border-color: var(--color-success) !important; box-shadow: var(--lg-sheen), 0 0 28px color-mix(in srgb, var(--color-success) 42%, transparent), inset 0 0 12px color-mix(in srgb, var(--color-success) 20%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .lib-card:focus-visible,
+[data-ui-style="liquidglass"] .store-game-card:focus-visible,
+[data-ui-style="liquidglass"] .kpi-tile:focus-visible { outline: none !important; box-shadow: var(--lg-focus), var(--lg-sheen) !important; }
+
+/* List rows are flat and in-place: no frost, and the base `.lib-card:hover`
+   glow must not leak back through the generic exclusion. */
+[data-ui-style="liquidglass"] .lib-card.lib-card--list { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-surface) 30%, transparent) !important; border-color: var(--color-border-faint) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+
+[data-ui-style="liquidglass"] .lib-card.lib-card--list:hover { transform: none !important; border-color: var(--color-accent-border) !important; box-shadow: none !important; }
+
+[data-ui-style="liquidglass"] .lib-card-cover { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-surface) 70%, transparent) !important; border: 1px solid var(--color-border-faint) !important; overflow: hidden !important; }
+
+/* The animated crossfade overlay owns its own opacity/visibility transition,
+   so it is excluded from the static-cover zoom timing below. */
+[data-ui-style="liquidglass"] .lib-card-cover img:not(.lib-card-cover-animated) { display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important; transition: transform var(--duration-slow) var(--ease-standard) !important; }
+
+[data-ui-style="liquidglass"] .lib-card:hover .lib-card-cover img:not(.lib-card-cover-animated) { transform: scale(1.06) !important; }
+
+[data-ui-style="liquidglass"] .lib-card-fab { border-radius: var(--radius-full) !important; background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 90%, transparent), color-mix(in srgb, var(--color-accent-2) 82%, transparent)) !important; color: var(--color-accent-contrast) !important; border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 45%, transparent) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 8px 26px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .lib-hero { border-radius: var(--radius-xl) !important; background: var(--lg-glass-strong) !important; border: var(--lg-edge) !important; backdrop-filter: var(--lg-blur-card) !important; -webkit-backdrop-filter: var(--lg-blur-card) !important; box-shadow: var(--lg-sheen), var(--elevation-4) !important; }
+
+/* The list-layout store row is a flat row, not a floating tile. */
+[data-ui-style="liquidglass"] .store-game-card-list { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-surface) 30%, transparent) !important; border-color: var(--color-border-faint) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+
+[data-ui-style="liquidglass"] .store-game-card-list:hover { transform: none !important; border-color: var(--color-accent-border) !important; box-shadow: none !important; }
+
+/* Selected list row keeps the accent edge + tint, re-asserted after hover. */
+[data-ui-style="liquidglass"] .store-game-card.store-game-card-list.selected { border-color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)) !important; }
+
+/* ── Badges · chips · pills ─────────────────────────────────────────────── */
+[data-ui-style="liquidglass"] .ui-badge { border-radius: var(--radius-full) !important; font-weight: var(--font-weight-bold) !important; letter-spacing: 0.03em !important; box-shadow: var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .ui-badge--default { background: color-mix(in srgb, var(--color-text-primary) 12%, transparent) !important; color: var(--color-text-secondary) !important; border-color: var(--color-border-light) !important; }
+
+[data-ui-style="liquidglass"] .ui-badge--success { background: color-mix(in srgb, var(--color-success) 14%, transparent) !important; color: var(--color-success) !important; border-color: color-mix(in srgb, var(--color-success) 34%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .ui-badge--warning { background: color-mix(in srgb, var(--color-warning) 14%, transparent) !important; color: var(--color-warning) !important; border-color: color-mix(in srgb, var(--color-warning) 34%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .ui-badge--danger { background: color-mix(in srgb, var(--color-danger) 14%, transparent) !important; color: var(--color-danger) !important; border-color: color-mix(in srgb, var(--color-danger) 34%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .ui-badge--info { background: color-mix(in srgb, var(--color-info) 14%, transparent) !important; color: var(--color-info) !important; border-color: color-mix(in srgb, var(--color-info) 34%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .ui-badge--accent { background: color-mix(in srgb, var(--color-accent) 16%, transparent) !important; color: var(--color-accent) !important; border-color: color-mix(in srgb, var(--color-accent) 36%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .lib-card-badge,
+[data-ui-style="liquidglass"] .lib-card-platform { border-radius: var(--radius-full) !important; font-weight: var(--font-weight-bold) !important; box-shadow: var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .lib-card-platform { color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 16%, transparent) !important; border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent) !important; }
+
+/* Cinematic density deliberately neutralises the platform pill. */
+[data-ui-style="liquidglass"] .lib-card.density-cinematic .lib-card-platform { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important; border-color: var(--color-border-light) !important; }
+
+[data-ui-style="liquidglass"] .filter-pill,
+[data-ui-style="liquidglass"] .sidebar-active-filter { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important; color: var(--color-text-secondary) !important; border: 1px solid var(--color-border-light) !important; font-weight: var(--font-weight-medium) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-chrome-fast) !important; }
+
+[data-ui-style="liquidglass"] .filter-pill:hover,
+[data-ui-style="liquidglass"] .sidebar-active-filter:hover { color: var(--color-text-primary) !important; border-color: var(--color-accent-border) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .filter-pill.active,
+[data-ui-style="liquidglass"] .sidebar-active-filter.active { color: var(--color-accent-contrast) !important; background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 88%, transparent), color-mix(in srgb, var(--color-accent-2) 80%, transparent)) !important; border-color: color-mix(in srgb, var(--color-accent) 55%, transparent) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 2px 14px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .filter-pill:focus-visible,
+[data-ui-style="liquidglass"] .sidebar-active-filter:focus-visible { outline: none !important; box-shadow: var(--lg-focus) !important; }
+
+[data-ui-style="liquidglass"] .spec-pill { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important; color: var(--color-text-secondary) !important; border: 1px solid var(--color-border-light) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-chrome-fast) !important; }
+
+[data-ui-style="liquidglass"] .spec-pill:hover { background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; border-color: var(--color-accent-border) !important; color: var(--color-accent) !important; transform: translateY(-1px) !important; }
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+[data-ui-style="liquidglass"] .settings-section { border-radius: var(--radius-lg) !important; background: color-mix(in srgb, var(--color-surface) 52%, transparent) !important; border: var(--lg-edge) !important; backdrop-filter: var(--lg-blur-card) !important; -webkit-backdrop-filter: var(--lg-blur-card) !important; box-shadow: var(--lg-sheen), var(--elevation-3) !important; }
+
+[data-ui-style="liquidglass"] .settings-row { display: flex !important; flex-direction: column !important; gap: var(--space-md) !important; }
+
+[data-ui-style="liquidglass"] .settings-label { color: var(--color-text-secondary) !important; font-weight: var(--font-weight-semibold) !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; }
+
+[data-ui-style="liquidglass"] .settings-control { display: flex !important; flex-direction: column !important; gap: var(--space-xs) !important; }
+
+[data-ui-style="liquidglass"] .settings-input,
+[data-ui-style="liquidglass"] .settings-select { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-text-primary) 7%, transparent) !important; border: 1px solid var(--color-border-light) !important; color: var(--color-text-primary) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-chrome-fast) !important; }
+
+[data-ui-style="liquidglass"] .settings-input:hover,
+[data-ui-style="liquidglass"] .settings-select:hover { border-color: var(--color-border-highlight) !important; }
+
+[data-ui-style="liquidglass"] .settings-input:focus,
+[data-ui-style="liquidglass"] .settings-select:focus { border-color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 8%, transparent) !important; box-shadow: var(--lg-focus), var(--lg-sheen) !important; }
+
+[data-ui-style="liquidglass"] .settings-checkbox-label { color: var(--color-text-secondary) !important; }
+
+[data-ui-style="liquidglass"] .settings-checkbox-label:hover { color: var(--color-text-primary) !important; }
+
+[data-ui-style="liquidglass"] .settings-checkbox-label input[type="checkbox"] { border: 1px solid var(--color-border-light) !important; border-radius: var(--radius-xs) !important; background-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .settings-checkbox-label input[type="checkbox"]:checked { background-color: var(--color-accent) !important; border-color: var(--color-accent) !important; }
+
+[data-ui-style="liquidglass"] .settings-checkbox-label input[type="checkbox"]:focus-visible { outline: none !important; box-shadow: var(--lg-focus) !important; }
+
+[data-ui-style="liquidglass"] .settings-behavior-card { border-radius: var(--radius-lg) !important; background: color-mix(in srgb, var(--color-surface-raised) 50%, transparent) !important; border: var(--lg-edge) !important; backdrop-filter: var(--lg-blur-chrome) !important; -webkit-backdrop-filter: var(--lg-blur-chrome) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-control) !important; }
+
+[data-ui-style="liquidglass"] .settings-behavior-card:hover { border-color: var(--color-accent-border) !important; transform: translateY(-2px) !important; box-shadow: var(--lg-sheen), var(--elevation-3) !important; }
+
+/* Warning cards keep their tinted frame, re-asserted after the generic rule. */
+[data-ui-style="liquidglass"] .settings-behavior-card--warn { border-color: color-mix(in srgb, var(--color-warning) 42%, var(--color-border)) !important; background: color-mix(in srgb, var(--color-warning) 7%, color-mix(in srgb, var(--color-surface-raised) 50%, transparent)) !important; }
+
+[data-ui-style="liquidglass"] .settings-behavior-card--warn:hover { border-color: color-mix(in srgb, var(--color-warning) 62%, var(--color-border)) !important; }
+
+[data-ui-style="liquidglass"] .settings-subtabs-bar { gap: var(--space-xs) !important; }
+
+[data-ui-style="liquidglass"] .settings-subtab-item { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-text-primary) 9%, transparent) !important; border: 1px solid var(--color-border-light) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-medium) !important; box-shadow: var(--lg-sheen) !important; transition: var(--lg-chrome-fast) !important; }
+
+[data-ui-style="liquidglass"] .settings-subtab-item:hover { background: color-mix(in srgb, var(--color-text-primary) 15%, transparent) !important; border-color: var(--color-accent-border) !important; color: var(--color-text-primary) !important; }
+
+[data-ui-style="liquidglass"] .settings-subtab-item.active { color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 18%, transparent) !important; border-color: color-mix(in srgb, var(--color-accent) 48%, transparent) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 0 16px var(--color-accent-glow) !important; }
+
+/* ── Page headers ───────────────────────────────────────────────────────── */
+[data-ui-style="liquidglass"] .page-header { border-bottom: 1px solid var(--color-border-light) !important; }
+
+[data-ui-style="liquidglass"] .page-header::after { width: var(--space-2xl) !important; height: 2px !important; border-radius: var(--radius-full) !important; background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent-2) 70%, transparent)) !important; box-shadow: 0 0 12px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .page-header__eyebrow { display: block !important; color: var(--color-accent) !important; font-weight: var(--font-weight-semibold) !important; letter-spacing: 0.12em !important; text-transform: uppercase !important; }
+
+[data-ui-style="liquidglass"] .page-header__title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-extrabold) !important; letter-spacing: -0.025em !important; }
+
+[data-ui-style="liquidglass"] .page-header__icon { border-radius: var(--radius-lg) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent) !important; color: var(--color-accent) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 0 18px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .page-header__description { color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important; }
+
+[data-ui-style="liquidglass"] .page-header__actions { gap: var(--space-sm) !important; }
+
+/* ── Overlays · menus · tooltips ────────────────────────────────────────── */
+[data-ui-style="liquidglass"] .modal-backdrop { background: var(--color-scrim) !important; backdrop-filter: blur(var(--blur-md)) saturate(160%) !important; -webkit-backdrop-filter: blur(var(--blur-md)) saturate(160%) !important; }
+
+[data-ui-style="liquidglass"] .modal { border-radius: var(--radius-xl) !important; background: color-mix(in srgb, var(--color-bg-secondary) 58%, transparent) !important; border: 1px solid var(--color-border-highlight) !important; backdrop-filter: var(--lg-blur-overlay) !important; -webkit-backdrop-filter: var(--lg-blur-overlay) !important; box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--lg-recess), var(--elevation-5) !important; }
+
+[data-ui-style="liquidglass"] .modal-header { border-bottom: 1px solid var(--color-border-light) !important; background: color-mix(in srgb, var(--color-text-primary) 5%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .modal-body { overflow-y: auto !important; }
+
+[data-ui-style="liquidglass"] .modal-footer { border-top: 1px solid var(--color-border-light) !important; background: color-mix(in srgb, var(--color-text-primary) 4%, transparent) !important; }
+
+/* Confirm dialogs keep their quieter hairline frame. */
+[data-ui-style="liquidglass"] .confirm-modal .modal-header { border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .confirm-modal .modal-footer { border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .modal-title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; }
+
+[data-ui-style="liquidglass"] .context-menu { border-radius: var(--radius-md) !important; background: var(--lg-glass-strong) !important; border: 1px solid var(--color-border-light) !important; backdrop-filter: var(--lg-blur-menu) !important; -webkit-backdrop-filter: var(--lg-blur-menu) !important; box-shadow: var(--lg-sheen), var(--elevation-5) !important; }
+
+[data-ui-style="liquidglass"] .context-menu-item { border-radius: var(--radius-sm) !important; color: var(--color-text-primary) !important; transition: var(--lg-chrome-fast) !important; }
+
+[data-ui-style="liquidglass"] .context-menu-item:hover { background: color-mix(in srgb, var(--color-text-primary) 12%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .context-menu-item.play-action { color: var(--color-accent) !important; }
+
+[data-ui-style="liquidglass"] .context-menu-item.play-action:hover { background: color-mix(in srgb, var(--color-accent) 16%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .context-menu-item.remove-action { color: var(--color-danger) !important; }
+
+[data-ui-style="liquidglass"] .context-menu-item.remove-action:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent) !important; }
+
+[data-ui-style="liquidglass"] .context-menu-separator { height: 1px !important; background: var(--color-border) !important; }
+
+[data-ui-style="liquidglass"] .ui-tooltip { animation-duration: var(--duration-fast) !important; }
+
+[data-ui-style="liquidglass"] .ui-tooltip__content { border-radius: var(--radius-md) !important; background: var(--lg-glass-strong) !important; border: 1px solid var(--color-border-light) !important; color: var(--color-text-primary) !important; backdrop-filter: var(--lg-blur-menu) !important; -webkit-backdrop-filter: var(--lg-blur-menu) !important; box-shadow: var(--lg-sheen), var(--elevation-3) !important; }
+
+[data-ui-style="liquidglass"] .ui-tooltip__arrow { background: var(--color-surface-raised) !important; border-color: var(--color-border-light) !important; }
+
+/* ── Primitives ─────────────────────────────────────────────────────────── */
+[data-ui-style="liquidglass"] .ui-skeleton { background: color-mix(in srgb, var(--color-text-primary) 8%, transparent) !important; border-radius: var(--radius-sm) !important; }
+
+[data-ui-style="liquidglass"] .ui-skeleton--text { border-radius: var(--radius-xs) !important; }
+[data-ui-style="liquidglass"] .ui-skeleton--circle { border-radius: 50% !important; }
+[data-ui-style="liquidglass"] .ui-skeleton--rect { border-radius: var(--radius-md) !important; }
+
+[data-ui-style="liquidglass"] .empty-state { color: var(--color-text-muted) !important; }
+
+[data-ui-style="liquidglass"] .filter-slider { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-text-primary) 12%, transparent) !important; accent-color: var(--color-accent) !important; }
+
+/* Kept split from the `-moz` counterpart on purpose: an unknown pseudo-element
+   in a grouped selector list invalidates the whole rule in Blink/WebKit. */
+[data-ui-style="liquidglass"] .filter-slider::-webkit-slider-thumb { background: var(--color-accent) !important; border: 2px solid var(--color-surface-raised) !important; border-radius: 50% !important; box-shadow: 0 0 10px var(--color-accent-glow) !important; }
+
+[data-ui-style="liquidglass"] .filter-slider::-moz-range-thumb { background: var(--color-accent) !important; border: 2px solid var(--color-surface-raised) !important; border-radius: 50% !important; box-shadow: 0 0 10px var(--color-accent-glow) !important; }
+
+/* ── Scrollbars (flat translucent thumb) ────────────────────────────────── */
+[data-ui-style="liquidglass"] ::-webkit-scrollbar { width: var(--space-sm) !important; height: var(--space-sm) !important; }
+
+[data-ui-style="liquidglass"] ::-webkit-scrollbar-track { background: transparent !important; }
+
+[data-ui-style="liquidglass"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--color-text-primary) 18%, transparent) !important; border: 2px solid transparent !important; border-radius: var(--radius-full) !important; background-clip: padding-box !important; }
+
+[data-ui-style="liquidglass"] ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-accent) 45%, transparent) !important; background-clip: padding-box !important; }
+
+[data-ui-style="liquidglass"] .sidebar-list::-webkit-scrollbar { width: var(--space-xs) !important; }
+
+[data-ui-style="liquidglass"] .sidebar-list::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--color-text-primary) 14%, transparent) !important; border: 1px solid transparent !important; border-radius: var(--radius-full) !important; background-clip: padding-box !important; }
+
+[data-ui-style="liquidglass"] .sidebar-list::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-text-primary) 30%, transparent) !important; background-clip: padding-box !important; }
+
+/* Firefox fallback — matches the flat whisper. */
+[data-ui-style="liquidglass"] * { scrollbar-width: thin !important; scrollbar-color: color-mix(in srgb, var(--color-text-primary) 20%, transparent) transparent !important; }
+
+/* Motion safety: liquidglass reads fully with motion off, so reduced-motion
+   users get near-instant settling instead of eased lifts and blooms. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="liquidglass"] *,
+  [data-ui-style="liquidglass"] *::before,
+  [data-ui-style="liquidglass"] *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High-contrast guard: flat borders + a real outline instead of glow. */
+[data-theme="highcontrast"][data-ui-style="liquidglass"] .lib-card:hover,
+[data-theme="highcontrast"][data-ui-style="liquidglass"] .store-game-card:hover { box-shadow: none !important; }
+
+[data-theme="highcontrast"][data-ui-style="liquidglass"] :focus-visible {
+  outline: 3px solid var(--color-accent) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}

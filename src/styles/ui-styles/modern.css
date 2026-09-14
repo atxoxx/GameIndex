@@ -1,0 +1,317 @@
+/* =============================================================================
+   5. UI Style: Modern (Studio Minimal — Hairline Precision & Accent Rims)
+   ─────────────────────────────────────────────────────────────────────────────
+   Quiet, controlled, exacting. The workspace floats on a top-lit canvas and
+   every surface is a flat plane of colour — there is deliberately no bevel and
+   no specular top edge anywhere (that tactile grammar belongs to `classic`).
+   A surface sits borderless at rest and answers the cursor by drawing a single
+   precise 1px accent rim plus a 1–2px lift, so interaction reads as
+   "cut paper → rim". A laser-thin accent underline anchors page headers and the
+   top spotlight wash keeps the canvas lit. Studio geometry stays crisp and
+   never pill-soft.
+
+   Colour-agnostic by construction: only theme tokens and `color-mix` over
+   tokens appear below, so light, OLED, high-contrast and user palettes render
+   identically. The radius ladder (4·6·8·12·16·20·48) is the sole place raw px
+   is allowed; responsive geometry owned by media queries is never forced.
+   ============================================================================= */
+
+[data-ui-style="modern"] {
+  /* Studio-tight radius ladder. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 48px;
+
+  /* Local aliases: the two hairline weights, the single focus ring shared by
+     every `:focus-visible` in this file, and the chrome timing vocabulary. */
+  --modern-hairline: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --modern-hairline-soft: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  --modern-ring: var(--ring-accent-soft);
+  --modern-chrome-fast: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  --modern-control: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+}
+
+/* ── Canvas ─────────────────────────────────────────────────────────────── */
+[data-ui-style="modern"] .app-layout {
+  padding: var(--space-xs) !important;
+  background-color: var(--color-bg-primary) !important;
+  background-image: radial-gradient(ellipse 62% 32% at 50% -4%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 74%), var(--color-bg-gradient) !important;
+}
+/* Symmetric shell margin: the surrounding layout padding alone owns every gap,
+   so the panel never reads with a wider right edge than its left. */
+[data-ui-style="modern"] .app-main {
+  border-radius: var(--radius-xl) !important;
+  margin: var(--space-2xs) 0 !important;
+  background-color: var(--color-bg-secondary) !important;
+  background-image: var(--mesh-gradient) !important;
+  border: 1px solid var(--modern-hairline) !important;
+  box-shadow: var(--elevation-3) !important;
+}
+
+/* ── Top navigation ─────────────────────────────────────────────────────── */
+[data-ui-style="modern"] .topnav {
+  background: color-mix(in srgb, var(--color-bg-primary) 88%, transparent) !important;
+  backdrop-filter: blur(var(--blur-md)) !important;
+  -webkit-backdrop-filter: blur(var(--blur-md)) !important;
+  border-bottom: 1px solid var(--modern-hairline) !important;
+  box-shadow: 0 1px 0 var(--modern-hairline-soft) !important;
+}
+/* Preserve the runtime per-game accent chrome wash. */
+[data-ui-style="modern"][data-game-accent] .topnav {
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-primary)) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
+  box-shadow: 0 1px 0 var(--modern-hairline-soft) !important;
+}
+[data-ui-style="modern"] .topnav-logo__word { color: var(--color-text-primary) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-bold) !important; letter-spacing: -0.03em !important; }
+[data-ui-style="modern"] .topnav-logo__version { background: color-mix(in srgb, var(--color-bg-tertiary) 72%, transparent) !important; border: 1px solid var(--modern-hairline) !important; border-radius: var(--radius-xs) !important; color: var(--color-text-tertiary) !important; font-weight: var(--font-weight-semibold) !important; font-variant-numeric: tabular-nums !important; }
+[data-ui-style="modern"] .topnav-tabs { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-bg-tertiary) 74%, transparent) !important; border: 1px solid var(--modern-hairline) !important; }
+[data-ui-style="modern"] .topnav-tab {
+  border-radius: var(--radius-sm) !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: var(--font-weight-medium) !important;
+  transition: var(--modern-chrome-fast), transform var(--duration-fast) var(--ease-standard) !important;
+}
+[data-ui-style="modern"] .topnav-tab:not(.active):hover { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 6%, transparent) !important; }
+[data-ui-style="modern"] .topnav-tab.active { color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: 0 2px 10px var(--color-accent-glow) !important; }
+[data-ui-style="modern"] .topnav-btn--cmd {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--modern-hairline) !important;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 60%, transparent) !important;
+  color: var(--color-text-secondary) !important;
+  box-shadow: none !important;
+  transition: var(--modern-chrome-fast), transform var(--duration-fast) var(--ease-standard) !important;
+}
+[data-ui-style="modern"] .topnav-btn--cmd:hover { color: var(--color-accent) !important; background: var(--color-bg-hover) !important; border-color: var(--color-accent-border) !important; box-shadow: 0 0 0 1px var(--color-accent-border) !important; }
+[data-ui-style="modern"] .topnav-btn--cmd:focus-visible { outline: none !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .topnav-now-playing-chip { border-radius: var(--radius-full) !important; border: 1px solid var(--modern-hairline) !important; transition: var(--modern-chrome-fast) !important; }
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+[data-ui-style="modern"] .sidebar { background: var(--color-bg-secondary) !important; border-right: 1px solid var(--modern-hairline) !important; box-shadow: inset -1px 0 0 var(--modern-hairline-soft) !important; }
+/* Docked-right flips the separator + inner edge to the left side. */
+[data-ui-style="modern"][data-sidebar-position="right"] .sidebar { border-right: none !important; border-left: 1px solid var(--modern-hairline) !important; box-shadow: inset 1px 0 0 var(--modern-hairline-soft) !important; }
+/* Preserve the runtime per-game accent wash (ordered after the dock flip). */
+[data-ui-style="modern"][data-game-accent] .sidebar {
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-secondary)) !important;
+  border-right: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-accent) 8%, transparent) !important;
+}
+[data-ui-style="modern"] .sidebar-search { background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent) !important; border: 1px solid var(--modern-hairline) !important; border-radius: var(--radius-md) !important; box-shadow: none !important; }
+[data-ui-style="modern"] .sidebar-search:focus-within { border-color: var(--color-accent) !important; background: var(--color-bg-tertiary) !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .sidebar-game-item { border-radius: var(--radius-md) !important; transition: background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard) !important; }
+[data-ui-style="modern"] .sidebar-game-item:hover:not(.active) { background: color-mix(in srgb, var(--color-text-primary) 5%, transparent) !important; box-shadow: none !important; }
+[data-ui-style="modern"] .sidebar-game-item.active { background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary)) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent) !important; }
+[data-ui-style="modern"] .sidebar-game-item.active:hover { background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary)) !important; }
+[data-ui-style="modern"] .sidebar-game-item.bulk-selected, [data-ui-style="modern"] .sidebar-game-item.bulk-selected:hover { background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-tertiary)) !important; }
+[data-ui-style="modern"] .sidebar-game-item:focus-visible { outline: none !important; box-shadow: var(--modern-ring) !important; }
+/* Selection grammar: a full-width 1px accent underline instead of the classic
+   left bar. The base `::after` is a centered 3px pill, so every geometry knob
+   is restated explicitly against the row's bottom edge. */
+[data-ui-style="modern"] .sidebar-game-item::after {
+  left: 0 !important;
+  right: 0 !important;
+  top: auto !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 1px !important;
+  transform: none !important;
+  border-radius: 0 !important;
+}
+[data-ui-style="modern"] .sidebar-game-item.active::after, [data-ui-style="modern"] .sidebar-game-item.bulk-selected::after { background: var(--color-accent) !important; }
+/* Full-width rows round to --radius-sm; the icon rail widens to --radius-md. */
+[data-ui-style="modern"] .app-sidebar:not(.sidebar-icon-rail) .sidebar-game-icon { border-radius: var(--radius-sm) !important; }
+@media (min-width: 2561px) {
+  [data-ui-style="modern"] .app-sidebar:not(.sidebar-icon-rail) .sidebar-game-icon { border-radius: var(--radius-md) !important; }
+}
+[data-ui-style="modern"] .sidebar-section-header { color: var(--color-text-tertiary) !important; font-weight: var(--font-weight-semibold) !important; }
+[data-ui-style="modern"] .sidebar-filter-btn { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-bg-tertiary) 82%, transparent) !important; border: 1px solid var(--modern-hairline) !important; box-shadow: none !important; transition: var(--modern-chrome-fast) !important; }
+[data-ui-style="modern"] .sidebar-filter-btn:hover { color: var(--color-text-primary) !important; border-color: var(--color-border-light) !important; background: var(--color-bg-hover) !important; }
+[data-ui-style="modern"] .sidebar-filter-btn.active { color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: 0 2px 10px var(--color-accent-glow) !important; }
+[data-ui-style="modern"] .sidebar-filter-btn:focus-visible { outline: none !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .sidebar-section-toggle { border-radius: var(--radius-xs) !important; color: var(--color-text-muted) !important; font-weight: var(--font-weight-bold) !important; transition: var(--modern-chrome-fast) !important; }
+[data-ui-style="modern"] .sidebar-section-toggle:hover { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-muted) 10%, transparent) !important; }
+[data-ui-style="modern"] .sidebar-section-toggle:focus-visible { outline: none !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .sidebar-filter-popover { background: var(--color-bg-secondary) !important; border: 1px solid var(--color-border-light) !important; border-radius: var(--radius-lg) !important; box-shadow: var(--elevation-4), 0 0 0 1px color-mix(in srgb, var(--color-accent) 10%, transparent) !important; }
+[data-ui-style="modern"] .sidebar-view-options-menu { background: var(--color-surface-raised) !important; border: 1px solid var(--color-border-light) !important; border-radius: var(--radius-lg) !important; box-shadow: var(--elevation-4) !important; }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+[data-ui-style="modern"] .ui-btn { border-radius: var(--radius-md) !important; font-weight: var(--font-weight-medium) !important; transition: var(--modern-control) !important; }
+[data-ui-style="modern"] .ui-btn--sm { border-radius: var(--radius-sm) !important; }
+[data-ui-style="modern"] .ui-btn--lg { border-radius: var(--radius-lg) !important; }
+[data-ui-style="modern"] .ui-btn--primary { background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: 0 2px 10px var(--color-accent-glow) !important; }
+[data-ui-style="modern"] .ui-btn--primary:hover:not(:disabled) { transform: translateY(-1px) !important; box-shadow: 0 6px 20px var(--color-accent-glow) !important; }
+[data-ui-style="modern"] .ui-btn--primary:active:not(:disabled) { transform: translateY(0) !important; box-shadow: 0 1px 5px var(--color-accent-glow) !important; }
+[data-ui-style="modern"] .ui-btn--primary:focus-visible { outline: none !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .ui-btn--secondary { background: color-mix(in srgb, var(--color-bg-tertiary) 88%, transparent) !important; color: var(--color-text-primary) !important; border-color: var(--modern-hairline) !important; box-shadow: none !important; }
+[data-ui-style="modern"] .ui-btn--secondary:hover:not(:disabled) { background: var(--color-bg-hover) !important; border-color: var(--color-border-light) !important; transform: translateY(-1px) !important; box-shadow: var(--shadow-sm) !important; }
+[data-ui-style="modern"] .ui-btn--secondary:focus-visible { outline: none !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .ui-btn--ghost { background: transparent !important; color: var(--color-text-secondary) !important; border-color: transparent !important; }
+[data-ui-style="modern"] .ui-btn--ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--color-text-primary) 6%, transparent) !important; color: var(--color-text-primary) !important; border-color: var(--modern-hairline) !important; }
+[data-ui-style="modern"] .ui-btn--danger { background: var(--color-danger) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent) !important; }
+[data-ui-style="modern"] .ui-btn--danger:hover:not(:disabled) { transform: translateY(-1px) !important; box-shadow: 0 4px 14px color-mix(in srgb, var(--color-danger) 40%, transparent) !important; }
+[data-ui-style="modern"] .ui-btn--danger:focus-visible { outline: none !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .ui-btn__icon { display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important; }
+[data-ui-style="modern"] .ui-btn__label { display: inline-flex !important; align-items: center !important; min-width: 0 !important; }
+[data-ui-style="modern"] .lib-card-list-play-btn { border-radius: var(--radius-full) !important; background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; font-weight: var(--font-weight-semibold) !important; transition: var(--modern-control) !important; }
+[data-ui-style="modern"] .lib-card-list-play-btn:hover { transform: scale(1.04) !important; box-shadow: 0 2px 8px var(--color-accent-glow) !important; }
+[data-ui-style="modern"] .lib-card-list-play-btn.running { background: var(--color-success) !important; }
+
+/* ── Cards & surfaces ───────────────────────────────────────────────────── */
+[data-ui-style="modern"] .ui-card {
+  border-radius: var(--radius-xl) !important;
+  overflow: hidden !important;
+  transition: transform var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), background-color var(--duration-normal) var(--ease-standard) !important;
+}
+/* Each variant restates its elevation without the classic `--color-border-highlight`
+   top bevel, so no surface in this style reads as threaded/tactile. */
+[data-ui-style="modern"] .ui-card--surface { box-shadow: none !important; }
+[data-ui-style="modern"] .ui-card--glass { box-shadow: none !important; }
+[data-ui-style="modern"] .ui-card--raised { box-shadow: var(--shadow-sm) !important; }
+[data-ui-style="modern"] .ui-card__header { padding: var(--space-lg) var(--space-xl) !important; border-bottom: 1px solid var(--modern-hairline) !important; color: var(--color-text-primary) !important; font-weight: var(--font-weight-semibold) !important; }
+[data-ui-style="modern"] .ui-card__body { padding: var(--space-xl) !important; color: var(--color-text-secondary) !important; }
+/* Studio panels: cut paper at rest — no bevel, no rim — that answers the
+   cursor by drawing one precise 1px accent rim with a 2px lift. */
+[data-ui-style="modern"] .lib-card:not(.lib-card--list), [data-ui-style="modern"] .store-game-card:not(.store-game-card-list), [data-ui-style="modern"] .kpi-tile {
+  border-radius: var(--radius-lg) !important;
+  background: var(--color-surface-raised) !important;
+  border: 1px solid transparent !important;
+  box-shadow: var(--elevation-1) !important;
+  overflow: hidden !important;
+  transition: transform var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard) !important;
+}
+[data-ui-style="modern"] .lib-card:not(.lib-card--list):hover, [data-ui-style="modern"] .store-game-card:not(.store-game-card-list):hover {
+  transform: translateY(-2px) !important;
+  border-color: var(--color-accent-border) !important;
+  box-shadow: 0 8px 26px var(--color-accent-glow) !important;
+}
+[data-ui-style="modern"] .lib-card-cover { background: var(--color-surface) !important; overflow: hidden !important; }
+/* The animated crossfade overlay owns its opacity timing, so only the static
+   cover takes the studio zoom. */
+[data-ui-style="modern"] .lib-card-cover img:not(.lib-card-cover-animated) { display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important; transition: transform var(--duration-slow) var(--ease-standard) !important; }
+[data-ui-style="modern"] .lib-card-fab { border-radius: var(--radius-md) !important; background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 45%, transparent) !important; }
+[data-ui-style="modern"] .lib-hero { border-radius: var(--radius-xl) !important; background: var(--color-bg-tertiary) !important; border: 1px solid transparent !important; box-shadow: var(--elevation-2) !important; }
+/* Flat list rows keep their row chrome instead of the poster frame. */
+[data-ui-style="modern"] .lib-card.lib-card--list { border-radius: var(--radius-md) !important; background: var(--color-bg-secondary) !important; border: 1px solid var(--modern-hairline) !important; box-shadow: none !important; overflow: hidden !important; }
+[data-ui-style="modern"] .lib-card.lib-card--list:hover { transform: none !important; background: var(--color-bg-tertiary) !important; border-color: var(--color-border-light) !important; box-shadow: none !important; }
+/* The list-layout store card likewise stays flat and non-lifting. */
+[data-ui-style="modern"] .store-game-card.store-game-card-list { border-radius: var(--radius-lg) !important; background: var(--color-bg-secondary) !important; border: 1px solid var(--modern-hairline) !important; box-shadow: none !important; overflow: visible !important; }
+[data-ui-style="modern"] .store-game-card.store-game-card-list:hover { transform: none !important; background: var(--color-bg-tertiary) !important; border-color: var(--color-border-light) !important; box-shadow: none !important; }
+/* Re-assert the selected store list row after the hover restatement above. */
+[data-ui-style="modern"] .store-game-card.store-game-card-list.selected { border-color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)) !important; }
+/* Running cards keep their success affordance even under the hover lift. */
+[data-ui-style="modern"] .lib-card.running { border-color: var(--color-success) !important; box-shadow: 0 0 16px color-mix(in srgb, var(--color-success) 35%, transparent) !important; }
+[data-ui-style="modern"] .lib-card.running:hover { border-color: var(--color-success) !important; box-shadow: 0 0 22px color-mix(in srgb, var(--color-success) 55%, transparent), 0 8px 26px color-mix(in srgb, var(--color-success) 30%, transparent) !important; }
+
+/* ── Badges · chips · pills ─────────────────────────────────────────────── */
+[data-ui-style="modern"] .ui-badge { border-radius: var(--radius-sm) !important; font-weight: var(--font-weight-semibold) !important; letter-spacing: 0.04em !important; box-shadow: none !important; }
+[data-ui-style="modern"] .ui-badge--default { background: var(--color-bg-tertiary) !important; color: var(--color-text-secondary) !important; border-color: var(--modern-hairline) !important; }
+[data-ui-style="modern"] .ui-badge--success { background: color-mix(in srgb, var(--color-success) 12%, transparent) !important; color: var(--color-success) !important; border-color: color-mix(in srgb, var(--color-success) 30%, transparent) !important; }
+[data-ui-style="modern"] .ui-badge--warning { background: color-mix(in srgb, var(--color-warning) 12%, transparent) !important; color: var(--color-warning) !important; border-color: color-mix(in srgb, var(--color-warning) 30%, transparent) !important; }
+[data-ui-style="modern"] .ui-badge--danger { background: color-mix(in srgb, var(--color-danger) 12%, transparent) !important; color: var(--color-danger) !important; border-color: color-mix(in srgb, var(--color-danger) 30%, transparent) !important; }
+[data-ui-style="modern"] .ui-badge--info { background: color-mix(in srgb, var(--color-info) 12%, transparent) !important; color: var(--color-info) !important; border-color: color-mix(in srgb, var(--color-info) 30%, transparent) !important; }
+[data-ui-style="modern"] .ui-badge--accent { background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important; color: var(--color-accent) !important; border-color: color-mix(in srgb, var(--color-accent) 30%, transparent) !important; }
+[data-ui-style="modern"] .lib-card-badge, [data-ui-style="modern"] .lib-card-platform { border-radius: var(--radius-sm) !important; font-weight: var(--font-weight-semibold) !important; }
+[data-ui-style="modern"] .lib-card-platform { color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important; }
+/* Cinematic density deliberately neutralises the platform chip over artwork. */
+[data-ui-style="modern"] .lib-card.density-cinematic .lib-card-platform { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important; }
+[data-ui-style="modern"] .filter-pill, [data-ui-style="modern"] .sidebar-active-filter { border-radius: var(--radius-full) !important; color: var(--color-text-secondary) !important; background: color-mix(in srgb, var(--color-bg-tertiary) 82%, transparent) !important; border: 1px solid var(--modern-hairline) !important; font-weight: var(--font-weight-medium) !important; }
+[data-ui-style="modern"] .filter-pill:hover, [data-ui-style="modern"] .sidebar-active-filter:hover { color: var(--color-text-primary) !important; border-color: var(--color-accent) !important; background: var(--color-bg-hover) !important; }
+[data-ui-style="modern"] .filter-pill.active, [data-ui-style="modern"] .sidebar-active-filter.active { color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: 0 2px 8px var(--color-accent-glow) !important; }
+[data-ui-style="modern"] .filter-pill:focus-visible, [data-ui-style="modern"] .sidebar-active-filter:focus-visible { outline: none !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .spec-pill { border-radius: var(--radius-full) !important; color: var(--color-text-secondary) !important; background: color-mix(in srgb, var(--color-bg-tertiary) 82%, transparent) !important; border: 1px solid var(--modern-hairline) !important; }
+[data-ui-style="modern"] .spec-pill:hover { color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-tertiary)) !important; border-color: var(--color-accent) !important; transform: translateY(-1px) !important; }
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+[data-ui-style="modern"] .settings-section { background: var(--color-surface) !important; border: 1px solid var(--modern-hairline) !important; border-radius: var(--radius-lg) !important; box-shadow: none !important; }
+[data-ui-style="modern"] .settings-row { display: flex !important; flex-direction: column !important; gap: var(--space-md) !important; }
+[data-ui-style="modern"] .settings-label { color: var(--color-text-secondary) !important; font-weight: var(--font-weight-semibold) !important; }
+[data-ui-style="modern"] .settings-control { display: flex !important; flex-direction: column !important; gap: var(--space-xs) !important; }
+[data-ui-style="modern"] .settings-input, [data-ui-style="modern"] .settings-select { border-radius: var(--radius-md) !important; background-color: color-mix(in srgb, var(--color-bg-tertiary) 88%, transparent) !important; border: 1px solid var(--modern-hairline) !important; color: var(--color-text-primary) !important; box-shadow: none !important; }
+[data-ui-style="modern"] .settings-select:hover { border-color: var(--color-border-light) !important; }
+[data-ui-style="modern"] .settings-input:focus, [data-ui-style="modern"] .settings-select:focus { border-color: var(--color-accent) !important; background-color: var(--color-bg-secondary) !important; box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .settings-checkbox-label { color: var(--color-text-secondary) !important; }
+[data-ui-style="modern"] .settings-checkbox-label:hover { color: var(--color-text-primary) !important; }
+[data-ui-style="modern"] .settings-checkbox-label input[type="checkbox"] { border: 1px solid var(--color-border-light) !important; border-radius: var(--radius-xs) !important; background-color: var(--color-bg-tertiary) !important; }
+[data-ui-style="modern"] .settings-checkbox-label input[type="checkbox"]:hover { border-color: var(--color-text-muted) !important; }
+[data-ui-style="modern"] .settings-checkbox-label input[type="checkbox"]:checked { background-color: var(--color-accent) !important; border-color: var(--color-accent) !important; }
+[data-ui-style="modern"] .settings-checkbox-label input[type="checkbox"]:focus-visible { box-shadow: var(--modern-ring) !important; }
+[data-ui-style="modern"] .settings-behavior-card { background: var(--color-surface) !important; border: 1px solid var(--modern-hairline) !important; border-radius: var(--radius-lg) !important; box-shadow: none !important; }
+[data-ui-style="modern"] .settings-behavior-card:hover { border-color: var(--color-border-light) !important; background: color-mix(in srgb, var(--color-bg-secondary) 40%, var(--color-surface)) !important; }
+/* Warning variant re-asserted after the generic card chrome. */
+[data-ui-style="modern"] .settings-behavior-card--warn { border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border)) !important; background: color-mix(in srgb, var(--color-warning) 5%, var(--color-surface)) !important; }
+[data-ui-style="modern"] .settings-behavior-card--warn:hover { border-color: color-mix(in srgb, var(--color-warning) 60%, var(--color-border)) !important; }
+[data-ui-style="modern"] .settings-subtabs-bar { gap: var(--space-xs) !important; }
+[data-ui-style="modern"] .settings-subtab-item { border-radius: var(--radius-full) !important; background: color-mix(in srgb, var(--color-bg-tertiary) 84%, transparent) !important; border: 1px solid var(--modern-hairline) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-medium) !important; }
+[data-ui-style="modern"] .settings-subtab-item:hover { background: var(--color-bg-hover) !important; color: var(--color-text-primary) !important; border-color: var(--color-border-light) !important; }
+[data-ui-style="modern"] .settings-subtab-item.active { color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; border-color: var(--color-accent-border) !important; box-shadow: none !important; }
+
+/* ── Page headers ───────────────────────────────────────────────────────── */
+[data-ui-style="modern"] .page-header { border-bottom: 1px solid var(--modern-hairline) !important; }
+/* Signature: a laser-thin accent underline that holds its colour, then fades
+   out to the right — the style's only 1px cue, so it carries a touch more
+   accent before the falloff. */
+[data-ui-style="modern"] .page-header::after { width: var(--space-3xl) !important; height: 1px !important; border-radius: 0 !important; background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent) 20%, transparent 100%) !important; }
+[data-ui-style="modern"] .page-header__eyebrow { display: block !important; }
+[data-ui-style="modern"] .page-header__title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; letter-spacing: -0.025em !important; }
+[data-ui-style="modern"] .page-header__icon { border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-accent) 10%, transparent) !important; color: var(--color-accent) !important; box-shadow: none !important; }
+[data-ui-style="modern"] .page-header__description { color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important; }
+[data-ui-style="modern"] .page-header__actions { gap: var(--space-sm) !important; }
+
+/* ── Overlays · menus · tooltips ────────────────────────────────────────── */
+[data-ui-style="modern"] .modal-backdrop { background: var(--color-scrim) !important; backdrop-filter: var(--blur-scrim) !important; -webkit-backdrop-filter: var(--blur-scrim) !important; }
+[data-ui-style="modern"] .modal { border-radius: var(--radius-xl) !important; background-color: var(--color-bg-secondary) !important; border: 1px solid var(--modern-hairline) !important; box-shadow: var(--elevation-5) !important; }
+[data-ui-style="modern"] .modal-header { border-bottom: 1px solid var(--modern-hairline) !important; }
+[data-ui-style="modern"] .modal-body { overflow-y: auto !important; }
+[data-ui-style="modern"] .modal-footer { border-top: 1px solid var(--modern-hairline) !important; }
+/* Confirm dialogs keep their danger-tinted frame and hairline sections. */
+[data-ui-style="modern"] .confirm-modal { border: 1px solid color-mix(in srgb, var(--color-danger) 25%, var(--color-border)) !important; }
+[data-ui-style="modern"] .confirm-modal .modal-header { border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important; }
+[data-ui-style="modern"] .confirm-modal .modal-footer { border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important; }
+[data-ui-style="modern"] .context-menu { background: var(--color-surface-raised) !important; border: 1px solid var(--color-border-light) !important; border-radius: var(--radius-md) !important; box-shadow: var(--elevation-4) !important; }
+[data-ui-style="modern"] .context-menu-item { border-radius: var(--radius-sm) !important; color: var(--color-text-primary) !important; transition: var(--modern-chrome-fast) !important; }
+[data-ui-style="modern"] .context-menu-item:hover { background: var(--color-bg-hover) !important; }
+[data-ui-style="modern"] .context-menu-item.play-action { color: var(--color-accent) !important; }
+[data-ui-style="modern"] .context-menu-item.play-action:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent) !important; }
+[data-ui-style="modern"] .context-menu-item.remove-action { color: var(--color-danger) !important; }
+[data-ui-style="modern"] .context-menu-item.remove-action:hover { background: color-mix(in srgb, var(--color-danger) 8%, transparent) !important; }
+[data-ui-style="modern"] .context-menu-separator { height: 1px !important; background: var(--modern-hairline) !important; }
+[data-ui-style="modern"] .ui-tooltip { animation-duration: var(--duration-fast) !important; }
+[data-ui-style="modern"] .ui-tooltip__content { background: var(--color-surface-raised) !important; border: 1px solid var(--color-border-light) !important; border-radius: var(--radius-md) !important; color: var(--color-text-primary) !important; box-shadow: var(--elevation-2) !important; }
+[data-ui-style="modern"] .ui-tooltip__arrow { background: var(--color-surface-raised) !important; border-color: var(--color-border-light) !important; }
+
+/* ── Primitives ─────────────────────────────────────────────────────────── */
+[data-ui-style="modern"] .ui-skeleton { background: var(--color-bg-tertiary) !important; border-radius: var(--radius-sm) !important; }
+[data-ui-style="modern"] .ui-skeleton--text { border-radius: var(--radius-xs) !important; }
+[data-ui-style="modern"] .ui-skeleton--circle { border-radius: 50% !important; }
+[data-ui-style="modern"] .ui-skeleton--rect { border-radius: var(--radius-md) !important; }
+[data-ui-style="modern"] .empty-state { color: var(--color-text-muted) !important; }
+[data-ui-style="modern"] .filter-slider { background: var(--color-border) !important; border-radius: var(--radius-full) !important; accent-color: var(--color-accent) !important; }
+[data-ui-style="modern"] .filter-slider::-webkit-slider-thumb { background: var(--color-accent) !important; border: 2px solid var(--color-surface-raised) !important; border-radius: 50% !important; }
+[data-ui-style="modern"] .filter-slider::-moz-range-thumb { background: var(--color-accent) !important; border: 2px solid var(--color-surface-raised) !important; border-radius: 50% !important; }
+
+/* ── Scrollbars (hairline rails) ────────────────────────────────────────── */
+[data-ui-style="modern"] ::-webkit-scrollbar { width: var(--space-sm) !important; height: var(--space-sm) !important; }
+[data-ui-style="modern"] ::-webkit-scrollbar-track { background: transparent !important; }
+[data-ui-style="modern"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--color-text-muted) 12%, transparent) !important; border-radius: var(--radius-full) !important; border: 2px solid transparent !important; background-clip: padding-box !important; }
+[data-ui-style="modern"] ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-accent) 45%, transparent) !important; background-clip: padding-box !important; }
+/* Firefox fallback — matches the webkit hairline rail. */
+[data-ui-style="modern"] * { scrollbar-width: thin !important; scrollbar-color: color-mix(in srgb, var(--color-text-muted) 22%, transparent) transparent !important; }
+
+/* Motion safety: studio state never depends on motion, so reduced-motion users
+   get near-instant settling everywhere instead of eased transitions. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="modern"] *, [data-ui-style="modern"] *::before, [data-ui-style="modern"] *::after {
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; scroll-behavior: auto !important;
+  }
+}
+
+/* High-contrast theme: rims and glows give way to hard outlines. */
+[data-theme="highcontrast"][data-ui-style="modern"] .lib-card:hover,
+[data-theme="highcontrast"][data-ui-style="modern"] .store-game-card:hover { box-shadow: none !important; }
+[data-theme="highcontrast"][data-ui-style="modern"] :focus-visible {
+  outline: 3px solid var(--color-accent) !important; outline-offset: 2px !important; box-shadow: none !important;
+}

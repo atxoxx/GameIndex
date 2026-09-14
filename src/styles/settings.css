@@ -1045,37 +1045,246 @@ textarea.settings-input {
   justify-content: center;
   padding: var(--space-md);
   border-bottom: 1px solid var(--color-border);
+  transition: border-color var(--duration-normal) var(--ease-standard);
 }
 
-/* Individual preview aesthetics */
+/* Tie the active card's accent ring through to the preview seam. */
+.ui-style-card.active .ui-style-preview {
+  border-bottom-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+
+/* Individual preview aesthetics — every backdrop is derived from theme
+   tokens, so each re-tints itself under light / OLED / custom palettes.
+   The six separate by *composition* as much as colour: a beveled plinth
+   (classic), a tonal halo + FAB (materialyou), a brushed steel shelf
+   (steam), a gridded frame with a corner bracket (epic), a studio
+   baseline (modern) and layered frosted panes (liquidglass). Each preview
+   gets its own pseudo-element scenery so the styles read apart before you
+   parse a single border radius. */
 .ui-style-preview--classic {
-  background: #08090c;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-text-primary) 5%, var(--color-bg-primary)) 0%,
+      color-mix(in srgb, var(--color-text-primary) 1.5%, var(--color-bg-primary)) 24%,
+      var(--color-bg-primary) 100%
+    );
+}
+
+/* A tactile lit plinth under the slab — classic is a solid, weighted key. */
+.ui-style-preview--classic::before {
+  content: "";
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: 12px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 12%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 3%, transparent) 60%,
+    transparent 100%
+  );
+  z-index: 0;
 }
 
 .ui-style-preview--materialyou {
-  background: radial-gradient(ellipse at 50% 0%, #292434 0%, #141218 80%);
+  background:
+    radial-gradient(ellipse 82% 62% at 50% 6%, color-mix(in srgb, var(--color-accent) 30%, transparent) 0%, transparent 78%),
+    var(--color-surface);
 }
 
+/* Tonal echo — a soft M3 container drifting behind the panel. */
+.ui-style-preview--materialyou::before {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 26%;
+  top: 22px;
+  height: 44px;
+  border-radius: 26px;
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface-raised));
+  z-index: 0;
+}
+
+/* FAB nub — unmistakably Material at a glance. */
+.ui-style-preview--materialyou::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 32%, var(--color-surface-raised));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 22%, transparent),
+    0 6px 16px var(--color-accent-glow);
+  z-index: 0;
+}
+
+/* Steam is a steel plate: brushed vertical streaks over a banded sheet
+   with a hard seam, so it stays a distinct metal even under light themes. */
 .ui-style-preview--steam {
-  background: linear-gradient(180deg, #1f2735 0%, #10151d 100%);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-text-primary) 3%, transparent) 0,
+      color-mix(in srgb, var(--color-text-primary) 3%, transparent) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-text-primary) 14%, var(--color-bg-tertiary)) 0%,
+      var(--color-bg-secondary) 46%,
+      color-mix(in srgb, var(--color-bg-primary) 82%, var(--color-text-primary)) 52%,
+      var(--color-bg-primary) 100%
+    );
+}
+
+/* Upper shelf lip. */
+.ui-style-preview--steam::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 19px;
+  height: 5px;
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 18%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 4%, transparent) 100%
+  );
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-scrim) 45%, transparent);
+  z-index: 0;
+}
+
+/* Lower sunken tray. */
+.ui-style-preview--steam::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 10px;
+  height: 12px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-scrim) 34%, var(--color-bg-secondary));
+  box-shadow:
+    inset 0 2px 5px color-mix(in srgb, var(--color-scrim) 65%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  z-index: 0;
 }
 
 .ui-style-preview--epic {
-  background: #121212;
+  background-color: var(--color-bg-primary);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-text-primary) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-text-primary) 6%, transparent) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+/* Header rule — a hard accent slab backed by a flat rail. */
+.ui-style-preview--epic::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--color-accent) 0%,
+    var(--color-accent) 34%,
+    color-mix(in srgb, var(--color-text-primary) 16%, transparent) 34%,
+    color-mix(in srgb, var(--color-text-primary) 16%, transparent) 100%
+  );
+  z-index: 0;
+}
+
+/* Corner bracket — the brutalist full stop. */
+.ui-style-preview--epic::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 20px;
+  height: 20px;
+  border-right: 2px solid var(--color-accent);
+  border-bottom: 2px solid var(--color-accent);
+  z-index: 0;
 }
 
 .ui-style-preview--modern {
-  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(99, 102, 241, 0.18) 0%, #09090b 80%);
+  background:
+    radial-gradient(ellipse 70% 48% at 50% 0%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 74%),
+    var(--color-bg-primary);
+}
+
+/* Studio baseline hairline — the only structure behind the panel. */
+.ui-style-preview--modern::before {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 26px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-border-faint) 18%,
+    var(--color-border-faint) 82%,
+    transparent 100%
+  );
+  z-index: 0;
 }
 
 .ui-style-preview--liquidglass {
   background:
-    radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.35) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(255, 42, 133, 0.3) 0%, transparent 50%),
-    #070913;
+    radial-gradient(circle at 20% 16%, color-mix(in srgb, var(--color-accent) 55%, transparent) 0%, transparent 58%),
+    radial-gradient(circle at 84% 82%, color-mix(in srgb, var(--color-accent-2) 48%, transparent) 0%, transparent 58%),
+    radial-gradient(circle at 72% 10%, color-mix(in srgb, var(--color-info) 30%, transparent) 0%, transparent 55%),
+    var(--color-bg-primary);
+}
+
+/* A second pane of frosted glass drifting behind the mock. */
+.ui-style-preview--liquidglass::before {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 18%;
+  top: 20px;
+  height: 52px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-surface-glass) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  backdrop-filter: blur(var(--blur-sm)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(160%);
+  transform: rotate(-3deg);
+  z-index: 0;
+}
+
+/* A specular sweep across the glass. */
+.ui-style-preview--liquidglass::after {
+  content: "";
+  position: absolute;
+  inset: -20% -10%;
+  background: linear-gradient(
+    115deg,
+    transparent 34%,
+    color-mix(in srgb, var(--color-text-primary) 8%, transparent) 47%,
+    transparent 60%
+  );
+  z-index: 0;
+  pointer-events: none;
 }
 
 .ui-style-mock {
+  position: relative;
+  z-index: 1;
   width: 90%;
   padding: 10px 14px;
   display: flex;
@@ -1084,45 +1293,104 @@ textarea.settings-input {
   gap: 8px;
 }
 
+/* classic — solid & beveled: a weighted surface with a lit top edge and a
+   shaded bottom edge, resting on its plinth. Geometry md (10px). */
 .ui-style-mock--classic {
-  background: #141722;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface-raised)) 0%,
+    var(--color-surface-raised) 42%
+  );
+  border: 1px solid var(--color-border);
   border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-scrim) 42%, transparent),
+    var(--shadow-xs);
 }
 
+/* materialyou — M3 Expressive: filled-tonal container, ultra-round, soft
+   blurred elevation and airy padding. Geometry lg (24px). */
 .ui-style-mock--materialyou {
-  background: #2b2930;
-  border: 1px solid rgba(230, 225, 229, 0.1);
-  border-radius: 22px;
+  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface-raised));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  border-radius: 24px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 16%, transparent),
+    var(--shadow-md);
+  padding: 12px 18px;
 }
 
+/* steam — industrial: near-square, 2px rules and a genuinely recessed tray
+   (dark top edge, shaded top lip). Geometry lg (4px). */
 .ui-style-mock--steam {
-  background: #1e2632;
-  border: 1px solid #28374a;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-bg-primary) 78%, var(--color-surface-raised)) 0%,
+    var(--color-surface-raised) 100%
+  );
+  border: 2px solid color-mix(in srgb, var(--color-text-primary) 24%, transparent);
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(102, 192, 244, 0.15);
+  box-shadow:
+    inset 0 3px 6px color-mix(in srgb, var(--color-scrim) 62%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  padding: 9px 12px;
 }
 
+/* epic — brutalist: zero radius, 2px flat border, no elevation at all. */
 .ui-style-mock--epic {
-  background: #202020;
-  border: 1px solid #2c2c2c;
-  border-radius: 3px;
+  background: var(--color-surface-raised);
+  border: 2px solid color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 9px 12px;
 }
 
+/* modern — studio minimal: a borderless-at-rest hairline panel carrying the
+   signature laser-thin accent underline. No bevel, no inset highlight. The
+   hairline only resolves under the card's hover. */
 .ui-style-mock--modern {
-  background: #141419;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: var(--color-surface);
+  border: 1px solid transparent;
+  border-radius: 13px;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--color-scrim) 26%, transparent);
+  transition: border-color var(--duration-normal) var(--ease-standard);
 }
 
+.ui-style-card:hover .ui-style-mock--modern {
+  border-color: var(--color-border);
+}
+
+.ui-style-mock--modern::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: -3px;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-accent) 16%,
+    var(--color-accent) 84%,
+    transparent 100%
+  );
+  box-shadow: 0 0 12px var(--color-accent-glow);
+  z-index: 0;
+}
+
+/* liquidglass — frosted: translucent fill, backdrop blur, translucent
+   hairline, inset gloss and a soft bloom. Geometry xl (22px). */
 .ui-style-mock--liquidglass {
-  background: rgba(24, 28, 54, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 16px;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: color-mix(in srgb, var(--color-surface-raised) 34%, transparent);
+  backdrop-filter: blur(var(--blur-md)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 26%, transparent);
+  border-radius: 22px;
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, var(--color-text-primary) 34%, transparent),
+    0 8px 24px var(--color-accent-glow);
 }
 
 .ui-style-mock-pill {
@@ -1133,53 +1401,97 @@ textarea.settings-input {
   align-items: center;
 }
 
+/* classic — capsule pill with a lit top edge. */
 .ui-style-mock-pill--classic {
-  border-radius: 6px;
-  background: #635bff;
-  color: #ffffff;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 28%, transparent);
 }
 
+/* materialyou — filled-tonal capsule: the accent container tinted into a
+   surface token (never the solid accent), label in a deeper accent tone. */
 .ui-style-mock-pill--materialyou {
   border-radius: 9999px;
-  background: #d0bcff;
-  color: #381e72;
+  background: color-mix(in srgb, var(--color-accent) 26%, var(--color-surface-raised));
+  color: color-mix(in srgb, var(--color-accent) 62%, var(--color-text-primary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  padding: 4px 13px;
+  box-shadow: 0 4px 14px var(--color-accent-glow);
 }
 
+/* steam — beveled gradient block, uppercase industrial tracking. */
 .ui-style-mock-pill--steam {
   border-radius: 3px;
-  background: linear-gradient(90deg, #1a9fff 0%, #1162b7 100%);
-  color: #ffffff;
-  border: 1px solid #2a7acc;
-}
-
-.ui-style-mock-pill--epic {
-  border-radius: 2px;
-  background: #0078f2;
-  color: #ffffff;
+  background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
+  color: var(--color-accent-contrast);
+  border: 1px solid var(--color-accent-border);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
+  letter-spacing: 0.06em;
   font-size: 10px;
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 35%, transparent),
+    inset 0 -1px 0 var(--color-accent-active);
 }
 
+/* epic — flat solid accent slab, zero radius, wide-tracked uppercase. */
+.ui-style-mock-pill--epic {
+  border-radius: 0;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  font-size: 9.5px;
+  padding: 5px 12px;
+}
+
+/* modern — ghost hairline pill: the accent lives in the underline, not the
+   button. Keeps the panel airy and studio-minimal. */
 .ui-style-mock-pill--modern {
-  border-radius: 6px;
-  background: #6366f1;
-  color: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid var(--color-accent-border);
+  color: var(--color-accent);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
+/* liquidglass — large accent gradient capsule with an inset gloss. */
 .ui-style-mock-pill--liquidglass {
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(0, 240, 255, 0.85) 0%, rgba(255, 42, 133, 0.85) 100%);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 9999px;
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  color: var(--color-accent-contrast);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 32%, transparent);
+  padding: 5px 14px;
+  box-shadow:
+    inset 0 1px 1px color-mix(in srgb, var(--color-accent-contrast) 55%, transparent),
+    0 4px 16px var(--color-accent-glow);
 }
 
 .ui-style-mock-tag {
   font-size: 11px;
   color: var(--color-text-secondary);
   font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Industrial / brutalist labels track wide and shout in caps. */
+.ui-style-mock--steam .ui-style-mock-tag {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.ui-style-mock--epic .ui-style-mock-tag {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-text-primary);
 }
 
 .ui-style-card-content {
@@ -1200,6 +1512,7 @@ textarea.settings-input {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: var(--font-size-md);
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
@@ -1230,7 +1543,7 @@ textarea.settings-input {
   padding: 3px 8px;
   border-radius: 9999px;
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   box-shadow: 0 2px 8px var(--color-accent-glow);
 }
 

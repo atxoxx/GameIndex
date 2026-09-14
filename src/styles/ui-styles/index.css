@@ -1,0 +1,19 @@
+/* =============================================================================
+   UI Style Architectures
+   ─────────────────────────────────────────────────────────────────────────────
+   Each `[data-ui-style="…"]` layer profoundly transforms layout, geometry,
+   surfaces, typography and interaction feel — not just color. Every style is
+   built strictly on the shared design-token contract in `theme.css`, so it
+   stays compatible with every color theme (`data-theme`): dark, light and
+   high-contrast alike.
+
+   One file per style, deliberately. Keep them structurally parallel so the
+   whole family reads as one system and stays easy to diff across styles.
+   ============================================================================= */
+
+@import "./classic.css";
+@import "./materialyou.css";
+@import "./steam.css";
+@import "./epic.css";
+@import "./modern.css";
+@import "./liquidglass.css";

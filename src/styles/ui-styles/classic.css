@@ -1,0 +1,699 @@
+/* =============================================================================
+   6. UI Style: Classic (Canonical Baseline — Tactile Bevel & Clean Geometry)
+   ─────────────────────────────────────────────────────────────────────────────
+   Classic is the DEFAULT look every user sees first, so this layer keeps the
+   shipped component language: geometry, density and surfaces from the base
+   stylesheets pass straight through, and this file only re-asserts the states
+   classic actually owns.
+
+   Identity in one sentence: solid obsidian surfaces, crisp hairline borders and
+   a single tactile "lit top edge over a shaded base" that makes every raised
+   surface feel physical, with moderate 4–18px geometry and fully-round pills.
+
+   Where classic legitimately goes beyond the base: it owns a heavier two-part
+   bevel on chrome (top navigation, sidebar rows, command/secondary buttons,
+   inputs, popovers) and the accent left-bar selection on the active sidebar
+   row. Those are intentional — they are what makes classic "the beveled one" —
+   and stay token-driven so they re-render under light, high-contrast and
+   user-authored palettes.
+
+   Deliberate restraint (keeps the default regression-free):
+   • Geometry / surface / typography / focus are asserted with `!important`.
+   • Interactive *states* are restated only where classic owns them; contextual
+     variants (game-accent chrome, docked-right sidebar, running cards, card
+     density, `--warn`, `--kpi`) are preserved by re-asserting them afterwards.
+   • Rules that the base already declares verbatim are intentionally omitted
+     here (canvas shell, main panel, modal frame, page headers, UI primitives)
+     so the base stylesheets stay the single source of truth.
+   • Responsive size/padding/font-size is never forced — base media queries stay
+     in charge, so 1280px / 4K breakpoints behave exactly as shipped.
+   ============================================================================= */
+
+[data-ui-style="classic"] {
+  /* Canonical radius ladder — identical to the theme.css defaults. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 32px;
+  --radius-3xl: 48px;
+
+  /* Classic-local aliases: the tactile bevel (a lit top edge riding a shaded
+     base, so raised surfaces read as extruded metal rather than flat cards),
+     the chrome timing vocabulary, and the one keyboard-focus ring that every
+     `:focus-visible` rule in this file reuses. */
+  --classic-bevel: inset 0 1px 0 var(--color-border-highlight),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-bg-primary) 28%, transparent);
+  --classic-bevel-faint: inset 0 1px 0 var(--color-border-faint);
+  --classic-ring: var(--ring-accent-soft);
+  --classic-chrome-fast: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+  --classic-control: color var(--duration-normal) var(--ease-standard),
+    background var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard),
+    transform var(--duration-normal) var(--ease-standard);
+}
+
+/* ── Canvas ───────────────────────────────────────────────────────────────
+   `.app-layout` and `.app-main` are declared once in layout.css; classic does
+   not restate them. */
+
+/* ── Top navigation ─────────────────────────────────────────────────────── */
+[data-ui-style="classic"] .topnav {
+  background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent) !important;
+  backdrop-filter: blur(var(--blur-md)) !important;
+  -webkit-backdrop-filter: blur(var(--blur-md)) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  box-shadow: 0 1px 0 var(--color-border-faint), var(--classic-bevel) !important;
+}
+
+/* Preserve the runtime per-game accent chrome wash. */
+[data-ui-style="classic"][data-game-accent] .topnav {
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-primary)) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
+  box-shadow: 0 1px 0 var(--color-border-faint),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent) 24%, transparent) !important;
+}
+
+[data-ui-style="classic"] .topnav-logo__word {
+  color: var(--color-accent) !important;
+  font-family: var(--font-display) !important;
+  font-weight: var(--font-weight-extrabold) !important;
+  letter-spacing: -0.03em !important;
+}
+
+[data-ui-style="classic"] .topnav-logo__version {
+  background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-full) !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+[data-ui-style="classic"] .topnav-tabs {
+  border-radius: var(--radius-full) !important;
+  background: color-mix(in srgb, var(--color-bg-secondary) 65%, transparent) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--classic-bevel),
+    inset 0 1px 3px color-mix(in srgb, var(--color-bg-primary) 32%, transparent) !important;
+}
+
+[data-ui-style="classic"] .topnav-tab {
+  border-radius: var(--radius-full) !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: var(--font-weight-medium) !important;
+  transition: var(--classic-chrome-fast), transform var(--duration-fast) var(--ease-standard) !important;
+}
+
+[data-ui-style="classic"] .topnav-tab:not(.active):hover {
+  color: var(--color-text-primary) !important;
+  background: color-mix(in srgb, var(--color-bg-hover) 80%, transparent) !important;
+}
+
+[data-ui-style="classic"] .topnav-tab.active {
+  color: var(--color-accent-contrast) !important;
+  background: var(--color-accent) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  box-shadow: 0 2px 12px var(--color-accent-glow),
+    inset 0 1px 0 color-mix(in srgb, var(--scrim-text) 28%, transparent) !important;
+}
+
+[data-ui-style="classic"] .topnav-btn--cmd {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--color-border) !important;
+  background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent) !important;
+  color: var(--color-text-secondary) !important;
+  box-shadow: var(--classic-bevel) !important;
+  transition: var(--classic-chrome-fast), transform var(--duration-fast) var(--ease-standard) !important;
+}
+
+[data-ui-style="classic"] .topnav-btn--cmd:hover {
+  color: var(--color-accent) !important;
+  background: var(--color-bg-hover) !important;
+  border-color: var(--color-accent-border) !important;
+  box-shadow: 0 0 14px var(--color-accent-glow), var(--classic-bevel) !important;
+}
+
+[data-ui-style="classic"] .topnav-btn--cmd:focus-visible {
+  outline: none !important;
+  box-shadow: var(--classic-ring) !important;
+}
+
+[data-ui-style="classic"] .topnav-now-playing-chip {
+  border-radius: var(--radius-full) !important;
+  transition: var(--classic-chrome-fast), transform var(--duration-fast) var(--ease-standard) !important;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+[data-ui-style="classic"] .sidebar {
+  background: var(--color-bg-secondary) !important;
+  border-right: 1px solid var(--color-border) !important;
+  box-shadow: var(--classic-bevel), inset -1px 0 0 var(--color-border-faint) !important;
+}
+
+/* Docked-right flips the separator + inset highlight to the left edge. */
+[data-ui-style="classic"][data-sidebar-position="right"] .sidebar {
+  border-right: none !important;
+  border-left: 1px solid var(--color-border) !important;
+  box-shadow: var(--classic-bevel), inset 1px 0 0 var(--color-border-faint) !important;
+}
+
+/* Preserve the runtime per-game accent wash (ordered after the dock flip). */
+[data-ui-style="classic"][data-game-accent] .sidebar {
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-secondary)) !important;
+  border-right: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent) 16%, transparent),
+    inset -1px 0 0 color-mix(in srgb, var(--color-accent) 10%, transparent) !important;
+}
+
+[data-ui-style="classic"] .sidebar-search {
+  background: color-mix(in srgb, var(--color-bg-tertiary) 75%, transparent) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--classic-bevel),
+    inset 0 1px 2px color-mix(in srgb, var(--color-bg-primary) 28%, transparent) !important;
+}
+
+[data-ui-style="classic"] .sidebar-search:focus-within {
+  border-color: var(--color-accent) !important;
+  background: var(--color-bg-tertiary) !important;
+  box-shadow: var(--classic-ring),
+    inset 0 1px 2px color-mix(in srgb, var(--color-bg-primary) 28%, transparent) !important;
+}
+
+[data-ui-style="classic"] .sidebar-game-item {
+  border-radius: var(--radius-md) !important;
+  transition: background var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard) !important;
+}
+
+[data-ui-style="classic"] .sidebar-game-item:hover:not(.active) {
+  background: var(--color-bg-hover) !important;
+  box-shadow: var(--classic-bevel) !important;
+}
+
+[data-ui-style="classic"] .sidebar-game-item.active {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-tertiary)) !important;
+  box-shadow: inset 4px 0 12px -4px var(--color-accent-glow), var(--classic-bevel) !important;
+}
+
+[data-ui-style="classic"] .sidebar-game-item.active:hover {
+  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg-tertiary)) !important;
+}
+
+[data-ui-style="classic"] .sidebar-game-item.bulk-selected,
+[data-ui-style="classic"] .sidebar-game-item.bulk-selected:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-tertiary)) !important;
+}
+
+[data-ui-style="classic"] .sidebar-game-item:focus-visible {
+  outline: none !important;
+  box-shadow: inset 0 0 0 2px var(--color-accent), var(--classic-ring) !important;
+}
+
+[data-ui-style="classic"] .sidebar-game-item::after {
+  border-radius: var(--radius-full) !important;
+}
+
+[data-ui-style="classic"] .sidebar-game-item.active::after,
+[data-ui-style="classic"] .sidebar-game-item.bulk-selected::after {
+  background: var(--color-accent) !important;
+}
+
+/* Full-width rows round to --radius-sm; the icon rail and the 4K breakpoint
+   intentionally widen to --radius-md, so both are preserved here. */
+[data-ui-style="classic"] .app-sidebar:not(.sidebar-icon-rail) .sidebar-game-icon {
+  border-radius: var(--radius-sm) !important;
+}
+
+@media (min-width: 2561px) {
+  [data-ui-style="classic"] .app-sidebar:not(.sidebar-icon-rail) .sidebar-game-icon {
+    border-radius: var(--radius-md) !important;
+  }
+}
+
+[data-ui-style="classic"] .sidebar-section-header {
+  color: var(--color-text-secondary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+[data-ui-style="classic"] .sidebar-filter-btn {
+  border-radius: var(--radius-md) !important;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 86%, transparent) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--classic-bevel) !important;
+  transition: var(--classic-chrome-fast) !important;
+}
+
+[data-ui-style="classic"] .sidebar-filter-btn:hover {
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-light) !important;
+  background: var(--color-bg-hover) !important;
+}
+
+[data-ui-style="classic"] .sidebar-filter-btn.active {
+  color: var(--color-accent-contrast) !important;
+  background: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 2px 10px var(--color-accent-glow) !important;
+}
+
+[data-ui-style="classic"] .sidebar-filter-btn:focus-visible {
+  outline: none !important;
+  box-shadow: var(--classic-ring) !important;
+}
+
+[data-ui-style="classic"] .sidebar-section-toggle {
+  border-radius: var(--radius-xs) !important;
+  color: var(--color-text-muted) !important;
+  font-weight: var(--font-weight-bold) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  transition: var(--classic-chrome-fast) !important;
+}
+
+[data-ui-style="classic"] .sidebar-section-toggle:hover {
+  color: var(--color-text-primary) !important;
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent) !important;
+}
+
+[data-ui-style="classic"] .sidebar-section-toggle:focus-visible {
+  outline: none !important;
+  box-shadow: var(--classic-ring) !important;
+}
+
+[data-ui-style="classic"] .sidebar-filter-popover {
+  background: var(--color-bg-secondary) !important;
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-xl),
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
+}
+
+[data-ui-style="classic"] .sidebar-view-options-menu {
+  background: var(--color-surface-raised) !important;
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--elevation-4) !important;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+[data-ui-style="classic"] .ui-btn {
+  border-radius: var(--radius-md) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  transition: var(--classic-control) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--sm { border-radius: var(--radius-sm) !important; }
+[data-ui-style="classic"] .ui-btn--lg { border-radius: var(--radius-lg) !important; }
+
+[data-ui-style="classic"] .ui-btn--primary {
+  background: var(--color-accent) !important;
+  color: var(--color-accent-contrast) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent),
+    0 3px 12px var(--color-accent-glow) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08) !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 35%, transparent),
+    0 6px 20px var(--color-accent-glow) !important;
+}
+
+/* Press feedback is mandatory for the default style: the hover rules above
+   pin `transform`, so `:active` must re-assert the base "push in" pose. */
+[data-ui-style="classic"] .ui-btn--primary:active:not(:disabled) {
+  filter: brightness(0.98) !important;
+  transform: translateY(0) scale(0.97) !important;
+  box-shadow: inset 0 2px 6px color-mix(in srgb, var(--color-bg-primary) 42%, transparent),
+    0 1px 4px var(--color-accent-glow) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--secondary {
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border) !important;
+  box-shadow: var(--classic-bevel) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--secondary:hover:not(:disabled) {
+  background: var(--color-bg-hover) !important;
+  border-color: var(--color-border-light) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: var(--classic-bevel), var(--shadow-sm) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--secondary:active:not(:disabled) {
+  background: var(--color-bg-active) !important;
+  transform: translateY(0) scale(0.97) !important;
+  box-shadow: inset 0 2px 6px color-mix(in srgb, var(--color-bg-primary) 40%, transparent),
+    var(--classic-bevel) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--ghost {
+  background: transparent !important;
+  color: var(--color-text-secondary) !important;
+  border-color: transparent !important;
+}
+
+[data-ui-style="classic"] .ui-btn--ghost:hover:not(:disabled) {
+  background: var(--color-bg-hover) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--ghost:active:not(:disabled) {
+  background: var(--color-bg-active) !important;
+  color: var(--color-text-primary) !important;
+  transform: translateY(0) scale(0.97) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--danger {
+  background: var(--color-danger) !important;
+  color: var(--color-accent-contrast) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 18%, transparent),
+    0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--danger:hover:not(:disabled) {
+  filter: brightness(1.08) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 22%, transparent),
+    0 4px 12px color-mix(in srgb, var(--color-danger) 40%, transparent) !important;
+}
+
+[data-ui-style="classic"] .ui-btn--danger:active:not(:disabled) {
+  filter: brightness(0.97) !important;
+  transform: translateY(0) scale(0.97) !important;
+  box-shadow: inset 0 2px 6px color-mix(in srgb, var(--color-bg-primary) 45%, transparent),
+    0 1px 4px color-mix(in srgb, var(--color-danger) 30%, transparent) !important;
+}
+
+/* Icon/label slots are declared once in ui.css — not restated here. */
+
+[data-ui-style="classic"] .lib-card-list-play-btn {
+  border-radius: var(--radius-full) !important;
+  background: var(--color-accent) !important;
+  color: var(--color-accent-contrast) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  transition: var(--classic-control) !important;
+}
+
+[data-ui-style="classic"] .lib-card-list-play-btn:hover {
+  transform: scale(1.04) !important;
+  box-shadow: 0 2px 8px var(--color-accent-glow) !important;
+}
+
+[data-ui-style="classic"] .lib-card-list-play-btn.running {
+  background: var(--color-success) !important;
+}
+
+/* ── Cards & surfaces ───────────────────────────────────────────────────── */
+/* Grid/rail cards get the classic radius + surface; list rows keep the
+   tighter flat geometry the layout layer gives them. */
+[data-ui-style="classic"] .lib-card:not(.lib-card--list) {
+  border-radius: var(--radius-lg) !important;
+  background: var(--color-bg-tertiary) !important;
+  overflow: hidden !important;
+}
+
+/* A running card always keeps its success border + glow, hover included. */
+[data-ui-style="classic"] .lib-card.running {
+  border-color: var(--color-success) !important;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-success) 35%, transparent) !important;
+}
+
+[data-ui-style="classic"] .lib-card.running:hover {
+  border-color: var(--color-success) !important;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--color-success) 50%, transparent),
+    inset 0 0 10px color-mix(in srgb, var(--color-success) 18%, transparent) !important;
+}
+
+[data-ui-style="classic"] .lib-card-cover {
+  background: var(--color-surface) !important;
+  overflow: hidden !important;
+}
+
+/* The animated crossfade overlay owns its own opacity/visibility transition,
+   so it is excluded from the static-cover zoom timing below. */
+[data-ui-style="classic"] .lib-card-cover img:not(.lib-card-cover-animated) {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transition: transform var(--duration-slow) var(--ease-standard) !important;
+}
+
+[data-ui-style="classic"] .lib-card-fab {
+  border-radius: var(--radius-full) !important;
+  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover))) !important;
+  color: var(--color-accent-contrast) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 35%, transparent),
+    0 4px 16px color-mix(in srgb, var(--color-accent) 45%, transparent) !important;
+}
+
+[data-ui-style="classic"] .lib-hero {
+  border-radius: var(--radius-xl) !important;
+  background: var(--color-bg-tertiary) !important;
+  border: 1px solid var(--color-border-light) !important;
+}
+
+/* The list-layout store card owns a tighter radius + flat row background. */
+[data-ui-style="classic"] .store-game-card:not(.store-game-card-list) {
+  border-radius: var(--radius-xl) !important;
+  overflow: hidden !important;
+}
+
+/* ── Badges · chips · pills ─────────────────────────────────────────────── */
+[data-ui-style="classic"] .ui-badge {
+  border-radius: var(--radius-full) !important;
+  font-weight: var(--font-weight-bold) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.03em !important;
+  box-shadow: var(--classic-bevel-faint) !important;
+}
+
+[data-ui-style="classic"] .ui-badge--default {
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-secondary) !important;
+  border-color: var(--color-border) !important;
+}
+
+[data-ui-style="classic"] .ui-badge--success {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent) !important;
+  color: var(--color-success) !important;
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent) !important;
+}
+
+[data-ui-style="classic"] .ui-badge--warning {
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent) !important;
+  color: var(--color-warning) !important;
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent) !important;
+}
+
+[data-ui-style="classic"] .ui-badge--danger {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent) !important;
+  color: var(--color-danger) !important;
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent) !important;
+}
+
+[data-ui-style="classic"] .ui-badge--info {
+  background: color-mix(in srgb, var(--color-info) 12%, transparent) !important;
+  color: var(--color-info) !important;
+  border-color: color-mix(in srgb, var(--color-info) 30%, transparent) !important;
+}
+
+[data-ui-style="classic"] .ui-badge--accent {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
+  color: var(--color-accent) !important;
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
+}
+
+[data-ui-style="classic"] .lib-card-badge,
+[data-ui-style="classic"] .lib-card-platform {
+  border-radius: var(--radius-full) !important;
+  font-weight: var(--font-weight-bold) !important;
+}
+
+[data-ui-style="classic"] .lib-card-platform {
+  color: var(--color-accent) !important;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
+}
+
+/* Cinematic density deliberately neutralises the platform pill. */
+[data-ui-style="classic"] .lib-card.density-cinematic .lib-card-platform {
+  color: var(--color-text-primary) !important;
+  background: color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
+}
+
+/* Filter pills and spec pills are defined once in ui.css / game-cards.css. */
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+[data-ui-style="classic"] .settings-label {
+  color: var(--color-text-secondary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+[data-ui-style="classic"] .settings-input,
+[data-ui-style="classic"] .settings-select {
+  border-radius: var(--radius-md) !important;
+  background-color: var(--color-bg-tertiary) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+  box-shadow: var(--classic-bevel) !important;
+}
+
+[data-ui-style="classic"] .settings-select:hover {
+  border-color: var(--color-border-light) !important;
+}
+
+[data-ui-style="classic"] .settings-input:focus,
+[data-ui-style="classic"] .settings-select:focus {
+  border-color: var(--color-accent) !important;
+  background-color: var(--color-bg-secondary) !important;
+  box-shadow: var(--classic-ring) !important;
+}
+
+[data-ui-style="classic"] .settings-checkbox-label {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-ui-style="classic"] .settings-checkbox-label:hover {
+  color: var(--color-text-primary) !important;
+}
+
+[data-ui-style="classic"] .settings-checkbox-label input[type="checkbox"] {
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-xs) !important;
+  background-color: var(--color-bg-tertiary) !important;
+}
+
+[data-ui-style="classic"] .settings-checkbox-label input[type="checkbox"]:hover {
+  border-color: var(--color-text-muted) !important;
+}
+
+[data-ui-style="classic"] .settings-checkbox-label input[type="checkbox"]:checked {
+  background-color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+}
+
+[data-ui-style="classic"] .settings-checkbox-label input[type="checkbox"]:focus-visible {
+  box-shadow: var(--classic-ring) !important;
+}
+
+/* Sections, rows, controls, behaviour cards and sub-tabs are declared once in
+   settings.css / page-settings.css — classic does not restate them. */
+
+/* ── Page headers ───────────────────────────────────────────────────────────
+   `.page-header` and its parts are declared once in page.css. */
+
+/* ── Overlays · menus · tooltips ────────────────────────────────────────── */
+/* Confirm dialogs keep their softened danger-tinted hairline frame. */
+[data-ui-style="classic"] .confirm-modal .modal-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important;
+}
+
+[data-ui-style="classic"] .confirm-modal .modal-footer {
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important;
+}
+
+[data-ui-style="classic"] .context-menu-item {
+  border-radius: var(--radius-sm) !important;
+  color: var(--color-text-primary) !important;
+  transition: var(--classic-chrome-fast) !important;
+}
+
+[data-ui-style="classic"] .ui-tooltip {
+  animation-duration: var(--duration-fast) !important;
+}
+
+/* ── Primitives ─────────────────────────────────────────────────────────────
+   Empty-state parts, skeletons and sliders are declared once in ui.css. */
+
+[data-ui-style="classic"] .empty-state {
+  color: var(--color-text-muted) !important;
+}
+
+/* ── Scrollbars (desktop-native whisper treatment) ──────────────────────── */
+[data-ui-style="classic"] ::-webkit-scrollbar {
+  width: var(--space-sm) !important;
+  height: var(--space-sm) !important;
+}
+
+[data-ui-style="classic"] ::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+[data-ui-style="classic"] ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text-muted) 9%, transparent) !important;
+  border-radius: var(--radius-full) !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+}
+
+[data-ui-style="classic"] ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-text-muted) 45%, transparent) !important;
+  background-clip: padding-box !important;
+}
+
+/* The sidebar list keeps its own hairline thumb + deliberately slim 6px rail. */
+[data-ui-style="classic"] .sidebar-list::-webkit-scrollbar {
+  width: var(--space-xs) !important;
+}
+
+[data-ui-style="classic"] .sidebar-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border) 90%, transparent) !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--radius-full) !important;
+  background-clip: padding-box !important;
+}
+
+[data-ui-style="classic"] .sidebar-list::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-text-muted) 55%, transparent) !important;
+  background-clip: padding-box !important;
+}
+
+/* Firefox fallback — matches the webkit whisper. */
+[data-ui-style="classic"] * {
+  scrollbar-width: thin !important;
+  scrollbar-color: color-mix(in srgb, var(--color-text-muted) 22%, transparent) transparent !important;
+}
+
+/* Motion safety: classic never needs motion to communicate state, so
+   reduced-motion users get near-instant settling instead of eased motion. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="classic"] *,
+  [data-ui-style="classic"] *::before,
+  [data-ui-style="classic"] *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── High-contrast guard ──────────────────────────────────────────────────
+   Box-shadow chrome disappears against a forced-contrast palette, so hover
+   depth drops away and focus falls back to a hard outline. */
+[data-theme="highcontrast"][data-ui-style="classic"] .lib-card:hover,
+[data-theme="highcontrast"][data-ui-style="classic"] .store-game-card:hover {
+  box-shadow: none !important;
+}
+
+[data-theme="highcontrast"][data-ui-style="classic"] :focus-visible {
+  outline: 3px solid var(--color-accent) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}

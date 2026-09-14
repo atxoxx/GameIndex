@@ -1,5 +1,6 @@
 @import "./styles/theme.css";
 @import "./styles/themes.css";
+@import "./styles/ui-styles/index.css";
 @import "./styles/layout.css";
 @import "./styles/topnav.css";
 @import "./styles/sidebar.css";
