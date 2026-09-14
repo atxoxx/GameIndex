@@ -8,7 +8,7 @@
 
 <p><strong>A unified, cross-store game launcher and library manager.</strong></p>
 
-Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a single, fast, native experience — with discovery, deals & news, activity tracking, achievements, Linux/Steam Deck Proton support, a social layer, and a controller-first 10-foot UI.
+Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a single, fast, native experience — with discovery, deals & news, activity tracking, achievements, Linux/Steam Deck Proton support, a deeply customizable interface (Layout Studio + six UI styles), a social layer, and a controller-first 10-foot UI.
 
 <br />
 
@@ -59,13 +59,13 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 
 | Feature | Description |
 |---------|-------------|
-| **Unified Library** | Steam, GOG Galaxy, Epic Games Store, Rockstar, Ubisoft Connect, Humble Bundle, and manual imports in one cohesive grid. |
-| **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, web links, HowLongToBeat stats, Crackwatch, ProtonDB, Steam community features, and live player counts. |
+| **Unified Library** | Steam, GOG Galaxy, Epic Games Store, Rockstar, Ubisoft Connect, Humble Bundle, and manual imports in one cohesive grid — with a drag-and-drop executable import wizard that groups dropped folders, picks the primary executable and links IGDB metadata. |
+| **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, HowLongToBeat stats, Crackwatch, ProtonDB, Steam community features, and live player counts — plus a built-in **Web Links** browser with address bar, zoom, pinning and a personal links manager. |
 | **Game Notes** | Per-game Markdown workspace with multiple notes, 7 templates (walkthrough, checklist, boss strategy, build & loadout, quest log, progress journal), search & tag filters, pinning, live preview (write/split), word count, copy/export, and debounced auto-save. |
 | **Game Versions** | Detects installed versions from GOG/Epic/Steam manifests or PE metadata and flags newer releases on game pages and in the download modal. |
 | **Achievements Hub** | Cross-platform achievement tracking and analytics — sync Steam, GOG, Epic, RetroAchievements, and manual lists, with gamerscore totals, rarity & unlock-activity charts, and per-game completion shelves. |
-| **Emulators & ROMs** | Integrated emulator manager: launch emulator executables, catalog multi-system platforms, and manage ROMs with bulk actions — with native Linux/AppImage emulator installs plus Flatpak/Snap binary discovery. |
-| **Mod Manager** | Dual-pane mod manager for Steam Workshop & Nexus Mods with bulk multi-select (enable/disable/delete), stat cards, and mod size tracking. |
+| **Emulators & ROMs** | Integrated emulator manager: launch emulator executables, catalog multi-system platforms, and manage ROMs with bulk actions and save snapshots — with native Linux/AppImage emulator installs plus Flatpak/Snap binary discovery. |
+| **Mod Manager** | Dual-pane mod manager for Steam Workshop & Nexus Mods with bulk multi-select (enable/disable/delete), stat cards, and mod size tracking — plus mod presets, a load-order conflict visualizer, export/import and a file inspector. |
 | **IGDB Storefront** | IGDB-powered catalog browsing (search, filters, rails, price badges, comparisons). |
 | **Store Compare** | Side-by-side comparison tray and modal for up to 4 games — best-value badges on numeric rows plus shared genre/platform/mode/theme chips. |
 | **Deals Hub** | Real-time price deals across Steam, GOG, Epic, Humble, Fanatical, and more — plus an Xbox Game Pass catalog, giveaways with live countdowns, and playtester listings. |
@@ -76,17 +76,21 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **Linux & Steam Deck** | First-class Proton/Wine compatibility: runner manager (GE-Proton, CachyOS, Proton-EM, Wine-GE, Soda, Kron4ek…), shared prefixes with per-game overrides, DXVK/VKD3D, esync/fsync/ntsync, MangoHud, GameMode, GameScope, per-game GPU pinning, controller & anti-cheat runtimes, captured logs with a live viewer, Wine tools and system diagnostics. → [Full guide](docs/linux-wine-proton.md) |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
 | **Backup & Restore** | Selectable, cancellable backups with live progress — raw NDJSON export plus merge/replace restore modes from the Settings backup tab, including Proton/Wine compatibility profiles. |
-| **Community & Friends** | Local-first social layer: profiles, friend sync, shared recommendations, and a community feed. |
+| **Stats, Community & Friends** | Local-first social layer — friend profiles, sync, recommendations, compare, chat and leaderboards — alongside a personal **Stats** dashboard with overview, trends, achievements, a captures gallery and milestones. |
 | **Discord Rich Presence** | Playing *and* browsing presence — platform/playtime context, dynamic game poster, and a launcher toggle. |
 | **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs) — with animated game backdrops, focus memory, and fluid rail wrapping. |
 | **Live Player Counts** | Steam player counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
 | **Command Palette** | Global `Ctrl/Cmd+K` launcher for navigation, search, and system actions — recents, calculator, cheat sheet, random-game picker, and power filters — with synthesized UI sounds and a live now-playing chip. |
-| **Themes, i18n & Privacy** | Adaptive theming that samples the active game's artwork into chrome accents, dark/light + alternate themes with a custom accent picker, a full **theme creator** (live preview, presets, JSON import/export), six-language support (`LanguageContext`), and a Privacy & Data tab to view/wipe local storage. |
-| **App Updates** | In-app update checks per install type (NSIS installer, AppImage, `.deb`, portable) plus a browsable **Release History** fetched from GitHub — version timeline, latest/pre-release/installed badges and full release notes without leaving the app. |
+| **Themes & UI Styles** | **Six selectable UI styles** — Classic, Neo-Modern, Steam Client, Epic Launcher, Material You 3 and Liquid Glass — each a distinct token-driven architecture, on top of adaptive theming that samples the active game's artwork into chrome accents, dark/light + alternate color themes with a custom accent picker, and a full **theme creator** (live preview, presets, JSON import/export). |
+| **Layout Studio** | Settings → Interface: a live layout editor for the whole shell — toggle and reorder navbar tabs, header buttons, sidebar dock and sections, per-page widgets, detail-page tabs, the detail top bar and individual side cards, plus a free-form 12-column hero grid. Viewport previews (16:9 / 16:10 / 21:9 / 4:3), inspect mode, built-in presets and JSON import/export. |
+| **Customizable Interface** | Drag-and-drop top-nav ordering with per-item visibility, right-click context menus across library, downloads, store, mods, news, emulators and storage, a resizable sidebar that folds to an icon rail on narrow windows, a settings hub with category navigation and search, and fluid layouts tuned for handhelds and Steam Deck. |
+| **i18n & Privacy** | Six-language support via `LanguageContext` (English, German, French, Spanish, Russian, Chinese) and a Privacy & Data tab to view and wipe local storage. |
+| **App Updates** | In-app update checks per install type (NSIS installer, AppImage, `.deb`, portable) plus a browsable **Release History** fetched from [GitHub Releases](https://github.com/atxoxx/GameIndex/releases) — version timeline, latest/pre-release/installed badges and full release notes without leaving the app. |
 | **Built-in Guide** | Searchable in-app documentation with grouped navigation, covering every major feature — plus a controller-friendly Big Screen variant. |
-| **Customizable Interface** | Drag-and-drop top-nav tab ordering with per-item visibility, right-click context menus across library, downloads, store, mods, news, emulators and storage, a resizable sidebar that folds to an icon rail on narrow windows, and fluid layouts tuned for handhelds and Steam Deck. |
+| **Plugin System** | Sandboxed QuickJS plugins for custom search and download sources — memory cap, instruction budget, 20-second timeout and SHA-256-verified installs, managed from Settings → Plugins. |
+| **Launcher & Startup** | Configurable landing page, system tray with close-to-tray, run-at-login, minimize-on-launch, UAC-elevation bypass, Simple UI mode and an optional always-on-top launch splash. |
 
-> 🚧 **Planned / in progress:** per-game performance profiles and user tags · community theme browser · broader plugin hooks and marketplace.
+> 🚧 **Planned / in progress:** per-game performance profiles and user tags · community theme browser · scheduled theme switching · Flatpak packaging · broader plugin hooks and marketplace.
 
 ---
 
@@ -283,7 +287,7 @@ We borrow the best ideas from each and aim to combine them into a single, lightw
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org) (≥ 18) + npm
+- [Node.js](https://nodejs.org) (≥ 20.19 or ≥ 22.12 — Vite 7 requirement) + npm
 - [Rust](https://rustup.rs) (stable toolchain)
 - Platform deps: see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
@@ -305,6 +309,18 @@ npm run dev            # Vite at http://localhost:1420
 ```bash
 npm run tauri build    # tsc + vite build + native bundles
 ```
+
+### ✅ Checks & scripts
+
+| Command | What it does |
+|---------|--------------|
+| `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
+| `npm run lint` | ESLint over `src` (zero-warning gate) |
+| `npm test` | Vitest run — `npm run test:watch` to watch |
+| `npm run audit:i18n` | Verifies every UI string has translations across locales |
+| `npm run build` | Frontend build only (`tsc && vite build`) |
+| `npm run preview` | Preview the production frontend build |
+| `cargo check` | Rust backend — run inside `src-tauri/` |
 
 ### ❄️ Nix & NixOS
 
@@ -335,12 +351,6 @@ Independent antivirus scans of the latest release artifacts:
 
 This is a known false-positive pattern affecting many legitimate Tauri and Rust projects. Nothing in the source code matches malware behavior — it's fully open source, so you can verify the code yourself and build from source (`npm run tauri build`). The files are intentionally unsigned because code-signing certificates cost money; the ML flags typically disappear once a release is signed.
 
-### Typecheck
-
-```bash
-npx tsc --noEmit
-```
-
 ---
 
 ## 📁 Project Structure
@@ -348,19 +358,25 @@ npx tsc --noEmit
 ```
 .
 ├── src/                 React + TypeScript frontend
-│   ├── pages/           Top-level route components (Home, Library, Store, Deals,
-│   │                   News, Wishlist, Emulators, Mods, Activity, Achievements,
-│   │                   Storage, Downloads, Community, Friends, Settings, Docs)
-│   ├── components/      Feature-scoped UI (game/, library/, store/, downloads/,
-│   │                   news/, activity/, reviews/, sidebar/, charts/, bigscreen/, ui/)
+│   ├── pages/           Top-level route components (Home, Library, Game, Store,
+│   │                   Store product detail, Deals, News, Wishlist, Emulators,
+│   │                   Mods, Activity, Achievements, Stats, Friends, Storage,
+│   │                   Downloads, Settings, Docs)
+│   ├── components/      Feature-scoped UI — one folder per area (game/, library/,
+│   │                   store/, downloads/, download-modal/, news/, activity/,
+│   │                   achievements/, deals/, emulators/, mods/, friends/, docs/,
+│   │                   weblinks/, command-palette/, charts/, sidebar/, settings/,
+│   │                   ui/, bigscreen/, ...)
 │   ├── context/         Cross-cutting providers (Game, Activity, Theme, Language, ...)
 │   ├── hooks/           Reusable stateful helpers
 │   ├── types/           Mirrors of Rust serde models
-│   └── styles/          Themed CSS
+│   └── styles/          Themed CSS (incl. styles/ui-styles/ for the six UI styles)
 └── src-tauri/           Rust backend
     ├── src/             Tauri commands, DB DAOs, integrations
     │   ├── steam|gog|epic|rockstar|uplay|humble/   Per-store sync + auth
     │   ├── downloads/        Concurrent direct, debrid, torrent & browser-resolver downloads
+    │   ├── mods/             Steam Workshop & Nexus Mods detection + operations
+    │   ├── plugins/          Sandboxed QuickJS plugin runtime
     │   ├── compatibility.rs  Proton/Wine runners, prefixes, GameScope, GPU pinning
     │   ├── db/               Per-domain SQLite pools + schema (incl. compatibility.db)
     │   └── ...
@@ -408,10 +424,17 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Right-click context menus across library, downloads, store, mods, news, emulators and storage
 - ✅ Native Linux emulator installs (AppImage/tarball) & Flatpak/Snap discovery
 - ✅ Standalone always-on-top launch splash window that survives minimize-on-launch
+- ✅ Layout Studio — whole-app layout editor with per-page widgets, reorderable detail top bar, itemized side cards and a free-form hero grid, plus presets and JSON import/export
+- ✅ Six token-driven UI styles (Classic, Neo-Modern, Steam Client, Epic Launcher, Material You 3, Liquid Glass)
+- ✅ Settings hub with top-category navigation, search and collapsible subtabs
+- ✅ In-app Web Links browser with address bar, zoom and a personal links manager
+- ✅ Stats dashboard (overview, trends, achievements, captures gallery, milestones)
+- ✅ System tray, run-at-login, close-to-tray, minimize-on-launch and Simple UI mode
 - ✅ Reorderable nav tabs, collapsible icon-rail sidebar & handheld/Deck layout pass
 - ✅ Animated Big Picture backdrops, focus memory & fluid rail navigation
 - 🚧 Per-game performance profiles and user tags
-- 🚧 Theme creator shipped; community theme browser planned
+- 🚧 Community theme browser & scheduled theme switching
+- 🚧 Flatpak packaging and backend performance work (parallel library scanning, streamed file operations)
 - ⏳ Broader plugin hooks and marketplace
 
 ---
@@ -419,6 +442,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 ## 📌 Status
 
 > 🛠️ **Personal project, vibe-coded** — built in my free time as a learning exercise and a love-letter to PC gaming.
+> Latest tagged release: **v1.3.0** ([GitHub Releases](https://github.com/atxoxx/GameIndex/releases)).
 > Expect rough edges, breaking changes, and rapid iteration. Contributions and ideas are welcome.
 
 ---
@@ -428,7 +452,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 1. Read the conventions in [`knowledge.md`](./knowledge.md) (theme tokens, routing, schema migrations, etc.).
 2. Fork the repo and create a feature branch.
 3. Keep PRs focused and documented.
-4. Run `npx tsc --noEmit` and `cargo check` before submitting.
+4. Run `npm run typecheck`, `npm run lint` and `cargo check` before submitting.
 
 Please open an issue before starting large changes so we can discuss direction.
 
