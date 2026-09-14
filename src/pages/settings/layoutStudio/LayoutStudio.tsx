@@ -67,6 +67,11 @@ import {
   type SidebarSectionKey,
 } from "../../../context/interfaceLayout";
 import {
+  DEFAULT_HERO_GRID_LAYOUT,
+  buildHeroGridLayoutFromOrder,
+  type HeroGridLayout,
+} from "../../../context/heroGrid";
+import {
   BADGE_ITEMS,
   NAV_BUTTON_ITEMS,
   NAV_TAB_ITEMS,
@@ -170,6 +175,9 @@ export default function LayoutStudio() {
     setHeroElementOrder,
     heroElementVisibility,
     setHeroElementVisible,
+    heroGridLayout,
+    setHeroGridLayout,
+    resetHeroGridLayout,
     showDeckVerified,
     landingPage,
   } = useSettings();
@@ -338,6 +346,7 @@ export default function LayoutStudio() {
       detailTabOrder,
       heroElementOrder,
       heroElementVisibility,
+      heroGridLayout,
       uiScale,
     }),
     [
@@ -358,6 +367,7 @@ export default function LayoutStudio() {
       detailTabOrder,
       heroElementOrder,
       heroElementVisibility,
+      heroGridLayout,
       uiScale,
     ],
   );
@@ -438,6 +448,44 @@ export default function LayoutStudio() {
     },
     [activeDetailScope, heroElementItems, setHeroElementOrder, playSound],
   );
+
+  // ── Hero grid (Layout Studio → Game/Store hero) ───────────────────────────
+  // The authored 12-column layout for the scope, or null in flex mode. The
+  // mock edits it live; every commit writes straight back to the context.
+  const heroGridForScope: HeroGridLayout | null = activeDetailScope
+    ? heroGridLayout[activeDetailScope] ?? null
+    : null;
+
+  const handleHeroGridChange = useCallback(
+    (next: HeroGridLayout) => {
+      if (!activeDetailScope) return;
+      setHeroGridLayout(activeDetailScope, next);
+    },
+    [activeDetailScope, setHeroGridLayout],
+  );
+
+  const handleHeroGridTidy = useCallback(() => {
+    if (!activeDetailScope) return;
+    setHeroGridLayout(activeDetailScope, DEFAULT_HERO_GRID_LAYOUT[activeDetailScope]);
+    playSound();
+  }, [activeDetailScope, setHeroGridLayout, playSound]);
+
+  const handleHeroGridReset = useCallback(() => {
+    if (!activeDetailScope) return;
+    resetHeroGridLayout(activeDetailScope);
+    playSound();
+  }, [activeDetailScope, resetHeroGridLayout, playSound]);
+
+  const handleHeroGridConvert = useCallback(() => {
+    if (!activeDetailScope) return;
+    setHeroGridLayout(
+      activeDetailScope,
+      buildHeroGridLayoutFromOrder(
+        resolveHeroElementOrder(heroElementOrder, activeDetailScope),
+      ),
+    );
+    playSound();
+  }, [activeDetailScope, heroElementOrder, setHeroGridLayout, playSound]);
 
   // ── Toggle Handlers ───────────────────────────────────────────────────────
   const toggleDetailTab = useCallback(
@@ -563,6 +611,13 @@ export default function LayoutStudio() {
           }
         }
       }
+      if (snapshot.heroGridLayout) {
+        for (const scope of DETAIL_SCOPES) {
+          const next = snapshot.heroGridLayout[scope];
+          if (next) setHeroGridLayout(scope, next);
+          else resetHeroGridLayout(scope);
+        }
+      }
       if (snapshot.uiScale) setUiScale(snapshot.uiScale);
       playSound();
     },
@@ -582,6 +637,8 @@ export default function LayoutStudio() {
       setDetailTabOrder,
       setHeroElementOrder,
       setHeroElementVisible,
+      setHeroGridLayout,
+      resetHeroGridLayout,
       setUiScale,
       playSound,
     ],
@@ -621,6 +678,7 @@ export default function LayoutStudio() {
         setDetailTabOrder(page, DEFAULT_DETAIL_TAB_ORDER[page]);
         setHeroElementOrder(page, HERO_ELEMENTS);
         for (const key of HERO_ELEMENTS) setHeroElementVisible(page, key, true);
+        resetHeroGridLayout(page);
       }
       if (page === "game") {
         for (const section of buildDetailSectionItems(true)) {
@@ -635,6 +693,7 @@ export default function LayoutStudio() {
       setDetailTabOrder,
       setHeroElementOrder,
       setHeroElementVisible,
+      resetHeroGridLayout,
       setDetailSectionVisible,
       playSound,
     ],
@@ -660,6 +719,7 @@ export default function LayoutStudio() {
       setDetailTabOrder(scope, DEFAULT_DETAIL_TAB_ORDER[scope]);
       setHeroElementOrder(scope, HERO_ELEMENTS);
       for (const key of HERO_ELEMENTS) setHeroElementVisible(scope, key, true);
+      resetHeroGridLayout(scope);
     }
     setUiDensityMode("complete");
     setNavbarMode("full");
@@ -677,6 +737,7 @@ export default function LayoutStudio() {
     setDetailTabOrder,
     setHeroElementOrder,
     setHeroElementVisible,
+    resetHeroGridLayout,
     setUiDensityMode,
     setNavbarMode,
     setCommandPaletteMode,
@@ -927,6 +988,11 @@ export default function LayoutStudio() {
             onToggleCardBadgesMaster={handleToggleCardBadgesMaster}
             onToggleNowPlaying={handleToggleNowPlaying}
             onSetSidebarPosition={handleSetSidebarPosition}
+            heroGridLayout={heroGridForScope}
+            onHeroGridChange={handleHeroGridChange}
+            onHeroGridTidy={handleHeroGridTidy}
+            onHeroGridReset={handleHeroGridReset}
+            onHeroGridConvert={handleHeroGridConvert}
           />
 
           <p className="studio-pane__hint">

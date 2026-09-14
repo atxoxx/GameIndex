@@ -64,6 +64,13 @@ import {
   type SidebarSectionKey,
   type SidebarSectionVisibility,
 } from "./interfaceLayout";
+import {
+  normalizeHeroGridLayout,
+  normalizeHeroGridLayoutMap,
+  resolveHeroGridLayout,
+  type HeroGridLayout,
+  type HeroGridLayoutMap,
+} from "./heroGrid";
 
 // ── LocalStorage keys (one per localStorage-backed setting) ─────────────────
 //
@@ -143,6 +150,9 @@ const LS_PAGE_ITEM_ORDER = "gamelib.page_item_order";
 const LS_DETAIL_TAB_ORDER = "gamelib.detail_tab_order";
 const LS_HERO_ELEMENT_ORDER = "gamelib.hero_element_order";
 const LS_HERO_ELEMENT_VISIBILITY = "gamelib.hero_element_visibility";
+// Optional hero grid layout per scope (Layout Studio → hero grid). Absent =>
+// the hero keeps rendering its flex/`order` layout.
+const LS_HERO_GRID_LAYOUT = "gamelib.hero_grid_layout";
 // Linux & Steam Deck support level (Settings → General)
 const LS_LINUX_SUPPORT_LEVEL = "gamelib.linux_support_level";
 
@@ -494,6 +504,11 @@ export interface SettingsContextValue {
     key: HeroElementKey,
     visible: boolean,
   ) => void;
+  /** Optional per-scope hero grid layout (Layout Studio → hero grid).
+   *  An absent scope means the hero renders its flex/`order` layout. */
+  heroGridLayout: HeroGridLayoutMap;
+  setHeroGridLayout: (scope: HeroScope, next: HeroGridLayout) => void;
+  resetHeroGridLayout: (scope: HeroScope) => void;
 
   // ── Splash screens (Settings → Appearance) ──────────────────────
   /** Show the standalone launch splash while a game starts. Mirrors the
@@ -1528,6 +1543,32 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // Hero grid layout (Layout Studio → hero grid). Entirely optional: when no
+  // scope is persisted the hero keeps its flex/`order` layout, so existing
+  // users are unaffected until they author a grid.
+  const [heroGridLayout, setHeroGridLayoutState] = useState<HeroGridLayoutMap>(
+    () => normalizeHeroGridLayoutMap(lsGetJSON<unknown>(LS_HERO_GRID_LAYOUT, null)),
+  );
+  const setHeroGridLayout = useCallback(
+    (scope: HeroScope, next: HeroGridLayout) => {
+      const normalized = normalizeHeroGridLayout(scope, next);
+      setHeroGridLayoutState((prev) => {
+        const merged = { ...prev, [scope]: normalized };
+        lsSetJSON(LS_HERO_GRID_LAYOUT, merged);
+        return merged;
+      });
+    },
+    [],
+  );
+  const resetHeroGridLayout = useCallback((scope: HeroScope) => {
+    setHeroGridLayoutState((prev) => {
+      const next = { ...prev };
+      delete next[scope];
+      lsSetJSON(LS_HERO_GRID_LAYOUT, next);
+      return next;
+    });
+  }, []);
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -1630,6 +1671,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setHeroElementOrder,
       heroElementVisibility,
       setHeroElementVisible,
+      heroGridLayout,
+      setHeroGridLayout,
+      resetHeroGridLayout,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1740,6 +1784,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setHeroElementOrder,
       heroElementVisibility,
       setHeroElementVisible,
+      heroGridLayout,
+      setHeroGridLayout,
+      resetHeroGridLayout,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -1833,4 +1880,13 @@ export function useHeroElementLayout(scope: HeroScope): {
     order: resolveHeroElementOrder(ctx.heroElementOrder, scope),
     hidden: resolveHeroElementHidden(ctx.heroElementVisibility, scope),
   };
+}
+
+/** Effective hero grid layout for a scope, or `null` when no grid has been
+ *  authored (the hero then renders its flex/`order` layout). Defaults to
+ *  `null` outside a SettingsProvider (isolated tests, static renders). */
+export function useHeroGridLayout(scope: HeroScope): HeroGridLayout | null {
+  const ctx = useContext(SettingsContext);
+  if (!ctx) return null;
+  return resolveHeroGridLayout(ctx.heroGridLayout, scope);
 }

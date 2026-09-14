@@ -11,10 +11,15 @@ import { KpiTile } from "../ui";
 import PageWidget from "../PageWidget";
 import { type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
-import { useSettings, useHeroElementLayout } from "../../context/SettingsContext";
+import { useSettings, useHeroElementLayout, useHeroGridLayout } from "../../context/SettingsContext";
 import { applyGameAccentFamily } from "../../utils/color";
 import { useAchievements } from "../../context/AchievementContext";
 import { HERO_ELEMENTS, type HeroElementKey } from "../../context/interfaceLayout";
+import {
+  HERO_GRID_ITEM_KEYS,
+  sortHeroGridItems,
+  type HeroGridItemKey,
+} from "../../context/heroGrid";
 import {
   useSteamGridArt,
   usePrefetchImage,
@@ -245,6 +250,10 @@ export default function GameHero({
   // active scope. `order` is always complete; `hidden` only carries OFF keys.
   const heroScope = isGame ? "game" : "store";
   const { order, hidden } = useHeroElementLayout(heroScope);
+  // Optional authored grid layout. `null` means no grid has been stored, so
+  // the hero keeps rendering its content-driven flex/`order` layout.
+  const gridLayout = useHeroGridLayout(heroScope);
+  const gridMode = gridLayout !== null;
 
   const isElementVisible = (key: HeroElementKey) => hidden[key] !== false;
 
@@ -445,6 +454,7 @@ export default function GameHero({
     // Only an explicit hide collapses the card; a game that simply has no
     // poster (or whose art failed to load) keeps the original backdrop cap.
     posterHiddenByUser ? "game-hero--no-poster" : "",
+    gridMode ? "game-hero--grid" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -487,6 +497,68 @@ export default function GameHero({
     contentNodes.push(renderBlock(key, pinTrailingFooter && boundaryKey === key));
   }
 
+  // ── Grid-mode rendering ─────────────────────────────────────────────
+  // Only used when an authored grid exists; the flex subtree above stays the
+  // default for every existing user. Each item carries its rect as CSS custom
+  // properties, and DOM order follows the row-major reading order.
+  const gridStyle = (key: HeroGridItemKey): CSSProperties =>
+    ({
+      "--hero-col": gridLayout![key].col,
+      "--hero-col-span": gridLayout![key].colSpan,
+      "--hero-row": gridLayout![key].row,
+      "--hero-row-span": gridLayout![key].rowSpan,
+    }) as CSSProperties;
+
+  const gridItemKeys = HERO_GRID_ITEM_KEYS.filter((key) => {
+    if (key === "poster") return posterVisible;
+    return isElementVisible(key) && canRenderBlock(key);
+  });
+  const orderedGridKeys = gridLayout
+    ? sortHeroGridItems(gridLayout, gridItemKeys)
+    : [];
+
+  const renderGridItem = (key: HeroGridItemKey) => {
+    if (key === "poster") {
+      return (
+        <div
+          key="poster"
+          className="game-hero__poster game-hero__block--poster"
+          style={gridStyle("poster")}
+          aria-hidden="true"
+        >
+          <img
+            src={posterSrc!}
+            alt=""
+            className="game-hero__poster-img"
+            onError={() => {
+              // A failed SteamGridDB poster falls back to the game's own
+              // cover; a failed cover hides the poster entirely.
+              if (sgdbGridUrl) {
+                setSgdbPosterFailed(true);
+              } else {
+                setCoverErrored(true);
+              }
+            }}
+          />
+          {isGame && game!.installed && (
+            <span className="game-hero__poster-badge game-hero__poster-badge--installed">
+              {t("filter.installed")}
+            </span>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div
+        key={key}
+        className={`game-hero__block game-hero__block--${key}`}
+        style={gridStyle(key)}
+      >
+        {blockInner[key]}
+      </div>
+    );
+  };
+
   return (
     <div
       ref={heroRef}
@@ -524,46 +596,54 @@ export default function GameHero({
       )}
       <div className="game-hero__scrim" aria-hidden="true" />
 
-      <div className="game-hero__inner">
-        {/* 2:3 poster — docks left or right based on its order index. */}
-        {posterVisible && (
-          <div
-            className="game-hero__poster"
-            style={{ order: posterOrder }}
-            aria-hidden="true"
-          >
-            <img
-              src={posterSrc!}
-              alt=""
-              className="game-hero__poster-img"
-              onError={() => {
-                // A failed SteamGridDB poster falls back to the game's own
-                // cover; a failed cover hides the poster entirely.
-                if (sgdbGridUrl) {
-                  setSgdbPosterFailed(true);
-                } else {
-                  setCoverErrored(true);
-                }
-              }}
-            />
-            {isGame && game.installed && (
-              <span className="game-hero__poster-badge game-hero__poster-badge--installed">
-                {t("filter.installed")}
-              </span>
-            )}
-          </div>
-        )}
+      {gridMode ? (
+        /* Grid mode: kpis and actions are independent cells (no footer
+           wrapper); `.game-hero__actions` keeps its right alignment. */
+        <div className="game-hero__grid">
+          {orderedGridKeys.map((key) => renderGridItem(key))}
+        </div>
+      ) : (
+        <div className="game-hero__inner">
+          {/* 2:3 poster — docks left or right based on its order index. */}
+          {posterVisible && (
+            <div
+              className="game-hero__poster"
+              style={{ order: posterOrder }}
+              aria-hidden="true"
+            >
+              <img
+                src={posterSrc!}
+                alt=""
+                className="game-hero__poster-img"
+                onError={() => {
+                  // A failed SteamGridDB poster falls back to the game's own
+                  // cover; a failed cover hides the poster entirely.
+                  if (sgdbGridUrl) {
+                    setSgdbPosterFailed(true);
+                  } else {
+                    setCoverErrored(true);
+                  }
+                }}
+              />
+              {isGame && game.installed && (
+                <span className="game-hero__poster-badge game-hero__poster-badge--installed">
+                  {t("filter.installed")}
+                </span>
+              )}
+            </div>
+          )}
 
-        {/* Content column — an orderable block stack. */}
-        {visibleContentKeys.length > 0 && (
-          <div
-            className="game-hero__content"
-            style={{ order: contentOrder }}
-          >
-            {contentNodes}
-          </div>
-        )}
-      </div>
+          {/* Content column — an orderable block stack. */}
+          {visibleContentKeys.length > 0 && (
+            <div
+              className="game-hero__content"
+              style={{ order: contentOrder }}
+            >
+              {contentNodes}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

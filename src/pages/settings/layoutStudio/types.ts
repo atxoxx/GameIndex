@@ -17,6 +17,7 @@ import type {
   PageItemVisibilityMap,
   SidebarSectionVisibility,
 } from "../../../context/interfaceLayout";
+import type { HeroGridLayoutMap } from "../../../context/heroGrid";
 
 export type ViewportPreset = "desktop" | "handheld" | "ultrawide" | "compact";
 
@@ -60,6 +61,8 @@ export interface LayoutSnapshot {
   heroElementOrder: HeroElementOrderMap;
   /** OFF-only per-scope hero element visibility overrides. */
   heroElementVisibility: HeroElementVisibilityMap;
+  /** Optional per-scope hero grid layout; empty => the shipped flex layout. */
+  heroGridLayout: HeroGridLayoutMap;
   uiScale: UiScale;
 }
 

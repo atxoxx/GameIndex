@@ -2,7 +2,6 @@ import { useEffect, type ReactNode } from "react";
 import {
   BadgeCheck,
   Clock,
-  Eye,
   EyeOff,
   Gamepad2,
   GripVertical,
@@ -19,11 +18,11 @@ import {
   Store,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import type { HeroGridLayout } from "../../../context/heroGrid";
 import {
   SIDEBAR_SECTIONS,
   interfacePageDef,
   type DetailTabScope,
-  type HeroElementKey,
   type InterfacePageKey,
 } from "../../../context/interfaceLayout";
 import {
@@ -32,6 +31,7 @@ import {
   WIDGET_ITEMS,
 } from "../interfaceItems";
 import { useOrderDrag } from "../useOrderDrag";
+import { DetailPagePreview } from "./DetailPagePreview";
 import { WIDGET_ICON, WIDGET_KEY_BY_ITEM } from "./widgetIcons";
 import type { OrderListItem, ViewportPreset } from "./types";
 
@@ -53,54 +53,6 @@ const SIDEBAR_LABEL_KEY: Record<string, string> = Object.fromEntries(
 const BADGE_LABEL_KEY: Record<string, string> = Object.fromEntries(
   BADGE_ITEMS.map((badge) => [badge.key, badge.labelKey]),
 );
-
-/** Tiny stand-in for a content element inside the preview's hero mock. */
-function HeroElementVisual({ element }: { element: HeroElementKey }) {
-  switch (element) {
-    case "title":
-      return <span className="studio-hero-visual studio-hero-visual--title" aria-hidden="true" />;
-    case "meta":
-      return (
-        <span className="studio-hero-visual studio-hero-visual--meta" aria-hidden="true">
-          <i />
-          <i />
-        </span>
-      );
-    case "genres":
-      return (
-        <span className="studio-hero-visual studio-hero-visual--genres" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-      );
-    case "kpis":
-      // Three glass tiles, each a label row (icon + bar) over a value bar.
-      return (
-        <span className="studio-hero-visual studio-hero-visual--kpis" aria-hidden="true">
-          {[0, 1, 2].map((tile) => (
-            <span key={tile} className="studio-hero-kpi">
-              <span className="studio-hero-kpi__header">
-                <span className="studio-hero-kpi__icon" />
-                <span className="studio-hero-kpi__label" />
-              </span>
-              <span className="studio-hero-kpi__value" />
-            </span>
-          ))}
-        </span>
-      );
-    case "actions":
-      // Primary filled pill + secondary outlined pill.
-      return (
-        <span className="studio-hero-visual studio-hero-visual--actions" aria-hidden="true">
-          <i />
-          <i />
-        </span>
-      );
-    default:
-      return null;
-  }
-}
 
 interface ToggleChipProps {
   id: string;
@@ -196,6 +148,16 @@ export interface StudioPreviewProps {
   onToggleNowPlaying: () => void;
   /** Dock the app sidebar left or right. */
   onSetSidebarPosition: (side: "left" | "right") => void;
+  /** Authored hero grid for the active detail scope; null/undefined => flex. */
+  heroGridLayout?: HeroGridLayout | null;
+  /** Commit a hero grid edit from the detail mock. */
+  onHeroGridChange?: (next: HeroGridLayout) => void;
+  /** Repack the hero grid to the shipped layout. */
+  onHeroGridTidy?: () => void;
+  /** Drop the hero grid and go back to flex. */
+  onHeroGridReset?: () => void;
+  /** Seed a hero grid from the current flex order. */
+  onHeroGridConvert?: () => void;
 }
 
 export function StudioPreview({
@@ -230,6 +192,11 @@ export function StudioPreview({
   onToggleCardBadgesMaster,
   onToggleNowPlaying,
   onSetSidebarPosition,
+  heroGridLayout,
+  onHeroGridChange,
+  onHeroGridTidy,
+  onHeroGridReset,
+  onHeroGridConvert,
 }: StudioPreviewProps) {
   const { t } = useLanguage();
   const isGlobal = page === "global";
@@ -239,8 +206,6 @@ export function StudioPreview({
   const tabsDrag = useOrderDrag(onReorderNavTabs);
   const buttonsDrag = useOrderDrag(onReorderNavButtons);
   const itemsDrag = useOrderDrag(onReorderPageItems);
-  const detailTabsDrag = useOrderDrag(onReorderDetailTabs);
-  const heroDrag = useOrderDrag(onReorderHeroElements);
 
   const isTabActive = (tabId: string) => {
     const pageFromId = tabId.replace(/^nav/, "").toLowerCase();
@@ -306,144 +271,6 @@ export function StudioPreview({
     )}`;
   };
 
-  // ── Hero mock layout ───────────────────────────────────────────────────
-  // Mirrors the real GameHero's inline-`order` model: the poster docks left
-  // or right relative to the content column, the content blocks stack in the
-  // persisted order, and an adjacent, trailing kpis+actions pair collapses
-  // into a footer row pinned to the bottom of the card.
-  const heroItemByKey = new Map(heroElementItems.map((item) => [item.id, item]));
-  const heroIndex = (key: string) =>
-    heroElementItems.findIndex((item) => item.id === key);
-  const backgroundItem = heroItemByKey.get("background");
-  const posterItem = heroItemByKey.get("poster");
-
-  const contentOrderKeys = ["title", "meta", "genres", "kpis", "actions"]
-    .filter((key) => heroItemByKey.has(key))
-    .sort((a, b) => heroIndex(a) - heroIndex(b));
-
-  const kpisPos = contentOrderKeys.indexOf("kpis");
-  const actionsPos = contentOrderKeys.indexOf("actions");
-  const groupFooter =
-    kpisPos !== -1 && actionsPos !== -1 && Math.abs(kpisPos - actionsPos) === 1;
-
-  let trailingStart = contentOrderKeys.length;
-  while (trailingStart > 0) {
-    const key = contentOrderKeys[trailingStart - 1];
-    if (key === "kpis" || key === "actions") trailingStart--;
-    else break;
-  }
-  const pinTrailingFooter =
-    trailingStart < contentOrderKeys.length && trailingStart > 0;
-  const boundaryKey = pinTrailingFooter ? contentOrderKeys[trailingStart] : null;
-  const contentOrder = contentOrderKeys.length
-    ? Math.min(...contentOrderKeys.map((key) => heroIndex(key)))
-    : Number.POSITIVE_INFINITY;
-  const posterOrder = heroIndex("poster");
-
-  const heroElementClass = (base: string, key: string, item: OrderListItem) => {
-    const index = heroIndex(key);
-    const isDragging = heroDrag.dragIndex === index;
-    const isDropTarget =
-      heroDrag.overIndex === index &&
-      heroDrag.dragIndex !== null &&
-      heroDrag.dragIndex !== index;
-    return [
-      base,
-      item.hidden ? "is-off" : "",
-      isDragging ? "is-dragging" : "",
-      isDropTarget ? "is-drop-target" : "",
-      highlightedId === item.id ? "is-preview-lit" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-  };
-
-  // Icon-only hide/show control, parked in the element's left gutter. It is
-  // revealed on element hover (or in inspect mode) so it never paints text or
-  // covers the element's own visuals at rest.
-  const renderHeroEye = (key: string) => {
-    const item = heroItemByKey.get(key);
-    if (!item) return null;
-    const label = toggleTitle(item.label, item.hidden, item.id);
-    return (
-      <button
-        type="button"
-        className="studio-hero-mock__eye"
-        aria-label={label}
-        title={label}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (inspectMode && onInspectElement) onInspectElement(item.id);
-          else onToggleHeroElement(item.id, !item.hidden);
-        }}
-      >
-        {item.hidden ? (
-          <EyeOff size={10} aria-hidden="true" />
-        ) : (
-          <Eye size={10} aria-hidden="true" />
-        )}
-      </button>
-    );
-  };
-
-  // One orderable hero element: the wrapper is the drag source and the
-  // click-to-toggle target; `renderHeroEye` is the explicit hide button.
-  const renderHeroItem = (key: string, pinned = false) => {
-    const item = heroItemByKey.get(key);
-    if (!item) return null;
-    const index = heroIndex(key);
-    return (
-      <div
-        key={key}
-        data-order-index={index}
-        className={heroElementClass(
-          `studio-hero-mock__item studio-hero-mock__item--${key}`,
-          key,
-          item,
-        )}
-        style={{ order: index, marginTop: pinned ? "auto" : undefined }}
-        title={toggleTitle(item.label, item.hidden, item.id)}
-        onPointerDown={startRowDrag(heroDrag, index)}
-        onClick={() =>
-          handleItemInteraction(heroDrag, item.id, () =>
-            onToggleHeroElement(item.id, !item.hidden),
-          )
-        }
-      >
-        <HeroElementVisual element={item.id as HeroElementKey} />
-        {renderHeroEye(key)}
-      </div>
-    );
-  };
-
-  const renderHeroPoster = () => {
-    if (!posterItem) return null;
-    const index = heroIndex("poster");
-    return (
-      <div
-        data-order-index={index}
-        className={heroElementClass(
-          "studio-hero-mock__item studio-hero-mock__item--poster studio-hero-mock__poster",
-          "poster",
-          posterItem,
-        )}
-        style={{ order: posterOrder }}
-        title={toggleTitle(posterItem.label, posterItem.hidden, posterItem.id)}
-        onPointerDown={startRowDrag(heroDrag, index)}
-        onClick={() =>
-          handleItemInteraction(heroDrag, posterItem.id, () =>
-            onToggleHeroElement(posterItem.id, !posterItem.hidden),
-          )
-        }
-      >
-        <span className="studio-hero-mock__poster-art" aria-hidden="true" />
-        <span className="studio-hero-mock__poster-badge" aria-hidden="true" />
-        {renderHeroEye("poster")}
-      </div>
-    );
-  };
-
   // A clickable badge drawn on the mock cards. Clicking toggles that badge,
   // mirroring the minimised version of the real card badges.
   const renderCardBadge = (id: string, variant: string, content: ReactNode) => {
@@ -464,6 +291,44 @@ export function StudioPreview({
       </button>
     );
   };
+
+  // Flat, orderable list of the active page's widgets. Used as the whole body
+  // for pages without a bespoke mock, and inline below the store detail shell
+  // for the store page's own (list) blocks.
+  const renderPageItemsList = (inline = false) => (
+    <div
+      className={`studio-preview__items${inline ? " studio-preview__items--inline" : ""}`}
+      ref={itemsDrag.containerRef}
+    >
+      {pageItems.map((item, index) => (
+        <button
+          key={item.id}
+          type="button"
+          data-order-index={index}
+          className={rowClass("studio-preview__item", itemsDrag, index, item.hidden, item.id)}
+          aria-pressed={!item.hidden}
+          title={toggleTitle(item.label, item.hidden, item.id)}
+          onPointerDown={startRowDrag(itemsDrag, index)}
+          onClick={() =>
+            handleItemInteraction(itemsDrag, item.id, () => onTogglePageItem(item.id))
+          }
+        >
+          <GripVertical className="studio-preview__grip" size={12} aria-hidden="true" />
+          <item.icon size={13} className="studio-preview__item-icon" aria-hidden="true" />
+          <span className="studio-preview__item-label">{item.label}</span>
+          {item.hidden && (
+            <EyeOff size={12} className="studio-preview__item-off-icon" aria-hidden="true" />
+          )}
+        </button>
+      ))}
+
+      {pageItems.length === 0 && (
+        <div className="studio-preview__item is-empty">
+          <span>{t("settings.interface.studioPageItemsEmpty")}</span>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="studio-preview-container">
@@ -810,213 +675,43 @@ export function StudioPreview({
                     </div>
                   </div>
                 </div>
-              ) : (
-                <>
-                  {showDetailMocks && (
-                    <>
-                      {/* Editable hero mock — mirrors the real GameHero composition */}
-                      <div
-                        className={`studio-hero-mock${inspectMode ? " is-inspect" : ""}`}
-                        role="group"
-                        ref={heroDrag.containerRef}
-                        aria-label={t("settings.interface.studioHeroElementsTitle")}
-                      >
-                        {/* background: full-bleed art layer + scrim behind everything */}
-                        {backgroundItem && (
-                          <>
-                            <span
-                              className={heroElementClass(
-                                "studio-hero-mock__bg",
-                                "background",
-                                backgroundItem,
-                              )}
-                              data-order-index={heroIndex("background")}
-                              aria-hidden="true"
-                            />
-                            <span className="studio-hero-mock__scrim" aria-hidden="true" />
-                            <button
-                              type="button"
-                              className="studio-hero-mock__bg-eye"
-                              data-order-index={heroIndex("background")}
-                              aria-label={toggleTitle(
-                                backgroundItem.label,
-                                backgroundItem.hidden,
-                                backgroundItem.id,
-                              )}
-                              title={toggleTitle(
-                                backgroundItem.label,
-                                backgroundItem.hidden,
-                                backgroundItem.id,
-                              )}
-                              onPointerDown={startRowDrag(heroDrag, heroIndex("background"))}
-                              onClick={() =>
-                                handleItemInteraction(heroDrag, backgroundItem.id, () =>
-                                  onToggleHeroElement(
-                                    backgroundItem.id,
-                                    !backgroundItem.hidden,
-                                  ),
-                                )
-                              }
-                            >
-                              {backgroundItem.hidden ? (
-                                <EyeOff size={11} aria-hidden="true" />
-                              ) : (
-                                <Eye size={11} aria-hidden="true" />
-                              )}
-                            </button>
-                          </>
-                        )}
+              ) : showDetailMocks && detailScope ? (
+                <div className="studio-detail-scroll">
+                  <DetailPagePreview
+                    scope={detailScope}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    widgetItems={pageItems}
+                    heroElementItems={heroElementItems}
+                    detailTabItems={detailTabItems}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onReorderHeroElements={onReorderHeroElements}
+                    onToggleHeroElement={onToggleHeroElement}
+                    onReorderDetailTabs={onReorderDetailTabs}
+                    onToggleDetailTab={onToggleDetailTab}
+                    onInspectElement={onInspectElement}
+                    heroPlacement={heroGridLayout ?? undefined}
+                    onHeroGridChange={onHeroGridChange}
+                    onHeroGridTidy={onHeroGridTidy}
+                    onHeroGridReset={onHeroGridReset}
+                    onHeroGridConvert={onHeroGridConvert}
+                  />
 
-                        <div className="studio-hero-mock__inner">
-                          {/* poster: 2:3 panel, docks left/right by its order */}
-                          {renderHeroPoster()}
-
-                          {/* content column: orderable block stack */}
-                          <div
-                            className="studio-hero-mock__content"
-                            style={{ order: contentOrder }}
-                          >
-                            {groupFooter ? (
-                              <>
-                                <div
-                                  key="footer"
-                                  className="studio-hero-mock__footer"
-                                  style={{
-                                    order: Math.min(
-                                      heroIndex("kpis"),
-                                      heroIndex("actions"),
-                                    ),
-                                    marginTop:
-                                      pinTrailingFooter &&
-                                      (boundaryKey === "kpis" || boundaryKey === "actions")
-                                        ? "auto"
-                                        : undefined,
-                                  }}
-                                >
-                                  {renderHeroItem("kpis")}
-                                  {renderHeroItem("actions")}
-                                </div>
-                                {contentOrderKeys
-                                  .filter((key) => key !== "kpis" && key !== "actions")
-                                  .map((key) =>
-                                    renderHeroItem(
-                                      key,
-                                      pinTrailingFooter && boundaryKey === key,
-                                    ),
-                                  )}
-                              </>
-                            ) : (
-                              contentOrderKeys.map((key) =>
-                                renderHeroItem(
-                                  key,
-                                  pinTrailingFooter && boundaryKey === key,
-                                ),
-                              )
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Editable detail subtab bar mock — overview stays visible */}
-                      <div
-                        className="studio-subtab-bar"
-                        role="group"
-                        ref={detailTabsDrag.containerRef}
-                        aria-label={t("settings.interface.studioDetailTabsTitle")}
-                      >
-                        {detailTabItems.map((item, index) => {
-                          const isOverview = item.id === "overview";
-                          const isLit = highlightedId === item.id;
-                          const isDragging = detailTabsDrag.dragIndex === index;
-                          const isDropTarget =
-                            detailTabsDrag.overIndex === index &&
-                            detailTabsDrag.dragIndex !== null &&
-                            detailTabsDrag.dragIndex !== index;
-                          const className = [
-                            "studio-subtab",
-                            item.hidden ? "is-off" : "",
-                            isDragging ? "is-dragging" : "",
-                            isDropTarget ? "is-drop-target" : "",
-                            isLit ? "is-preview-lit" : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ");
-                          const title = inspectMode
-                            ? `${item.label} — ${t("settings.interface.inspectElementHint")}`
-                            : isOverview
-                              ? `${item.label} — ${t("settings.interface.studioAlwaysVisible")}`
-                              : toggleTitle(item.label, item.hidden, item.id);
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              data-order-index={index}
-                              className={className}
-                              aria-pressed={!item.hidden}
-                              title={title}
-                              onPointerDown={startRowDrag(detailTabsDrag, index)}
-                              onClick={() =>
-                                handleItemInteraction(detailTabsDrag, item.id, () => {
-                                  if (!isOverview) onToggleDetailTab(item.id, !item.hidden);
-                                })
-                              }
-                            >
-                              <GripVertical
-                                className="studio-preview__grip"
-                                size={10}
-                                aria-hidden="true"
-                              />
-                              <item.icon
-                                size={11}
-                                className="studio-preview__tab-icon"
-                                aria-hidden="true"
-                              />
-                              <span className="studio-preview__tab-label">{item.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
+                  {/* The store page's registered widgets are its *list* blocks;
+                   *  the store detail shell above has no widget keys of its own,
+                   *  so they stay editable here rather than inside the grid. */}
+                  {page === "store" && pageItems.length > 0 && (
+                    <div className="studio-detail-pageblocks">
+                      <span className="studio-detail-pageblocks__label">
+                        {t("settings.interface.studioPageItems")}
+                      </span>
+                      {renderPageItemsList(true)}
+                    </div>
                   )}
-
-                  <div className="studio-preview__items" ref={itemsDrag.containerRef}>
-                    {pageItems.map((item, index) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        data-order-index={index}
-                        className={rowClass(
-                          "studio-preview__item",
-                          itemsDrag,
-                          index,
-                          item.hidden,
-                          item.id,
-                        )}
-                        aria-pressed={!item.hidden}
-                        title={toggleTitle(item.label, item.hidden, item.id)}
-                        onPointerDown={startRowDrag(itemsDrag, index)}
-                        onClick={() =>
-                          handleItemInteraction(itemsDrag, item.id, () => onTogglePageItem(item.id))
-                        }
-                      >
-                        <GripVertical
-                          className="studio-preview__grip"
-                          size={12}
-                          aria-hidden="true"
-                        />
-                        <item.icon size={13} className="studio-preview__item-icon" aria-hidden="true" />
-                        <span className="studio-preview__item-label">{item.label}</span>
-                        {item.hidden && <EyeOff size={12} className="studio-preview__item-off-icon" aria-hidden="true" />}
-                      </button>
-                    ))}
-
-                    {pageItems.length === 0 && (
-                      <div className="studio-preview__item is-empty">
-                        <span>{t("settings.interface.studioPageItemsEmpty")}</span>
-                      </div>
-                    )}
-                  </div>
-                </>
+                </div>
+              ) : (
+                renderPageItemsList()
               )}
             </div>
           </div>

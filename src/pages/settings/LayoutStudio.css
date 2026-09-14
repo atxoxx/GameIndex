@@ -2217,3 +2217,860 @@
   outline-offset: -1px;
 }
 
+/* ── Detail page preview (Layout Studio → Game / Store) ─────────────────────
+ * A faithful schematic of the real detail page: hero, segmented tab bar and
+ * quick-stats command bar across the top, then the two-column body at the
+ * exact `.game-content-grid` proportions. Widget cards reuse the `.game-section`
+ * surface so each block sits where production puts it. */
+
+.studio-detail-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border)) transparent;
+}
+
+.studio-detail-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.studio-detail-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-detail-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  border-radius: var(--radius-full);
+}
+
+.studio-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+
+.studio-detail__full {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* ── Full-width widget slot (hero / tabs / quick stats) ──────────────────── */
+
+.studio-detail-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  transition: opacity var(--transition-fast);
+}
+
+/* Compact control strip above the visual: grip + label + hide toggle. */
+.studio-detail-slot__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 2px;
+  color: var(--color-text-muted);
+  font-size: 9.5px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  opacity: 0.55;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.studio-detail-slot:hover > .studio-detail-slot__bar,
+.studio-detail-slot:focus-within > .studio-detail-slot__bar,
+.studio-detail-slot.is-preview-lit > .studio-detail-slot__bar {
+  opacity: 1;
+}
+
+.studio-detail-slot__grip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  cursor: grab;
+  transition: color var(--transition-fast);
+}
+
+.studio-detail-slot__grip:hover {
+  color: var(--color-accent);
+}
+
+.studio-detail-slot__icon {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.studio-detail-slot__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-preview .studio-detail-slot__eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 82%, transparent);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.studio-preview .studio-detail-slot__eye:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.studio-detail-slot__visual {
+  min-width: 0;
+}
+
+/* Hidden / drag feedback for the full-width slots. */
+.studio-detail-slot.is-off > .studio-detail-slot__visual {
+  opacity: 0.45;
+  outline: 1px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
+}
+
+.studio-detail-slot.is-dragging {
+  opacity: 0.5;
+}
+
+.studio-detail-slot.is-drop-target > .studio-detail-slot__visual {
+  outline: 2px dashed var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
+}
+
+/* ── Two-column body — real `.game-content-grid` proportions ─────────────── */
+
+.studio-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(320px, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .studio-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-lg);
+  }
+}
+
+.studio-detail-main,
+.studio-detail-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  min-width: 0;
+}
+
+/* ── Widget cards (mirror `.game-section`) ───────────────────────────────── */
+
+.studio-preview .studio-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  box-shadow: var(--elevation-3);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  cursor: grab;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview .studio-detail-card:active {
+  cursor: grabbing;
+}
+
+.studio-preview .studio-detail-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border-light));
+  box-shadow: var(--elevation-4), var(--shadow-glow);
+}
+
+.studio-preview .studio-detail-card.is-off {
+  opacity: 0.45;
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.studio-preview .studio-detail-card.is-dragging {
+  opacity: 0.6;
+  border-color: var(--color-accent);
+  transform: scale(1.01);
+  z-index: 10;
+}
+
+.studio-preview .studio-detail-card.is-drop-target {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.studio-preview .studio-detail-card.is-preview-lit {
+  z-index: 10;
+}
+
+/* Mirrored store-detail cards are informational — they have no widget key. */
+.studio-preview .studio-detail-card.is-static {
+  cursor: default;
+}
+
+.studio-preview .studio-detail-card.is-static:hover {
+  border-color: var(--color-border-light);
+  box-shadow: var(--elevation-3);
+}
+
+.studio-detail-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.1px;
+  color: var(--color-text-primary);
+}
+
+.studio-detail-card__grip {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  opacity: 0.35;
+  cursor: grab;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.studio-detail-card:hover .studio-detail-card__grip {
+  opacity: 0.9;
+  color: var(--color-accent);
+}
+
+.studio-detail-card__icon {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.studio-detail-card__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-detail-card__off {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.studio-detail-card__body {
+  display: block;
+  min-width: 0;
+}
+
+/* ── Schematic content primitives ────────────────────────────────────────── */
+
+.studio-detail-line {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-text-muted) 24%, transparent);
+}
+
+.studio-detail-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.studio-detail-lines .studio-detail-line:first-child {
+  background: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
+}
+
+.studio-detail-media {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.studio-detail-media__hero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border-light) 70%, transparent);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--color-accent) 32%, var(--color-bg-tertiary)),
+    var(--color-bg-primary)
+  );
+}
+
+.studio-detail-media__thumbs {
+  display: flex;
+  gap: 6px;
+}
+
+.studio-detail-media__thumb {
+  flex: 1;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-text-muted) 15%, transparent);
+}
+
+.studio-detail-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.studio-detail-col {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.studio-detail-pill {
+  display: block;
+  width: 42%;
+  height: 6px;
+  margin-bottom: 2px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 38%, transparent);
+}
+
+.studio-detail-posters {
+  display: flex;
+  gap: 6px;
+}
+
+.studio-detail-poster {
+  flex: 0 0 auto;
+  height: 64px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent) 34%, var(--color-bg-tertiary)),
+    var(--color-bg-primary)
+  );
+}
+
+.studio-detail-pulse {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.studio-detail-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 44px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+}
+
+.studio-detail-spark i {
+  flex: 1;
+  min-width: 0;
+  border-radius: 2px 2px 0 0;
+  background: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+.studio-detail-pulse__row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.studio-detail-kpis {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.studio-detail-kpi {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+}
+
+.studio-detail-kpi__icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-accent) 60%, transparent);
+}
+
+.studio-detail-kpi__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-detail-kpi__text .studio-detail-line {
+  height: 4px;
+}
+
+.studio-detail-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.studio-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+}
+
+.studio-detail-row:last-child {
+  border-bottom: none;
+}
+
+.studio-detail-row .studio-detail-line {
+  height: 4px;
+}
+
+/* ── Quick-stats command bar ─────────────────────────────────────────────── */
+
+.studio-detail-qstats {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  padding: 3px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--elevation-1);
+}
+
+.studio-detail-qstat {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+}
+
+.studio-detail-qstat:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 18%;
+  height: 64%;
+  width: 1px;
+  background: color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.studio-detail-qstat__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-surface-hover) 80%, transparent);
+  color: var(--color-accent);
+}
+
+.studio-detail-qstat__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-detail-qstat__label {
+  display: block;
+  width: 46%;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-muted) 60%, transparent);
+}
+
+.studio-detail-qstat__value {
+  display: block;
+  width: 62%;
+  height: 6px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-primary) 72%, transparent);
+}
+
+/* ── Nested-drag freeze ─────────────────────────────────────────────────────
+ * While a page-widget drag is in flight, the hero/tab mocks stop responding to
+ * the pointer so only their slot row is picked as the drop target. */
+.studio-hero-mock.is-frozen .studio-hero-mock__item,
+.studio-hero-mock.is-frozen .studio-hero-mock__grid-item,
+.studio-hero-mock.is-frozen .studio-hero-mock__bg,
+.studio-hero-mock.is-frozen .studio-hero-mock__bg-eye,
+.studio-subtab-bar.is-frozen .studio-subtab {
+  pointer-events: none;
+}
+
+/* ── Store page blocks kept below the store detail shell ─────────────────── */
+
+.studio-detail-pageblocks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: var(--space-sm);
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+.studio-detail-pageblocks__label {
+  font-size: 9.5px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.studio-preview__items--inline {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* ── Compact viewport tweaks ─────────────────────────────────────────────── */
+
+.studio-preview-frame--compact .studio-detail-card {
+  padding: var(--space-sm);
+  gap: var(--space-xs);
+}
+
+.studio-preview-frame--compact .studio-detail-qstat {
+  gap: 4px;
+  padding: 4px 5px;
+}
+
+.studio-preview-frame--compact .studio-detail-qstat__icon {
+  width: 16px;
+  height: 16px;
+}
+
+.studio-preview-frame--compact .studio-detail-media__hero {
+  aspect-ratio: 21 / 9;
+}
+
+/* ── Hero grid editor (Layout Studio → Game/Store hero) ─────────────────────
+ * The authored 12-column layout turns the hero mock into a cell canvas that
+ * matches the runtime `.game-hero__grid`: the same 12 tracks and the same
+ * 40px implicit row via `--hero-grid-unit`. Each cell carries its rect as
+ * custom properties (set inline by the mock); the guides overlay paints the
+ * track lines while editing. All colours come from theme vars. */
+
+.studio-hero-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.studio-hero-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.studio-hero-editor__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+/* Two-class selector so it beats the shared `.studio-preview button` reset. */
+.studio-preview .studio-hero-editor__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 9.5px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+    background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview .studio-hero-editor__chip svg {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.studio-preview .studio-hero-editor__chip:hover {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+
+.studio-preview .studio-hero-editor__chip.is-active {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
+}
+
+.studio-hero-editor__warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  color: color-mix(in srgb, var(--color-warning) 78%, var(--color-text-primary));
+  font-size: 9.5px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.studio-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Grid mode gets a taller card so a few authored rows stay visible. */
+.studio-hero-mock.is-grid {
+  height: clamp(190px, 34vh, 300px);
+  max-height: 74%;
+}
+
+.studio-hero-grid {
+  --hero-grid-unit: 40px;
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(var(--hero-grid-unit, 40px), auto);
+  /* Mirrors the runtime `.game-hero__grid` so spans read the same as prod. */
+  gap: var(--space-sm) var(--space-lg);
+  align-content: start;
+  align-items: start;
+  padding: var(--space-lg) var(--space-xl);
+}
+
+/* Track guides, aligned to the padded content box. Visible while dragging or
+   when the toolbar toggle is on. */
+.studio-hero-grid__guides {
+  position: absolute;
+  inset: var(--space-lg) var(--space-xl);
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 16%, transparent) 0 1px, transparent 1px calc(100% / 12)),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--color-border-light) 60%, transparent) 0 1px, transparent 1px var(--hero-grid-unit, 40px));
+}
+
+.studio-hero-mock__grid-item {
+  grid-column: var(--hero-col, auto) / span var(--hero-col-span, 1);
+  grid-row: var(--hero-row, auto) / span var(--hero-row-span, 1);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px;
+  border: 1px dashed transparent;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: border-color var(--transition-fast), background var(--transition-fast),
+    outline-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-hero-mock__grid-item:active {
+  cursor: grabbing;
+}
+
+.studio-hero-mock__grid-item:hover,
+.studio-hero-mock__grid-item:focus-within {
+  border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.studio-hero-mock__grid-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.studio-hero-mock__grid-item.is-dragging {
+  z-index: 8;
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.studio-hero-mock__grid-item.is-overlapping {
+  border-color: color-mix(in srgb, var(--color-warning) 75%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+}
+
+.studio-hero-mock__grid-item.is-off > .studio-hero-visual,
+.studio-hero-mock__grid-item.is-off > .studio-hero-mock__poster-art {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+/* The poster cell fills its rect instead of the flex 2:3 aspect ratio. */
+.studio-hero-mock__grid-item--poster {
+  align-self: stretch;
+  height: 100%;
+  width: 100%;
+  aspect-ratio: auto;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+/* Grip affordance — purely visual; the cell itself owns the move drag. */
+.studio-hero-mock__grid-grip {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 82%, transparent);
+  color: var(--color-text-secondary);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-hero-mock__grid-item:hover > .studio-hero-mock__grid-grip,
+.studio-hero-mock__grid-item:focus-within > .studio-hero-mock__grid-grip,
+.studio-hero-mock__grid-item.is-dragging > .studio-hero-mock__grid-grip,
+.studio-hero-mock.is-inspect .studio-hero-mock__grid-grip {
+  opacity: 1;
+}
+
+/* Resize handles — hidden at rest, revealed like the eye affordance. */
+.studio-hero-mock__grid-resize {
+  position: absolute;
+  z-index: 7;
+  opacity: 0;
+  pointer-events: none;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  transition: opacity var(--transition-fast);
+}
+
+.studio-hero-mock__grid-item:hover > .studio-hero-mock__grid-resize,
+.studio-hero-mock__grid-item:focus-within > .studio-hero-mock__grid-resize,
+.studio-hero-mock__grid-item.is-dragging > .studio-hero-mock__grid-resize,
+.studio-hero-mock.is-inspect .studio-hero-mock__grid-resize {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.studio-hero-mock__grid-resize--e {
+  top: 22%;
+  right: -2px;
+  width: 5px;
+  height: 56%;
+  cursor: ew-resize;
+}
+
+.studio-hero-mock__grid-resize--s {
+  left: 22%;
+  bottom: -2px;
+  width: 56%;
+  height: 5px;
+  cursor: ns-resize;
+}
+
+.studio-hero-mock__grid-resize--se {
+  right: -3px;
+  bottom: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-xs);
+  cursor: nwse-resize;
+}
+
+/* In grid mode the eye sits inside the cell (top-right) so it never clips. */
+.studio-hero-mock__grid-item > .studio-hero-mock__eye {
+  top: 2px;
+  right: 2px;
+  left: auto;
+}
+
+

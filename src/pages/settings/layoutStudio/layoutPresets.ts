@@ -10,6 +10,7 @@ import {
   DEFAULT_SIDEBAR_SECTION_VISIBILITY,
   DEFAULT_PAGE_ITEM_ORDER,
 } from "../../../context/interfaceLayout";
+import { normalizeHeroGridLayoutMap } from "../../../context/heroGrid";
 import { buildDetailSectionItems } from "../interfaceItems";
 import type { LayoutPreset, LayoutSnapshot } from "./types";
 
@@ -44,6 +45,7 @@ export function getDefaultLayoutSnapshot(): LayoutSnapshot {
       store: [...DEFAULT_HERO_ELEMENT_ORDER],
     },
     heroElementVisibility: {},
+    heroGridLayout: {},
     uiScale: "auto",
   };
 }
@@ -96,6 +98,9 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
         alphabetRail: false,
         statsFooter: false,
       },
+      // Explicitly empty => applying the preset resets any authored hero grid
+      // back to the shipped flex layout.
+      heroGridLayout: {},
     },
   },
   {
@@ -133,6 +138,8 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
         badgeCrackwatch: false,
         badgeCompare: false,
       },
+      // Reset any authored hero grid to flex when this preset is applied.
+      heroGridLayout: {},
     },
   },
   {
@@ -170,6 +177,8 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
           sec.key !== "activity" && sec.key !== "notes",
         ]),
       ) as LayoutSnapshot["detailSectionVisible"],
+      // Reset any authored hero grid to flex when this preset is applied.
+      heroGridLayout: {},
     },
   },
 ];
@@ -224,7 +233,7 @@ export function exportLayoutToJson(snapshot: LayoutSnapshot): string {
   return JSON.stringify(
     {
       app: "GameIndex",
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       layout: snapshot,
     },
@@ -291,6 +300,9 @@ export function importLayoutFromJson(jsonStr: string): Partial<LayoutSnapshot> |
     }
     if (layout.heroElementVisibility && typeof layout.heroElementVisibility === "object") {
       result.heroElementVisibility = layout.heroElementVisibility;
+    }
+    if (layout.heroGridLayout && typeof layout.heroGridLayout === "object") {
+      result.heroGridLayout = normalizeHeroGridLayoutMap(layout.heroGridLayout);
     }
     if (typeof layout.uiScale === "string") {
       result.uiScale = layout.uiScale;

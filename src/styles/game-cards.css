@@ -1145,6 +1145,66 @@
   flex-wrap: wrap;
 }
 
+/* ── Authored hero grid (Layout Studio) ──────────────────────────
+   An optional 12-column grid that replaces the flex/`order` layout when the
+   user has authored one. Each item carries its rect as inline custom
+   properties set by GameHero; the track unit scales the implicit rows so
+   spanning blocks line up. Everything is inside the existing hero card, so
+   the backdrop/scrim layers above are untouched. */
+.game-hero--grid {
+  min-height: 0;
+  /* Row unit for the implicit grid rows; declared here so the real hero never
+   * depends on the numeric fallback in the `grid-auto-rows` declaration. */
+  --hero-grid-unit: 40px;
+}
+.game-hero__grid {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(var(--hero-grid-unit, 40px), auto);
+  gap: var(--space-sm) var(--space-lg);
+  align-content: start;
+  align-items: start;
+  padding: var(--space-lg) var(--space-xl);
+  pointer-events: none;
+}
+.game-hero__grid > .game-hero__block,
+.game-hero__grid > .game-hero__poster {
+  grid-column: var(--hero-col, auto) / span var(--hero-col-span, 1);
+  grid-row: var(--hero-row, auto) / span var(--hero-row-span, 1);
+  min-width: 0;
+  pointer-events: auto;
+}
+.game-hero__block--poster {
+  align-self: stretch;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+/* Grid mode stretches the poster to its authored row span. Scoped to the
+   desktop layout because at <=860px the grid falls back to a flex column,
+   where the poster must keep the shared 2:3 card treatment. A bare (0,2,0)
+   `.game-hero--grid .game-hero__poster` would otherwise outrank the (0,1,0)
+   mobile `.game-hero__poster` rule and strip its aspect-ratio. */
+@media (min-width: 861px) {
+  .game-hero--grid .game-hero__poster {
+    height: 100%;
+    aspect-ratio: auto;
+  }
+}
+@media (max-width: 860px) {
+  .game-hero__grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+  .game-hero__grid > * {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
 /* Accent routing for KPI intent + status dot glow. */
 .game-hero .kpi-tile--intent-accent .kpi-tile__icon,
 .game-hero .kpi-tile--intent-accent .kpi-tile__value {
