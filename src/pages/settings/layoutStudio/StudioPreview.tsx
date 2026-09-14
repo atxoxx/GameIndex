@@ -207,7 +207,9 @@ export function StudioPreview({
   const { t } = useLanguage();
   const isGlobal = page === "global";
   const pageDef = interfacePageDef(page);
-  const showDetailMocks = detailScope !== null && (page === "game" || page === "store");
+  // The detail shell + its bespoke mocks belong to the two detail pages only;
+  // the store listing tab renders its plain widget list.
+  const showDetailMocks = detailScope !== null && (page === "game" || page === "storeGame");
 
   const tabsDrag = useOrderDrag(onReorderNavTabs);
   const buttonsDrag = useOrderDrag(onReorderNavButtons);
@@ -215,7 +217,11 @@ export function StudioPreview({
 
   const isTabActive = (tabId: string) => {
     const pageFromId = tabId.replace(/^nav/, "").toLowerCase();
-    return page.toLowerCase() === pageFromId || (page === "game" && pageFromId === "library");
+    return (
+      page.toLowerCase() === pageFromId ||
+      (page === "game" && pageFromId === "library") ||
+      (page === "storeGame" && pageFromId === "store")
+    );
   };
 
   useEffect(() => {
@@ -298,14 +304,10 @@ export function StudioPreview({
     );
   };
 
-  // Flat, orderable list of the active page's widgets. Used as the whole body
-  // for pages without a bespoke mock, and inline below the store detail shell
-  // for the store page's own (list) blocks.
-  const renderPageItemsList = (inline = false) => (
-    <div
-      className={`studio-preview__items${inline ? " studio-preview__items--inline" : ""}`}
-      ref={itemsDrag.containerRef}
-    >
+  // Flat, orderable list of the active page's widgets — the whole body for
+  // every page that doesn't have a bespoke detail mock.
+  const renderPageItemsList = () => (
+    <div className="studio-preview__items" ref={itemsDrag.containerRef}>
       {pageItems.map((item, index) => (
         <button
           key={item.id}
@@ -706,18 +708,6 @@ export function StudioPreview({
                     onHeroGridReset={onHeroGridReset}
                     onHeroGridConvert={onHeroGridConvert}
                   />
-
-                  {/* The store page's registered widgets are its *list* blocks;
-                   *  the store detail shell above has no widget keys of its own,
-                   *  so they stay editable here rather than inside the grid. */}
-                  {page === "store" && pageItems.length > 0 && (
-                    <div className="studio-detail-pageblocks">
-                      <span className="studio-detail-pageblocks__label">
-                        {t("settings.interface.studioPageItems")}
-                      </span>
-                      {renderPageItemsList(true)}
-                    </div>
-                  )}
                 </div>
               ) : (
                 renderPageItemsList()

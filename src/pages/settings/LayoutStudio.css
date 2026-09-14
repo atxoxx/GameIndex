@@ -2710,10 +2710,25 @@
   gap: var(--space-sm);
 }
 
-.studio-detail-kpis {
+/* KPI tile rows (Info, Ratings, Time to beat) — wrap into the column width. */
+.studio-detail-kpi-tiles {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+}
+
+.studio-detail-kpi-tiles .studio-detail-kpi {
+  flex: 1 1 88px;
+  min-width: 0;
+}
+
+.studio-detail-kpi-tiles--stack {
+  flex-direction: column;
+}
+
+.studio-detail-kpi-tiles--stack .studio-detail-kpi {
+  flex: 1 1 auto;
 }
 
 .studio-detail-kpi {
@@ -2766,6 +2781,151 @@
 
 .studio-detail-row .studio-detail-line {
   height: 4px;
+}
+
+/* ── Side-card body primitives (one `.studio-detail-card` per real card) ─── */
+
+/* Stacked body sections inside one card. */
+.studio-detail-mini-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* Steam feature list. */
+.studio-detail-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.studio-detail-feature {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.studio-detail-feature__icon {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+}
+
+/* Progress tracks (ratings breakdown, time to beat). */
+.studio-detail-track {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-text-muted) 22%, transparent);
+}
+
+.studio-detail-track__fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-accent) 65%, transparent);
+}
+
+.studio-detail-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.studio-detail-breakdown__row {
+  display: grid;
+  grid-template-columns: 34% minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+}
+
+.studio-detail-breakdown__label {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-muted) 28%, transparent);
+}
+
+/* Status badges (ProtonDB tier, CrackWatch cracked/uncracked). */
+.studio-detail-badge {
+  display: block;
+  height: 16px;
+  border-radius: var(--radius-full);
+}
+
+.studio-detail-badge--tier {
+  width: 52%;
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.studio-detail-badge--status {
+  width: 38%;
+  background: color-mix(in srgb, var(--color-success) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+/* Specs pill groups. */
+.studio-detail-spec-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.studio-detail-spec-group__label {
+  display: block;
+  width: 42%;
+  height: 5px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text-secondary) 32%, transparent);
+}
+
+.studio-detail-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.studio-detail-tag {
+  display: block;
+  width: 34px;
+  height: 13px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 38%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+/* Language support grid. */
+.studio-detail-lang {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.studio-detail-lang__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, 9px);
+  gap: 6px;
+  align-items: center;
+}
+
+.studio-detail-lang__dot {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text-muted) 28%, transparent);
+}
+
+.studio-detail-lang__dot.is-on {
+  background: color-mix(in srgb, var(--color-success) 60%, transparent);
 }
 
 /* ── Quick-stats command bar ─────────────────────────────────────────────── */
@@ -2853,27 +3013,38 @@
   pointer-events: none;
 }
 
-/* ── Store page blocks kept below the store detail shell ─────────────────── */
-
-.studio-detail-pageblocks {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: var(--space-sm);
-  border-top: 1px dashed color-mix(in srgb, var(--color-border) 80%, transparent);
+/* ── Detail-sections hidden note (real component, compacted) ───────────────
+ * The preview renders the real `DetailSectionsHiddenNote`, so these rules only
+ * shrink its `.game-section` metrics to the schematic scale. */
+.studio-detail .detail-sections-note {
+  padding: var(--space-sm) var(--space-md);
+  margin: 0;
+  border-radius: var(--radius-lg);
+  animation: none;
 }
 
-.studio-detail-pageblocks__label {
-  font-size: 9.5px;
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--color-text-muted);
+.studio-detail .detail-sections-note__title {
+  font-size: 10px;
+  margin-bottom: 2px;
 }
 
-.studio-preview__items--inline {
-  flex: 0 0 auto;
-  overflow: visible;
+.studio-detail .detail-sections-note__intro {
+  font-size: 9px;
+  margin-bottom: 4px;
+}
+
+.studio-detail .detail-sections-note__list {
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.studio-detail .detail-sections-note__list li {
+  font-size: 8.5px;
+  padding: 1px 6px;
+}
+
+.studio-detail .detail-sections-note__manage {
+  font-size: 8.5px;
 }
 
 /* ── Compact viewport tweaks ─────────────────────────────────────────────── */

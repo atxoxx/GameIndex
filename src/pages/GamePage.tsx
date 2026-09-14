@@ -16,7 +16,7 @@ import {
 import { useActivity } from "../context/ActivityContext";
 import { EditGameModal } from "../components/game/EditGameModal";
 import { EDIT_GAME_TABS, type EditGameTab } from "../components/game/editGameTabs";
-import PageWidget from "../components/PageWidget";
+import PageWidget, { PageWidgetSlot } from "../components/PageWidget";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
 import { type Game } from "../types/game";
@@ -553,38 +553,76 @@ function GameDetail({ game }: { game: Game }) {
                 </PageWidget>
               )}
 
-              <PageWidget page="game" widget="gameSidebarKpis">
-                <div className="side-group ui-item-gameSidebarKpis">
-                  <InfoKpiCard
-                    game={game}
-                    sizeUnit={sizeUnit}
-                    onEditSize={() => setEditTab("details")}
+              <PageWidgetSlot page="game" widget="gameInfoKpi" className="ui-item-gameInfoKpi">
+                <InfoKpiCard
+                  game={game}
+                  sizeUnit={sizeUnit}
+                  onEditSize={() => setEditTab("details")}
+                />
+              </PageWidgetSlot>
+              {detailSectionVisible.steamFeatures && (
+                <PageWidgetSlot
+                  page="game"
+                  widget="gameSteamFeatures"
+                  className="ui-item-gameSteamFeatures"
+                >
+                  <SteamFeaturesCard
+                    steamAppId={game.steamAppId ?? heroSteamAppId}
+                    gameName={game.name}
                   />
-                  {detailSectionVisible.steamFeatures && (
-                    <SteamFeaturesCard
-                      steamAppId={game.steamAppId ?? heroSteamAppId}
-                      gameName={game.name}
-                    />
-                  )}
-                  <RatingsKpiCard game={game} />
-                  {detailSectionVisible.timeToBeat && <TimeToBeatCard game={game} />}
-                </div>
-              </PageWidget>
-              <PageWidget page="game" widget="gameSpecs">
-                <div className="side-group ui-complete-only ui-item-gameSpecs">
-                  <SpecsCard game={game} />
-                  {showDeckVerified && detailSectionVisible.protonDb && (
-                    <ProtonDBCard steamAppId={game.steamAppId} />
-                  )}
-                  <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
-                </div>
-              </PageWidget>
-              <PageWidget page="game" widget="gameSpecs">
-                <div className="side-group ui-complete-only ui-item-gameSpecs">
-                  {detailSectionVisible.releases && <ReleasesCard game={game} />}
-                  <LanguagesSection game={game} />
-                </div>
-              </PageWidget>
+                </PageWidgetSlot>
+              )}
+              <PageWidgetSlot page="game" widget="gameRatings" className="ui-item-gameRatings">
+                <RatingsKpiCard game={game} />
+              </PageWidgetSlot>
+              {detailSectionVisible.timeToBeat && (
+                <PageWidgetSlot
+                  page="game"
+                  widget="gameTimeToBeat"
+                  className="ui-item-gameTimeToBeat"
+                >
+                  <TimeToBeatCard game={game} />
+                </PageWidgetSlot>
+              )}
+              <PageWidgetSlot
+                page="game"
+                widget="gameSpecsCard"
+                className="ui-complete-only ui-item-gameSpecsCard"
+              >
+                <SpecsCard game={game} />
+              </PageWidgetSlot>
+              {showDeckVerified && detailSectionVisible.protonDb && (
+                <PageWidgetSlot
+                  page="game"
+                  widget="gameProtonDb"
+                  className="ui-complete-only ui-item-gameProtonDb"
+                >
+                  <ProtonDBCard steamAppId={game.steamAppId} />
+                </PageWidgetSlot>
+              )}
+              <PageWidgetSlot
+                page="game"
+                widget="gameCrackwatch"
+                className="ui-complete-only ui-item-gameCrackwatch"
+              >
+                <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
+              </PageWidgetSlot>
+              {detailSectionVisible.releases && (
+                <PageWidgetSlot
+                  page="game"
+                  widget="gameReleases"
+                  className="ui-complete-only ui-item-gameReleases"
+                >
+                  <ReleasesCard game={game} />
+                </PageWidgetSlot>
+              )}
+              <PageWidgetSlot
+                page="game"
+                widget="gameLanguages"
+                className="ui-complete-only ui-item-gameLanguages"
+              >
+                <LanguagesSection game={game} />
+              </PageWidgetSlot>
             </div>
           </div>
         </>

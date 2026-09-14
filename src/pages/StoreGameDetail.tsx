@@ -19,7 +19,7 @@ import GameNewsTab from "../components/game/GameNewsTab";
 import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
 import StoreGameLoadingSkeleton from "../components/store/StoreGameLoadingSkeleton";
-import PageWidget from "../components/PageWidget";
+import { PageWidgetSlot } from "../components/PageWidget";
 import {
   IconOverview,
   IconMessageSquare,
@@ -595,32 +595,80 @@ export default function StoreGameDetail() {
             </div>
 
             <div className="game-side-col">
-              <div className="side-group">
+              <PageWidgetSlot
+                page="storeGame"
+                widget="gameInfoKpi"
+                className="ui-item-gameInfoKpi"
+              >
                 <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />
-                {detailSectionVisible.steamFeatures && (
+              </PageWidgetSlot>
+              {detailSectionVisible.steamFeatures && (
+                <PageWidgetSlot
+                  page="storeGame"
+                  widget="gameSteamFeatures"
+                  className="ui-item-gameSteamFeatures"
+                >
                   <SteamFeaturesCard
                     steamAppId={steamAppId}
                     gameName={data.title}
                   />
-                )}
+                </PageWidgetSlot>
+              )}
+              <PageWidgetSlot
+                page="storeGame"
+                widget="gameRatings"
+                className="ui-item-gameRatings"
+              >
                 <RatingsKpiCard game={mockGame} />
-                {detailSectionVisible.timeToBeat && <TimeToBeatCard game={mockGame} />}
-              </div>
-              <PageWidget page="store" widget="kpis">
-                <div className="side-group ui-complete-only ui-item-kpis">
-                  <SpecsCard game={mockGame} />
-                  {showDeckVerified && detailSectionVisible.protonDb && (
-                    <ProtonDBCard steamAppId={steamAppId} />
-                  )}
-                  <CrackWatchCard gameName={data.title} appId={steamAppId} />
-                </div>
-              </PageWidget>
-              <PageWidget page="store" widget="kpis">
-                <div className="side-group ui-complete-only ui-item-kpis">
-                  {detailSectionVisible.releases && <ReleasesCard game={mockGame} />}
-                  <LanguagesSection game={mockGame} />
-                </div>
-              </PageWidget>
+              </PageWidgetSlot>
+              {detailSectionVisible.timeToBeat && (
+                <PageWidgetSlot
+                  page="storeGame"
+                  widget="gameTimeToBeat"
+                  className="ui-item-gameTimeToBeat"
+                >
+                  <TimeToBeatCard game={mockGame} />
+                </PageWidgetSlot>
+              )}
+              <PageWidgetSlot
+                page="storeGame"
+                widget="gameSpecsCard"
+                className="ui-complete-only ui-item-gameSpecsCard"
+              >
+                <SpecsCard game={mockGame} />
+              </PageWidgetSlot>
+              {showDeckVerified && detailSectionVisible.protonDb && (
+                <PageWidgetSlot
+                  page="storeGame"
+                  widget="gameProtonDb"
+                  className="ui-complete-only ui-item-gameProtonDb"
+                >
+                  <ProtonDBCard steamAppId={steamAppId} />
+                </PageWidgetSlot>
+              )}
+              <PageWidgetSlot
+                page="storeGame"
+                widget="gameCrackwatch"
+                className="ui-complete-only ui-item-gameCrackwatch"
+              >
+                <CrackWatchCard gameName={data.title} appId={steamAppId} />
+              </PageWidgetSlot>
+              {detailSectionVisible.releases && (
+                <PageWidgetSlot
+                  page="storeGame"
+                  widget="gameReleases"
+                  className="ui-complete-only ui-item-gameReleases"
+                >
+                  <ReleasesCard game={mockGame} />
+                </PageWidgetSlot>
+              )}
+              <PageWidgetSlot
+                page="storeGame"
+                widget="gameLanguages"
+                className="ui-complete-only ui-item-gameLanguages"
+              >
+                <LanguagesSection game={mockGame} />
+              </PageWidgetSlot>
             </div>
           </div>
         </>

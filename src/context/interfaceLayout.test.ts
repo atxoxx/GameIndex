@@ -4,6 +4,7 @@ import {
   DEFAULT_DETAIL_TAB_ORDER,
   DEFAULT_DETAIL_TOP_BAR_ORDER,
   DEFAULT_HERO_ELEMENT_ORDER,
+  DEFAULT_PAGE_ITEM_ORDER,
   DEFAULT_SIDEBAR_SECTION_VISIBILITY,
   DETAIL_TABS,
   DETAIL_TOP_BAR,
@@ -52,8 +53,13 @@ describe("resolveInterfacePage", () => {
   });
 
   it("still resolves nested routes to their parent page", () => {
-    expect(resolveInterfacePage("/store/42")).toBe("store");
+    expect(resolveInterfacePage("/store/42")).toBe("storeGame");
     expect(resolveInterfacePage("/community/stats")).toBe("community");
+  });
+
+  it("keeps the store listing on the store page but the store detail on storeGame", () => {
+    expect(resolveInterfacePage("/store")).toBe("store");
+    expect(resolveInterfacePage("/store/hades")).toBe("storeGame");
   });
 
   it("falls back to global for unknown routes", () => {
@@ -439,5 +445,98 @@ describe("isDetailSectionKeyAvailable", () => {
       expect(isDetailSectionKeyAvailable(key, { showDeckVerified: false })).toBe(true);
     }
     expect(DECK_ONLY_DETAIL_SECTION_KEYS).toContain("protonDb");
+  });
+});
+
+// ── Itemized detail side cards (retired grouped widgets → per-card keys) ─────
+
+const SIDE_KPI_KEYS = [
+  "gameInfoKpi",
+  "gameSteamFeatures",
+  "gameRatings",
+  "gameTimeToBeat",
+] as const;
+const SIDE_SPECS_KEYS = [
+  "gameSpecsCard",
+  "gameProtonDb",
+  "gameCrackwatch",
+  "gameReleases",
+  "gameLanguages",
+] as const;
+
+describe("detail side-card order migration", () => {
+  const gameItems = () => interfacePageDef("game")?.items ?? [];
+
+  it("expands a retired KPI group and keeps explicitly ordered keys first", () => {
+    const result = normalizePageItemOrder("game", ["gameSidebarKpis", "gameRelations"]);
+    expect(result[0]).toBe("gameRelations");
+    expect(result.slice(1, 5)).toEqual([...SIDE_KPI_KEYS]);
+    expect(result).toHaveLength(gameItems().length);
+    expect(new Set(result)).toEqual(new Set(gameItems()));
+    expect((result as string[]).includes("gameSidebarKpis")).toBe(false);
+  });
+
+  it("expands the retired specs group into the five spec cards", () => {
+    const result = normalizePageItemOrder("game", ["gameSpecs"]);
+    expect(result.slice(0, 5)).toEqual([...SIDE_SPECS_KEYS]);
+    expect(result).toHaveLength(gameItems().length);
+    expect(new Set(result)).toEqual(new Set(gameItems()));
+    expect((result as string[]).includes("gameSpecs")).toBe(false);
+  });
+
+  it("expands a retired OFF visibility group onto its cards", () => {
+    expect(normalizePageItemVisibilityMap({ game: { gameSidebarKpis: false } })).toEqual({
+      game: {
+        gameInfoKpi: false,
+        gameSteamFeatures: false,
+        gameRatings: false,
+        gameTimeToBeat: false,
+      },
+    });
+    expect(normalizePageItemVisibilityMap({ game: { gameSpecs: false } })).toEqual({
+      game: {
+        gameSpecsCard: false,
+        gameProtonDb: false,
+        gameCrackwatch: false,
+        gameReleases: false,
+        gameLanguages: false,
+      },
+    });
+  });
+
+  it("registers storeGame with the shared cards and without the play pulse", () => {
+    const items = interfacePageDef("storeGame")?.items ?? [];
+    for (const key of [...SIDE_KPI_KEYS, ...SIDE_SPECS_KEYS]) {
+      expect(items).toContain(key);
+    }
+    expect(items).not.toContain("gamePulse");
+    expect(DEFAULT_PAGE_ITEM_ORDER.storeGame).toEqual(items);
+  });
+});
+
+describe("detail side-card migration edge cases", () => {
+  it("drops retired keys on pages that never shipped them", () => {
+    const result = normalizePageItemOrder("library", ["gameSpecs"]);
+    expect((result as string[]).includes("gameSpecs")).toBe(false);
+    expect(result).toEqual(interfacePageDef("library")?.items);
+  });
+
+  it("does not double-add when a target is already named explicitly", () => {
+    const result = normalizePageItemOrder("game", ["gameSpecsCard", "gameSpecs"]);
+    expect(result[0]).toBe("gameSpecsCard");
+    expect(result.filter((key) => key === "gameSpecsCard")).toHaveLength(1);
+  });
+
+  it("lets an explicit visibility entry win over the retired group", () => {
+    const result = normalizePageItemVisibilityMap({
+      game: { gameInfoKpi: false, gameSidebarKpis: false },
+    });
+    expect(result.game?.gameInfoKpi).toBe(false);
+    expect(Object.keys(result.game ?? {}).filter((key) => key === "gameInfoKpi")).toHaveLength(1);
+  });
+
+  it("returns empty maps for malformed input", () => {
+    expect(normalizePageItemOrderMap(null)).toEqual({});
+    expect(normalizePageItemVisibilityMap([])).toEqual({});
   });
 });

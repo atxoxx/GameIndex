@@ -36,6 +36,8 @@ import {
   type HeroElementKey,
   type PageWidgetKey,
 } from "../../../context/interfaceLayout";
+import type { DetailSectionKey } from "../../../context/SettingsContext";
+import DetailSectionsHiddenNote from "../../../components/game/DetailSectionsHiddenNote";
 import { useOrderDrag } from "../useOrderDrag";
 import { useHeroGridDrag } from "./useHeroGridDrag";
 import { WIDGET_ICON } from "./widgetIcons";
@@ -48,20 +50,21 @@ function noopGridChange() {}
  * DetailPagePreview — a faithful schematic of the Game / Store detail page.
  *
  * The real pages are one shell: a cinematic hero, a segmented tab bar, a
- * quick-stats command bar, then a two-column body. The body columns carry the
- * page widgets in the exact regions the pages themselves use:
+ * quick-stats command bar, then a two-column body. Every card is its own
+ * `PageWidget`, and the preview carries them in the exact regions the pages
+ * themselves use:
  *
- *   GamePage.tsx
- *     full   gameHero · gameTabs · gameQuickStats
- *     main   gameAbout · gameStoryline · gameMedia · gameSysReq · gameRelations
- *     side   gamePulse · gameSidebarKpis · gameSpecs
+ *   Full   gameHero · gameTabs · gameQuickStats
+ *   Main   gameAbout · gameStoryline · gameMedia · gameSysReq · gameRelations
+ *   Side   gamePulse (library only), then the nine sidebar cards:
+ *          gameInfoKpi · gameSteamFeatures · gameRatings · gameTimeToBeat ·
+ *          gameSpecsCard · gameProtonDb · gameCrackwatch · gameReleases ·
+ *          gameLanguages
  *
- *   StoreGameDetail.tsx renders the same components in the same shell, but its
- *   blocks are not wrapped in `PageWidget` (only the two sidebar spec groups
- *   use `widget="kpis"`), and `interfaceLayout` exposes no store-detail widget
- *   keys. Its body therefore mirrors the game regions as static, always-on
- *   cards — the store page's own registered widgets are its *list* blocks and
- *   stay editable in the flat list below the preview.
+ *   `game` (library detail) is fully widget-addressable. `storeGame` (store
+ *   detail) shares the side cards as real `PageWidgetSlot page="storeGame"`
+ *   widgets, so its side column is interactive too; its hero/tab/stats shell
+ *   and main column remain a static mirror.
  *
  * Reordering stays pointer-driven through the shared `useOrderDrag`: widget
  * rows carry `data-order-index` and the whole detail root is the drag
@@ -79,15 +82,58 @@ const GAME_MAIN_WIDGETS: PageWidgetKey[] = [
   "gameSysReq",
   "gameRelations",
 ];
-const GAME_SIDE_WIDGETS: PageWidgetKey[] = [
-  "gamePulse",
-  "gameSidebarKpis",
-  "gameSpecs",
+/**
+ * The nine individual sidebar cards, in the order both detail pages ship them.
+ * Each is a real `PageWidget` now (the old `gameSidebarKpis` / `gameSpecs`
+ * group widgets are gone), so each becomes its own draggable / hideable card.
+ */
+const SIDE_CARD_WIDGETS: PageWidgetKey[] = [
+  "gameInfoKpi",
+  "gameSteamFeatures",
+  "gameRatings",
+  "gameTimeToBeat",
+  "gameSpecsCard",
+  "gameProtonDb",
+  "gameCrackwatch",
+  "gameReleases",
+  "gameLanguages",
 ];
 
-/** StoreGameDetail has no activity pulse; its remaining groups match the game. */
+/** The library game page leads its side column with the activity pulse. */
+const GAME_SIDE_WIDGETS: PageWidgetKey[] = ["gamePulse", ...SIDE_CARD_WIDGETS];
+
+/** The store detail has no activity pulse — the same cards without it. */
 const STORE_MAIN_WIDGETS: PageWidgetKey[] = GAME_MAIN_WIDGETS;
-const STORE_SIDE_WIDGETS: PageWidgetKey[] = ["gameSidebarKpis", "gameSpecs"];
+const STORE_SIDE_WIDGETS: PageWidgetKey[] = SIDE_CARD_WIDGETS;
+
+/** The exact `sections` lists the real pages hand to DetailSectionsHiddenNote. */
+const GAME_HIDDEN_NOTE_SECTIONS: DetailSectionKey[] = [
+  "steamFeatures",
+  "systemRequirements",
+  "gameRelations",
+  "timeToBeat",
+  "protonDb",
+  "releases",
+  "reviews",
+  "activity",
+  "notes",
+  "achievements",
+  "mods",
+  "weblinks",
+  "news",
+];
+const STORE_HIDDEN_NOTE_SECTIONS: DetailSectionKey[] = [
+  "steamFeatures",
+  "systemRequirements",
+  "gameRelations",
+  "timeToBeat",
+  "protonDb",
+  "releases",
+  "reviews",
+  "achievements",
+  "weblinks",
+  "news",
+];
 
 /**
  * The resolved per-element grid layout for the scope, or `null`/`undefined`
@@ -168,15 +214,115 @@ function PulseBody() {
   );
 }
 
-function KpisBody() {
+/** A KPI tile sample: icon square + label / value bars, optional footer bar. */
+function MiniTile({ footer }: { footer?: ReactNode }) {
   return (
-    <span className="studio-detail-kpis">
-      {[0, 1, 2].map((i) => (
-        <span key={i} className="studio-detail-kpi">
-          <span className="studio-detail-kpi__icon" aria-hidden="true" />
-          <span className="studio-detail-kpi__text">
-            <Line w={54} />
-            <Line w={32} />
+    <span className="studio-detail-kpi">
+      <span className="studio-detail-kpi__icon" aria-hidden="true" />
+      <span className="studio-detail-kpi__text">
+        <Line w={64} />
+        <Line w={42} />
+        {footer}
+      </span>
+    </span>
+  );
+}
+
+/** A progress track with an accent fill (ratings breakdown, time to beat). */
+function Track({ value }: { value: number }) {
+  return (
+    <span className="studio-detail-track" aria-hidden="true">
+      <span className="studio-detail-track__fill" style={{ width: `${value}%` }} />
+    </span>
+  );
+}
+
+/** Definition rows: label bar on the left, value bar on the right. */
+function MetaRows({ count, label, value }: { count: number; label: number; value: number }) {
+  return (
+    <span className="studio-detail-rows">
+      {Array.from({ length: count }, (_, i) => (
+        <span key={i} className="studio-detail-row">
+          <Line w={label} />
+          <Line w={value} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Info card: status / playtime / size tiles over the metadata list. */
+function InfoKpiBody() {
+  return (
+    <span className="studio-detail-mini-body">
+      <span className="studio-detail-kpi-tiles">
+        <MiniTile />
+        <MiniTile />
+        <MiniTile />
+      </span>
+      <MetaRows count={3} label={38} value={30} />
+    </span>
+  );
+}
+
+/** Steam Features: the store feature list. */
+function SteamFeaturesBody() {
+  return (
+    <span className="studio-detail-feature-list">
+      {[0, 1, 2, 3].map((i) => (
+        <span key={i} className="studio-detail-feature">
+          <span className="studio-detail-feature__icon" aria-hidden="true" />
+          <Line w={74} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Ratings: score tiles over the four-row score breakdown. */
+function RatingsBody() {
+  const breakdown = [72, 56, 24, 9];
+  return (
+    <span className="studio-detail-mini-body">
+      <span className="studio-detail-kpi-tiles">
+        <MiniTile />
+        <MiniTile />
+      </span>
+      <span className="studio-detail-breakdown">
+        {breakdown.map((value, i) => (
+          <span key={i} className="studio-detail-breakdown__row">
+            <span className="studio-detail-breakdown__label" aria-hidden="true" />
+            <Track value={value} />
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/** Time to beat: one tile per play style, each with its progress bar. */
+function TimeToBeatBody() {
+  const progress = [58, 32, 14];
+  return (
+    <span className="studio-detail-kpi-tiles studio-detail-kpi-tiles--stack">
+      {progress.map((value, i) => (
+        <MiniTile key={i} footer={<Track value={value} />} />
+      ))}
+    </span>
+  );
+}
+
+/** Specs card: pill groups for modes / themes / perspectives. */
+function SpecsBody() {
+  return (
+    <span className="studio-detail-mini-body">
+      {[0, 1].map((group) => (
+        <span key={group} className="studio-detail-spec-group">
+          <span className="studio-detail-spec-group__label" aria-hidden="true" />
+          <span className="studio-detail-pills">
+            {[0, 1, 2].map((pill) => (
+              <span key={pill} className="studio-detail-tag" aria-hidden="true" />
+            ))}
           </span>
         </span>
       ))}
@@ -184,13 +330,41 @@ function KpisBody() {
   );
 }
 
-function SpecsBody() {
+/** ProtonDB: compatibility tier badge over its report metadata. */
+function ProtonDbBody() {
   return (
-    <span className="studio-detail-rows">
+    <span className="studio-detail-mini-body">
+      <span className="studio-detail-badge studio-detail-badge--tier" aria-hidden="true" />
+      <MetaRows count={3} label={34} value={26} />
+    </span>
+  );
+}
+
+/** CrackWatch: cracked / uncracked status pill over its crack metadata. */
+function CrackWatchBody() {
+  return (
+    <span className="studio-detail-mini-body">
+      <span className="studio-detail-badge studio-detail-badge--status" aria-hidden="true" />
+      <MetaRows count={2} label={36} value={26} />
+    </span>
+  );
+}
+
+/** Releases: one row per platform / date entry. */
+function ReleasesBody() {
+  return <MetaRows count={4} label={40} value={28} />;
+}
+
+/** Languages: a language column with three support-flag columns. */
+function LanguagesBody() {
+  return (
+    <span className="studio-detail-lang">
       {[0, 1, 2, 3].map((i) => (
-        <span key={i} className="studio-detail-row">
-          <Line w={42} />
-          <Line w={26} />
+        <span key={i} className="studio-detail-lang__row">
+          <Line w={68} />
+          <span className="studio-detail-lang__dot" aria-hidden="true" />
+          <span className="studio-detail-lang__dot is-on" aria-hidden="true" />
+          <span className="studio-detail-lang__dot" aria-hidden="true" />
         </span>
       ))}
     </span>
@@ -210,10 +384,25 @@ function WidgetBody({ widget }: { widget: PageWidgetKey }) {
       return <PostersBody />;
     case "gamePulse":
       return <PulseBody />;
-    case "gameSidebarKpis":
-      return <KpisBody />;
-    case "gameSpecs":
+    // The nine individual sidebar cards, each its own widget slot now.
+    case "gameInfoKpi":
+      return <InfoKpiBody />;
+    case "gameSteamFeatures":
+      return <SteamFeaturesBody />;
+    case "gameRatings":
+      return <RatingsBody />;
+    case "gameTimeToBeat":
+      return <TimeToBeatBody />;
+    case "gameSpecsCard":
       return <SpecsBody />;
+    case "gameProtonDb":
+      return <ProtonDbBody />;
+    case "gameCrackwatch":
+      return <CrackWatchBody />;
+    case "gameReleases":
+      return <ReleasesBody />;
+    case "gameLanguages":
+      return <LanguagesBody />;
     case "gameAbout":
     default:
       return <Lines ws={[100, 94, 86, 58]} />;
@@ -1067,7 +1256,7 @@ export function DetailPagePreview({
   const draggingWidgets = widgetDrag.dragIndex !== null;
 
   const indexOf = (id: string) => widgetItems.findIndex((item) => item.id === id);
-  const isInteractive = scope === "game";
+  const gameScope = scope === "game";
 
   const title = (label: string, hidden: boolean) =>
     inspectMode
@@ -1131,7 +1320,7 @@ export function DetailPagePreview({
     />
   );
 
-  /** Interactive widget card (game page), styled like the real `.game-section`. */
+  /** Interactive widget card (detail pages), styled like the real `.game-section`. */
   const renderCard = (item: OrderListItem) => {
     const index = indexOf(item.id);
     const label = title(item.label, item.hidden);
@@ -1161,7 +1350,8 @@ export function DetailPagePreview({
     );
   };
 
-  /** Static mirrored card (store detail) — always on, not user-configurable. */
+  /** Static mirror of a card the real store-detail shell doesn't expose as a
+   *  widget (the store main column). */
   const renderStaticCard = (key: PageWidgetKey) => {
     const Icon = WIDGET_ICON[key] ?? Sparkles;
     const label = t(WIDGET_LABEL_KEY[key]);
@@ -1211,21 +1401,16 @@ export function DetailPagePreview({
     );
   };
 
-  const fullItems = isInteractive
-    ? widgetItems.filter((item) =>
-        GAME_FULL_WIDGETS.includes(item.id as PageWidgetKey),
-      )
-    : [];
-  const mainItems = isInteractive
-    ? widgetItems.filter((item) =>
-        GAME_MAIN_WIDGETS.includes(item.id as PageWidgetKey),
-      )
-    : [];
-  const sideItems = isInteractive
-    ? widgetItems.filter((item) =>
-        GAME_SIDE_WIDGETS.includes(item.id as PageWidgetKey),
-      )
-    : [];
+  const fullItems = widgetItems.filter((item) =>
+    GAME_FULL_WIDGETS.includes(item.id as PageWidgetKey),
+  );
+  const mainItems = widgetItems.filter((item) =>
+    GAME_MAIN_WIDGETS.includes(item.id as PageWidgetKey),
+  );
+  const sideRegion = scope === "store" ? STORE_SIDE_WIDGETS : GAME_SIDE_WIDGETS;
+  const sideItems = widgetItems.filter((item) =>
+    sideRegion.includes(item.id as PageWidgetKey),
+  );
 
   return (
     <div
@@ -1250,9 +1435,11 @@ export function DetailPagePreview({
         />
       )}
 
-      {/* Full-width shell: hero, tab bar, quick stats — in the page's real order. */}
+      {/* Full-width shell: hero, tab bar, quick stats — in the page's real order.
+       *  The library game page is fully widget-addressable; the store detail's
+       *  shell stays a static mirror. */}
       <div className="studio-detail__full">
-        {isInteractive ? (
+        {gameScope ? (
           fullItems.map(renderFullSlot)
         ) : (
           <>
@@ -1268,11 +1455,18 @@ export function DetailPagePreview({
       {/* Two-column body, at the real `.game-content-grid` proportions. */}
       <div className="studio-detail-grid">
         <div className="studio-detail-main">
-          {isInteractive ? mainItems.map(renderCard) : STORE_MAIN_WIDGETS.map(renderStaticCard)}
+          {/* The real note renders nothing until a listed section is hidden,
+           *  which is exactly how the live pages behave. */}
+          <DetailSectionsHiddenNote
+            sections={
+              scope === "store" ? STORE_HIDDEN_NOTE_SECTIONS : GAME_HIDDEN_NOTE_SECTIONS
+            }
+          />
+          {gameScope ? mainItems.map(renderCard) : STORE_MAIN_WIDGETS.map(renderStaticCard)}
         </div>
-        <div className="studio-detail-side">
-          {isInteractive ? sideItems.map(renderCard) : STORE_SIDE_WIDGETS.map(renderStaticCard)}
-        </div>
+        {/* The side cards are their own `PageWidget`s on both detail pages, so
+         *  they are addressed interactively for the store detail too. */}
+        <div className="studio-detail-side">{sideItems.map(renderCard)}</div>
       </div>
     </div>
   );

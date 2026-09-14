@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { useWidgetVisible } from "../context/SettingsContext";
+import type { CSSProperties, ReactNode } from "react";
+import { usePageWidgetOrder, useWidgetVisible } from "../context/SettingsContext";
 import type { InterfacePageKey, PageWidgetKey } from "../context/interfaceLayout";
 
 interface PageWidgetProps {
@@ -23,4 +23,32 @@ interface PageWidgetProps {
  */
 export default function PageWidget({ page, widget, children }: PageWidgetProps) {
   return useWidgetVisible(page, widget) ? <>{children}</> : null;
+}
+
+interface PageWidgetSlotProps {
+  page: InterfacePageKey;
+  widget: PageWidgetKey;
+  /** Element class, e.g. `"ui-item-gameInfoKpi"` (may include `ui-complete-only`). */
+  className: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}
+
+/**
+ * PageWidgetSlot
+ * ──────────────
+ * The single-card counterpart of `PageWidget`: it wraps one card in its own
+ * `.ui-item-*` element and applies the per-page `order` inline, so individually
+ * reordered/hidden side-column cards lay out correctly. It renders nothing
+ * when the widget is switched off.
+ */
+export function PageWidgetSlot({ page, widget, className, style, children }: PageWidgetSlotProps) {
+  const visible = useWidgetVisible(page, widget);
+  const order = usePageWidgetOrder(page, widget);
+  if (!visible) return null;
+  return (
+    <div className={className} style={order === undefined ? style : { ...style, order }}>
+      {children}
+    </div>
+  );
 }

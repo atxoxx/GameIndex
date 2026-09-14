@@ -1932,6 +1932,21 @@ export function useWidgetVisible(
   return ctx.pageItemVisible[page]?.[widget] !== false;
 }
 
+/** Position of a widget within the page's stored order, or `undefined` when it
+ *  should keep its shipped position. Defaults to `undefined` outside a
+ *  SettingsProvider (isolated tests, static renders). */
+export function usePageWidgetOrder(
+  page: InterfacePageKey,
+  widget: PageWidgetKey,
+): number | undefined {
+  const ctx = useContext(SettingsContext);
+  if (!ctx) return undefined;
+  const order = ctx.pageItemOrder[page];
+  if (!order) return undefined;
+  const i = order.indexOf(widget);
+  return i === -1 ? undefined : i;
+}
+
 /** Whether a sidebar top-level section should be mounted. */
 export function useSidebarSectionVisible(key: SidebarSectionKey): boolean {
   const ctx = useContext(SettingsContext);

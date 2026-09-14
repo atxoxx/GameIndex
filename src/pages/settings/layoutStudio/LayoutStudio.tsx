@@ -108,6 +108,7 @@ const PAGE_ICONS: Record<InterfacePageKey, LucideIcon> = {
   library: Gamepad2,
   game: MonitorPlay,
   store: Store,
+  storeGame: Store,
   wishlist: Heart,
   deals: Tag,
   news: Rss,
@@ -122,6 +123,17 @@ const PAGE_ICONS: Record<InterfacePageKey, LucideIcon> = {
 };
 
 const DETAIL_SCOPES: DetailTabScope[] = ["game", "store"];
+
+/**
+ * The interface page key → the detail scope it edits. The two detail pages
+ * (`game` = library game, `storeGame` = store game) share the detail-tab /
+ * hero-element / top-bar lanes keyed by scope; every other page has none.
+ */
+function detailScopeForPage(page: InterfacePageKey): DetailTabScope | null {
+  if (page === "game") return "game";
+  if (page === "storeGame") return "store";
+  return null;
+}
 
 const DETAIL_TAB_ICON: Record<DetailTabKey, LucideIcon> = {
   overview: LayoutDashboard,
@@ -291,7 +303,7 @@ export default function LayoutStudio() {
 
   // ── Detail tabs & hero elements (game + store) ─────────────────────────────
   const activeDetailScope = useMemo<DetailTabScope | null>(
-    () => (activePage === "game" ? "game" : activePage === "store" ? "store" : null),
+    () => detailScopeForPage(activePage),
     [activePage],
   );
 
@@ -771,15 +783,16 @@ export default function LayoutStudio() {
       const def = interfacePageDef(page);
       for (const key of def?.items ?? []) setPageItemVisible(page, key, true);
       setPageItemOrder(page, DEFAULT_PAGE_ITEM_ORDER[page] ?? []);
-      if (page === "game" || page === "store") {
-        setDetailTabOrder(page, DEFAULT_DETAIL_TAB_ORDER[page]);
-        setDetailTopBarOrder(page, DEFAULT_DETAIL_TOP_BAR_ORDER[page]);
-        for (const key of DETAIL_TOP_BAR[page]) setDetailTopBarVisible(page, key, true);
-        setHeroElementOrder(page, HERO_ELEMENTS);
-        for (const key of HERO_ELEMENTS) setHeroElementVisible(page, key, true);
-        resetHeroGridLayout(page);
-      }
-      if (page === "game") {
+      const detailScope = detailScopeForPage(page);
+      if (detailScope) {
+        setDetailTabOrder(detailScope, DEFAULT_DETAIL_TAB_ORDER[detailScope]);
+        setDetailTopBarOrder(detailScope, DEFAULT_DETAIL_TOP_BAR_ORDER[detailScope]);
+        for (const key of DETAIL_TOP_BAR[detailScope]) {
+          setDetailTopBarVisible(detailScope, key, true);
+        }
+        setHeroElementOrder(detailScope, HERO_ELEMENTS);
+        for (const key of HERO_ELEMENTS) setHeroElementVisible(detailScope, key, true);
+        resetHeroGridLayout(detailScope);
         for (const key of availableDetailSectionKeys) {
           setDetailSectionVisible(key, true);
         }
@@ -880,7 +893,9 @@ export default function LayoutStudio() {
     }
     const entry = pageItemVisible[page];
     const pageHidden = entry ? Object.values(entry).filter((visible) => visible === false).length : 0;
-    if (page === "game") {
+    if (detailScopeForPage(page)) {
+      // Both detail pages share the global section-visibility map, so each
+      // page tab reports the same hidden sections its preview shows.
       const hiddenDetailSections = availableDetailSectionKeys.filter(
         (key) => !detailSectionVisible[key],
       ).length;

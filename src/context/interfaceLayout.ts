@@ -57,8 +57,15 @@ export type PageWidgetKey =
   | "gameSysReq"
   | "gameRelations"
   | "gamePulse"
-  | "gameSidebarKpis"
-  | "gameSpecs"
+  | "gameInfoKpi"
+  | "gameSteamFeatures"
+  | "gameRatings"
+  | "gameTimeToBeat"
+  | "gameSpecsCard"
+  | "gameProtonDb"
+  | "gameCrackwatch"
+  | "gameReleases"
+  | "gameLanguages"
   // Store
   | "storeHeader"
   | "storeFilters"
@@ -158,8 +165,15 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "gameSysReq",
   "gameRelations",
   "gamePulse",
-  "gameSidebarKpis",
-  "gameSpecs",
+  "gameInfoKpi",
+  "gameSteamFeatures",
+  "gameRatings",
+  "gameTimeToBeat",
+  "gameSpecsCard",
+  "gameProtonDb",
+  "gameCrackwatch",
+  "gameReleases",
+  "gameLanguages",
   // Store
   "storeHeader",
   "storeFilters",
@@ -261,8 +275,15 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   gameSysReq: "ui-item-gameSysReq",
   gameRelations: "ui-item-gameRelations",
   gamePulse: "ui-item-gamePulse",
-  gameSidebarKpis: "ui-item-gameSidebarKpis",
-  gameSpecs: "ui-item-gameSpecs",
+  gameInfoKpi: "ui-item-gameInfoKpi",
+  gameSteamFeatures: "ui-item-gameSteamFeatures",
+  gameRatings: "ui-item-gameRatings",
+  gameTimeToBeat: "ui-item-gameTimeToBeat",
+  gameSpecsCard: "ui-item-gameSpecsCard",
+  gameProtonDb: "ui-item-gameProtonDb",
+  gameCrackwatch: "ui-item-gameCrackwatch",
+  gameReleases: "ui-item-gameReleases",
+  gameLanguages: "ui-item-gameLanguages",
   // Store
   storeHeader: "ui-item-storeHeader",
   storeFilters: "ui-item-storeFilters",
@@ -364,8 +385,15 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   gameSysReq: "settings.interface.widgetGameSysReq",
   gameRelations: "settings.interface.widgetGameRelations",
   gamePulse: "settings.interface.widgetGamePulse",
-  gameSidebarKpis: "settings.interface.widgetGameSidebarKpis",
-  gameSpecs: "settings.interface.widgetGameSpecs",
+  gameInfoKpi: "settings.interface.widgetGameInfoKpi",
+  gameSteamFeatures: "settings.interface.widgetGameSteamFeatures",
+  gameRatings: "settings.interface.widgetGameRatings",
+  gameTimeToBeat: "settings.interface.widgetGameTimeToBeat",
+  gameSpecsCard: "settings.interface.widgetGameSpecsCard",
+  gameProtonDb: "settings.interface.widgetGameProtonDb",
+  gameCrackwatch: "settings.interface.widgetGameCrackwatch",
+  gameReleases: "settings.interface.widgetGameReleases",
+  gameLanguages: "settings.interface.widgetGameLanguages",
   // Store
   storeHeader: "settings.interface.widgetStoreHeader",
   storeFilters: "settings.interface.widgetStoreFilters",
@@ -438,6 +466,7 @@ export type InterfacePageKey =
   | "library"
   | "game"
   | "store"
+  | "storeGame"
   | "wishlist"
   | "deals"
   | "news"
@@ -514,8 +543,15 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "gameSysReq",
       "gameRelations",
       "gamePulse",
-      "gameSidebarKpis",
-      "gameSpecs",
+      "gameInfoKpi",
+      "gameSteamFeatures",
+      "gameRatings",
+      "gameTimeToBeat",
+      "gameSpecsCard",
+      "gameProtonDb",
+      "gameCrackwatch",
+      "gameReleases",
+      "gameLanguages",
     ],
   },
   {
@@ -528,6 +564,30 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "storeFilters",
       "storeToolbar",
       "storeGrid",
+    ],
+  },
+  {
+    key: "storeGame",
+    labelKey: "settings.interface.studioPageStoreGame",
+    routes: ["/store/"],
+    items: [
+      "gameHero",
+      "gameTabs",
+      "gameQuickStats",
+      "gameAbout",
+      "gameStoryline",
+      "gameMedia",
+      "gameSysReq",
+      "gameRelations",
+      "gameInfoKpi",
+      "gameSteamFeatures",
+      "gameRatings",
+      "gameTimeToBeat",
+      "gameSpecsCard",
+      "gameProtonDb",
+      "gameCrackwatch",
+      "gameReleases",
+      "gameLanguages",
     ],
   },
   {
@@ -677,6 +737,7 @@ export function interfacePageDef(key: InterfacePageKey): InterfacePageDef | unde
  */
 export function resolveInterfacePage(pathname: string): InterfacePageKey {
   if (pathname.startsWith("/library/")) return "game";
+  if (pathname.startsWith("/store/")) return "storeGame";
   let best: InterfacePageDef | null = null;
   for (const page of INTERFACE_PAGES) {
     if (page.key === "global") continue;
@@ -697,22 +758,56 @@ export type PageItemVisibilityMap = Partial<
 /** Custom widget order per page; absent entries fall back to the shipped order. */
 export type PageItemOrderMap = Partial<Record<InterfacePageKey, PageWidgetKey[]>>;
 
-/** Normalize a persisted per-page order: drop unknown/duplicates, append the
- *  page's remaining widgets so an upgrade never hides a newly added block. */
+/**
+ * Legacy page widgets that were retired in favour of one key per card.
+ * Persisted orders/visibility that still name these must migrate forward:
+ * the grouped keys expand to the individual keys that replaced them. Kept as
+ * plain string literals only — they are no longer valid `PageWidgetKey`s.
+ */
+const RETIRED_PAGE_WIDGET_EXPANSION: Partial<
+  Record<InterfacePageKey, Record<string, PageWidgetKey[]>>
+> = {
+  game: {
+    gameSidebarKpis: ["gameInfoKpi", "gameSteamFeatures", "gameRatings", "gameTimeToBeat"],
+    gameSpecs: ["gameSpecsCard", "gameProtonDb", "gameCrackwatch", "gameReleases", "gameLanguages"],
+  },
+};
+
+/** Normalize a persisted per-page order: drop unknown/duplicates, migrate
+ *  retired grouped keys to the individual cards that replaced them, and append
+ *  the page's remaining widgets so an upgrade never hides a newly added block.
+ *
+ *  A retired key expands only when the raw order does not already name any of
+ *  its targets (an explicit choice wins); its targets are appended after the
+ *  page's explicitly-ordered keys, preserving the user's relative ordering. */
 export function normalizePageItemOrder(
   page: InterfacePageKey,
   raw: unknown,
 ): PageWidgetKey[] {
   const known = interfacePageDef(page)?.items ?? [];
   const allowed = new Set<string>(known);
+  const retired = RETIRED_PAGE_WIDGET_EXPANSION[page] ?? {};
   const seen = new Set<string>();
   const ordered: PageWidgetKey[] = [];
+  const expansions: PageWidgetKey[] = [];
   if (Array.isArray(raw)) {
     for (const value of raw) {
-      if (typeof value !== "string" || !allowed.has(value) || seen.has(value)) continue;
+      if (typeof value !== "string") continue;
+      const expansion = retired[value];
+      if (expansion) {
+        // Drop the retired value when one of its targets is already named.
+        if (!expansion.some((key) => raw.includes(key))) expansions.push(...expansion);
+        continue;
+      }
+      if (!allowed.has(value) || seen.has(value)) continue;
       seen.add(value);
       ordered.push(value as PageWidgetKey);
     }
+  }
+  for (const key of expansions) {
+    if (!allowed.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    ordered.push(key);
   }
   for (const key of known) {
     if (!seen.has(key)) ordered.push(key);
@@ -745,9 +840,24 @@ export function normalizePageItemVisibilityMap(raw: unknown): PageItemVisibility
     const value = source[page.key];
     if (!value || typeof value !== "object") continue;
     const allowed = new Set<string>(page.items);
+    const rawEntry = value as Record<string, unknown>;
+    const retired = RETIRED_PAGE_WIDGET_EXPANSION[page.key] ?? {};
     const entry: Partial<Record<PageWidgetKey, boolean>> = {};
-    for (const [key, visible] of Object.entries(value as Record<string, unknown>)) {
-      if (allowed.has(key) && visible === false) entry[key as PageWidgetKey] = false;
+    for (const [key, visible] of Object.entries(rawEntry)) {
+      if (visible !== false) continue;
+      if (allowed.has(key)) {
+        entry[key as PageWidgetKey] = false;
+        continue;
+      }
+      const expansion = retired[key];
+      if (!expansion) continue;
+      // A retired OFF group hides each individual card it contained, unless
+      // the raw entry names that card explicitly (the explicit value wins).
+      for (const target of expansion) {
+        if (!allowed.has(target)) continue;
+        if (Object.prototype.hasOwnProperty.call(rawEntry, target)) continue;
+        entry[target] = false;
+      }
     }
     if (Object.keys(entry).length > 0) next[page.key] = entry;
   }

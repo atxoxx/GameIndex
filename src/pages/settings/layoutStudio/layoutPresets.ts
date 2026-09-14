@@ -11,6 +11,8 @@ import {
   DEFAULT_PAGE_ITEM_ORDER,
   normalizeDetailTopBarOrderMap,
   normalizeDetailTopBarVisibilityMap,
+  normalizePageItemOrderMap,
+  normalizePageItemVisibilityMap,
 } from "../../../context/interfaceLayout";
 import { normalizeHeroGridLayoutMap } from "../../../context/heroGrid";
 import { buildDetailSectionItems } from "../interfaceItems";
@@ -280,10 +282,10 @@ export function importLayoutFromJson(jsonStr: string): Partial<LayoutSnapshot> |
       result.sidebarSectionVisible = layout.sidebarSectionVisible;
     }
     if (layout.pageItemVisible && typeof layout.pageItemVisible === "object") {
-      result.pageItemVisible = layout.pageItemVisible;
+      result.pageItemVisible = normalizePageItemVisibilityMap(layout.pageItemVisible);
     }
     if (layout.pageItemOrder && typeof layout.pageItemOrder === "object") {
-      result.pageItemOrder = layout.pageItemOrder;
+      result.pageItemOrder = normalizePageItemOrderMap(layout.pageItemOrder);
     }
     if (layout.uiDensityMode === "simple" || layout.uiDensityMode === "complete") {
       result.uiDensityMode = layout.uiDensityMode;
