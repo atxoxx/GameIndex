@@ -174,31 +174,39 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   // Debounced IGDB online catalog search
   useEffect(() => {
     const q = cleanQuery;
+    // WHY: too-short queries and out-of-scope views have no remote results; clear
+    // immediately so a previous query's hits don't linger behind the empty state.
     if (q.length < 2 || (scope !== "all" && scope !== "store")) {
       setIgdbResults([]);
       setIsSearchingIgdb(false);
       return;
     }
 
+    // Cancellation flag captured per effect run: a slow response from an older
+    // query must never overwrite the results or spinner state of a newer one.
+    let cancelled = false;
     setIsSearchingIgdb(true);
     const timer = setTimeout(() => {
       invoke<StoreGameSummary[]>("search_store_games", {
         query: q,
         offset: 0,
-        limit: 8,
+        limit: 12,
       })
         .then((res) => {
-          setIgdbResults(Array.isArray(res) ? res : []);
+          if (!cancelled) setIgdbResults(Array.isArray(res) ? res : []);
         })
         .catch(() => {
-          setIgdbResults([]);
+          if (!cancelled) setIgdbResults([]);
         })
         .finally(() => {
-          setIsSearchingIgdb(false);
+          if (!cancelled) setIsSearchingIgdb(false);
         });
     }, 280);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [cleanQuery, scope]);
 
   // System Actions & Routes factory

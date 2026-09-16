@@ -981,7 +981,7 @@ export default function ImportModal({
         const results = await invoke<StoreGameSummary[]>("search_store_games", {
           query: q,
           offset: 0,
-          limit: 8,
+          limit: 20,
         });
         if (token === searchToken.current) {
           setSuggestions((prev) => ({ ...prev, [q]: results }));

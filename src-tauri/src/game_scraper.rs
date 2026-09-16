@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // ─── Title Matching Helpers ─────────────────────────────────────────────────────
 
@@ -689,6 +689,10 @@ struct IgdbGameSummary {
     first_release_date: Option<i64>,
     total_rating_count: Option<u64>,
     hypes: Option<u64>,
+    /// IGDB `game_type` category (0 = main game, 1 = DLC, 5 = mod, …). Used
+    /// by the search re-ranker to push add-on content below real titles.
+    #[serde(default)]
+    game_type: Option<u32>,
     /// `websites.url` field shipped from the IGDB Apicalypse body.
     /// We only care about the URL string (the `category` enum is
     /// discarded — Steam fronts are the only category we act on,
@@ -4482,6 +4486,194 @@ pub async fn resolve_steam_to_igdb(
     Ok(map)
 }
 
+// ─── Store search re-ranking ──────────────────────────────────────────────────
+
+/// True when the caller has not chosen an explicit sort, which means IGDB is
+/// nominally returning relevance order and we are free to re-rank locally.
+/// Explicit sorts must be passed straight through so the user's ordering wins.
+fn is_relevance_mode(sort: Option<&str>) -> bool {
+    matches!(sort, None | Some("default"))
+}
+
+/// Number of IGDB rows pulled for a relevance search. Every page for a query
+/// is sliced out of this one fixed pool, so "load more" stays duplicate-free
+/// and stable. A pool that grew with the offset would reshuffle rows already
+/// shown on earlier pages.
+const SEARCH_RERANK_POOL: u32 = 50;
+
+/// Word-boundary-aware band score between a normalized query and candidate.
+/// Returns one of a few fixed bands plus a Jaccard fallback, enough to
+/// separate an exact title from a prefix from a mere mention.
+///
+/// Deliberately does NOT reuse `title_similarity`: its containment branch
+/// divides by the larger token count, so "doom" vs "Doom Eternal" lands at 0.5
+/// — exactly the strong prefix hit a similarity floor would wrongly delete.
+fn search_band(query: &str, candidate: &str) -> f64 {
+    let q = normalize_title(query);
+    let c = normalize_title(candidate);
+    // A parenthesised year like "Prototype (2009)" is a user disambiguator,
+    // not part of the title, so also compare with the marker stripped.
+    let q2 = normalize_title(&strip_year_marker(query));
+    band_core(&q, &c).max(band_core(&q2, &c))
+}
+
+/// Innermost band comparison. Assumes both sides are already normalized.
+fn band_core(a: &str, b: &str) -> f64 {
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    if a == b {
+        return 1.00;
+    }
+    if let Some(rest) = b.strip_prefix(a) {
+        // Only grant prefix credit on a word boundary so "doo" does not score
+        // as highly as "doom" against "Doom Eternal".
+        if rest.is_empty() || rest.starts_with(' ') {
+            return 0.92;
+        }
+    }
+    if b.contains(a) {
+        return 0.85;
+    }
+    if a.contains(b) {
+        return 0.80;
+    }
+    let a_tokens: HashSet<&str> = a.split_whitespace().collect();
+    let b_tokens: HashSet<&str> = b.split_whitespace().collect();
+    if a_tokens.is_subset(&b_tokens) {
+        return 0.65;
+    }
+    let intersection = a_tokens.intersection(&b_tokens).count() as f64;
+    let union = a_tokens.union(&b_tokens).count() as f64;
+    if union == 0.0 {
+        return 0.40;
+    }
+    0.40 + 0.20 * (intersection / union)
+}
+
+/// Coarse content group used as the first tie-break after the band score so a
+/// main game beats an expansion or DLC that shares its exact band.
+fn search_category_rank(game_type: Option<u32>) -> u8 {
+    match game_type {
+        // Missing category: treat as a main game rather than punishing it.
+        None => 0,
+        // Main game, standalone expansion, remake, remaster, expanded game,
+        // port, fork.
+        Some(0 | 4 | 8 | 9 | 10 | 11 | 12) => 0,
+        // Expansion, bundle, episode, season, pack.
+        Some(2 | 3 | 6 | 7 | 13) => 1,
+        // DLC / add-on.
+        Some(1) => 2,
+        // Mod, playable prototype / update.
+        Some(5 | 14) => 3,
+        _ => 0,
+    }
+}
+
+/// Precomputed per-candidate inputs for the comparator below. Keeping them in
+/// a struct keeps the sort closure readable and avoids recomputing regex /
+/// formatting work inside the comparison.
+struct SearchRankKey {
+    band: f64,
+    category_rank: u8,
+    year_match: bool,
+    released: bool,
+    has_cover: bool,
+    total_rating_count: u64,
+    rating: f64,
+    igdb_index: usize,
+    year_string: String,
+}
+
+/// Rank, filter and dedup a relevance-search pool. Pure and network-free so
+/// the ordering rules can be unit-tested in isolation.
+fn rank_search_candidates(query: &str, games: Vec<IgdbGameSummary>) -> Vec<IgdbGameSummary> {
+    let year_hint = extract_year_hint(query);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    // Precompute everything the pipeline needs exactly once per candidate.
+    let mut items: Vec<(IgdbGameSummary, SearchRankKey)> = games
+        .into_iter()
+        .enumerate()
+        .map(|(idx, game)| {
+            let year_string = game
+                .first_release_date
+                .map(|ts| format_unix_timestamp(ts).get(..4).unwrap_or("").to_string())
+                .unwrap_or_default();
+            let band = search_band(query, &game.name);
+            let key = SearchRankKey {
+                band,
+                category_rank: search_category_rank(game.game_type),
+                year_match: match (year_hint.as_deref(), year_string.as_str()) {
+                    (Some(hint), year) => !year.is_empty() && hint == year,
+                    _ => false,
+                },
+                released: game.first_release_date.map(|ts| ts <= now).unwrap_or(false),
+                has_cover: game.cover.is_some(),
+                total_rating_count: game.total_rating_count.unwrap_or(0),
+                rating: game.rating.unwrap_or(0.0),
+                igdb_index: idx,
+                year_string,
+            };
+            (game, key)
+        })
+        .collect();
+
+    // Mods and playable prototypes only belong in a result set when the query
+    // actually points at them; otherwise they ride along on a shared word.
+    items.retain(|(_, k)| !(k.category_rank == 3 && k.band < 0.8));
+
+    // Noise floor: once the pool holds a near-exact hit, loose mentions are
+    // just clutter. If nothing reaches the strong band we keep everything, so
+    // an obscure but real title still returns results instead of none.
+    if items.iter().any(|(_, k)| k.band >= 0.92) {
+        items.retain(|(_, k)| k.band >= 0.8);
+    }
+
+    // Descending band, then best category first, then all remaining signals.
+    // The original IGDB index is the final tie-break so equal rows stay stable.
+    items.sort_by(|a, b| {
+        let ka = &a.1;
+        let kb = &b.1;
+        kb.band
+            .partial_cmp(&ka.band)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| ka.category_rank.cmp(&kb.category_rank))
+            .then_with(|| kb.year_match.cmp(&ka.year_match))
+            .then_with(|| kb.released.cmp(&ka.released))
+            .then_with(|| kb.has_cover.cmp(&ka.has_cover))
+            .then_with(|| kb.total_rating_count.cmp(&ka.total_rating_count))
+            .then_with(|| kb.rating.partial_cmp(&ka.rating).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| ka.igdb_index.cmp(&kb.igdb_index))
+    });
+
+    // Collapse editions / ports sharing a title and year. The year is part of
+    // the key on purpose: title-only would merge Prey (2006) with Prey (2017)
+    // and DOOM (1993) with DOOM (2016). The list is sorted, so the first
+    // occurrence of a key is always the best-scoring one.
+    let mut seen: HashSet<(String, String)> = HashSet::new();
+    let mut out = Vec::with_capacity(items.len());
+    for (game, key) in items {
+        let dedup_key = (normalize_title(&game.name), key.year_string);
+        if seen.insert(dedup_key) {
+            out.push(game);
+        }
+    }
+    out
+}
+
+/// Slice one page out of an already-ranked pool. Kept as its own helper so the
+/// paging rule can be tested without any network access.
+fn paginate_pool<T>(pool: Vec<T>, offset: u32, limit: u32) -> Vec<T> {
+    pool.into_iter()
+        .skip(offset as usize)
+        .take(limit as usize)
+        .collect()
+}
+
 /// Search IGDB games by name (live search with debounce expected from
 /// frontend). Accepts the same optional facet filters as
 /// `fetch_store_games` (genre / platform / release-year / rating) plus an
@@ -4500,6 +4692,12 @@ pub async fn search_store_games(
     rating_min: Option<f64>,
     sort: Option<String>,
 ) -> Result<Vec<StoreGameSummary>, String> {
+    // IGDB rejects a bare `search "";` with a 400, so bail out before any
+    // network work when the caller has not typed a query yet.
+    if query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
     let token = get_twitch_token().await?;
     let client = http_client();
 
@@ -4556,6 +4754,12 @@ pub async fn search_store_games(
         clauses.push(format!("rating >= {}", rating));
     }
 
+    // IGDB's documented way to search games while excluding alternate editions
+    // (Collector's / Gold / Definitive …): those rows carry `version_parent`,
+    // so nulling it drops the duplicates at the source. Kept as its own push
+    // so it is trivial to remove if editions are ever wanted back.
+    clauses.push("version_parent = null".to_string());
+
     let where_clause = if clauses.is_empty() {
         String::new()
     } else {
@@ -4582,7 +4786,7 @@ pub async fn search_store_games(
     // only emitted when non-empty, so the request never carries a bare
     // `where ;` / `sort ;`.
     let mut body = format!(
-        r#"search "{}"; fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url;"#,
+        r#"search "{}"; fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url,game_type;"#,
         escaped
     );
     if !where_clause.is_empty() {
@@ -4591,7 +4795,17 @@ pub async fn search_store_games(
     if let Some(sort_clause) = sort_clause {
         body.push_str(&format!(" sort {};", sort_clause));
     }
-    body.push_str(&format!(" limit {}; offset {};", limit.min(50), offset));
+
+    // Relevance mode pulls one fixed pool from the top and pages out of the
+    // ranked result locally, so the HTTP request itself always starts at
+    // offset 0. Explicit sorts keep the caller's offset/limit straight-through.
+    let relevance_mode = is_relevance_mode(sort.as_deref());
+    let (request_limit, request_offset) = if relevance_mode {
+        (SEARCH_RERANK_POOL, 0u32)
+    } else {
+        (limit.min(50), offset)
+    };
+    body.push_str(&format!(" limit {}; offset {};", request_limit, request_offset));
 
     let _guard4 = igdb_acquire().await;
     let resp = client
@@ -4617,6 +4831,16 @@ pub async fn search_store_games(
 
     let games: Vec<IgdbGameSummary> =
         serde_json::from_str(&text).map_err(|e| format!("IGDB search parse error: {}", e))?;
+
+    // Relevance searches re-rank/filter/dedup the shared pool and only then
+    // slice the caller's page out of it, so every page is derived from the
+    // SAME pool and "load more" never re-introduces an earlier row. Explicit
+    // sorts bypass all of this and keep IGDB's own ordering.
+    let games: Vec<IgdbGameSummary> = if relevance_mode {
+        paginate_pool(rank_search_candidates(query, games), offset, limit)
+    } else {
+        games
+    };
 
     let summaries: Vec<StoreGameSummary> = games
         .into_iter()
@@ -7385,4 +7609,203 @@ offset 0;"#,
     Ok(summaries)
 }
 
+#[cfg(test)]
+mod store_search_ranking_tests {
+    use super::*;
+
+    /// Unix timestamp for Jan 1 of `year`, using a leap-year aware day count so
+    /// the year round-trips through `format_unix_timestamp`.
+    fn ts_for_year(year: i64) -> i64 {
+        let mut days: i64 = 0;
+        for y in 1970..year {
+            let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+            days += if leap { 366 } else { 365 };
+        }
+        days * 86_400
+    }
+
+    fn fixture(
+        id: u64,
+        name: &str,
+        game_type: Option<u32>,
+        year: Option<i64>,
+        rating: Option<f64>,
+        rating_count: Option<u64>,
+    ) -> IgdbGameSummary {
+        IgdbGameSummary {
+            id,
+            name: name.to_string(),
+            slug: name.to_lowercase().replace([' ', ':', '\''], "-"),
+            summary: None,
+            rating,
+            aggregated_rating: None,
+            cover: Some(IgdbCover {
+                url: Some("//images.igdb.com/igdb/image/upload/t_thumb/cover.jpg".to_string()),
+            }),
+            artworks: None,
+            genres: None,
+            platforms: None,
+            first_release_date: year.map(ts_for_year),
+            total_rating_count: rating_count,
+            hypes: None,
+            game_type,
+            websites: None,
+        }
+    }
+
+    #[test]
+    fn year_fixture_roundtrips_through_format() {
+        for year in [1993i64, 2006, 2009, 2016, 2017, 2020] {
+            assert!(format_unix_timestamp(ts_for_year(year)).starts_with(&year.to_string()));
+        }
+    }
+
+    #[test]
+    fn band_exact_prefix_and_mention() {
+        assert_eq!(search_band("doom", "Doom"), 1.0);
+        assert!(search_band("doom", "Doom Eternal") >= 0.9);
+        assert_eq!(search_band("doom", "Legend of Doom"), 0.85);
+    }
+
+    #[test]
+    fn band_handles_year_marker_and_subtitle() {
+        assert!(search_band("Prototype (2009)", "Prototype") >= 0.9);
+        assert!(search_band("phantom liberty", "Cyberpunk 2077: Phantom Liberty") >= 0.85);
+    }
+
+    #[test]
+    fn band_does_not_grant_partial_word_prefix() {
+        // "doo" is a strict string prefix of "doom" but not a word prefix, so
+        // it should not reach the prefix band.
+        assert!(search_band("doo", "Doom") < 0.9);
+    }
+
+    #[test]
+    fn doom_query_ranks_exact_ahead_of_prefix() {
+        let out = rank_search_candidates(
+            "doom",
+            vec![
+                fixture(1, "Doom Eternal", Some(0), Some(2020), Some(88.0), Some(5000)),
+                fixture(2, "Doom", Some(0), Some(2016), Some(85.0), Some(4000)),
+                fixture(3, "Legend of Doom", Some(0), Some(2010), Some(70.0), Some(100)),
+            ],
+        );
+        assert_eq!(out[0].name, "Doom");
+        assert!(
+            out.iter().any(|g| g.name == "Doom Eternal"),
+            "the prefix hit must survive the noise floor"
+        );
+    }
+
+    #[test]
+    fn main_game_outranks_matching_dlc() {
+        let out = rank_search_candidates(
+            "cyberpunk",
+            vec![
+                fixture(1, "Cyberpunk 2077: Phantom Liberty", Some(1), Some(2023), Some(90.0), Some(9000)),
+                fixture(2, "Cyberpunk 2077", Some(0), Some(2020), Some(86.0), Some(8000)),
+            ],
+        );
+        assert_eq!(out[0].name, "Cyberpunk 2077");
+    }
+
+    #[test]
+    fn exact_dlc_lookup_is_kept() {
+        let out = rank_search_candidates(
+            "phantom liberty",
+            vec![
+                fixture(1, "Cyberpunk 2077: Phantom Liberty", Some(1), Some(2023), Some(90.0), Some(9000)),
+                fixture(2, "Cyberpunk 2077", Some(0), Some(2020), Some(86.0), Some(8000)),
+            ],
+        );
+        assert!(out.iter().any(|g| g.name == "Cyberpunk 2077: Phantom Liberty"));
+    }
+
+    #[test]
+    fn weak_mods_and_prototypes_are_dropped() {
+        let out = rank_search_candidates(
+            "doom eternal",
+            vec![
+                fixture(1, "Eternal Doom Mod", Some(5), Some(2016), None, Some(10)),
+                fixture(2, "Eternal Doom Prototype", Some(14), Some(2015), None, Some(5)),
+                fixture(3, "Eternal Doom Side Story", Some(0), Some(2016), None, Some(20)),
+            ],
+        );
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].name, "Eternal Doom Side Story");
+    }
+
+    #[test]
+    fn noise_floor_keeps_weak_only_pools() {
+        let all_weak = rank_search_candidates(
+            "doom eternal",
+            vec![
+                fixture(1, "Legend of Doom", Some(0), Some(2010), None, None),
+                fixture(2, "Doom 3", Some(0), Some(2004), None, None),
+            ],
+        );
+        assert_eq!(
+            all_weak.len(),
+            2,
+            "an obscure but real title must not be filtered down to nothing"
+        );
+    }
+
+    #[test]
+    fn noise_floor_prunes_weak_candidates_when_a_strong_hit_exists() {
+        let out = rank_search_candidates(
+            "doom eternal",
+            vec![
+                fixture(1, "Legend of Doom", Some(0), Some(2010), None, None),
+                fixture(2, "Doom 3", Some(0), Some(2004), None, None),
+                fixture(3, "Doom Eternal", Some(0), Some(2020), Some(88.0), Some(9000)),
+            ],
+        );
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].name, "Doom Eternal");
+    }
+
+    #[test]
+    fn dedup_keeps_same_title_in_different_years() {
+        let out = rank_search_candidates(
+            "prey",
+            vec![
+                fixture(1, "Prey", Some(0), Some(2006), Some(80.0), Some(1000)),
+                fixture(2, "Prey", Some(0), Some(2017), Some(79.0), Some(2000)),
+                fixture(3, "Prey", Some(0), Some(2017), Some(60.0), Some(50)),
+            ],
+        );
+        assert_eq!(out.len(), 2, "Prey (2006) and Prey (2017) must both survive");
+        let years: Vec<String> = out
+            .iter()
+            .map(|g| format_unix_timestamp(g.first_release_date.unwrap())[..4].to_string())
+            .collect();
+        assert!(years.contains(&"2006".to_string()));
+        assert!(years.contains(&"2017".to_string()));
+    }
+
+    #[test]
+    fn relevance_mode_detection() {
+        assert!(is_relevance_mode(None));
+        assert!(is_relevance_mode(Some("default")));
+        assert!(!is_relevance_mode(Some("name")));
+        assert!(!is_relevance_mode(Some("popularity")));
+    }
+
+    #[test]
+    fn pagination_slices_one_pool_without_overlap() {
+        let pool: Vec<u64> = (0..50).collect();
+        let p1 = paginate_pool(pool.clone(), 0, 20);
+        let p2 = paginate_pool(pool.clone(), 20, 20);
+        let p3 = paginate_pool(pool.clone(), 40, 20);
+        let p4 = paginate_pool(pool, 60, 20);
+        assert_eq!((p1.len(), p2.len(), p3.len(), p4.len()), (20, 20, 10, 0));
+
+        let mut all: Vec<u64> = p1.into_iter().chain(p2).chain(p3).collect();
+        let before = all.len();
+        all.sort_unstable();
+        all.dedup();
+        assert_eq!(all.len(), before, "pages must not overlap");
+    }
+}
 

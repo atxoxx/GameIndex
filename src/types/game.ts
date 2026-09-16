@@ -1421,7 +1421,7 @@ export const STORE_SEARCH_DEBOUNCE_MS = 280;
 export const STORE_SEARCH_QUERY_PARAM = "q";
 
 /** Max suggestions in the Store autocomplete dropdown. */
-export const STORE_SEARCH_SUGGESTION_LIMIT = 5;
+export const STORE_SEARCH_SUGGESTION_LIMIT = 8;
 
 /** Number of store games per page (infinite scroll batch size). */
 export const STORE_PAGE_SIZE = 20;
