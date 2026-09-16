@@ -10,8 +10,9 @@
 //! `.map_err(|e| e.to_string())?`. Closes compile-blocking E0277
 //! without changing the public `Result<T, String>` API.
 
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 use super::pool::Db;
 
@@ -222,21 +223,108 @@ pub struct GameRow {
     pub compatibility_json: Option<serde_json::Value>,
 }
 
-/// Bulk upsert: replace the entire library with `rows`. Wrapped in
-/// one transaction so we never have a partial library on disk.
-pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
+/// Outcome of a batch upsert: how many rows were actually rewritten and
+/// how many stale ids were removed. Lets the caller skip follow-up work
+/// (e.g. artwork cleanup) when a save changed nothing.
+#[derive(Debug, Default, Clone, Copy, serde::Serialize)]
+pub struct SaveStats {
+    pub written: usize,
+    pub deleted: usize,
+}
+
+/// Canonical content fingerprint for a row, persisted alongside it so a
+/// later save can tell whether the row actually changed. Both write
+/// paths must hash identically or a stored hash would flip on every
+/// save and rewrite the row anyway.
+fn row_content_hash(r: &GameRow) -> String {
+    content_hash_for(&r.id, serde_json::to_string(r))
+}
+
+/// Hashes a row's serialized form. Kept separate from `row_content_hash`
+/// so the (currently unreachable) serialization-failure branch is
+/// testable.
+///
+/// On failure the fingerprint is scoped to the row id rather than an
+/// empty string: a shared fallback would make every un-serializable row
+/// hash identically, so a second one would compare equal to the stored
+/// hash and its write would be silently skipped. Id-scoping trades that
+/// for a harmless spurious write.
+fn content_hash_for(id: &str, serialized: Result<String, serde_json::Error>) -> String {
+    use std::hash::{Hash, Hasher};
+    let json = match serialized {
+        Ok(json) => json,
+        Err(_) => format!("!{id}"),
+    };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    json.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+/// Bulk upsert: reconcile the persisted library against `rows`, writing
+/// only rows whose content changed and deleting ids absent from the
+/// payload. Wrapped in one transaction so we never see a partial library.
+pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<SaveStats, String> {
     upsert_batch(db, rows, true)
 }
 
-/// Bulk upsert with optional replace mode. When `replace_all` is true, deletes all
-/// existing games first. When false (merge mode), inserts or updates rows preserving existing ones.
-pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), String> {
+/// Bulk upsert with optional replace mode. When `replace_all` is true,
+/// existing ids not present in `rows` are deleted. When false (merge
+/// mode, used by backup restore) nothing is deleted. Either way, only
+/// rows whose content differs from the stored `content_hash` are written.
+pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<SaveStats, String> {
     let mut conn = db.games().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    if replace_all {
-        tx.execute("DELETE FROM games", [])
-            .map_err(|e| format!("games delete: {e}"))?;
+
+    // Read each stored row's fingerprint up front: a full-library save
+    // mostly carries rows the user never touched, and rewriting all 75
+    // columns (several of them large JSON blobs) for those is the cost
+    // this indirection exists to avoid.
+    let mut stored: HashMap<String, Option<String>> = HashMap::new();
+    {
+        let mut stmt = tx
+            .prepare("SELECT id, content_hash FROM games")
+            .map_err(|e| format!("games hashes prepare: {e}"))?;
+        let mapped = stmt
+            .query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+            })
+            .map_err(|e| format!("games hashes query: {e}"))?;
+        for row in mapped {
+            let (id, hash) = row.map_err(|e| format!("games hash row: {e}"))?;
+            stored.insert(id, hash);
+        }
     }
+
+    let incoming: HashSet<&str> = rows.iter().map(|r| r.id.as_str()).collect();
+    let mut to_write: Vec<(&GameRow, String)> = Vec::new();
+    for r in rows {
+        let hash = row_content_hash(r);
+        let changed = match stored.get(&r.id) {
+            Some(Some(existing)) => existing != &hash,
+            // No stored hash: a new row, or one written before v11.
+            _ => true,
+        };
+        if changed {
+            to_write.push((r, hash));
+        }
+    }
+
+    let mut deleted = 0usize;
+    if replace_all {
+        // One DELETE per stale id rather than a giant `IN (…)` list —
+        // SQLite's parameter limit is not worth dancing around.
+        let mut del = tx
+            .prepare("DELETE FROM games WHERE id = ?1")
+            .map_err(|e| format!("games delete prepare: {e}"))?;
+        for id in stored.keys() {
+            if !incoming.contains(id.as_str()) {
+                del.execute(params![id])
+                    .map_err(|e| format!("games delete {id}: {e}"))?;
+                deleted += 1;
+            }
+        }
+    }
+
     let mut stmt = tx
         .prepare(
             "INSERT OR REPLACE INTO games(
@@ -264,7 +352,8 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), 
                  rom_hash, rom_region, rom_language, rom_group, rom_disc,
                  rom_archived, favorite, compat_notes, rom_profile,
                  version,
-                 collection_id
+                 collection_id,
+                 content_hash
              ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -287,11 +376,12 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), 
                  ?63,?64,
                  ?65,?66,?67,?68,?69,
                  ?70,?71,?72,?73,?74,
-                 ?75
+                 ?75,
+                 ?76
              )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
-    for (i, r) in rows.iter().enumerate() {
+    for (i, (r, hash)) in to_write.iter().enumerate() {
         stmt.execute(params![
             r.id,
             r.name,
@@ -382,13 +472,18 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), 
             json_opt(&r.rom_profile),
             r.version,
             r.collection_id.map(|n| n as i64),
+            // v11 content fingerprint — last column, matching the list above.
+            hash,
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
     }
     drop(stmt);
     tx.commit().map_err(|e| format!("games commit: {e}"))?;
-    Ok(())
+    Ok(SaveStats {
+        written: to_write.len(),
+        deleted,
+    })
 }
 
 /// Upsert a SINGLE game row without touching the rest of the library.
@@ -404,6 +499,20 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<(), 
 /// sibling row is affected.
 pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
     let conn = db.games().map_err(|e| e.to_string())?;
+    let hash = row_content_hash(r);
+    // Per-image enrichment calls this after every fetched cover; skip the
+    // write entirely when the stored row already has matching content.
+    let stored: Option<Option<String>> = conn
+        .query_row(
+            "SELECT content_hash FROM games WHERE id = ?1",
+            params![r.id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("games hash lookup: {e}"))?;
+    if matches!(stored, Some(Some(existing)) if existing == hash) {
+        return Ok(());
+    }
     conn.execute(
         "INSERT OR REPLACE INTO games(
             id, name, path, platform, installed, play_time, added_at,
@@ -430,7 +539,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             rom_hash, rom_region, rom_language, rom_group, rom_disc,
             rom_archived, favorite, compat_notes, rom_profile,
             version,
-            collection_id
+            collection_id,
+            content_hash
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -453,7 +563,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?63,?64,
             ?65,?66,?67,?68,?69,
             ?70,?71,?72,?73,?74,
-            ?75
+            ?75,
+            ?76
         )",
         params![
             r.id,
@@ -533,6 +644,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             json_opt(&r.rom_profile),
             r.version,
             r.collection_id.map(|n| n as i64),
+            hash,
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -880,7 +992,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL};
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -898,6 +1010,7 @@ mod tests {
             conn.execute_batch(GAMES_V8_DDL).unwrap();
             conn.execute_batch(GAMES_V9_DDL).unwrap();
             conn.execute_batch(GAMES_V10_DDL).unwrap();
+            conn.execute_batch(GAMES_V11_DDL).unwrap();
         }
         (dir, db)
     }
@@ -1048,6 +1161,143 @@ mod tests {
         assert!(got.rom_profile.is_some());
         assert_eq!(got.version.as_deref(), Some("1.0.4"));
         assert_eq!(got.collection_id, Some(420));
+    }
+
+    /// Re-saving an identical library must not rewrite a single row.
+    #[test]
+    fn upsert_all_skips_unchanged_rows() {
+        let (_dir, db) = test_db();
+        let row = sample_row();
+        upsert_all(&db, std::slice::from_ref(&row)).unwrap();
+
+        let stats = upsert_all(&db, std::slice::from_ref(&row)).unwrap();
+        assert_eq!(stats.written, 0);
+        assert_eq!(stats.deleted, 0);
+    }
+
+    /// Only the row whose field actually changed is written.
+    #[test]
+    fn upsert_all_writes_only_changed_row() {
+        let (_dir, db) = test_db();
+        let mut a = sample_row();
+        a.id = "a".into();
+        let mut b = sample_row();
+        b.id = "b".into();
+        upsert_all(&db, &[a.clone(), b.clone()]).unwrap();
+
+        b.name = "Renamed".into();
+        let stats = upsert_all(&db, &[a, b]).unwrap();
+        assert_eq!(stats.written, 1);
+        assert_eq!(stats.deleted, 0);
+        assert_eq!(get(&db, "b").unwrap().unwrap().name, "Renamed");
+    }
+
+    /// Replace mode drops ids absent from the payload.
+    #[test]
+    fn upsert_all_deletes_absent_rows() {
+        let (_dir, db) = test_db();
+        let mut a = sample_row();
+        a.id = "a".into();
+        let mut b = sample_row();
+        b.id = "b".into();
+        upsert_all(&db, &[a, b.clone()]).unwrap();
+
+        let stats = upsert_all(&db, &[b]).unwrap();
+        assert_eq!(stats.deleted, 1);
+        assert!(get(&db, "a").unwrap().is_none());
+        assert!(get(&db, "b").unwrap().is_some());
+    }
+
+    /// Merge mode (backup restore) must never delete rows missing from
+    /// the payload, and still updates the rows it carries.
+    #[test]
+    fn upsert_batch_merge_preserves_absent_rows() {
+        let (_dir, db) = test_db();
+        let mut a = sample_row();
+        a.id = "a".into();
+        let mut b = sample_row();
+        b.id = "b".into();
+        upsert_batch(&db, &[a, b.clone()], true).unwrap();
+
+        b.name = "Beta".into();
+        let stats = upsert_batch(&db, &[b], false).unwrap();
+        assert_eq!(stats.written, 1);
+        assert_eq!(stats.deleted, 0);
+        assert!(get(&db, "a").unwrap().is_some());
+        assert_eq!(get(&db, "b").unwrap().unwrap().name, "Beta");
+    }
+
+    /// The targeted-write path sends a subset of changed rows. Merge mode
+    /// must write only those rows and leave everything else — including
+    /// out-of-band edits made directly in the table — exactly as it was.
+    #[test]
+    fn upsert_batch_merge_subset_touches_only_payload_rows() {
+        let (_dir, db) = test_db();
+        let mut a = sample_row();
+        a.id = "a".into();
+        let mut b = sample_row();
+        b.id = "b".into();
+        let mut c = sample_row();
+        c.id = "c".into();
+        upsert_batch(&db, &[a, b, c], true).unwrap();
+
+        // An edit applied behind the merge path's back must survive an
+        // unrelated subset write.
+        {
+            let conn = db.games().unwrap();
+            conn.execute("UPDATE games SET name = 'edited-out-of-band' WHERE id = 'a'", [])
+                .unwrap();
+        }
+
+        let mut changed = sample_row();
+        changed.id = "b".into();
+        changed.name = "Beta".into();
+        let stats = upsert_batch(&db, &[changed], false).unwrap();
+
+        assert_eq!(stats.written, 1);
+        assert_eq!(stats.deleted, 0);
+        assert_eq!(get(&db, "b").unwrap().unwrap().name, "Beta");
+        assert_eq!(get(&db, "a").unwrap().unwrap().name, "edited-out-of-band");
+        assert!(get(&db, "c").unwrap().is_some());
+    }
+
+    /// A serialization failure must not collapse every row onto the same
+    /// fingerprint — two distinct ids have to hash differently, or the
+    /// second row's write would be skipped as "unchanged".
+    #[test]
+    fn content_hash_fallback_is_id_scoped() {
+        let fail = || serde_json::from_str::<GameRow>("not json").unwrap_err();
+
+        let a = content_hash_for("a", Err(fail()));
+        let b = content_hash_for("b", Err(fail()));
+        assert_ne!(a, b);
+        // Same id still hashes stably across calls.
+        assert_eq!(a, content_hash_for("a", Err(fail())));
+    }
+
+    /// `upsert_one` skips the write when the stored fingerprint already
+    /// matches, and writes when the content differs.
+    #[test]
+    fn upsert_one_skips_unchanged_content() {
+        let (_dir, db) = test_db();
+        let row = sample_row();
+        upsert_one(&db, &row).unwrap();
+
+        // Change the row behind upsert_one's back. The stored fingerprint
+        // still describes `row`, so re-upserting it must leave the direct
+        // change in place rather than clobbering it with the old content.
+        {
+            let conn = db.games().unwrap();
+            conn.execute("UPDATE games SET name = 'mutated' WHERE id = 'g1'", [])
+                .unwrap();
+        }
+        upsert_one(&db, &row).unwrap();
+        assert_eq!(get(&db, "g1").unwrap().unwrap().name, "mutated");
+
+        let mut changed = row;
+        changed.name = "renamed".into();
+        upsert_one(&db, &changed).unwrap();
+        assert_eq!(get(&db, "g1").unwrap().unwrap().name, "renamed");
     }
 
     #[test]

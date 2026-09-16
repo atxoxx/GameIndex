@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { dedupeGamesById, type Game } from "../../types/game";
 import { normalizeGameArtworkUrls } from "../../utils/artworkUrl";
-import { toWatcherRefs } from "./useWatcherIndex";
+import { planGameSave } from "./savePlanner";
+import { syncWatcherIndex } from "./watcherIndexSync";
 
 export function usePersistence(options: {
   games: Game[];
@@ -25,6 +26,11 @@ export function usePersistence(options: {
   // effect twice, producing two distinct arrays before the first paint.
   const hydratedGamesRef = useRef<WeakSet<Game[]>>(new WeakSet());
 
+  // The array whose contents are known to be on disk. `planGameSave` diffs
+  // against it to choose between a targeted `save_game` upsert and a full
+  // `save_games` rewrite.
+  const lastSavedGamesRef = useRef<Game[] | null>(null);
+
   // Load persisted games on mount
   useEffect(() => {
     invoke<Game[]>("load_games")
@@ -35,13 +41,12 @@ export function usePersistence(options: {
           // those, so convert them back to asset-protocol URLs on load.
           const normalized = dedupeGamesById(data.map(normalizeGameArtworkUrls));
           hydratedGamesRef.current.add(normalized);
+          lastSavedGamesRef.current = normalized;
           setGames(normalized);
           // Populate the watcher's process index for passive detection.
           // Pass game refs so the background poll loop can match
           // running processes to known games (excluding untracked ones).
-          invoke("rebuild_watcher_index", {
-            games: toWatcherRefs(data, untrackedGameIdsRef.current),
-          }).catch((err) => console.error("Failed to rebuild watcher index:", err));
+          syncWatcherIndex(normalized, untrackedGameIdsRef.current);
         }
       })
       .catch((err) => console.error("Failed to load games:", err))
@@ -53,18 +58,24 @@ export function usePersistence(options: {
 
   // Persist whenever games change (skip initial empty state before load).
   //
-  // `save_games` is a full-library rewrite (DELETE + re-insert every row).
-  // The library-card IntersectionObserver enriches covers lazily during a
-  // scroll, so a fast scroll fires many `updateGame`s in quick succession.
-  // Two problems this block guards against:
+  // Writes are normally targeted. `planGameSave` diffs the pending array
+  // against the last array known to be on disk and upserts only the
+  // changed rows in one `save_games_subset` transaction (async, off the
+  // GTK main thread); a full-library `save_games` rewrite
+  // (DELETE + re-insert every row) is reserved for structural changes
+  // (add/remove/reorder) or a diff bigger than `MAX_TARGETED_ROWS`.
+  // Metadata enrichment patches one game at a time, so this keeps a
+  // scrolled cover fetch from rewriting the whole table.
   //
-  //  1. RACE: firing an un-serialized `save_games` per change let older
-  //     (smaller) snapshots complete AFTER newer ones — Tauri runs commands
+  // The serialization and scheduling below are load-bearing:
+  //
+  //  1. RACE: firing an un-serialized write per change let older (smaller)
+  //     snapshots complete AFTER newer ones — Tauri runs commands
   //     concurrently — so a stale write could clobber the just-fetched
   //     cover/banner/logo URLs. That's why scrolled-in images looked fine
-  //     in-session but vanished on next boot. We serialize saves through an
-  //     in-flight guard + dirty flag so only one write runs at a time and
-  //     the trailing (latest, complete) snapshot is always the last to disk.
+  //     in-session but vanished on next boot. We serialize writes through an
+  //     in-flight guard + dirty flag so only one runs at a time and the
+  //     trailing (latest, complete) snapshot is always the last to disk.
   //
   //  2. STARVATION: a naive reset-on-every-change debounce never fires while
   //     a scroll keeps mutating `games` faster than the delay, so a burst
@@ -88,7 +99,25 @@ export function usePersistence(options: {
     }
     saveInFlightRef.current = true;
     saveDirtyRef.current = false;
-    invoke("save_games", { games: pendingGamesRef.current })
+
+    const snapshot = pendingGamesRef.current;
+    const plan = planGameSave(lastSavedGamesRef.current, snapshot);
+    if (plan.kind === "skip") {
+      saveInFlightRef.current = false;
+      return;
+    }
+
+    const write =
+      plan.kind === "rows"
+        ? invoke("save_games_subset", { games: plan.rows })
+        : invoke("save_games", { games: snapshot });
+
+    write
+      .then(() => {
+        // On failure this stays put, so the next flush re-diffs and retries
+        // the same rows instead of treating them as already persisted.
+        lastSavedGamesRef.current = snapshot;
+      })
       .catch((err) => console.error("Failed to save games:", err))
       .finally(() => {
         saveInFlightRef.current = false;

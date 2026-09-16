@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Game } from "../../types/game";
 import type { ToastType } from "../ToastContext";
+import { syncWatcherIndex } from "./watcherIndexSync";
 
 /**
  * Build the entries for the Rust GameWatcher's passive-detection index
@@ -66,9 +66,7 @@ export function useWatcherIndex(options: {
     if (watcherRebuildTimerRef.current) return;
     watcherRebuildTimerRef.current = setTimeout(() => {
       watcherRebuildTimerRef.current = null;
-      invoke("rebuild_watcher_index", {
-        games: toWatcherRefs(gamesRef.current, untrackedGameIdsRef.current),
-      }).catch((err) => console.error("Failed to rebuild watcher index:", err));
+      syncWatcherIndex(gamesRef.current, untrackedGameIdsRef.current);
     }, 500);
   }, [gamesRef, untrackedGameIdsRef]);
 
@@ -112,7 +110,7 @@ export function useWatcherIndex(options: {
             showToast(t("game.installedToast", { name: updatedGameName }), "success");
           }
           // Refresh watcher process index so process detection works immediately
-          invoke("rebuild_watcher_index", { games: toWatcherRefs(next) }).catch(() => undefined);
+          syncWatcherIndex(next, untrackedGameIdsRef.current);
         }
         return next;
       });
@@ -121,7 +119,7 @@ export function useWatcherIndex(options: {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [setGames, showToast, t, gamesRef, removeGamesRef]);
+  }, [setGames, showToast, t, gamesRef, untrackedGameIdsRef, removeGamesRef]);
 
   return { scheduleWatcherIndexRebuild };
 }

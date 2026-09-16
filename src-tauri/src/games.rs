@@ -322,12 +322,18 @@ where
 
 /// Persist the game library.
 ///
-/// Phase 3: writes every row to the `games` SQLite table in a single
-/// transaction. `GameRow` mirrors the camelCase `GameData` shape, so
-/// we round-trip each entry through compact JSON rather than maintain
-/// a hand-rolled field-by-field converter.
+/// Phase 3: reconciles the `games` SQLite table against the incoming
+/// library in a single transaction, rewriting only rows whose content
+/// actually changed and deleting ids no longer present. `GameRow`
+/// mirrors the camelCase `GameData` shape, so we round-trip each entry
+/// through compact JSON rather than maintain a hand-rolled
+/// field-by-field converter. Returns the write/delete counts so the
+/// caller can tell a no-op save apart from a real one.
 #[tauri::command]
-pub async fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), String> {
+pub async fn save_games(
+    app: tauri::AppHandle,
+    games: Vec<GameData>,
+) -> Result<db::games::SaveStats, String> {
     let db = app.state::<db::Db>().inner().clone();
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     // Sync `#[tauri::command]` bodies run inline on the GTK main thread
@@ -348,10 +354,14 @@ pub async fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(
             rows.push(row);
         }
         let result = db::games::upsert_all(&db, &rows);
-        if result.is_ok() {
+        if let Ok(stats) = &result {
             let _ = db::compatibility::upsert_batch_for_games(&db, &compat_items);
-            let ids = rows.iter().map(|row| row.id.clone()).collect();
-            db::artwork::cleanup_unreferenced_artwork(&app_data_dir, &ids);
+            // A save that wrote and deleted nothing must not walk the
+            // artwork tree hunting for orphans.
+            if stats.written > 0 || stats.deleted > 0 {
+                let ids = rows.iter().map(|row| row.id.clone()).collect();
+                db::artwork::cleanup_unreferenced_artwork(&app_data_dir, &ids);
+            }
         }
         result
     })
@@ -359,32 +369,86 @@ pub async fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(
     .map_err(|e| format!("save_games task: {e}"))?
 }
 
+/// Persist a targeted subset of the library.
+///
+/// This is the debounced write path the frontend uses when only a handful
+/// of rows changed (a per-row edit, a few enriched covers) instead of
+/// re-serializing the whole library through `save_games`. Running it as an
+/// async command keeps the body off the GTK main thread (see the note on
+/// `save_games`), and the DAO applies the batch in a single transaction, so
+/// a 75-column insert carrying multi-MB JSON never stalls the event loop.
+///
+/// Merge mode: rows absent from the payload are left untouched — a subset
+/// save must never delete the rest of the library.
+#[tauri::command]
+pub async fn save_games_subset(
+    app: tauri::AppHandle,
+    games: Vec<GameData>,
+) -> Result<db::games::SaveStats, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut rows: Vec<db::games::GameRow> = Vec::with_capacity(games.len());
+        let mut compat_items: Vec<(String, serde_json::Value)> = Vec::new();
+
+        for g in games {
+            // Only rows that actually carry a profile are upserted. A
+            // missing `compatibility` field must NOT delete the stored
+            // profile: the payload is a subset, so absence just means this
+            // batch did not touch it. Removing a profile stays the explicit
+            // single-row `save_game` path.
+            if let Some(ref c) = g.compatibility {
+                compat_items.push((g.id.clone(), c.clone()));
+            }
+            let value = serde_json::to_value(&g).map_err(|e| format!("to_value: {e}"))?;
+            let row: db::games::GameRow = serde_json::from_value(value)
+                .map_err(|e| format!("to GameRow: {e}"))?;
+            rows.push(row);
+        }
+        let result = db::games::upsert_batch(&db, &rows, false);
+        if result.is_ok() {
+            let _ = db::compatibility::upsert_batch_for_games(&db, &compat_items);
+            // No `cleanup_unreferenced_artwork` here — merge mode never
+            // deletes a game, so this path cannot orphan an artwork file.
+        }
+        result
+    })
+    .await
+    .map_err(|e| format!("save_games_subset task: {e}"))?
+}
+
 /// Persist a SINGLE game immediately, without rewriting the whole
 /// library. Used by the frontend metadata-enrichment path: when a
 /// cover/banner/logo is fetched during a library scroll we write that
 /// one row straight away, so it survives even if the app is closed
 /// before the debounced full-library `save_games` fires.
+///
+/// Async so the per-cover write runs on a blocking thread rather than
+/// inline on the GTK main thread.
 #[tauri::command]
-pub fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let compat_opt = game.compatibility.clone();
-    let game_id = game.id.clone();
-    let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
-    let row: db::games::GameRow =
-        serde_json::from_value(value).map_err(|e| format!("to GameRow: {e}"))?;
-    // NOTE: no artwork cleanup here — `save_game` fires per image write
-    // during a library scroll, and pruning cache dirs on that hot path
-    // walks the filesystem for every fetched cover. Both cleanups now run
-    // once per session from a background thread spawned in `load_games`.
-    let res = db::games::upsert_one(db_state.inner(), &row);
-    if res.is_ok() {
-        if let Some(ref c) = compat_opt {
-            let _ = db::compatibility::upsert_for_game(db_state.inner(), &game_id, c);
-        } else {
-            let _ = db::compatibility::delete_for_game(db_state.inner(), &game_id);
+pub async fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let compat_opt = game.compatibility.clone();
+        let game_id = game.id.clone();
+        let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
+        let row: db::games::GameRow =
+            serde_json::from_value(value).map_err(|e| format!("to GameRow: {e}"))?;
+        // NOTE: no artwork cleanup here — `save_game` fires per image write
+        // during a library scroll, and pruning cache dirs on that hot path
+        // walks the filesystem for every fetched cover. Both cleanups now run
+        // once per session from a background thread spawned in `load_games`.
+        let res = db::games::upsert_one(&db, &row);
+        if res.is_ok() {
+            if let Some(ref c) = compat_opt {
+                let _ = db::compatibility::upsert_for_game(&db, &game_id, c);
+            } else {
+                let _ = db::compatibility::delete_for_game(&db, &game_id);
+            }
         }
-    }
-    res
+        res
+    })
+    .await
+    .map_err(|e| format!("save_game task: {e}"))?
 }
 
 /// Load the game library. Returns every row in Continue-Playing order
