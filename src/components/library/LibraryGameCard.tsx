@@ -2,9 +2,9 @@ import { memo, useEffect, useRef, useState } from "react";
 import { Badge } from "../ui";
 import type { Game } from "../../types/game";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
-import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
+import { useGameCardActions, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { useSettings } from "../../context/SettingsContext";
+import { useCardDisplaySettings } from "../../context/SettingsContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
 import { playLaunchSound } from "../../utils/soundEffects";
 
@@ -45,9 +45,16 @@ function LibraryGameCardBase({
   selected = false,
   onToggleSelect,
 }: LibraryGameCardProps) {
-  const { enrichGameMetadata, launchGame } = useGames();
+  const { enrichGameMetadata, launchGame } = useGameCardActions();
   const { t } = useLanguage();
-  const { showCardBadges, isSimpleUi, interfaceVisibility } = useSettings();
+  const {
+    showCardBadges,
+    isSimpleUi,
+    badgePlatform,
+    badgeInstall,
+    badgePlaytime,
+    badgeRating,
+  } = useCardDisplaySettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -158,7 +165,7 @@ function LibraryGameCardBase({
           )}
         </div>
 
-        {showCardBadges && interfaceVisibility.badgePlatform && (
+        {showCardBadges && badgePlatform && (
           <div className="lib-card-list-platform">
             <Badge variant="info" size="sm" className="lib-card-platform">
               {game.platform}
@@ -171,7 +178,7 @@ function LibraryGameCardBase({
           </div>
         )}
 
-        {showCardBadges && interfaceVisibility.badgeInstall && !isSimpleUi && (
+        {showCardBadges && badgeInstall && !isSimpleUi && (
           <div className="lib-card-list-status">
             <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
               {t(statusMeta.labelKey)}
@@ -179,7 +186,7 @@ function LibraryGameCardBase({
           </div>
         )}
 
-        {showCardBadges && interfaceVisibility.badgePlaytime && (
+        {showCardBadges && badgePlaytime && (
           <div className="lib-card-list-playtime">
             <Badge variant="default" size="sm" className="lib-card-badge--playtime">
               <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -191,7 +198,7 @@ function LibraryGameCardBase({
           </div>
         )}
 
-        {showCardBadges && interfaceVisibility.badgeRating && !isSimpleUi && (
+        {showCardBadges && badgeRating && !isSimpleUi && (
           <div className="lib-card-list-rating">
             {rating != null && rating > 0 ? (
               <Badge variant="accent" size="sm" className="lib-card-rating">
@@ -298,15 +305,15 @@ function LibraryGameCardBase({
         )}
 
         {showCardBadges &&
-          (interfaceVisibility.badgeInstall || interfaceVisibility.badgePlaytime) && (
+          (badgeInstall || badgePlaytime) && (
           <div className="lib-card-badges">
-            {isRunning && interfaceVisibility.badgeInstall && (
+            {isRunning && badgeInstall && (
               <Badge variant="success" size="sm" dot className="lib-card-badge lib-card-badge--running">
                 <span className="lib-card-running-pulse" aria-hidden="true" />
                 {t("library.running")}
               </Badge>
             )}
-            {interfaceVisibility.badgePlaytime && (
+            {badgePlaytime && (
               <Badge variant="default" size="sm" className="lib-card-badge lib-card-badge--playtime">
                 <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" />
@@ -336,21 +343,21 @@ function LibraryGameCardBase({
           {game.name}
         </h3>
         {showCardBadges &&
-          (interfaceVisibility.badgePlatform ||
-            interfaceVisibility.badgeInstall ||
-            interfaceVisibility.badgeRating) && (
+          (badgePlatform ||
+            badgeInstall ||
+            badgeRating) && (
           <div className="lib-card-meta">
-            {interfaceVisibility.badgePlatform && (
+            {badgePlatform && (
               <Badge variant="info" size="sm" className="lib-card-platform">
                 {game.platform}
               </Badge>
             )}
-            {interfaceVisibility.badgeInstall && !isSimpleUi && (
+            {badgeInstall && !isSimpleUi && (
               <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
                 {t(statusMeta.labelKey)}
               </Badge>
             )}
-            {interfaceVisibility.badgeRating && !isSimpleUi && rating != null && rating > 0 && (
+            {badgeRating && !isSimpleUi && rating != null && rating > 0 && (
               <Badge
                 variant="accent"
                 size="sm"

@@ -3,13 +3,13 @@ import { BarChart3, Copy, Eye, EyeOff, Heart } from "lucide-react";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
-import { WishlistContext } from "../../context/WishlistContext";
+import { useWishlistStatus, useIsWishlisted } from "../../context/WishlistContext";
 import { DensityContext } from "../../context/DensityContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { useInterfaceItemVisible } from "../../context/SettingsContext";
+import { useCardDisplaySettings } from "../../context/SettingsContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
@@ -64,18 +64,18 @@ function StoreGameCardBase({
   onToggleSelect,
   onHoverChange,
 }: StoreGameCardProps) {
-  const wishlistCtx = useContext(WishlistContext);
+  const wishlistStatus = useWishlistStatus();
+  const contextWishlisted = useIsWishlisted(game.slug);
   const densityCtx = useContext(DensityContext);
 
   const density: ViewDensity = densityProp ?? densityCtx?.density ?? "cozy";
-  const wishlisted: boolean =
-    wishlistedProp ?? wishlistCtx?.isWishlisted(game.slug) ?? false;
+  const wishlisted: boolean = wishlistedProp ?? contextWishlisted;
 
   const onToggleWishlist =
     onToggleWishlistProp ??
-    (wishlistCtx
+    (wishlistStatus
       ? (g: StoreGameSummary) => {
-          wishlistCtx.toggle(g);
+          wishlistStatus.toggle(g);
         }
       : undefined);
 
@@ -92,8 +92,8 @@ function StoreGameCardBase({
     ({ preventDefault: () => {}, stopPropagation: () => {} }) as unknown as MouseEvent;
 
   const handleWishlistFromMenu = () => {
-    if (wishlistCtx) {
-      wishlistCtx.toggle(game);
+    if (wishlistStatus) {
+      wishlistStatus.toggle(game);
       return;
     }
     onToggleWishlist?.(game, menuEvent());
@@ -196,8 +196,7 @@ function StoreGameCardBase({
   const showBody = density !== "compact";
   const genresToShow = density === "cinematic" ? 4 : density === "list" ? 3 : 2;
   const showHeart = Boolean(onToggleWishlist);
-  const showCrack = useInterfaceItemVisible("badgeCrackwatch");
-  const showCompare = useInterfaceItemVisible("badgeCompare");
+  const { badgeCrackwatch: showCrack, badgeCompare: showCompare } = useCardDisplaySettings();
 
   const releaseYear = game.firstReleaseDate
     ? new Date(game.firstReleaseDate).getFullYear()

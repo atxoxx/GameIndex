@@ -560,14 +560,46 @@ export interface SettingsContextValue {
   ready: boolean;
 }
 
+// Narrow feature surface for game cards. A `React.memo` card re-renders on
+// any `SettingsContext` change, so cards subscribe to just the handful of
+// values they actually render. The provider memoises this shape on those
+// primitives, so an unrelated settings write no longer touches every card.
+export interface CardDisplaySettings {
+  showCardBadges: boolean;
+  isSimpleUi: boolean;
+  badgePlatform: boolean;
+  badgeInstall: boolean;
+  badgePlaytime: boolean;
+  badgeRating: boolean;
+  badgeCrackwatch: boolean;
+  badgeCompare: boolean;
+}
+
+const DEFAULT_CARD_DISPLAY_SETTINGS: CardDisplaySettings = {
+  showCardBadges: true,
+  isSimpleUi: false,
+  badgePlatform: true,
+  badgeInstall: true,
+  badgePlaytime: true,
+  badgeRating: true,
+  badgeCrackwatch: true,
+  badgeCompare: true,
+};
+
 // Persist the React context instance across Vite HMR module re-evaluations so
 // lazy-loaded page chunks never lose their Provider instance.
 const globalSettingsObj = globalThis as unknown as {
   __gamelib_settings_context__?: React.Context<SettingsContextValue | null>;
+  __gamelib_card_display_settings_context__?: React.Context<CardDisplaySettings>;
 };
 const SettingsContext =
   globalSettingsObj.__gamelib_settings_context__ ??
   (globalSettingsObj.__gamelib_settings_context__ = createContext<SettingsContextValue | null>(null));
+
+const CardDisplaySettingsContext =
+  globalSettingsObj.__gamelib_card_display_settings_context__ ??
+  (globalSettingsObj.__gamelib_card_display_settings_context__ =
+    createContext<CardDisplaySettings>(DEFAULT_CARD_DISPLAY_SETTINGS));
 
 // ── localStorage helpers (try/catch around every read/write because
 // private-browsing modes and some sandboxed contexts throw) ────────────────
@@ -1877,8 +1909,35 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  const cardDisplaySettings = useMemo<CardDisplaySettings>(
+    () => ({
+      showCardBadges,
+      isSimpleUi,
+      badgePlatform: interfaceVisibility.badgePlatform,
+      badgeInstall: interfaceVisibility.badgeInstall,
+      badgePlaytime: interfaceVisibility.badgePlaytime,
+      badgeRating: interfaceVisibility.badgeRating,
+      badgeCrackwatch: interfaceVisibility.badgeCrackwatch,
+      badgeCompare: interfaceVisibility.badgeCompare,
+    }),
+    [
+      showCardBadges,
+      isSimpleUi,
+      interfaceVisibility.badgePlatform,
+      interfaceVisibility.badgeInstall,
+      interfaceVisibility.badgePlaytime,
+      interfaceVisibility.badgeRating,
+      interfaceVisibility.badgeCrackwatch,
+      interfaceVisibility.badgeCompare,
+    ],
+  );
+
   return (
-    <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
+    <SettingsContext.Provider value={value}>
+      <CardDisplaySettingsContext.Provider value={cardDisplaySettings}>
+        {children}
+      </CardDisplaySettingsContext.Provider>
+    </SettingsContext.Provider>
   );
 }
 
@@ -1888,6 +1947,15 @@ export function useSettings(): SettingsContextValue {
     throw new Error("useSettings must be used within a SettingsProvider");
   }
   return ctx;
+}
+
+/**
+ * Narrow settings selector for game cards. Defaults to the shipped
+ * card-visible state when no provider is mounted (isolated tests, static
+ * renders) so a card never crashes outside the app shell.
+ */
+export function useCardDisplaySettings(): CardDisplaySettings {
+  return useContext(CardDisplaySettingsContext);
 }
 
 // ── Visibility helpers (Settings → Interface / Layout Studio) ───────────────

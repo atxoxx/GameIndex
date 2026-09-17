@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_DENSITY,
   VIEW_DENSITY_STORAGE_KEY,
@@ -66,5 +66,7 @@ export function useViewDensity(): {
     }
   }, []);
 
-  return { density, setDensity };
+  // Stable identity while `density` is unchanged so density consumers
+  // don't re-render on unrelated ancestor updates.
+  return useMemo(() => ({ density, setDensity }), [density, setDensity]);
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   StoreGameSummary,
@@ -158,19 +158,25 @@ export function useWishlist() {
     [entriesBySlug]
   );
 
-  // Latest wishlist sorted by addedAt desc (newest first).
-  const wishlist: WishlistEntry[] = Object.values(entriesBySlug).sort(
-    (a, b) => b.addedAt - a.addedAt
+  // Latest wishlist sorted by addedAt desc (newest first). Memoised so
+  // the returned API keeps a stable identity while the entries themselves
+  // are unchanged.
+  const wishlist = useMemo<WishlistEntry[]>(
+    () => Object.values(entriesBySlug).sort((a, b) => b.addedAt - a.addedAt),
+    [entriesBySlug]
   );
 
-  return {
-    wishlist,
-    hydrated,
-    isWishlisted,
-    toggle,
-    remove,
-    setNote,
-    clear,
-    count: wishlist.length,
-  };
+  return useMemo(
+    () => ({
+      wishlist,
+      hydrated,
+      isWishlisted,
+      toggle,
+      remove,
+      setNote,
+      clear,
+      count: wishlist.length,
+    }),
+    [wishlist, hydrated, isWishlisted, toggle, remove, setNote, clear]
+  );
 }

@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback, useContext } from "react";
 import StoreGameCard from "./StoreGameCard";
 import { Button } from "../ui";
 import { DensityContext } from "../../context/DensityContext";
-import { WishlistContext } from "../../context/WishlistContext";
+import { useWishlistStatus } from "../../context/WishlistContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useStoreSearchQuery } from "./storeSearchQuery";
 import type { StoreGameSummary } from "../../types/game";
@@ -99,7 +99,7 @@ export default function StoreGameGrid({
   const sentinelRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const density = useContext(DensityContext)?.density ?? "cozy";
-  const wishlistCtx = useContext(WishlistContext);
+  const wishlistStatus = useWishlistStatus();
   const searchQuery = useStoreSearchQuery();
   const isList = density === "list";
   const isCompact = density === "compact";
@@ -137,9 +137,9 @@ export default function StoreGameGrid({
           break;
         case "w":
         case "W": {
-          if (currentIndex >= 0 && wishlistCtx) {
+          if (currentIndex >= 0 && wishlistStatus) {
             const game = games[currentIndex];
-            if (game) wishlistCtx.toggle(game);
+            if (game) wishlistStatus.toggle(game);
             e.preventDefault();
           }
           return;
@@ -154,7 +154,7 @@ export default function StoreGameGrid({
         cards[nextIndex].scrollIntoView({ block: "nearest" });
       }
     },
-    [games, wishlistCtx, isList]
+    [games, wishlistStatus, isList]
   );
 
   const handleIntersect = useCallback(

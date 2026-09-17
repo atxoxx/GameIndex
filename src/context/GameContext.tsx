@@ -102,6 +102,16 @@ interface LiveElapsedValue {
   getSnapshot: () => Record<string, number>;
 }
 
+// Stable action surface for library cards. A `React.memo` card can't bail out
+// on context changes, and `GameContext`'s value changes on every enrichment
+// patch, so cards read their launch/enrich actions from here instead. The
+// callbacks are ref-forwarded, so this value's identity never changes even
+// when `launchGame` is re-created for a new running-game set.
+export interface GameCardActions {
+  launchGame: (game: Game) => void;
+  enrichGameMetadata: (gameId: string, gameName: string, steamAppId?: number) => Promise<void>;
+}
+
 // Shared empty snapshot so consumers outside the provider (or before the
 // first heartbeat) always get a stable identity — useSyncExternalStore
 // bails out of re-renders when the snapshot reference is unchanged.
@@ -113,6 +123,7 @@ const globalGameObj = globalThis as unknown as {
   __gamelib_game_context__?: React.Context<GameContextType | null>;
   __gamelib_game_by_id_context__?: React.Context<GameByIdValue | null>;
   __gamelib_live_elapsed_context__?: React.Context<LiveElapsedValue | null>;
+  __gamelib_game_card_actions_context__?: React.Context<GameCardActions | null>;
 };
 const GameContext =
   globalGameObj.__gamelib_game_context__ ??
@@ -125,6 +136,10 @@ const GameByIdContext =
 const LiveElapsedContext =
   globalGameObj.__gamelib_live_elapsed_context__ ??
   (globalGameObj.__gamelib_live_elapsed_context__ = createContext<LiveElapsedValue | null>(null));
+
+const GameCardActionsContext =
+  globalGameObj.__gamelib_game_card_actions_context__ ??
+  (globalGameObj.__gamelib_game_card_actions_context__ = createContext<GameCardActions | null>(null));
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 
@@ -313,6 +328,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
     gamesRef,
     updateGame,
   });
+
+  // Ref-forwarded card actions. `launchGame`/`enrichGameMetadata` are
+  // re-created when their own deps move (running set, splash, language),
+  // which must not churn the memoised provider value below.
+  const launchGameActionRef = useRef(launchGame);
+  launchGameActionRef.current = launchGame;
+  const enrichGameMetadataActionRef = useRef(enrichGameMetadata);
+  enrichGameMetadataActionRef.current = enrichGameMetadata;
+
+  const gameCardActions = useMemo<GameCardActions>(
+    () => ({
+      launchGame: (game: Game) => {
+        void launchGameActionRef.current(game);
+      },
+      enrichGameMetadata: (gameId: string, gameName: string, steamAppId?: number) =>
+        enrichGameMetadataActionRef.current(gameId, gameName, steamAppId),
+    }),
+    [],
+  );
 
   // On initial library load, auto-enrich any games that are missing metadata or tags/relations
   useEffect(() => {
@@ -698,9 +732,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   return (
     <GameContext.Provider value={contextValue}>
       <GameByIdContext.Provider value={gameByIdValue}>
-        <LiveElapsedContext.Provider value={liveElapsedValue}>
-          {children}
-        </LiveElapsedContext.Provider>
+        <GameCardActionsContext.Provider value={gameCardActions}>
+          <LiveElapsedContext.Provider value={liveElapsedValue}>
+            {children}
+          </LiveElapsedContext.Provider>
+        </GameCardActionsContext.Provider>
       </GameByIdContext.Provider>
     </GameContext.Provider>
   );
@@ -718,6 +754,19 @@ export function useGames(): GameContextType {
 export function useRunningGames(): string[] {
   const { runningGameIds } = useGames();
   return runningGameIds;
+}
+
+/**
+ * Narrow selector: stable launch/enrich callbacks for memoised cards.
+ * Consumers subscribe to a provider value whose identity never changes, so
+ * background enrichment of another game can't re-render them.
+ */
+export function useGameCardActions(): GameCardActions {
+  const ctx = useContext(GameCardActionsContext);
+  if (!ctx) {
+    throw new Error("useGameCardActions must be used within a GameProvider");
+  }
+  return ctx;
 }
 
 /**
