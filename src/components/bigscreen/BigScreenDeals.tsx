@@ -1,18 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
-import { useGamepad } from "../../hooks/GamepadProvider";
 import BigScreenCover from "./BigScreenCover";
 import { formatPrice } from "./bigscreenFormat";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 
 export default function BigScreenDeals() {
   const { t, language } = useLanguage();
-  const navigate = useNavigate();
-  const gamepad = useGamepad();
   const [gamepassGames, setGamepassGames] = useState<GamePassGame[]>([]);
   const [deals, setDeals] = useState<DealItem[]>([]);
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
@@ -22,12 +18,8 @@ export default function BigScreenDeals() {
   const [selectedDeal, setSelectedDeal] = useState<DealItem | null>(null);
   const [selectedGiveaway, setSelectedGiveaway] = useState<Giveaway | null>(null);
 
-  // Controller B returns to the library grid (instead of the shell's
-  // default of exiting Big Screen). Unregistered on unmount so the
-  // shell reclaims B when the user leaves the Deals hub.
-  useEffect(() => {
-    return gamepad.registerBackHandler(() => navigate("/library"), 0);
-  }, [gamepad.registerBackHandler, navigate]);
+  // Top-level section: controller Back is owned by the shell resolver,
+  // which offers the exit confirmation at this level.
 
   // Fetch Game Pass Catalog
   const fetchGamePass = useCallback(async () => {
@@ -226,7 +218,7 @@ export default function BigScreenDeals() {
 function GamePassCard({ game, onSelect }: { game: GamePassGame; onSelect: () => void }) {
   const focusProps = useFocusable(onSelect);
   return (
-    <div className="bigscreen-game-card" {...focusProps}>
+    <div className="bigscreen-game-card" {...focusProps} role="button">
       <BigScreenCover url={game.coverImage || undefined} alt={game.title} aspectRatio="2 / 3" />
       <div className="bigscreen-card-meta">
         <h4 className="bigscreen-card-title">{game.title}</h4>
@@ -252,7 +244,7 @@ function DealCard({ item, onSelect }: { item: DealItem; onSelect: () => void }) 
   });
 
   return (
-    <div className="bigscreen-game-card" {...focusProps}>
+    <div className="bigscreen-game-card" {...focusProps} role="link">
       <BigScreenCover url={item.thumbnail || undefined} alt={item.gameTitle} aspectRatio="2 / 3" />
       <div className="bigscreen-card-meta">
         <h4 className="bigscreen-card-title">{item.gameTitle}</h4>
@@ -279,7 +271,7 @@ function GiveawayCard({ item, onSelect }: { item: Giveaway; onSelect: () => void
   });
 
   return (
-    <div className="bigscreen-game-card" {...focusProps}>
+    <div className="bigscreen-game-card" {...focusProps} role="link">
       <BigScreenCover url={item.imageUrl || undefined} alt={item.title} aspectRatio="2 / 3" />
       <div className="bigscreen-card-meta">
         <h4 className="bigscreen-card-title">{item.title}</h4>

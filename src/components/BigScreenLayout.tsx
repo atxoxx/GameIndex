@@ -15,19 +15,31 @@
 //   • The virtual cursor overlay is kept; the FocusRing component
 //     (deleted) is replaced by a global CSS focus ring in
 //     bigscreen.css.
-//   • No back handler is registered here: the shell has no page-level
-//     back semantics, and B/Escape is owned by the engine +
-//     BigScreenContext.
+//   • The shell owns Back: one back handler at `BACK_PRIORITY_SHELL`
+//     resolves the current route to its parent section (see
+//     `bigScreenParentOf`). A page-level handler (default priority
+//     `CYCLER_PRIORITY_PAGE`) still wins the B race while mounted.
+//     When there is no parent, Back offers the exit confirmation
+//     instead of silently dropping out of Big Screen Mode.
 
 import { useEffect, useRef, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import BigScreenHeader from "./BigScreenHeader";
 import VirtualCursor from "./ui/VirtualCursor";
 import BigScreenSearchOverlay from "./bigscreen/BigScreenSearchOverlay";
+import { ConfirmModal } from "./ui";
 import { useGamepad } from "../hooks/GamepadProvider";
 import { useLanguage } from "../context/LanguageContext";
-import { isBigScreenOverlayOpen } from "../context/BigScreenContext";
-import { isNavigable } from "../hooks/gamepad/gamepadUtils";
+import {
+  isBigScreenOverlayOpen,
+  useBigScreen,
+} from "../context/BigScreenContext";
+import {
+  BACK_PRIORITY_SHELL,
+  isNavigable,
+} from "../hooks/gamepad/gamepadUtils";
+import { bigScreenParentOf } from "../bigscreen/registry";
+import { useBumperScope } from "./bigscreen/bigscreenLegend";
 import {
   recallFocus,
   rememberFocus,
@@ -50,9 +62,23 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return !!target.closest("input, textarea, select, [contenteditable]");
 }
 
-/** Live clock + brand for the bottom bar. */
+/**
+ * Live clock + brand for the bottom bar, plus the controller legend.
+ *
+ * The legend describes the ACTIVE screen, not the shell in general:
+ *   • B reads Back when a parent route exists, Exit on a top-level
+ *     screen — it mirrors `bigScreenParentOf`, which is exactly the
+ *     decision the shell's own back handler makes.
+ *   • LB/RB reads Sections or Tabs from the mounted page's declaration
+ *     (see bigscreenLegend.ts), so a tabbed screen can't inherit the
+ *     strip's wording.
+ * This bar is the single affordance telling a couch user what the
+ * buttons do, so a stale word here is a real bug, not a nit.
+ */
 function BottomBar() {
   const { t, language } = useLanguage();
+  const { pathname } = useLocation();
+  const bumperScope = useBumperScope();
   const [time, setTime] = useState("");
 
   useEffect(() => {
@@ -64,6 +90,8 @@ function BottomBar() {
     return () => window.clearInterval(timer);
   }, [language]);
 
+  const hasParent = bigScreenParentOf(pathname) !== null;
+
   return (
     <div className="bigscreen-v3-bottom-bar" aria-hidden="true">
       <span className="bigscreen-v3-bottom-brand">GAMEINDEX</span>
@@ -74,12 +102,16 @@ function BottomBar() {
         </span>
         <span className="bigscreen-v3-bottom-tip">
           <b>B</b>
-          {t("bigscreen.shell.backHint")}
+          {t(hasParent ? "bigscreen.shell.backHint" : "bigscreen.shell.exitHint")}
         </span>
         <span className="bigscreen-v3-bottom-tip">
           <b>LB</b>
           <b>RB</b>
-          {t("bigscreen.shell.sectionsHint")}
+          {t(
+            bumperScope === "tabs"
+              ? "bigscreen.shell.tabsHint"
+              : "bigscreen.shell.sectionsHint",
+          )}
         </span>
         <span className="bigscreen-v3-bottom-tip">
           <b>Y</b>
@@ -94,6 +126,14 @@ function BottomBar() {
 export default function BigScreenLayout() {
   const gamepad = useGamepad();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { t } = useLanguage();
+  const {
+    exitConfirmOpen,
+    requestExit,
+    cancelExit,
+    setBigScreen,
+  } = useBigScreen();
   const [searchOpen, setSearchOpen] = useState(false);
   const mainRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -103,6 +143,24 @@ export default function BigScreenLayout() {
   // event to a stale route.
   const pathnameRef = useRef(location.pathname);
   pathnameRef.current = location.pathname;
+
+  // Shell-owned Back resolver. Pages no longer need to register a
+  // handler just to bounce out of a nested route: with none mounted
+  // (or none at page priority), B walks up one level via the route
+  // table, or offers the exit confirmation on a top-level screen.
+  // A page's own handler (default priority 0) still outranks this (-100).
+  useEffect(() => {
+    return gamepad.registerBackHandler(() => {
+      const parent = bigScreenParentOf(location.pathname);
+      if (parent) navigate(parent);
+      else requestExit();
+    }, BACK_PRIORITY_SHELL);
+  }, [
+    gamepad.registerBackHandler,
+    location.pathname,
+    navigate,
+    requestExit,
+  ]);
 
   // Remember which element the controller (or keyboard) is on for the
   // current route, so returning later restores it. See focusMemory.ts.
@@ -205,10 +263,12 @@ export default function BigScreenLayout() {
         }
       }
 
-      const target = Array.from(
-        main.querySelectorAll<HTMLElement>('[tabindex="0"]'),
-      ).find(isNavigable);
-      target?.focus({ preventScroll: true });
+      // Last resort: pick the first registered focusable the engine
+      // actually knows about. A raw `querySelector('[tabindex="0"]')`
+      // can land on an element `registerAction` never saw, leaving
+      // `focusedRef` unsynced and D-pad navigation dead — `focusFirst`
+      // can't, because it only ever picks registered elements.
+      gamepad.focusFirst(main);
     });
     return () => cancelAnimationFrame(raf);
   }, [location.pathname]);
@@ -239,6 +299,18 @@ export default function BigScreenLayout() {
 
       <VirtualCursor gamepad={gamepad} />
       <BigScreenSearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      <ConfirmModal
+        open={exitConfirmOpen}
+        title={t("bigscreen.exitConfirm.title")}
+        message={t("bigscreen.exitConfirm.message")}
+        confirmLabel="bigscreen.exitConfirm.confirm"
+        onConfirm={() => {
+          cancelExit();
+          setBigScreen(false);
+        }}
+        onCancel={cancelExit}
+      />
     </div>
   );
 }

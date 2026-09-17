@@ -184,6 +184,50 @@ export function getActiveTabPath(pathname: string): string {
   );
 }
 
+/**
+ * Resolve a Big Screen pathname to the route Back should return to.
+ * The shell owns the Back resolver: pages no longer each hardcode
+ * their own fallback target (which previously let B fall through to a
+ * synthetic Escape and exit Big Screen mode entirely).
+ *
+ * Matches on path segments, mirroring `getActiveTabPath`:
+ *   • `/library/<id>`  → `/library`
+ *   • `/store/<slug>`  → `/store`
+ *   • `/settings/<tab>` → `/settings` (the System hub sub-route)
+ *   • `/mods`, `/emulators`, `/docs` → `/settings` (the System hub)
+ *   • `/activity`      → `/home`
+ *   • everything else  → `null` (a top-level section: Back exits)
+ *
+ * Returns `null` when no parent exists, which the shell treats as
+ * "this is a top-level screen — offer to leave Big Screen Mode".
+ */
+export function bigScreenParentOf(pathname: string): string | null {
+  // Tolerate a trailing slash without changing segment counting.
+  const path =
+    pathname.length > 1 && pathname.endsWith("/")
+      ? pathname.slice(0, -1)
+      : pathname;
+  const segments = path.split("/").filter(Boolean);
+
+  if (segments.length === 2) {
+    if (segments[0] === "library") return "/library";
+    if (segments[0] === "store") return "/store";
+    // `settings/:tab` is a System-hub sub-route (the registry maps it to
+    // BigScreenSystem), so it walks up to the hub like mods/emulators/docs.
+    if (segments[0] === "settings") return "/settings";
+  }
+
+  if (segments.length === 1) {
+    const [segment] = segments;
+    if (segment === "mods" || segment === "emulators" || segment === "docs") {
+      return "/settings";
+    }
+    if (segment === "activity") return "/home";
+  }
+
+  return null;
+}
+
 // ── ShellSwitch ──────────────────────────────────────────────────
 
 interface ShellSwitchProps {

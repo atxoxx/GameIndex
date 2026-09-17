@@ -9,26 +9,14 @@
 // (`.bigscreen-dashboard-scrollable-content`) — the spatial-nav engine
 // auto-scrolls the focused element into view inside it.
 
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
-import { useGamepad } from "../../hooks/GamepadProvider";
 import { useDocsDictionary } from "../../hooks/useDocsDictionary";
 import { DOC_SECTIONS, DocBody } from "../docs/docsContent";
 import BigScreenBackHeader from "./BigScreenBackHeader";
 
 export default function BigScreenDocsPage() {
   const { t } = useLanguage();
-  const navigate = useNavigate();
-  const { registerBackHandler } = useGamepad();
   const docsReady = useDocsDictionary();
-
-  // B button goes back to wherever the user came from (System hub,
-  // home, …). No overlay claims B while none of our modals are open.
-  useEffect(
-    () => registerBackHandler(() => navigate(-1)),
-    [registerBackHandler, navigate],
-  );
 
   // Guide strings load per-locale; hold the view so it never renders keys.
   if (!docsReady) return null;
