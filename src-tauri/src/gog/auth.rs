@@ -34,6 +34,7 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use super::cookies::{self, GogCookies};
 use super::types::{GogAuthTokens, GogSession};
 use crate::db;
+use crate::util::current_unix;
 
 // ── OAuth constants (Comet / Playnite parity) ───────────────────────
 
@@ -491,12 +492,6 @@ fn load_tokens_inner(app: &AppHandle) -> Result<GogAuthTokens, String> {
     serde_json::from_str(&secret).map_err(|e| format!("Failed to parse tokens: {e}"))
 }
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-}
 
 fn extract_code_from_url(url: &str) -> Option<String> {
     let query = url.find('?').map(|i| &url[i + 1..])?;

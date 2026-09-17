@@ -16,6 +16,7 @@ use super::{
 use crate::game_watcher::GameWatcher;
 use crate::metrics_collector;
 use crate::size;
+use crate::util::current_unix;
 
 /// Public Tauri command — scans installed Rockstar games and returns
 /// the typed result. No network, no account; safe to call whether
@@ -143,9 +144,3 @@ pub async fn rockstar_launch_game(
     Ok(pid)
 }
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}

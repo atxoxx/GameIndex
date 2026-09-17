@@ -31,6 +31,7 @@ use super::types::{
 use crate::db;
 use crate::gog::auth::load_session_pub;
 use crate::size;
+use crate::util::current_unix;
 
 /// Public Tauri command — orchestrates the full sync and returns
 /// the typed result. Pure-Rust; no WebView.
@@ -201,9 +202,3 @@ fn build_playtime_fallback(rows: &[GogPlaytimeMirror]) -> HashMap<String, GogGam
     out
 }
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}

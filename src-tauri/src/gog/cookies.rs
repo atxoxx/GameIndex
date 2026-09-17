@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use tauri::WebviewWindow;
 
 use crate::db;
+use crate::util::current_unix;
 
 /// kv_store key for the persisted cookies blob.
 pub const GOG_COOKIES_KV_KEY: &str = "gog_cookies";
@@ -212,12 +213,6 @@ pub fn arc_jar_from(
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
 
 #[cfg(test)]
 mod tests {

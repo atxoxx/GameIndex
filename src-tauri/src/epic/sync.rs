@@ -8,6 +8,7 @@ use tauri::AppHandle;
 use super::auth::refresh_tokens_if_needed;
 use super::types::{EpicAuthTokens, EpicCatalogItem, EpicGame, EpicGameAsset, EpicMainGameItem, EpicSyncResult, EpicSyncedGame};
 use crate::size;
+use crate::util::current_unix;
 
 /// Sync the user's Epic Games library.
 ///
@@ -886,12 +887,6 @@ fn merge_game_data(library: Vec<EpicGame>, installed: &[EpicGame]) -> Vec<EpicGa
         .collect()
 }
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-}
 
 // ── Unit tests ─────────────────────────────────────────────────────
 // Tests focus on `filter_owned_games` — the function that decides which

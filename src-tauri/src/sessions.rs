@@ -3,19 +3,6 @@
 use tauri::Manager;
 use crate::db;
 
-/// Return the most recent finished session for a single game (newest
-/// first, limited to 1). Used by the launch splash to show accurate
-/// "Last Played" info from the canonical SQLite session history.
-#[tauri::command]
-pub fn get_last_session_for_game(
-    app: tauri::AppHandle,
-    game_id: String,
-) -> Result<Vec<db::sessions::SessionRecord>, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let sessions = db::sessions::list_for_game(db_state.inner(), &game_id)?;
-    Ok(sessions.into_iter().take(1).collect())
-}
-
 /// Migration helper: read the legacy `<app_data_dir>/sessions.json`
 /// blob (the pre-SQLite session store). Returns "[]" when the file does
 /// not exist. The frontend imports any rows found here into the

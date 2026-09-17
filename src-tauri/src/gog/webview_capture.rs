@@ -29,6 +29,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use crate::db;
+use crate::util::current_unix;
 
 /// Per-call bridge key (UUID-shaped string). See module doc for why
 /// we don't share this with a single global slot.
@@ -297,9 +298,3 @@ pub(crate) fn try_db_state(app: &AppHandle) -> Option<tauri::State<'_, db::Db>> 
     app.try_state::<db::Db>()
 }
 
-pub(crate) fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}

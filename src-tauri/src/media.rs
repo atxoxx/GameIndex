@@ -142,17 +142,6 @@ pub fn cancel_scan_exes(app: tauri::AppHandle, scan_id: Option<String>) -> Resul
     Ok(())
 }
 
-/// Recursively scan a directory for .exe files and return their paths, sizes, and modified dates.
-#[tauri::command]
-pub fn scan_folder_for_exes(folder_path: String) -> Vec<ExeInfo> {
-    let mut exes = Vec::new();
-    let path = Path::new(&folder_path);
-    if path.is_dir() {
-        scan_dir(path, &mut exes);
-    }
-    exes
-}
-
 /// Non-game executables to skip during folder scanning.
 const SKIP_KEYWORDS: &[&str] = &["redist", "autorun", "helper", "unin", "crash", "setup", "install", "plugin", "manual", "readme", "register", "7za"];
 
@@ -182,13 +171,6 @@ pub fn artwork_asset_url(app: tauri::AppHandle, relative_path: String) -> Result
     let path = root.join(&relative_path);
     if !path.is_file() { return Err("Artwork file not found".into()); }
     Ok(tauri::Url::from_file_path(path).map_err(|_| "Invalid artwork path".to_string())?.to_string())
-}
-
-#[tauri::command]
-pub fn cleanup_artwork_cache(app: tauri::AppHandle) -> Result<(), String> {
-    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    crate::db::artwork::cleanup_non_library_caches(&root, std::time::Duration::from_secs(30 * 24 * 60 * 60));
-    Ok(())
 }
 
 /// Store a selected local image in the artwork directory.
@@ -235,12 +217,6 @@ pub async fn get_steam_tags(app_id: u32) -> Result<Vec<String>, String> {
     Ok(game_scraper::fetch_steam_genres_and_tags(app_id).await)
 }
 
-/// Download images from URLs and return them as base64 data URLs.
-#[tauri::command]
-pub async fn fetch_game_images(urls: Vec<String>) -> Vec<Option<String>> {
-    game_scraper::fetch_game_images(urls).await
-}
-
 /// Search the LaunchBox Games Database for images of a game.
 #[tauri::command]
 pub async fn search_launchbox_images(game_name: String) -> Result<Vec<LaunchBoxImageResult>, String> {
@@ -254,31 +230,35 @@ pub async fn search_launchbox_images(game_name: String) -> Result<Vec<LaunchBoxI
 /// (.mp4, .webm, .mov, .mkv) so the Community → Screenshots tab can show
 /// gameplay recordings alongside still captures. Recurses into subfolders.
 #[tauri::command]
-pub fn list_media_files(folder_path: String) -> Vec<String> {
-    fn list_media_files_flat(dir: &std::path::Path) -> Vec<String> {
-        let mut paths = Vec::new();
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if p.is_dir() {
-                    paths.extend(list_media_files_flat(&p));
-                } else if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                    let lower = ext.to_lowercase();
-                    if matches!(
-                        lower.as_str(),
-                        "jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp"
-                            | "mp4" | "webm" | "mov" | "mkv"
-                    ) {
-                        paths.push(p.to_string_lossy().to_string());
+pub async fn list_media_files(folder_path: String) -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        fn list_media_files_flat(dir: &std::path::Path) -> Vec<String> {
+            let mut paths = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.is_dir() {
+                        paths.extend(list_media_files_flat(&p));
+                    } else if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                        let lower = ext.to_lowercase();
+                        if matches!(
+                            lower.as_str(),
+                            "jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp"
+                                | "mp4" | "webm" | "mov" | "mkv"
+                        ) {
+                            paths.push(p.to_string_lossy().to_string());
+                        }
                     }
                 }
             }
+            paths
         }
+        let mut paths = list_media_files_flat(std::path::Path::new(&folder_path));
+        paths.sort();
         paths
-    }
-    let mut paths = list_media_files_flat(std::path::Path::new(&folder_path));
-    paths.sort();
-    paths
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /// Serializable result for auto-detecting Steam screenshot folders.
@@ -311,87 +291,91 @@ pub struct SteamScreenshotFolder {
 /// Returns an empty Vec when Steam isn't installed or no screenshot
 /// folders exist yet.
 #[tauri::command]
-pub fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
-    let steam_root = match steam_game_watcher::find_steam_install_dir() {
-        Some(r) => r,
-        None => return Vec::new(),
-    };
+pub async fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let steam_root = match steam_game_watcher::find_steam_install_dir() {
+            Some(r) => r,
+            None => return Vec::new(),
+        };
 
-    let userdata_root = steam_root.join("userdata");
-    if !userdata_root.exists() || !userdata_root.is_dir() {
-        return Vec::new();
-    }
+        let userdata_root = steam_root.join("userdata");
+        if !userdata_root.exists() || !userdata_root.is_dir() {
+            return Vec::new();
+        }
 
-    let mut results: Vec<SteamScreenshotFolder> = Vec::new();
+        let mut results: Vec<SteamScreenshotFolder> = Vec::new();
 
-    // Walk every <userdata>/<steamId>/760/remote/ for screenshot folders.
-    if let Ok(user_entries) = std::fs::read_dir(&userdata_root) {
-        for user_entry in user_entries.flatten() {
-            let user_dir = user_entry.path();
-            if !user_dir.is_dir() {
-                continue;
-            }
+        // Walk every <userdata>/<steamId>/760/remote/ for screenshot folders.
+        if let Ok(user_entries) = std::fs::read_dir(&userdata_root) {
+            for user_entry in user_entries.flatten() {
+                let user_dir = user_entry.path();
+                if !user_dir.is_dir() {
+                    continue;
+                }
 
-            let remote_root = user_dir.join("760").join("remote");
-            if !remote_root.exists() || !remote_root.is_dir() {
-                continue;
-            }
+                let remote_root = user_dir.join("760").join("remote");
+                if !remote_root.exists() || !remote_root.is_dir() {
+                    continue;
+                }
 
-            if let Ok(app_entries) = std::fs::read_dir(&remote_root) {
-                for app_entry in app_entries.flatten() {
-                    let p = app_entry.path();
-                    if !p.is_dir() {
-                        continue;
-                    }
-
-                    let dir_name = match p.file_name().and_then(|n| n.to_str()) {
-                        Some(n) => n.to_string(),
-                        None => continue,
-                    };
-
-                    let app_id: u32 = match dir_name.parse() {
-                        Ok(id) => id,
-                        Err(_) => continue,
-                    };
-
-                    // Deduplicate: same game played by multiple accounts.
-                    if results.iter().any(|r| r.app_id == app_id) {
-                        continue;
-                    }
-
-                    let screenshots_dir = p.join("screenshots");
-                    if !screenshots_dir.exists() || !screenshots_dir.is_dir() {
-                        let loose: Vec<String> = list_image_files_flat(&p);
-                        if loose.is_empty() {
+                if let Ok(app_entries) = std::fs::read_dir(&remote_root) {
+                    for app_entry in app_entries.flatten() {
+                        let p = app_entry.path();
+                        if !p.is_dir() {
                             continue;
                         }
+
+                        let dir_name = match p.file_name().and_then(|n| n.to_str()) {
+                            Some(n) => n.to_string(),
+                            None => continue,
+                        };
+
+                        let app_id: u32 = match dir_name.parse() {
+                            Ok(id) => id,
+                            Err(_) => continue,
+                        };
+
+                        // Deduplicate: same game played by multiple accounts.
+                        if results.iter().any(|r| r.app_id == app_id) {
+                            continue;
+                        }
+
+                        let screenshots_dir = p.join("screenshots");
+                        if !screenshots_dir.exists() || !screenshots_dir.is_dir() {
+                            let loose: Vec<String> = list_image_files_flat(&p);
+                            if loose.is_empty() {
+                                continue;
+                            }
+                            results.push(SteamScreenshotFolder {
+                                app_id,
+                                game_name: format!("Unknown Game ({})", app_id),
+                                folder_path: p.to_string_lossy().to_string(),
+                                screenshots: loose,
+                            });
+                            continue;
+                        }
+
+                        let images: Vec<String> = list_image_files_flat(&screenshots_dir);
+                        if images.is_empty() {
+                            continue;
+                        }
+
                         results.push(SteamScreenshotFolder {
                             app_id,
                             game_name: format!("Unknown Game ({})", app_id),
-                            folder_path: p.to_string_lossy().to_string(),
-                            screenshots: loose,
+                            folder_path: screenshots_dir.to_string_lossy().to_string(),
+                            screenshots: images,
                         });
-                        continue;
                     }
-
-                    let images: Vec<String> = list_image_files_flat(&screenshots_dir);
-                    if images.is_empty() {
-                        continue;
-                    }
-
-                    results.push(SteamScreenshotFolder {
-                        app_id,
-                        game_name: format!("Unknown Game ({})", app_id),
-                        folder_path: screenshots_dir.to_string_lossy().to_string(),
-                        screenshots: images,
-                    });
                 }
             }
         }
-    }
 
-    results.sort_by_key(|r| r.app_id);
-    results
+        results.sort_by_key(|r| r.app_id);
+        results
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /// Non-recursive image-file lister for a single directory.
@@ -676,42 +660,6 @@ fn walk_scan_dir(
     }
 }
 
-fn scan_dir(dir: &Path, exes: &mut Vec<ExeInfo>) {
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let entry_path = entry.path();
-            if entry_path.is_dir() {
-                if let Some(name) = entry_path.file_name().and_then(|n| n.to_str()) {
-                    if name.starts_with('.') || name.starts_with('_') {
-                        continue;
-                    }
-                }
-                scan_dir(&entry_path, exes);
-            } else if let Some(ext) = entry_path.extension().and_then(|e| e.to_str()) {
-                if ext.eq_ignore_ascii_case("exe") {
-                    if let Some(stem) = entry_path.file_stem().and_then(|s| s.to_str()) {
-                        if SKIP_KEYWORDS.iter().any(|kw| stem.to_lowercase().contains(kw)) {
-                            continue;
-                        }
-                    }
-                    if let Ok(meta) = entry.metadata() {
-                        let size = meta.len();
-                        let modified_at = meta.modified()
-                            .ok()
-                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                            .map(|d| d.as_secs())
-                            .unwrap_or(0);
-                        exes.push(ExeInfo {
-                            path: entry_path.to_string_lossy().to_string(),
-                            size,
-                            modified_at,
-                        });
-                    }
-                }
-            }
-        }
-    }
-}
 
 
 

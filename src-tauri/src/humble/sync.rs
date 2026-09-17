@@ -23,6 +23,7 @@ use super::types::{
     HumbleTroveGame,
 };
 use crate::size;
+use crate::util::current_unix;
 
 /// Public Tauri command — orchestrates the full sync and returns the
 /// typed result. Pure-Rust; the WebView is only used at login time.
@@ -328,9 +329,3 @@ fn slug(s: &str) -> String {
         .join("-")
 }
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}

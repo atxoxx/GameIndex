@@ -283,13 +283,6 @@ pub fn rom_identify(app: tauri::AppHandle, game_id: String) -> Result<ParsedRomN
     Ok(parse_rom_filename(stem))
 }
 
-/// Clean a raw filename into a readable title (pure helper used by the
-/// rename input and the QoL name-cleanup action).
-#[tauri::command]
-pub fn rom_clean_name(name: String) -> Result<String, String> {
-    Ok(clean_rom_name(&name))
-}
-
 // ─── Command: metadata scraping ─────────────────────────────────────────────
 
 /// A single scraped-metadata candidate for a ROM (subsets the richer
@@ -826,14 +819,6 @@ pub fn rom_saves_delete(
 
 // ─── Command: per-ROM launch profiles ───────────────────────────────────────
 
-/// Read a ROM's stored launch profile (None when unset).
-#[tauri::command]
-pub fn rom_profile_get(app: tauri::AppHandle, game_id: String) -> Result<Option<RomProfile>, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let game = load_game(db_state.inner(), &game_id)?;
-    Ok(game.rom_profile)
-}
-
 /// Save (or clear, when empty) a ROM's launch profile. Returns the
 /// updated game row.
 #[tauri::command]
@@ -1094,61 +1079,60 @@ fn bios_requirements(platform: &str) -> Vec<BiosRequirement> {
     Vec::new()
 }
 
-/// The BIOS requirements for a platform (UI reference; no file contents).
-#[tauri::command]
-pub fn bios_requirements_list(platform: String) -> Result<Vec<BiosRequirement>, String> {
-    Ok(bios_requirements(&platform))
-}
-
 /// Check which required BIOS files are present (and hash-valid where a
 /// known-good SHA-1 exists) in the emulator's configured BIOS folder.
 #[tauri::command]
-pub fn check_bios_status(app: tauri::AppHandle, emulator_id: String) -> Result<BiosCheckResult, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let emu = db::emulators::get(db_state.inner(), &emulator_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Emulator not found: {emulator_id}"))?;
+pub async fn check_bios_status(app: tauri::AppHandle, emulator_id: String) -> Result<BiosCheckResult, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    // Walks the BIOS folder and SHA-1 hashes every match — run it off the event loop.
+    tauri::async_runtime::spawn_blocking(move || {
+        let emu = db::emulators::get(&db, &emulator_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Emulator not found: {emulator_id}"))?;
 
-    let reqs = bios_requirements(&emu.platform);
-    let folder = emu.bios_folder.filter(|f| !f.trim().is_empty());
-    let configured = folder.is_some();
+        let reqs = bios_requirements(&emu.platform);
+        let folder = emu.bios_folder.filter(|f| !f.trim().is_empty());
+        let configured = folder.is_some();
 
-    let mut statuses: Vec<BiosStatus> = Vec::new();
-    let mut missing: Vec<String> = Vec::new();
-    for req in reqs {
-        let mut found = false;
-        let mut found_path: Option<String> = None;
-        let mut hash_ok: Option<bool> = None;
-        if let Some(f) = &folder {
-            if let Some(hit) = find_bios_file(Path::new(f), &req.name) {
-                let meta = std::fs::metadata(&hit).ok();
-                found = meta.map(|m| m.len() > 0).unwrap_or(false);
-                found_path = Some(hit.to_string_lossy().to_string());
-                if let Some(expected) = &req.expected_sha1 {
-                    let actual = sha1_file(&hit);
-                    hash_ok = Some(actual.as_deref() == Some(expected.as_str()));
+        let mut statuses: Vec<BiosStatus> = Vec::new();
+        let mut missing: Vec<String> = Vec::new();
+        for req in reqs {
+            let mut found = false;
+            let mut found_path: Option<String> = None;
+            let mut hash_ok: Option<bool> = None;
+            if let Some(f) = &folder {
+                if let Some(hit) = find_bios_file(Path::new(f), &req.name) {
+                    let meta = std::fs::metadata(&hit).ok();
+                    found = meta.map(|m| m.len() > 0).unwrap_or(false);
+                    found_path = Some(hit.to_string_lossy().to_string());
+                    if let Some(expected) = &req.expected_sha1 {
+                        let actual = sha1_file(&hit);
+                        hash_ok = Some(actual.as_deref() == Some(expected.as_str()));
+                    }
                 }
             }
+            if !found {
+                missing.push(req.name.clone());
+            }
+            statuses.push(BiosStatus {
+                name: req.name,
+                description: req.description,
+                found,
+                path: found_path,
+                hash_ok,
+                mandatory: req.mandatory,
+            });
         }
-        if !found {
-            missing.push(req.name.clone());
-        }
-        statuses.push(BiosStatus {
-            name: req.name,
-            description: req.description,
-            found,
-            path: found_path,
-            hash_ok,
-            mandatory: req.mandatory,
-        });
-    }
-    Ok(BiosCheckResult {
-        platform: emu.platform,
-        bios_folder: folder,
-        configured,
-        requirements: statuses,
-        missing,
+        Ok(BiosCheckResult {
+            platform: emu.platform,
+            bios_folder: folder,
+            configured,
+            requirements: statuses,
+            missing,
+        })
     })
+    .await
+    .map_err(|e| format!("check_bios_status task: {e}"))?
 }
 
 /// Case-insensitive recursive lookup of a BIOS file name in a folder
@@ -1713,33 +1697,6 @@ fn pick_playable_file(files: &[PathBuf]) -> Option<PathBuf> {
             .max_by_key(|f| std::fs::metadata(f).map(|m| m.len()).unwrap_or(0))
             .cloned()
     })
-}
-
-/// Ensure a ROM archive is extracted to the managed cache and return
-/// the playable file path (idempotent — reuses the cached copy).
-#[tauri::command]
-pub async fn rom_extract(
-    app: tauri::AppHandle,
-    game_id: String,
-) -> Result<String, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let game = load_game(db_state.inner(), &game_id)?;
-    let rom_path = game.rom_path.clone().ok_or("ROM has no file path")?;
-    let emu_id = game
-        .emulator_id
-        .clone()
-        .ok_or("ROM has no emulator linkage")?;
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("app data dir: {e}"))?;
-    let game_id_for_task = game_id.clone();
-    let path = tokio::task::spawn_blocking(move || {
-        extract_rom_archive(&app_data_dir, &emu_id, &game_id_for_task, &rom_path)
-    })
-    .await
-    .map_err(|e| format!("extract task: {e}"))??;
-    Ok(path)
 }
 
 // ─── Command: config import / export (JSON) ─────────────────────────────────

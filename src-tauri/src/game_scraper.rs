@@ -2410,22 +2410,6 @@ pub async fn download_image_to_base64(url: &str) -> Option<String> {
     Some(format!("data:{};base64,{}", content_type, b64))
 }
 
-/// Batch-download images and return base64 data URLs.
-/// This is exposed as a Tauri command.
-pub async fn fetch_game_images(urls: Vec<String>) -> Vec<Option<String>> {
-    let mut handles = Vec::new();
-    for url in urls {
-        handles.push(tokio::spawn(async move {
-            download_image_to_base64(&url).await
-        }));
-    }
-    let mut results = Vec::new();
-    for handle in handles {
-        results.push(handle.await.unwrap_or(None));
-    }
-    results
-}
-
 // ─── Source: Steam ────────────────────────────────────────────────────────────
 
 /// Search Steam's store for a game and return metadata.

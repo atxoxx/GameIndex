@@ -20,6 +20,7 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use super::types::HumbleSession;
 use crate::db;
+use crate::util::current_unix;
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -288,9 +289,3 @@ fn persist_session(app: &AppHandle, session: &HumbleSession) -> Result<(), Strin
     db::kv::set(db_state.inner(), HUMBLE_SESSION_KV_KEY, &json)
 }
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}

@@ -24,6 +24,7 @@ use crate::game_watcher::GameWatcher;
 use crate::metrics_collector;
 use crate::size;
 use crate::uplay::settings::load as load_settings;
+use crate::util::current_unix;
 
 /// Public Tauri command — scans installed + owned Ubisoft Connect games
 /// per the user's settings toggles and returns a typed result.
@@ -221,9 +222,3 @@ pub async fn uplay_launch_game(
     Ok(initial_pid)
 }
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}

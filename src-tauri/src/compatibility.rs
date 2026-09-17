@@ -2406,11 +2406,6 @@ pub fn list_compatibility_runners() -> Vec<CompatibilityRunner> {
 }
 
 #[tauri::command]
-pub fn get_compatibility_runners() -> Vec<CompatibilityRunner> {
-    detect_compatibility_runners()
-}
-
-#[tauri::command]
 pub fn get_compatibility_system_status() -> LinuxSystemStatus {
     get_linux_system_status()
 }

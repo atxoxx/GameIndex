@@ -26,6 +26,7 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use super::types::EpicAuthTokens;
 use crate::db;
+use crate::util::current_unix;
 
 // ── Epic Launcher OAuth constants (from Playnite's EpicLibrary) ─────
 const EPIC_AUTH_ENCODED: &str =
@@ -342,12 +343,6 @@ fn extract_code_from_url(url: &str) -> Option<String> {
     None
 }
 
-fn current_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-}
 
 /// Persist Epic OAuth tokens to the SQLite `kv_store` table.
 ///
