@@ -177,6 +177,16 @@ const DownloadContext =
   globalDownloadObj.__gamelib_download_context__ ??
   (globalDownloadObj.__gamelib_download_context__ = createContext<DownloadContextValue | null>(null));
 
+// Narrow context carrying only the active-download count. Kept separate
+// from `DownloadContext` so badge-style consumers re-render when the
+// number changes rather than on every 2 s progress tick.
+const globalActiveCountObj = globalThis as unknown as {
+  __gamelib_active_download_count_context__?: React.Context<number>;
+};
+const ActiveDownloadCountContext =
+  globalActiveCountObj.__gamelib_active_download_count_context__ ??
+  (globalActiveCountObj.__gamelib_active_download_count_context__ = createContext<number>(0));
+
 /** Initial empty-list render value for SSR / pre-hydrate. */
 const EMPTY_DOWNLOADS: TorrentDownload[] = [];
 
@@ -217,6 +227,22 @@ function sortDownloads(a: TorrentDownload, b: TorrentDownload): number {
   if (aActive && !bActive) return -1;
   if (!aActive && bActive) return 1;
   return b.addedAt - a.addedAt;
+}
+
+/**
+ * Boundary guard for untrusted progress payloads: an entry is only usable
+ * if it carries a `status` object with a string `kind`. Anything else would
+ * make the derived-state sort/filter helpers dereference `status.kind` on
+ * undefined during render, so such entries never reach state.
+ */
+function hasUsableStatus(entry: unknown): entry is TorrentDownload {
+  if (!entry || typeof entry !== "object") return false;
+  const status = (entry as { status?: unknown }).status;
+  return (
+    !!status &&
+    typeof status === "object" &&
+    typeof (status as { kind?: unknown }).kind === "string"
+  );
 }
 
 function areDownloadsEqual(a: TorrentDownload[], b: TorrentDownload[]): boolean {
@@ -449,18 +475,25 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         //    any routes mount — but this ordering is still safer.)
         const unlistenFn = await listen<TorrentDownload[]>("download-progress", (event) => {
           if (!Array.isArray(event.payload)) return;
+          // Sanitise at the boundary before the payload reaches any derived
+          // state. A payload that contains entries but none of them usable is
+          // treated as malformed (ignored) rather than as an empty queue, so a
+          // bad tick can't wipe out a valid list.
+          const snapshot = event.payload.filter(hasUsableStatus);
+          if (event.payload.length > 0 && snapshot.length === 0) return;
           // Skip the identical-snapshot case before doing any work: a
           // byte-identical payload (idle seed / paused / stalled) needs no
           // completion scan and no deep compare. Field order is preserved by
           // the Rust serde output, so the JSON string is a stable fingerprint.
-          const sig = event.payload
+          const sig = snapshot
             .map((d) => `${d.id}:${d.status.kind}:${d.downloaded}:${d.totalSize}:${d.progress}:${d.downloadSpeed}:${d.uploadSpeed}:${d.peers}:${d.seeds}`)
             .join("|");
           if (sig === lastSnapshotSigRef.current) return;
           lastSnapshotSigRef.current = sig;
-          notifyCompletionsRef.current(event.payload);          setDownloads((prev) => {
-            if (areDownloadsEqual(prev, event.payload)) return prev;
-            return event.payload;
+          notifyCompletionsRef.current(snapshot);
+          setDownloads((prev) => {
+            if (areDownloadsEqual(prev, snapshot)) return prev;
+            return snapshot;
           });
           setLoading(false);
 
@@ -890,6 +923,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     () => sorted.filter((d) => isCompletedStatus(d.status)),
     [sorted],
   );
+  const activeCount = activeDownloads.length;
 
   const value = useMemo<DownloadContextValue>(
     () => ({
@@ -897,7 +931,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       activeDownloads,
       completedDownloads,
       history,
-      activeCount: activeDownloads.length,
+      activeCount,
       loading,
       addDownload,
       addDirectDownload,
@@ -936,6 +970,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       sorted,
       activeDownloads,
       completedDownloads,
+      activeCount,
       history,
       loading,
       addDownload,
@@ -973,7 +1008,13 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  return <DownloadContext.Provider value={value}>{children}</DownloadContext.Provider>;
+  return (
+    <DownloadContext.Provider value={value}>
+      <ActiveDownloadCountContext.Provider value={activeCount}>
+        {children}
+      </ActiveDownloadCountContext.Provider>
+    </DownloadContext.Provider>
+  );
 }
 
 /**
@@ -991,14 +1032,12 @@ export function useDownloads(): DownloadContextValue {
 
 /**
  * Lightweight hook for callers that only need the active-download
- * count (e.g. the TopNav badge). Re-renders only when the count
- * changes, not on every progress tick — saves a re-render of the
- * whole topnav every 2 s.
+ * count (e.g. the TopNav badge). Subscribes to the narrow count-only
+ * context, so it re-renders only when the number actually changes and
+ * not on every 2 s progress tick. Returns 0 when no provider is mounted.
  */
 export function useActiveDownloadCount(): number {
-  const ctx = useContext(DownloadContext);
-  if (!ctx) return 0;
-  return ctx.activeCount;
+  return useContext(ActiveDownloadCountContext);
 }
 
 // Re-export the status helpers so existing call sites can pull
