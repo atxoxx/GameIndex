@@ -23,7 +23,7 @@
 // just spread `useFocusable`'s return value), `useFocusableRef` is
 // the lower-level primitive that exposes the callback directly.
 
-import { useCallback, useRef, type KeyboardEvent } from "react";
+import { useCallback, useRef, type AriaRole, type KeyboardEvent } from "react";
 import { useGamepad } from "./GamepadProvider";
 
 export interface FocusableProps {
@@ -31,8 +31,19 @@ export interface FocusableProps {
   ref: (el: HTMLElement | null) => void;
   /** Always `0` so the element joins the natural tab order. */
   tabIndex: number;
-  /** WAI-ARIA role hint — controller-driven pickers use this. */
-  role: "option";
+  /**
+   * Optional WAI-ARIA role hint, deliberately never set by the hook.
+   * Historically every focusable was forced to `role="option"`, which
+   * clobbered the native role of buttons, links and inputs (breaking
+   * assistive tech and `getByRole` semantics) and left plain `<div>`
+   * containers announced as list options. The hook now leaves the role
+   * alone, so a caller that focuses a non-native container must state
+   * what that container is: `role="button"` for something that performs
+   * an action, `role="link"` for something that navigates. The typing is
+   * wide enough for any ARIA role because the honest answer differs per
+   * call site.
+   */
+  role?: AriaRole;
   /** Mouse / keyboard fallback (the virtual cursor also uses it). */
   onClick: () => void;
   /**
@@ -98,7 +109,6 @@ export function useFocusable(onActivate: () => void): FocusableProps {
   return {
     ref: refCallback,
     tabIndex: 0,
-    role: "option" as const,
     onClick: () => onActivateRef.current(),
     onKeyDown,
   };

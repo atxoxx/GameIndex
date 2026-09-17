@@ -18,7 +18,6 @@ vi.mock("../../hooks/useFocusable", () => ({
   useFocusable: (onActivate: () => void) => ({
     ref: () => {},
     tabIndex: 0,
-    role: "option",
     onClick: onActivate,
     onKeyDown: () => {},
   }),

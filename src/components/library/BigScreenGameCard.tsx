@@ -48,6 +48,7 @@ export default function BigScreenGameCard({
     <div
       className={`bigscreen-game-card${isRunning ? " running" : ""}`}
       {...focusable}
+      role="link"
       data-game-id={game.id}
       data-focus-key={`game:${game.id}`}
       onMouseEnter={() => setHovered(true)}

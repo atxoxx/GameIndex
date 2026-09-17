@@ -155,6 +155,7 @@ function NewsArticleCard({
     <div
       className="bigscreen-game-card bigscreen-news-card"
       {...focusProps}
+      role="button"
     >
       <div className="bigscreen-news-card-cover">
         {article.imageUrl ? (

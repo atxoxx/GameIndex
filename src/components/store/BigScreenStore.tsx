@@ -322,6 +322,7 @@ function BigScreenWishlistCard({ item }: { item: StoreGameSummary }) {
     <div
       className="bigscreen-game-card store-wishlist-card"
       {...focusProps}
+      role="link"
       aria-label={item.name}
     >
       <div className="bigscreen-game-card-cover">

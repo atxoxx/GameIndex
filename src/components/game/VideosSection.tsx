@@ -282,10 +282,15 @@ export default function VideosSection({ game }: VideosSectionProps) {
 
         {items.length > 1 && (
           <div className="carousel-wrap">
+            {/* Arrows are mouse paging for the trailer strip; the trailer
+                buttons are the controls, so the arrows stay out of the tab
+                order and the a11y tree. */}
             <button
               type="button"
               className="carousel-arrow carousel-arrow--prev"
               aria-label={t("videos.scrollTrailersLeft")}
+              tabIndex={-1}
+              aria-hidden
               onClick={() => scrollSelector(-1)}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -330,6 +335,8 @@ export default function VideosSection({ game }: VideosSectionProps) {
               type="button"
               className="carousel-arrow carousel-arrow--next"
               aria-label={t("videos.scrollTrailersRight")}
+              tabIndex={-1}
+              aria-hidden
               onClick={() => scrollSelector(1)}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

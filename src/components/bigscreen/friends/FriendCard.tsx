@@ -46,6 +46,8 @@ export default function FriendCard(props: FriendCardProps) {
           playing ? " bigscreen-friend-card--playing" : ""
         }${friend.blocked ? " bigscreen-friend-card--blocked" : ""}`}
         {...focusCard}
+        role="button"
+        aria-haspopup="dialog"
       >
         <div className="bigscreen-friend-card-top">
           <FriendAvatar avatar={friend.avatar} name={friend.name} className="bigscreen-friend-avatar" />

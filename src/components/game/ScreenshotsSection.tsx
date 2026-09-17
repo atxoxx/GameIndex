@@ -27,6 +27,7 @@ function BigScreenScreenshotItem({
     <div
       className="screenshot-item"
       {...focusProps}
+      role="button"
       aria-label={t("screenshots.openAria", { n: index + 1 })}
     >
       <img
@@ -66,11 +67,16 @@ export default function ScreenshotsSection({
           {game.screenshots.length}
         </span>
       </h2>
+      {/* The arrows are mouse paging for the strip: the screenshots
+          themselves are the controls, so the arrows stay out of the tab
+          order and the a11y tree. */}
       <div className="carousel-wrap">
         <button
           type="button"
           className="carousel-arrow carousel-arrow--prev"
           aria-label={t("screenshots.scrollLeft")}
+          tabIndex={-1}
+          aria-hidden
           onClick={() => scrollBy(-1)}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -119,6 +125,8 @@ export default function ScreenshotsSection({
           type="button"
           className="carousel-arrow carousel-arrow--next"
           aria-label={t("screenshots.scrollRight")}
+          tabIndex={-1}
+          aria-hidden
           onClick={() => scrollBy(1)}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -186,6 +186,7 @@ function TopGameRow({
   return (
     <div
       {...focusProps}
+      role="link"
       className="bigscreen-topgame-row"
     >
       <div className="bigscreen-topgame-cover">
