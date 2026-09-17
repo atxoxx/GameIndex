@@ -1,10 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HORIZONTAL_TRACK_SELECTOR,
+  entriesWithin,
+  firstNavigableWithin,
   nearestInDirection,
   scrollElementIntoViewControlled,
   type FocusableCandidate,
 } from "./gamepadUtils";
+import {
+  activeOverlayRoot,
+  isBigScreenOverlayOpen,
+} from "../../context/BigScreenContext";
 
 /** Stamp a deterministic viewport rect onto a jsdom element. */
 function place(
@@ -206,5 +212,111 @@ describe("HORIZONTAL_TRACK_SELECTOR", () => {
   it("includes the v3 header strip alongside the content rails", () => {
     expect(HORIZONTAL_TRACK_SELECTOR).toContain(".bigscreen-v3-sections");
     expect(HORIZONTAL_TRACK_SELECTOR).toContain("[data-rail-id]");
+  });
+});
+
+// ── Overlay containment ─────────────────────────────────────────
+// D-pad / A must stay inside the topmost open overlay so the controller
+// can never reach a hidden control behind a modal, drawer, lightbox or
+// search surface.
+
+describe("entriesWithin", () => {
+  it("keeps only the entries contained in the root", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const inside = makeButton(root, 0, 0);
+    const outside = makeButton(document.body, 0, 0);
+
+    const entries = candidatesFor([inside, outside]);
+    expect(entriesWithin(root, entries).map((e) => e.element)).toEqual([
+      inside,
+    ]);
+    expect(entriesWithin(root, entries)).not.toBe(entries);
+  });
+
+  it("returns the candidate list untouched for a null root", () => {
+    const a = makeButton(document.body, 0, 0);
+    const entries = candidatesFor([a]);
+    expect(entriesWithin(null, entries)).toBe(entries);
+  });
+});
+
+describe("firstNavigableWithin", () => {
+  it("skips non-navigable entries and returns the first navigable one inside the root", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    // Zero-area elements (jsdom default rect) are not navigable.
+    const zeroArea = document.createElement("button");
+    root.appendChild(zeroArea);
+    const visible = makeButton(root, 0, 0);
+
+    expect(
+      firstNavigableWithin(root, candidatesFor([zeroArea, visible]))?.element,
+    ).toBe(visible);
+  });
+
+  it("returns null when the root holds no navigable entry", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const zeroArea = document.createElement("button");
+    root.appendChild(zeroArea);
+
+    expect(firstNavigableWithin(root, candidatesFor([zeroArea]))).toBeNull();
+  });
+
+  it("ignores a navigable entry outside the root", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const outside = makeButton(document.body, 0, 0);
+
+    expect(firstNavigableWithin(root, candidatesFor([outside]))).toBeNull();
+  });
+
+  it("returns the first navigable entry from the whole list for a null root", () => {
+    const first = makeButton(document.body, 0, 0);
+    const second = makeButton(document.body, 300, 0);
+    expect(
+      firstNavigableWithin(null, candidatesFor([first, second]))?.element,
+    ).toBe(first);
+  });
+});
+
+describe("activeOverlayRoot", () => {
+  it("returns null when no overlay is mounted", () => {
+    expect(activeOverlayRoot()).toBeNull();
+    expect(isBigScreenOverlayOpen()).toBe(false);
+  });
+
+  it("resolves nested overlays (drawer with a modal inside) to the inner one", () => {
+    const drawer = document.createElement("div");
+    drawer.setAttribute("data-bigscreen-overlay", "true");
+    document.body.appendChild(drawer);
+
+    const modal = document.createElement("div");
+    modal.setAttribute("role", "dialog");
+    drawer.appendChild(modal);
+
+    expect(activeOverlayRoot()).toBe(modal);
+    expect(isBigScreenOverlayOpen()).toBe(true);
+  });
+
+  it("returns the last mounted sibling overlay (topmost)", () => {
+    const drawer = document.createElement("div");
+    drawer.setAttribute("data-bigscreen-overlay", "true");
+    document.body.appendChild(drawer);
+
+    const modal = document.createElement("div");
+    modal.setAttribute("role", "dialog");
+    document.body.appendChild(modal);
+
+    expect(activeOverlayRoot()).toBe(modal);
+  });
+
+  it("recognises role=alertdialog (UI-kit ConfirmModal)", () => {
+    const confirm = document.createElement("div");
+    confirm.setAttribute("role", "alertdialog");
+    document.body.appendChild(confirm);
+
+    expect(activeOverlayRoot()).toBe(confirm);
   });
 });

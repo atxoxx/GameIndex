@@ -173,6 +173,21 @@ export interface BigScreenContextValue {
   setBigScreen: (on: boolean) => void;
   /** True after the initial localStorage hydration. */
   ready: boolean;
+  /**
+   * Whether the "exit Big Screen?" confirmation is showing. The shell
+   * opens it when controller Back is pressed on a top-level screen;
+   * confirming calls `setBigScreen(false)`.
+   */
+  exitConfirmOpen: boolean;
+  /**
+   * Ask to leave Big Screen Mode. Deliberately only opens the
+   * confirmation surface — it never calls `setBigScreen(false)`
+   * itself, so a stray Back press can't drop the user out of the
+   * mode without a deliberate confirm.
+   */
+  requestExit: () => void;
+  /** Dismiss the exit confirmation without leaving Big Screen Mode. */
+  cancelExit: () => void;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -185,15 +200,37 @@ const BigScreenContext =
   (globalBigScreenObj.__gamelib_bigscreen_context__ = createContext<BigScreenContextValue | null>(null));
 
 /**
+ * Selector matching every Big Screen overlay surface: modals, drawers,
+ * search/lightbox surfaces, and the UI-kit `ConfirmModal`
+ * (`role="alertdialog"`).
+ */
+const OVERLAY_SELECTOR =
+  '[role="dialog"], [role="alertdialog"], [data-bigscreen-overlay="true"]';
+
+/**
+ * The topmost open overlay root, or `null` when none is open.
+ *
+ * Overlays are portal-rendered onto `document.body` and appended, so
+ * the last element in document order is the most recently mounted —
+ * i.e. the topmost surface. Spatial navigation and A-activation are
+ * confined to this subtree so a controller can never move focus to (or
+ * activate) a hidden control behind an open overlay.
+ */
+export function activeOverlayRoot(): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  const matches = document.querySelectorAll<HTMLElement>(OVERLAY_SELECTOR);
+  return matches.item(matches.length - 1);
+}
+
+/**
  * True when a modal, drawer, search surface, or lightbox is open.
  * Shared by the shell's Escape handler and the page-level back
  * handlers so controller B always defers to the topmost surface.
+ * Implemented in terms of `activeOverlayRoot` so the two can never
+ * diverge.
  */
 export function isBigScreenOverlayOpen(): boolean {
-  if (typeof document === "undefined") return false;
-  return !!document.querySelector(
-    '[role="dialog"], [data-bigscreen-overlay="true"]',
-  );
+  return activeOverlayRoot() !== null;
 }
 
 // ── Provider ────────────────────────────────────────────────────
@@ -242,6 +279,20 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
       setTauriFullscreen(next);
       return next;
     });
+  }, []);
+
+  // ── Exit confirmation ──────────────────────────────────────
+  // The shell-owned Back resolver opens this instead of exiting
+  // directly; the actual exit only happens on confirm. Kept in the
+  // context (rather than the layout) so any surface can drive it.
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+
+  const requestExit = useCallback(() => {
+    setExitConfirmOpen(true);
+  }, []);
+
+  const cancelExit = useCallback(() => {
+    setExitConfirmOpen(false);
   }, []);
 
   // ── Single keydown listener ─────────────────────────────────
@@ -309,8 +360,22 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
   }, [isBigScreen]);
 
   const value = useMemo<BigScreenContextValue>(
-    () => ({ isBigScreen, setBigScreen, ready }),
-    [isBigScreen, setBigScreen, ready],
+    () => ({
+      isBigScreen,
+      setBigScreen,
+      ready,
+      exitConfirmOpen,
+      requestExit,
+      cancelExit,
+    }),
+    [
+      isBigScreen,
+      setBigScreen,
+      ready,
+      exitConfirmOpen,
+      requestExit,
+      cancelExit,
+    ],
   );
 
   return (

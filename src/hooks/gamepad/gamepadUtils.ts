@@ -89,6 +89,13 @@ export const WRAPPING_TRACK_SELECTOR = "[data-rail-id]";
 export const CYCLER_PRIORITY_SHELL = -100;
 /** Default priority for page-level cyclers and back handlers. */
 export const CYCLER_PRIORITY_PAGE = 0;
+/**
+ * Priority for the shell-owned back resolver. Deliberately the lowest
+ * so any page-level back handler (default `CYCLER_PRIORITY_PAGE`) wins
+ * the B-button race; the shell only claims B when the current page
+ * registered nothing.
+ */
+export const BACK_PRIORITY_SHELL = -100;
 
 // ── Scroll margins ───────────────────────────────────────────────
 // Used by `scrollElementIntoViewControlled` for the main vertical
@@ -119,6 +126,42 @@ export const VIEWPORT_CULL_BUFFER = 1.25;
 export interface FocusableCandidate {
   element: HTMLElement;
   onActivate: () => void;
+}
+
+// ── Overlay containment ─────────────────────────────────────────
+// When a modal / drawer / lightbox / search surface is open, spatial
+// navigation and A-activation must stay inside its subtree so the
+// controller can never move focus to (or activate) a hidden control
+// behind it. These helpers are pure and dependency-free so they can be
+// unit-tested without a gamepad object.
+
+/**
+ * Registered entries contained in `root`. A `null` root means "no
+ * overlay": the list is returned untouched (same reference) so every
+ * non-overlay code path is unaffected.
+ */
+export function entriesWithin<T extends { element: HTMLElement }>(
+  root: HTMLElement | null,
+  entries: T[],
+): T[] {
+  if (!root) return entries;
+  return entries.filter((entry) => root.contains(entry.element));
+}
+
+/**
+ * First navigable entry within `root`, or `null` when the root holds no
+ * navigable registered control (e.g. a just-opened search overlay whose
+ * input hasn't mounted/focused yet). Callers treat `null` as a no-op so
+ * focus never leaks behind an overlay.
+ */
+export function firstNavigableWithin<T extends { element: HTMLElement }>(
+  root: HTMLElement | null,
+  entries: T[],
+): T | null {
+  for (const entry of entriesWithin(root, entries)) {
+    if (isNavigable(entry.element)) return entry;
+  }
+  return null;
 }
 
 /** Viewport rectangle helper (used to deprioritize off-screen items). */

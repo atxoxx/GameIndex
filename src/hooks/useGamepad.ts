@@ -46,8 +46,13 @@ import {
   REPEAT_INTERVAL_MS,
   CYCLER_PRIORITY_PAGE,
   isNavigable,
+  entriesWithin,
+  firstNavigableWithin,
 } from "./gamepad/gamepadUtils";
-import { isBigScreenOverlayOpen } from "../context/BigScreenContext";
+import {
+  activeOverlayRoot,
+  isBigScreenOverlayOpen,
+} from "../context/BigScreenContext";
 import { useSettings } from "../context/SettingsContext";
 
 // ── Types ───────────────────────────────────────────────────────
@@ -96,6 +101,15 @@ export interface GamepadState {
     direction: "up" | "down" | "left" | "right",
     immediate?: boolean,
   ) => boolean;
+  /**
+   * Focus the first registered, navigable focusable — optionally
+   * restricted to elements inside `scope`. Unlike a raw DOM query
+   * (`querySelector('[tabindex="0"]')`), this only ever picks an
+   * element that was registered with the engine, so the focus-ref
+   * sync and therefore D-pad navigation are guaranteed to work on it.
+   * Returns whether something was focused.
+   */
+  focusFirst: (scope?: HTMLElement) => boolean;
   /** Virtual mouse pointer state (driven by right stick + triggers). */
   virtualMouse: VirtualMouseState;
   /** Toggle the virtual mouse cursor (Y button or programmatic). */
@@ -377,26 +391,60 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
   // Shared by the rAF loop (D-pad / left stick) and the shell's
   // Arrow-key handling, so both paths pick the same next element and
   // run the same controlled scroll. Returns true when focus moved.
-  const navigateInDirection = useCallback(
-    (dirH: number, dirV: number, immediate = false): boolean => {
-      const focused = focusedRef.current;
-      if (!focused) return false;
-      const entries = entriesRef.current;
-      if (entries.length < 2) return false;
-
-      const dirAngle = Math.atan2(dirV, dirH);
-      const next = nearestInDirection(focused, entries, dirAngle);
-      if (!next || next === focused) return false;
-
-      focused.removeAttribute("data-focused");
-      focusedRef.current = next;
-      next.setAttribute("data-focused", "true");
-      scrollElementIntoViewControlled(next, { immediate });
-      setFocusedElement(next);
-      next.focus({ preventScroll: true });
-      return true;
+  //
+  // Shared focus-assignment primitive: clears the previous ring,
+  // marks the next element, runs the controlled scroll, publishes the
+  // focused element and focuses it without native scrolling. Used by
+  // spatial navigation, the overlay snap, and `focusFirst`.
+  const focusElement = useCallback(
+    (el: HTMLElement, immediate = false) => {
+      if (focusedRef.current && focusedRef.current !== el) {
+        focusedRef.current.removeAttribute("data-focused");
+      }
+      focusedRef.current = el;
+      el.setAttribute("data-focused", "true");
+      scrollElementIntoViewControlled(el, { immediate });
+      setFocusedElement(el);
+      el.focus({ preventScroll: true });
     },
     [],
+  );
+
+  const navigateInDirection = useCallback(
+    (dirH: number, dirV: number, immediate = false): boolean => {
+      const dirAngle = Math.atan2(dirV, dirH);
+      // The topmost open overlay scopes both the candidate set and
+      // focus: while one is mounted, D-pad must never move focus to an
+      // element behind it (which A would then activate).
+      const root = activeOverlayRoot();
+
+      if (root) {
+        const focused = focusedRef.current;
+        if (!focused || !root.contains(focused)) {
+          // Focus is outside the overlay (or nowhere): snap to its
+          // first control instead of navigating geometrically. A
+          // root with no registered navigable control yet (e.g. a
+          // search overlay still mounting its input) is a no-op.
+          const first = firstNavigableWithin(root, entriesRef.current);
+          if (!first) return false;
+          focusElement(first.element, immediate);
+          return true;
+        }
+        const scoped = entriesWithin(root, entriesRef.current);
+        const next = nearestInDirection(focused, scoped, dirAngle);
+        if (!next || next === focused) return false;
+        focusElement(next, immediate);
+        return true;
+      }
+
+      const focused = focusedRef.current;
+      if (!focused) return false;
+      const next = nearestInDirection(focused, entriesRef.current, dirAngle);
+      if (!next || next === focused) return false;
+      focusElement(next, immediate);
+      return true;
+    },
+    [focusElement],
   );
 
   const navigate = useCallback(
@@ -408,6 +456,25 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       return navigateInDirection(h, v, immediate);
     },
     [navigateInDirection],
+  );
+
+  // ── Registry-scoped initial focus ───────────────────────────
+  // Focus the first registered navigable entry, optionally limited to
+  // a subtree. This is the shell's route-change entry point: picking
+  // from `entriesRef` (registered elements only) guarantees the
+  // engine's `focusedRef` syncs, whereas a raw DOM query could land
+  // on an element `registerAction` never saw — leaving D-pad dead.
+  const focusFirst = useCallback(
+    (scope?: HTMLElement): boolean => {
+      const candidate = firstNavigableWithin(
+        scope ?? null,
+        entriesRef.current,
+      );
+      if (!candidate) return false;
+      focusElement(candidate.element);
+      return true;
+    },
+    [focusElement],
   );
 
   // ── Polling loop ────────────────────────────────────────────
@@ -667,11 +734,27 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
             }
           }
           vm.lastInputMs = now;
-        } else if (focusedRef.current) {
-          const entry = entriesRef.current.find(
-            (e) => e.element === focusedRef.current,
-          );
-          if (entry && isNavigable(entry.element)) entry.onActivate();
+        } else {
+          // No cursor: activate through the registry. While an
+          // overlay is open, activation is confined to it — a stale
+          // focus behind the overlay must never fire. If focus is
+          // inside the overlay activate it; otherwise activate the
+          // overlay's first navigable control (no-op when it has
+          // none, e.g. a search overlay still mounting its input).
+          const root = activeOverlayRoot();
+          if (root) {
+            const focused = focusedRef.current;
+            const target =
+              focused && root.contains(focused)
+                ? entriesRef.current.find((e) => e.element === focused)
+                : firstNavigableWithin(root, entriesRef.current);
+            if (target && isNavigable(target.element)) target.onActivate();
+          } else if (focusedRef.current) {
+            const entry = entriesRef.current.find(
+              (e) => e.element === focusedRef.current,
+            );
+            if (entry && isNavigable(entry.element)) entry.onActivate();
+          }
         }
       }
       prevButtonsRef.current.a = aPressed;
@@ -842,6 +925,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     focusedElement,
     registerAction,
     navigate,
+    focusFirst,
     virtualMouse,
     toggleVirtualMouse,
     recenterVirtualMouse,
