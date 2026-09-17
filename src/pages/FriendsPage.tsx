@@ -60,6 +60,11 @@ import {
   buildNostrOutboxPayload,
   publishNostrOutbox,
   stripDms,
+  NOSTR_RELAYS,
+  getNostrShareScope,
+  isNostrIdentityReady,
+  initNostrKeys,
+  remoteFriendsInclude,
   loadFriendsDbToLocalStorage,
   setDeviceId,
   listPeerOutboxes,
@@ -104,13 +109,6 @@ import "../styles/friends-tabs-b.css";
 import "../styles/friends-tabs-c.css";
 import "../styles/friends-tabs-d.css";
 import "../styles/friends-tabs-e.css";
-
-const NOSTR_RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.snort.social",
-  "wss://relay.primal.net",
-];
 
 export default function FriendsPage() {
   const navigate = useNavigate();
@@ -240,8 +238,6 @@ export default function FriendsPage() {
   const generatedFriendCode = useMemo(() => {
     return encodeFriendCode(profile, selfStats, profile.favoriteGameName);
   }, [profile, selfStats]);
-
-  const nostrKeys = useMemo(() => getNostrKeys(), []);
 
   // Live Currently Playing status
   const currentlyPlaying = useMemo(() => {
@@ -488,13 +484,22 @@ export default function FriendsPage() {
     currDms?: DmThread[],
     force = true
   ): Promise<SyncResult> => {
+    // Defense-in-depth: never write a folder outbox (or set the dedup
+    // signature) while the identity is unresolved. Local state is already
+    // persisted by the handlers; the next sync after the key loads pushes it.
+    if (!isNostrIdentityReady()) return { ok: true };
     // Read receipts are opt-in: when disabled, our own read-state never
     // leaves the device (the sanitized copy is also what the signature
     // compares against, so a receipt-only change stays a no-op).
     const outDms = sanitizeDmsForPush(currDms || [], profile.name, dmReadReceipts);
-    const signature = JSON.stringify(
-      buildOutboxPayload(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, outDms)
-    );
+    // Include the sharing scope so toggling it invalidates the dedup and
+    // forces a republish even when the underlying data is unchanged.
+    const signature =
+      JSON.stringify(
+        buildOutboxPayload(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, outDms)
+      ) +
+      "|scope:" +
+      getNostrShareScope();
 
     // Background polls skip the write + Nostr publish when the outbox payload
     // is byte-identical to the last one we pushed — the common idle case.
@@ -537,7 +542,7 @@ export default function FriendsPage() {
         const isDenied = deniedIds.includes(remoteProfile.syncId);
 
         if (!isFriend && !isSelf && !isDenied) {
-          const theyAddedUs = remoteDb.friends?.some((f) => f.syncId === localProfile.syncId);
+          const theyAddedUs = remoteFriendsInclude(remoteDb.friends, localProfile.syncId);
           if (theyAddedUs) {
             const newInvite: FriendInvitation = {
               syncId: remoteProfile.syncId,
@@ -661,12 +666,24 @@ export default function FriendsPage() {
 
     try {
       let currProfile = profileRef.current;
-      if (!currProfile.syncId) {
+      // Resolve the authoritative identity before touching the outbox.
+      // `initNostrKeys` is in-flight guarded, so awaiting it here is cheap
+      // and never mints a second key. If the backend is still unreachable we
+      // fall through to folder-only sync and never persist or publish an
+      // outbox under the ephemeral placeholder identity.
+      if (!isNostrIdentityReady()) {
+        await initNostrKeys();
+      }
+      const identityReady = isNostrIdentityReady();
+      if (identityReady) {
         const keys = getNostrKeys();
-        const updated = { ...currProfile, syncId: keys.publicKey };
-        saveUserProfile(updated);
-        setProfile(updated);
-        profileRef.current = updated;
+        if (currProfile.syncId !== keys.publicKey) {
+          const updated = { ...currProfile, syncId: keys.publicKey };
+          saveUserProfile(updated);
+          setProfile(updated);
+          profileRef.current = updated;
+          currProfile = updated;
+        }
       }
 
       const folder = await getSyncFolder();
@@ -686,9 +703,10 @@ export default function FriendsPage() {
       // Presence heartbeat: bump `lastActive` (and republish the outbox)
       // every 2 minutes while the friends page is open so friends see an
       // accurate online state. The signature skip keeps idle polls a no-op
-      // in between.
+      // in between. Skipped while the identity is unresolved so the
+      // placeholder syncId is never written to storage.
       const heartbeatSecs = Math.floor(Date.now() / 1000);
-      if (!currProfile.lastActive || heartbeatSecs - currProfile.lastActive > 120) {
+      if (identityReady && (!currProfile.lastActive || heartbeatSecs - currProfile.lastActive > 120)) {
         const heartbeated = { ...currProfile, lastActive: heartbeatSecs };
         saveUserProfile(heartbeated);
         setProfile(heartbeated);
@@ -816,16 +834,39 @@ export default function FriendsPage() {
 
             if (remoteOutbox.profile) {
               const remoteProfile = remoteOutbox.profile;
+              // "Absent ≠ empty": a `core` payload intentionally omits fields
+              // the peer did not share (favoriteGame, libStats, games). Keep
+              // our cached values for those instead of nulling them. Legacy
+              // payloads with no scope/v are full and share everything.
+              const remoteIsCore =
+                remoteOutbox.scope === "core" ||
+                (remoteOutbox.scope == null && remoteOutbox.v === 2);
+              const remoteName = remoteProfile.name || friend.name;
+              const remoteAvatar = remoteProfile.avatar || friend.avatar;
+              const remoteStatus = remoteProfile.status || friend.status;
+              const remoteCurrentlyPlaying =
+                remoteProfile.currentlyPlaying === undefined
+                  ? friend.currentlyPlaying
+                  : remoteProfile.currentlyPlaying || undefined;
+              const remoteFavoriteGame =
+                remoteProfile.favoriteGame ?? (remoteIsCore ? friend.favoriteGame : undefined);
+              const remoteBio = remoteProfile.bio ?? (remoteIsCore ? friend.bio : undefined);
+              const remoteRegion = remoteProfile.region ?? (remoteIsCore ? friend.region : undefined);
+              const remoteLibStats =
+                remoteProfile.libStats ?? (remoteIsCore ? friend.libStats : undefined);
+              const remoteGames = remoteOutbox.games ?? (remoteIsCore ? friend.games : undefined);
+              const remoteLastActive = remoteProfile.lastActive ?? friend.lastActive;
+
               const hasDiff =
-                friend.name !== remoteProfile.name ||
-                friend.avatar !== remoteProfile.avatar ||
-                friend.status !== remoteProfile.status ||
-                friend.favoriteGame !== remoteProfile.favoriteGame ||
-                friend.currentlyPlaying !== remoteOutbox.profile.currentlyPlaying ||
-                (friend as any).bio !== (remoteProfile.bio || "") ||
-                (friend as any).region !== (remoteProfile.region || "") ||
-                friend.lastActive !== remoteProfile.lastActive ||
-                JSON.stringify(friend.libStats) !== JSON.stringify(remoteProfile.libStats);
+                friend.name !== remoteName ||
+                friend.avatar !== remoteAvatar ||
+                friend.status !== remoteStatus ||
+                friend.favoriteGame !== (remoteFavoriteGame || undefined) ||
+                friend.currentlyPlaying !== remoteCurrentlyPlaying ||
+                (friend.bio || "") !== (remoteBio || "") ||
+                (friend.region || "") !== (remoteRegion || "") ||
+                friend.lastActive !== remoteLastActive ||
+                JSON.stringify(friend.libStats) !== JSON.stringify(remoteLibStats);
 
               if (hasDiff) profileChanged = true;
 
@@ -833,16 +874,16 @@ export default function FriendsPage() {
                 friendsUpdated = true;
                 updatedFriends.push({
                   ...friend,
-                  name: remoteProfile.name,
-                  avatar: remoteProfile.avatar,
-                  status: remoteProfile.status,
-                  favoriteGame: remoteProfile.favoriteGame || undefined,
-                  currentlyPlaying: remoteProfile.currentlyPlaying || undefined,
-                  bio: remoteProfile.bio || undefined,
-                  region: remoteProfile.region || undefined,
-                  libStats: remoteProfile.libStats,
-                  games: remoteOutbox.games || friend.games,
-                  lastActive: remoteProfile.lastActive,
+                  name: remoteName,
+                  avatar: remoteAvatar,
+                  status: remoteStatus,
+                  favoriteGame: remoteFavoriteGame || undefined,
+                  currentlyPlaying: remoteCurrentlyPlaying || undefined,
+                  bio: remoteBio || undefined,
+                  region: remoteRegion || undefined,
+                  libStats: remoteLibStats,
+                  games: remoteGames,
+                  lastActive: remoteLastActive,
                   lastSeen: nowSecs,
                 });
                 friendLogs.push(
@@ -935,16 +976,21 @@ export default function FriendsPage() {
         setFriends(finalFriends);
       }
 
-      const pushed = await pushMyOutbox(
-        currProfile,
-        selfStatsRef.current,
-        finalSessions,
-        finalRecs,
-        selfSharedGamesRef.current,
-        finalSuggestions,
-        finalDms,
-        manual
-      );
+      // Never write an outbox (or publish) under the placeholder identity:
+      // when the backend key couldn't be loaded this cycle stays pull-only.
+      let pushed: SyncResult = { ok: true };
+      if (identityReady) {
+        pushed = await pushMyOutbox(
+          currProfile,
+          selfStatsRef.current,
+          finalSessions,
+          finalRecs,
+          selfSharedGamesRef.current,
+          finalSuggestions,
+          finalDms,
+          manual
+        );
+      }
 
       const syncedAt = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
       setLastSyncedTime(syncedAt);
@@ -984,7 +1030,9 @@ export default function FriendsPage() {
         }
       }
 
-      await checkFolderInvitations(currProfile.syncId, localFriends);
+      if (identityReady) {
+        await checkFolderInvitations(currProfile.syncId, localFriends);
+      }
       addUnseenCommunityItems(newCommunityItems);
     } finally {
       isSyncingRef.current = false;
@@ -996,6 +1044,23 @@ export default function FriendsPage() {
       performSync(true);
     }
   };
+
+  // Stable handle to the latest sync engine for the scope-change listener.
+  const performSyncRef = useRef(performSync);
+  useEffect(() => {
+    performSyncRef.current = performSync;
+  }, [performSync]);
+
+  // Toggling the sharing scope changes the published payload, so force an
+  // immediate republish instead of waiting for the next idle poll (the
+  // signature now includes the scope, but the poll may be minutes away).
+  useEffect(() => {
+    const onScopeChange = () => {
+      performSyncRef.current(true);
+    };
+    window.addEventListener("gamelib:nostr-share-scope-changed", onScopeChange);
+    return () => window.removeEventListener("gamelib:nostr-share-scope-changed", onScopeChange);
+  }, []);
 
   const checkFolderInvitations = async (mySyncId: string, currentFriends: Friend[]) => {
     if (!mySyncId) return;
@@ -1118,7 +1183,7 @@ export default function FriendsPage() {
     if (pubkeys.length === 0) return;
 
     const sub = nostrPool.subscribeMany(
-      NOSTR_RELAYS,
+      [...NOSTR_RELAYS],
       {
         authors: pubkeys,
         kinds: [30078],
@@ -1995,7 +2060,7 @@ export default function FriendsPage() {
             selfStats={selfStats}
             libraryGames={games}
             myFriendCode={generatedFriendCode}
-            nostrPublicKey={nostrKeys.publicKey}
+            nostrPublicKey={profile.syncId}
             onSaveProfile={handleSaveProfile}
             onImageUpload={handleImageUpload}
           />
@@ -2008,7 +2073,7 @@ export default function FriendsPage() {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         myFriendCode={generatedFriendCode}
-        nostrPublicKey={nostrKeys.publicKey}
+        nostrPublicKey={profile.syncId}
         friendCodeInput={friendCodeInput}
         onFriendCodeInputChange={setFriendCodeInput}
         decodedFriend={decodedFriend}

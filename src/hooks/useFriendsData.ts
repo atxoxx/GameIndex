@@ -67,14 +67,11 @@ import {
   publishNostrOutbox,
   sanitizeDmsForPush,
   stripDms,
+  NOSTR_RELAYS,
+  getNostrShareScope,
+  isNostrIdentityReady,
+  initNostrKeys,
 } from "../pages/friendsStorage";
-
-const NOSTR_RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.snort.social",
-  "wss://relay.primal.net",
-];
 
 export interface UseFriendsDataResult {
   profile: UserProfile;
@@ -301,10 +298,18 @@ export function useFriendsData(): UseFriendsDataResult {
     currDms?: DmThread[],
     force = true
   ): Promise<SyncResult> => {
+    // Defense-in-depth: never write a folder outbox (or set the dedup
+    // signature) while the identity is unresolved.
+    if (!isNostrIdentityReady()) return { ok: true };
     const outDms = sanitizeDmsForPush(currDms || [], currProfile.name, dmReadReceipts);
-    const signature = JSON.stringify(
-      buildOutboxPayload(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, outDms)
-    );
+    // Include the sharing scope so toggling it invalidates the dedup and
+    // forces a republish even when the underlying data is unchanged.
+    const signature =
+      JSON.stringify(
+        buildOutboxPayload(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, outDms)
+      ) +
+      "|scope:" +
+      getNostrShareScope();
     if (!force && signature === lastPushedSignatureRef.current) {
       return { ok: true };
     }
@@ -336,21 +341,33 @@ export function useFriendsData(): UseFriendsDataResult {
     isSyncingRef.current = true;
     setIsSyncing(true);
     try {
-    // Make sure we always have a stable Nostr public key before publishing.
+    // Resolve the authoritative identity before touching the outbox.
+    // `initNostrKeys` is in-flight guarded, so awaiting it here is cheap and
+    // never mints a second key. If the backend is still unreachable we fall
+    // through to folder-only sync and never persist or publish an outbox
+    // under the ephemeral placeholder identity.
     let currProfile = profileRef.current;
-    if (!currProfile.syncId) {
+    if (!isNostrIdentityReady()) {
+      await initNostrKeys();
+    }
+    const identityReady = isNostrIdentityReady();
+    if (identityReady) {
       const keys = getNostrKeys();
-      const updated = { ...currProfile, syncId: keys.publicKey };
-      saveUserProfile(updated);
-      setProfile(updated);
-      profileRef.current = updated;
-      currProfile = updated;
+      if (currProfile.syncId !== keys.publicKey) {
+        const updated = { ...currProfile, syncId: keys.publicKey };
+        saveUserProfile(updated);
+        setProfile(updated);
+        profileRef.current = updated;
+        currProfile = updated;
+      }
     }
 
     // Presence heartbeat: bump `lastActive` (and republish the outbox) every
     // 2 minutes while the hub is open so friends see an accurate online state.
+    // Skipped while the identity is unresolved so the placeholder syncId is
+    // never written to storage.
     const heartbeatSecs = Math.floor(Date.now() / 1000);
-    if (!currProfile.lastActive || heartbeatSecs - currProfile.lastActive > 120) {
+    if (identityReady && (!currProfile.lastActive || heartbeatSecs - currProfile.lastActive > 120)) {
       const heartbeated = { ...currProfile, lastActive: heartbeatSecs };
       saveUserProfile(heartbeated);
       setProfile(heartbeated);
@@ -491,31 +508,54 @@ export function useFriendsData(): UseFriendsDataResult {
           // Sync friend profile information and live statistics (playtime, achievements, status)
           if (remoteOutbox.profile) {
             const remoteProfile = remoteOutbox.profile;
+            // "Absent ≠ empty": a `core` payload intentionally omits fields the
+            // peer did not share (favoriteGame, libStats, games). Keep cached
+            // values for those instead of nulling them. Legacy payloads with
+            // no scope/v are full and share everything.
+            const remoteIsCore =
+              remoteOutbox.scope === "core" ||
+              (remoteOutbox.scope == null && remoteOutbox.v === 2);
+            const remoteName = remoteProfile.name || friend.name;
+            const remoteAvatar = remoteProfile.avatar || friend.avatar;
+            const remoteStatus = remoteProfile.status || friend.status;
+            const remoteCurrentlyPlaying =
+              remoteProfile.currentlyPlaying === undefined
+                ? friend.currentlyPlaying
+                : remoteProfile.currentlyPlaying || undefined;
+            const remoteFavoriteGame =
+              remoteProfile.favoriteGame ?? (remoteIsCore ? friend.favoriteGame : undefined);
+            const remoteBio = remoteProfile.bio ?? (remoteIsCore ? friend.bio : undefined);
+            const remoteRegion = remoteProfile.region ?? (remoteIsCore ? friend.region : undefined);
+            const remoteLibStats =
+              remoteProfile.libStats ?? (remoteIsCore ? friend.libStats : undefined);
+            const remoteGames = remoteOutbox.games ?? (remoteIsCore ? friend.games : undefined);
+            const remoteLastActive = remoteProfile.lastActive ?? friend.lastActive;
+
             const hasDiff =
-              friend.name !== remoteProfile.name ||
-              friend.avatar !== remoteProfile.avatar ||
-              friend.status !== remoteProfile.status ||
-              friend.favoriteGame !== remoteProfile.favoriteGame ||
-              friend.currentlyPlaying !== remoteOutbox.profile.currentlyPlaying ||
-              (friend as any).bio !== (remoteProfile.bio || "") ||
-              (friend as any).region !== (remoteProfile.region || "") ||
-              friend.lastActive !== remoteProfile.lastActive ||
-              JSON.stringify(friend.libStats) !== JSON.stringify(remoteProfile.libStats);
+              friend.name !== remoteName ||
+              friend.avatar !== remoteAvatar ||
+              friend.status !== remoteStatus ||
+              friend.favoriteGame !== (remoteFavoriteGame || undefined) ||
+              friend.currentlyPlaying !== remoteCurrentlyPlaying ||
+              (friend.bio || "") !== (remoteBio || "") ||
+              (friend.region || "") !== (remoteRegion || "") ||
+              friend.lastActive !== remoteLastActive ||
+              JSON.stringify(friend.libStats) !== JSON.stringify(remoteLibStats);
 
             if (hasDiff) {
               friendsUpdated = true;
               updatedFriends.push({
                 ...friend,
-                name: remoteProfile.name,
-                avatar: remoteProfile.avatar,
-                status: remoteProfile.status,
-                favoriteGame: remoteProfile.favoriteGame || undefined,
-                currentlyPlaying: remoteProfile.currentlyPlaying || undefined,
-                bio: remoteProfile.bio || undefined,
-                region: remoteProfile.region || undefined,
-                libStats: remoteProfile.libStats,
-                games: remoteOutbox.games || friend.games,
-                lastActive: remoteProfile.lastActive,
+                name: remoteName,
+                avatar: remoteAvatar,
+                status: remoteStatus,
+                favoriteGame: remoteFavoriteGame || undefined,
+                currentlyPlaying: remoteCurrentlyPlaying || undefined,
+                bio: remoteBio || undefined,
+                region: remoteRegion || undefined,
+                libStats: remoteLibStats,
+                games: remoteGames,
+                lastActive: remoteLastActive,
                 lastSeen: nowSecs,
               });
               continue;
@@ -582,16 +622,21 @@ export function useFriendsData(): UseFriendsDataResult {
     }
 
     // Always push our own updated outbox so friends can see us
-    const pushed = await pushMyOutbox(
-      currProfile,
-      selfStatsRef.current,
-      finalSessions,
-      finalRecs,
-      selfSharedGamesRef.current,
-      finalSuggestions,
-      finalDms,
-      manual
-    );
+    // Never write an outbox (or publish) under the placeholder identity:
+    // when the backend key couldn't be loaded this cycle stays pull-only.
+    let pushed: SyncResult = { ok: true };
+    if (identityReady) {
+      pushed = await pushMyOutbox(
+        currProfile,
+        selfStatsRef.current,
+        finalSessions,
+        finalRecs,
+        selfSharedGamesRef.current,
+        finalSuggestions,
+        finalDms,
+        manual
+      );
+    }
 
     if (manual) {
       if (!pushed.ok) {
@@ -652,6 +697,16 @@ export function useFriendsData(): UseFriendsDataResult {
   useEffect(() => {
     performSyncRef.current = performSync;
   }, [performSync]);
+
+  // Toggling the sharing scope changes the published payload, so force an
+  // immediate republish instead of waiting for the next idle poll.
+  useEffect(() => {
+    const onScopeChange = () => {
+      void performSyncRef.current(true);
+    };
+    window.addEventListener("gamelib:nostr-share-scope-changed", onScopeChange);
+    return () => window.removeEventListener("gamelib:nostr-share-scope-changed", onScopeChange);
+  }, []);
 
   // Merge a remote database received via P2P / Nostr into local storage and
   // state, then run a sync cycle so the companion hook reloads from storage.
@@ -739,7 +794,7 @@ export function useFriendsData(): UseFriendsDataResult {
     if (pubkeys.length === 0) return;
 
     const sub = nostrPool.subscribeMany(
-      NOSTR_RELAYS,
+      [...NOSTR_RELAYS],
       {
         authors: pubkeys,
         kinds: [30078],

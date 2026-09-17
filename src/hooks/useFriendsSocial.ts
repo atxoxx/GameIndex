@@ -76,6 +76,7 @@ import {
   pushMyOutbox as pushMyOutboxStorage,
   buildNostrOutboxPayload,
   publishNostrOutbox,
+  isNostrIdentityReady,
 } from "../pages/friendsStorage";import { detectTimezone, sessionsConflict } from "../components/bigscreen/friends/friendsUtils";
 
 // ── Shared result types ──────────────────────────────────────────
@@ -520,6 +521,9 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       sugs: GameSuggestion[],
       dmsThreads?: DmThread[],
     ) => {
+      // Never write a folder outbox under an unresolved identity; the
+      // authoritative sync engine pushes once the key is loaded.
+      if (!isNostrIdentityReady()) return;
       // Read receipts are opt-in: when disabled, our own read-state never
       // leaves the device (mirrors the desktop page's pushMyOutbox).
       const outDms = sanitizeDmsForPush(dmsThreads || [], p.name, dmReadReceipts);

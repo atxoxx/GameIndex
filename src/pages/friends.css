@@ -4986,15 +4986,147 @@ textarea.profile-input {
   background: var(--color-success);
 }
 
+/* Relay answered the last publish attempt. */
+.nostr-relay-dot.failed {
+  background: var(--color-danger);
+}
+
+/* Explicit muted state; same as the base dot, kept for symmetry. */
+.nostr-relay-dot.offline {
+  background: var(--color-text-muted);
+}
+
 .nostr-relay-url {
   font-family: var(--font-family-mono, monospace);
   color: var(--color-text-primary);
   flex: 1;
 }
 
+/* Base = "not checked yet" (muted); modifiers match the dot states so a
+   failed relay never reads as green. */
 .nostr-relay-status {
   font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+.nostr-relay-status.online {
   color: var(--color-success);
+}
+
+.nostr-relay-status.failed {
+  color: var(--color-danger);
+}
+
+.nostr-relay-status,
+.nostr-relay-dot {
+  flex-shrink: 0;
+}
+
+/* Labelled scope control: heading + segmented radio group. */
+.nostr-publish-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nostr-publish-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.nostr-scope-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  width: fit-content;
+  max-width: 100%;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.nostr-scope-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.nostr-scope-option:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.nostr-scope-option.active {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.nostr-scope-option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.nostr-scope-recommended {
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.nostr-scope-option.active .nostr-scope-recommended {
+  background: color-mix(in srgb, var(--color-accent-contrast) 22%, transparent);
+  color: var(--color-accent-contrast);
+}
+
+/* Short description of the currently selected scope. */
+.nostr-scope-detail {
+  padding: 8px 10px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.nostr-relay-hint {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+/* Honest disclosure block: permanence, heartbeat cadence, DMs. */
+.nostr-disclosure {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--color-accent-subtle);
+  border: 1px solid var(--color-border-faint);
+  border-left: 3px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+}
+
+.nostr-disclosure p {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  line-height: 1.5;
+  color: var(--color-text-muted);
 }
 
 .sync-activity-header {

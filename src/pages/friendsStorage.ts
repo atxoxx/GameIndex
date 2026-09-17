@@ -2,13 +2,20 @@ import { invoke } from "@tauri-apps/api/core";
 import { generateSecretKey, getPublicKey, finalizeEvent } from "nostr-tools/pure";
 import { SimplePool } from "nostr-tools/pool";
 
-const nostrPoolForPreview = new SimplePool();
-const nostrRelaysForPreview = [
+/**
+ * Public Nostr relays the friends outbox is published to and read from.
+ * Centralised here (previously duplicated in FriendsPage.tsx,
+ * useFriendsData.ts and twice in this module) so the publisher and the
+ * sync UI can never drift apart.
+ */
+export const NOSTR_RELAYS: readonly string[] = [
   "wss://relay.damus.io",
   "wss://nos.lol",
   "wss://relay.snort.social",
-  "wss://relay.primal.net"
+  "wss://relay.primal.net",
 ];
+
+const nostrPoolForPreview = new SimplePool();
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
@@ -86,7 +93,22 @@ function isTauriRuntime(): boolean {
  * nothing is generated or persisted — the stored identity must win on the
  * next successful boot rather than being silently rotated.
  */
+let initNostrKeysPromise: Promise<void> | null = null;
+
 export async function initNostrKeys(): Promise<void> {
+  if (cachedNostrKeys) return;
+  // In-flight guard: two concurrent callers (e.g. the boot-time hydration
+  // and a sync cycle) must await the SAME operation. Without this, each
+  // call could observe an empty backend and mint a different identity,
+  // racing the `set_friends_nostr_privkey` writes.
+  if (initNostrKeysPromise) return initNostrKeysPromise;
+  initNostrKeysPromise = loadOrMintNostrKeys().finally(() => {
+    initNostrKeysPromise = null;
+  });
+  return initNostrKeysPromise;
+}
+
+async function loadOrMintNostrKeys(): Promise<void> {
   if (cachedNostrKeys) return;
 
   if (isTauriRuntime()) {
@@ -184,6 +206,16 @@ export function getNostrKeys(): NostrKeys {
     sessionFallbackKeys = { privateKey: sk, privateKeyHex: freshHex, publicKey: getPublicKey(sk) };
   }
   return sessionFallbackKeys;
+}
+
+/**
+ * True once the persisted/authoritative signing key is loaded. The session
+ * fallback in `getNostrKeys` is deliberately NOT considered ready: it is an
+ * ephemeral placeholder and nothing derived from it should ever be persisted
+ * or published.
+ */
+export function isNostrIdentityReady(): boolean {
+  return cachedNostrKeys !== null;
 }
 
 export interface UserProfile {
@@ -696,13 +728,29 @@ export function loadUserProfile(): UserProfile {
   const bio = profile.bio || "";
   const region = profile.region || "";
 
-  // Nostr public key is our syncId
-  const keys = getNostrKeys();
-  const syncId = keys.publicKey;
+  // Nostr public key is our syncId — but only once the authoritative key is
+  // loaded. While the identity is unresolved we return the STORED syncId
+  // (possibly empty) rather than the ephemeral session placeholder, so no
+  // caller can put a placeholder pubkey into React state / a friend code and
+  // later persist it. `getNostrKeys` is deliberately not called while
+  // unresolved: that would mint the session fallback as a side effect.
+  const storedSyncId = profile.syncId || "";
+  const syncId = isNostrIdentityReady() ? getNostrKeys().publicKey : storedSyncId;
 
-  // Write key if newly generated
-  const updated = { name, avatar, status, favoriteGameId, favoriteGameName, syncId, currentlyPlaying, bio, region };
-  if (!profile.syncId || profile.syncId !== syncId) {
+  const updated: UserProfile = {
+    name,
+    avatar,
+    status,
+    favoriteGameId,
+    favoriteGameName,
+    syncId,
+    currentlyPlaying,
+    bio,
+    region,
+  };
+  // Persist the resolved identity as soon as the backend key is loaded —
+  // that is when the real pubkey replaces the stored/empty placeholder.
+  if (isNostrIdentityReady() && (!profile.syncId || profile.syncId !== syncId)) {
     writeJson(`${LS_PROFILE_PREFIX}${profileName}`, updated);
   }
   return updated;
@@ -1221,31 +1269,28 @@ export function capSharedGames(games: SharedGameStat[] | undefined): SharedGameS
 
 export interface NostrOutboxPayload {
   syncId: string;
+  /** Payload schema version. Absent on legacy (pre-scope) events. */
+  v?: number;
+  /** Sharing scope this payload was reduced to. Absent on legacy events. */
+  scope?: "core" | "full";
   profile: {
     name: string;
     avatar: string;
     status: string;
-    favoriteGame: string;
+    favoriteGame?: string;
     currentlyPlaying: string;
     bio: string;
     region: string;
     lastActive: number;
-    libStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number };
+    libStats?: { gamesCount: number; playtimeMinutes: number; achievementsCount: number };
   };
   friends: string[];
-  games: SharedGameStat[];
+  games?: SharedGameStat[];
   sessions: GameSession[];
   recommendations: GameRecommendation[];
   suggestions: GameSuggestion[];
   updatedAt: number;
 }
-
-const NOSTR_RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.snort.social",
-  "wss://relay.primal.net",
-];
 
 let nostrPublishPool: SimplePool | null = null;
 function getNostrPublishPool(): SimplePool {
@@ -1253,28 +1298,166 @@ function getNostrPublishPool(): SimplePool {
   return nostrPublishPool;
 }
 
-/** User setting controlling whether the outbox is published to public
- *  Nostr relays. Default OFF — publishing exposes name, avatar, library
- *  stats, the friend graph and game lists to anyone on the relay network,
- *  with no expiration. Local folder sync (same machine / shared data
- *  folder) is unaffected: it never touches relays. */
-const LS_NOSTR_PUBLISH = "gamelib.friends.nostr_public_publish";
+// ── Nostr sharing scope + relay status ───────────────────────────────
+//
+// The outbox is no longer gated by a binary opt-in: users pick a sharing
+// scope. `"core"` (default) is a privacy-reduced payload; `"full"` shares
+// the library dump; `"off"` disables relay publishing entirely (local
+// folder sync always keeps working).
 
-export function isNostrPublicPublishEnabled(): boolean {
+export type NostrShareScope = "off" | "core" | "full";
+
+const LS_NOSTR_SHARE_SCOPE = "gamelib.friends.nostr_share_scope";
+/** Legacy binary opt-in, read once for migration and never written again. */
+const LS_NOSTR_PUBLISH_LEGACY = "gamelib.friends.nostr_public_publish";
+
+/**
+ * Reads the outbox sharing scope. Migration: a user who had the legacy
+ * opt-in flag set is promoted to `"full"` (their previous behaviour);
+ * everyone else — including users who had the legacy flag off — now gets
+ * `"core"`, so remote friends start receiving a reduced payload again
+ * instead of nothing.
+ */
+export function getNostrShareScope(): NostrShareScope {
   try {
-    return localStorage.getItem(LS_NOSTR_PUBLISH) === "true";
+    const stored = localStorage.getItem(LS_NOSTR_SHARE_SCOPE);
+    if (stored === "off" || stored === "core" || stored === "full") return stored;
+    if (localStorage.getItem(LS_NOSTR_PUBLISH_LEGACY) === "true") return "full";
   } catch {
-    return false;
+    /* ignore storage errors */
   }
+  return "core";
 }
 
-export function setNostrPublicPublishEnabled(enabled: boolean): void {
+export type RelayStatus = "accepted" | "failed";
+
+/** Last observed publish outcome per relay. Replaced wholesale (never
+ *  mutated in place) so a subscriber reading `getLastRelayStatus()` after an
+ *  `onRelayStatusChange` notification always sees a fresh reference. */
+let relayStatusSnapshot: Record<string, RelayStatus> = {};
+const relayStatusSubscribers = new Set<() => void>();
+
+export function getLastRelayStatus(): Record<string, RelayStatus> {
+  return relayStatusSnapshot;
+}
+
+export function onRelayStatusChange(cb: () => void): () => void {
+  relayStatusSubscribers.add(cb);
+  return () => {
+    relayStatusSubscribers.delete(cb);
+  };
+}
+
+function notifyRelayStatus(): void {
+  relayStatusSubscribers.forEach((cb) => {
+    try {
+      cb();
+    } catch {
+      /* a broken subscriber must not break the publish loop */
+    }
+  });
+}
+
+function recordRelayStatus(relay: string, status: RelayStatus): void {
+  relayStatusSnapshot = { ...relayStatusSnapshot, [relay]: status };
+  notifyRelayStatus();
+}
+
+/**
+ * Persists the sharing scope, clears any previous relay results (the last
+ * publish no longer reflects the active scope, so the modal falls back to
+ * "not checked yet"), notifies relay status subscribers and broadcasts a
+ * window event so every mounted sync engine can force an immediate
+ * republish (the payload just changed).
+ */
+export function setNostrShareScope(scope: NostrShareScope): void {
   try {
-    localStorage.setItem(LS_NOSTR_PUBLISH, String(enabled));
+    localStorage.setItem(LS_NOSTR_SHARE_SCOPE, scope);
   } catch {
     /* ignore */
   }
+  relayStatusSnapshot = {};
+  notifyRelayStatus();
+  try {
+    window.dispatchEvent(new CustomEvent("gamelib:nostr-share-scope-changed"));
+  } catch {
+    /* window unavailable — ignore */
+  }
 }
+
+/**
+ * Applies the sharing-scope privacy boundary to an outbox payload.
+ *
+ * `"full"` keeps the library dump (`games`, `libStats`, comments, …) but is
+ * still sanitized. `"core"` additionally keeps only data the PUBLISHER
+ * authored and strips content OTHER people authored: session
+ * participants / messages / RSVPs / attendees / invited and poll votes,
+ * plus recommendation & suggestion comments and reactions; it also drops
+ * `games` and `libStats`.
+ *
+ * `scope` and `blockedIds` are passed explicitly so this stays a pure
+ * function (no ambient localStorage reads). The callers own resolving them.
+ *
+ * Defense-in-depth for BOTH scopes: DM threads are removed and the avatar is
+ * forced to `"procedural"` — a photo (base64 data URL) on an immutable relay
+ * event is permanent PII. The builders already exclude DMs, but this also
+ * covers unexpected/unknown keys smuggled in by a caller.
+ */
+export function scopeNostrPayload(
+  payload: NostrOutboxPayload,
+  scope: NostrShareScope,
+  blockedIds?: ReadonlySet<string>
+): NostrOutboxPayload {
+  const { games, profile, friends, sessions, recommendations, suggestions, ...meta } = payload;
+  const blocked = blockedIds ?? new Set<string>();
+
+  const safeMeta: Record<string, unknown> = { ...meta };
+  delete safeMeta.dms;
+  const safeProfile = { ...profile, avatar: "procedural" };
+  const safeFriends = friends.filter((id) => !blocked.has(id));
+
+  if (scope !== "core") {
+    return {
+      ...safeMeta,
+      profile: safeProfile,
+      friends: safeFriends,
+      games,
+      sessions,
+      recommendations,
+      suggestions,
+    } as NostrOutboxPayload;
+  }
+
+  return {
+    ...safeMeta,
+    profile: {
+      name: profile.name,
+      status: profile.status,
+      currentlyPlaying: profile.currentlyPlaying,
+      bio: profile.bio,
+      region: profile.region,
+      lastActive: profile.lastActive,
+      avatar: "procedural",
+    },
+    friends: safeFriends,
+    sessions: sessions.map((session) => {
+      const { participants, messages, rsvps, attendees, invited, poll, ...rest } = session;
+      return {
+        ...rest,
+        ...(poll ? { poll: { options: poll.options } } : {}),
+      };
+    }) as GameSession[],
+    recommendations: recommendations.map((rec) => {
+      const { comments, reactions, ...rest } = rec;
+      return rest;
+    }) as GameRecommendation[],
+    suggestions: suggestions.map((sug) => {
+      const { comments, reactions, ...rest } = sug;
+      return rest;
+    }) as GameSuggestion[],
+  } as NostrOutboxPayload;
+}
+
 
 /**
  * Builds the kind-30078 outbox payload broadcast to public relays.
@@ -1282,6 +1465,7 @@ export function setNostrPublicPublishEnabled(enabled: boolean): void {
  * folder / P2P channels, never through public relays. Also excludes a photo
  * avatar (base64 data URL): a picture on immutable public relay events is
  * permanent PII, so the public payload always uses the procedural avatar.
+ * Blocked peers are never included in the broadcast friend graph.
  */
 export function buildNostrOutboxPayload(
   profile: UserProfile,
@@ -1310,7 +1494,7 @@ export function buildNostrOutboxPayload(
       lastActive: profile.lastActive || 0,
       libStats: stats,
     },
-    friends: localFriends.map((f) => f.syncId),
+    friends: localFriends.filter((f) => !f.blocked).map((f) => f.syncId),
     games: capSharedGames(sharedGames),
     sessions,
     recommendations: recs,
@@ -1319,19 +1503,41 @@ export function buildNostrOutboxPayload(
   };
 }
 
-/** Signs and publishes an outbox payload to the public relays.
- *  Publishing is opt-in (default OFF, see `isNostrPublicPublishEnabled`);
- *  local folder sync keeps working regardless — this only gates the
- *  public-relay broadcast. */
+/**
+ * Signs the scoped outbox payload and publishes it to the public relays.
+ *
+ * `scope` is read from `getNostrShareScope()`: `"off"` skips publishing
+ * entirely (local folder sync is unaffected), while `"core"`/`"full"`
+ * reduce the payload through `scopeNostrPayload`. Each relay's outcome is
+ * recorded in `getLastRelayStatus()` and notifies subscribers.
+ *
+ * Also refuses to publish under the ephemeral session placeholder identity —
+ * an outbox signed by a key that won't survive restart would be
+ * undiscoverable and would only leak the payload.
+ */
 export async function publishNostrOutbox(payload: NostrOutboxPayload): Promise<void> {
-  if (!isNostrPublicPublishEnabled()) return;
+  const scope = getNostrShareScope();
+  if (scope === "off") return;
+  if (!isNostrIdentityReady()) return;
+
   try {
+    const blockedIds = new Set(
+      loadFriends()
+        .filter((f) => f.blocked)
+        .map((f) => f.syncId)
+    );
+    const scoped = scopeNostrPayload(payload, scope, blockedIds);
+    const published: NostrOutboxPayload = {
+      ...scoped,
+      v: 2,
+      scope: scope === "full" ? "full" : "core",
+    };
     const keys = getNostrKeys();
     const eventTemplate = {
       kind: 30078,
       created_at: Math.floor(Date.now() / 1000),
       tags: [["d", "gamelib-friends-outbox"]],
-      content: JSON.stringify(payload),
+      content: JSON.stringify(published),
     };
     const signedEvent = finalizeEvent(eventTemplate, keys.privateKey);
     await Promise.all(
@@ -1341,9 +1547,15 @@ export async function publishNostrOutbox(payload: NostrOutboxPayload): Promise<v
           // instead of blocking the whole broadcast (and, transitively,
           // the sync loop awaiting publishNostrOutbox). `pool.publish`
           // returns a `Promise[]`; race the settled aggregate against the
-          // ceiling so a hung WebSocket can't wedge the loop.
-          await withRelayTimeout(Promise.all(getNostrPublishPool().publish([relay], signedEvent)), () => []);
+          // ceiling so a hung WebSocket can't wedge the loop. A timeout
+          // resolves `[]`, which we treat as a failed relay.
+          const accepted = await withRelayTimeout(
+            Promise.all(getNostrPublishPool().publish([relay], signedEvent)),
+            () => []
+          );
+          recordRelayStatus(relay, accepted.length > 0 ? "accepted" : "failed");
         } catch (err) {
+          recordRelayStatus(relay, "failed");
           console.error(`Nostr: failed to publish to ${relay}:`, err);
         }
       })
@@ -1357,6 +1569,21 @@ export async function publishNostrOutbox(payload: NostrOutboxPayload): Promise<v
 export function stripDms<T extends { dms?: unknown }>(db: T): T {
   if (db && db.dms) delete db.dms;
   return db;
+}
+
+/**
+ * True when a remote `friends` field contains `syncId`. The field is a
+ * `Friend[]` on the TCP P2P channel (the backend emits the raw friends DB)
+ * but a `string[]` of pubkeys on outbox/Nostr payloads, so both shapes are
+ * normalized here (used for the one-sided "they added us" invite scan).
+ */
+export function remoteFriendsInclude(remoteFriends: unknown, syncId: string): boolean {
+  if (!Array.isArray(remoteFriends) || !syncId) return false;
+  return remoteFriends.some((f) => {
+    if (typeof f === "string") return f === syncId;
+    if (f && typeof f === "object") return (f as { syncId?: unknown }).syncId === syncId;
+    return false;
+  });
 }
 
 export function buildOutboxPayload(
@@ -1423,16 +1650,19 @@ export async function pushMyOutbox(
  */
 export async function fetchFriendOutbox(friendSyncId: string): Promise<{
   syncId: string;
+  /** Payload schema version / sharing scope. Absent on legacy events. */
+  v?: number;
+  scope?: "core" | "full";
   profile: {
     name: string;
     avatar: string;
     status: string;
-    favoriteGame: string;
+    favoriteGame?: string;
     currentlyPlaying?: string;
     bio?: string;
     region?: string;
     lastActive?: number;
-    libStats: {
+    libStats?: {
       gamesCount: number;
       playtimeMinutes: number;
       achievementsCount: number;
@@ -1464,7 +1694,7 @@ export async function fetchFriendOutbox(friendSyncId: string): Promise<{
       // Bounded relay read so a stuck relay can't hold up the caller
       // (folder-sync fallback, invitation scan, or the friend preview).
       const event = await withRelayTimeout(
-        nostrPoolForPreview.get(nostrRelaysForPreview, {
+        nostrPoolForPreview.get([...NOSTR_RELAYS], {
           authors: [friendSyncId],
           kinds: [30078],
           "#d": ["gamelib-friends-outbox"],
