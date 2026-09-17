@@ -513,32 +513,38 @@ function computeStats(sessions: GameSession[], games: Game[]): ActivityStats {
   const totalSessions = sessions.length;
   const avgSessionMin = Math.round(totalPlayTimeMin / totalSessions);
 
-  // Most played game
-  const gameMap = new Map<string, number>();
+  // Aggregate by gameId, not gameName: two library entries can share a
+  // display name (the same title owned on two stores), and each row must
+  // keep its own id so the UI links to the correct game.
+  const gameTotals = new Map<string, { minutes: number; sessions: number; name: string }>();
   sessions.forEach((s) => {
-    gameMap.set(s.gameName, (gameMap.get(s.gameName) || 0) + s.durationMin);
+    const entry = gameTotals.get(s.gameId);
+    if (entry) {
+      entry.minutes += s.durationMin;
+      entry.sessions += 1;
+    } else {
+      gameTotals.set(s.gameId, { minutes: s.durationMin, sessions: 1, name: s.gameName });
+    }
   });
+
+  // Most played game
   let mostPlayedGame = "-";
   let mostPlayedGameTimeMin = 0;
-  gameMap.forEach((mins, name) => {
-    if (mins > mostPlayedGameTimeMin) {
-      mostPlayedGameTimeMin = mins;
-      mostPlayedGame = name;
+  gameTotals.forEach((entry, gameId) => {
+    if (entry.minutes > mostPlayedGameTimeMin) {
+      mostPlayedGameTimeMin = entry.minutes;
+      mostPlayedGame = games.find((g) => g.id === gameId)?.name ?? entry.name;
     }
   });
 
   // Top played games — ranked by total playtime, with session counts
-  const topGames = Array.from(gameMap.entries())
-    .map(([gameName, minutes]) => {
-      const gameSessions = sessions.filter((s) => s.gameName === gameName);
-      const game = games.find((g) => g.name === gameName);
-      return {
-        gameId: game?.id ?? gameSessions[0]?.gameId ?? gameName,
-        gameName,
-        minutes,
-        sessions: gameSessions.length,
-      };
-    })
+  const topGames = Array.from(gameTotals.entries())
+    .map(([gameId, entry]) => ({
+      gameId,
+      gameName: games.find((g) => g.id === gameId)?.name ?? entry.name,
+      minutes: entry.minutes,
+      sessions: entry.sessions,
+    }))
     .sort((a, b) => b.minutes - a.minutes)
     .slice(0, 10);
 
