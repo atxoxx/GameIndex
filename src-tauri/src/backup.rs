@@ -148,64 +148,76 @@ pub fn backup_inspect(source_path: String) -> Result<BackupInspect, String> {
 }
 
 /// Snapshot the selected domains into a raw data `.gibak` zip at `target_path`.
+///
+/// Zipping every domain DB + emitting progress is heavy disk I/O, so the
+/// body runs on a blocking thread rather than inline on the event loop.
 #[tauri::command]
-pub fn backup_create(
+pub async fn backup_create(
     app: tauri::AppHandle,
     target_path: String,
     domains: Option<Vec<String>>,
 ) -> Result<BackupOutcome, String> {
-    let db = state_db(&app)?;
+    let db = state_db(&app)?.clone();
     let data_dir = app_data_dir(&app)?;
-    let app_handle = app.clone();
-    let outcome = crate::backup_raw::create_raw_backup(
-        db,
-        &data_dir,
-        &target_path,
-        domains.as_deref(),
-        Some(move |progress: BackupProgress| {
-            let _ = app_handle.emit("backup-progress", progress);
-        }),
-    )?;
-    // Recording the timestamp is best-effort — the archive itself is the
-    // deliverable and is already on disk by now.
-    let _ = kv::set(db, KV_LAST_AT, &outcome.created_at.to_string());
-    let _ = kv::set(db, KV_LAST_BYTES, &outcome.size_bytes.to_string());
-    Ok(outcome)
+    tauri::async_runtime::spawn_blocking(move || {
+        let outcome = crate::backup_raw::create_raw_backup(
+            &db,
+            &data_dir,
+            &target_path,
+            domains.as_deref(),
+            Some(move |progress: BackupProgress| {
+                let _ = app.emit("backup-progress", progress);
+            }),
+        )?;
+        // Recording the timestamp is best-effort — the archive itself is the
+        // deliverable and is already on disk by now.
+        let _ = kv::set(&db, KV_LAST_AT, &outcome.created_at.to_string());
+        let _ = kv::set(&db, KV_LAST_BYTES, &outcome.size_bytes.to_string());
+        Ok(outcome)
+    })
+    .await
+    .map_err(|e| format!("backup_create task: {e}"))?
 }
 
 /// Validate a `.gibak` zip and restore the selected domains into the live databases.
 /// Supports both raw NDJSON archives (v2) with "replace" or "merge" mode, and legacy v1 binary DB archives.
+///
+/// Unzipping and re-inserting every domain row is heavy disk I/O, so the
+/// body runs on a blocking thread; the progress-event ordering is unchanged.
 #[tauri::command]
-pub fn backup_restore(
+pub async fn backup_restore(
     app: tauri::AppHandle,
     source_path: String,
     domains: Option<Vec<String>>,
     mode: Option<String>,
 ) -> Result<BackupOutcome, String> {
-    let db = state_db(&app)?;
+    let db = state_db(&app)?.clone();
     let data_dir = app_data_dir(&app)?;
-    let app_handle = app.clone();
-    let manifest = load_manifest(&source_path)?;
-    let is_raw = manifest["format"].as_str() == Some(crate::backup_raw::BACKUP_RAW_MAGIC);
+    tauri::async_runtime::spawn_blocking(move || {
+        let manifest = load_manifest(&source_path)?;
+        let is_raw = manifest["format"].as_str() == Some(crate::backup_raw::BACKUP_RAW_MAGIC);
 
-    let outcome = if is_raw {
-        crate::backup_raw::restore_raw_backup(
-            db,
-            &data_dir,
-            &source_path,
-            domains.as_deref(),
-            mode.as_deref().unwrap_or("replace"),
-            Some(move |progress: BackupProgress| {
-                let _ = app_handle.emit("backup-progress", progress);
-            }),
-        )?
-    } else {
-        do_restore(db, &data_dir, &source_path, domains.as_deref())?
-    };
+        let outcome = if is_raw {
+            crate::backup_raw::restore_raw_backup(
+                &db,
+                &data_dir,
+                &source_path,
+                domains.as_deref(),
+                mode.as_deref().unwrap_or("replace"),
+                Some(move |progress: BackupProgress| {
+                    let _ = app.emit("backup-progress", progress);
+                }),
+            )?
+        } else {
+            do_restore(&db, &data_dir, &source_path, domains.as_deref())?
+        };
 
-    let _ = kv::set(db, KV_LAST_AT, &outcome.created_at.to_string());
-    let _ = kv::set(db, KV_LAST_BYTES, &outcome.size_bytes.to_string());
-    Ok(outcome)
+        let _ = kv::set(&db, KV_LAST_AT, &outcome.created_at.to_string());
+        let _ = kv::set(&db, KV_LAST_BYTES, &outcome.size_bytes.to_string());
+        Ok(outcome)
+    })
+    .await
+    .map_err(|e| format!("backup_restore task: {e}"))?
 }
 
 // ─── Core logic (command wrappers are thin; tests hit these) ─────────────────

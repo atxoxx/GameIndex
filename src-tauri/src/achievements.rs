@@ -415,24 +415,34 @@ pub async fn fetch_achievements(
 /// `AchievementsCache` shape); we parse it and upsert one row per
 /// game inside a transaction.
 #[tauri::command]
-pub fn save_achievements_cache(app: tauri::AppHandle, data: String) -> Result<(), String> {
-    let parsed: Value = serde_json::from_str(&data)
+pub async fn save_achievements_cache(app: tauri::AppHandle, data: String) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || save_achievements_cache_blocking(&db, &data))
+        .await
+        .map_err(|e| format!("save_achievements_cache task: {e}"))?
+}
+
+/// Blocking body shared by the command and the in-process callers:
+/// parsing + upserting the whole cache blob must not run on the event loop.
+fn save_achievements_cache_blocking(db: &db::Db, data: &str) -> Result<(), String> {
+    let parsed: Value = serde_json::from_str(data)
         .map_err(|e| format!("parse: {e}"))?;
     let games = parsed
         .get("games")
         .and_then(|v| v.as_object())
         .cloned()
         .unwrap_or_default();
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    db::achievements::upsert_many_from_payload(db_state.inner(), &games)
+    db::achievements::upsert_many_from_payload(db, &games)
 }
 
 /// Load the achievements cache. Returns the same JSON shape the
 /// frontend expects: `{ "games": { "<gameId>": <GameAchievementData> } }`.
 #[tauri::command]
-pub fn load_achievements_cache(app: tauri::AppHandle) -> Result<String, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    db::achievements::read_all_as_payload_json(db_state.inner())
+pub async fn load_achievements_cache(app: tauri::AppHandle) -> Result<String, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || db::achievements::read_all_as_payload_json(&db))
+        .await
+        .map_err(|e| format!("load_achievements_cache task: {e}"))?
 }
 
 /// Internal helper: read the achievements cache as a Rust struct.
@@ -447,7 +457,8 @@ pub fn save_cache_internal(
     cache: &AchievementsCache,
 ) -> Result<(), String> {
     let json = serde_json::to_string(cache).map_err(|e| e.to_string())?;
-    save_achievements_cache(app.clone(), json)
+    let db = app.state::<db::Db>().inner().clone();
+    save_achievements_cache_blocking(&db, &json)
 }
 
 fn load_achievements_cache_inner(app: &tauri::AppHandle) -> Result<String, String> {

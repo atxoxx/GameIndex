@@ -241,12 +241,21 @@ pub async fn finish_emulator_install(
 /// Existing rows are merged so playtime / metadata / covers survive a
 /// re-scan; only the emulator linkage + launch arguments are refreshed.
 #[tauri::command]
-pub fn scan_emulator_roms(
+pub async fn scan_emulator_roms(
     app: tauri::AppHandle,
     emulator_id: String,
 ) -> Result<Vec<GameData>, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let emu = db::emulators::get(db_state.inner(), &emulator_id)
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || scan_emulator_roms_blocking(&db, &emulator_id))
+        .await
+        .map_err(|e| format!("scan_emulator_roms task: {e}"))?
+}
+
+fn scan_emulator_roms_blocking(
+    db: &db::Db,
+    emulator_id: &str,
+) -> Result<Vec<GameData>, String> {
+    let emu = db::emulators::get(db, emulator_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Emulator not found: {emulator_id}"))?;
 
@@ -258,6 +267,13 @@ pub fn scan_emulator_roms(
         return Err(format!("ROM folder does not exist: {}", emu.rom_folder));
     }
 
+    // Preload every stored row once instead of issuing a full-row SELECT per
+    // file; the scan then writes the whole folder in a single transaction.
+    let existing: HashMap<String, db::games::GameRow> = db::games::list_all(db)?
+        .into_iter()
+        .map(|row| (row.id.clone(), row))
+        .collect();
+
     let exts = rom_extensions_for_platform(&emu.platform);
     let now_ms = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -265,6 +281,7 @@ pub fn scan_emulator_roms(
         .unwrap_or(0);
 
     let mut out: Vec<GameData> = Vec::new();
+    let mut rows: Vec<db::games::GameRow> = Vec::new();
     let entries = std::fs::read_dir(folder).map_err(|e| format!("read ROM folder: {e}"))?;
     for entry in entries {
         let entry = entry.map_err(|e| format!("read ROM entry: {e}"))?;
@@ -292,8 +309,8 @@ pub fn scan_emulator_roms(
         }
 
         // Preserve progress / metadata if this ROM was scanned before.
-        if let Some(existing) = db::games::get(db_state.inner(), &game.id).map_err(|e| e.to_string())? {
-            let value = serde_json::to_value(&existing).map_err(|e| format!("to_value: {e}"))?;
+        if let Some(existing) = existing.get(&game.id) {
+            let value = serde_json::to_value(existing).map_err(|e| format!("to_value: {e}"))?;
             if let Ok(prev) = serde_json::from_value::<GameData>(value) {
                 apply_existing_rom(&prev, &mut game);
             }
@@ -302,9 +319,11 @@ pub fn scan_emulator_roms(
         let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
         let row: db::games::GameRow = serde_json::from_value(value)
             .map_err(|e| format!("to GameRow: {e}"))?;
-        db::games::upsert_one(db_state.inner(), &row)?;
+        rows.push(row);
         out.push(game);
     }
+
+    db::games::upsert_batch(db, &rows, false)?;
 
     Ok(out)
 }
@@ -622,6 +641,79 @@ pub fn recalc_rom_sizes(
         out.push(game);
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::schema::{
+        EMULATORS_DDL, EMULATORS_V2_DDL, GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL,
+        GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL,
+        GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL,
+    };
+
+    fn test_db() -> (tempfile::TempDir, db::Db) {
+        let dir = tempfile::tempdir().unwrap();
+        let db = db::Db::open(dir.path()).unwrap();
+        {
+            let emu = db.emulators().unwrap();
+            emu.execute_batch(EMULATORS_DDL).unwrap();
+            emu.execute_batch(EMULATORS_V2_DDL).unwrap();
+            let games = db.games().unwrap();
+            for ddl in [
+                GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL,
+                GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL,
+                GAMES_V11_DDL,
+            ] {
+                games.execute_batch(ddl).unwrap();
+            }
+        }
+        (dir, db)
+    }
+
+    fn emulator(rom_folder: &str) -> db::emulators::EmulatorRow {
+        db::emulators::EmulatorRow {
+            id: "emu-nes".into(),
+            name: "Test NES".into(),
+            platform: "NES".into(),
+            executable_path: "C:\\emu\\nes.exe".into(),
+            arguments_template: "%ROM%".into(),
+            rom_folder: rom_folder.into(),
+            notes: None,
+            icon_url: None,
+            bios_folder: None,
+            saves_folder: None,
+            auto_scan: None,
+            created_at: 1,
+            updated_at: 1,
+        }
+    }
+
+    #[test]
+    fn scan_batches_writes_and_reuses_existing_rows() {
+        let (_dir, db) = test_db();
+        let rom_dir = tempfile::tempdir().unwrap();
+        std::fs::write(rom_dir.path().join("Mario.nes"), b"x").unwrap();
+        std::fs::write(rom_dir.path().join("Zelda.nes"), b"y").unwrap();
+        let rom_folder = rom_dir.path().to_string_lossy().to_string();
+        db::emulators::upsert_one(&db, &emulator(&rom_folder)).unwrap();
+
+        let first = scan_emulator_roms_blocking(&db, "emu-nes").unwrap();
+        assert_eq!(first.len(), 2);
+        for game in &first {
+            assert!(db::games::get(&db, &game.id).unwrap().is_some());
+        }
+
+        // Re-scan must not duplicate rows and must reuse the deterministic ids.
+        let second = scan_emulator_roms_blocking(&db, "emu-nes").unwrap();
+        assert_eq!(second.len(), 2);
+        let mut first_ids: Vec<&str> = first.iter().map(|g| g.id.as_str()).collect();
+        let mut second_ids: Vec<&str> = second.iter().map(|g| g.id.as_str()).collect();
+        first_ids.sort();
+        second_ids.sort();
+        assert_eq!(first_ids, second_ids);
+        assert_eq!(db::games::list_all(&db).unwrap().len(), 2);
+    }
 }
 
 

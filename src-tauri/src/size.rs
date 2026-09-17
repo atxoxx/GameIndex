@@ -300,32 +300,37 @@ pub(crate) fn sum_folder_size(root: &Path) -> Result<SizeDetectionResult, String
 ///      because the interview confirmed sync stays manual.
 ///   4. Fallback — the immediate parent of `exe_path`.
 #[tauri::command]
-pub fn detect_game_size(
+pub async fn detect_game_size(
     exe_path: String,
     game_name: String,
     root_override: Option<String>,
     steam_app_id: Option<u32>,
 ) -> Result<SizeDetectionResult, String> {
-    if let Some(folder) = root_override {
-        if folder.is_empty() {
-            return Err("rootOverride was empty".into());
+    // Recursive tree walk — keep it off the event loop.
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(folder) = root_override {
+            if folder.is_empty() {
+                return Err("rootOverride was empty".into());
+            }
+            return sum_folder_size(Path::new(&folder));
         }
-        return sum_folder_size(Path::new(&folder));
-    }
-    if let Some(appid) = steam_app_id {
-        if let Some(install_dir) = crate::steam_game_watcher::game_install_path(appid) {
-            if install_dir.is_dir() {
-                return sum_folder_size(&install_dir);
+        if let Some(appid) = steam_app_id {
+            if let Some(install_dir) = crate::steam_game_watcher::game_install_path(appid) {
+                if install_dir.is_dir() {
+                    return sum_folder_size(&install_dir);
+                }
             }
         }
-    }
-    let root = walk_up_find_root(&exe_path, &game_name).unwrap_or_else(|| {
-        Path::new(&exe_path)
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."))
-    });
-    sum_folder_size(&root)
+        let root = walk_up_find_root(&exe_path, &game_name).unwrap_or_else(|| {
+            Path::new(&exe_path)
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| PathBuf::from("."))
+        });
+        sum_folder_size(&root)
+    })
+    .await
+    .map_err(|e| format!("detect_game_size task: {e}"))?
 }
 
 /// Measure the on-disk size of an arbitrary path: a folder (sum of every
@@ -338,25 +343,29 @@ pub fn detect_game_size(
 /// Returns an error if the path does not exist so the frontend can surface
 /// a toast rather than silently showing `0 B`.
 #[tauri::command]
-pub fn measure_path_size(path: String) -> Result<SizeDetectionResult, String> {
-    if path.trim().is_empty() {
-        return Err("measure_path_size: empty path".into());
-    }
-    let p = Path::new(&path);
-    if !p.exists() {
-        return Err(format!("Path does not exist: {}", path));
-    }
-    if p.is_file() {
-        let len = p
-            .metadata()
-            .map_err(|e| format!("Could not read {}: {}", path, e))?
-            .len();
-        return Ok(SizeDetectionResult {
-            root_path: path,
-            size_bytes: len,
-        });
-    }
-    sum_folder_size(p)
+pub async fn measure_path_size(path: String) -> Result<SizeDetectionResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if path.trim().is_empty() {
+            return Err("measure_path_size: empty path".into());
+        }
+        let p = Path::new(&path);
+        if !p.exists() {
+            return Err(format!("Path does not exist: {}", path));
+        }
+        if p.is_file() {
+            let len = p
+                .metadata()
+                .map_err(|e| format!("Could not read {}: {}", path, e))?
+                .len();
+            return Ok(SizeDetectionResult {
+                root_path: path,
+                size_bytes: len,
+            });
+        }
+        sum_folder_size(p)
+    })
+    .await
+    .map_err(|e| format!("measure_path_size task: {e}"))?
 }
 
 /// Bulk staleness check used by the Storage tab's lazy mount-time refresh.
@@ -861,96 +870,105 @@ fn copy_dir_with_progress(
 /// `game-move-done`. The frontend is responsible for rewriting `path` /
 /// `sizeRootPath` on the game record.
 #[tauri::command]
-pub fn move_game_install(
+pub async fn move_game_install(
     app: tauri::AppHandle,
     game_id: String,
     from_root: String,
     dest_dir: String,
 ) -> Result<MoveGameResult, String> {
-    let from = Path::new(&from_root);
-    if !from.exists() || !from.is_dir() {
-        return Err(format!("Source folder does not exist: {from_root}"));
-    }
-    let dest = Path::new(&dest_dir);
-    if !dest.exists() || !dest.is_dir() {
-        return Err(format!("Destination does not exist: {dest_dir}"));
-    }
-    let folder_name = from
-        .file_name()
-        .and_then(|n| n.to_str())
-        .ok_or("Could not determine the source folder name")?;
-    let new_root = dest.join(folder_name);
-    if new_root == from {
-        return Err("Source and destination are the same folder".into());
-    }
-    if new_root.exists() {
-        return Err(format!(
-            "Destination already exists: {}",
-            new_root.display()
-        ));
-    }
+    // Copies (and verifies) an entire install tree, emitting progress.
+    tauri::async_runtime::spawn_blocking(move || {
+        let from = Path::new(&from_root);
+        if !from.exists() || !from.is_dir() {
+            return Err(format!("Source folder does not exist: {from_root}"));
+        }
+        let dest = Path::new(&dest_dir);
+        if !dest.exists() || !dest.is_dir() {
+            return Err(format!("Destination does not exist: {dest_dir}"));
+        }
+        let folder_name = from
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or("Could not determine the source folder name")?;
+        let new_root = dest.join(folder_name);
+        if new_root == from {
+            return Err("Source and destination are the same folder".into());
+        }
+        if new_root.exists() {
+            return Err(format!(
+                "Destination already exists: {}",
+                new_root.display()
+            ));
+        }
 
-    // Pre-compute the total so the progress bar has a denominator. Reuses the
-    // cycle-guarded walker so symlinked/junction trees don't hang.
-    let total = sum_folder_size(from).map(|r| r.size_bytes).unwrap_or(0);
-    let copied = Arc::new(AtomicU64::new(0));
-    let mut last_emit = std::time::Instant::now();
-    emit_move_progress(&app, &game_id, 0, total, "copying");
+        // Pre-compute the total so the progress bar has a denominator. Reuses the
+        // cycle-guarded walker so symlinked/junction trees don't hang.
+        let total = sum_folder_size(from).map(|r| r.size_bytes).unwrap_or(0);
+        let copied = Arc::new(AtomicU64::new(0));
+        let mut last_emit = std::time::Instant::now();
+        emit_move_progress(&app, &game_id, 0, total, "copying");
 
-    copy_dir_with_progress(
-        from,
-        &new_root,
-        &copied,
-        &app,
-        &game_id,
-        total,
-        &mut last_emit,
-    )?;
+        copy_dir_with_progress(
+            from,
+            &new_root,
+            &copied,
+            &app,
+            &game_id,
+            total,
+            &mut last_emit,
+        )?;
 
-    emit_move_progress(&app, &game_id, total, total, "verifying");
-    let new_size = sum_folder_size(&new_root)
-        .map(|r| r.size_bytes)
-        .unwrap_or(0);
-    if total > 0 && new_size < total {
-        // Verification failed — remove the partial copy and bail. The source
-        // folder is intentionally left untouched.
-        let _ = std::fs::remove_dir_all(&new_root);
-        return Err("Move failed verification — source folder is untouched".into());
-    }
+        emit_move_progress(&app, &game_id, total, total, "verifying");
+        let new_size = sum_folder_size(&new_root)
+            .map(|r| r.size_bytes)
+            .unwrap_or(0);
+        if total > 0 && new_size < total {
+            // Verification failed — remove the partial copy and bail. The source
+            // folder is intentionally left untouched.
+            let _ = std::fs::remove_dir_all(&new_root);
+            return Err("Move failed verification — source folder is untouched".into());
+        }
 
-    emit_move_progress(&app, &game_id, total, total, "cleaning");
-    std::fs::remove_dir_all(from)
-        .map_err(|e| format!("Failed to remove old install: {e}"))?;
+        emit_move_progress(&app, &game_id, total, total, "cleaning");
+        std::fs::remove_dir_all(from)
+            .map_err(|e| format!("Failed to remove old install: {e}"))?;
 
-    let _ = app.emit(
-        "game-move-done",
-        MoveDoneEvent {
-            game_id: game_id.clone(),
+        let _ = app.emit(
+            "game-move-done",
+            MoveDoneEvent {
+                game_id: game_id.clone(),
+                to_path: new_root.to_string_lossy().to_string(),
+            },
+        );
+
+        Ok(MoveGameResult {
             to_path: new_root.to_string_lossy().to_string(),
-        },
-    );
-
-    Ok(MoveGameResult {
-        to_path: new_root.to_string_lossy().to_string(),
-        size_bytes: new_size,
+            size_bytes: new_size,
+        })
     })
+    .await
+    .map_err(|e| format!("move_game_install task: {e}"))?
 }
 
 /// Delete a game's install folder entirely. `root_path` is the measured
 /// install folder (`sizeRootPath`); we never delete anything broader. Returns
 /// the number of bytes freed so the Storage header can re-total immediately.
 #[tauri::command]
-pub fn uninstall_game(root_path: String) -> Result<UninstallResult, String> {
-    let p = Path::new(&root_path);
-    if !p.exists() {
-        return Err(format!("Folder does not exist: {root_path}"));
-    }
-    let deleted = sum_folder_size(p).map(|r| r.size_bytes).unwrap_or(0);
-    std::fs::remove_dir_all(p).map_err(|e| format!("Failed to delete: {e}"))?;
-    Ok(UninstallResult {
-        deleted_bytes: deleted,
-        path: root_path,
+pub async fn uninstall_game(root_path: String) -> Result<UninstallResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = Path::new(&root_path);
+        if !p.exists() {
+            return Err(format!("Folder does not exist: {root_path}"));
+        }
+        let deleted = sum_folder_size(p).map(|r| r.size_bytes).unwrap_or(0);
+        std::fs::remove_dir_all(p).map_err(|e| format!("Failed to delete: {e}"))?;
+        Ok(UninstallResult {
+            deleted_bytes: deleted,
+            path: root_path,
+        })
     })
+    .await
+    .map_err(|e| format!("uninstall_game task: {e}"))?
 }
 
 #[cfg(test)]
