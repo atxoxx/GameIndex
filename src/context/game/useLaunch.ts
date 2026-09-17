@@ -171,7 +171,9 @@ export function useLaunch(options: {
     // Stamp lastPlayed immediately so the game surfaces in the
     // "Continue Playing" rail even before the session ends. If the
     // backend later emits a game-exited event, the timestamp will be
-    // refined to the actual finish time.
+    // refined to the actual finish time. Keep the previous value so a
+    // failed spawn can roll the rail entry back.
+    const previousLastPlayed = game.lastPlayed;
     setGames((prev) =>
       prev.map((g) =>
         g.id === game.id ? { ...g, lastPlayed: Date.now() } : g
@@ -261,6 +263,11 @@ export function useLaunch(options: {
       showToast(t("gameContext.launched", { name: game.name }), "success");
     } catch (err: any) {
       setRunningGameIds((prev) => prev.filter((id) => id !== game.id));
+      setGames((prev) =>
+        prev.map((g) =>
+          g.id === game.id ? { ...g, lastPlayed: previousLastPlayed } : g
+        )
+      );
       if (splashOn) splash.updateStatus("error", String(err));
       showToast(t("gameContext.launchFailed", { error: String(err) }), "error");
     }
