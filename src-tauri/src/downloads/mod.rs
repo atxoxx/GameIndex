@@ -22,6 +22,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tauri::AppHandle;
+use tauri::Emitter;
 use tauri::Manager;
 use tokio::sync::OnceCell;
 use tokio::time::interval;
@@ -66,7 +67,7 @@ pub async fn initialize_engine(
     // and the persisted downloads survive the rewrite.
     let state_dir = app_data_dir.join("torrent-engine");
     let mut mgr = DownloadManager::new(state_dir);
-    mgr.set_app(app);
+    mgr.set_app(app.clone());
     mgr.set_history_db(db);
     mgr.initialize().await?;
     let shared = Arc::new(tokio::sync::RwLock::new(mgr));
@@ -87,10 +88,47 @@ pub async fn initialize_engine(
         tick.tick().await; // skip the immediate first tick
         loop {
             tick.tick().await;
-            let mut guard = loop_handle.write().await;
-            guard.refresh_stats().await;
-            guard.flush_if_dirty();
-            guard.emit_progress();
+            // Hold the write lock only long enough to apply the in-memory
+            // refresh and capture what needs persisting/emitting. The
+            // frontend emit and the session-op heals then run with the
+            // lock released.
+            let (heals, progress) = {
+                let mut guard = loop_handle.write().await;
+                let heals = guard.refresh_stats();
+                guard.flush_if_dirty();
+                let progress = guard.take_progress_update();
+                (heals, progress)
+            };
+            if let Some(snapshot) = progress {
+                let _ = app.emit("download-progress", &snapshot);
+            }
+            for (session, handle) in heals {
+                // `torrent_remove` can interleave after `refresh_stats`
+                // collected this heal: it drops the record/tombstone and
+                // spawns the delete, so unpausing now would touch a handle
+                // the session no longer owns. Re-take a short read lock and
+                // skip the heal if the record is gone or no longer maps to
+                // this exact handle.
+                let fid = torrent::frontend_id_from_hash(&handle.shared().info_hash.0);
+                {
+                    let guard = loop_handle.read().await;
+                    let still_owned = guard.downloads_map().contains_key(&fid)
+                        && torrent::find_handle(&session, &fid)
+                            .map(|h| Arc::ptr_eq(&h, &handle))
+                            .unwrap_or(false);
+                    if !still_owned {
+                        continue;
+                    }
+                }
+                // Bounded: unpause must never stall the tick.
+                let fut = async move { session.unpause(&handle).await };
+                let _ = torrent::run_session_op_bounded(
+                    "torrent heal unpause",
+                    fut,
+                    Duration::from_secs(torrent::SESSION_OP_TIMEOUT_SECS),
+                )
+                .await;
+            }
         }
     });
     Ok(())

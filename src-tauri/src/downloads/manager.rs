@@ -164,26 +164,32 @@ impl DownloadManager {
     /// everything else newest-first.
     pub fn list(&self) -> Vec<Download> {
         let mut all: Vec<Download> = self.downloads.values().cloned().collect();
-        all.sort_by(|a, b| {
-            let a_done = matches!(a.status, DownloadStatus::Completed);
-            let b_done = matches!(b.status, DownloadStatus::Completed);
-            match (a_done, b_done) {
-                (true, true) | (false, false) => b.added_at.cmp(&a.added_at),
-                (true, false) => std::cmp::Ordering::Greater,
-                (false, true) => std::cmp::Ordering::Less,
-            }
-        });
+        all.sort_by(compare_downloads);
         all
     }
 
+    /// Snapshot for the 1 s tick: the payload to emit once the manager
+    /// write lock has been released, or `None` when nothing changed since
+    /// the last emit. The hash is computed over borrowed records, so an
+    /// unchanged tick does not clone the download list.
+    pub fn take_progress_update(&mut self) -> Option<Vec<Download>> {
+        self.app.as_ref()?;
+        let mut refs: Vec<&Download> = self.downloads.values().collect();
+        refs.sort_by(|a, b| compare_downloads(a, b));
+        let hash = hash_downloads(refs.iter().copied());
+        if hash == self.last_emitted_hash {
+            return None;
+        }
+        self.last_emitted_hash = hash;
+        Some(refs.into_iter().cloned().collect())
+    }
+
     pub fn emit_progress(&mut self) {
+        let Some(snapshot) = self.take_progress_update() else {
+            return;
+        };
         if let Some(app) = &self.app {
-            let snapshot = self.list();
-            let hash = hash_snapshot(&snapshot);
-            if hash != self.last_emitted_hash {
-                self.last_emitted_hash = hash;
-                let _ = app.emit("download-progress", &snapshot);
-            }
+            let _ = app.emit("download-progress", &snapshot);
         }
     }
 
@@ -357,7 +363,16 @@ impl DownloadManager {
 
     /// Poll librqbit + the direct counters, update every record, and
     /// detect completions.
-    pub async fn refresh_stats(&mut self) {
+    ///
+    /// Fully synchronous: the "file is None" heal unpauses are collected
+    /// and returned so the caller can run those bounded session ops after
+    /// releasing the manager lock, instead of awaiting them while the
+    /// exclusive guard is held.
+    pub fn refresh_stats(&mut self) -> Vec<(Arc<librqbit::Session>, Arc<librqbit::ManagedTorrent>)> {
+        // Heal unpauses are session-only side effects; they are run by the
+        // caller after the manager lock is released.
+        let mut to_heal: Vec<(Arc<librqbit::Session>, Arc<librqbit::ManagedTorrent>)> =
+            Vec::new();
 
         // ---- Torrents ----
         if let Some(session) = self.session.clone() {
@@ -469,16 +484,7 @@ impl DownloadManager {
                             println!(
                                 "[downloads] healing torrent after pause/write race (file is None)"
                             );
-                            // Bounded: unpause must never stall the tick.
-                            let session_clone = session.clone();
-                            let handle = entry.handle.clone();
-                            let fut = async move { session_clone.unpause(&handle).await };
-                            let _ = torrent::run_session_op_bounded(
-                                "torrent heal unpause",
-                                fut,
-                                Duration::from_secs(torrent::SESSION_OP_TIMEOUT_SECS),
-                            )
-                            .await;
+                            to_heal.push((session.clone(), entry.handle.clone()));
                         }
                     }
                 }
@@ -747,6 +753,7 @@ impl DownloadManager {
         self.direct_reset_partial
             .retain(|id| self.downloads.contains_key(id));
 
+        to_heal
     }
 }
 
@@ -1842,7 +1849,19 @@ pub fn spawn_extraction(
     });
 }
 
-fn hash_snapshot(downloads: &[Download]) -> u64 {
+/// Frontend ordering: completed records at the bottom, everything else
+/// newest-first.
+fn compare_downloads(a: &Download, b: &Download) -> std::cmp::Ordering {
+    let a_done = matches!(a.status, DownloadStatus::Completed);
+    let b_done = matches!(b.status, DownloadStatus::Completed);
+    match (a_done, b_done) {
+        (true, true) | (false, false) => b.added_at.cmp(&a.added_at),
+        (true, false) => std::cmp::Ordering::Greater,
+        (false, true) => std::cmp::Ordering::Less,
+    }
+}
+
+fn hash_downloads<'a>(downloads: impl Iterator<Item = &'a Download>) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     let mut hasher = DefaultHasher::new();

@@ -228,6 +228,79 @@ pub struct SteamInstallChangedPayload {
     pub exe_path: Option<String>,
 }
 
+/// Owned inputs for one Steam-install scan, captured under the watcher
+/// lock so the scan's registry + library-folder I/O can run unlocked.
+struct SteamScanInputs {
+    is_first_run: bool,
+    previous: HashMap<u32, bool>,
+    /// AppID → game name, used to resolve a newly installed game's exe.
+    names: HashMap<u32, String>,
+}
+
+/// Run one Steam manifest scan and emit `steam-install-changed` for every
+/// install-state transition. Disk I/O and `resolve_steam_game_exe` are
+/// slow, so this runs with the watcher lock released; the caller applies
+/// the returned manifest state afterwards.
+fn run_steam_install_scan(inputs: SteamScanInputs, app_handle: &AppHandle) -> HashMap<u32, bool> {
+    let current: HashMap<u32, bool> = crate::steam::sync::detect_steam_manifest_state();
+
+    if inputs.is_first_run {
+        return current;
+    }
+
+    // A game is newly installed when its manifest reports fully
+    // installed now but wasn't at the last poll — a fresh install
+    // finishing, or an update that had dropped `StateFlags` completing.
+    // Manifests that are present-but-not-fully-installed (mid-download)
+    // never emit: the game isn't playable yet.
+    let newly_installed: Vec<u32> = current
+        .iter()
+        .filter(|(appid, fully)| {
+            **fully && !matches!(inputs.previous.get(appid), Some(true))
+        })
+        .map(|(appid, _)| *appid)
+        .collect();
+
+    // A game is uninstalled only when its appmanifest disappears from
+    // disk entirely. Steam deletes the manifest on uninstall; an update
+    // keeps it and merely flips `StateFlags`, so a present-but-not-
+    // installed manifest must never count as an uninstall (that would
+    // rip the game out of the library mid-update).
+    let uninstalled: Vec<u32> = inputs
+        .previous
+        .keys()
+        .filter(|appid| !current.contains_key(*appid))
+        .copied()
+        .collect();
+
+    for appid in newly_installed {
+        let name = inputs.names.get(&appid).cloned().unwrap_or_default();
+        let exe_path = resolve_steam_game_exe(appid, &name);
+
+        let _ = app_handle.emit(
+            "steam-install-changed",
+            SteamInstallChangedPayload {
+                app_id: appid,
+                installed: true,
+                exe_path,
+            },
+        );
+    }
+
+    for appid in uninstalled {
+        let _ = app_handle.emit(
+            "steam-install-changed",
+            SteamInstallChangedPayload {
+                app_id: appid,
+                installed: false,
+                exe_path: None,
+            },
+        );
+    }
+
+    current
+}
+
 // ─── GameWatcher ──────────────────────────────────────────────────────────────
 
 pub struct GameWatcher {
@@ -433,102 +506,65 @@ impl GameWatcher {
         self.request_immediate_poll();
     }
 
-    /// Poll Steam library folders for installation state changes.
-    fn poll_steam_install_changes(&mut self, app_handle: &AppHandle) {
+    /// Snapshot the inputs the Steam-install scan needs and advance its
+    /// throttle, so the slow part (`run_steam_install_scan`: registry +
+    /// `appmanifest_*.acf` reads, `resolve_steam_game_exe`) can run
+    /// without the watcher lock held. Returns `None` while throttled.
+    fn steam_install_scan_inputs(&mut self) -> Option<SteamScanInputs> {
         let now = Instant::now();
         if let Some(last) = self.last_steam_install_poll {
             // Re-scan throttle (registry + appmanifest_*.acf files). The
-            // `steam_installed_appids` diff below only emits on actual
-            // install-state changes, so a 60 s cadence is plenty.
+            // diff only emits on actual install-state changes, so a 60 s
+            // cadence is plenty.
             if now.duration_since(last) < std::time::Duration::from_secs(60) {
-                return;
+                return None;
             }
         }
 
         let is_first_run = self.last_steam_install_poll.is_none();
         self.last_steam_install_poll = Some(now);
 
-        let current: std::collections::HashMap<u32, bool> =
-            crate::steam::sync::detect_steam_manifest_state();
-
-        if is_first_run {
-            self.steam_manifest_appids = current;
-            return;
+        // AppID → game name, used to resolve an exe path when a newly
+        // installed game is announced. Built here so the scan itself never
+        // touches the process index.
+        let mut names: HashMap<u32, String> = HashMap::new();
+        for game in self.process_index.values().flatten() {
+            if let Some(appid) = game.steam_app_id {
+                names.entry(appid).or_insert_with(|| game.game_name.clone());
+            }
         }
 
-        // A game is newly installed when its manifest reports fully
-        // installed now but wasn't at the last poll — a fresh install
-        // finishing, or an update that had dropped `StateFlags` completing.
-        // Manifests that are present-but-not-fully-installed (mid-download)
-        // never emit: the game isn't playable yet.
-        let newly_installed: Vec<u32> = current
-            .iter()
-            .filter(|(appid, fully)| {
-                **fully && !matches!(self.steam_manifest_appids.get(appid), Some(true))
-            })
-            .map(|(appid, _)| *appid)
-            .collect();
+        Some(SteamScanInputs {
+            is_first_run,
+            previous: self.steam_manifest_appids.clone(),
+            names,
+        })
+    }
 
-        // A game is uninstalled only when its appmanifest disappears from
-        // disk entirely. Steam deletes the manifest on uninstall; an update
-        // keeps it and merely flips `StateFlags`, so a present-but-not-
-        // installed manifest must never count as an uninstall (that would
-        // rip the game out of the library mid-update).
-        let uninstalled: Vec<u32> = self
-            .steam_manifest_appids
-            .keys()
-            .filter(|appid| !current.contains_key(*appid))
-            .copied()
-            .collect();
-
+    /// Apply the completed Steam-install scan (computed off-lock).
+    fn apply_steam_install_scan(&mut self, current: HashMap<u32, bool>) {
         self.steam_manifest_appids = current;
-
-        for appid in newly_installed {
-            let name = self
-                .process_index
-                .values()
-                .flatten()
-                .find(|g| g.steam_app_id == Some(appid))
-                .map(|g| g.game_name.clone())
-                .unwrap_or_default();
-
-            let exe_path = resolve_steam_game_exe(appid, &name);
-
-            let _ = app_handle.emit(
-                "steam-install-changed",
-                SteamInstallChangedPayload {
-                    app_id: appid,
-                    installed: true,
-                    exe_path,
-                },
-            );
-        }
-
-        for appid in uninstalled {
-            let _ = app_handle.emit(
-                "steam-install-changed",
-                SteamInstallChangedPayload {
-                    app_id: appid,
-                    installed: false,
-                    exe_path: None,
-                },
-            );
-        }
     }
 
     /// Run one poll cycle. Resolves pending sessions, re-attaches sessions
     /// whose tracked process died to a still-running process in the install
     /// directory, and detects new passively-launched games.
     ///
+    /// `processes` is the already-enumerated process snapshot: enumerating
+    /// it (a full Toolhelp32 sweep on Windows, `/proc` walk on Linux) is
+    /// the expensive part of a poll, so callers take it before acquiring
+    /// the watcher lock.
+    ///
     /// Returns the sessions that ended this cycle, already removed from
     /// `active_sessions` (via `take_active_session`), each paired with the
     /// name of any remaining active session at the time of removal. The
     /// caller runs the slow finalization (post-exit script, metrics drain,
     /// db writes, `game-exited` emit) AFTER releasing the watcher mutex.
-    pub fn poll(&mut self, app_handle: &AppHandle) -> Vec<(ActiveSession, Option<String>)> {
-        self.poll_steam_install_changes(app_handle);
-
-        let processes = query_running_processes();
+    fn apply_poll(
+        &mut self,
+        app_handle: &AppHandle,
+        processes: Vec<ProcessInfo>,
+    ) -> Vec<(ActiveSession, Option<String>)> {
         if processes.is_empty() {
             return Vec::new();
         }
@@ -2289,15 +2325,39 @@ pub fn start_background_poll(
         // Drop stale wake signals accumulated during the sleep window.
         while wake_rx.try_recv().is_ok() {}
 
+        // Slow work with the watcher lock released: the native process
+        // enumeration and the (throttled) Steam manifest scan. Each takes
+        // a short lock only to read its inputs or apply its result, so
+        // launch / force-close IPC no longer waits on a full process
+        // snapshot or a library-folder scan.
+        let steam_inputs = {
+            let mut w = match watcher.lock() {
+                Ok(w) => w,
+                Err(_) => break,
+            };
+            w.steam_install_scan_inputs()
+        };
+        let steam_scan =
+            steam_inputs.map(|inputs| run_steam_install_scan(inputs, &app_handle));
+        // Enumerate processes AFTER the slow Steam scan, immediately before
+        // the final lock: taking the snapshot first would leave it stale for
+        // the entire scan duration, worsening the enumeration→lock gap and
+        // the launcher→game hand-off race (a new game PID the snapshot
+        // predates reads as "not running" and strands the session).
+        let processes = query_running_processes();
+
         let mut w = match watcher.lock() {
             Ok(w) => w,
             Err(_) => break,
         };
-        // `poll` removes ended sessions from the map but defers the slow
-        // finalization to us; grab a cheap `Db` clone and drop the mutex
-        // so the post-exit script / 1 s metrics drain / SQLite writes
-        // below never block IPC handlers or the next poll cycle.
-        let ended_sessions = w.poll(&app_handle);
+        if let Some(current) = steam_scan {
+            w.apply_steam_install_scan(current);
+        }
+        // `apply_poll` removes ended sessions from the map but defers the
+        // slow finalization to us; grab a cheap `Db` clone and drop the
+        // mutex so the post-exit script / 1 s metrics drain / SQLite
+        // writes below never block IPC handlers or the next poll cycle.
+        let ended_sessions = w.apply_poll(&app_handle, processes);
 
         // Re-evaluate interval after polling: if we just cleared the last
         // pending session, settle back to the steady interval promptly.
