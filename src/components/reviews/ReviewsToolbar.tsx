@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useFocusProps, useFocusableNative } from "./focusable";
 import {
   type DisplayOrder,
   type DropdownItem,
@@ -63,6 +64,7 @@ function Dropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerFocus = useFocusProps(() => setOpen((p) => !p));
 
   useEffect(() => {
     if (!open) return;
@@ -80,9 +82,11 @@ function Dropdown({
   return (
     <div className="rv-dd" ref={ref}>
       <button
+        ref={triggerFocus.ref}
+        tabIndex={triggerFocus.tabIndex}
         type="button"
         className={`rv-dd-trigger${open ? " active" : ""}`}
-        onClick={() => setOpen((p) => !p)}
+        onClick={triggerFocus.onClick}
       >
         {selected?.flag && <FlagIcon code={selected.flag} size={15} />}
         <span>{selected?.label ?? label}</span>
@@ -94,18 +98,15 @@ function Dropdown({
       {open && (
         <div className="rv-dd-menu">
           {items.map((item) => (
-            <button
+            <DropdownOption
               key={item.value}
-              type="button"
-              className={`rv-dd-opt${item.value === value ? " active" : ""}`}
-              onClick={() => {
+              active={item.value === value}
+              item={item}
+              onSelect={() => {
                 onChange(item.value);
                 setOpen(false);
               }}
-            >
-              {item.flag && <FlagIcon code={item.flag} size={15} className="rv-dd-flag" />}
-              {item.label}
-            </button>
+            />
           ))}
         </div>
       )}
@@ -159,6 +160,9 @@ export function ReviewsToolbar({
   const { t } = useLanguage();
   const { showDeckVerified } = useSettings();
 
+  const helpfulnessFocus = useFocusableNative<HTMLInputElement>();
+  const clearSearchFocus = useFocusProps(() => onSearchQueryChange(""));
+
   const isCriticSource =
     sourceFilter === "metacritic" || sourceFilter === "opencritic";
 
@@ -176,23 +180,19 @@ export function ReviewsToolbar({
       {/* ── Source Tabs ── */}
       <div className="rv-source-tabs">
         <div className="rv-source-seg">
-          <button
-            type="button"
-            aria-pressed={sourceFilter === "all"}
-            className={`rv-source-seg-btn${sourceFilter === "all" ? " active" : ""}`}
-            onClick={() => onSourceFilterChange("all")}
+          <SourceSegButton
+            active={sourceFilter === "all"}
+            onSelect={() => onSourceFilterChange("all")}
           >
             {t("review.allReviewsCount", { count: totalAll > 0 ? totalAll.toLocaleString() : totalAll })}
-          </button>
-          <button
-            type="button"
-            aria-pressed={sourceFilter === "steam"}
-            className={`rv-source-seg-btn${sourceFilter === "steam" ? " active" : ""}`}
-            onClick={() => onSourceFilterChange("steam")}
+          </SourceSegButton>
+          <SourceSegButton
+            active={sourceFilter === "steam"}
+            onSelect={() => onSourceFilterChange("steam")}
           >
             <SourceMonogram source="steam" />
             {t("review.steamCount", { count: steamCount > 0 ? steamCount.toLocaleString() : steamCount })}
-          </button>
+          </SourceSegButton>
         </div>
 
         <div className="rv-source-tabs-divider" aria-hidden="true">
@@ -201,7 +201,6 @@ export function ReviewsToolbar({
 
         <div className="rv-source-seg">
           {(["metacritic", "opencritic"] as const).map((src) => {
-            const active = sourceFilter === src;
             const loading = criticLoading[src];
             const count = criticCounts[src];
             const labels: Record<string, string> = {
@@ -209,23 +208,15 @@ export function ReviewsToolbar({
               opencritic: "OpenCritic",
             };
             return (
-              <button
+              <CriticSourceButton
                 key={src}
-                type="button"
-                aria-pressed={active}
-                className={`rv-source-seg-btn rv-source-seg-btn--${src}${active ? " active" : ""}`}
-                onClick={() => onSourceFilterChange(src)}
-              >
-                <span className="rv-source-seg-mono">
-                  <SourceMonogram source={src} />
-                </span>
-                <span className="rv-source-seg-name">{labels[src]}</span>
-                {loading ? (
-                  <span className="rv-source-seg-spinner" aria-hidden="true" />
-                ) : count > 0 ? (
-                  <span className="rv-source-seg-count">{count}</span>
-                ) : null}
-              </button>
+                source={src}
+                active={sourceFilter === src}
+                loading={loading}
+                count={count}
+                label={labels[src]}
+                onSelect={() => onSourceFilterChange(src)}
+              />
             );
           })}
         </div>
@@ -237,48 +228,28 @@ export function ReviewsToolbar({
           <div className="rv-toolbar-segs">
             {/* Display / Sort */}
             <div className="rv-seg" role="group" aria-label={t("review.display")}>
-              <button
-                type="button"
-                aria-pressed={display === "summary"}
-                className={`rv-seg-btn${display === "summary" ? " active" : ""}`}
-                onClick={() => onDisplayChange("summary")}
-              >
+              <SegButton active={display === "summary"} onSelect={() => onDisplayChange("summary")}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="18" y1="20" x2="18" y2="10" />
                   <line x1="12" y1="20" x2="12" y2="4" />
                   <line x1="6" y1="20" x2="6" y2="14" />
                 </svg>
                 {t("review.summary")}
-              </button>
-              <button
-                type="button"
-                aria-pressed={display === "all"}
-                className={`rv-seg-btn${display === "all" ? " active" : ""}`}
-                onClick={() => onDisplayChange("all")}
-              >
+              </SegButton>
+              <SegButton active={display === "all"} onSelect={() => onDisplayChange("all")}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
                 </svg>
                 {t("review.mostHelpful")}
-              </button>
-              <button
-                type="button"
-                aria-pressed={display === "recent"}
-                className={`rv-seg-btn${display === "recent" ? " active" : ""}`}
-                onClick={() => onDisplayChange("recent")}
-              >
+              </SegButton>
+              <SegButton active={display === "recent"} onSelect={() => onDisplayChange("recent")}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" />
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
                 {t("review.recent")}
-              </button>
-              <button
-                type="button"
-                aria-pressed={display === "funny"}
-                className={`rv-seg-btn${display === "funny" ? " active" : ""}`}
-                onClick={() => onDisplayChange("funny")}
-              >
+              </SegButton>
+              <SegButton active={display === "funny"} onSelect={() => onDisplayChange("funny")}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" />
                   <path d="M8 14s1.5 2 4 2 4-2 4-2" />
@@ -286,44 +257,29 @@ export function ReviewsToolbar({
                   <line x1="15" y1="9" x2="15.01" y2="9" />
                 </svg>
                 {t("review.funny")}
-              </button>
+              </SegButton>
             </div>
 
             {/* Sentiment / Recommendation Filter */}
             <div className="rv-seg" role="group" aria-label={t("review.reviewType")}>
-              <button
-                type="button"
-                aria-pressed={reviewType === "all"}
-                className={`rv-seg-btn${reviewType === "all" ? " active" : ""}`}
-                onClick={() => onReviewTypeChange("all")}
-              >
+              <SegButton active={reviewType === "all"} onSelect={() => onReviewTypeChange("all")}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                 </svg>
                 {t("review.allReviews")}
-              </button>
-              <button
-                type="button"
-                aria-pressed={reviewType === "positive"}
-                className={`rv-seg-btn${reviewType === "positive" ? " active" : ""}`}
-                onClick={() => onReviewTypeChange("positive")}
-              >
+              </SegButton>
+              <SegButton active={reviewType === "positive"} onSelect={() => onReviewTypeChange("positive")}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
                 </svg>
                 {t("review.recommended")}
-              </button>
-              <button
-                type="button"
-                aria-pressed={reviewType === "negative"}
-                className={`rv-seg-btn${reviewType === "negative" ? " active" : ""}`}
-                onClick={() => onReviewTypeChange("negative")}
-              >
+              </SegButton>
+              <SegButton active={reviewType === "negative"} onSelect={() => onReviewTypeChange("negative")}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
                 </svg>
                 {t("review.notRecommended")}
-              </button>
+              </SegButton>
             </div>
           </div>
 
@@ -403,6 +359,8 @@ export function ReviewsToolbar({
             {/* Helpfulness System Toggle */}
             <label className="rv-toggle-label" title={t("reviewsTab.helpfulSystemTooltip")}>
               <input
+                ref={helpfulnessFocus.setRef}
+                tabIndex={helpfulnessFocus.tabIndex}
                 type="checkbox"
                 checked={useHelpfulSystem}
                 onChange={(e) => onUseHelpfulSystemChange(e.target.checked)}
@@ -426,9 +384,11 @@ export function ReviewsToolbar({
               />
               {searchQuery && (
                 <button
+                  ref={clearSearchFocus.ref}
+                  tabIndex={clearSearchFocus.tabIndex}
                   type="button"
                   className="rv-search-clear"
-                  onClick={() => onSearchQueryChange("")}
+                  onClick={clearSearchFocus.onClick}
                   aria-label="Clear search"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -446,48 +406,48 @@ export function ReviewsToolbar({
       {hasActiveFilters && !isCriticSource && (
         <div className="rv-filter-chips">
           {reviewType !== "all" && (
-            <button className="rv-chip" onClick={() => onReviewTypeChange("all")}>
+            <FilterChipButton className="rv-chip" onSelect={() => onReviewTypeChange("all")}>
               {reviewType === "positive" ? t("review.recommended") : t("review.notRecommended")} ✕
-            </button>
+            </FilterChipButton>
           )}
           {purchaseType !== "all" && (
-            <button className="rv-chip" onClick={() => onPurchaseTypeChange("all")}>
+            <FilterChipButton className="rv-chip" onSelect={() => onPurchaseTypeChange("all")}>
               {purchaseType === "steam" ? t("review.chipSteamPurchases") : t("review.otherSources")} ✕
-            </button>
+            </FilterChipButton>
           )}
           {playtimePreset !== "none" && (
-            <button className="rv-chip" onClick={() => onPlaytimePresetChange("none")}>
+            <FilterChipButton className="rv-chip" onSelect={() => onPlaytimePresetChange("none")}>
               {playtimePreset === "over_1h"
                 ? t("review.chipOver1h")
                 : playtimePreset === "over_10h"
                 ? t("review.chipOver10h")
                 : t("review.customOption")}{" "}
               ✕
-            </button>
+            </FilterChipButton>
           )}
           {showDeckVerified && playtimeDevice !== "all" && (
-            <button className="rv-chip" onClick={() => onPlaytimeDeviceChange("all")}>
+            <FilterChipButton className="rv-chip" onSelect={() => onPlaytimeDeviceChange("all")}>
               {t("review.steamDeck")} ✕
-            </button>
+            </FilterChipButton>
           )}
           {useHelpfulSystem && (
-            <button className="rv-chip" onClick={() => onUseHelpfulSystemChange(false)}>
+            <FilterChipButton className="rv-chip" onSelect={() => onUseHelpfulSystemChange(false)}>
               {t("review.helpfulnessSystem")} ✕
-            </button>
+            </FilterChipButton>
           )}
           {languageFilter !== "all" && (
-            <button className="rv-chip" onClick={() => onLanguageFilterChange("all")}>
+            <FilterChipButton className="rv-chip" onSelect={() => onLanguageFilterChange("all")}>
               {t("review.languageChip", {
                 language:
                   STEAM_LANGUAGES.find((l) => l.code === languageFilter)?.label ?? languageFilter,
               })}{" "}
               ✕
-            </button>
+            </FilterChipButton>
           )}
           {searchQuery && (
-            <button className="rv-chip" onClick={() => onSearchQueryChange("")}>
+            <FilterChipButton className="rv-chip" onSelect={() => onSearchQueryChange("")}>
               “{searchQuery}” ✕
-            </button>
+            </FilterChipButton>
           )}
 
           {matchCount !== undefined && (
@@ -496,11 +456,147 @@ export function ReviewsToolbar({
             </span>
           )}
 
-          <button type="button" className="rv-chip-reset" onClick={onResetFilters}>
+          <FilterChipButton className="rv-chip-reset" onSelect={onResetFilters}>
             {t("review.resetFilters")}
-          </button>
+          </FilterChipButton>
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Focus-registered controls ─────────────────────────────────────────
+// One `useFocusable` per rendered element so each registry entry is stable.
+
+function SegButton({
+  active,
+  onSelect,
+  children,
+}: {
+  active: boolean;
+  onSelect: () => void;
+  children: ReactNode;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      aria-pressed={active}
+      className={`rv-seg-btn${active ? " active" : ""}`}
+      onClick={focus.onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SourceSegButton({
+  active,
+  onSelect,
+  children,
+}: {
+  active: boolean;
+  onSelect: () => void;
+  children: ReactNode;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      aria-pressed={active}
+      className={`rv-source-seg-btn${active ? " active" : ""}`}
+      onClick={focus.onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CriticSourceButton({
+  source,
+  active,
+  loading,
+  count,
+  label,
+  onSelect,
+}: {
+  source: "metacritic" | "opencritic";
+  active: boolean;
+  loading: boolean;
+  count: number;
+  label: string;
+  onSelect: () => void;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      aria-pressed={active}
+      className={`rv-source-seg-btn rv-source-seg-btn--${source}${active ? " active" : ""}`}
+      onClick={focus.onClick}
+    >
+      <span className="rv-source-seg-mono">
+        <SourceMonogram source={source} />
+      </span>
+      <span className="rv-source-seg-name">{label}</span>
+      {loading ? (
+        <span className="rv-source-seg-spinner" aria-hidden="true" />
+      ) : count > 0 ? (
+        <span className="rv-source-seg-count">{count}</span>
+      ) : null}
+    </button>
+  );
+}
+
+function FilterChipButton({
+  className,
+  onSelect,
+  children,
+}: {
+  className: string;
+  onSelect: () => void;
+  children: ReactNode;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      className={className}
+      onClick={focus.onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function DropdownOption({
+  item,
+  active,
+  onSelect,
+}: {
+  item: DropdownItem;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      className={`rv-dd-opt${active ? " active" : ""}`}
+      onClick={focus.onClick}
+    >
+      {item.flag && <FlagIcon code={item.flag} size={15} className="rv-dd-flag" />}
+      {item.label}
+    </button>
   );
 }

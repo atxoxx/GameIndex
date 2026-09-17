@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { useFocusable } from "../../hooks/useFocusable";
 import {
   type Achievement,
   type AchievementRarity,
@@ -30,6 +31,7 @@ export default function AchievementItemCard({
 }: AchievementItemCardProps) {
   const { t } = useLanguage();
   const [localReveal, setLocalReveal] = useState(false);
+  const revealFocus = useFocusable(() => setLocalReveal(true));
 
   const rarity = getAchievementRarity(a.percent);
   const rarityColor = RARITY_COLORS[rarity];
@@ -102,8 +104,8 @@ export default function AchievementItemCard({
               <button
                 type="button"
                 className="achievement-card-reveal-btn"
-                onClick={() => setLocalReveal(true)}
                 title={t("achievements.revealSpoiler")}
+                {...revealFocus}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />

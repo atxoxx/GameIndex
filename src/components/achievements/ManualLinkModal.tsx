@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { useFocusable } from "../../hooks/useFocusable";
 import type { SteamSearchResult } from "../../types/game";
 import { Button } from "../ui";
 
@@ -36,6 +37,10 @@ export default function ManualLinkModal({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const closeFocus = useFocusable(onClose);
+  const searchFocus = useFocusable(handleSearch);
+  const cancelFocus = useFocusable(onClose);
 
   // Close on Escape, and focus the search box on open.
   useEffect(() => {
@@ -106,8 +111,8 @@ export default function ManualLinkModal({
           <button
             className="modal-close ach-modal-close"
             aria-label={t("common.close")}
-            onClick={onClose}
             disabled={linking}
+            {...closeFocus}
           >
             ×
           </button>
@@ -134,9 +139,9 @@ export default function ManualLinkModal({
             <Button
               variant="primary"
               size="sm"
-              onClick={handleSearch}
               isLoading={searching}
               disabled={query.trim().length < 2}
+              {...searchFocus}
             >
               {t("common.search")}
             </Button>
@@ -159,21 +164,12 @@ export default function ManualLinkModal({
           {results.length > 0 && (
             <ul className="ach-modal-results">
               {results.map((r) => (
-                <li key={r.appid} className="ach-modal-result">
-                  <div className="ach-modal-result-text">
-                    <span className="ach-modal-result-name">{r.name}</span>
-                    <span className="ach-modal-result-id">AppID {r.appid}</span>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleLink(r)}
-                    isLoading={linking}
-                    disabled={linking}
-                  >
-                    {t("achievements.manualLink.link")}
-                  </Button>
-                </li>
+                <ManualLinkResultRow
+                  key={r.appid}
+                  result={r}
+                  linking={linking}
+                  onLink={() => handleLink(r)}
+                />
               ))}
             </ul>
           )}
@@ -182,7 +178,7 @@ export default function ManualLinkModal({
         <div className="modal-footer">
           <span className="modal-footer-count">&nbsp;</span>
           <div className="modal-footer-actions">
-            <Button variant="ghost" onClick={onClose} disabled={linking}>
+            <Button variant="ghost" disabled={linking} {...cancelFocus}>
               {t("common.cancel")}
             </Button>
           </div>
@@ -190,5 +186,35 @@ export default function ManualLinkModal({
       </div>
     </div>,
     document.body
+  );
+}
+
+function ManualLinkResultRow({
+  result,
+  linking,
+  onLink,
+}: {
+  result: SteamSearchResult;
+  linking: boolean;
+  onLink: () => void;
+}) {
+  const { t } = useLanguage();
+  const focusProps = useFocusable(onLink);
+  return (
+    <li className="ach-modal-result">
+      <div className="ach-modal-result-text">
+        <span className="ach-modal-result-name">{result.name}</span>
+        <span className="ach-modal-result-id">AppID {result.appid}</span>
+      </div>
+      <Button
+        variant="secondary"
+        size="sm"
+        isLoading={linking}
+        disabled={linking}
+        {...focusProps}
+      >
+        {t("achievements.manualLink.link")}
+      </Button>
+    </li>
   );
 }

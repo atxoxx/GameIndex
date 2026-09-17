@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAchievements } from "../context/AchievementContext";
 import { useGames } from "../context/GameContext";
@@ -46,6 +46,32 @@ const TIER_ICONS: Record<AchievementRarity, string> = {
   uncommon: "✨",
   common: "🔹",
 };
+
+/** `useFocusable` without the ARIA role hint, so native controls keep their own role. */
+function useFocusProps(onActivate: () => void) {
+  const { ref, tabIndex, onClick } = useFocusable(onActivate);
+  return { ref, tabIndex, onClick };
+}
+
+/** Focus registration for native controls (checkbox, select): A replays the
+ *  element's own click/focus so its native behaviour is unchanged. */
+function useFocusableNative<T extends HTMLElement>() {
+  const elRef = useRef<T | null>(null);
+  const { ref, tabIndex } = useFocusable(() => {
+    const el = elRef.current;
+    if (!el) return;
+    if (el.tagName === "SELECT") el.focus();
+    else el.click();
+  });
+  const setRef = useCallback(
+    (el: T | null) => {
+      elRef.current = el;
+      ref(el);
+    },
+    [ref],
+  );
+  return { setRef, tabIndex };
+}
 
 export default function AchievementsTab({ game }: { game: Game }) {
   const { t } = useLanguage();
@@ -418,6 +444,12 @@ export default function AchievementsTab({ game }: { game: Game }) {
   }, [game.id, achievementData, manualLink]);
 
   const emptySyncFocus = useFocusable(handleSync);
+  const refreshFocus = useFocusProps(handleRefresh);
+  const manualEditorFocus = useFocusProps(() => setShowManualEditor(true));
+  const emptyManualEditorFocus = useFocusProps(() => setShowManualEditor(true));
+  const unlinkFocus = useFocusProps(() => setConfirmUnlink(true));
+  const sortFocus = useFocusableNative<HTMLSelectElement>();
+  const revealFocus = useFocusableNative<HTMLInputElement>();
 
   // Empty states
   if (!achievementData) {
@@ -453,14 +485,18 @@ export default function AchievementsTab({ game }: { game: Game }) {
           </p>
           <div className="ach-empty-actions">
             <button
+              ref={emptyManualEditorFocus.ref}
+              tabIndex={emptyManualEditorFocus.tabIndex}
               className="achievements-btn"
-              onClick={() => setShowManualEditor(true)}
+              onClick={emptyManualEditorFocus.onClick}
             >
               {t("achievements.editManualUnlocks")}
             </button>
             <button
+              ref={unlinkFocus.ref}
+              tabIndex={unlinkFocus.tabIndex}
               className="achievements-btn achievements-btn--secondary"
-              onClick={() => setConfirmUnlink(true)}
+              onClick={unlinkFocus.onClick}
             >
               {t("achievements.unlink")}
             </button>
@@ -647,16 +683,20 @@ export default function AchievementsTab({ game }: { game: Game }) {
         <div className="ach-tab-actions">
           {source === "manual" && manualLink && (
             <Button
+              ref={manualEditorFocus.ref}
+              tabIndex={manualEditorFocus.tabIndex}
               variant="ghost"
               size="sm"
-              onClick={() => setShowManualEditor(true)}
+              onClick={manualEditorFocus.onClick}
             >
               {t("achievements.editManualUnlocks")}
             </Button>
           )}
           <button
+            ref={refreshFocus.ref}
+            tabIndex={refreshFocus.tabIndex}
             className="achievements-sync-btn achievements-sync-btn-sm ach-tab-refresh"
-            onClick={handleRefresh}
+            onClick={refreshFocus.onClick}
             disabled={syncing || isSyncing}
             title={t("achievements.syncFrom", {
               source: t(`achievements.source.${source}`),
@@ -683,17 +723,14 @@ export default function AchievementsTab({ game }: { game: Game }) {
           aria-label={t("achievements.sourceLabel")}
         >
           {[...availableSources].map((src) => (
-            <button
+            <SourcePickerButton
               key={src}
-              role="radio"
-              aria-checked={src === source}
-              className={`ach-source-picker-btn${src === source ? " active" : ""}`}
-              data-source={src}
-              onClick={() => switchSource(src)}
+              source={src}
+              active={src === source}
+              label={t(`achievements.source.${src}`)}
               disabled={syncing || isSyncing}
-            >
-              {t(`achievements.source.${src}`)}
-            </button>
+              onSelect={() => switchSource(src)}
+            />
           ))}
         </div>
       )}
@@ -706,48 +743,46 @@ export default function AchievementsTab({ game }: { game: Game }) {
             {(["all", "unlocked", "locked", "secret"] as const).map((f) => {
               if (f === "secret" && secretCount === 0) return null;
               return (
-                <button
+                <AchievementFilterButton
                   key={f}
-                  className={`achievements-filter-btn ${filter === f ? "active" : ""}`}
-                  onClick={() => setFilter(f)}
-                >
-                  {f === "all"
-                    ? t("achievements.filter.all", { total })
-                    : f === "unlocked"
-                      ? t("achievements.filter.unlocked", { count: unlocked })
-                      : f === "locked"
-                        ? t("achievements.filter.locked", { count: total - unlocked })
-                        : `🔒 ${t("achievements.filterSecret", { count: secretCount })}`}
-                </button>
+                  active={filter === f}
+                  onSelect={() => setFilter(f)}
+                  label={
+                    f === "all"
+                      ? t("achievements.filter.all", { total })
+                      : f === "unlocked"
+                        ? t("achievements.filter.unlocked", { count: unlocked })
+                        : f === "locked"
+                          ? t("achievements.filter.locked", { count: total - unlocked })
+                          : `🔒 ${t("achievements.filterSecret", { count: secretCount })}`
+                  }
+                />
               );
             })}
           </div>
 
           {/* Rarity Tier Filter */}
           <div className="ach-rarity-filter-pills">
-            <button
-              type="button"
-              className={`ach-rarity-filter-pill ${rarityFilter === "all" ? "active" : ""}`}
-              onClick={() => setRarityFilter("all")}
-            >
-              {t("common.all")}
-            </button>
+            <RarityFilterPill
+              active={rarityFilter === "all"}
+              onSelect={() => setRarityFilter("all")}
+              label={t("common.all")}
+            />
             {RARITY_TIERS.map((tier) => {
               const tierCount = rarityBreakdown.total[tier];
               if (tierCount === 0) return null;
               return (
-                <button
-                  type="button"
+                <RarityFilterPill
                   key={tier}
-                  className={`ach-rarity-filter-pill ${rarityFilter === tier ? "active" : ""}`}
-                  style={{
-                    color: RARITY_COLORS[tier],
-                    borderColor: rarityFilter === tier ? RARITY_COLORS[tier] : undefined,
-                  }}
-                  onClick={() => setRarityFilter(rarityFilter === tier ? "all" : tier)}
-                >
-                  {TIER_ICONS[tier]} {t(`achievementsPage.rarity.${tier}`)} ({rarityBreakdown.unlocked[tier]}/{tierCount})
-                </button>
+                  active={rarityFilter === tier}
+                  onSelect={() => setRarityFilter(rarityFilter === tier ? "all" : tier)}
+                  label={
+                    <>
+                      {TIER_ICONS[tier]} {t(`achievementsPage.rarity.${tier}`)} ({rarityBreakdown.unlocked[tier]}/{tierCount})
+                    </>
+                  }
+                  color={RARITY_COLORS[tier]}
+                />
               );
             })}
           </div>
@@ -771,6 +806,8 @@ export default function AchievementsTab({ game }: { game: Game }) {
           <div className="achievements-sort">
             <label className="achievements-sort-label">{t("achievements.sort")}</label>
             <select
+              ref={sortFocus.setRef}
+              tabIndex={sortFocus.tabIndex}
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
               className="achievements-sort-select"
@@ -787,6 +824,8 @@ export default function AchievementsTab({ game }: { game: Game }) {
           {secretCount > 0 && (
             <label className="ach-reveal-toggle-label">
               <input
+                ref={revealFocus.setRef}
+                tabIndex={revealFocus.tabIndex}
                 type="checkbox"
                 checked={showSecretAchievements}
                 onChange={(e) => setShowSecretAchievements(e.target.checked)}
@@ -797,11 +836,10 @@ export default function AchievementsTab({ game }: { game: Game }) {
 
           {/* View Mode Toggle: Grid, Compact List, Timeline */}
           <div className="ach-view-mode-toggle" role="group" aria-label="View mode">
-            <button
-              type="button"
-              className={`ach-view-btn ${viewMode === "grid" ? "active" : ""}`}
-              onClick={() => setViewMode("grid")}
+            <ViewModeButton
+              active={viewMode === "grid"}
               title={t("achievementsPage.viewGrid")}
+              onSelect={() => setViewMode("grid")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <rect x="3" y="3" width="7" height="7" />
@@ -809,12 +847,11 @@ export default function AchievementsTab({ game }: { game: Game }) {
                 <rect x="14" y="14" width="7" height="7" />
                 <rect x="3" y="14" width="7" height="7" />
               </svg>
-            </button>
-            <button
-              type="button"
-              className={`ach-view-btn ${viewMode === "list" ? "active" : ""}`}
-              onClick={() => setViewMode("list")}
+            </ViewModeButton>
+            <ViewModeButton
+              active={viewMode === "list"}
               title={t("achievementsPage.viewList")}
+              onSelect={() => setViewMode("list")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <line x1="8" y1="6" x2="21" y2="6" />
@@ -824,18 +861,17 @@ export default function AchievementsTab({ game }: { game: Game }) {
                 <line x1="3" y1="12" x2="3.01" y2="12" />
                 <line x1="3" y1="18" x2="3.01" y2="18" />
               </svg>
-            </button>
-            <button
-              type="button"
-              className={`ach-view-btn ${viewMode === "timeline" ? "active" : ""}`}
-              onClick={() => setViewMode("timeline")}
+            </ViewModeButton>
+            <ViewModeButton
+              active={viewMode === "timeline"}
               title={t("achievementsPage.viewTimeline")}
+              onSelect={() => setViewMode("timeline")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-            </button>
+            </ViewModeButton>
           </div>
         </div>
       </div>
@@ -1036,6 +1072,9 @@ function NoSourceEmptyState({
   syncing: boolean;
 }) {
   const { t } = useLanguage();
+  const linkSteamFocus = useFocusProps(onLinkSteam);
+  const linkRetroFocus = useFocusProps(onLinkRetro);
+  const detectRomFocus = useFocusProps(onDetectRom);
   const hasRom = !!game.emulatorId || !!game.romPath;
   return (
     <div className="achievements-empty">
@@ -1052,20 +1091,30 @@ function NoSourceEmptyState({
           : t("achievements.noSourceDesc")}
       </p>
       <div className="ach-empty-actions">
-        <button className="achievements-btn" onClick={onLinkSteam} disabled={syncing}>
+        <button
+          ref={linkSteamFocus.ref}
+          tabIndex={linkSteamFocus.tabIndex}
+          className="achievements-btn"
+          onClick={linkSteamFocus.onClick}
+          disabled={syncing}
+        >
           {t("achievements.linkSteamGame")}
         </button>
         <button
+          ref={linkRetroFocus.ref}
+          tabIndex={linkRetroFocus.tabIndex}
           className="achievements-btn achievements-btn--secondary"
-          onClick={onLinkRetro}
+          onClick={linkRetroFocus.onClick}
           disabled={syncing}
         >
           {t("achievements.retroAchievements")}
         </button>
         {hasRom && retroConsoleMapped && (
           <button
+            ref={detectRomFocus.ref}
+            tabIndex={detectRomFocus.tabIndex}
             className="achievements-btn achievements-btn--secondary"
-            onClick={onDetectRom}
+            onClick={detectRomFocus.onClick}
             disabled={syncing}
           >
             {syncing ? (
@@ -1083,5 +1132,114 @@ function NoSourceEmptyState({
         <p className="ach-empty-hint">{t("achievements.noConsoleMapped")}</p>
       )}
     </div>
+  );
+}
+
+// ─── Focus-registered controls ─────────────────────────────────────────
+// Each control owns its own `useFocusable` call so the registry gets one
+// stable entry per rendered element (the per-card pattern).
+
+function SourcePickerButton({
+  source,
+  active,
+  label,
+  disabled,
+  onSelect,
+}: {
+  source: AchievementSource;
+  active: boolean;
+  label: string;
+  disabled: boolean;
+  onSelect: () => void;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      role="radio"
+      aria-checked={active}
+      className={`ach-source-picker-btn${active ? " active" : ""}`}
+      data-source={source}
+      onClick={focus.onClick}
+      disabled={disabled}
+    >
+      {label}
+    </button>
+  );
+}
+
+function AchievementFilterButton({
+  active,
+  label,
+  onSelect,
+}: {
+  active: boolean;
+  label: ReactNode;
+  onSelect: () => void;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      className={`achievements-filter-btn ${active ? "active" : ""}`}
+      onClick={focus.onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function RarityFilterPill({
+  active,
+  label,
+  color,
+  onSelect,
+}: {
+  active: boolean;
+  label: ReactNode;
+  color?: string;
+  onSelect: () => void;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      className={`ach-rarity-filter-pill ${active ? "active" : ""}`}
+      style={color ? { color, borderColor: active ? color : undefined } : undefined}
+      onClick={focus.onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ViewModeButton({
+  active,
+  title,
+  onSelect,
+  children,
+}: {
+  active: boolean;
+  title: string;
+  onSelect: () => void;
+  children: ReactNode;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      className={`ach-view-btn ${active ? "active" : ""}`}
+      onClick={focus.onClick}
+      title={title}
+    >
+      {children}
+    </button>
   );
 }

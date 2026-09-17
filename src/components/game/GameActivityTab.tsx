@@ -23,6 +23,7 @@ import {
   buildRecords,
   buildMilestoneLadders,
 } from "../activity";
+import { useFocusProps } from "../activity/focusable";
 import {
   type Timeframe,
   type ViewMode,
@@ -428,6 +429,11 @@ export function GameActivityTab({ game }: { game: Game }) {
   );
   const milestones = useMemo(() => buildMilestoneLadders(sessions, "game"), [sessions]);
 
+  const logSessionFocus = useFocusProps(() => setShowManualModal(true));
+  const screenshotFocus = useFocusProps(handleCaptureScreenshot);
+  const exportCsvFocus = useFocusProps(() => handleExportSessions("csv"));
+  const exportJsonFocus = useFocusProps(() => handleExportSessions("json"));
+
   if (sessions.length === 0) {
     return (
       <div className="game-activity-tab act-stack">
@@ -438,10 +444,12 @@ export function GameActivityTab({ game }: { game: Game }) {
         />
         <div className="act-empty-actions">
           <Button
+            ref={logSessionFocus.ref}
+            tabIndex={logSessionFocus.tabIndex}
             variant="primary"
             size="sm"
             leftIcon={<Icons.Plus size={13} />}
-            onClick={() => setShowManualModal(true)}
+            onClick={logSessionFocus.onClick}
           >
             {t("activityManual.logSessionBtn")}
           </Button>
@@ -479,26 +487,30 @@ export function GameActivityTab({ game }: { game: Game }) {
 
           <div className="act-toolbar__right">
             <Button
+              ref={logSessionFocus.ref}
+              tabIndex={logSessionFocus.tabIndex}
               variant="primary"
               size="sm"
               leftIcon={<Icons.Plus size={13} />}
-              onClick={() => setShowManualModal(true)}
+              onClick={logSessionFocus.onClick}
             >
               {t("activityManual.logSessionBtn")}
             </Button>
             <button
+              ref={screenshotFocus.ref}
+              tabIndex={screenshotFocus.tabIndex}
               type="button"
               className="act-icon-btn"
               title={t("gameActivity.saveScreenshotBtn")}
               aria-label={t("gameActivity.saveScreenshotBtn")}
-              onClick={handleCaptureScreenshot}
+              onClick={screenshotFocus.onClick}
             >
               <Icons.Camera size={14} />
             </button>
-            <Button variant="secondary" size="sm" leftIcon={<Icons.Download size={13} />} onClick={() => handleExportSessions("csv")}>
+            <Button ref={exportCsvFocus.ref} tabIndex={exportCsvFocus.tabIndex} variant="secondary" size="sm" leftIcon={<Icons.Download size={13} />} onClick={exportCsvFocus.onClick}>
               {t("activity.exportCsv")}
             </Button>
-            <Button variant="secondary" size="sm" leftIcon={<Icons.Download size={13} />} onClick={() => handleExportSessions("json")}>
+            <Button ref={exportJsonFocus.ref} tabIndex={exportJsonFocus.tabIndex} variant="secondary" size="sm" leftIcon={<Icons.Download size={13} />} onClick={exportJsonFocus.onClick}>
               {t("activity.exportJson")}
             </Button>
           </div>

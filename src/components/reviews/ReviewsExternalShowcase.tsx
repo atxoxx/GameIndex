@@ -1,6 +1,7 @@
 import { type ExternalSourceDescriptor } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
+import { useFocusProps } from "./focusable";
 
 interface ReviewsExternalShowcaseProps {
   sources: ExternalSourceDescriptor[];
@@ -25,6 +26,7 @@ function ExternalReviewCard({
 }) {
   const { t } = useLanguage();
   const focusProps = useFocusable(() => openExternal(src.url));
+  const inAppFocus = useFocusProps(() => onShowInApp?.());
 
   const mono =
     src.criticKey === "metacritic"
@@ -65,7 +67,13 @@ function ExternalReviewCard({
       </button>
 
       {inAppCount !== undefined && inAppCount > 0 && onShowInApp && (
-        <button type="button" className="rv-external-inapp" onClick={onShowInApp}>
+        <button
+          ref={inAppFocus.ref}
+          tabIndex={inAppFocus.tabIndex}
+          type="button"
+          className="rv-external-inapp"
+          onClick={inAppFocus.onClick}
+        >
           {t("reviewsTab.viewInApp", { count: inAppCount })}
         </button>
       )}

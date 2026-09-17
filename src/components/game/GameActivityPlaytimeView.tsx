@@ -20,6 +20,7 @@ import {
   type MilestoneLadder,
 } from "../activity";
 import type { Stats, Timeframe, PlaytimeAggregation, PlaytimeChartStyle } from "./GameActivityShared";
+import { useFocusProps } from "../activity/focusable";
 import * as Icons from "../activity/Icons";
 
 interface GameActivityPlaytimeViewProps {
@@ -57,6 +58,10 @@ export function GameActivityPlaytimeView({
 }: GameActivityPlaytimeViewProps) {
   const { t, language } = useLanguage();
   const [chartMode, setChartMode] = useState<"periodic" | "cumulative">("periodic");
+
+  const periodicFocus = useFocusProps(() => setChartMode("periodic"));
+  const cumulativeFocus = useFocusProps(() => setChartMode("cumulative"));
+  const jumpFocus = useFocusProps(() => onNavigateToSessions?.());
 
   const timeframeDays = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365;
   const timeframeLabel =
@@ -183,16 +188,20 @@ export function GameActivityPlaytimeView({
             <div className="act-panel-tools-row">
               <div className="act-chart-mode-toggle">
                 <button
+                  ref={periodicFocus.ref}
+                  tabIndex={periodicFocus.tabIndex}
                   type="button"
                   className={`act-chart-mode-btn ${chartMode === "periodic" ? "active" : ""}`}
-                  onClick={() => setChartMode("periodic")}
+                  onClick={periodicFocus.onClick}
                 >
                   {t("activityDash.modePeriodic")}
                 </button>
                 <button
+                  ref={cumulativeFocus.ref}
+                  tabIndex={cumulativeFocus.tabIndex}
                   type="button"
                   className={`act-chart-mode-btn ${chartMode === "cumulative" ? "active" : ""}`}
-                  onClick={() => setChartMode("cumulative")}
+                  onClick={cumulativeFocus.onClick}
                 >
                   {t("activityDash.modeCumulative")}
                 </button>
@@ -298,9 +307,11 @@ export function GameActivityPlaytimeView({
             </div>
           </div>
           <button
+            ref={jumpFocus.ref}
+            tabIndex={jumpFocus.tabIndex}
             type="button"
             className="act-inspector-btn act-inspector-btn--secondary"
-            onClick={onNavigateToSessions}
+            onClick={jumpFocus.onClick}
           >
             <Icons.Maximize2 size={12} /> {t("gameActivity.viewSessionLog")}
           </button>

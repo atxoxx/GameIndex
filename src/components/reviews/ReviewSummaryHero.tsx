@@ -2,6 +2,7 @@ import { useId } from "react";
 import { type ReviewItem } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
+import { useFocusProps } from "./focusable";
 
 interface ReviewSummaryHeroProps {
   reviews: ReviewItem[];
@@ -156,6 +157,13 @@ export function ReviewSummaryHero({
       ? Math.round((playtimeSample.reduce((a, b) => a + b, 0) / playtimeSample.length / 60) * 10) / 10
       : null;
 
+  const positiveFocus = useFocusProps(() =>
+    onFilterSentiment?.(activeSentimentFilter === "positive" ? "all" : "positive"),
+  );
+  const negativeFocus = useFocusProps(() =>
+    onFilterSentiment?.(activeSentimentFilter === "negative" ? "all" : "negative"),
+  );
+
   return (
     <div className="rv-summary">
       <div className="rv-summary-left">
@@ -193,9 +201,11 @@ export function ReviewSummaryHero({
         {hasRatings && (
           <div className="rv-summary-distribution">
             <button
+              ref={positiveFocus.ref}
+              tabIndex={positiveFocus.tabIndex}
               type="button"
               className={`rv-distribution-row rv-distribution-btn${activeSentimentFilter === "positive" ? " active" : ""}`}
-              onClick={() => onFilterSentiment?.(activeSentimentFilter === "positive" ? "all" : "positive")}
+              onClick={positiveFocus.onClick}
               title={t("review.filter.positive")}
             >
               <span className="rv-distribution-label rv-distribution-label-pos">
@@ -213,9 +223,11 @@ export function ReviewSummaryHero({
             </button>
 
             <button
+              ref={negativeFocus.ref}
+              tabIndex={negativeFocus.tabIndex}
               type="button"
               className={`rv-distribution-row rv-distribution-btn${activeSentimentFilter === "negative" ? " active" : ""}`}
-              onClick={() => onFilterSentiment?.(activeSentimentFilter === "negative" ? "all" : "negative")}
+              onClick={negativeFocus.onClick}
               title={t("review.filter.negative")}
             >
               <span className="rv-distribution-label rv-distribution-label-neg">

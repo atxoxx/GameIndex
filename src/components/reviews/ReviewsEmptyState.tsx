@@ -1,5 +1,6 @@
 import { type SourceFilter } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
+import { useFocusProps } from "./focusable";
 
 interface ReviewsEmptyStateProps {
   type: "empty-all" | "no-matches" | "critic-loading" | "critic-empty";
@@ -17,6 +18,8 @@ export function ReviewsEmptyState({
   onOpenExternalCritic,
 }: ReviewsEmptyStateProps) {
   const { t } = useLanguage();
+  const openExternalFocus = useFocusProps(() => onOpenExternalCritic?.());
+  const resetFiltersFocus = useFocusProps(() => onResetFilters?.());
 
   if (type === "critic-loading") {
     return (
@@ -48,7 +51,13 @@ export function ReviewsEmptyState({
           {t("reviewsTab.noCriticReviewsHint", { source: criticLabel })}
         </p>
         {onOpenExternalCritic && (
-          <button type="button" className="rv-btn rv-btn-ghost" onClick={onOpenExternalCritic}>
+          <button
+            ref={openExternalFocus.ref}
+            tabIndex={openExternalFocus.tabIndex}
+            type="button"
+            className="rv-btn rv-btn-ghost"
+            onClick={openExternalFocus.onClick}
+          >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
               <polyline points="15 3 21 3 21 9" />
@@ -74,7 +83,13 @@ export function ReviewsEmptyState({
         <h3 className="rv-empty-title">{t("review.noMatchTitle")}</h3>
         <p className="rv-empty-subtitle">{t("review.noMatchDesc")}</p>
         {onResetFilters && (
-          <button type="button" className="rv-btn rv-btn-ghost" onClick={onResetFilters}>
+          <button
+            ref={resetFiltersFocus.ref}
+            tabIndex={resetFiltersFocus.tabIndex}
+            type="button"
+            className="rv-btn rv-btn-ghost"
+            onClick={resetFiltersFocus.onClick}
+          >
             {t("review.resetFilters")}
           </button>
         )}

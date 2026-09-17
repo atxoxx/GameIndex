@@ -29,6 +29,7 @@ import { CriticReviewRow } from "./CriticReviewRow";
 import { ReviewsToolbar } from "./ReviewsToolbar";
 import { ReviewsExternalShowcase } from "./ReviewsExternalShowcase";
 import { ReviewsEmptyState } from "./ReviewsEmptyState";
+import { useFocusProps } from "./focusable";
 
 function ratingToSentiment(score: number | null): "positive" | "negative" | null {
   if (score === null) return null;
@@ -536,6 +537,12 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
     setSearchQuery("");
   };
 
+  const refreshFocus = useFocusProps(() => {
+    setNextCursor(null);
+    void fetchReviews(true, null);
+  });
+  const loadMoreFocus = useFocusProps(() => void fetchReviews(false, nextCursor, languageFilter));
+
   return (
     <div className="rv-root">
       {/* ── Header ── */}
@@ -562,12 +569,11 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
 
         <div className="rv-header-actions">
           <button
+            ref={refreshFocus.ref}
+            tabIndex={refreshFocus.tabIndex}
             type="button"
             className="rv-refresh-btn"
-            onClick={() => {
-              setNextCursor(null);
-              void fetchReviews(true, null);
-            }}
+            onClick={refreshFocus.onClick}
             disabled={isFetchingReviews}
             title="Fetch latest reviews from Steam"
             aria-label="Refresh reviews"
@@ -682,9 +688,11 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           {nextCursor && !isCriticSource && (
             <div className="rv-load-more-row">
               <button
+                ref={loadMoreFocus.ref}
+                tabIndex={loadMoreFocus.tabIndex}
                 type="button"
                 className="rv-btn rv-btn-ghost rv-btn-large"
-                onClick={() => void fetchReviews(false, nextCursor, languageFilter)}
+                onClick={loadMoreFocus.onClick}
                 disabled={isLoadingMore}
               >
                 {isLoadingMore ? (

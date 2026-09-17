@@ -6,6 +6,7 @@ import { formatTemp } from "../../utils/temp";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { compareSessions, calculateTelemetryInsights } from "./insights";
+import { useFocusProps, useFocusableNative } from "./focusable";
 import * as Icons from "./Icons";
 
 export interface SessionComparisonModalProps {
@@ -57,6 +58,11 @@ export function SessionComparisonModal({
   const telemetryA = useMemo(() => calculateTelemetryInsights(sessionA?.metrics), [sessionA]);
   const telemetryB = useMemo(() => calculateTelemetryInsights(sessionB?.metrics), [sessionB]);
 
+  const closeFocus = useFocusProps(onClose);
+  const doneFocus = useFocusProps(onClose);
+  const selectAFocus = useFocusableNative<HTMLSelectElement>();
+  const selectBFocus = useFocusableNative<HTMLSelectElement>();
+
   if (!isOpen) return null;
 
   const formatDate = (iso: string) =>
@@ -103,9 +109,11 @@ export function SessionComparisonModal({
             </div>
           </div>
           <button
+            ref={closeFocus.ref}
+            tabIndex={closeFocus.tabIndex}
             type="button"
             className="act-modal__close-btn"
-            onClick={onClose}
+            onClick={closeFocus.onClick}
             aria-label={t("common.close")}
           >
             <Icons.X size={16} />
@@ -118,6 +126,8 @@ export function SessionComparisonModal({
             <div className="act-compare-select-col">
               <label className="act-compare-label">{t("activityCompare.baselineSession")}</label>
               <select
+                ref={selectAFocus.setRef}
+                tabIndex={selectAFocus.tabIndex}
                 className="act-toolbar__select act-compare-select"
                 value={sessionAId}
                 onChange={(e) => setSessionAId(e.target.value)}
@@ -138,6 +148,8 @@ export function SessionComparisonModal({
             <div className="act-compare-select-col">
               <label className="act-compare-label">{t("activityCompare.comparisonSession")}</label>
               <select
+                ref={selectBFocus.setRef}
+                tabIndex={selectBFocus.tabIndex}
                 className="act-toolbar__select act-compare-select"
                 value={sessionBId}
                 onChange={(e) => setSessionBId(e.target.value)}
@@ -299,9 +311,11 @@ export function SessionComparisonModal({
 
         <div className="act-modal__actions">
           <button
+            ref={doneFocus.ref}
+            tabIndex={doneFocus.tabIndex}
             type="button"
             className="act-inspector-btn act-inspector-btn--primary"
-            onClick={onClose}
+            onClick={doneFocus.onClick}
           >
             {t("common.done")}
           </button>

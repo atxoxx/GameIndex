@@ -10,6 +10,7 @@ import { formatTemp } from "../../utils/temp";
 import { GameThumbnail } from "./GameThumbnail";
 import { GameSessionDetail } from "../game/GameSessionDetail";
 import { ConfirmModal } from "../ui/ConfirmModal";
+import { useFocusProps } from "./focusable";
 import * as Icons from "./Icons";
 
 export interface SessionInspectorModalProps {
@@ -46,6 +47,51 @@ export function SessionInspectorModal({
     }
   }, [session, getNote]);
 
+  const handleSaveNote = () => {
+    if (!session) return;
+    setNote(session.id, noteText);
+    setTags(session.id, tagsList);
+    setIsEditingNote(false);
+  };
+
+  const handleAddTag = (e?: React.KeyboardEvent | React.MouseEvent) => {
+    if (e && "key" in e && e.key !== "Enter") return;
+    if (!session) return;
+    const clean = tagInput.trim();
+    if (clean && !tagsList.includes(clean)) {
+      const next = [...tagsList, clean];
+      setTagsList(next);
+      setTags(session.id, next);
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    if (!session) return;
+    const next = tagsList.filter((t) => t !== tagToRemove);
+    setTagsList(next);
+    setTags(session.id, next);
+  };
+
+  const handleGoToGame = () => {
+    onClose();
+    if (game?.id) {
+      navigate(`/library/${game.id}`);
+    }
+  };
+
+  const closeFocus = useFocusProps(onClose);
+  const editNoteFocus = useFocusProps(() => setIsEditingNote(true));
+  const addTagFocus = useFocusProps(() => handleAddTag());
+  const saveNoteFocus = useFocusProps(handleSaveNote);
+  const cancelNoteFocus = useFocusProps(() => setIsEditingNote(false));
+  const deleteFocus = useFocusProps(() => setConfirmDelete(true));
+  const goToGameFocus = useFocusProps(handleGoToGame);
+  const launchFocus = useFocusProps(() => {
+    onClose();
+    if (game) onLaunchGame?.(game);
+  });
+
   if (!session) return null;
 
   const durationMs = session.durationMin * 60 * 1000;
@@ -67,36 +113,6 @@ export function SessionInspectorModal({
     hour: "2-digit",
     minute: "2-digit",
   });
-
-  const handleSaveNote = () => {
-    setNote(session.id, noteText);
-    setTags(session.id, tagsList);
-    setIsEditingNote(false);
-  };
-
-  const handleAddTag = (e: React.KeyboardEvent | React.MouseEvent) => {
-    if ("key" in e && e.key !== "Enter") return;
-    const clean = tagInput.trim();
-    if (clean && !tagsList.includes(clean)) {
-      const next = [...tagsList, clean];
-      setTagsList(next);
-      setTags(session.id, next);
-      setTagInput("");
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    const next = tagsList.filter((t) => t !== tagToRemove);
-    setTagsList(next);
-    setTags(session.id, next);
-  };
-
-  const handleGoToGame = () => {
-    onClose();
-    if (game?.id) {
-      navigate(`/library/${game.id}`);
-    }
-  };
 
   const m = session.metrics;
   const hasHw = m && (m.avgCpuUsage > 0 || (m.avgFps && m.avgFps > 0));
@@ -129,9 +145,11 @@ export function SessionInspectorModal({
 
             <div className="act-modal__header-actions">
               <button
+                ref={closeFocus.ref}
+                tabIndex={closeFocus.tabIndex}
                 type="button"
                 className="act-modal__close-btn"
-                onClick={onClose}
+                onClick={closeFocus.onClick}
                 aria-label={t("common.close")}
               >
                 <Icons.X size={16} />
@@ -197,9 +215,11 @@ export function SessionInspectorModal({
                 </h4>
                 {!isEditingNote && (
                   <button
+                    ref={editNoteFocus.ref}
+                    tabIndex={editNoteFocus.tabIndex}
                     type="button"
                     className="act-inspector-btn act-inspector-btn--sm"
-                    onClick={() => setIsEditingNote(true)}
+                    onClick={editNoteFocus.onClick}
                   >
                     <Icons.Edit3 size={12} /> {noteText ? t("common.edit") : t("sessionNotes.addNote")}
                   </button>
@@ -225,25 +245,31 @@ export function SessionInspectorModal({
                       onKeyDown={handleAddTag}
                     />
                     <button
+                      ref={addTagFocus.ref}
+                      tabIndex={addTagFocus.tabIndex}
                       type="button"
                       className="act-inspector-btn act-inspector-btn--sm"
-                      onClick={handleAddTag}
+                      onClick={addTagFocus.onClick}
                     >
                       <Icons.Tag size={12} /> {t("sessionNotes.addTag")}
                     </button>
                   </div>
                   <div className="act-inspector-notes__editor-actions">
                     <button
+                      ref={saveNoteFocus.ref}
+                      tabIndex={saveNoteFocus.tabIndex}
                       type="button"
                       className="act-inspector-btn act-inspector-btn--primary"
-                      onClick={handleSaveNote}
+                      onClick={saveNoteFocus.onClick}
                     >
                       <Icons.Check size={13} /> {t("common.save")}
                     </button>
                     <button
+                      ref={cancelNoteFocus.ref}
+                      tabIndex={cancelNoteFocus.tabIndex}
                       type="button"
                       className="act-inspector-btn act-inspector-btn--ghost"
-                      onClick={() => setIsEditingNote(false)}
+                      onClick={cancelNoteFocus.onClick}
                     >
                       {t("common.cancel")}
                     </button>
@@ -259,18 +285,12 @@ export function SessionInspectorModal({
                   {tagsList.length > 0 && (
                     <div className="act-inspector-notes__tags">
                       {tagsList.map((tag) => (
-                        <span key={tag} className="act-inspector-tag">
-                          <Icons.Tag size={10} /> {tag}
-                          {isEditingNote && (
-                            <button
-                              type="button"
-                              className="act-inspector-tag__remove"
-                              onClick={() => handleRemoveTag(tag)}
-                            >
-                              <Icons.X size={10} />
-                            </button>
-                          )}
-                        </span>
+                        <InspectorTag
+                          key={tag}
+                          tag={tag}
+                          editing={isEditingNote}
+                          onRemove={() => handleRemoveTag(tag)}
+                        />
                       ))}
                     </div>
                   )}
@@ -283,9 +303,11 @@ export function SessionInspectorModal({
             <div className="act-modal__footer-left">
               {onDeleteSession && (
                 <button
+                  ref={deleteFocus.ref}
+                  tabIndex={deleteFocus.tabIndex}
                   type="button"
                   className="act-inspector-btn act-inspector-btn--danger"
-                  onClick={() => setConfirmDelete(true)}
+                  onClick={deleteFocus.onClick}
                 >
                   <Icons.Trash2 size={13} /> {t("activity.deleteSessionBtn")}
                 </button>
@@ -296,20 +318,21 @@ export function SessionInspectorModal({
               {game && (
                 <>
                   <button
+                    ref={goToGameFocus.ref}
+                    tabIndex={goToGameFocus.tabIndex}
                     type="button"
                     className="act-inspector-btn act-inspector-btn--secondary"
-                    onClick={handleGoToGame}
+                    onClick={goToGameFocus.onClick}
                   >
                     <Icons.ExternalLink size={13} /> {t("gameActivity.viewGamePage")}
                   </button>
                   {onLaunchGame && (
                     <button
+                      ref={launchFocus.ref}
+                      tabIndex={launchFocus.tabIndex}
                       type="button"
                       className="act-inspector-btn act-inspector-btn--primary"
-                      onClick={() => {
-                        onClose();
-                        onLaunchGame(game);
-                      }}
+                      onClick={launchFocus.onClick}
                     >
                       <Icons.Play size={13} /> {t("game.play")}
                     </button>
@@ -340,5 +363,33 @@ export function SessionInspectorModal({
       )}
     </>,
     document.body
+  );
+}
+
+function InspectorTag({
+  tag,
+  editing,
+  onRemove,
+}: {
+  tag: string;
+  editing: boolean;
+  onRemove: () => void;
+}) {
+  const focus = useFocusProps(onRemove);
+  return (
+    <span className="act-inspector-tag">
+      <Icons.Tag size={10} /> {tag}
+      {editing && (
+        <button
+          ref={focus.ref}
+          tabIndex={focus.tabIndex}
+          type="button"
+          className="act-inspector-tag__remove"
+          onClick={focus.onClick}
+        >
+          <Icons.X size={10} />
+        </button>
+      )}
+    </span>
   );
 }

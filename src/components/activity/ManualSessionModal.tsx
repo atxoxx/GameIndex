@@ -7,6 +7,7 @@ import { useSessionNotes } from "../../context/SessionNotesContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { GameThumbnail } from "./GameThumbnail";
+import { useFocusProps, useFocusableNative } from "./focusable";
 import * as Icons from "./Icons";
 
 export interface ManualSessionModalProps {
@@ -59,10 +60,8 @@ export function ManualSessionModal({
     return games.filter((g) => g.name.toLowerCase().includes(q));
   }, [games, gameSearch]);
 
-  if (!isOpen) return null;
-
-  const handleAddTag = (e: React.KeyboardEvent | React.MouseEvent) => {
-    if ("key" in e && e.key !== "Enter") return;
+  const handleAddTag = (e?: React.KeyboardEvent | React.MouseEvent) => {
+    if (e && "key" in e && e.key !== "Enter") return;
     const clean = tagInput.trim();
     if (clean && !tagsList.includes(clean)) {
       setTagsList([...tagsList, clean]);
@@ -146,6 +145,15 @@ export function ManualSessionModal({
     }
   };
 
+  const closeFocus = useFocusProps(onClose);
+  const cancelFocus = useFocusProps(onClose);
+  const addTagFocus = useFocusProps(() => handleAddTag());
+  const submitFocus = useFocusableNative<HTMLButtonElement>();
+  const gameSelectFocus = useFocusableNative<HTMLSelectElement>();
+  const telemetryFocus = useFocusableNative<HTMLElement>();
+
+  if (!isOpen) return null;
+
   return createPortal(
     <div className="act-modal-backdrop" onClick={onClose}>
       <div
@@ -165,9 +173,11 @@ export function ManualSessionModal({
             </div>
           </div>
           <button
+            ref={closeFocus.ref}
+            tabIndex={closeFocus.tabIndex}
             type="button"
             className="act-modal__close-btn"
-            onClick={onClose}
+            onClick={closeFocus.onClick}
             aria-label={t("common.close")}
           >
             <Icons.X size={16} />
@@ -202,6 +212,8 @@ export function ManualSessionModal({
                   onChange={(e) => setGameSearch(e.target.value)}
                 />
                 <select
+                  ref={gameSelectFocus.setRef}
+                  tabIndex={gameSelectFocus.tabIndex}
                   className="act-form-select"
                   value={selectedGameId}
                   onChange={(e) => setSelectedGameId(e.target.value)}
@@ -278,7 +290,11 @@ export function ManualSessionModal({
 
           {/* Optional Telemetry Accordion */}
           <details className="act-form-collapsible">
-            <summary className="act-form-collapsible-trigger">
+            <summary
+              ref={telemetryFocus.setRef}
+              tabIndex={telemetryFocus.tabIndex}
+              className="act-form-collapsible-trigger"
+            >
               <Icons.BarChart3 size={13} /> {t("activityManual.optionalTelemetry")}
             </summary>
             <div className="act-form-collapsible-body">
@@ -361,9 +377,11 @@ export function ManualSessionModal({
                 onKeyDown={handleAddTag}
               />
               <button
+                ref={addTagFocus.ref}
+                tabIndex={addTagFocus.tabIndex}
                 type="button"
                 className="act-inspector-btn act-inspector-btn--sm"
-                onClick={handleAddTag}
+                onClick={addTagFocus.onClick}
               >
                 <Icons.Tag size={11} /> {t("sessionNotes.addTag")}
               </button>
@@ -371,17 +389,7 @@ export function ManualSessionModal({
             {tagsList.length > 0 && (
               <div className="act-inspector-notes__tags">
                 {tagsList.map((tag) => (
-                  <span key={tag} className="act-inspector-tag">
-                    <Icons.Tag size={10} /> {tag}
-                    <button
-                      type="button"
-                      className="act-inspector-tag-del"
-                      onClick={() => handleRemoveTag(tag)}
-                      aria-label={`Remove ${tag}`}
-                    >
-                      <Icons.X size={10} />
-                    </button>
-                  </span>
+                  <TagRemoveButton key={tag} tag={tag} onRemove={() => handleRemoveTag(tag)} />
                 ))}
               </div>
             )}
@@ -390,14 +398,18 @@ export function ManualSessionModal({
           {/* Actions */}
           <div className="act-modal__actions">
             <button
+              ref={cancelFocus.ref}
+              tabIndex={cancelFocus.tabIndex}
               type="button"
               className="act-inspector-btn act-inspector-btn--ghost"
-              onClick={onClose}
+              onClick={cancelFocus.onClick}
               disabled={saving}
             >
               {t("common.cancel")}
             </button>
             <button
+              ref={submitFocus.setRef}
+              tabIndex={submitFocus.tabIndex}
               type="submit"
               className="act-inspector-btn act-inspector-btn--primary"
               disabled={saving || !selectedGame}
@@ -409,5 +421,24 @@ export function ManualSessionModal({
       </div>
     </div>,
     document.body
+  );
+}
+
+function TagRemoveButton({ tag, onRemove }: { tag: string; onRemove: () => void }) {
+  const focus = useFocusProps(onRemove);
+  return (
+    <span className="act-inspector-tag">
+      <Icons.Tag size={10} /> {tag}
+      <button
+        ref={focus.ref}
+        tabIndex={focus.tabIndex}
+        type="button"
+        className="act-inspector-tag-del"
+        onClick={focus.onClick}
+        aria-label={`Remove ${tag}`}
+      >
+        <Icons.X size={10} />
+      </button>
+    </span>
   );
 }

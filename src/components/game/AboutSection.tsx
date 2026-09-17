@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game, RichAboutPayload, AboutBundle } from "../../types/game";
 import { IconFileText, IconLink, IconChevronDown } from "./icons";
@@ -267,22 +267,23 @@ export default function AboutSection({
           )}
         </h2>
         {availableLangs.length > 1 && (
-          <div className="about-section__lang-switch" role="group" aria-label={t("common.language")}>
+          <div
+            className="about-section__lang-switch"
+            role="group"
+            aria-label={t("common.language")}
+            data-rail-id="about-language-flags"
+          >
             {availableLangs.map((code) => {
               const meta = UI_LANGUAGES.find((l) => l.steamCode === code);
               const active = code === selectedCode;
               return (
-                <button
+                <AboutLangButton
                   key={code}
-                  type="button"
-                  className={`about-lang-btn${active ? " about-lang-btn--active" : ""}`}
-                  aria-pressed={active}
-                  aria-label={meta?.label ?? code}
-                  title={meta?.label ?? code}
-                  onClick={() => setLangOverride(active ? null : code)}
-                >
-                  <FlagIcon code={meta?.flag ?? code} size={16} />
-                </button>
+                  flag={meta?.flag ?? code}
+                  label={meta?.label ?? code}
+                  active={active}
+                  onSelect={() => setLangOverride(active ? null : code)}
+                />
               );
             })}
           </div>
@@ -312,15 +313,10 @@ export default function AboutSection({
         ) : null}
 
         {(payload?.sourceUrl || game.metadataUrl) && (
-          <a
-            className="metadata-source-link"
+          <SourceLink
             href={payload?.sourceUrl ?? game.metadataUrl ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <IconLink size={14} />
-            {t("about.viewOn", { source: payload?.sourceName ?? game.metadataSource ?? "source" })}
-          </a>
+            source={payload?.sourceName ?? game.metadataSource ?? "source"}
+          />
         )}
       </div>
       </div>
@@ -348,6 +344,60 @@ export default function AboutSection({
         </footer>
       )}
     </section>
+  );
+}
+
+function AboutLangButton({
+  flag,
+  label,
+  active,
+  onSelect,
+}: {
+  flag: string;
+  label: string;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const focusProps = useFocusable(onSelect);
+  return (
+    <button
+      type="button"
+      className={`about-lang-btn${active ? " about-lang-btn--active" : ""}`}
+      aria-pressed={active}
+      aria-label={label}
+      title={label}
+      {...focusProps}
+    >
+      <FlagIcon code={flag} size={16} />
+    </button>
+  );
+}
+
+/** External "View on source" link. A does what a mouse click does — replay
+ *  the anchor's own click — so target/rel handling is unchanged. */
+function SourceLink({ href, source }: { href: string; source: string }) {
+  const { t } = useLanguage();
+  const elRef = useRef<HTMLAnchorElement | null>(null);
+  const { ref, tabIndex } = useFocusable(() => elRef.current?.click());
+  const setRef = useCallback(
+    (el: HTMLAnchorElement | null) => {
+      elRef.current = el;
+      ref(el);
+    },
+    [ref],
+  );
+  return (
+    <a
+      ref={setRef}
+      tabIndex={tabIndex}
+      className="metadata-source-link"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <IconLink size={14} />
+      {t("about.viewOn", { source })}
+    </a>
   );
 }
 

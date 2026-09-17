@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { useFocusable } from "../../hooks/useFocusable";
 import {
   type Achievement,
   type AchievementRarity,
@@ -30,6 +31,7 @@ export default function AchievementItemRow({
 }: AchievementItemRowProps) {
   const { t } = useLanguage();
   const [localReveal, setLocalReveal] = useState(false);
+  const revealFocus = useFocusable(() => setLocalReveal(true));
 
   const rarity: AchievementRarity = getAchievementRarity(a.percent);
   const rarityColor = RARITY_COLORS[rarity];
@@ -71,7 +73,7 @@ export default function AchievementItemRow({
             <button
               type="button"
               className="ach-compact-reveal-btn"
-              onClick={() => setLocalReveal(true)}
+              {...revealFocus}
             >
               {t("achievements.reveal")}
             </button>

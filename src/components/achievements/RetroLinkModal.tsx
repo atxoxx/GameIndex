@@ -11,6 +11,8 @@ import { createPortal } from "react-dom";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { useFocusable } from "../../hooks/useFocusable";
+import { useFocusableNative } from "./focusable";
 import type { Game, RaConsole, RaSearchResult } from "../../types/game";
 import { Button } from "../ui";
 
@@ -39,6 +41,11 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const closeFocus = useFocusable(onClose);
+  const consoleFocus = useFocusableNative<HTMLSelectElement>();
+  const detectFocus = useFocusable(handleDetect);
+  const cancelFocus = useFocusable(onClose);
 
   // Load consoles once on open; pick the first one by default.
   useEffect(() => {
@@ -143,8 +150,8 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
           <button
             className="modal-close ach-modal-close"
             aria-label={t("common.close")}
-            onClick={onClose}
             disabled={busy}
+            {...closeFocus}
           >
             ×
           </button>
@@ -166,6 +173,8 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
                   {t("achievements.retroLink.console")}
                 </span>
                 <select
+                  ref={consoleFocus.setRef}
+                  tabIndex={consoleFocus.tabIndex}
                   className="ach-modal-select"
                   value={consoleId}
                   onChange={(e) => {
@@ -216,25 +225,12 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
               {results.length > 0 && (
                 <ul className="ach-modal-results">
                   {results.map((r) => (
-                    <li key={r.id} className="ach-modal-result">
-                      <div className="ach-modal-result-text">
-                        <span className="ach-modal-result-name">{r.title}</span>
-                        <span className="ach-modal-result-id">
-                          {t("achievements.retroLink.achievements", {
-                            count: r.numAchievements,
-                          })}
-                        </span>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleUse(r)}
-                        isLoading={busy}
-                        disabled={busy}
-                      >
-                        {t("achievements.retroLink.useGame")}
-                      </Button>
-                    </li>
+                    <RetroResultRow
+                      key={r.id}
+                      result={r}
+                      busy={busy}
+                      onUse={() => handleUse(r)}
+                    />
                   ))}
                 </ul>
               )}
@@ -247,9 +243,9 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleDetect}
                     isLoading={busy}
                     disabled={busy}
+                    {...detectFocus}
                   >
                     {t("achievements.retroLink.detect")}
                   </Button>
@@ -262,7 +258,7 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
         <div className="modal-footer">
           <span className="modal-footer-count">&nbsp;</span>
           <div className="modal-footer-actions">
-            <Button variant="ghost" onClick={onClose} disabled={busy}>
+            <Button variant="ghost" disabled={busy} {...cancelFocus}>
               {t("common.cancel")}
             </Button>
           </div>
@@ -270,5 +266,39 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
       </div>
     </div>,
     document.body
+  );
+}
+
+function RetroResultRow({
+  result,
+  busy,
+  onUse,
+}: {
+  result: RaSearchResult;
+  busy: boolean;
+  onUse: () => void;
+}) {
+  const { t } = useLanguage();
+  const focusProps = useFocusable(onUse);
+  return (
+    <li className="ach-modal-result">
+      <div className="ach-modal-result-text">
+        <span className="ach-modal-result-name">{result.title}</span>
+        <span className="ach-modal-result-id">
+          {t("achievements.retroLink.achievements", {
+            count: result.numAchievements,
+          })}
+        </span>
+      </div>
+      <Button
+        variant="secondary"
+        size="sm"
+        isLoading={busy}
+        disabled={busy}
+        {...focusProps}
+      >
+        {t("achievements.retroLink.useGame")}
+      </Button>
+    </li>
   );
 }

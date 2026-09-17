@@ -1,9 +1,35 @@
 import type { ReactNode } from "react";
+import { useFocusProps } from "./focusable";
 
 export interface SegmentedOption<T extends string> {
   value: T;
   label: ReactNode;
   title?: string;
+}
+
+function SegmentedButton<T extends string>({
+  option,
+  active,
+  onSelect,
+}: {
+  option: SegmentedOption<T>;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      className={`act-seg__btn${active ? " act-seg__btn--active" : ""}`}
+      aria-pressed={active}
+      title={option.title}
+      onClick={focus.onClick}
+    >
+      {option.label}
+    </button>
+  );
 }
 
 export function Segmented<T extends string>({
@@ -26,16 +52,12 @@ export function Segmented<T extends string>({
       aria-label={ariaLabel}
     >
       {options.map((opt) => (
-        <button
+        <SegmentedButton
           key={opt.value}
-          type="button"
-          className={`act-seg__btn${value === opt.value ? " act-seg__btn--active" : ""}`}
-          aria-pressed={value === opt.value}
-          title={opt.title}
-          onClick={() => onChange(opt.value)}
-        >
-          {opt.label}
-        </button>
+          option={opt}
+          active={value === opt.value}
+          onSelect={() => onChange(opt.value)}
+        />
       ))}
     </div>
   );

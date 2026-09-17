@@ -7,6 +7,7 @@ import { useActivity } from "../../context/ActivityContext";
 import type { TempUnit } from "../../context/SettingsContext";
 import { Badge } from "../ui";
 import { SectionPanel, EmptyState, SessionComparisonModal } from "../activity";
+import { useFocusProps, useFocusableNative } from "../activity/focusable";
 import { calculateFpsStability, calculateTelemetryInsights } from "../activity/insights";
 import type { HwAverages, PerfTimelineData } from "./GameActivityShared";
 import * as Icons from "../activity/Icons";
@@ -37,6 +38,9 @@ export function GameActivityPerformanceView({
 
   const [resolutionFilter, setResolutionFilter] = useState<string>("all");
   const [showCompareModal, setShowCompareModal] = useState(false);
+
+  const compareFocus = useFocusProps(() => setShowCompareModal(true));
+  const sessionSelectFocus = useFocusableNative<HTMLSelectElement>();
 
   const selectedSession =
     isolatedSessionIndex !== null ? sessionsWithHw[isolatedSessionIndex] : null;
@@ -92,9 +96,11 @@ export function GameActivityPerformanceView({
               <div className="act-gpu-context-actions">
                 {sessionsWithHw.length >= 2 && (
                   <button
+                    ref={compareFocus.ref}
+                    tabIndex={compareFocus.tabIndex}
                     type="button"
                     className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
-                    onClick={() => setShowCompareModal(true)}
+                    onClick={compareFocus.onClick}
                   >
                     <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")}
                   </button>
@@ -124,9 +130,11 @@ export function GameActivityPerformanceView({
                 )}
                 {!selectedGpu && sessionsWithHw.length >= 2 && (
                   <button
+                    ref={compareFocus.ref}
+                    tabIndex={compareFocus.tabIndex}
                     type="button"
                     className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
-                    onClick={() => setShowCompareModal(true)}
+                    onClick={compareFocus.onClick}
                   >
                     <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")}
                   </button>
@@ -194,22 +202,18 @@ export function GameActivityPerformanceView({
               <div className="act-perf-resolutions-row">
                 <span className="act-perf-resolutions-label">{t("activityGantt.resolution")}:</span>
                 <div className="act-perf-resolutions-chips">
-                  <button
-                    type="button"
-                    className={`act-perf-res-chip ${resolutionFilter === "all" ? "act-perf-res-chip--active" : ""}`}
-                    onClick={() => setResolutionFilter("all")}
-                  >
-                    {t("activity.sourceAll")}
-                  </button>
+                  <ResolutionChip
+                    label={t("activity.sourceAll")}
+                    active={resolutionFilter === "all"}
+                    onSelect={() => setResolutionFilter("all")}
+                  />
                   {resolutionsList.map((res) => (
-                    <button
+                    <ResolutionChip
                       key={res}
-                      type="button"
-                      className={`act-perf-res-chip ${resolutionFilter === res ? "act-perf-res-chip--active" : ""}`}
-                      onClick={() => setResolutionFilter(res)}
-                    >
-                      {res}
-                    </button>
+                      label={res}
+                      active={resolutionFilter === res}
+                      onSelect={() => setResolutionFilter(res)}
+                    />
                   ))}
                 </div>
               </div>
@@ -233,6 +237,8 @@ export function GameActivityPerformanceView({
                 <div className="act-perf-session-picker-row">
                   <span className="act-perf-session-picker-label">{t("activityPerf.sessionLabel")}:</span>
                   <select
+                    ref={sessionSelectFocus.setRef}
+                    tabIndex={sessionSelectFocus.tabIndex}
                     className="act-toolbar__select"
                     aria-label={t("activity.sessionTelemetry")}
                     value={isolatedSessionIndex !== null ? String(isolatedSessionIndex) : "all"}
@@ -410,5 +416,28 @@ function ChartPanel({ icon, title, children }: { icon: ReactNode; title: string;
     <SectionPanel icon={icon} title={title}>
       {children}
     </SectionPanel>
+  );
+}
+
+function ResolutionChip({
+  label,
+  active,
+  onSelect,
+}: {
+  label: string;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const focus = useFocusProps(onSelect);
+  return (
+    <button
+      ref={focus.ref}
+      tabIndex={focus.tabIndex}
+      type="button"
+      className={`act-perf-res-chip ${active ? "act-perf-res-chip--active" : ""}`}
+      onClick={focus.onClick}
+    >
+      {label}
+    </button>
   );
 }

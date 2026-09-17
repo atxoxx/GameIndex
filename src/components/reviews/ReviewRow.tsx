@@ -5,6 +5,7 @@ import { useToast } from "../../context/ToastContext";
 import { useSettings } from "../../context/SettingsContext";
 import { BbCodeRenderer } from "./BbCodeRenderer";
 import { getHardwareLines } from "./hardwareParser";
+import { useFocusProps, useFocusableNative } from "./focusable";
 import {
   type SteamReaction,
   formatPlayTime,
@@ -78,6 +79,8 @@ function ReactionBar({ review }: { review: ReviewItem }) {
     return list;
   }, [reactions, hasVotesUp, hasVotesFunny, review.votesUp, review.votesFunny]);
 
+  const showMoreFocus = useFocusProps(() => setExpanded(true));
+
   if (augmented.length === 0) return null;
   const visible = expanded ? augmented : augmented.slice(0, 4);
 
@@ -88,9 +91,11 @@ function ReactionBar({ review }: { review: ReviewItem }) {
       ))}
       {augmented.length > 4 && !expanded && (
         <button
+          ref={showMoreFocus.ref}
+          tabIndex={showMoreFocus.tabIndex}
           type="button"
           className="rv-reaction-show-more"
-          onClick={() => setExpanded(true)}
+          onClick={showMoreFocus.onClick}
           title="Show all reactions"
         >
           +{augmented.length - 4} more
@@ -104,14 +109,17 @@ function HardwareSpecs({ hw }: { hw: ReviewItem["hw"] }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const lines = useMemo(() => getHardwareLines(hw), [hw]);
+  const toggleFocus = useFocusProps(() => setOpen((p) => !p));
   if (lines.length === 0) return null;
 
   return (
     <div className="rv-hw-specs-wrapper">
       <button
+        ref={toggleFocus.ref}
+        tabIndex={toggleFocus.tabIndex}
         type="button"
         className="rv-hw-specs-toggle"
-        onClick={() => setOpen((p) => !p)}
+        onClick={toggleFocus.onClick}
         aria-expanded={open}
       >
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -178,6 +186,11 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
 
   const isLong = review.content.length > 420;
 
+  const copyFocus = useFocusProps(handleCopyReview);
+  const expandFocus = useFocusProps(() => setExpanded((p) => !p));
+  const profileFocus = useFocusableNative<HTMLAnchorElement>();
+  const commentsFocus = useFocusableNative<HTMLAnchorElement>();
+
   return (
     <article className={`rv-row rv-source-${review.source}`}>
       {/* ── Row Header ── */}
@@ -188,6 +201,8 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
           <div className="rv-row-name-row">
             {profileUrl ? (
               <a
+                ref={profileFocus.setRef}
+                tabIndex={profileFocus.tabIndex}
                 className="rv-row-name"
                 href={profileUrl}
                 target="_blank"
@@ -251,9 +266,11 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
         {/* Quick action: Copy review */}
         <div className="rv-row-top-actions">
           <button
+            ref={copyFocus.ref}
+            tabIndex={copyFocus.tabIndex}
             type="button"
             className="rv-copy-review-btn"
-            onClick={handleCopyReview}
+            onClick={copyFocus.onClick}
             title={t("reviewsTab.copyReviewText")}
             aria-label={t("reviewsTab.copyReviewText")}
           >
@@ -274,9 +291,11 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
           </div>
           {isLong && (
             <button
+              ref={expandFocus.ref}
+              tabIndex={expandFocus.tabIndex}
               type="button"
               className="rv-expand-btn"
-              onClick={() => setExpanded((p) => !p)}
+              onClick={expandFocus.onClick}
               aria-expanded={expanded}
             >
               {t(expanded ? "review.showLess" : "review.showMore")}
@@ -314,6 +333,8 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
 
         {Boolean(review.commentCount && review.commentCount > 0 && review.authorSteamId && appId) && (
           <a
+            ref={commentsFocus.setRef}
+            tabIndex={commentsFocus.tabIndex}
             className="rv-card-comments-link"
             href={`https://steamcommunity.com/profiles/${review.authorSteamId}/recommended/${appId}/`}
             target="_blank"

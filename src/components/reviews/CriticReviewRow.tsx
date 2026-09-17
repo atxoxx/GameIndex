@@ -3,6 +3,7 @@ import { type ReviewItem } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { BbCodeRenderer } from "./BbCodeRenderer";
+import { useFocusProps } from "./focusable";
 
 interface CriticReviewRowProps {
   review: ReviewItem;
@@ -49,6 +50,9 @@ export function CriticReviewRow({ review, searchQuery }: CriticReviewRowProps) {
 
   const isLong = review.content.length > 400;
 
+  const copyFocus = useFocusProps(handleCopyReview);
+  const expandFocus = useFocusProps(() => setExpanded((p) => !p));
+
   return (
     <article className={`rv-row rv-critic-row rv-source-${review.source}`}>
       <header className="rv-critic-header">
@@ -71,9 +75,11 @@ export function CriticReviewRow({ review, searchQuery }: CriticReviewRowProps) {
         )}
 
         <button
+          ref={copyFocus.ref}
+          tabIndex={copyFocus.tabIndex}
           type="button"
           className="rv-copy-review-btn"
-          onClick={handleCopyReview}
+          onClick={copyFocus.onClick}
           title={t("reviewsTab.copyReviewText")}
           aria-label={t("reviewsTab.copyReviewText")}
         >
@@ -93,9 +99,11 @@ export function CriticReviewRow({ review, searchQuery }: CriticReviewRowProps) {
           </div>
           {isLong && (
             <button
+              ref={expandFocus.ref}
+              tabIndex={expandFocus.tabIndex}
               type="button"
               className="rv-expand-btn"
-              onClick={() => setExpanded((p) => !p)}
+              onClick={expandFocus.onClick}
               aria-expanded={expanded}
             >
               {t(expanded ? "review.showLess" : "review.showMore")}

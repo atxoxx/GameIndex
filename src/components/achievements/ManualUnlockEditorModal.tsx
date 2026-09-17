@@ -8,6 +8,8 @@ import { createPortal } from "react-dom";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { useFocusable } from "../../hooks/useFocusable";
+import { useFocusableNative } from "./focusable";
 import type { Achievement, AchievementLink } from "../../types/game";
 import { Button } from "../ui";
 
@@ -48,6 +50,10 @@ export default function ManualUnlockEditorModal({
   // apiName → unix-seconds unlock time (0 = still locked).
   const [unlocks, setUnlocks] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
+
+  const closeFocus = useFocusable(onClose);
+  const saveFocus = useFocusable(handleSave);
+  const cancelFocus = useFocusable(onClose);
 
   // Load the schema on open, seeding unlock state from the cache payload.
   useEffect(() => {
@@ -151,8 +157,8 @@ export default function ManualUnlockEditorModal({
           <button
             className="modal-close ach-modal-close"
             aria-label={t("common.close")}
-            onClick={onClose}
             disabled={saving}
+            {...closeFocus}
           >
             ×
           </button>
@@ -180,47 +186,15 @@ export default function ManualUnlockEditorModal({
               <ul className="ach-editor-list">
                 {schema.map((a) => {
                   const ts = unlocks[a.apiName] ?? 0;
-                  const achieved = ts > 0;
                   return (
-                    <li
+                    <ManualUnlockRow
                       key={a.apiName}
-                      className={`ach-editor-row${achieved ? " unlocked" : ""}`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="ach-editor-check"
-                        checked={achieved}
-                        onChange={(e) => toggleAchievement(a.apiName, e.target.checked)}
-                      />
-                      <img
-                        className="ach-editor-icon"
-                        src={achieved ? a.icon : a.iconGray}
-                        alt=""
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                      <div className="ach-editor-text">
-                        <span className="ach-editor-name">{a.displayName}</span>
-                        {a.description && (
-                          <span className="ach-editor-desc">{a.description}</span>
-                        )}
-                      </div>
-                      {achieved && (
-                        <label className="ach-editor-date">
-                          <span className="ach-editor-date-label">
-                            {t("achievements.manualEditor.unlockDate")}
-                          </span>
-                          <input
-                            type="date"
-                            className="ach-editor-date-input"
-                            value={epochToDateInput(ts)}
-                            onChange={(e) => setDate(a.apiName, e.target.value)}
-                          />
-                        </label>
-                      )}
-                    </li>
+                      achievement={a}
+                      achieved={ts > 0}
+                      ts={ts}
+                      onToggle={(achieved) => toggleAchievement(a.apiName, achieved)}
+                      onDateChange={(value) => setDate(a.apiName, value)}
+                    />
                   );
                 })}
               </ul>
@@ -233,14 +207,14 @@ export default function ManualUnlockEditorModal({
             {schema ? t("achievements.manualEditor.count", { unlocked: unlockedCount, total: schema.length }) : ""}
           </span>
           <div className="modal-footer-actions">
-            <Button variant="ghost" onClick={onClose} disabled={saving}>
+            <Button variant="ghost" disabled={saving} {...cancelFocus}>
               {t("common.cancel")}
             </Button>
             <Button
               variant="primary"
-              onClick={handleSave}
               isLoading={saving}
               disabled={!schema || schema.length === 0}
+              {...saveFocus}
             >
               {t("achievements.manualEditor.save")}
             </Button>
@@ -249,5 +223,62 @@ export default function ManualUnlockEditorModal({
       </div>
     </div>,
     document.body
+  );
+}
+
+function ManualUnlockRow({
+  achievement: a,
+  achieved,
+  ts,
+  onToggle,
+  onDateChange,
+}: {
+  achievement: Achievement;
+  achieved: boolean;
+  ts: number;
+  onToggle: (achieved: boolean) => void;
+  onDateChange: (value: string) => void;
+}) {
+  const { t } = useLanguage();
+  const checkbox = useFocusableNative<HTMLInputElement>();
+  return (
+    <li className={`ach-editor-row${achieved ? " unlocked" : ""}`}>
+      <input
+        ref={checkbox.setRef}
+        tabIndex={checkbox.tabIndex}
+        type="checkbox"
+        className="ach-editor-check"
+        checked={achieved}
+        onChange={(e) => onToggle(e.target.checked)}
+      />
+      <img
+        className="ach-editor-icon"
+        src={achieved ? a.icon : a.iconGray}
+        alt=""
+        loading="lazy"
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+      />
+      <div className="ach-editor-text">
+        <span className="ach-editor-name">{a.displayName}</span>
+        {a.description && (
+          <span className="ach-editor-desc">{a.description}</span>
+        )}
+      </div>
+      {achieved && (
+        <label className="ach-editor-date">
+          <span className="ach-editor-date-label">
+            {t("achievements.manualEditor.unlockDate")}
+          </span>
+          <input
+            type="date"
+            className="ach-editor-date-input"
+            value={epochToDateInput(ts)}
+            onChange={(e) => onDateChange(e.target.value)}
+          />
+        </label>
+      )}
+    </li>
   );
 }
