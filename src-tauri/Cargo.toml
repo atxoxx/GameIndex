@@ -178,11 +178,11 @@ opt-level = 2
 [profile.dev.package.gameindex]
 codegen-units = 1
 
-# Release profile tuned for maximum runtime performance and minimum binary size.
+# Release profile tuned for runtime performance while keeping link times sane.
 [profile.release]
 opt-level = 3        # Aggressive runtime performance optimizations
-lto = true           # Cross-crate link-time optimization (eliminates dead code across dependencies)
-codegen-units = 1    # Enables maximum cross-function inlining and whole-crate optimizations
+lto = "thin"         # ThinLTO: most of fat LTO's cross-crate inlining at a fraction of the link time
+codegen-units = 4    # Parallel CGUs so the long-running backend crates link in reasonable time
 strip = true         # Automatically strips symbols and debuginfo, significantly reducing executable size
 panic = "unwind"     # Preserves catch_unwind safety in telemetry/metrics collector
 
