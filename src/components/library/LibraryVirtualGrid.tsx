@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Game } from "../../types/game";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
@@ -14,6 +14,10 @@ interface LibraryVirtualGridProps {
   groupBy?: LibraryGroupBy;
   resetKey?: string;
   renderItem: (game: Game, index: number) => React.ReactNode;
+}
+
+function isWindow(target: HTMLElement | Window): target is Window {
+  return target === window;
 }
 
 function findScrollContainer(el: HTMLElement | null): HTMLElement | Window {
@@ -32,6 +36,38 @@ interface GameGroup {
   count: number;
   games: Game[];
   accentColor?: string;
+}
+
+interface GridMetrics {
+  cols: number;
+  rowStride: number;
+  rowGap: number;
+  headerHeight: number;
+  headerGap: number;
+  sectionGap: number;
+}
+
+interface GroupLayout {
+  group: GameGroup;
+  collapsed: boolean;
+  cardsTop: number;
+  cardsHeight: number;
+  rows: number;
+  firstRow: number;
+  lastRow: number;
+  topSpace: number;
+  bottomSpace: number;
+}
+
+function sameMetrics(a: GridMetrics, b: GridMetrics): boolean {
+  return (
+    a.cols === b.cols &&
+    a.rowStride === b.rowStride &&
+    a.rowGap === b.rowGap &&
+    a.headerHeight === b.headerHeight &&
+    a.headerGap === b.headerGap &&
+    a.sectionGap === b.sectionGap
+  );
 }
 
 /** Rich visual icons for groups based on grouping type & key */
@@ -181,12 +217,42 @@ export default function LibraryVirtualGrid({
   const [viewportH, setViewportH] = useState(0);
   const [containerW, setContainerW] = useState(0);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [gridMetrics, setGridMetrics] = useState<GridMetrics | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLElement | Window | null>(null);
 
   const isList = density === "list";
   const useGrouping = groupBy !== "none";
+
+  const isNarrow = containerW > 0 && containerW <= 950;
+  const isUltraWide = containerW >= 2200;
+
+  // List rows render `.lib-card--list` (~66px tall + 6px margin); a fixed
+  // 72px track keeps the stride exact so virtual offsets never drift.
+  const rowHeight = isList
+    ? 72
+    : density === "compact"
+    ? (isNarrow ? 195 : isUltraWide ? 260 : 220)
+    : density === "cinematic"
+    ? (isNarrow ? 360 : isUltraWide ? 510 : 420)
+    : (isNarrow ? 370 : isUltraWide ? 490 : 424);
+
+  const gap = isList
+    ? 0
+    : density === "compact"
+    ? (isNarrow ? 10 : isUltraWide ? 16 : 12)
+    : density === "cinematic"
+    ? (isNarrow ? 16 : isUltraWide ? 28 : 24)
+    : (isNarrow ? 12 : isUltraWide ? 20 : 16);
+
+  const minCol = density === "compact"
+    ? (isNarrow ? 115 : isUltraWide ? 155 : 130)
+    : density === "cinematic"
+    ? (isNarrow ? 205 : isUltraWide ? 290 : 240)
+    : density === "list"
+    ? 99999
+    : (isNarrow ? 150 : isUltraWide ? 215 : 180);
 
   // Build grouped structure when groupBy is active
   const groups: GameGroup[] = useMemo(() => {
@@ -272,14 +338,126 @@ export default function LibraryVirtualGrid({
     }));
   };
 
-  const useVirtual = !useGrouping && items.length > VIRTUALIZE_THRESHOLD;
+  const useVirtualFlat = !useGrouping && items.length > VIRTUALIZE_THRESHOLD;
+  const useVirtualGrouped = useGrouping && items.length > VIRTUALIZE_THRESHOLD;
+  const useVirtual = useVirtualFlat || useVirtualGrouped;
+
+  const fallbackCols = density === "list" ? 1 : Math.max(1, Math.floor((containerW + gap) / (minCol + gap)));
+
+  // Grouped mode keeps the browser's own `auto-fill` column layout, so the
+  // virtual window has to measure what the grid actually resolved to rather
+  // than trusting the flat-grid constants. Approximations cover first paint.
+  const metrics = useMemo<GridMetrics>(
+    () =>
+      gridMetrics ?? {
+        cols: fallbackCols,
+        rowStride: rowHeight + gap,
+        rowGap: gap,
+        headerHeight: 50,
+        headerGap: 8,
+        sectionGap: 24,
+      },
+    [gridMetrics, fallbackCols, rowHeight, gap]
+  );
+
+  const readMetrics = useCallback((): GridMetrics | null => {
+    const root = scrollRef.current;
+    if (!root) return null;
+    const card = root.querySelector<HTMLElement>(".lib-card");
+    const cards = card?.closest<HTMLElement>(".lib-cards") ?? null;
+    const section = cards?.closest<HTMLElement>(".lib-group-section") ?? null;
+    const header = section?.querySelector<HTMLElement>(".lib-group-header");
+    if (!card || !cards || !header) return null;
+
+    const num = (value: string) => {
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const cardsStyle = getComputedStyle(cards);
+    const rowGap = num(cardsStyle.rowGap);
+    const rowStride = card.getBoundingClientRect().height + num(getComputedStyle(card).marginBottom) + rowGap;
+    const cols = cardsStyle.gridTemplateColumns.split(/\s+/).filter(Boolean).length;
+    const headerHeight = header.getBoundingClientRect().height;
+    if (rowStride <= 0 || cols <= 0 || headerHeight <= 0) return null;
+
+    const headerGap = section ? num(getComputedStyle(section).rowGap) : 0;
+    const sectionGap = num(getComputedStyle(root).rowGap);
+
+    return {
+      cols,
+      rowStride,
+      rowGap,
+      headerHeight,
+      headerGap: headerGap || 8,
+      sectionGap: sectionGap || 24,
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!useVirtualGrouped) return;
+    const next = readMetrics();
+    if (!next) return;
+    setGridMetrics((prev) => (prev && sameMetrics(prev, next) ? prev : next));
+  }, [useVirtualGrouped, readMetrics, containerW, density, isBigScreen, groups, collapsedGroups]);
+
+  // Flatten the groups into a single ordered row timeline. Headers stay in the
+  // normal flow so their markup and spacing are untouched; only the game rows
+  // inside each group are windowed.
+  const groupLayouts = useMemo<GroupLayout[]>(() => {
+    if (!useVirtualGrouped) return [];
+    const { cols, rowStride, rowGap, headerHeight, headerGap, sectionGap } = metrics;
+    const viewportBottom = scrollTop + viewportH;
+    const overscanPx = rowStride * 2;
+
+    let cursor = 0;
+    return groups.map((group) => {
+      const collapsed = collapsedGroups[group.id] || false;
+      cursor += headerHeight;
+      const cardsTop = cursor;
+      let rows = 0;
+      let cardsHeight = 0;
+      if (!collapsed) {
+        cursor += headerGap;
+        rows = Math.ceil(group.games.length / cols);
+        cardsHeight = rows * rowStride - rowGap;
+        cursor += cardsHeight;
+      }
+      cursor += sectionGap;
+
+      let firstRow = 0;
+      let lastRow = rows - 1;
+      if (rows > 0) {
+        const intersects =
+          cardsTop + cardsHeight >= scrollTop - overscanPx && cardsTop <= viewportBottom + overscanPx;
+        if (intersects) {
+          firstRow = Math.min(
+            rows - 1,
+            Math.max(0, Math.floor((scrollTop - overscanPx - cardsTop) / rowStride))
+          );
+          lastRow = Math.min(rows - 1, Math.ceil((viewportBottom + overscanPx - cardsTop) / rowStride) - 1);
+          if (lastRow < firstRow) lastRow = firstRow;
+        } else {
+          // Nothing visible: a single top spacer reserves the group's height.
+          firstRow = rows;
+          lastRow = rows - 1;
+        }
+      }
+
+      const topSpace = firstRow > 0 ? firstRow * rowStride - rowGap : 0;
+      const hiddenBelow = rows - 1 - lastRow;
+      const bottomSpace = hiddenBelow > 0 ? hiddenBelow * rowStride - rowGap : 0;
+
+      return { group, collapsed, cardsTop, cardsHeight, rows, firstRow, lastRow, topSpace, bottomSpace };
+    });
+  }, [useVirtualGrouped, groups, collapsedGroups, metrics, scrollTop, viewportH]);
 
   const measure = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const container = containerRef.current ?? findScrollContainer(el);
     setContainerW(el.clientWidth);
-    const h = container instanceof Window ? window.innerHeight : container.clientHeight;
+    const h = isWindow(container) ? window.innerHeight : container.clientHeight;
     if (h > 0) setViewportH(h);
   }, []);
 
@@ -294,16 +472,15 @@ export default function LibraryVirtualGrid({
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    if (!(container instanceof Window)) ro.observe(container);
+    if (!isWindow(container)) ro.observe(container);
     window.addEventListener("resize", measure);
 
     let rafId = 0;
     const computeScrollTop = () => {
       const elRect = el.getBoundingClientRect();
-      const containerRect =
-        container instanceof Window
-          ? { top: 0, height: window.innerHeight }
-          : { top: container.getBoundingClientRect().top, height: container.clientHeight };
+      const containerRect = isWindow(container)
+        ? { top: 0, height: window.innerHeight }
+        : { top: container.getBoundingClientRect().top, height: container.clientHeight };
       const relativeTop = Math.max(0, containerRect.top - elRect.top);
       setScrollTop(relativeTop);
       if (containerRect.height > 0) setViewportH(containerRect.height);
@@ -327,24 +504,23 @@ export default function LibraryVirtualGrid({
       container.removeEventListener("scroll", onScroll);
       containerRef.current = null;
     };
-  }, [useVirtual, measure]);
+  }, [useVirtual, useVirtualFlat, useVirtualGrouped, measure]);
 
   useEffect(() => {
     if (!useVirtual) return;
     const container = containerRef.current;
     if (!container) return;
-    const top =
-      container instanceof Window
-        ? window.scrollY || document.documentElement.scrollTop
-        : container.scrollTop;
+    const top = isWindow(container)
+      ? window.scrollY || document.documentElement.scrollTop
+      : container.scrollTop;
     if (top === 0) return;
     requestAnimationFrame(() => {
       const c = containerRef.current;
       if (!c) return;
-      if (c instanceof Window) window.scrollTo({ top: 0 });
+      if (isWindow(c)) window.scrollTo({ top: 0 });
       else c.scrollTop = 0;
     });
-  }, [resetKey, useVirtual]);
+  }, [resetKey, useVirtual, useVirtualFlat, useVirtualGrouped]);
 
   // List view table header component
   const renderListHeader = () => (
@@ -360,51 +536,54 @@ export default function LibraryVirtualGrid({
     </div>
   );
 
-  // Grouped Mode
-  if (useGrouping) {
+  const renderGroupHeader = (group: GameGroup, isCollapsed: boolean) => (
+    <div
+      className={`lib-group-header${isCollapsed ? " is-collapsed" : ""}`}
+      onClick={() => toggleGroup(group.id)}
+      role="button"
+      tabIndex={0}
+      aria-expanded={!isCollapsed}
+    >
+      <div className="lib-group-header-left">
+        <span className="lib-group-icon-badge" aria-hidden="true">
+          {renderGroupIcon(groupBy, group.id)}
+        </span>
+        <h3 className="lib-group-title">{group.title}</h3>
+        <span className="lib-group-count-pill">{group.count}</span>
+      </div>
+
+      <div className="lib-group-divider-line" aria-hidden="true" />
+
+      <div className="lib-group-header-right">
+        <span className="lib-group-toggle-text" aria-hidden="true">
+          {isCollapsed ? t("common.show") : t("common.hide")}
+        </span>
+        <span className={`lib-group-toggle-icon${isCollapsed ? " is-collapsed" : ""}`} aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
+      </div>
+    </div>
+  );
+
+  const cardsClassName = `lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${isList ? " lib-cards--list" : ""}`;
+
+  // Grouped Mode — small libraries keep the original fully-mounted layout.
+  if (useGrouping && !useVirtualGrouped) {
     return (
       <div className="lib-grouped-container">
         {isList && renderListHeader()}
 
         {groups.map((group) => {
           const isCollapsed = collapsedGroups[group.id] || false;
-          const icon = renderGroupIcon(groupBy, group.id);
 
           return (
             <section key={group.id} className="lib-group-section">
-              <div
-                className={`lib-group-header${isCollapsed ? " is-collapsed" : ""}`}
-                onClick={() => toggleGroup(group.id)}
-                role="button"
-                tabIndex={0}
-                aria-expanded={!isCollapsed}
-              >
-                <div className="lib-group-header-left">
-                  <span className="lib-group-icon-badge" aria-hidden="true">
-                    {icon}
-                  </span>
-                  <h3 className="lib-group-title">{group.title}</h3>
-                  <span className="lib-group-count-pill">{group.count}</span>
-                </div>
-
-                <div className="lib-group-divider-line" aria-hidden="true" />
-
-                <div className="lib-group-header-right">
-                  <span className="lib-group-toggle-text" aria-hidden="true">
-                    {isCollapsed ? t("common.show") : t("common.hide")}
-                  </span>
-                  <span className={`lib-group-toggle-icon${isCollapsed ? " is-collapsed" : ""}`} aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
-                </div>
-              </div>
+              {renderGroupHeader(group, isCollapsed)}
 
               {!isCollapsed && (
-                <div
-                  className={`lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${isList ? " lib-cards--list" : ""}`}
-                >
+                <div className={cardsClassName}>
                   {group.games.map((g, i) => renderItem(g, i))}
                 </div>
               )}
@@ -415,8 +594,53 @@ export default function LibraryVirtualGrid({
     );
   }
 
+  // Grouped Mode — large libraries window each group's rows. Headers stay in
+  // the document flow; spacers reserve the rows that scroll out of view.
+  if (useGrouping && useVirtualGrouped) {
+    const { cols } = metrics;
+    return (
+      <div className="lib-grouped-container" ref={scrollRef}>
+        {isList && renderListHeader()}
+
+        {groupLayouts.map((layout) => {
+          const { group, collapsed, firstRow, lastRow, topSpace, bottomSpace } = layout;
+          const sliceStart = firstRow * cols;
+          const visibleGames = collapsed
+            ? []
+            : group.games.slice(sliceStart, (lastRow + 1) * cols);
+
+          return (
+            <section key={group.id} className="lib-group-section">
+              {renderGroupHeader(group, collapsed)}
+
+              {!collapsed && (
+                <div className={cardsClassName}>
+                  {topSpace > 0 && (
+                    <div
+                      className="lib-group-row-spacer"
+                      aria-hidden="true"
+                      style={{ gridColumn: "1 / -1", height: topSpace }}
+                    />
+                  )}
+                  {visibleGames.map((g, i) => renderItem(g, sliceStart + i))}
+                  {bottomSpace > 0 && (
+                    <div
+                      className="lib-group-row-spacer"
+                      aria-hidden="true"
+                      style={{ gridColumn: "1 / -1", height: bottomSpace }}
+                    />
+                  )}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    );
+  }
+
   // Non-virtual flat mode
-  if (!useVirtual) {
+  if (!useVirtualFlat) {
     return (
       <div className="lib-grid-container">
         {isList && renderListHeader()}
@@ -430,35 +654,6 @@ export default function LibraryVirtualGrid({
   }
 
   // Virtualized flat grid for large collections — dynamically scales across Handhelds, 1080p, 2K, and 4K
-  const isNarrow = containerW > 0 && containerW <= 950;
-  const isUltraWide = containerW >= 2200;
-
-  // List rows render `.lib-card--list` (~66px tall + 6px margin); a fixed
-  // 72px track keeps the stride exact so virtual offsets never drift.
-  const rowHeight = isList
-    ? 72
-    : density === "compact"
-    ? (isNarrow ? 195 : isUltraWide ? 260 : 220)
-    : density === "cinematic"
-    ? (isNarrow ? 360 : isUltraWide ? 510 : 420)
-    : (isNarrow ? 370 : isUltraWide ? 490 : 424);
-
-  const gap = isList
-    ? 0
-    : density === "compact"
-    ? (isNarrow ? 10 : isUltraWide ? 16 : 12)
-    : density === "cinematic"
-    ? (isNarrow ? 16 : isUltraWide ? 28 : 24)
-    : (isNarrow ? 12 : isUltraWide ? 20 : 16);
-
-  const minCol = density === "compact"
-    ? (isNarrow ? 115 : isUltraWide ? 155 : 130)
-    : density === "cinematic"
-    ? (isNarrow ? 205 : isUltraWide ? 290 : 240)
-    : density === "list"
-    ? 99999
-    : (isNarrow ? 150 : isUltraWide ? 215 : 180);
-
   const cols = density === "list" ? 1 : Math.max(1, Math.floor((containerW + gap) / (minCol + gap)));
 
   const rowCount = Math.ceil(items.length / cols);
