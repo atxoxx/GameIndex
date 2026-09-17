@@ -156,7 +156,15 @@ export default function BigScreenHeader({ onOpenSearch }: BigScreenHeaderProps) 
       <nav ref={navRef} className="bigscreen-v3-sections" aria-label={t("bigscreen.mainSections")}>
         {STRIP_SECTIONS.map((section, index) => {
           const isSystem = index === STRIP_SECTIONS.length - 1;
-          const isActive = isSystem ? systemActive : section.path === activePath;
+          // Exactly one strip entry may be active. On a System subpage
+          // `getActiveTabPath` falls back to "/home", so without the
+          // `!systemActive` guard Home and the System entry both carried
+          // `.is-active` and the scroll effect below (which takes the first
+          // match in DOM order) scrolled the strip back to Home, leaving the
+          // active System entry off-screen.
+          const isActive = isSystem
+            ? systemActive
+            : !systemActive && section.path === activePath;
           return (
             <SectionButton
               key={section.path}

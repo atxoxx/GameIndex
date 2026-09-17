@@ -2213,6 +2213,10 @@
   inset: 0;
   z-index: 5000;
   display: grid;
+  /* The single column must be clamped to the shell width. Without this the
+     implicit column is `auto`, which sizes to the header's max-content and
+     pushes the utilities / bottom clock past the right edge. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   color: var(--bigscreen-text);
