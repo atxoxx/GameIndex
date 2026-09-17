@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import type { ReactNode } from "react";
@@ -38,7 +38,11 @@ import BigScreenMetaStrip from "../bigscreen/BigScreenMetaStrip";
 import BigScreenLightbox from "../bigscreen/BigScreenLightbox";
 import BigScreenTabBar, { type TabDef } from "../bigscreen/BigScreenTabBar";
 import BigScreenTabPanel from "../bigscreen/BigScreenTabPanel";
-import { extractYear } from "../bigscreen/bigscreenFormat";
+import { extractYear, isVideoUrl } from "../bigscreen/bigscreenFormat";
+import { bigScreenParentOf } from "../../bigscreen/registry";
+import BigScreenRailScroller from "../game/BigScreenRailScroller";
+import { focusPrimaryAction } from "../game/BigScreenGameHeroActions";
+import { focusTabLanding } from "../game/bigscreenGameTabs";
 
 type StorePageTab = "overview" | "media" | "specs" | "achievements" | "more";
 
@@ -62,6 +66,7 @@ const STORE_PAGE_TABS: TabDef<StorePageTab>[] = [
 export default function BigScreenStoreGamePage() {
   const gamepad = useGamepad();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const { gameSlug } = useParams<{ gameSlug: string }>();
   const { games, addStoreGame } = useGames();
@@ -211,6 +216,13 @@ export default function BigScreenStoreGamePage() {
   // Animated hero art (SteamGridDB animated hero when available).
   const backdrop = useGameBackdropArt(mockGame);
 
+  // The hero Trailer button only opens a video the lightbox can actually
+  // play. Embed-only YouTube / Twitch links are the Media tab's job.
+  const playableTrailer = useMemo(
+    () => (mockGame?.videos ?? []).find(isVideoUrl) ?? null,
+    [mockGame],
+  );
+
   // Check if already in library (name match against the library rows)
   const existingInLibrary = useMemo(() => {
     if (!data) return null;
@@ -237,26 +249,17 @@ export default function BigScreenStoreGamePage() {
   const isInLibrary = !!existingInLibrary;
   const libraryGameId = existingInLibrary?.id;
 
-  // Controller B / Escape goes BACK to the store grid. Registered
-  // through the gamepad back-handler registry: the engine invokes the
-  // top-priority handler on B (and defers to open overlays
-  // automatically). The unregister fn runs on unmount so the shell
-  // reclaims B when the user leaves the page.
+  // The on-screen Back action defers to the shell's route resolver
+  // (which also owns controller B) instead of hardcoding `/store`.
   const handleBack = useCallback(() => {
-    navigate("/store");
-  }, [navigate]);
-
-  useEffect(() => {
-    return gamepad.registerBackHandler(handleBack, 0);
-  }, [gamepad.registerBackHandler, handleBack]);
+    navigate(bigScreenParentOf(location.pathname) ?? "/home");
+  }, [navigate, location.pathname]);
 
   // Start on the primary store action so the first controller press
-  // has an obvious, useful destination.
+  // has an obvious, useful destination. Shares the game hub's marker
+  // contract — see BigScreenGameHeroActions.
   useEffect(() => {
-    const firstAction = pageRef.current?.querySelector<HTMLElement>(
-      '.bigscreen-gamepage-hero-actions [tabindex="0"]:not([disabled])',
-    );
-    firstAction?.focus({ preventScroll: true });
+    focusPrimaryAction(pageRef.current);
   }, [mockGame?.id]);
 
   // Bumper tab cycling
@@ -271,8 +274,32 @@ export default function BigScreenStoreGamePage() {
             : (idx - 1 + STORE_PAGE_TABS.length) % STORE_PAGE_TABS.length;
         return STORE_PAGE_TABS[nextIdx].id;
       });
-    }, 1);
+    });
   }, [gamepad.registerTabCycler, lightbox]);
+
+  // Tab commit → focus landing. Same contract as the game hub: LB/RB
+  // leaves focus on the strip (the tab bar parks it there itself), while
+  // A on a tab moves into the tab body, or back onto the tab when that
+  // body has nothing focusable.
+  const [contentFocusRequest, setContentFocusRequest] = useState<{
+    tab: StorePageTab;
+    nonce: number;
+  } | null>(null);
+  const focusNonceRef = useRef(0);
+
+  const handleEnterTabContent = useCallback((tab: StorePageTab) => {
+    focusNonceRef.current += 1;
+    setContentFocusRequest({ tab, nonce: focusNonceRef.current });
+  }, []);
+
+  useEffect(() => {
+    if (!contentFocusRequest) return;
+    focusTabLanding({
+      root: pageRef.current,
+      tabId: contentFocusRequest.tab,
+      focusFirst: gamepad.focusFirst,
+    });
+  }, [contentFocusRequest, gamepad.focusFirst]);
 
   const handleAddToLibrary = useCallback(async () => {
     if (!data || adding) return;
@@ -299,8 +326,7 @@ export default function BigScreenStoreGamePage() {
   });
 
   const focusableTrailer = useFocusable(() => {
-    if (!mockGame?.videos || mockGame.videos.length === 0) return;
-    setLightbox(mockGame.videos[0]);
+    if (playableTrailer) setLightbox(playableTrailer);
   });
 
   const focusableDownload = useFocusable(() => setDownloadOpen(true));
@@ -417,6 +443,7 @@ export default function BigScreenStoreGamePage() {
             <button
               type="button"
               className="bigscreen-details-btn bigscreen-details-btn--primary"
+              data-primary-action="true"
               {...focusableAction}
               disabled={adding}
             >
@@ -453,7 +480,7 @@ export default function BigScreenStoreGamePage() {
               </button>
             )}
 
-            {game.videos && game.videos.length > 0 && (
+            {playableTrailer && (
               <button
                 type="button"
                 className="bigscreen-details-btn bigscreen-details-btn--secondary"
@@ -505,6 +532,8 @@ export default function BigScreenStoreGamePage() {
         tabs={STORE_PAGE_TABS.map((tab) => ({ ...tab, label: t(tab.label) }))}
         activeTab={activeTab}
         onActivate={setActiveTab}
+        onEnterContent={handleEnterTabContent}
+        railId="store-detail-tabs"
         ariaLabel={t("bigscreen.store.detailsSections")}
       />
 
@@ -519,8 +548,18 @@ export default function BigScreenStoreGamePage() {
 
         <BigScreenTabPanel tabId="media" activeTab={activeTab}>
           <div className="bigscreen-gamepage-media">
-            <ScreenshotsSection game={game} onOpen={setLightbox} />
-            <VideosSection game={game} />
+            <BigScreenRailScroller
+              railId="store-detail-screenshots"
+              label={t("community.tab.screenshots")}
+            >
+              <ScreenshotsSection game={game} onOpen={setLightbox} />
+            </BigScreenRailScroller>
+            <BigScreenRailScroller
+              railId="store-detail-videos"
+              label={t("videos.title")}
+            >
+              <VideosSection game={game} />
+            </BigScreenRailScroller>
           </div>
         </BigScreenTabPanel>
 

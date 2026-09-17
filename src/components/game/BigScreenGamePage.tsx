@@ -1,46 +1,42 @@
 // BigScreenGamePage — PS5 tabbed Game Hub for Big Screen mode.
 //
-// Phase 3 PR 3a replaces the previous single-page scroll with a
-// 4-tab layout (Overview | Media | Specs | More) and bumper-cycled
-// navigation. The hero stays fixed at the top across all tabs;
-// each tab owns its own scroll region.
+// Information architecture, top to bottom:
 //
 //   ┌──────────────────────────────────────────────────┐
-//   │   Banner background (full-bleed, paused on Overview)
-//   │   Game logo / title              ▶ PLAY
-//   │   Subtitle line                  Trailer · Edit · Remove
-//   └──────────────────────────────────────────────────┘
-//   ┌── Metadata strip (pills) ─────────────────────────┐
-//   │ [Platform] [Status] [Playtime] [Players] [Rating]
-//   └──────────────────────────────────────────────────┘
-//   ┌── Tab bar (LB / [Overview][Media][Specs][More] / RB) ─┐
-//   └──────────────────────────────────────────────────┘
-//   ┌── Tab panel (scrolls; only one is active at a time) ──┐
-//   │  Overview: Storyline · About · SystemReqs · ...
-//   │  Media:    empty placeholder (PR 3b)
-//   │  Specs:    empty placeholder (PR 3b)
-//   │  More:     empty placeholder (PR 3c)
+//   │ Hero (a header, not a landing page)               │
+//   │   ‹ Back      logo / title · meta pills           │
+//   │   [ PRIMARY ACTION ]  [Trailer]  [Find download]  │
+//   ├──────────────────────────────────────────────────┤
+//   │ Tab bar — the page's navigation spine (LB / RB)   │
+//   │   [Overview][Media][Specs][Achievements]…         │
+//   ├──────────────────────────────────────────────────┤
+//   │ Active tab body (owns its own scroll)             │
 //   └──────────────────────────────────────────────────┘
 //
-// Bumper wiring: `useGamepad().registerTabCycler(...)` overrides
-// BigScreenNav's tab cycler while this page is mounted. The
-// unregister fn runs on unmount so the nav cycler reclaims LB/RB
-// when the user leaves the Game Hub.
+// Controller model
+// ────────────────
+//   • Entry: focus lands on the primary action (Play / Install / Force
+//     Close) — the one thing the user came here for.
+//   • Down from the hero: the tab bar. Left/Right cycles the tabs
+//     (the strip is a rail, so it wraps at the ends). LB/RB does the
+//     same and parks focus on the tab it selects.
+//   • A on a tab: selects it and drops focus into the tab body; if the
+//     body has nothing focusable, focus stays on the tab so the strip
+//     remains the anchor instead of jumping somewhere arbitrary.
+//   • B: walks up one level via the shell's route resolver (this page
+//     deliberately registers no back handler of its own).
 //
-// Per-tab scroll regions: the TabPanel component owns the
-// absolute/relative CSS that keeps inactive panels in the DOM
-// (preserves scroll) while not participating in layout. Only the
-// active panel owns the layout box.
+// Only the hero and the tab bar stay put; the tab body scrolls. The hero
+// is intentionally short so the tab bar reads as the spine of the page
+// rather than a divider under a poster.
 //
-// Paused hero: `paused={activeTab === "overview"}` keeps the
-// Ken-Burns / cross-fade cycle frozen on the landing tab so the
-// user has time to read the cover, title, and meta strip. The
-// cycle resumes on Media/Specs/More where the user is focused on
-// tab content.
+// Paused hero: `paused={activeTab === "overview"}` freezes the Ken-Burns /
+// cross-fade cycle on the landing tab so the user has time to read the
+// cover, title, and meta strip.
 
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -81,60 +77,60 @@ import BigScreenTabBar, {
   type TabDef,
 } from "../bigscreen/BigScreenTabBar";
 import BigScreenTabPanel from "../bigscreen/BigScreenTabPanel";
-import { extractYear, formatLastPlayed } from "../bigscreen/bigscreenFormat";
+import {
+  extractYear,
+  formatLastPlayed,
+  isVideoUrl,
+} from "../bigscreen/bigscreenFormat";
+import { bigScreenParentOf } from "../../bigscreen/registry";
+import BigScreenGameHeroActions, {
+  focusPrimaryAction,
+} from "./BigScreenGameHeroActions";
+import BigScreenRailScroller from "./BigScreenRailScroller";
+import { cycleTabId, focusTabLanding } from "./bigscreenGameTabs";
 
 // ── Self-contained entry ──────────────────────────────────────────
-// Resolves the game from the route param and wires the page-level
-// back/action stubs, so the route registry can mount this component
-// with zero props (see src/bigscreen/registry.tsx).
+// Resolves the game from the route param, so the route registry can mount
+// this component with zero props (see src/bigscreen/registry.tsx). Back
+// defers to the shell's route resolver rather than hardcoding /library.
 
 export default function BigScreenGamePage() {
   const { gameId } = useParams<{ gameId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const { getGame } = useGames();
   const game = gameId ? getGame(gameId) : undefined;
 
   usePublishGameArtwork(game?.coverArtUrl ?? game?.bannerUrl);
 
-  const handleBack = useCallback(() => navigate("/library"), [navigate]);
+  const handleBack = useCallback(() => {
+    navigate(bigScreenParentOf(location.pathname) ?? "/home");
+  }, [navigate, location.pathname]);
 
   if (!game) {
     return <BigScreenGameNotFound onBack={handleBack} />;
   }
 
-  // Big Screen can't open the desktop edit/remove modals inline, so
-  // both actions bounce back to the library grid — the user can
-  // complete the flow on the next desktop visit (keeps the
-  // pre-registry stub behavior).
-  return (
-    <BigScreenGamePageContent
-      game={game}
-      onBack={handleBack}
-      onEdit={handleBack}
-      onRemove={handleBack}
-    />
-  );
+  return <BigScreenGamePageContent game={game} onBack={handleBack} />;
 }
 
 interface BigScreenGamePageContentProps {
   /** The currently-viewed game. */
   game: Game;
-  /** Navigate to /library when the user goes Back. */
+  /** Walk up one level (the shell resolves the parent route). */
   onBack: () => void;
-  /** Open the existing edit modal (preserves desktop parity). */
-  onEdit: () => void;
-  /** Open the confirm-remove flow (preserves desktop parity). */
-  onRemove: () => void;
 }
 
-type GamePageTab = "overview" | "media" | "specs" | "achievements" | "reviews" | "activity" | "more";
+type GamePageTab =
+  | "overview"
+  | "media"
+  | "specs"
+  | "achievements"
+  | "reviews"
+  | "activity"
+  | "more";
 
-function BigScreenGamePageContent({
-  game,
-  onBack,
-  onEdit,
-  onRemove,
-}: BigScreenGamePageContentProps) {
+function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProps) {
   const { runningGameIds, launchGame, forceCloseGame, enrichGameMetadata } = useGames();
   const { t } = useLanguage();
   const gamepad = useGamepad();
@@ -156,6 +152,14 @@ function BigScreenGamePageContent({
   const [logoError, setLogoError] = useState(false);
   const pageRef = useRef<HTMLDivElement | null>(null);
 
+  // Nonce that asks the tab-landing effect to run. `null` means "don't
+  // move focus" — which is what LB/RB wants: the strip stays the anchor.
+  const [contentFocusRequest, setContentFocusRequest] = useState<{
+    tab: GamePageTab;
+    nonce: number;
+  } | null>(null);
+  const focusNonceRef = useRef(0);
+
   const resolvedLogo = useMemo(() => {
     if (game.logoUrl) return game.logoUrl;
     if (game.platform === "Steam" && game.steamAppId) {
@@ -175,6 +179,22 @@ function BigScreenGamePageContent({
   // Animated hero art — SteamGridDB animated hero (APNG / animated
   // WebP) when the community has one, layered over the banner.
   const backdrop = useGameBackdropArt(game);
+
+  const achCount = useMemo(
+    () =>
+      game.steamAchievements?.filter((achievement) => achievement.achieved)
+        .length ?? 0,
+    [game.steamAchievements],
+  );
+
+  // The hero Trailer button only ever opens a video the lightbox can
+  // actually play. YouTube / Twitch links are handled (as embeds) by the
+  // Media tab; advertising an unplayable file here is worse than a
+  // missing button.
+  const playableTrailer = useMemo(
+    () => (game.videos ?? []).find(isVideoUrl) ?? null,
+    [game.videos],
+  );
 
   // Lazy metadata enrichment on mount. `metadataSource` is persisted by the
   // enrichment pipeline, so once metadata has been fetched for this game
@@ -199,7 +219,12 @@ function BigScreenGamePageContent({
       { id: "specs", label: t("game.tab.specs"), icon: <SpecsIcon /> },
     ];
     if (resolvedSteamAppId) {
-      list.push({ id: "achievements", label: t("game.tab.achievements"), icon: <AchievementsIcon /> });
+      list.push({
+        id: "achievements",
+        label: t("game.tab.achievements"),
+        icon: <AchievementsIcon />,
+        count: achCount,
+      });
     }
     list.push(
       { id: "reviews", label: t("game.tab.reviews"), icon: <ReviewsIcon /> },
@@ -207,16 +232,27 @@ function BigScreenGamePageContent({
       { id: "more", label: t("game.tab.more"), icon: <MoreIcon /> }
     );
     return list;
-  }, [resolvedSteamAppId, t]);
+  }, [resolvedSteamAppId, achCount, t]);
 
-  // Start on the primary game action instead of the decorative back button.
-  // This makes the first D-pad/A interaction useful on a TV.
+  // Land the controller on the primary action (Play / Install / Force
+  // Close) instead of the decorative back chip. The marker attribute is
+  // set by the action row, so this is independent of DOM or registration
+  // order.
   useEffect(() => {
-    const firstAction = pageRef.current?.querySelector<HTMLElement>(
-      '.bigscreen-gamepage-hero-actions [tabindex="0"]:not([disabled])',
-    );
-    firstAction?.focus({ preventScroll: true });
+    focusPrimaryAction(pageRef.current);
   }, [game.id]);
+
+  // Land focus inside the panel the user just committed to. Runs after
+  // the tab bar's own "park focus on the active tab" effect (children
+  // commit first), so it wins when both fire for the same press.
+  useEffect(() => {
+    if (!contentFocusRequest) return;
+    focusTabLanding({
+      root: pageRef.current,
+      tabId: contentFocusRequest.tab,
+      focusFirst: gamepad.focusFirst,
+    });
+  }, [contentFocusRequest, gamepad.focusFirst]);
 
   // Reset isClosing when game stops running
   useEffect(() => {
@@ -225,33 +261,25 @@ function BigScreenGamePageContent({
     }
   }, [isRunning]);
 
-  // Controller B goes BACK to the library grid instead of exiting Big
-  // Screen. Registered through the gamepad back-handler registry (the
-  // engine invokes it on B). While a dialog/overlay is open (lightbox,
-  // download modal) the engine dispatches Escape instead and the
-  // overlay owns Back — we defer to it. The unregister fn runs on
-  // unmount so the shell reclaims B when the user leaves the Game Hub.
-  useEffect(() => {
-    return gamepad.registerBackHandler(onBack, 0);
-  }, [gamepad.registerBackHandler, onBack]);
-
   // Bumper-cycled tab navigation (LB / RB). `registerTabCycler`
   // returns an unregister function that runs on unmount, restoring
   // BigScreenNav's LB/RB behavior when the user leaves the Game
   // Hub. While the lightbox is open we ignore bumper presses so
   // the user can't cycle tabs while a fullscreen preview is up.
+  //
+  // LB/RB selects a tab and leaves focus on the strip — the user is
+  // browsing the spine, not entering a body. A (or Down) is what
+  // commits.
   useEffect(() => {
     return gamepad.registerTabCycler((direction) => {
       if (lightbox) return;
-      setActiveTab((prev) => {
-        const idx = tabs.findIndex((t) => t.id === prev);
-        if (idx < 0) return tabs[0].id;
-        const nextIdx =
-          direction === "forward"
-            ? (idx + 1) % tabs.length
-            : (idx - 1 + tabs.length) % tabs.length;
-        return tabs[nextIdx].id;
-      });
+      setActiveTab((prev) =>
+        cycleTabId(
+          tabs.map((tab) => tab.id),
+          prev,
+          direction,
+        ),
+      );
     });
   }, [gamepad.registerTabCycler, lightbox, tabs]);
 
@@ -267,7 +295,7 @@ function BigScreenGamePageContent({
   };
 
   const showInstall =
-    !game.installed && game.platform === "Steam" && game.steamAppId;
+    !game.installed && game.platform === "Steam" && !!game.steamAppId;
 
   const handleInstall = () => {
     if (!game.steamAppId) return;
@@ -276,24 +304,21 @@ function BigScreenGamePageContent({
     );
   };
 
-  const focusablePlay = useFocusable(handlePlay);
-  const focusableForceClose = useFocusable(handleForceClose);
-  const focusableInstall = useFocusable(handleInstall);
-  const focusableDownload = useFocusable(() => setDownloadOpen(true));
-  const focusableBack = useFocusable(onBack);
-  const focusableEdit = useFocusable(onEdit);
-  const focusableRemove = useFocusable(onRemove);
-  const focusableTrailer = useFocusable(() => {
-    if (!game.videos || game.videos.length === 0) return;
-    setLightbox(game.videos[0]);
-  });
+  const handleEnterTabContent = useCallback((tab: GamePageTab) => {
+    // A monotonic nonce, not a timestamp: two presses in the same
+    // millisecond must still each move focus.
+    focusNonceRef.current += 1;
+    setContentFocusRequest({ tab, nonce: focusNonceRef.current });
+  }, []);
+
+  const handleBackProps = useFocusable(onBack);
 
   const releaseYear = extractYear(game.releaseDate);
   const rating = game.igdbRating ?? game.criticRating;
 
   return (
     <div ref={pageRef} className="bigscreen-gamepage">
-      {/* ── Hero (always visible, pauses on Overview) ────────── */}
+      {/* ── Hero (a header band, paused on Overview) ────────── */}
       <section
         className="bigscreen-gamepage-hero"
         aria-label={`${game.name} banner`}
@@ -314,7 +339,7 @@ function BigScreenGamePageContent({
           <button
             type="button"
             className="bigscreen-gamepage-hero-back"
-            {...focusableBack}
+            {...handleBackProps}
             aria-label={t("page.game.backToLibrary")}
             title={t("page.game.backToLibrary")}
           >
@@ -462,131 +487,27 @@ function BigScreenGamePageContent({
             </BigScreenMetaStrip>
           </div>
 
-          <div className="bigscreen-gamepage-hero-actions">
-            {showInstall && (
-              <button
-                type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--primary"
-                {...focusableInstall}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20" aria-hidden>
-                  <polyline points="8 17 12 21 16 17" />
-                  <line x1="12" y1="12" x2="12" y2="21" />
-                  <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
-                </svg>
-                <span>{t("game.installViaSteam")}</span>
-              </button>
-            )}
-
-            {!showInstall && (
-              isRunning ? (
-                <>
-                  <button
-                    type="button"
-                    className="bigscreen-details-btn bigscreen-details-btn--primary"
-                    disabled
-                  >
-                    <span className="bigscreen-game-card-running-dot" style={{ position: "relative", top: 0, right: 0, marginRight: 8 }} />
-                    <span>{t("game.running")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="bigscreen-details-btn bigscreen-details-btn--danger"
-                    {...focusableForceClose}
-                    disabled={isClosing}
-                  >
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <rect x="6" y="6" width="12" height="12" rx="1.5" />
-                    </svg>
-                    <span>{isClosing ? t("game.closing") : t("game.forceClose")}</span>
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="bigscreen-details-btn bigscreen-details-btn--primary"
-                  {...focusablePlay}
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden>
-                    <polygon points="6 4 20 12 6 20 6 4" />
-                  </svg>
-                  <span>{t("game.play")}</span>
-                </button>
-              )
-            )}
-
-            <button
-              type="button"
-              className="bigscreen-details-btn bigscreen-details-btn--secondary"
-              {...focusableDownload}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20" aria-hidden>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span>{t("game.findDownload")}</span>
-            </button>
-
-            {game.videos && game.videos.length > 0 && (
-              <button
-                type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-gamepage-hero-btn--trailer"
-                {...focusableTrailer}
-                aria-label={t("game.watchTrailer")}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden width="20" height="20">
-                  <polygon points="6 4 20 12 6 20 6 4" />
-                </svg>
-                <span>{t("game.trailer")}</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              className="bigscreen-details-btn bigscreen-details-btn--secondary"
-              {...focusableEdit}
-              aria-label={t("game.editDetails")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="18" height="18">
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-              </svg>
-              <span>{t("common.edit")}</span>
-            </button>
-
-            <button
-              type="button"
-              className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-gamepage-hero-btn--danger"
-              {...focusableRemove}
-              aria-label={t("game.remove")}
-              disabled={isRunning}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="18" height="18">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-              <span>{t("common.remove")}</span>
-            </button>
-
-            {downloadOpen && (
-              <DownloadModal
-                gameName={game.name}
-                gameId={game.id}
-                gamePoster={game.coverSourceUrl ?? game.bannerUrl ?? game.coverArtUrl}
-                steamAppId={game.steamAppId}
-                onClose={() => setDownloadOpen(false)}
-              />
-            )}
-          </div>
+          <BigScreenGameHeroActions
+            isRunning={isRunning}
+            isClosing={isClosing}
+            showInstall={showInstall}
+            hasPlayableTrailer={playableTrailer !== null}
+            onPlay={handlePlay}
+            onInstall={handleInstall}
+            onForceClose={handleForceClose}
+            onDownload={() => setDownloadOpen(true)}
+            onTrailer={() => playableTrailer && setLightbox(playableTrailer)}
+          />
         </div>
       </section>
 
-      {/* ── Tab bar (LB / [tabs] / RB) ───────────────────────── */}
+      {/* ── Tab bar — the page's navigation spine (LB / RB) ──── */}
       <BigScreenTabBar
         tabs={tabs}
         activeTab={activeTab}
         onActivate={setActiveTab}
+        onEnterContent={handleEnterTabContent}
+        railId="game-hub-tabs"
         ariaLabel={t("bigscreen.tabbar.tabs")}
       />
 
@@ -599,6 +520,7 @@ function BigScreenGamePageContent({
           <BigScreenGamePageMedia
             game={game}
             onOpenLightbox={setLightbox}
+            onFindDownload={() => setDownloadOpen(true)}
           />
         </BigScreenTabPanel>
         <BigScreenTabPanel tabId="specs" activeTab={activeTab}>
@@ -625,6 +547,17 @@ function BigScreenGamePageContent({
           <BigScreenGamePageMore game={game} />
         </BigScreenTabPanel>
       </div>
+
+      {/* ── Download finder (portal-less, page level) ───────── */}
+      {downloadOpen && (
+        <DownloadModal
+          gameName={game.name}
+          gameId={game.id}
+          gamePoster={game.coverSourceUrl ?? game.bannerUrl ?? game.coverArtUrl}
+          steamAppId={game.steamAppId}
+          onClose={() => setDownloadOpen(false)}
+        />
+      )}
 
       {/* ── Lightbox (portal-rendered) ──────────────────────── */}
       <BigScreenLightbox src={lightbox} onClose={() => setLightbox(null)} />
@@ -690,33 +623,25 @@ function BigScreenGameNotFound({ onBack }: { onBack: () => void }) {
 // no longer has to be dug out of the Specs tab. Screenshots live in
 // Media, deep-dive facts (system requirements, releases, crackwatch)
 // stay in Specs.
+//
+// Only genuinely actionable things are focus stops here (the About
+// expand/collapse toggle, the time-to-beat detail sheet). The rail
+// blocks are read-only, so they render plainly — a focus ring on a
+// card that does nothing is worse than no stop at all.
 
-function BigScreenFocusableCard({ children }: { children: ReactNode }) {
-  const focusProps = useFocusable(() => {});
-  return (
-    <div {...focusProps} className="bigscreen-focusable-card-wrapper" style={{ outline: "none", width: "100%" }}>
-      {children}
-    </div>
-  );
+// Read-only block inside a tab body. Purely a layout slot.
+function BigScreenBlock({ children }: { children: ReactNode }) {
+  return <div className="bigscreen-gamepage-block">{children}</div>;
 }
 
-function BigScreenGamePageOverview({
-  game,
-}: {
-  game: Game;
-}) {
+function BigScreenGamePageOverview({ game }: { game: Game }) {
   return (
     <div className="bigscreen-gamepage-overview">
-      {/* Vapour-style details body: narrative prose on the left,
-       *  dense Playnite-style metadata rail on the right. The rail
-       *  renders each block only when its data exists (Playnite
-       *  renders-when-data), so sparse games never show empty
-       *  cards. */}
       <div className="bigscreen-gamepage-overview-layout">
         <div className="bigscreen-gamepage-overview-prose">
-          <BigScreenFocusableCard>
+          <BigScreenBlock>
             <StorylineSection game={game} />
-          </BigScreenFocusableCard>
+          </BigScreenBlock>
           <AboutSection game={game} />
         </div>
         <BigScreenGamePageRail game={game} />
@@ -737,9 +662,6 @@ function BigScreenGamePageOverview({
 //   • Time-to-beat
 //   • Developer / Publisher / Franchise / Collection rows
 //   • Supported languages
-// Every block is wrapped in a BigScreenFocusableCard so D-pad
-// navigation can walk the rail and the spatial-nav engine scrolls
-// off-screen blocks into view.
 
 function BigScreenGamePageRail({ game }: { game: Game }) {
   const { t } = useLanguage();
@@ -824,7 +746,7 @@ function BigScreenGamePageRail({ game }: { game: Game }) {
 
       {/* ── Achievement progress ────────────────────────────── */}
       {achTotal > 0 && achPct != null && (
-        <BigScreenFocusableCard>
+        <BigScreenBlock>
           <div className="bigscreen-rail-card bigscreen-rail-ach">
             <div className="bigscreen-rail-card__head">
               <span className="bigscreen-rail-card__title">
@@ -886,19 +808,19 @@ function BigScreenGamePageRail({ game }: { game: Game }) {
               </div>
             )}
           </div>
-        </BigScreenFocusableCard>
+        </BigScreenBlock>
       )}
 
       {/* ── Ratings (IGDB + critics) ────────────────────────── */}
       {(game.igdbRating != null || game.criticRating != null) && (
-        <BigScreenFocusableCard>
+        <BigScreenBlock>
           <RatingsKpiCard game={game} />
-        </BigScreenFocusableCard>
+        </BigScreenBlock>
       )}
 
       {/* ── Genres ──────────────────────────────────────────── */}
       {game.genres && game.genres.length > 0 && (
-        <BigScreenFocusableCard>
+        <BigScreenBlock>
           <div className="bigscreen-rail-card">
             <span className="bigscreen-rail-card__title">
               {t("bigscreen.overview.genres")}
@@ -911,19 +833,19 @@ function BigScreenGamePageRail({ game }: { game: Game }) {
               ))}
             </div>
           </div>
-        </BigScreenFocusableCard>
+        </BigScreenBlock>
       )}
 
       {/* ── Time to beat ────────────────────────────────────── */}
       {hasTimeToBeat && (
-        <BigScreenFocusableCard>
+        <BigScreenBlock>
           <TimeToBeatCard game={game} />
-        </BigScreenFocusableCard>
+        </BigScreenBlock>
       )}
 
       {/* ── Developer / Publisher / Franchise / Collection ──── */}
       {hasAnyIdentity && (
-        <BigScreenFocusableCard>
+        <BigScreenBlock>
           <div className="bigscreen-rail-card bigscreen-rail-rows">
             {game.developer && (
               <BigScreenRailRow
@@ -950,14 +872,14 @@ function BigScreenGamePageRail({ game }: { game: Game }) {
               />
             )}
           </div>
-        </BigScreenFocusableCard>
+        </BigScreenBlock>
       )}
 
       {/* ── Supported languages ─────────────────────────────── */}
       {game.languageSupports && game.languageSupports.length > 0 && (
-        <BigScreenFocusableCard>
+        <BigScreenBlock>
           <LanguagesSection game={game} />
-        </BigScreenFocusableCard>
+        </BigScreenBlock>
       )}
     </aside>
   );
@@ -1001,26 +923,32 @@ function formatAchDate(ts: number): string {
 
 // ─── Media tab content ────────────────────────────────────────────
 //
-// PR 3b fills in the Media tab. Screenshots (with lightbox) +
-// Videos (IGDB / YouTube embeds). ScreenshotsSection.onOpen bubbles
-// the clicked screenshot URL up to the parent BigScreenGamePage
-// where the lightbox state lives, so the click handler survives
-// tab switches.
+// Screenshots and videos are wrapped in a `[data-rail-id]` scroller each,
+// so Left/Right walks the strip and wraps at the ends. The carousel's own
+// prev/next arrows are hidden here (see bigscreen.css): they were
+// mouse-only decoration sitting next to cards the D-pad can already
+// reach, and the rail is the real navigation.
+//
+// When a game has neither, the tab offers one real action instead of a
+// dead end.
 
 function BigScreenGamePageMedia({
   game,
   onOpenLightbox,
+  onFindDownload,
 }: {
   game: Game;
   onOpenLightbox: (src: string) => void;
+  onFindDownload: () => void;
 }) {
   const { t } = useLanguage();
   const hasScreenshots = game.screenshots && game.screenshots.length > 0;
   const hasVideos = game.videos && game.videos.length > 0;
+  const downloadProps = useFocusable(onFindDownload);
 
   if (!hasScreenshots && !hasVideos) {
     return (
-      <div className="bigscreen-details-placeholder" style={{ padding: "60px 20px", textAlign: "center", width: "100%" }}>
+      <div className="bigscreen-gamepage-empty">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -1030,24 +958,50 @@ function BigScreenGamePageMedia({
           strokeLinejoin="round"
           width="64"
           height="64"
-          style={{ opacity: 0.3, marginBottom: 16 }}
+          aria-hidden
         >
           <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
           <line x1="8" y1="21" x2="16" y2="21" />
           <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
-        <h3 style={{ margin: "0 0 8px 0", fontSize: 20, color: "var(--bigscreen-text)", fontWeight: 800 }}>{t("game.noMediaTitle")}</h3>
-        <p style={{ margin: 0, fontSize: 14, color: "color-mix(in srgb, var(--bigscreen-text) 50%, transparent)", maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
-          {t("game.noMediaSubtitle")}
-        </p>
+        <h3>{t("game.noMediaTitle")}</h3>
+        <p>{t("game.noMediaSubtitle")}</p>
+        {/* A real action, not a decorative focus stop: this is where a
+            player with no screenshots can go looking for the game. */}
+        <button
+          type="button"
+          className="bigscreen-details-btn bigscreen-details-btn--secondary"
+          {...downloadProps}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20" aria-hidden>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>{t("game.findDownload")}</span>
+        </button>
       </div>
     );
   }
 
   return (
     <div className="bigscreen-gamepage-media">
-      {hasScreenshots && <ScreenshotsSection game={game} onOpen={onOpenLightbox} />}
-      {hasVideos && <VideosSection game={game} />}
+      {hasScreenshots && (
+        <BigScreenRailScroller
+          railId="game-hub-screenshots"
+          label={t("community.tab.screenshots")}
+        >
+          <ScreenshotsSection game={game} onOpen={onOpenLightbox} />
+        </BigScreenRailScroller>
+      )}
+      {hasVideos && (
+        <BigScreenRailScroller
+          railId="game-hub-videos"
+          label={t("videos.title")}
+        >
+          <VideosSection game={game} />
+        </BigScreenRailScroller>
+      )}
     </div>
   );
 }
@@ -1059,62 +1013,55 @@ function BigScreenGamePageMedia({
 // Overview's right-hand rail, Specs keeps the deep-dive facts:
 // modes/themes/perspectives, releases, system requirements, and the
 // crackwatch status.
+//
+// Nothing on this tab is interactive, so it is deliberately not a focus
+// target: pressing Down keeps focus on the tab strip (the anchor the
+// user came from) rather than dropping them on a card that does nothing.
 
 function BigScreenGamePageSpecs({ game }: { game: Game }) {
   return (
     <div className="bigscreen-gamepage-specs">
       {/* Two-column: SpecsCard + ReleasesCard. */}
       <div className="bigscreen-gamepage-2col" data-cols="2">
-        <BigScreenFocusableCard>
+        <BigScreenBlock>
           <SpecsCard game={game} />
-        </BigScreenFocusableCard>
-        <BigScreenFocusableCard>
+        </BigScreenBlock>
+        <BigScreenBlock>
           <ReleasesCard game={game} />
-        </BigScreenFocusableCard>
+        </BigScreenBlock>
       </div>
 
       {/* System Requirements (Steam pc_requirements). Auto-hides
        *  when Steam has no appid for the title. */}
-      <BigScreenFocusableCard>
+      <BigScreenBlock>
         <SystemRequirementsCard
           steamAppId={
             typeof game.steamAppId === "number" ? game.steamAppId : null
           }
         />
-      </BigScreenFocusableCard>
+      </BigScreenBlock>
 
       {/* CrackWatch status (cracked / uncracked / denuvo). */}
-      <BigScreenFocusableCard>
+      <BigScreenBlock>
         <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
-      </BigScreenFocusableCard>
+      </BigScreenBlock>
     </div>
   );
 }
 
 // ─── More tab content ────────────────────────────────────────────
 //
-// PR 3c fills in the More tab by directly reusing the four desktop
-// tab components (ReviewsTab, AchievementsTab, GameActivityTab,
-// WebLinksTab) plus the GameRelationsCard that moved out of
-// Overview. The components are mounted inside `.bigscreen-gamepage-more`
-// (see bigscreen.css) which sets the TV-scale padding/spacing
-// without forking the desktop implementations.
+// Reuses the desktop tab components (WebLinksTab, GameRelationsCard) so
+// they don't fork. `WebLinksTab` accepts a `visible?: boolean` prop the
+// desktop uses to suppress the embedded webview when modals are open;
+// Big Screen has no modals on this tab so we pass `visible={true}`.
 //
-// `WebLinksTab` accepts a `visible?: boolean` prop the desktop uses
-// to suppress the embedded webview when modals are open. Big Screen
-// has no modals on this tab so we pass `visible={true}`.
-//
-// `GameActivityTab` is exported from `src/pages/GamePage.tsx` rather
-// than its own module. Importing across the components→pages
-// boundary is a known wart — a future cleanup PR can extract it
-// to `src/components/activity/GameActivityTab.tsx`.
+// The relations rail is the tab's focus landing, which is why it sits
+// first — "explore further" is the reason to open this tab at all.
 
 function BigScreenGamePageMore({ game }: { game: Game }) {
   return (
     <div className="bigscreen-gamepage-more">
-      {/* Top: relations card (collection / developer / publisher /
-       *  franchise / similar). Acts as the "explore further" entry
-       *  point above the data-heavy tab content. */}
       <GameRelationsCard
         mode="library"
         currentGame={game}
@@ -1130,10 +1077,6 @@ function BigScreenGamePageMore({ game }: { game: Game }) {
     </div>
   );
 }
-
-// (EmptyTabPlaceholder was removed in PR 3b — all four tabs now
-// render real content. If a future "no data" inner state needs
-// to be shared across tabs, reintroduce it here.)
 
 // ─── Tab icons (inline SVGs, no icon library dependency) ─────────
 

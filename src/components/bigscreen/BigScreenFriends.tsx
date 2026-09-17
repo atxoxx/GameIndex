@@ -16,13 +16,14 @@
 //
 // Data comes from `useFriendsData` (friends core + sync engine) and
 // `useFriendsSocial` (all remaining social surfaces; sessions/friends
-// are authoritative there). LB/RB switches the main header sections
-// (like every other primary section); the hub's own tabs are reached
-// with D-pad left/right on the focusable tab bar + A to activate. B
-// exits to the library; overlays own B while open.
+// are authoritative there). LB/RB cycles the hub's own seven tabs
+// (page-level priority beats the shell strip); the tabs are also
+// reachable with D-pad left/right on the focusable tab bar + A to
+// activate. Controller B is owned by the shell resolver (this is a
+// top-level section, so Back offers the exit confirmation); overlays
+// own B while open.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
@@ -40,12 +41,12 @@ import SocialTab from "./friends/SocialTab";
 import CompareTab from "./friends/CompareTab";
 import ProfileTab from "./friends/ProfileTab";
 import { Icons, useFocusableInput, useOverlayEscape } from "./friends/friendsUtils";
+import { focusTabLanding } from "../game/bigscreenGameTabs";
 
 type FriendsTab = "list" | "activity" | "dms" | "sessions" | "social" | "compare" | "profile";
 
 export default function BigScreenFriends() {
   const { t } = useLanguage();
-  const navigate = useNavigate();
   const gamepad = useGamepad();
   const fd = useFriendsData();
   const social = useFriendsSocial(fd);
@@ -118,18 +119,58 @@ export default function BigScreenFriends() {
     return () => document.removeEventListener("keydown", onEscape, true);
   }, [modalOpen]);
 
-  // Controller B returns to the library grid. While an overlay is open
-  // the engine dispatches Escape instead, and the overlay owns B — so
-  // this back handler only fires on the bare page.
+  // LB/RB cycles the hub's seven tabs. The page-level cycler beats the
+  // shell strip cycler (priority -100) while this page is mounted — the
+  // standard policy for any page with visible sub-tabs. Controller Back
+  // is owned by the shell resolver; overlays own B/Escape while open.
   useEffect(() => {
-    return gamepad.registerBackHandler(() => navigate("/library"), 0);
-  }, [gamepad.registerBackHandler, navigate]);
+    return gamepad.registerTabCycler((direction) => {
+      if (modalOpen) return;
+      setActiveTab((prev) => {
+        const idx = FRIENDS_TABS.findIndex((tab) => tab.id === prev);
+        if (idx < 0) return FRIENDS_TABS[0].id;
+        const nextIdx =
+          direction === "forward"
+            ? (idx + 1) % FRIENDS_TABS.length
+            : (idx - 1 + FRIENDS_TABS.length) % FRIENDS_TABS.length;
+        return FRIENDS_TABS[nextIdx].id;
+      });
+    });
+  }, [gamepad.registerTabCycler, FRIENDS_TABS, modalOpen]);
 
-  // NOTE: no `registerTabCycler` here. The shell header owns LB/RB
-  // (section switching) and its priority beats any page-level cycler —
-  // registering one here would hijack LB/RB for the entire Friends
-  // section, unlike every other primary section. The hub's seven tabs
-  // are reached via D-pad left/right on the focusable tab bar.
+  // Tab commit → focus landing, the same contract as the Game Hub and the
+  // store detail page: A on a tab moves into the tab body (or back onto
+  // the tab if the body has nothing focusable). Every Friends tab body is
+  // populated, so all seven have a real landing.
+  //
+  // Note: this bar gets NO `railId`. The strip shares its row with the
+  // Sync and Add-friend utilities, and a wrapping rail would swallow
+  // Left/Right and leave those two buttons unreachable by D-pad — the
+  // same reason `gamepadUtils.ts` keeps the shell header strip
+  // non-wrapping.
+  const [contentFocusRequest, setContentFocusRequest] = useState<{
+    tab: FriendsTab;
+    nonce: number;
+  } | null>(null);
+  const focusNonceRef = useRef(0);
+  const pageRef = useRef<HTMLDivElement | null>(null);
+
+  const handleEnterTabContent = useCallback(
+    (tab: FriendsTab) => {
+      focusNonceRef.current += 1;
+      setContentFocusRequest({ tab, nonce: focusNonceRef.current });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!contentFocusRequest) return;
+    focusTabLanding({
+      root: pageRef.current,
+      tabId: contentFocusRequest.tab,
+      focusFirst: gamepad.focusFirst,
+    });
+  }, [contentFocusRequest, gamepad.focusFirst]);
 
   // Sync spinner debounce: the engine polls in the background (every
   // 15s + on every remote event), so binding the icon straight to
@@ -207,7 +248,7 @@ export default function BigScreenFriends() {
     : null;
 
   return (
-    <div className="bigscreen-store-dashboard">
+    <div className="bigscreen-store-dashboard" ref={pageRef}>
       <div className="bigscreen-dashboard-scrollable-content bigscreen-friends-content">
         {/* Header Tabs */}
         <div className="bigscreen-friends-toolbar">
@@ -215,6 +256,7 @@ export default function BigScreenFriends() {
             tabs={FRIENDS_TABS}
             activeTab={activeTab}
             onActivate={handleSelectTab}
+            onEnterContent={handleEnterTabContent}
           />
           <div className="bigscreen-friends-toolbar-actions">
             <button

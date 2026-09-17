@@ -115,8 +115,15 @@ export default function BigScreenLibrary() {
           </span>
         </div>
 
-        {/* Filters Chips Row */}
-        <div className="bigscreen-library-chips-row">
+        {/* Filters Chips Row — a deliberate step above the grid. It is a
+            spatial rail (Left/Right walks the chips and wraps; Down drops
+            into the grid), and the eyebrow names it so the row reads as
+            "the tools" rather than an accidental first focus stop. */}
+        <div className="bigscreen-library-tools">
+          <span className="bigscreen-library-tools__label">
+            {t("bigscreen.library.filters")}
+          </span>
+          <div className="bigscreen-library-chips-row" data-rail-id="library-chips">
           {/* Search Box / Input */}
           <div
             className={`bigscreen-filter-chip bigscreen-filter-chip--search ${
@@ -168,6 +175,7 @@ export default function BigScreenLibrary() {
               {t("bigscreen.library.resetFilters")}
             </button>
           )}
+          </div>
         </div>
       </div>
 

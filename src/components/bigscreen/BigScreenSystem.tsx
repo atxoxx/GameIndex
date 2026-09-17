@@ -9,6 +9,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { useDriveUsage } from "../../pages/storage/useDriveUsage";
 import { useMountVersion } from "../../pages/storage/mounts";
 import { useFocusable } from "../../hooks/useFocusable";
+import { useGamepad } from "../../hooks/GamepadProvider";
+import { useBumperScopeDeclaration } from "./bigscreenLegend";
 import { driveBuckets } from "../../pages/storage/utils";
 import type { Game, GameAchievementData } from "../../types/game";
 import "../../styles/achievements.css";
@@ -96,18 +98,26 @@ export default function BigScreenSystem() {
   const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
+  const gamepad = useGamepad();
 
-  const SECTIONS: { id: SystemSection; label: string; icon: ReactNode }[] = [
-    { id: "downloads", label: t("bigscreen.system.menuDownloads"), icon: SYSTEM_ICONS.downloads },
-    { id: "storage", label: t("bigscreen.system.menuStorage"), icon: SYSTEM_ICONS.storage },
-    { id: "achievements", label: t("bigscreen.system.menuAchievements"), icon: SYSTEM_ICONS.achievements },
-    { id: "settings", label: t("bigscreen.system.menuPreferences"), icon: SYSTEM_ICONS.settings },
-    // These three are full routes, not in-hub sub-views — selecting one
-    // navigates to its own bigscreen page (wired in the registry).
-    { id: "mods", label: t("nav.mods"), icon: SYSTEM_ICONS.mods },
-    { id: "emulators", label: t("nav.emulators"), icon: SYSTEM_ICONS.emulators },
-    { id: "docs", label: t("nav.docs"), icon: SYSTEM_ICONS.docs },
-  ];
+  // The left menu is a tablist of the hub's sub-views and LB/RB cycles it,
+  // so the footer legend must read TABS here rather than the shell default.
+  useBumperScopeDeclaration("tabs");
+
+  const SECTIONS = useMemo<{ id: SystemSection; label: string; icon: ReactNode }[]>(
+    () => [
+      { id: "downloads", label: t("bigscreen.system.menuDownloads"), icon: SYSTEM_ICONS.downloads },
+      { id: "storage", label: t("bigscreen.system.menuStorage"), icon: SYSTEM_ICONS.storage },
+      { id: "achievements", label: t("bigscreen.system.menuAchievements"), icon: SYSTEM_ICONS.achievements },
+      { id: "settings", label: t("bigscreen.system.menuPreferences"), icon: SYSTEM_ICONS.settings },
+      // These three are full routes, not in-hub sub-views — selecting one
+      // navigates to its own bigscreen page (wired in the registry).
+      { id: "mods", label: t("nav.mods"), icon: SYSTEM_ICONS.mods },
+      { id: "emulators", label: t("nav.emulators"), icon: SYSTEM_ICONS.emulators },
+      { id: "docs", label: t("nav.docs"), icon: SYSTEM_ICONS.docs },
+    ],
+    [t],
+  );
 
   // Find initial section from current pathname
   const initialSection = useMemo<SystemSection>(() => {
@@ -145,6 +155,23 @@ export default function BigScreenSystem() {
     if (sec === "settings") navigate("/settings");
     else navigate(`/${sec}`);
   }, [navigate]);
+
+  // LB/RB cycles the hub's sub-views. Page-level priority beats the
+  // shell strip cycler while this hub is mounted. Selecting a section
+  // also navigates: the in-hub views (downloads/storage/achievements/
+  // settings) keep the hub mounted, while mods/emulators/docs swap to
+  // their own routes.
+  useEffect(() => {
+    return gamepad.registerTabCycler((direction) => {
+      const idx = SECTIONS.findIndex((sec) => sec.id === activeSection);
+      if (idx < 0) return;
+      const nextIdx =
+        direction === "forward"
+          ? (idx + 1) % SECTIONS.length
+          : (idx - 1 + SECTIONS.length) % SECTIONS.length;
+      handleSelectSection(SECTIONS[nextIdx].id);
+    });
+  }, [gamepad.registerTabCycler, SECTIONS, activeSection, handleSelectSection]);
 
   return (
     <div className="bigscreen-system-hub">
@@ -468,7 +495,7 @@ function AchievementGameRow({
   const pct = data ? Math.round((data.unlocked / data.total) * 100) : 0;
 
   return (
-    <div className="system-achievement-game-row" {...cardProps}>
+    <div className="system-achievement-game-row" {...cardProps} role="link">
       <div className="ach-game-header">
         <span className="ach-game-name">{game.name}</span>
         <span className="ach-game-counts">

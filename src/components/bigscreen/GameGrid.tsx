@@ -28,11 +28,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import type { Game } from "../../types/game";
 import BigScreenGameCard from "../library/BigScreenGameCard";
 import { isBigScreenOverlayOpen } from "../../context/BigScreenContext";
 import { scrollElementIntoViewControlled } from "../../hooks/gamepad/gamepadUtils";
-import { parseFocusGameKey } from "../../utils/focusMemory";
+import { parseFocusGameKey, recallFocus } from "../../utils/focusMemory";
 import "../../library.css";
 
 const VIRTUALIZE_THRESHOLD = 60;
@@ -70,6 +71,8 @@ export default function GameGrid({
   const lastFocusedIdRef = useRef<string | null>(null);
   const prevKeyRef = useRef<string | null>(null);
   const mountedRef = useRef(false);
+  const didInitialFocusRef = useRef(false);
+  const location = useLocation();
 
   const useVirtual = games.length > VIRTUALIZE_THRESHOLD;
 
@@ -181,6 +184,24 @@ export default function GameGrid({
     if (!targetId) return;
     focusCard(targetId);
   }, [gamesKey, games, focusCard]);
+
+  // One-shot initial focus. The list-change restore below deliberately
+  // skips the first mount, which used to leave the shell's route-change
+  // fallback to land on the first focusable in the content area — the
+  // library search chip — instead of a game. Skipped when the shell has
+  // a remembered focus for this route: it restores that element itself
+  // via `bigscreen:focus-game`, so returning from a game still lands on
+  // the card the user left.
+  useEffect(() => {
+    if (didInitialFocusRef.current) return;
+    if (games.length === 0) return;
+    // The virtualized grid needs its stride measured before it can
+    // scroll/focus a card; wait for the first measurement pass.
+    if (useVirtual && (viewportH === 0 || containerW === 0)) return;
+    didInitialFocusRef.current = true;
+    if (recallFocus(location.pathname)) return;
+    focusCard(games[0].id);
+  }, [games, useVirtual, viewportH, containerW, focusCard, location.pathname]);
 
   // Route-return focus restore: the shell remembers which card the user
   // was on before drilling into a game page and fires this event when

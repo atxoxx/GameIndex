@@ -1442,10 +1442,14 @@
   border-radius: 2px;
 }
 
+/* Focused tab — one rule for every tab bar in Big Screen (Game Hub,
+   Friends, Store detail). The tint says "this one", the glow is the
+   shared focus contract. */
 .bigscreen-tab-bar-tab[data-focused="true"] {
   color: var(--bigscreen-text);
-  background: color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
-  border-radius: 6px;
+  background: color-mix(in srgb, var(--bigscreen-text) 7%, transparent);
+  border-radius: 0.625rem;
+  box-shadow: var(--bigscreen-focus-glow);
 }
 
 .bigscreen-tab-bar-bumper {
@@ -1481,13 +1485,13 @@
 
 /* ── BIGSCREEN GAME PAGE: PS5-STYLE HERO ──────────────────────────── */
 
-/* Full-bleed hero section (always visible across all tabs). */
-/* ── BIGSCREEN GAME PAGE: PS5-STYLE HERO ──────────────────────────── */
-
-/* Full-bleed hero section (always visible across all tabs). */
+/* Full-bleed hero section. Doubles as the page's header: the tab bar
+   below it is the navigation spine, so the art must not swallow the
+   fold. Height is a floor, not a fixed box — a tall logo can still
+   push it open. */
 .bigscreen-gamepage-hero {
   position: relative;
-  min-height: 440px;
+  min-height: 16rem;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -1509,20 +1513,22 @@
   pointer-events: none;
 }
 
-/* Subtle accent glow along the bottom edge of the hero. */
+/* Subtle accent smudge where the hero meets the tab bar. Kept faint —
+   the tab bar owns that seam now, so a bright line here would read as a
+   second, competing divider. */
 .bigscreen-gamepage-hero-glow {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 0.125rem;
   background: linear-gradient(
     90deg,
-    transparent 5%,
+    transparent 8%,
     var(--color-accent) 50%,
-    transparent 95%
+    transparent 92%
   );
-  opacity: 0.35;
+  opacity: 0.16;
   z-index: 3;
   pointer-events: none;
 }
@@ -1643,19 +1649,6 @@
   flex-wrap: wrap;
 }
 
-/* Danger-tinted hero button (Remove). */
-.bigscreen-gamepage-hero-btn--danger {
-  border-color: color-mix(in srgb, var(--bigscreen-danger) 35%, transparent) !important;
-  color: color-mix(in srgb, var(--bigscreen-text) 60%, transparent) !important;
-}
-
-.bigscreen-gamepage-hero-btn--danger:hover,
-.bigscreen-gamepage-hero-btn--danger[data-focused="true"] {
-  background: color-mix(in srgb, var(--bigscreen-danger) 15%, transparent) !important;
-  border-color: var(--bigscreen-danger) !important;
-  color: var(--bigscreen-danger) !important;
-}
-
 /* Tab bar inside the game page needs side padding + bottom border + sticky blur. */
 .bigscreen-gamepage > .bigscreen-tab-bar {
   padding: 16px 64px;
@@ -1679,17 +1672,10 @@
   background: linear-gradient(180deg, color-mix(in srgb, var(--bigscreen-bg) 80%, transparent) 0%, var(--bigscreen-bg) 100%);
 }
 
-/* Interactive focusable cards scaling inside Game Hub */
-.bigscreen-gamepage-overview .bigscreen-focusable-card-wrapper,
-.bigscreen-gamepage-specs .bigscreen-focusable-card-wrapper,
-.bigscreen-gamepage-more .bigscreen-focusable-card-wrapper {
-  transition: color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.bigscreen-gamepage-overview .bigscreen-focusable-card-wrapper[data-focused="true"],
-.bigscreen-gamepage-specs .bigscreen-focusable-card-wrapper[data-focused="true"],
-.bigscreen-gamepage-more .bigscreen-focusable-card-wrapper[data-focused="true"] {
-  transform: translateY(-2px);
-  box-shadow: var(--bigscreen-focus-glow);
+/* Read-only block inside a tab body. Layout slot only — no focus
+   registration, no focus ring, no dead D-pad stop. */
+.bigscreen-gamepage-block {
+  width: 100%;
 }
 
 /* Per-tab content wrapper — consistent spacing and readable width. */
@@ -2602,13 +2588,17 @@
   font-size: 0.625rem;
 }
 
+/* ── Hero: header band, not a landing page ───────────────────────
+   Art stays cinematic but the band is short enough that the tab bar
+   (the page's navigation spine) and the first row of tab content are
+   above the fold on a 1080p screen. */
 .bigscreen-gamepage-hero {
-  min-height: 21.75rem;
+  min-height: 16rem;
 }
 
 .bigscreen-gamepage-hero-content {
-  padding: 4.5rem 3.5rem 1.5rem;
-  gap: 0.625rem;
+  padding: 4.5rem 3.5rem 1.125rem;
+  gap: 0.5rem;
 }
 
 .bigscreen-gamepage-hero-back {
@@ -2620,12 +2610,12 @@
 
 .bigscreen-gamepage-hero-info {
   max-width: 68.75rem;
-  gap: 0.3125rem;
+  gap: 0.25rem;
 }
 
 .bigscreen-gamepage-hero-logo {
-  max-width: 25rem;
-  max-height: 6.875rem;
+  max-width: 22rem;
+  max-height: 5.25rem;
   margin-bottom: 0.25rem;
 }
 
@@ -2651,6 +2641,28 @@
 .bigscreen-gamepage-hero-actions .bigscreen-details-btn {
   padding-top: 0.625rem;
   padding-bottom: 0.625rem;
+}
+
+/* Force Close takes the primary slot while a game is running, so it
+   needs the primary action's weight, not the secondary's. */
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn--danger {
+  padding: 0.875rem 2.5rem;
+  font-size: 1.0625rem;
+  border-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bigscreen-bg) 60%, transparent), 0 6px 24px color-mix(in srgb, var(--color-danger) 35%, transparent);
+}
+
+.bigscreen-gamepage-hero-btn-spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--color-accent-contrast) 35%, transparent);
+  border-top-color: var(--color-accent-contrast);
+  animation: bs3-spin 700ms linear infinite;
+}
+
+@keyframes bs3-spin {
+  to { transform: rotate(360deg); }
 }
 
 .bigscreen-gamepage > .bigscreen-tab-bar {
@@ -2742,7 +2754,7 @@
   }
 
   .bigscreen-gamepage-hero {
-    min-height: 22.75rem;
+    min-height: 17.5rem;
   }
 
   .bigscreen-gamepage-overview,
@@ -2766,7 +2778,7 @@
   }
 
   .bigscreen-gamepage-hero {
-    min-height: 20rem;
+    min-height: 14.5rem;
   }
 
   .bigscreen-gamepage-2col {
@@ -3845,11 +3857,8 @@
   max-width: 64rem;
 }
 
-/* Tab focus previously had no ring — bring it into the single-accent
-   focus contract (tabs are focusable in Friends / Game Hub). */
-.bigscreen-tab-bar-tab[data-focused="true"] {
-  box-shadow: var(--bigscreen-focus-glow);
-}
+/* Tab focus lives in the single rule up in the generic tab-bar block
+   (search "Focused tab — one rule"). Do not add a second one here. */
 
 /* ── Breakpoints for the polished pages ────────────────────────── */
 
@@ -4376,7 +4385,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .bigscreen-gamepage-hero-actions .bigscreen-details-btn--primary {
+  .bigscreen-gamepage-hero-actions .bigscreen-details-btn--primary,
+  .bigscreen-gamepage-hero-actions .bigscreen-details-btn--danger {
     padding: 0.75rem 1.75rem;
   }
 
@@ -4385,8 +4395,206 @@
   }
 }
 
+/* ============================================================
+   Big Screen Game Hub — controller navigation pass
+   The tab bar is the page's spine, the media strips are real
+   rails, and the read-only tabs are honest dead ends. All sizes
+   rem (19px root) so they scale on a TV; all colors via tokens.
+   ============================================================ */
 
+/* ── Tab bar as the navigation spine ─────────────────────────── */
 
+.bigscreen-gamepage > .bigscreen-tab-bar {
+  padding: 0.75rem 3.5rem;
+  background: color-mix(in srgb, var(--bigscreen-bg) 82%, transparent);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border-bottom: 1px solid color-mix(in srgb, var(--bigscreen-text) 9%, transparent);
+  position: relative;
+  z-index: 6;
+}
+
+/* The strip is a rail: keep it a single scrolled row on wide screens. */
+.bigscreen-gamepage .bigscreen-tab-bar-tabs {
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6875rem 1.125rem;
+  border-radius: 0.625rem;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--bigscreen-text) 52%, transparent);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab-icon {
+  display: inline-flex;
+  opacity: 0.75;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab-icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab.active {
+  color: var(--bigscreen-text);
+  background: color-mix(in srgb, var(--bigscreen-accent) 14%, transparent);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab.active::after {
+  left: 18%;
+  right: 18%;
+  height: 0.1875rem;
+  background: var(--bigscreen-accent);
+  box-shadow: 0 0 12px var(--bigscreen-accent-glow);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab.active .bigscreen-tab-bar-tab-icon {
+  opacity: 1;
+  color: var(--bigscreen-accent);
+}
+
+.bigscreen-tab-bar-tab-count {
+  padding: 0.0625rem 0.4375rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  color: var(--bigscreen-text);
+  font-size: 0.625rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Media rails ─────────────────────────────────────────────── */
+
+/* Wrapper that gives a desktop carousel the engine's rail semantics.
+   It is not the scroller — BigScreenRailScroller reveals focused cards
+   in the strip's own overflow container — so it must not clip. */
+.bigscreen-rail-scroller {
+  min-width: 0;
+}
+
+/* The carousel's prev / next buttons stay visible. They are not
+   registered with the focus engine, so they never competed with the
+   D-pad path; and the shell hides scrollbars, so hiding them would leave
+   a mouse or trackpad user with no way to reach an off-screen slide.
+   Their layout comes from the desktop carousel rules. */
+
+/* Focus parity for rail items: the desktop hover treatment, applied to
+   the focus state the controller actually produces. */
+.bigscreen-rail-scroller .screenshot-item[data-focused="true"],
+.bigscreen-rail-scroller .video-selector-btn[data-focused="true"] {
+  border-color: var(--bigscreen-accent);
+  box-shadow: var(--bigscreen-focus-glow);
+  transform: translateY(-3px) scale(1.02);
+}
+
+.bigscreen-rail-scroller .screenshot-item[data-focused="true"]::after {
+  opacity: 1;
+}
+
+.bigscreen-rail-scroller .screenshot-item[data-focused="true"] .screenshot-img {
+  transform: scale(1.08);
+}
+
+.bigscreen-rail-scroller .screenshot-item,
+.bigscreen-rail-scroller .video-selector-btn {
+  outline: none;
+}
+
+/* Media tab empty state — one real action instead of a dead end. */
+.bigscreen-gamepage-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 3rem 1.25rem;
+  text-align: center;
+}
+
+.bigscreen-gamepage-empty > svg {
+  opacity: 0.3;
+  color: var(--bigscreen-text);
+}
+
+.bigscreen-gamepage-empty h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 850;
+  color: var(--bigscreen-text);
+}
+
+.bigscreen-gamepage-empty p {
+  margin: 0 0 0.5rem;
+  max-width: 28rem;
+  font-size: 0.875rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent);
+}
+
+/* ── Overview: shorten the hop between the two columns ────────── */
+
+.bigscreen-gamepage-overview-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem);
+  gap: 1.25rem;
+}
+
+.bigscreen-gamepage-overview {
+  max-width: 105rem;
+}
+
+/* ── Library: the filter rail reads as a deliberate step ──────── */
+
+.bigscreen-library-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.bigscreen-library-tools__label {
+  flex: 0 0 auto;
+  font-size: 0.625rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--bigscreen-text) 42%, transparent);
+}
+
+.bigscreen-library-tools .bigscreen-library-chips-row {
+  flex: 1;
+  min-width: 0;
+  padding: 0.25rem;
+  /* One deliberate row of tools that the D-pad can walk and the engine
+     can scroll, instead of a wrapped block where left/right crosses
+     lines. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.bigscreen-library-tools .bigscreen-library-chips-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Confirm modal under Big Screen ──────────────────────────── */
+
+/* The shared modal is desktop-styled; in Big Screen its buttons join the
+   same single-accent focus contract as every other control. */
+[data-bigscreen="true"] .confirm-modal .ui-btn[data-focused="true"] {
+  box-shadow: var(--bigscreen-focus-glow);
+  border-color: var(--bigscreen-text);
+}
+
+[data-bigscreen="true"] .confirm-modal {
+  border: var(--bigscreen-glass-border);
+}
 
 /* ============================================================
    Big Screen Deals & Friends — cinematic polish pass
@@ -7492,19 +7700,6 @@
   color: var(--bigscreen-accent);
 }
 
-/* ── Details placeholder (home / game page / store) ───────────── */
-
-.bigscreen-details-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 3rem;
-  text-align: center;
-  min-height: 320px;
-}
-
 /* ── Achievement rail count ───────────────────────────────────── */
 
 .bigscreen-rail-ach__count {
@@ -7563,7 +7758,24 @@
   min-width: 0;
 }
 
-/* System downloads — progress row (bar + percent) */
+/* ── Pane placeholder ───────────────────────────────────────────
+   The centred "nothing selected yet" pane used by the Big Screen Home
+   dashboard and the Store welcome state. It holds a title + description
+   only, so it needs the vertical rhythm and the minimum height, or the
+   pane reads as left-aligned body text. No colours here, so there is
+   nothing theme-specific to mirror. */
+.bigscreen-details-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem;
+  text-align: center;
+  min-height: 17.75rem;
+}
+
+/* System downloads - progress row (bar + percent) */
 .dl-progress-container {
   display: flex;
   align-items: center;
