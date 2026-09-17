@@ -138,11 +138,12 @@ const PENDING_SESSION_TIMEOUT: std::time::Duration = std::time::Duration::from_s
 /// sufficient for normal start/exit detection.
 const POLL_INTERVAL_STEADY: std::time::Duration = std::time::Duration::from_secs(5);
 
-/// Fast poll interval used while a session is pending (last_pid == 0)
-/// — i.e. a launch that hasn't produced a process yet (Steam
-/// protocol, UAC elevation, Ubisoft hand-off). We want to detect the
-/// real process within ~1 s instead of waiting up to POLL_INTERVAL_STEADY.
-const POLL_INTERVAL_PENDING: std::time::Duration = std::time::Duration::from_secs(1);
+/// Fast poll interval used while a session needs tighter tracking: a
+/// pending launch that hasn't produced a process yet (Steam protocol,
+/// UAC elevation, Ubisoft hand-off), or a session inside its post-loss
+/// grace window. Either way we want to resolve the state within ~1 s
+/// instead of waiting up to POLL_INTERVAL_STEADY.
+const POLL_INTERVAL_FAST: std::time::Duration = std::time::Duration::from_secs(1);
 
 /// Poll interval when no session is active at all. The loop still has to
 /// run — it passively detects games launched outside GameIndex — but
@@ -156,10 +157,13 @@ const POLL_INTERVAL_PENDING: std::time::Duration = std::time::Duration::from_sec
 const POLL_INTERVAL_IDLE: std::time::Duration = std::time::Duration::from_secs(15);
 
 /// Grace period once a tracked process goes missing before the session
-/// is ended. Kept short (was 20 s) so the running indicator and
-/// last-played stamp update promptly; the re-attach window (looking
-/// for another live process in the install dir) still runs first.
-const SESSION_LOST_GRACE: std::time::Duration = std::time::Duration::from_secs(8);
+/// is ended. A lost session polls at POLL_INTERVAL_FAST, so this window
+/// is now measured at 1 s resolution and still spans several process
+/// snapshots — enough to absorb a launcher hand-off or one bad snapshot
+/// — while a normal quit no longer holds the running indicator and
+/// last-played stamp for 10-15 s. The re-attach window (looking for
+/// another live process in the install dir) still runs first.
+const SESSION_LOST_GRACE: std::time::Duration = std::time::Duration::from_secs(3);
 
 /// How often the poll loop emits `game-progress` heartbeats and persists
 /// the durable in-progress `sessions` row. 30 s bounds crash-loss to half
@@ -365,17 +369,21 @@ impl GameWatcher {
         }
     }
 
-    /// `true` while any session is still pending (no process captured
-    /// yet). Used to pick the faster poll interval right after a launch.
-    fn has_pending_session(&self) -> bool {
-        self.active_sessions.values().any(|s| s.last_pid == 0)
+    /// `true` while any session needs tighter tracking: still pending
+    /// (no process captured yet) or inside its post-loss grace window.
+    /// Used to pick the faster poll interval.
+    fn has_hot_session(&self) -> bool {
+        self.active_sessions
+            .values()
+            .any(|s| s.last_pid == 0 || s.lost_at.is_some())
     }
 
     /// Interval to use for the next poll cycle: fast while a launch is
-    /// still awaiting its process, steady otherwise.
+    /// awaiting its process or a lost session is burning down its grace
+    /// period, steady otherwise.
     fn current_poll_interval(&self) -> std::time::Duration {
-        if self.has_pending_session() {
-            POLL_INTERVAL_PENDING
+        if self.has_hot_session() {
+            POLL_INTERVAL_FAST
         } else {
             POLL_INTERVAL_STEADY
         }
@@ -2312,9 +2320,9 @@ pub fn start_background_poll(
         // running-row persistence), scoped to this thread.
         let mut last_heartbeat = Instant::now();
         loop {
-        // Fast poll while a launch is still pending; steady otherwise.
-        // Drains any pending wake signals first so a recent launch is
-        // picked up on the very next cycle.
+        // Fast poll while a launch is pending or a lost session is in its
+        // grace window; steady otherwise. Drains any pending wake signals
+        // first so a recent launch is picked up on the very next cycle.
         let interval = {
             let w = match watcher.lock() {
                 Ok(w) => w,
@@ -2359,8 +2367,9 @@ pub fn start_background_poll(
         // writes below never block IPC handlers or the next poll cycle.
         let ended_sessions = w.apply_poll(&app_handle, processes);
 
-        // Re-evaluate interval after polling: if we just cleared the last
-        // pending session, settle back to the steady interval promptly.
+        // Re-evaluate interval after polling: if this cycle cleared the
+        // last pending session — or a session just went missing and needs
+        // the fast cadence — settle on that interval promptly.
         let next_interval = w.current_poll_interval();
         // Nothing running → relax to the idle cadence for the next sleep.
         // Passive detection still needs periodic polls, so this backs off
@@ -2891,6 +2900,55 @@ mod tests {
             (1..=3).contains(&elapsed),
             "elapsed should be ~2 s (attached anchor), got {elapsed}"
         );
+    }
+
+    // ── poll interval ────────────────────────────────────────────────
+
+    fn make_session(last_pid: u32, lost: bool) -> ActiveSession {
+        ActiveSession {
+            game_id: "g1".to_string(),
+            game_name: "Test".to_string(),
+            started_at: Instant::now(),
+            attached_at: (last_pid != 0).then(Instant::now),
+            attached_at_ms: 0,
+            last_pid,
+            stop_tx: std::sync::mpsc::channel::<()>().0,
+            metrics_rx: None,
+            launched_by_app: true,
+            matched_exe: String::new(),
+            install_dir: None,
+            lost_at: lost.then(Instant::now),
+            post_exit_script: None,
+        }
+    }
+
+    #[test]
+    fn test_poll_interval_is_fast_for_pending_and_lost_sessions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut watcher = GameWatcher::new(crate::db::Db::open(tmp.path()).unwrap());
+        assert_eq!(watcher.current_poll_interval(), POLL_INTERVAL_STEADY);
+
+        // A launch that hasn't produced a process yet.
+        watcher
+            .active_sessions
+            .insert("g1".to_string(), make_session(0, false));
+        assert_eq!(watcher.current_poll_interval(), POLL_INTERVAL_FAST);
+
+        // Attached and healthy.
+        watcher
+            .active_sessions
+            .insert("g1".to_string(), make_session(1234, false));
+        assert_eq!(watcher.current_poll_interval(), POLL_INTERVAL_STEADY);
+
+        // Process went missing: the grace window polls at 1 s so the exit
+        // is confirmed at 1 s resolution instead of POLL_INTERVAL_STEADY.
+        watcher
+            .active_sessions
+            .insert("g1".to_string(), make_session(1234, true));
+        assert_eq!(watcher.current_poll_interval(), POLL_INTERVAL_FAST);
+
+        watcher.active_sessions.clear();
+        assert_eq!(watcher.current_poll_interval(), POLL_INTERVAL_STEADY);
     }
 
     // ── find_best_process_in_dir ─────────────────────────────────────

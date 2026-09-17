@@ -168,7 +168,7 @@ The app already has: per-page `React.lazy` code-splitting, `LibraryVirtualGrid` 
 - **Acceptance:** per-command serialisation time and payload bytes drop by ≥ 50 % for the top 5 boot commands (measured in the 1.1 harness).
 
 ### 3.3 Keep the watcher adaptive and idle-quiet **[Quick win]**
-- **Why:** `game_watcher.rs` already adapts (1 s pending / 5 s steady — `POLL_INTERVAL_PENDING`/`POLL_INTERVAL_STEADY`). The poll loop **cannot** sleep completely when zero sessions are registered: it also performs passive detection of games launched outside GameIndex, which requires periodic process enumeration. It can, however, back off — WMI enumeration every 5 s with nothing running is wasted work.
+- **Why:** `game_watcher.rs` already adapts (1 s hot / 5 s steady — `POLL_INTERVAL_FAST`/`POLL_INTERVAL_STEADY`). The poll loop **cannot** sleep completely when zero sessions are registered: it also performs passive detection of games launched outside GameIndex, which requires periodic process enumeration. It can, however, back off — WMI enumeration every 5 s with nothing running is wasted work.
 - **What (landed):** added `POLL_INTERVAL_IDLE` (15 s) in `src-tauri/src/game_watcher.rs`; the loop relaxes to it whenever `active_sessions` is empty. App-launched sessions still wake the loop immediately (`request_immediate_poll`), so launch detection is unchanged. Trade-off: passive detection of an externally launched game starts ≤ 15 s later (session start is anchored at attach, so no playtime is lost).
 - **Acceptance:** with no game running, WMI polls drop to 4/min (was 12/min); launching a game resumes 1 s polling immediately.
 
@@ -269,7 +269,7 @@ Remaining: P1 (2.6 batching/CSS, 2.7, 1.2, 1.5), P2 (1.3 light/detail with save-
 - `src-tauri/src/games.rs::load_games`: full-row list + `cleanup_unreferenced_artwork` on every boot; `save_game` runs `cleanup_non_library_caches`.
 - `src-tauri/src/db/games.rs::GAMES_SELECT_SQL`: 60-column select (incl. description, screenshots/videos/steam_achievements JSON columns).
 - `src-tauri/src/db/pool.rs` (via `knowledge.md`): sync sub-ms queries intentionally un-wrapped in `spawn_blocking` — do not blanket-wrap.
-- `src-tauri/src/game_watcher.rs`: `POLL_INTERVAL_PENDING` 1 s / `POLL_INTERVAL_STEADY` 5 s (adaptive polling exists).
+- `src-tauri/src/game_watcher.rs`: `POLL_INTERVAL_FAST` 1 s / `POLL_INTERVAL_STEADY` 5 s (adaptive polling exists; the fast cadence also covers the post-loss grace window).
 - `src-tauri/src/downloads/manager.rs::emit_progress`: hash-deduped snapshots (already throttled by content change).
 - `src/components/library/LibraryVirtualGrid.tsx`: windowing, `VIRTUALIZE_THRESHOLD = 80`, overscan 4; `src/components/bigscreen/GameGrid.tsx` is a second implementation.
 - `src/hooks/useProgressiveImages.tsx`: per-element `IntersectionObserver` (200 px margin) → one `download_image` IPC per element.
