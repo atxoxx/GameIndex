@@ -104,6 +104,11 @@ pub const EMULATORS_V2_DDL: &str = include_str!("schema_emulators_v2.sql");
 /// denormalization.
 pub const SESSIONS_DDL: &str = include_str!("schema_sessions.sql");
 
+/// DDL for the `sessions` domain, v2 migration: a partial index over
+/// ended sessions ordered by `started_at DESC`, covering the
+/// `WHERE ended_at IS NOT NULL ORDER BY started_at DESC` listing query.
+pub const SESSIONS_V2_DDL: &str = include_str!("schema_sessions_v2.sql");
+
 /// DDL for the `download_history` domain: append-only ledger of every
 /// download that ever completed or was removed, so download-page
 /// statistics survive deletion of the live record.
@@ -188,7 +193,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "sessions",
-        versions: &[("v1", SESSIONS_DDL)],
+        versions: &[("v1", SESSIONS_DDL), ("v2", SESSIONS_V2_DDL)],
     },
     DomainSchema {
         label: "download_history",
