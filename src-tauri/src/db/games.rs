@@ -1360,4 +1360,50 @@ mod tests {
         // Error path: unknown id is a silent no-op (0 rows), not an error.
         set_artwork_url(&db, "missing", ArtworkSlot::Icon, "file:///tmp/x.png").unwrap();
     }
+
+    /// Builds a row the way `save_games` now does: a `GameData` payload
+    /// converted through the direct `From` impl.
+    fn converted_row(id: &str, name: &str) -> GameRow {
+        let data: crate::games::GameData = serde_json::from_value(json!({
+            "id": id,
+            "name": name,
+            "path": "C:\\Games\\x.exe",
+            "platform": "GOG",
+            "installed": true,
+            "playTime": "3h",
+            "addedAt": 111u64,
+            "coverArtUrl": "data:image/png;base64,AAAA",
+            "genres": ["Action", "RPG"],
+            "screenshots": ["s1", "s2"],
+            "romProfile": {"graphicsBackend": "vulkan", "fullscreen": true},
+            "compatibility": {"enabled": true}
+        }))
+        .expect("GameData sample must deserialize");
+        GameRow::from(data)
+    }
+
+    /// The persisted fingerprint must survive the `GameData -> GameRow`
+    /// conversion unchanged: re-converting an identical payload has to
+    /// reproduce the stored `content_hash` (no rewrite), while a genuine
+    /// edit has to trip it (rewrite).
+    #[test]
+    fn converted_save_skips_unchanged_rows_and_writes_changed_ones() {
+        let (_dir, db) = test_db();
+
+        let first = converted_row("a", "Alpha");
+        assert_eq!(
+            upsert_all(&db, std::slice::from_ref(&first)).unwrap().written,
+            1
+        );
+
+        let again = converted_row("a", "Alpha");
+        let stats = upsert_all(&db, std::slice::from_ref(&again)).unwrap();
+        assert_eq!(stats.written, 0, "unchanged payload must not rewrite");
+        assert_eq!(stats.deleted, 0);
+
+        let changed = converted_row("a", "Renamed");
+        let stats = upsert_all(&db, std::slice::from_ref(&changed)).unwrap();
+        assert_eq!(stats.written, 1, "changed payload must rewrite");
+        assert_eq!(get(&db, "a").unwrap().unwrap().name, "Renamed");
+    }
 }

@@ -320,15 +320,249 @@ where
     }
 }
 
+/// Direct `GameData` -> `GameRow` conversion for the write path.
+///
+/// The serde round-trip (`GameData` -> `Value` -> `GameRow`) copied every
+/// field — including multi-MB artwork strings — into a `Value` tree before
+/// the row existed, and the DAO then serialized the row again to
+/// fingerprint it. Both structs mirror the same camelCase shape, so they
+/// convert field-for-field instead: artwork strings move, and the row is
+/// serialized exactly once, for its content hash. The struct literals are
+/// exhaustive, so a new column is a compile error rather than a silently
+/// dropped field.
+///
+/// Non-finite ratings are dropped to keep the old JSON round-trip's
+/// behaviour: a NaN serialized as `null` and read back as `None`.
+impl From<GameData> for db::games::GameRow {
+    fn from(g: GameData) -> Self {
+        db::games::GameRow {
+            id: g.id,
+            name: g.name,
+            path: g.path,
+            platform: g.platform,
+            installed: g.installed,
+            play_time: g.play_time,
+            added_at: g.added_at,
+            cover_art_url: g.cover_art_url,
+            cover_source_url: g.cover_source_url,
+            notes: g.notes,
+            size_bytes: g.size_bytes,
+            size_detected_at: g.size_detected_at,
+            size_root_path: g.size_root_path,
+            mods_folder: g.mods_folder,
+            mods_size_bytes: g.mods_size_bytes,
+            mods_detected_at: g.mods_detected_at,
+            icon_url: g.icon_url,
+            banner_url: g.banner_url,
+            logo_url: g.logo_url,
+            description: g.description,
+            developer: g.developer,
+            publisher: g.publisher,
+            release_date: g.release_date,
+            metadata_source: g.metadata_source,
+            metadata_url: g.metadata_url,
+            storyline: g.storyline,
+            igdb_rating: g.igdb_rating.filter(|v| v.is_finite()),
+            critic_rating: g.critic_rating.filter(|v| v.is_finite()),
+            igdb_id: g.igdb_id.map(|v| v as i64),
+            steam_app_id: g.steam_app_id,
+            steam_playtime: g.steam_playtime,
+            gog_game_id: g.gog_game_id,
+            gog_playtime: g.gog_playtime,
+            store_source: g.store_source,
+            epic_namespace: g.epic_namespace,
+            epic_catalog_item_id: g.epic_catalog_item_id,
+            launch_arguments: g.launch_arguments,
+            run_as_admin: g.run_as_admin,
+            show_steam_launch_selection: g.show_steam_launch_selection,
+            pre_launch_script: g.pre_launch_script,
+            pre_launch_admin: g.pre_launch_admin,
+            post_exit_script: g.post_exit_script,
+            post_exit_admin: g.post_exit_admin,
+            companion_apps: to_json_array(&g.companion_apps),
+            emulator_id: g.emulator_id,
+            rom_path: g.rom_path,
+            rom_hash: g.rom_hash,
+            rom_region: g.rom_region,
+            rom_language: g.rom_language,
+            rom_group: g.rom_group,
+            rom_disc: g.rom_disc,
+            rom_archived: g.rom_archived,
+            favorite: g.favorite,
+            compat_notes: g.compat_notes,
+            rom_profile: to_json_value(&g.rom_profile),
+            last_played: g.last_played,
+            play_status: g.play_status,
+            genres: g.genres,
+            themes: g.themes,
+            game_modes: g.game_modes,
+            player_perspectives: g.player_perspectives,
+            screenshots: g.screenshots,
+            videos: g.videos,
+            websites: g.websites,
+            time_to_beat: to_json_value(&g.time_to_beat),
+            similar_games: to_json_array(&g.similar_games),
+            releases: to_json_array(&g.releases),
+            igdb_reviews: to_json_array(&g.igdb_reviews),
+            alternative_names: g.alternative_names,
+            steam_achievements: to_json_array(&g.steam_achievements),
+            language_supports: to_json_array(&g.language_supports),
+            collection: g.collection,
+            // Not represented on `GameData`; writes through the serde
+            // round-trip dropped it too. Kept out of the frontend shape.
+            collection_id: None,
+            franchise: g.franchise,
+            game_category: g.game_category,
+            release_status: g.release_status,
+            version: g.version,
+            compatibility_json: g.compatibility,
+        }
+    }
+}
+
+/// Direct `GameRow` -> `GameData` conversion for `load_games`.
+///
+/// Loading used to round-trip every row through `serde_json::Value`
+/// (serialize the row, parse it back as `GameData`) — two full passes over
+/// the whole library on every boot. Every persisted field is already on the
+/// row, so map it straight across. Fields that exist only on `GameData`
+/// (`humble_*`, `uplay_*`) were never persisted by the old round-trip
+/// either and stay `None`.
+impl From<db::games::GameRow> for GameData {
+    fn from(r: db::games::GameRow) -> Self {
+        GameData {
+            id: r.id,
+            name: r.name,
+            path: r.path,
+            platform: r.platform,
+            installed: r.installed,
+            play_time: r.play_time,
+            added_at: r.added_at,
+            cover_art_url: r.cover_art_url,
+            cover_source_url: r.cover_source_url,
+            notes: r.notes,
+            size_bytes: r.size_bytes,
+            size_detected_at: r.size_detected_at,
+            size_root_path: r.size_root_path,
+            mods_folder: r.mods_folder,
+            mods_size_bytes: r.mods_size_bytes,
+            mods_detected_at: r.mods_detected_at,
+            icon_url: r.icon_url,
+            banner_url: r.banner_url,
+            logo_url: r.logo_url,
+            description: r.description,
+            developer: r.developer,
+            publisher: r.publisher,
+            release_date: r.release_date,
+            genres: r.genres,
+            metadata_source: r.metadata_source,
+            metadata_url: r.metadata_url,
+            storyline: r.storyline,
+            igdb_rating: r.igdb_rating,
+            critic_rating: r.critic_rating,
+            igdb_id: r.igdb_id.and_then(|v| u64::try_from(v).ok()),
+            themes: r.themes,
+            game_modes: r.game_modes,
+            player_perspectives: r.player_perspectives,
+            screenshots: r.screenshots,
+            videos: r.videos,
+            websites: r.websites,
+            time_to_beat: r.time_to_beat.and_then(|v| serde_json::from_value(v).ok()),
+            similar_games: from_json_array(r.similar_games),
+            releases: from_json_array(r.releases),
+            igdb_reviews: tolerant_igdb_reviews(r.igdb_reviews),
+            alternative_names: r.alternative_names,
+            collection: r.collection,
+            franchise: r.franchise,
+            game_category: r.game_category,
+            release_status: r.release_status,
+            steam_app_id: r.steam_app_id,
+            steam_playtime: r.steam_playtime,
+            gog_game_id: r.gog_game_id,
+            gog_playtime: r.gog_playtime,
+            steam_achievements: from_json_array(r.steam_achievements),
+            language_supports: from_json_array(r.language_supports),
+            store_source: r.store_source,
+            epic_namespace: r.epic_namespace,
+            epic_catalog_item_id: r.epic_catalog_item_id,
+            humble_game_id: None,
+            humble_is_trove: None,
+            humble_is_extra: None,
+            uplay_game_id: None,
+            uplay_is_connect: None,
+            launch_arguments: r.launch_arguments,
+            run_as_admin: r.run_as_admin,
+            show_steam_launch_selection: r.show_steam_launch_selection,
+            pre_launch_script: r.pre_launch_script,
+            pre_launch_admin: r.pre_launch_admin,
+            post_exit_script: r.post_exit_script,
+            post_exit_admin: r.post_exit_admin,
+            companion_apps: from_json_array(r.companion_apps),
+            last_played: r.last_played,
+            play_status: r.play_status,
+            emulator_id: r.emulator_id,
+            rom_path: r.rom_path,
+            rom_hash: r.rom_hash,
+            rom_region: r.rom_region,
+            rom_language: r.rom_language,
+            rom_group: r.rom_group,
+            rom_disc: r.rom_disc,
+            rom_archived: r.rom_archived,
+            favorite: r.favorite,
+            compat_notes: r.compat_notes,
+            rom_profile: r.rom_profile.and_then(|v| serde_json::from_value(v).ok()),
+            version: r.version,
+            compatibility: r.compatibility_json,
+        }
+    }
+}
+
+/// Mirrors `deserialize_tolerant_igdb_reviews` for the direct row
+/// conversion: a legacy row may hold a stray URL string among the review
+/// objects, so keep only the elements that parse.
+fn tolerant_igdb_reviews(raw: Option<Vec<serde_json::Value>>) -> Option<Vec<IgdbReview>> {
+    let values = raw?;
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        if let Ok(review) = serde_json::from_value::<IgdbReview>(value) {
+            out.push(review);
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+fn to_json_value<T: Serialize>(value: &Option<T>) -> Option<serde_json::Value> {
+    value.as_ref().and_then(|v| serde_json::to_value(v).ok())
+}
+
+fn to_json_array<T: Serialize>(value: &Option<Vec<T>>) -> Option<Vec<serde_json::Value>> {
+    let items = value.as_ref()?;
+    let mut out = Vec::with_capacity(items.len());
+    for item in items {
+        out.push(serde_json::to_value(item).ok()?);
+    }
+    Some(out)
+}
+
+fn from_json_array<T: serde::de::DeserializeOwned>(
+    raw: Option<Vec<serde_json::Value>>,
+) -> Option<Vec<T>> {
+    serde_json::from_value(serde_json::Value::Array(raw?)).ok()
+}
+
 /// Persist the game library.
 ///
 /// Phase 3: reconciles the `games` SQLite table against the incoming
 /// library in a single transaction, rewriting only rows whose content
 /// actually changed and deleting ids no longer present. `GameRow`
-/// mirrors the camelCase `GameData` shape, so we round-trip each entry
-/// through compact JSON rather than maintain a hand-rolled
-/// field-by-field converter. Returns the write/delete counts so the
-/// caller can tell a no-op save apart from a real one.
+/// mirrors the camelCase `GameData` shape, so entries convert directly
+/// instead of being serialized into a `Value` first. Returns the
+/// write/delete counts so the caller can tell a no-op save apart from a
+/// real one.
 #[tauri::command]
 pub async fn save_games(
     app: tauri::AppHandle,
@@ -348,10 +582,7 @@ pub async fn save_games(
             if let Some(ref c) = g.compatibility {
                 compat_items.push((g.id.clone(), c.clone()));
             }
-            let value = serde_json::to_value(&g).map_err(|e| format!("to_value: {e}"))?;
-            let row: db::games::GameRow = serde_json::from_value(value)
-                .map_err(|e| format!("to GameRow: {e}"))?;
-            rows.push(row);
+            rows.push(db::games::GameRow::from(g));
         }
         let result = db::games::upsert_all(&db, &rows);
         if let Ok(stats) = &result {
@@ -399,10 +630,7 @@ pub async fn save_games_subset(
             if let Some(ref c) = g.compatibility {
                 compat_items.push((g.id.clone(), c.clone()));
             }
-            let value = serde_json::to_value(&g).map_err(|e| format!("to_value: {e}"))?;
-            let row: db::games::GameRow = serde_json::from_value(value)
-                .map_err(|e| format!("to GameRow: {e}"))?;
-            rows.push(row);
+            rows.push(db::games::GameRow::from(g));
         }
         let result = db::games::upsert_batch(&db, &rows, false);
         if result.is_ok() {
@@ -430,9 +658,7 @@ pub async fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), Stri
     tauri::async_runtime::spawn_blocking(move || {
         let compat_opt = game.compatibility.clone();
         let game_id = game.id.clone();
-        let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
-        let row: db::games::GameRow =
-            serde_json::from_value(value).map_err(|e| format!("to GameRow: {e}"))?;
+        let row = db::games::GameRow::from(game);
         // NOTE: no artwork cleanup here — `save_game` fires per image write
         // during a library scroll, and pruning cache dirs on that hot path
         // walks the filesystem for every fetched cover. Both cleanups now run
@@ -479,28 +705,12 @@ fn load_games_blocking(db: &db::Db, app_data_dir: &std::path::Path) -> Result<Ve
         externalize_row_artwork(db, app_data_dir, row);
     }
 
-    let mut out: Vec<GameData> = Vec::with_capacity(rows.len());
-    for r in rows {
-        let value = match serde_json::to_value(&r) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("[load_games] skipping row (serialize failed): {e}");
-                continue;
-            }
-        };
-        match serde_json::from_value::<GameData>(value) {
-            Ok(g) => out.push(g),
-            Err(e) => {
-                // A single malformed row must not take down the whole
-                // library. Log it and skip so the rest of the games
-                // still load (the bad row self-heals on next save).
-                eprintln!(
-                    "[load_games] skipping game {}: {e}",
-                    r.id
-                );
-            }
-        }
-    }
+    // The row already carries every persisted field, so convert straight to
+    // `GameData` instead of serializing each row to JSON and parsing it
+    // back — that doubled the boot cost on a large library. A field that
+    // fails to parse (e.g. a legacy `rom_profile` blob) now degrades to
+    // `None` instead of dropping the whole game.
+    let mut out: Vec<GameData> = rows.into_iter().map(GameData::from).collect();
 
     // Enrich games with isolated compatibility profiles from compatibility.db
     if let Ok(mut compat_map) = db::compatibility::list_all_for_games(db) {
@@ -609,6 +819,310 @@ pub fn update_game_last_played(
 ) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
     db::games::update_last_played(db_state.inner(), &game_id, last_played_ms)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::games::GameRow;
+    use serde_json::json;
+
+    /// A `GameData` with every field populated, including the Humble /
+    /// Ubisoft linkage the games table does not persist.
+    fn full_game_data() -> GameData {
+        serde_json::from_str(
+            r#"{
+            "id": "g1",
+            "name": "Test Game",
+            "path": "C:/Games/Test/game.exe",
+            "platform": "GOG",
+            "installed": true,
+            "playTime": "3h",
+            "addedAt": 111,
+            "coverArtUrl": "data:image/png;base64,AAAA",
+            "coverSourceUrl": "https://images.igdb.com/x.jpg",
+            "notes": "note",
+            "sizeBytes": 1234,
+            "sizeDetectedAt": "2026-01-01T00:00:00Z",
+            "sizeRootPath": "C:/Games/Test",
+            "modsFolder": "C:/Games/Test/mods",
+            "modsSizeBytes": 55,
+            "modsDetectedAt": "2026-01-02T00:00:00Z",
+            "iconUrl": "data:image/png;base64,BBBB",
+            "bannerUrl": "data:image/png;base64,CCCC",
+            "logoUrl": "data:image/png;base64,DDDD",
+            "description": "desc",
+            "developer": "dev",
+            "publisher": "pub",
+            "releaseDate": "2020-05-05",
+            "genres": ["Action", "RPG"],
+            "metadataSource": "igdb",
+            "metadataUrl": "https://igdb.com/g/1",
+            "storyline": "story",
+            "igdbRating": 88.5,
+            "criticRating": 90.0,
+            "igdbId": 1942,
+            "themes": ["Fantasy"],
+            "gameModes": ["Single player"],
+            "playerPerspectives": ["Third person"],
+            "screenshots": ["s1", "s2"],
+            "videos": ["v1"],
+            "websites": ["https://example.com"],
+            "timeToBeat": {
+                "hastily": 100,
+                "normally": 200,
+                "completely": 300,
+                "mainExtra": 400,
+                "allStyles": 500
+            },
+            "similarGames": [{"id": 7, "name": "Sim", "coverUrl": "https://x/c.jpg"}],
+            "releases": [{"platform": "PC", "dateStr": "2020-05-05", "region": "US"}],
+            "igdbReviews": [
+                {"title": "Great", "content": "Nice", "rating": 4.5, "username": "u", "votesUp": 3}
+            ],
+            "alternativeNames": ["Alt"],
+            "collection": "Series",
+            "franchise": "Franchise",
+            "gameCategory": "Main game",
+            "releaseStatus": "Released",
+            "steamAppId": 440,
+            "steamPlaytime": 120,
+            "gogGameId": "1207658925",
+            "gogPlaytime": 60,
+            "steamAchievements": [{
+                "apiname": "ACH",
+                "name": "Ach",
+                "description": "d",
+                "achieved": true,
+                "unlocktime": 123,
+                "icon": "https://i",
+                "icongray": "https://g"
+            }],
+            "languageSupports": [{"language": "English", "supportType": "full"}],
+            "storeSource": "gog",
+            "epicNamespace": "ns",
+            "epicCatalogItemId": "cat",
+            "humbleGameId": "hum-1",
+            "humbleIsTrove": true,
+            "humbleIsExtra": false,
+            "uplayGameId": "uplay-1",
+            "uplayIsConnect": true,
+            "launchArguments": "-windowed",
+            "runAsAdmin": true,
+            "showSteamLaunchSelection": true,
+            "preLaunchScript": "pre.ps1",
+            "preLaunchAdmin": false,
+            "postExitScript": "post.ps1",
+            "postExitAdmin": true,
+            "companionApps": [{
+                "path": "C:/Tools/a.exe",
+                "arguments": "-x",
+                "delayMs": 100,
+                "runAsAdmin": false
+            }],
+            "lastPlayed": 1700000000000,
+            "playStatus": "playing",
+            "emulatorId": "emu-1",
+            "romPath": "C:/roms/game.iso",
+            "romHash": "cafebabe",
+            "romRegion": "USA",
+            "romLanguage": "En,Fr",
+            "romGroup": "Final Fantasy VII",
+            "romDisc": 2,
+            "romArchived": true,
+            "favorite": true,
+            "compatNotes": "use Vulkan",
+            "romProfile": {
+                "argumentsOverride": "-f",
+                "graphicsBackend": "vulkan",
+                "resolution": "1080p",
+                "controllerLayout": "xbox",
+                "shaders": "crt",
+                "fullscreen": true,
+                "envVars": ["A=1"]
+            },
+            "version": "1.0.4",
+            "compatibility": {"enabled": true, "runnerType": "custom"}
+        }"#,
+        )
+        .expect("full GameData sample must deserialize")
+    }
+
+    /// The persisted shape of the same sample. `GameRow` has no Humble /
+    /// Ubisoft columns, and `collectionId` is not part of `GameData`.
+    fn full_game_row() -> GameRow {
+        serde_json::from_str(
+            r#"{
+            "id": "g1",
+            "name": "Test Game",
+            "path": "C:/Games/Test/game.exe",
+            "platform": "GOG",
+            "installed": true,
+            "playTime": "3h",
+            "addedAt": 111,
+            "coverArtUrl": "data:image/png;base64,AAAA",
+            "coverSourceUrl": "https://images.igdb.com/x.jpg",
+            "notes": "note",
+            "sizeBytes": 1234,
+            "sizeDetectedAt": "2026-01-01T00:00:00Z",
+            "sizeRootPath": "C:/Games/Test",
+            "modsFolder": "C:/Games/Test/mods",
+            "modsSizeBytes": 55,
+            "modsDetectedAt": "2026-01-02T00:00:00Z",
+            "iconUrl": "data:image/png;base64,BBBB",
+            "bannerUrl": "data:image/png;base64,CCCC",
+            "logoUrl": "data:image/png;base64,DDDD",
+            "description": "desc",
+            "developer": "dev",
+            "publisher": "pub",
+            "releaseDate": "2020-05-05",
+            "metadataSource": "igdb",
+            "metadataUrl": "https://igdb.com/g/1",
+            "storyline": "story",
+            "igdbRating": 88.5,
+            "criticRating": 90.0,
+            "igdbId": 1942,
+            "steamAppId": 440,
+            "steamPlaytime": 120,
+            "gogGameId": "1207658925",
+            "gogPlaytime": 60,
+            "storeSource": "gog",
+            "epicNamespace": "ns",
+            "epicCatalogItemId": "cat",
+            "launchArguments": "-windowed",
+            "runAsAdmin": true,
+            "showSteamLaunchSelection": true,
+            "preLaunchScript": "pre.ps1",
+            "preLaunchAdmin": false,
+            "postExitScript": "post.ps1",
+            "postExitAdmin": true,
+            "companionApps": [{
+                "path": "C:/Tools/a.exe",
+                "arguments": "-x",
+                "delayMs": 100,
+                "runAsAdmin": false
+            }],
+            "emulatorId": "emu-1",
+            "romPath": "C:/roms/game.iso",
+            "romHash": "cafebabe",
+            "romRegion": "USA",
+            "romLanguage": "En,Fr",
+            "romGroup": "Final Fantasy VII",
+            "romDisc": 2,
+            "romArchived": true,
+            "favorite": true,
+            "compatNotes": "use Vulkan",
+            "romProfile": {
+                "argumentsOverride": "-f",
+                "graphicsBackend": "vulkan",
+                "resolution": "1080p",
+                "controllerLayout": "xbox",
+                "shaders": "crt",
+                "fullscreen": true,
+                "envVars": ["A=1"]
+            },
+            "lastPlayed": 1700000000000,
+            "playStatus": "playing",
+            "genres": ["Action", "RPG"],
+            "themes": ["Fantasy"],
+            "gameModes": ["Single player"],
+            "playerPerspectives": ["Third person"],
+            "screenshots": ["s1", "s2"],
+            "videos": ["v1"],
+            "websites": ["https://example.com"],
+            "timeToBeat": {
+                "hastily": 100,
+                "normally": 200,
+                "completely": 300,
+                "mainExtra": 400,
+                "allStyles": 500
+            },
+            "similarGames": [{"id": 7, "name": "Sim", "coverUrl": "https://x/c.jpg"}],
+            "releases": [{"platform": "PC", "dateStr": "2020-05-05", "region": "US"}],
+            "igdbReviews": [
+                {"title": "Great", "content": "Nice", "rating": 4.5, "username": "u", "votesUp": 3}
+            ],
+            "alternativeNames": ["Alt"],
+            "steamAchievements": [{
+                "apiname": "ACH",
+                "name": "Ach",
+                "description": "d",
+                "achieved": true,
+                "unlocktime": 123,
+                "icon": "https://i",
+                "icongray": "https://g"
+            }],
+            "languageSupports": [{"language": "English", "supportType": "full"}],
+            "collection": "Series",
+            "collectionId": 420,
+            "franchise": "Franchise",
+            "gameCategory": "Main game",
+            "releaseStatus": "Released",
+            "version": "1.0.4",
+            "compatibility": {"enabled": true, "runnerType": "custom"}
+        }"#,
+        )
+        .expect("full GameRow sample must deserialize")
+    }
+
+    /// The write path must build a row that serializes byte-for-byte like
+    /// the old `GameData -> Value -> GameRow` round-trip, because that
+    /// serialization is the persisted `content_hash` input. A drift here
+    /// would invalidate every stored fingerprint and rewrite the library.
+    #[test]
+    fn game_data_to_row_matches_serde_round_trip() {
+        let direct = GameRow::from(full_game_data());
+        let legacy: GameRow =
+            serde_json::from_value(serde_json::to_value(full_game_data()).unwrap()).unwrap();
+
+        assert_eq!(
+            serde_json::to_string(&legacy).unwrap(),
+            serde_json::to_string(&direct).unwrap()
+        );
+    }
+
+    /// The read path must produce the exact JSON shape the frontend used to
+    /// receive: the same keys, the same values, `humble*`/`uplay*` absent.
+    #[test]
+    fn game_row_to_game_data_matches_serde_round_trip() {
+        let row = full_game_row();
+        let legacy: GameData = serde_json::from_value(serde_json::to_value(&row).unwrap()).unwrap();
+        let direct = GameData::from(row);
+
+        assert_eq!(
+            serde_json::to_value(&legacy).unwrap(),
+            serde_json::to_value(&direct).unwrap()
+        );
+    }
+
+    /// A malformed nested blob used to fail the whole `GameData`
+    /// deserialization and drop the game from the library. The direct
+    /// conversion degrades just that field, and still filters the stray
+    /// non-review entries the tolerant deserializer used to drop.
+    #[test]
+    fn game_row_conversion_degrades_on_malformed_nested_fields() {
+        let row: GameRow = serde_json::from_value(json!({
+            "id": "bad",
+            "name": "Bad",
+            "path": "",
+            "platform": "GOG",
+            "installed": false,
+            "playTime": "0m",
+            "addedAt": 1u64,
+            "romProfile": "not-an-object",
+            "igdbReviews": [
+                "https://youtube.example/x",
+                {"title": "ok", "content": "c", "rating": 5.0, "username": "u"}
+            ]
+        }))
+        .unwrap();
+
+        let game = GameData::from(row);
+        assert!(game.rom_profile.is_none());
+        let reviews = game.igdb_reviews.expect("valid review should survive");
+        assert_eq!(reviews.len(), 1);
+        assert_eq!(reviews[0].title.as_deref(), Some("ok"));
+    }
 }
 
 
