@@ -139,13 +139,9 @@ export function buildUrl(
 
   // 2. Serialized JSON custom link check
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (parsed.url && /^https?:\/\//i.test(parsed.url)) {
-        return parsed.url;
-      }
-    } catch {
-      // ignore
+    const parsed = parseCustomLink(trimmed);
+    if (/^https?:\/\//i.test(parsed.url)) {
+      return parsed.url;
     }
   }
 
@@ -242,11 +238,19 @@ export function getSteamAppIdString(game: Game): string | null {
   return null;
 }
 
+export interface ParsedCustomLink {
+  /** Original stored string (raw URL or serialized JSON) */
+  raw: string;
+  url: string;
+  label: string;
+  host: string;
+  tag?: string;
+}
+
 /** Derive a label and host name from a URL */
 export function deriveCustomLinkMeta(url: string): { label: string; host: string } {
   try {
-    const parsed = new URL(url);
-    const host = parsed.host.replace(/^www\./, "");
+    const host = new URL(url).host.replace(/^www\./, "");
     const parts = host.split(".");
     const base = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
     const label = base ? base.charAt(0).toUpperCase() + base.slice(1) : "Link";
@@ -254,4 +258,93 @@ export function deriveCustomLinkMeta(url: string): { label: string; host: string
   } catch {
     return { label: "Link", host: url };
   }
+}
+
+/** Strip the scheme and leading `www.` for display purposes. */
+export function formatUrlForDisplay(url: string): string {
+  return url.replace(/^https?:\/\//, "").replace(/^www\./, "");
+}
+
+/** Parse a stored website item (raw URL or serialized {@link serializeCustomLink} JSON). */
+export function parseCustomLink(raw: string): ParsedCustomLink {
+  const trimmed = (raw ?? "").trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const obj = JSON.parse(trimmed);
+      if (obj && typeof obj.url === "string" && obj.url) {
+        const meta = deriveCustomLinkMeta(obj.url);
+        return {
+          raw,
+          url: obj.url,
+          label: obj.label || meta.label,
+          host: meta.host,
+          tag: obj.tag,
+        };
+      }
+    } catch {
+      // fall through to plain URL handling
+    }
+  }
+
+  const meta = deriveCustomLinkMeta(trimmed);
+  return { raw, url: trimmed, label: meta.label, host: meta.host };
+}
+
+/** Serialize a custom link for storage in `game.websites`, collapsing to a raw URL when it carries no extra metadata. */
+export function serializeCustomLink(url: string, label?: string, tag?: string): string {
+  const meta = deriveCustomLinkMeta(url);
+  if ((label && label !== meta.label) || tag) {
+    return JSON.stringify({ url, label: label || meta.label, tag });
+  }
+  return url;
+}
+
+/**
+ * Parse and deduplicate a website list by resolved URL. Collapses entries that
+ * differ only by storage form (raw URL vs serialized JSON), case or trailing
+ * slash — the universal guard against the same link rendering twice.
+ */
+export function parseCustomLinks(websites?: string[]): ParsedCustomLink[] {
+  return uniqueByUrl(dedupeWebsites(websites).map(parseCustomLink), (item) => item.url);
+}
+
+/** Keep the first item for each distinct normalized URL; items without a URL are never dropped. */
+export function uniqueByUrl<T>(items: T[], getUrl: (item: T) => string | undefined): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const url = getUrl(item);
+    const key = url ? normalizeUrl(url) : "";
+    if (key) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(item);
+  }
+  return out;
+}
+
+/** Deduplicate a website list, trimming blanks and comparing case-insensitively while preserving order. */
+export function dedupeWebsites(list?: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of list ?? []) {
+    const trimmed = (entry ?? "").trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+/** Normalize a URL for equality comparison (trim, drop trailing slashes, lowercase). */
+export function normalizeUrl(url: string): string {
+  return (url ?? "").trim().replace(/\/+$/, "").toLowerCase();
+}
+
+/** Compare two URLs ignoring case and trailing-slash differences. */
+export function isSameUrl(a: string, b: string): boolean {
+  return !!a && !!b && normalizeUrl(a) === normalizeUrl(b);
 }

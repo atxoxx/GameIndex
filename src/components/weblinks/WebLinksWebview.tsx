@@ -7,6 +7,23 @@ import { OpenExternalIcon, SteamIcon } from "./WebLinksIcons";
 import type { SourceDef, SteamSectionDef } from "./types";
 import type { Game } from "../../types/game";
 
+const PREVIEW_LABEL_PREFIX = "weblinks-preview-";
+
+/** Tear down every preview webview, tolerating webviews that are already gone. */
+async function closeAllPreviewWebviews() {
+  try {
+    const all = await Webview.getAll();
+    for (const wv of all) {
+      if (wv.label.startsWith(PREVIEW_LABEL_PREFIX)) {
+        await invoke("close_preview_webview", { label: wv.label }).catch(() => {});
+        await wv.close().catch(() => {});
+      }
+    }
+  } catch {
+    // ignore — Webview API unavailable outside Tauri
+  }
+}
+
 interface WebLinksWebviewProps {
   url: string;
   game: Game;
@@ -182,37 +199,17 @@ export default function WebLinksWebview({
 
     async function initWebview() {
       if (steamSubDisabled || !url) {
-        try {
-          const allWebviews = await Webview.getAll();
-          for (const wv of allWebviews) {
-            if (wv.label.startsWith("weblinks-preview-")) {
-              await invoke("close_preview_webview", { label: wv.label }).catch(() => {});
-              await wv.close().catch(() => {});
-            }
-          }
-        } catch {
-          // ignore
-        }
+        await closeAllPreviewWebviews();
         return;
       }
 
       // Close previous webviews first
-      try {
-        const allWebviews = await Webview.getAll();
-        for (const wv of allWebviews) {
-          if (wv.label.startsWith("weblinks-preview-")) {
-            await invoke("close_preview_webview", { label: wv.label }).catch(() => {});
-            await wv.close().catch(() => {});
-          }
-        }
-      } catch {
-        // ignore
-      }
+      await closeAllPreviewWebviews();
 
       if (!active || !containerRef.current) return;
 
       const rect = containerRef.current.getBoundingClientRect();
-      const uniqueLabel = "weblinks-preview-" + Math.random().toString(36).substring(2, 9);
+      const uniqueLabel = PREVIEW_LABEL_PREFIX + Math.random().toString(36).substring(2, 9);
 
       try {
         await invoke("create_preview_webview", {
@@ -269,16 +266,7 @@ export default function WebLinksWebview({
         invoke("close_preview_webview", { label: localWebview.label }).catch(() => {});
         localWebview.close().catch(() => {});
       } else {
-        Webview.getAll()
-          .then((all) => {
-            for (const wv of all) {
-              if (wv.label.startsWith("weblinks-preview-")) {
-                invoke("close_preview_webview", { label: wv.label }).catch(() => {});
-                wv.close().catch(() => {});
-              }
-            }
-          })
-          .catch(() => {});
+        closeAllPreviewWebviews();
       }
     };
   }, [url, steamSubDisabled, reloadNonce]);

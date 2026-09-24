@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { STEAM_SECTIONS } from "./sources";
 import { LockIcon } from "./WebLinksIcons";
+import { useRovingTabFocus } from "./useRovingTabFocus";
 import type { SteamSectionKey } from "./types";
 
 interface WebLinksSteamSectionsProps {
@@ -20,28 +21,7 @@ export default function WebLinksSteamSections({
   const { t } = useLanguage();
   const [showAttachInput, setShowAttachInput] = useState(false);
   const [inputVal, setInputVal] = useState("");
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const tabs = Array.from(
-      e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    );
-    if (tabs.length === 0) return;
-    const current = tabs.findIndex((tab) => tab.tabIndex === 0);
-    let next = current;
-
-    if (e.key === "ArrowRight") next = (current + 1) % tabs.length;
-    else if (e.key === "ArrowLeft") next = (current - 1 + tabs.length) % tabs.length;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = tabs.length - 1;
-    else return;
-
-    e.preventDefault();
-    const target = tabs[next];
-    if (target && !target.disabled) {
-      target.click();
-      target.focus();
-    }
-  };
+  const handleKeyDown = useRovingTabFocus<HTMLDivElement>();
 
   const handleApplyAppId = (e: React.FormEvent) => {
     e.preventDefault();

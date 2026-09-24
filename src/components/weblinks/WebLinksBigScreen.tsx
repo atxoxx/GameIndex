@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
-import { FIXED_SOURCES, STEAM_SECTIONS, buildUrl, deriveCustomLinkMeta, getSteamAppIdString, SOURCE_CATEGORIES } from "./sources";
+import { FIXED_SOURCES, STEAM_SECTIONS, buildUrl, formatUrlForDisplay, getSteamAppIdString, normalizeUrl, parseCustomLinks, SOURCE_CATEGORIES } from "./sources";
 import { CustomLinkIcon } from "./WebLinksIcons";
 import type { Game } from "../../types/game";
 import type { FixedSourceKey, SourceCategoryKey, SteamSectionKey } from "./types";
@@ -25,11 +25,13 @@ export default function WebLinksBigScreen({ game }: { game: Game }) {
 
   const links = useMemo<BigScreenLinkItem[]>(() => {
     const list: BigScreenLinkItem[] = [];
+    const reservedUrls = new Set<string>();
 
     // Steam sections
     STEAM_SECTIONS.forEach((sec) => {
       const url = buildUrl(game, "steam", sec.key, appId);
       const disabled = !!sec.requiresAppId && !appId;
+      reservedUrls.add(normalizeUrl(url));
       list.push({
         id: `steam-${sec.key}`,
         label: t(sec.i18nKey),
@@ -45,6 +47,7 @@ export default function WebLinksBigScreen({ game }: { game: Game }) {
     // Other fixed sources
     FIXED_SOURCES.filter((s) => s.key !== "steam").forEach((src) => {
       const url = buildUrl(game, src.key as FixedSourceKey, "store" as SteamSectionKey, appId);
+      reservedUrls.add(normalizeUrl(url));
       list.push({
         id: src.key,
         label: src.label,
@@ -56,30 +59,14 @@ export default function WebLinksBigScreen({ game }: { game: Game }) {
       });
     });
 
-    // Custom links
-    (game.websites ?? []).forEach((cUrl, idx) => {
-      const trimmed = cUrl.trim();
-      if (!trimmed) return;
-      let url = trimmed;
-      let label = "";
-
-      if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          if (parsed.url) {
-            url = parsed.url;
-            label = parsed.label;
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      const meta = deriveCustomLinkMeta(url);
+    // Custom links — deduplicated by URL against each other and against the
+    // built-in sources above.
+    parseCustomLinks(game.websites).forEach((parsed, idx) => {
+      if (reservedUrls.has(normalizeUrl(parsed.url))) return;
       list.push({
         id: `custom-${idx}`,
-        label: label || meta.label,
-        url,
+        label: parsed.label,
+        url: parsed.url,
         category: "mylinks",
         icon: <CustomLinkIcon />,
         accent: "var(--color-accent)",
@@ -185,7 +172,7 @@ function BigScreenLinkCard({ item }: { item: BigScreenLinkItem }) {
         <div className="wl-bigscreen-card-label">{item.label}</div>
         {!item.disabled && (
           <div className="wl-bigscreen-card-host">
-            {item.url.replace(/^https?:\/\//, "").replace(/^www\./, "")}
+            {formatUrlForDisplay(item.url)}
           </div>
         )}
       </div>

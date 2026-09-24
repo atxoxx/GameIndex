@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { ChevronDownIcon, CustomLinkIcon } from "./WebLinksIcons";
 import { MY_LINKS_KEY, SOURCE_CATEGORIES } from "./sources";
+import { useRovingTabFocus } from "./useRovingTabFocus";
 import type { SourceCategoryKey, SourceDef } from "./types";
 
 interface WebLinksSourceStripProps {
@@ -31,6 +32,7 @@ export default function WebLinksSourceStrip({
   const stripRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const handleKeyDown = useRovingTabFocus<HTMLDivElement>();
 
   const activeCategoryDef =
     SOURCE_CATEGORIES.find((cat) => cat.key === activeCategory) ??
@@ -63,25 +65,6 @@ export default function WebLinksSourceStrip({
       document.removeEventListener("keydown", onDocKeyDown);
     };
   }, [menuOpen, onMenuOpenChange]);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const tabs = Array.from(
-      e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    );
-    if (tabs.length === 0) return;
-    const current = tabs.findIndex((tab) => tab.tabIndex === 0);
-    let next = current;
-
-    if (e.key === "ArrowRight") next = (current + 1) % tabs.length;
-    else if (e.key === "ArrowLeft") next = (current - 1 + tabs.length) % tabs.length;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = tabs.length - 1;
-    else return;
-
-    e.preventDefault();
-    tabs[next]?.click();
-    tabs[next]?.focus();
-  };
 
   const isMyLinksActive = activeSourceKey === MY_LINKS_KEY;
 

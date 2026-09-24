@@ -11,7 +11,8 @@ import {
   SpeedrunIcon,
   NexusModsIcon,
 } from "./WebLinksIcons";
-import { deriveCustomLinkMeta } from "./sources";
+import { isSameUrl, parseCustomLink, serializeCustomLink } from "./sources";
+import type { ParsedCustomLink } from "./sources";
 import type { Game } from "../../types/game";
 import { slugify } from "../../types/game";
 
@@ -23,53 +24,6 @@ interface MyLinksManagerProps {
   onSelectPreviewUrl: (url: string) => void;
   onOpenExternal: (url: string) => void;
   onWebsitesChange?: (websites: string[]) => void;
-}
-
-interface ParsedCustomLink {
-  rawUrl: string;
-  url: string;
-  label: string;
-  host: string;
-  tag?: string;
-}
-
-/** Parse a stored website item (either raw URL or serialized JSON metadata) */
-function parseCustomLinkItem(raw: string): ParsedCustomLink {
-  const trimmed = raw.trim();
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-    try {
-      const obj = JSON.parse(trimmed);
-      if (obj.url) {
-        const meta = deriveCustomLinkMeta(obj.url);
-        return {
-          rawUrl: raw,
-          url: obj.url,
-          label: obj.label || meta.label,
-          host: meta.host,
-          tag: obj.tag,
-        };
-      }
-    } catch {
-      // fallback to plain string
-    }
-  }
-
-  const meta = deriveCustomLinkMeta(trimmed);
-  return {
-    rawUrl: raw,
-    url: trimmed,
-    label: meta.label,
-    host: meta.host,
-  };
-}
-
-/** Serialize custom link item for storage in game.websites string[] */
-function serializeCustomLink(url: string, label?: string, tag?: string): string {
-  const meta = deriveCustomLinkMeta(url);
-  if ((label && label !== meta.label) || tag) {
-    return JSON.stringify({ url, label: label || meta.label, tag });
-  }
-  return url;
 }
 
 /** Multi-fallback Favicon component */
@@ -123,7 +77,7 @@ export default function MyLinksManager({
   const [editingItem, setEditingItem] = useState<ParsedCustomLink | null>(null);
 
   const parsedItems = useMemo(() => {
-    return customLinks.map(parseCustomLinkItem);
+    return customLinks.map(parseCustomLink);
   }, [customLinks]);
 
   const filteredItems = useMemo(() => {
@@ -162,7 +116,7 @@ export default function MyLinksManager({
     if (editingItem) {
       // Update existing item
       const updated = customLinks.map((raw) => {
-        if (raw === editingItem.rawUrl) {
+        if (raw === editingItem.raw) {
           return serializeCustomLink(trimmedUrl, trimmedLabel, trimmedTag);
         }
         return raw;
@@ -171,11 +125,7 @@ export default function MyLinksManager({
       setEditingItem(null);
     } else {
       // Prevent duplicates
-      if (
-        parsedItems.some(
-          (item) => item.url.toLowerCase() === trimmedUrl.toLowerCase()
-        )
-      ) {
+      if (parsedItems.some((item) => isSameUrl(item.url, trimmedUrl))) {
         setLinkError(t("weblinks.addLinkInvalid"));
         return;
       }
@@ -209,7 +159,7 @@ export default function MyLinksManager({
   const handleRemove = (rawUrl: string) => {
     if (!onWebsitesChange) return;
     onWebsitesChange(customLinks.filter((u) => u !== rawUrl));
-    if (editingItem?.rawUrl === rawUrl) {
+    if (editingItem?.raw === rawUrl) {
       handleCancelEdit();
     }
   };
@@ -246,7 +196,7 @@ export default function MyLinksManager({
     }
 
     if (!url) return;
-    if (parsedItems.some((item) => item.url.toLowerCase() === url.toLowerCase())) return;
+    if (parsedItems.some((item) => isSameUrl(item.url, url))) return;
 
     const newItem = serializeCustomLink(url, label, tag);
     onWebsitesChange([...customLinks, newItem]);
@@ -384,7 +334,7 @@ export default function MyLinksManager({
             const isActive = activePreviewUrl === item.url;
             return (
               <div
-                key={item.rawUrl}
+                key={item.raw}
                 className={`wl-mylink-card${isActive ? " active" : ""}`}
               >
                 <button
@@ -435,7 +385,7 @@ export default function MyLinksManager({
                       <button
                         type="button"
                         className="wl-mylink-btn-icon danger"
-                        onClick={() => handleRemove(item.rawUrl)}
+                        onClick={() => handleRemove(item.raw)}
                         title={t("weblinks.removeLink")}
                         aria-label={t("weblinks.removeLink")}
                       >
