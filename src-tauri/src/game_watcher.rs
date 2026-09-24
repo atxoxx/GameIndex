@@ -618,30 +618,29 @@ impl GameWatcher {
             }
 
             // Re-attach to a still-running process for this game. The
-            // tracked PID (often a launcher / bootstrapper) may have exited
-            // when the real game process took over — e.g. after the player
-            // clicks Play and the game goes fullscreen. `find_session_process`
-            // searches the install dir first, then climbs up the directory
-            // tree (shared publisher roots like `Rockstar Games\Launcher`
-            // vs `Rockstar Games\GameName`), and finally falls back to an
-            // exe-stem match.
+            // tracked PID (often a launcher / bootstrapper / splash screen)
+            // may have exited when the real game process took over — e.g.
+            // after the player clicks Play and the game goes fullscreen.
+            // `find_session_process` searches the install dir first, then
+            // climbs up the directory tree (shared publisher roots like
+            // `Rockstar Games\Launcher` vs `Rockstar Games\GameName`),
+            // falls back to an exe-stem match, and finally accepts a live
+            // descendant of the tracked PID (a splash that spawned the
+            // real game under a different name, e.g. `Game.exe` →
+            // `Game-Win64-Shipping.exe`).
             //
-            // Only attempted while the session is still healthy (no grace
-            // period yet): the re-attach exists for the few-seconds
-            // launcher→game hand-off, so once the process has been missing
-            // for a full poll, whatever is still alive in the folder is a
-            // leftover helper, not a hand-off — re-attaching to it would
-            // pin the session open and the app would never notice the game
-            // quit (playtime keeps accumulating via the heartbeat).
-            let found_proc = if session.lost_at.is_none() {
-                find_session_process(
-                    &processes,
-                    session.install_dir.as_ref(),
-                    &session.matched_exe,
-                )
-            } else {
-                None
-            };
+            // Attempted on every poll while the process is missing, not just
+            // the first: a game that appears a poll or two after its splash
+            // exited (slow asset preload, shader compile) must still be
+            // picked up before the grace window ends. Matching stays strict
+            // — same exe stem, or a descendant of the tracked PID confined
+            // to the install dir — so a leftover helper is never grabbed.
+            let found_proc = find_session_process(
+                &processes,
+                session.last_pid,
+                session.install_dir.as_ref(),
+                &session.matched_exe,
+            );
 
             if let Some(proc) = found_proc {
                 // Re-attached to a new process (launcher hand-off or a
@@ -1977,15 +1976,26 @@ fn is_currently_running(
             if matched_norm.is_empty() || normalize_path_lower(&p.exe_path) == matched_norm {
                 return true;
             }
-            stack.extend(processes.iter().filter(|c| c.ppid == pid).map(|c| c.pid));
         }
+        // Follow children even when the tracked PID itself is gone. A
+        // splash / bootstrap process exits after spawning the game and the
+        // child keeps reporting the dead parent's PID, so this is what
+        // keeps a hand-off from ever entering the grace window when the
+        // child still resolves to the tracked exe.
+        stack.extend(
+            processes
+                .iter()
+                .filter(|c| c.ppid == pid && !visited.contains(&c.pid))
+                .map(|c| c.pid),
+        );
     }
     false
 }
 
 /// Locate a still-running process for an active session when the tracked
-/// PID has gone missing (the launcher / bootstrapper exited and handed off
-/// to the real game — commonly right as the game goes fullscreen).
+/// PID has gone missing (the launcher / bootstrapper / splash exited and
+/// handed off to the real game — commonly right as the game goes
+/// fullscreen).
 ///
 /// Search strategy, in priority order:
 ///   1. The session's `install_dir`.
@@ -1999,18 +2009,26 @@ fn is_currently_running(
 ///      binary under a different path). Candidates are restricted to the
 ///      install-dir tree (and its parents) so an unrelated title with a
 ///      similar name is never grabbed.
+///   4. A live descendant of the tracked PID, confined to the install-dir
+///      tree. A splash / bootstrap executable frequently spawns the real
+///      game under a *different* name (`Game.exe` →
+///      `Game-Win64-Shipping.exe`, `Launcher` → `GameName`) and then exits;
+///      the child still reports the dead parent's PID, so the descendant
+///      relationship identifies the hand-off even when the stem differs.
 ///
 /// Every tier requires the candidate to be *the game*, not just any
 /// process in the folder: with a known tracked exe, only processes
-/// sharing its exe stem qualify; without one (pending protocol launch),
-/// only direct children of the install dir qualify. This is what keeps
-/// the session from pinning to a leftover process — an anti-cheat daemon,
-/// an updater, a crash handler, or a *sibling game under the same
-/// publisher root* — which would make the app never notice the game quit
-/// and inflate playtime forever. Skip-keyword executables are always
-/// excluded from every tier.
+/// sharing its exe stem qualify (or a descendant of the tracked PID for
+/// tier 4); without one (pending protocol launch), only direct children
+/// of the install dir qualify. This is what keeps the session from
+/// pinning to a leftover process — an anti-cheat daemon, an updater, a
+/// crash handler, or a *sibling game under the same publisher root* —
+/// which would make the app never notice the game quit and inflate
+/// playtime forever. Skip-keyword executables are always excluded from
+/// every tier.
 fn find_session_process(
     processes: &[ProcessInfo],
+    tracked_pid: u32,
     install_dir: Option<&PathBuf>,
     matched_exe: &str,
 ) -> Option<ProcessInfo> {
@@ -2118,7 +2136,88 @@ fn find_session_process(
         }
     }
 
+    // Tier 4: a live descendant of the tracked PID, confined to the
+    // install-dir tree. Covers splash / bootstrap hand-offs where the real
+    // game is spawned under a different executable name and the parent
+    // exits immediately after (Unreal's `Game.exe` →
+    // `Game-Win64-Shipping.exe`, `Launcher.exe` → `GameName.exe`, …).
+    if let Some(p) = find_handoff_descendant(processes, tracked_pid, install_dir) {
+        return Some(p);
+    }
+
     None
+}
+
+/// Locate the real game process after a splash / bootstrap executable
+/// spawned it and exited. The child's reported parent PID still points at
+/// the tracked (now dead) process, so following the ppid graph from the
+/// tracked PID identifies the hand-off even when the game's executable
+/// name differs from the bootstrap's.
+///
+/// Candidates are restricted to descendants of `root_pid`, non-skip
+/// executables, and — when an install dir is known — the install-dir tree.
+/// The largest working set wins: a splash / bootstrap is a thin loader
+/// that exits, so whatever heavyweight process it left behind is the game.
+/// Confining to the install dir (rather than its parents) keeps an
+/// unrelated child of a shared helper from being grabbed.
+fn find_handoff_descendant(
+    processes: &[ProcessInfo],
+    root_pid: u32,
+    install_dir: Option<&PathBuf>,
+) -> Option<ProcessInfo> {
+    if root_pid == 0 {
+        return None;
+    }
+
+    // ppid closure from the tracked PID, excluding the root itself.
+    let mut descendants: Vec<&ProcessInfo> = Vec::new();
+    let mut stack: Vec<u32> = vec![root_pid];
+    let mut visited: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    visited.insert(root_pid);
+    while let Some(pid) = stack.pop() {
+        for p in processes {
+            if p.ppid == pid && visited.insert(p.pid) {
+                descendants.push(p);
+                stack.push(p.pid);
+            }
+        }
+    }
+    if descendants.is_empty() {
+        return None;
+    }
+
+    let dir_lower = install_dir.map(|d| {
+        trim_path_separators(&normalize_path_lower(&d.to_string_lossy())).to_string()
+    });
+
+    descendants
+        .into_iter()
+        .filter(|p| {
+            // Skip-keyword executables (launchers, crash handlers,
+            // redistributables) are never the game.
+            if let Some(stem) = Path::new(&p.exe_path).file_stem().and_then(|s| s.to_str()) {
+                let lower = stem.to_lowercase();
+                if SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
+                    return false;
+                }
+            }
+            // Confine to the install-dir tree so a descendant that lives
+            // elsewhere on disk (a shared overlay helper, a runtimes dir)
+            // is never mistaken for the game.
+            if let Some(dir) = dir_lower.as_deref() {
+                let path_lower = normalize_path_lower(&p.exe_path);
+                if !path_lower.starts_with(dir) {
+                    return false;
+                }
+                let remainder = &path_lower[dir.len()..];
+                if !remainder.is_empty() && !remainder.starts_with(is_path_sep) {
+                    return false;
+                }
+            }
+            true
+        })
+        .max_by_key(|p| p.working_set_size)
+        .cloned()
 }
 
 /// Find the best running process inside an install directory that can
@@ -2817,6 +2916,34 @@ mod tests {
     }
 
     #[test]
+    fn test_is_currently_running_follows_children_of_dead_splash() {
+        // Regression: a splash / bootstrap (PID 100) spawns the real game
+        // and exits before the next poll. The child (PID 101) still reports
+        // the dead parent's PID, so the session must stay "running" rather
+        // than entering the grace window.
+        let procs = vec![make_proc_with_ppid(
+            101,
+            100,
+            "C:\\Games\\Foo\\foo-win64-shipping.exe",
+            900,
+        )];
+        // The tracked exe is the real game (a wrapper launch), matched by
+        // path — the child carries it.
+        assert!(is_currently_running(
+            &procs,
+            100,
+            "C:\\Games\\Foo\\foo-win64-shipping.exe"
+        ));
+        // A descendant that does NOT resolve to the tracked exe never
+        // keeps the session alive.
+        assert!(!is_currently_running(
+            &procs,
+            100,
+            "C:\\Games\\Foo\\foo.exe"
+        ));
+    }
+
+    #[test]
     fn test_is_currently_running_empty_matched_exe() {
         // Empty matched_exe (only reachable for pending launches) counts
         // as running while the PID is alive.
@@ -3183,6 +3310,7 @@ mod tests {
         let dir = PathBuf::from("C:\\Steam\\steamapps\\common\\Songs of Syx");
         let found = find_session_process(
             &procs,
+            0,
             Some(&dir),
             "C:\\Steam\\steamapps\\common\\Songs of Syx\\SongsOfSyx.exe",
         )
@@ -3199,7 +3327,7 @@ mod tests {
             make_proc(2, "C:\\Games\\Foo\\other.exe", 50),
         ];
         let dir = PathBuf::from("C:\\Games\\Foo");
-        let found = find_session_process(&procs, Some(&dir), "C:\\Games\\Foo\\game.exe").unwrap();
+        let found = find_session_process(&procs, 0, Some(&dir), "C:\\Games\\Foo\\game.exe").unwrap();
         assert_eq!(found.pid, 1, "Tier 1 should attach the tracked exe stem inside the install dir");
     }
 
@@ -3215,7 +3343,7 @@ mod tests {
         ];
         let dir = PathBuf::from("C:\\Games\\Foo");
         assert!(
-            find_session_process(&procs, Some(&dir), "C:\\Games\\Foo\\Game.exe").is_none(),
+            find_session_process(&procs, 0, Some(&dir), "C:\\Games\\Foo\\Game.exe").is_none(),
             "leftover non-game processes must not pin the session open"
         );
     }
@@ -3230,6 +3358,7 @@ mod tests {
         let dir = PathBuf::from("C:\\Games\\Publisher\\Launcher");
         let found = find_session_process(
             &procs,
+            0,
             Some(&dir),
             "C:\\Games\\Publisher\\GameName\\game.exe",
         )
@@ -3249,6 +3378,7 @@ mod tests {
         assert!(
             find_session_process(
                 &procs,
+                0,
                 Some(&dir),
                 "C:\\Games\\Publisher\\GameName\\game.exe"
             )
@@ -3264,13 +3394,13 @@ mod tests {
         // disk must not be grabbed.
         let procs = vec![make_proc(1, "D:\\Games\\GameName\\game.exe", 100)];
         let dir = PathBuf::from("C:\\Games\\Foo");
-        assert!(find_session_process(&procs, Some(&dir), "").is_none());
+        assert!(find_session_process(&procs, 0, Some(&dir), "").is_none());
     }
 
     #[test]
     fn test_find_session_process_no_install_dir_empty_matched_exe_returns_none() {
         let procs = vec![make_proc(1, "C:\\Games\\Foo\\game.exe", 100)];
-        assert!(find_session_process(&procs, None, "").is_none());
+        assert!(find_session_process(&procs, 0, None, "").is_none());
     }
 
     #[test]
@@ -3279,8 +3409,8 @@ mod tests {
         // never the game — neither for app-launched nor passive sessions.
         let procs = vec![make_proc(7, "C:\\Games\\Foo\\launcher.exe", 100)];
         let dir = PathBuf::from("C:\\Games\\Foo");
-        assert!(find_session_process(&procs, Some(&dir), "").is_none());
-        assert!(find_session_process(&procs, Some(&dir), "C:\\Games\\Foo\\Game.exe").is_none());
+        assert!(find_session_process(&procs, 0, Some(&dir), "").is_none());
+        assert!(find_session_process(&procs, 0, Some(&dir), "C:\\Games\\Foo\\Game.exe").is_none());
     }
 
     #[test]
@@ -3289,8 +3419,71 @@ mod tests {
         // install dir is the game.
         let procs = vec![make_proc(3, "C:\\Games\\Foo\\game.exe", 100)];
         let dir = PathBuf::from("C:\\Games\\Foo");
-        let found = find_session_process(&procs, Some(&dir), "").unwrap();
+        let found = find_session_process(&procs, 0, Some(&dir), "").unwrap();
         assert_eq!(found.pid, 3);
+    }
+
+    // ── find_session_process: splash / bootstrap hand-off (Tier 4) ────
+
+    #[test]
+    fn test_find_session_process_tier4_attaches_bootstrap_child_different_stem() {
+        // Regression: a splash / bootstrap (`foo.exe`, PID 100) spawns the
+        // real game under a different name (`fooswin64shipping.exe`,
+        // PID 101) and exits. The strict stem tiers can't match the child,
+        // but it is a direct descendant inside the install dir.
+        let procs = vec![make_proc_with_ppid(
+            101,
+            100,
+            "C:\\Games\\Foo\\Binaries\\Win64\\fooswin64shipping.exe",
+            900,
+        )];
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        let found =
+            find_session_process(&procs, 100, Some(&dir), "C:\\Games\\Foo\\foo.exe").unwrap();
+        assert_eq!(found.pid, 101, "splash→game hand-off attaches the descendant");
+    }
+
+    #[test]
+    fn test_find_session_process_tier4_picks_largest_descendant() {
+        // The bootstrap spawns a small helper and the real game; the game
+        // is the heavyweight process left behind.
+        let procs = vec![
+            make_proc_with_ppid(101, 100, "C:\\Games\\Foo\\shim.exe", 10),
+            make_proc_with_ppid(102, 101, "C:\\Games\\Foo\\Binaries\\Win64\\game.exe", 900),
+        ];
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        let found =
+            find_session_process(&procs, 100, Some(&dir), "C:\\Games\\Foo\\foo.exe").unwrap();
+        assert_eq!(found.pid, 102, "largest descendant wins (grandchild hand-off)");
+    }
+
+    #[test]
+    fn test_find_session_process_tier4_ignores_skip_and_outside_descendants() {
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        // A skip-keyword descendant (crash handler) is never the game.
+        let skip = vec![make_proc_with_ppid(
+            101,
+            100,
+            "C:\\Games\\Foo\\crashhandler.exe",
+            900,
+        )];
+        assert!(find_session_process(&skip, 100, Some(&dir), "C:\\Games\\Foo\\foo.exe").is_none());
+        // A descendant outside the install dir (a shared helper) is not
+        // grabbed either.
+        let outside = vec![make_proc_with_ppid(101, 100, "C:\\Other\\foogame.exe", 900)];
+        assert!(
+            find_session_process(&outside, 100, Some(&dir), "C:\\Games\\Foo\\foo.exe").is_none()
+        );
+    }
+
+    #[test]
+    fn test_find_session_process_no_tracked_pid_skips_tier4() {
+        // Legacy/pending callers pass tracked_pid = 0: the descendant tier
+        // must not run (no parent to follow), so a lone process outside the
+        // install dir is still never attached.
+        let procs = vec![make_proc_with_ppid(101, 100, "C:\\Games\\Foo\\game.exe", 900)];
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        assert!(find_session_process(&procs, 0, Some(&dir), "C:\\Games\\Foo\\foo.exe").is_none());
     }
 
     // ── force-close sweep guards ─────────────────────────────────────
