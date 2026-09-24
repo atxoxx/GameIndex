@@ -16,6 +16,8 @@ interface CommandPaletteHeaderProps {
   onToggleInspector: () => void;
   onOpenCheatSheet: () => void;
   t: (key: string, vars?: Record<string, unknown>) => string;
+  listId?: string;
+  activeDescendantId?: string;
 }
 
 export default function CommandPaletteHeader({
@@ -33,6 +35,8 @@ export default function CommandPaletteHeader({
   onToggleInspector,
   onOpenCheatSheet,
   t,
+  listId,
+  activeDescendantId,
 }: CommandPaletteHeaderProps) {
   return (
     <div className="command-palette-header">
@@ -66,6 +70,11 @@ export default function CommandPaletteHeader({
         onKeyDown={onKeyDown}
         autoComplete="off"
         spellCheck={false}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={listId ? true : undefined}
+        aria-controls={listId}
+        aria-activedescendant={activeDescendantId}
       />
 
       <div className="cmd-header-tools">

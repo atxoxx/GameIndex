@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   HelpCircle,
   Search,
@@ -22,6 +22,47 @@ interface CommandPaletteCheatSheetProps {
   t: (key: string, vars?: Record<string, unknown>) => string;
 }
 
+const PREFIXES = [
+  { prefix: "@", nameKey: "commandPalette.scopeGames", descKey: "commandPalette.cheatSheetPrefixGames", icon: Gamepad2, example: "@witcher" },
+  { prefix: ">", nameKey: "commandPalette.scopeActions", descKey: "commandPalette.cheatSheetPrefixActions", icon: Sparkles, example: ">big screen" },
+  { prefix: "/", nameKey: "commandPalette.scopeNavigation", descKey: "commandPalette.cheatSheetPrefixNav", icon: Compass, example: "/settings" },
+  { prefix: "#", nameKey: "commandPalette.scopeThemes", descKey: "commandPalette.cheatSheetPrefixThemes", icon: Palette, example: "#cyberpunk" },
+  { prefix: "$", nameKey: "commandPalette.scopeDownloads", descKey: "commandPalette.cheatSheetPrefixDownloads", icon: Download, example: "$cyberpunk" },
+  { prefix: "?", nameKey: "commandPalette.scopeStore", descKey: "commandPalette.cheatSheetPrefixStore", icon: Store, example: "?final fantasy" },
+  { prefix: "!", nameKey: "commandPalette.scopeWishlist", descKey: "commandPalette.cheatSheetPrefixWishlist", icon: Heart, example: "!hades" },
+  { prefix: "~", nameKey: "commandPalette.scopeUtility", descKey: "commandPalette.cheatSheetPrefixUtility", icon: Calculator, example: "~80 gb at 100 mbps" },
+];
+
+const POWER_FILTERS = [
+  { token: "is:installed", descKey: "commandPalette.filterInstalled", example: "is:installed cyberpunk" },
+  { token: "is:cloud", descKey: "commandPalette.filterCloud", example: "is:cloud rpg" },
+  { token: "is:fav", descKey: "commandPalette.filterFavorite", example: "is:fav" },
+  { token: "is:unplayed", descKey: "commandPalette.filterUnplayed", example: "is:unplayed is:installed" },
+  { token: "is:running", descKey: "commandPalette.filterRunning", example: "is:running" },
+  { token: "genre:rpg", descKey: "commandPalette.filterGenre", example: "genre:rpg year:>2020" },
+  { token: "tag:action", descKey: "commandPalette.filterTag", example: "tag:co-op" },
+  { token: "dev:valve", descKey: "commandPalette.filterDev", example: "dev:valve" },
+  { token: "source:steam", descKey: "commandPalette.filterSource", example: "source:steam is:installed" },
+  { token: "year:>2020", descKey: "commandPalette.filterYear", example: "year:>2022 rating:>80" },
+  { token: "rating:>80", descKey: "commandPalette.filterRating", example: "rating:>85 is:installed" },
+  { token: "playtime:>10h", descKey: "commandPalette.filterPlaytime", example: "playtime:>20h" },
+  { token: "size:>50gb", descKey: "commandPalette.filterSize", example: "size:>50gb is:installed" },
+  { token: "sort:playtime", descKey: "commandPalette.filterSort", example: "is:installed sort:playtime" },
+];
+
+const HOTKEYS = [
+  { keys: ["↑", "↓"], descKey: "commandPalette.hintNavigate" },
+  { keys: ["↵"], descKey: "commandPalette.hintSelect" },
+  { keys: ["Ctrl", "↵"], descKey: "commandPalette.hintDetails" },
+  { keys: ["Ctrl", "K"], descKey: "commandPalette.actionsMenu" },
+  { keys: ["Ctrl", "P"], descKey: "commandPalette.toggleInspector" },
+  { keys: ["Ctrl", "O"], descKey: "commandPalette.openFolder" },
+  { keys: ["Ctrl", "C"], descKey: "commandPalette.copy" },
+  { keys: ["Tab"], descKey: "commandPalette.hintScope" },
+  { keys: ["Shift", "Del"], descKey: "commandPalette.removeRecent" },
+  { keys: ["Esc"], descKey: "commandPalette.hintClose" },
+];
+
 export default function CommandPaletteCheatSheet({
   isOpen,
   onClose,
@@ -30,58 +71,36 @@ export default function CommandPaletteCheatSheet({
 }: CommandPaletteCheatSheetProps) {
   const [filterText, setFilterText] = useState("");
 
-  const prefixes = [
-    { prefix: "@", nameKey: "commandPalette.scopeGames", descKey: "commandPalette.cheatSheetPrefixGames", icon: Gamepad2, example: "@witcher" },
-    { prefix: ">", nameKey: "commandPalette.scopeActions", descKey: "commandPalette.cheatSheetPrefixActions", icon: Sparkles, example: ">big screen" },
-    { prefix: "/", nameKey: "commandPalette.scopeNavigation", descKey: "commandPalette.cheatSheetPrefixNav", icon: Compass, example: "/settings" },
-    { prefix: "#", nameKey: "commandPalette.scopeThemes", descKey: "commandPalette.cheatSheetPrefixThemes", icon: Palette, example: "#cyberpunk" },
-    { prefix: "$", nameKey: "commandPalette.scopeDownloads", descKey: "commandPalette.cheatSheetPrefixDownloads", icon: Download, example: "$cyberpunk" },
-    { prefix: "?", nameKey: "commandPalette.scopeStore", descKey: "commandPalette.cheatSheetPrefixStore", icon: Store, example: "?final fantasy" },
-    { prefix: "!", nameKey: "commandPalette.scopeWishlist", descKey: "commandPalette.cheatSheetPrefixWishlist", icon: Heart, example: "!hades" },
-    { prefix: "~", nameKey: "commandPalette.scopeUtility", descKey: "commandPalette.cheatSheetPrefixUtility", icon: Calculator, example: "~80 gb at 100 mbps" },
-  ];
-
-  const powerFilters = [
-    { token: "is:installed", descKey: "commandPalette.filterInstalled", example: "is:installed cyberpunk" },
-    { token: "is:cloud", descKey: "commandPalette.filterCloud", example: "is:cloud rpg" },
-    { token: "is:fav", descKey: "commandPalette.filterFavorite", example: "is:fav" },
-    { token: "is:unplayed", descKey: "commandPalette.filterUnplayed", example: "is:unplayed is:installed" },
-    { token: "is:running", descKey: "commandPalette.filterRunning", example: "is:running" },
-    { token: "genre:rpg", descKey: "commandPalette.filterGenre", example: "genre:rpg year:>2020" },
-    { token: "tag:action", descKey: "commandPalette.filterTag", example: "tag:co-op" },
-    { token: "dev:valve", descKey: "commandPalette.filterDev", example: "dev:valve" },
-    { token: "source:steam", descKey: "commandPalette.filterSource", example: "source:steam is:installed" },
-    { token: "year:>2020", descKey: "commandPalette.filterYear", example: "year:>2022 rating:>80" },
-    { token: "rating:>80", descKey: "commandPalette.filterRating", example: "rating:>85 is:installed" },
-    { token: "playtime:>10h", descKey: "commandPalette.filterPlaytime", example: "playtime:>20h" },
-    { token: "size:>50gb", descKey: "commandPalette.filterSize", example: "size:>50gb is:installed" },
-    { token: "sort:playtime", descKey: "commandPalette.filterSort", example: "is:installed sort:playtime" },
-  ];
-
-  const hotkeys = [
-    { keys: ["↑", "↓"], descKey: "commandPalette.hintNavigate" },
-    { keys: ["↵"], descKey: "commandPalette.hintSelect" },
-    { keys: ["Ctrl", "↵"], descKey: "commandPalette.hintDetails" },
-    { keys: ["Ctrl", "K"], descKey: "commandPalette.actionsMenu" },
-    { keys: ["Ctrl", "P"], descKey: "commandPalette.toggleInspector" },
-    { keys: ["Ctrl", "O"], descKey: "commandPalette.openFolder" },
-    { keys: ["Ctrl", "C"], descKey: "commandPalette.copy" },
-    { keys: ["Tab"], descKey: "commandPalette.hintScope" },
-    { keys: ["Shift", "Del"], descKey: "commandPalette.removeRecent" },
-    { keys: ["Esc"], descKey: "commandPalette.hintClose" },
-  ];
+  // Reset the filter when reopened, and allow Escape to dismiss.
+  useEffect(() => {
+    if (!isOpen) return;
+    setFilterText("");
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+  }, [isOpen, onClose]);
 
   const filteredPrefixes = useMemo(() => {
-    if (!filterText) return prefixes;
+    if (!filterText) return PREFIXES;
     const q = filterText.toLowerCase();
-    return prefixes.filter((p) => p.prefix.includes(q) || p.example.includes(q) || t(p.nameKey).toLowerCase().includes(q));
-  }, [filterText, prefixes, t]);
+    return PREFIXES.filter(
+      (p) => p.prefix.includes(q) || p.example.includes(q) || t(p.nameKey).toLowerCase().includes(q)
+    );
+  }, [filterText, t]);
 
   const filteredPowerFilters = useMemo(() => {
-    if (!filterText) return powerFilters;
+    if (!filterText) return POWER_FILTERS;
     const q = filterText.toLowerCase();
-    return powerFilters.filter((pf) => pf.token.includes(q) || pf.example.includes(q) || t(pf.descKey).toLowerCase().includes(q));
-  }, [filterText, powerFilters, t]);
+    return POWER_FILTERS.filter(
+      (pf) => pf.token.includes(q) || pf.example.includes(q) || t(pf.descKey).toLowerCase().includes(q)
+    );
+  }, [filterText, t]);
 
   if (!isOpen) return null;
 
@@ -113,6 +132,16 @@ export default function CommandPaletteCheatSheet({
             onChange={(e) => setFilterText(e.target.value)}
             autoFocus
           />
+          {filterText && (
+            <button
+              type="button"
+              className="cmd-cheatsheet-clear"
+              onClick={() => setFilterText("")}
+              aria-label={t("commandPalette.clear")}
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
 
         {/* Content Body */}
@@ -189,7 +218,7 @@ export default function CommandPaletteCheatSheet({
               <span>{t("commandPalette.sectionHotkeys")}</span>
             </div>
             <div className="cmd-cheatsheet-hotkeys-grid">
-              {hotkeys.map((h, i) => (
+              {HOTKEYS.map((h, i) => (
                 <div key={i} className="cmd-cheatsheet-hotkey-row">
                   <div className="cmd-cheatsheet-hotkey-keys">
                     {h.keys.map((k, j) => (

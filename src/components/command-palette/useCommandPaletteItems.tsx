@@ -31,6 +31,7 @@ import {
   saveRecentItem,
   getRecentItems,
   scoreMatch,
+  sortRecentItems,
 } from "./commandPaletteUtils";
 import { playActionSound, playLaunchSound } from "../../utils/soundEffects";
 
@@ -44,6 +45,7 @@ export interface UseCommandPaletteItemsParams {
   setRandomGameKey: React.Dispatch<React.SetStateAction<number>>;
   libraryStats: LibraryStatsData;
   runningGame: Game | null;
+  runningGameIds: string[];
   games: Game[];
   systemActions: PaletteItem[];
   navRoutes: PaletteItem[];
@@ -69,6 +71,168 @@ export interface UseCommandPaletteItemsParams {
   setRecentVersion: React.Dispatch<React.SetStateAction<number>>;
 }
 
+interface GameFilterContext {
+  isGameUntracked: (id: string) => boolean;
+  runningGameIds: string[];
+  wishlistNames: Set<string>;
+}
+
+/** Applies every structured power-filter token to a library slice. */
+function applyGameFilters(
+  games: Game[],
+  filters: ParsedQueryFilters,
+  ctx: GameFilterContext
+): Game[] {
+  let list = games;
+
+  if (filters.isInstalled) list = list.filter((g) => g.installed);
+  if (filters.isCloud) list = list.filter((g) => !g.installed);
+  if (filters.isFavorite) list = list.filter((g) => g.favorite);
+  if (filters.excludeFavorite) list = list.filter((g) => !g.favorite);
+  if (filters.isUnplayed) {
+    list = list.filter((g) => (!g.playTime || g.playTime === "0h") && !g.lastPlayed);
+  }
+  if (filters.isRunning) list = list.filter((g) => ctx.runningGameIds.includes(g.id));
+  if (filters.isUntracked) list = list.filter((g) => ctx.isGameUntracked(g.id));
+  if (filters.isWishlisted) {
+    list = list.filter((g) => ctx.wishlistNames.has(g.name.toLowerCase()));
+  }
+
+  if (filters.source) {
+    const src = filters.source.toLowerCase();
+    list = list.filter((g) => {
+      if (src === "steam") return !!g.steamAppId || g.platform?.toLowerCase().includes("steam");
+      if (src === "gog") return !!g.gogGameId || g.platform?.toLowerCase().includes("gog");
+      if (src === "epic") return !!g.epicNamespace || g.platform?.toLowerCase().includes("epic");
+      if (src === "rockstar") return !!g.rockstarTitleId || g.platform?.toLowerCase().includes("rockstar");
+      if (src === "ubisoft" || src === "uplay") {
+        return !!g.uplayGameId || g.platform?.toLowerCase().includes("ubisoft");
+      }
+      if (src === "emulated" || src === "emulator") {
+        return !!g.emulatorId || g.platform?.toLowerCase().includes("emulator");
+      }
+      return g.platform?.toLowerCase().includes(src) || g.metadataSource?.toLowerCase().includes(src);
+    });
+  }
+
+  if (filters.genre) {
+    const gen = filters.genre.toLowerCase();
+    list = list.filter((g) => g.genres?.some((gn) => gn.toLowerCase().includes(gen)));
+  }
+  if (filters.tag) {
+    const tg = filters.tag.toLowerCase();
+    list = list.filter(
+      (g) =>
+        g.genres?.some((gn) => gn.toLowerCase().includes(tg)) ||
+        g.themes?.some((th) => th.toLowerCase().includes(tg))
+    );
+  }
+  if (filters.developer) {
+    const dev = filters.developer.toLowerCase();
+    list = list.filter((g) => g.developer?.toLowerCase().includes(dev));
+  }
+  if (filters.publisher) {
+    const pub = filters.publisher.toLowerCase();
+    list = list.filter((g) => g.publisher?.toLowerCase().includes(pub));
+  }
+  if (filters.year && filters.yearOp) {
+    list = list.filter((g) => {
+      if (!g.releaseDate) return false;
+      const matchYear = parseInt(g.releaseDate.match(/\b\d{4}\b/)?.[0] || "0", 10);
+      if (!matchYear) return false;
+      if (filters.yearOp === ">") return matchYear > (filters.year || 0);
+      if (filters.yearOp === "<") return matchYear < (filters.year || 0);
+      return matchYear === filters.year;
+    });
+  }
+  if (filters.rating && filters.ratingOp) {
+    list = list.filter((g) => {
+      const r = g.rating || 0;
+      if (filters.ratingOp === ">") return r > (filters.rating || 0);
+      if (filters.ratingOp === "<") return r < (filters.rating || 0);
+      return r === filters.rating;
+    });
+  }
+  if (filters.playtimeHours !== undefined && filters.playtimeOp) {
+    list = list.filter((g) => {
+      const hours = parseFloat((g.playTime || "").match(/\d+(?:\.\d+)?/)?.[0] || "0");
+      if (filters.playtimeOp === ">") return hours > (filters.playtimeHours || 0);
+      if (filters.playtimeOp === "<") return hours < (filters.playtimeHours || 0);
+      return hours === filters.playtimeHours;
+    });
+  }
+  if (filters.sizeBytes !== undefined && filters.sizeOp) {
+    list = list.filter((g) => {
+      const sz = g.sizeBytes || 0;
+      if (filters.sizeOp === ">") return sz > (filters.sizeBytes || 0);
+      if (filters.sizeOp === "<") return sz < (filters.sizeBytes || 0);
+      return sz === filters.sizeBytes;
+    });
+  }
+
+  return list;
+}
+
+/** Ranks games by recency (blank query) or fuzzy relevance, then applies sort token. */
+function rankGames(
+  list: Game[],
+  query: string,
+  isBlank: boolean,
+  sort?: ParsedQueryFilters["sort"]
+): Game[] {
+  const sorted = [...list];
+  if (sort === "recent") sorted.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+  else if (sort === "playtime") {
+    sorted.sort((a, b) => {
+      const ha = parseFloat((a.playTime || "").match(/\d+(?:\.\d+)?/)?.[0] || "0");
+      const hb = parseFloat((b.playTime || "").match(/\d+(?:\.\d+)?/)?.[0] || "0");
+      return hb - ha;
+    });
+  } else if (sort === "rating") sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  else if (sort === "size") sorted.sort((a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0));
+  else if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
+
+  if (isBlank) {
+    if (!sort) sorted.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+    return sorted;
+  }
+
+  const scored = sorted
+    .map((g) => ({
+      game: g,
+      score: scoreMatch(query, g.name, [
+        g.developer,
+        g.publisher,
+        g.platform,
+        ...(g.genres || []),
+        ...(g.themes || []),
+      ]),
+    }))
+    .filter((item) => item.score > 0);
+
+  if (!sort) scored.sort((a, b) => b.score - a.score);
+  return scored.map((item) => item.game);
+}
+
+/** Counts how many entries of a list match the query (or all of them when blank). */
+function countMatches<T>(
+  list: T[],
+  query: string,
+  isBlank: boolean,
+  getTitle: (item: T) => string,
+  getExtras?: (item: T) => (string | undefined)[]
+): number {
+  if (isBlank) return list.length;
+  let total = 0;
+  for (const item of list) {
+    if (scoreMatch(query, getTitle(item), getExtras ? getExtras(item) : []) > 0) total++;
+  }
+  return total;
+}
+
+const RANDOM_KEYWORDS = ["random", "roll", "surprise", "picker"];
+const STATS_KEYWORDS = ["stats", "summary", "kpi", "analytics"];
+
 export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
   const {
     rawQuery,
@@ -80,6 +244,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     setRandomGameKey,
     libraryStats,
     runningGame,
+    runningGameIds,
     games,
     systemActions,
     navRoutes,
@@ -105,10 +270,16 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     setRecentVersion,
   } = params;
 
+  const q = cleanQuery;
+  const lowerRaw = rawQuery.toLowerCase().trim();
+  const isBlank = q === "" && Object.keys(parsedFilters).length <= 1;
+
+  const wishlistNames = useMemo(
+    () => new Set(wishlistItems.map((w) => w.name.toLowerCase())),
+    [wishlistItems]
+  );
+
   const items = useMemo<PaletteItem[]>(() => {
-    const q = cleanQuery;
-    const lowerRaw = rawQuery.toLowerCase().trim();
-    const isBlank = q === "" && Object.keys(parsedFilters).length <= 1;
     const result: PaletteItem[] = [];
 
     // 0. Instant Calculator / Unit Converter / Estimator
@@ -135,11 +306,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     // 0b. Random Game Picker ("Surprise Me")
     if (
       randomGame &&
-      (lowerRaw.includes("random") ||
-        lowerRaw.includes("roll") ||
-        lowerRaw.includes("surprise") ||
-        lowerRaw.includes("picker") ||
-        scope === "utility")
+      (RANDOM_KEYWORDS.some((k) => lowerRaw.includes(k)) || scope === "utility")
     ) {
       result.push({
         id: `random-game-${randomGame.id}`,
@@ -180,11 +347,8 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
 
     // 0c. Library Analytics & Statistics Snapshot
     if (
-      lowerRaw.includes("stats") ||
-      lowerRaw.includes("summary") ||
-      lowerRaw.includes("kpi") ||
-      lowerRaw === "storage" ||
-      lowerRaw === "analytics"
+      STATS_KEYWORDS.some((k) => lowerRaw.includes(k)) ||
+      lowerRaw === "storage"
     ) {
       result.push({
         id: "util-library-stats",
@@ -264,11 +428,14 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       });
     }
 
-    // 2. Recent Items (When Query is Blank)
-    if (isBlank && (scope === "all" || scope === "recent")) {
-      const recents = getRecentItems();
+    // 2. Recent Items (blank query, or the dedicated Recent scope)
+    if (scope === "recent" || (isBlank && scope === "all")) {
+      let recents = sortRecentItems(getRecentItems());
+      if (!isBlank) {
+        recents = recents.filter((rec) => scoreMatch(q, rec.title) > 0);
+      }
       if (recents.length > 0) {
-        recents.slice(0, 6).forEach((rec: PaletteRecentItem) => {
+        recents.slice(0, scope === "recent" ? 12 : 6).forEach((rec: PaletteRecentItem) => {
           const matchedGame = games.find((g) => g.id === rec.id || String(g.steamAppId) === rec.id);
 
           result.push({
@@ -276,12 +443,13 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
             category: "recent",
             title: rec.title,
             subtitle: t("commandPalette.recentSearch"),
-            badge: rec.category.toUpperCase(),
+            badge: (rec.frequency || 1) > 1 ? `${rec.frequency}×` : rec.category.toUpperCase(),
             badgeType: "neutral",
             icon: <History size={14} />,
             thumb: matchedGame?.coverArtUrl,
             actionText: t("commandPalette.open"),
             isRecent: true,
+            frequency: rec.frequency,
             gameData: matchedGame,
             quickActions: [
               {
@@ -321,139 +489,18 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
 
     // 3. Library Games
     if (scope === "all" || scope === "games") {
-      let filteredGames = games.filter((g) => g.id !== runningGame?.id);
+      const filteredGames = applyGameFilters(
+        games.filter((g) => g.id !== runningGame?.id),
+        parsedFilters,
+        { isGameUntracked, runningGameIds, wishlistNames }
+      );
 
-      if (parsedFilters.isInstalled) {
-        filteredGames = filteredGames.filter((g) => g.installed);
-      }
-      if (parsedFilters.isCloud) {
-        filteredGames = filteredGames.filter((g) => !g.installed);
-      }
-      if (parsedFilters.isFavorite) {
-        filteredGames = filteredGames.filter((g) => g.favorite);
-      }
-      if (parsedFilters.isUnplayed) {
-        filteredGames = filteredGames.filter(
-          (g) => (!g.playTime || g.playTime === "0h") && !g.lastPlayed
-        );
-      }
-      if (parsedFilters.isUntracked) {
-        filteredGames = filteredGames.filter((g) => isGameUntracked(g.id));
-      }
-      if (parsedFilters.source) {
-        const src = parsedFilters.source.toLowerCase();
-        filteredGames = filteredGames.filter((g) => {
-          if (src === "steam") return !!g.steamAppId || g.platform?.toLowerCase().includes("steam");
-          if (src === "gog") return !!g.gogGameId || g.platform?.toLowerCase().includes("gog");
-          if (src === "epic") return !!g.epicNamespace || g.platform?.toLowerCase().includes("epic");
-          if (src === "rockstar") return !!g.rockstarTitleId || g.platform?.toLowerCase().includes("rockstar");
-          if (src === "ubisoft" || src === "uplay")
-            return !!g.uplayGameId || g.platform?.toLowerCase().includes("ubisoft");
-          if (src === "emulated" || src === "emulator")
-            return !!g.emulatorId || g.platform?.toLowerCase().includes("emulator");
-          return g.platform?.toLowerCase().includes(src) || g.metadataSource?.toLowerCase().includes(src);
-        });
-      }
-      if (parsedFilters.genre) {
-        const gen = parsedFilters.genre.toLowerCase();
-        filteredGames = filteredGames.filter((g) =>
-          g.genres?.some((gn) => gn.toLowerCase().includes(gen))
-        );
-      }
-      if (parsedFilters.tag) {
-        const tg = parsedFilters.tag.toLowerCase();
-        filteredGames = filteredGames.filter(
-          (g) =>
-            g.genres?.some((gn) => gn.toLowerCase().includes(tg)) ||
-            g.themes?.some((th) => th.toLowerCase().includes(tg))
-        );
-      }
-      if (parsedFilters.developer) {
-        const dev = parsedFilters.developer.toLowerCase();
-        filteredGames = filteredGames.filter((g) => g.developer?.toLowerCase().includes(dev));
-      }
-      if (parsedFilters.publisher) {
-        const pub = parsedFilters.publisher.toLowerCase();
-        filteredGames = filteredGames.filter((g) => g.publisher?.toLowerCase().includes(pub));
-      }
-      if (parsedFilters.year && parsedFilters.yearOp) {
-        filteredGames = filteredGames.filter((g) => {
-          if (!g.releaseDate) return false;
-          const matchYear = parseInt(g.releaseDate.match(/\b\d{4}\b/)?.[0] || "0", 10);
-          if (!matchYear) return false;
-          if (parsedFilters.yearOp === ">") return matchYear > (parsedFilters.year || 0);
-          if (parsedFilters.yearOp === "<") return matchYear < (parsedFilters.year || 0);
-          return matchYear === parsedFilters.year;
-        });
-      }
-      if (parsedFilters.rating && parsedFilters.ratingOp) {
-        filteredGames = filteredGames.filter((g) => {
-          const r = g.rating || 0;
-          if (parsedFilters.ratingOp === ">") return r > (parsedFilters.rating || 0);
-          if (parsedFilters.ratingOp === "<") return r < (parsedFilters.rating || 0);
-          return r === parsedFilters.rating;
-        });
-      }
-      if (parsedFilters.playtimeHours !== undefined && parsedFilters.playtimeOp) {
-        filteredGames = filteredGames.filter((g) => {
-          const hours = parseInt((g.playTime || "").match(/\d+/)?.[0] || "0", 10);
-          if (parsedFilters.playtimeOp === ">") return hours > (parsedFilters.playtimeHours || 0);
-          if (parsedFilters.playtimeOp === "<") return hours < (parsedFilters.playtimeHours || 0);
-          return hours === parsedFilters.playtimeHours;
-        });
-      }
-      if (parsedFilters.sizeBytes !== undefined && parsedFilters.sizeOp) {
-        filteredGames = filteredGames.filter((g) => {
-          const sz = g.sizeBytes || 0;
-          if (parsedFilters.sizeOp === ">") return sz > (parsedFilters.sizeBytes || 0);
-          if (parsedFilters.sizeOp === "<") return sz < (parsedFilters.sizeBytes || 0);
-          return sz === parsedFilters.sizeBytes;
-        });
-      }
+      const matchedGames = rankGames(filteredGames, q, isBlank, parsedFilters.sort).slice(
+        0,
+        isBlank ? (scope === "games" ? 40 : 8) : scope === "games" ? 50 : 15
+      );
 
-      if (parsedFilters.sort) {
-        if (parsedFilters.sort === "recent") {
-          filteredGames.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
-        } else if (parsedFilters.sort === "playtime") {
-          filteredGames.sort((a, b) => {
-            const ha = parseInt((a.playTime || "").match(/\d+/)?.[0] || "0", 10);
-            const hb = parseInt((b.playTime || "").match(/\d+/)?.[0] || "0", 10);
-            return hb - ha;
-          });
-        } else if (parsedFilters.sort === "rating") {
-          filteredGames.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        } else if (parsedFilters.sort === "size") {
-          filteredGames.sort((a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0));
-        } else if (parsedFilters.sort === "name") {
-          filteredGames.sort((a, b) => a.name.localeCompare(b.name));
-        }
-      }
-
-      let matchedGames: { game: Game; score: number }[] = [];
-
-      if (isBlank) {
-        matchedGames = [...filteredGames]
-          .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0))
-          .slice(0, scope === "games" ? 40 : 8)
-          .map((g) => ({ game: g, score: 100 }));
-      } else {
-        matchedGames = filteredGames
-          .map((g) => {
-            const score = scoreMatch(q, g.name, [
-              g.developer,
-              g.publisher,
-              g.platform,
-              ...(g.genres || []),
-              ...(g.themes || []),
-            ]);
-            return { game: g, score };
-          })
-          .filter((item) => item.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, scope === "games" ? 50 : 15);
-      }
-
-      matchedGames.forEach(({ game }) => {
+      matchedGames.forEach((game) => {
         const ach =
           achievementsCache?.[game.id] ||
           (game.steamAppId ? achievementsCache?.[String(game.steamAppId)] : undefined);
@@ -812,19 +859,23 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     return result;
   }, [
     cleanQuery,
-    rawQuery,
+    q,
+    lowerRaw,
+    isBlank,
     scope,
     parsedFilters,
     calcResult,
     randomGame,
     libraryStats,
     runningGame,
+    runningGameIds,
     games,
     systemActions,
     navRoutes,
     downloads,
     igdbResults,
     wishlistItems,
+    wishlistNames,
     isWishlisted,
     toggleWishlist,
     achievementsCache,
@@ -845,30 +896,80 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     pauseDownload,
   ]);
 
-  // Dynamic scope counters calculation
-  const scopeCounts = useMemo(() => {
+  // Scope counters are computed independently of the active scope so the scope
+  // dropdown can advertise how many results each category would yield.
+  const scopeCounts = useMemo<Record<PaletteCategory, number>>(() => {
+    const actionItems = systemActions.filter((a) => a.category === "actions");
+    const themeItems = systemActions.filter((a) => a.category === "themes");
+    const allRecents = getRecentItems();
+
+    const filteredGames = applyGameFilters(
+      games.filter((g) => g.id !== runningGame?.id),
+      parsedFilters,
+      { isGameUntracked, runningGameIds, wishlistNames }
+    );
+    const gameMatches = rankGames(filteredGames, q, isBlank, parsedFilters.sort).length;
+
     const counts: Record<PaletteCategory, number> = {
       all: 0,
-      recent: 0,
-      games: 0,
-      wishlist: 0,
-      actions: 0,
-      navigation: 0,
-      themes: 0,
-      downloads: 0,
-      store: 0,
-      utility: 0,
+      recent: isBlank
+        ? allRecents.length
+        : allRecents.filter((r) => scoreMatch(q, r.title) > 0).length,
+      games: (runningGame ? 1 : 0) + gameMatches,
+      wishlist: countMatches(wishlistItems, q, isBlank, (w) => w.name, (w) => [
+        w.genres?.join(" "),
+        w.summary || undefined,
+      ]),
+      actions: countMatches(actionItems, q, isBlank, (a) => a.title, (a) => [
+        a.subtitle,
+        a.description,
+      ]),
+      navigation: countMatches(navRoutes, q, isBlank, (r) => r.title, (r) => [
+        r.subtitle,
+        r.description,
+      ]),
+      themes: isBlank
+        ? themeItems.length
+        : countMatches(themeItems, q, false, (th) => th.title, (th) => [th.subtitle, th.badge]),
+      downloads: countMatches(downloads, q, isBlank, (d) => d.name, (d) => [d.status.kind]),
+      store: igdbResults.length,
+      utility:
+        (calcResult ? 1 : 0) +
+        (randomGame && RANDOM_KEYWORDS.some((k) => lowerRaw.includes(k)) ? 1 : 0) +
+        (STATS_KEYWORDS.some((k) => lowerRaw.includes(k)) || lowerRaw === "storage" ? 1 : 0),
     };
 
-    items.forEach((item) => {
-      counts.all++;
-      if (item.category in counts) {
-        counts[item.category]++;
-      }
-    });
+    counts.all =
+      counts.utility +
+      counts.games +
+      counts.recent +
+      counts.wishlist +
+      counts.actions +
+      counts.navigation +
+      counts.themes +
+      counts.downloads +
+      counts.store;
 
     return counts;
-  }, [items]);
+  }, [
+    q,
+    lowerRaw,
+    isBlank,
+    parsedFilters,
+    calcResult,
+    randomGame,
+    runningGame,
+    runningGameIds,
+    games,
+    systemActions,
+    navRoutes,
+    downloads,
+    igdbResults,
+    wishlistItems,
+    wishlistNames,
+    isGameUntracked,
+    recentVersion,
+  ]);
 
   return { items, scopeCounts };
 }

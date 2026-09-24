@@ -121,6 +121,7 @@ export interface ParsedQueryFilters {
   isRunning?: boolean;
   isWishlisted?: boolean;
   isFavorite?: boolean;
+  excludeFavorite?: boolean;
   isUnplayed?: boolean;
   isUntracked?: boolean;
   isHidden?: boolean;

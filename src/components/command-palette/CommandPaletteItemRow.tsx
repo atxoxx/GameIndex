@@ -6,6 +6,7 @@ interface CommandPaletteItemRowProps {
   item: PaletteItem;
   isSelected: boolean;
   cleanQuery: string;
+  optionId?: string;
   onSelect: () => void;
   onMouseEnter: () => void;
 }
@@ -54,11 +55,13 @@ export default function CommandPaletteItemRow({
   item,
   isSelected,
   cleanQuery,
+  optionId,
   onSelect,
   onMouseEnter,
 }: CommandPaletteItemRowProps) {
   return (
     <div
+      id={optionId}
       role="option"
       aria-selected={isSelected}
       className={`command-palette-item cmd-item${isSelected ? " is-selected" : ""}`}

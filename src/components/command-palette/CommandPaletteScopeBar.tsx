@@ -11,6 +11,7 @@ import {
   Calculator,
   ChevronDown,
   Check,
+  History,
 } from "lucide-react";
 import type { PaletteCategory } from "./commandPaletteTypes";
 
@@ -21,6 +22,7 @@ export const SCOPE_DEFINITIONS: {
   icon: typeof Search;
 }[] = [
   { id: "all", labelKey: "commandPalette.scopeAll", icon: Search },
+  { id: "recent", labelKey: "commandPalette.scopeRecent", icon: History },
   { id: "games", labelKey: "commandPalette.scopeGames", prefix: "@", icon: Gamepad2 },
   { id: "wishlist", labelKey: "commandPalette.scopeWishlist", prefix: "!", icon: Heart },
   { id: "actions", labelKey: "commandPalette.scopeActions", prefix: ">", icon: Sparkles },

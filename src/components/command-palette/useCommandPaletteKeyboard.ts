@@ -84,6 +84,7 @@ export function useCommandPaletteKeyboard(params: UseCommandPaletteKeyboardParam
       e.preventDefault();
       const scopes: PaletteCategory[] = [
         "all",
+        "recent",
         "games",
         "wishlist",
         "actions",

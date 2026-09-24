@@ -656,21 +656,21 @@
 }
 
 .command-palette-badge.badge--success {
-  background: color-mix(in srgb, #10b981 16%, var(--color-bg-tertiary));
-  color: #10b981;
-  border-color: color-mix(in srgb, #10b981 40%, transparent);
+  background: color-mix(in srgb, var(--color-success) 16%, var(--color-bg-tertiary));
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
 .command-palette-badge.badge--warning {
-  background: color-mix(in srgb, #f59e0b 16%, var(--color-bg-tertiary));
-  color: #f59e0b;
-  border-color: color-mix(in srgb, #f59e0b 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-bg-tertiary));
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .command-palette-badge.badge--info {
-  background: color-mix(in srgb, #3b82f6 16%, var(--color-bg-tertiary));
-  color: #3b82f6;
-  border-color: color-mix(in srgb, #3b82f6 40%, transparent);
+  background: color-mix(in srgb, var(--color-info) 16%, var(--color-bg-tertiary));
+  color: var(--color-info);
+  border-color: color-mix(in srgb, var(--color-info) 40%, transparent);
 }
 
 .cmd-pulse-dot {
@@ -1014,9 +1014,9 @@
 }
 
 .cmd-badge--running {
-  background: color-mix(in srgb, #10b981 35%, black);
-  color: #10b981;
-  border-color: #10b981;
+  background: color-mix(in srgb, var(--color-success) 35%, black);
+  color: var(--color-success);
+  border-color: var(--color-success);
 }
 
 .cmd-badge--installed {
@@ -1390,9 +1390,9 @@
 }
 
 .cmd-badge--rating {
-  background: color-mix(in srgb, #f59e0b 25%, black);
-  color: #f59e0b;
-  border-color: rgba(245, 158, 11, 0.4);
+  background: color-mix(in srgb, var(--color-warning) 25%, black);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 /* Clear Query Button in Search Input */
@@ -1518,7 +1518,7 @@
 
 .cmd-inspector-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, #10b981));
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, var(--color-success)));
   border-radius: var(--radius-full);
   transition: width var(--duration-normal) var(--ease-standard);
   box-shadow: 0 0 8px var(--color-accent-glow);
@@ -1596,9 +1596,9 @@
 }
 
 .cmd-inspector-btn--active {
-  background: color-mix(in srgb, #ef4444 18%, var(--color-bg-tertiary));
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.4);
+  background: color-mix(in srgb, var(--color-danger) 18%, var(--color-bg-tertiary));
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 .cmd-inspector-more-actions-btn {
@@ -2128,5 +2128,285 @@
 .cmd-cheatsheet-tip {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
+}
+
+/* ============================================================================
+   Deep visual pass — glass accents, sticky sections, motion & affordances
+   ============================================================================ */
+
+/* Crisp accent hairline along the top edge of the panel */
+.command-palette-panel::before,
+.cmd-drawer-panel::before,
+.cmd-cheatsheet-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent) 85%, transparent) 45%,
+    color-mix(in srgb, var(--color-accent) 85%, transparent) 55%,
+    transparent
+  );
+  opacity: 0.85;
+  z-index: 3;
+}
+
+/* Sticky section headers so the category label never scrolls out of reach */
+.command-palette-group-title {
+  position: sticky;
+  top: calc(var(--space-xs) * -1);
+  z-index: 2;
+  margin: calc(var(--space-xs) * -1);
+  margin-bottom: 0;
+  padding: var(--space-sm) var(--space-sm) var(--space-2xs);
+  background: color-mix(in srgb, var(--color-bg-secondary) 94%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Selected row gets a slim accent rail on the leading edge */
+.command-palette-item {
+  position: relative;
+}
+
+.command-palette-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+  transform: translateY(-50%);
+  transition: height var(--duration-fast) var(--ease-standard);
+}
+
+.command-palette-item.is-selected::before {
+  height: 58%;
+}
+
+.command-palette-item.is-selected {
+  transform: translateX(1px);
+}
+
+.command-palette-item-thumb {
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.command-palette-item.is-selected .command-palette-item-thumb,
+.command-palette-item:hover .command-palette-item-thumb {
+  transform: scale(1.06);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
+/* Theme swatch pops slightly when selected */
+.command-palette-item.is-selected .cmd-theme-swatch-badge {
+  transform: scale(1.08);
+  border-color: var(--color-accent);
+}
+
+.cmd-theme-swatch-badge {
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+/* Scope dropdown items slide on hover */
+.cmd-scope-dropdown-item {
+  transition:
+    background var(--duration-instant) var(--ease-standard),
+    color var(--duration-instant) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
+}
+
+.cmd-scope-dropdown-item:hover,
+.cmd-scope-dropdown-item.is-highlighted {
+  transform: translateX(2px);
+}
+
+/* Satisfying press feedback on small interactive chips */
+.cmd-prompt-chip:active,
+.cmd-filter-toggle-pill:active,
+.command-palette-quick-btn:active,
+.cmd-inspector-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* Keyboard focus affordance for every control inside the palette */
+.command-palette-panel button:focus-visible,
+.cmd-drawer-panel button:focus-visible,
+.cmd-cheatsheet-panel button:focus-visible,
+.command-palette-panel [role="option"]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Sleek, theme-aware scrollbars for the scrollable surfaces */
+.command-palette-list,
+.cmd-inspector-column,
+.cmd-drawer-list,
+.cmd-cheatsheet-body,
+.cmd-scope-dropdown-menu {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-accent) 45%, transparent) transparent;
+}
+
+.command-palette-list::-webkit-scrollbar,
+.cmd-inspector-column::-webkit-scrollbar,
+.cmd-drawer-list::-webkit-scrollbar,
+.cmd-cheatsheet-body::-webkit-scrollbar,
+.cmd-scope-dropdown-menu::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.command-palette-list::-webkit-scrollbar-track,
+.cmd-inspector-column::-webkit-scrollbar-track,
+.cmd-drawer-list::-webkit-scrollbar-track,
+.cmd-cheatsheet-body::-webkit-scrollbar-track,
+.cmd-scope-dropdown-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.command-palette-list::-webkit-scrollbar-thumb,
+.cmd-inspector-column::-webkit-scrollbar-thumb,
+.cmd-drawer-list::-webkit-scrollbar-thumb,
+.cmd-cheatsheet-body::-webkit-scrollbar-thumb,
+.cmd-scope-dropdown-menu::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.command-palette-list::-webkit-scrollbar-thumb:hover,
+.cmd-inspector-column::-webkit-scrollbar-thumb:hover,
+.cmd-drawer-list::-webkit-scrollbar-thumb:hover,
+.cmd-cheatsheet-body::-webkit-scrollbar-thumb:hover,
+.cmd-scope-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-accent) 60%, transparent);
+  background-clip: padding-box;
+}
+
+/* Empty state: actionable suggestion chips */
+.cmd-empty-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  gap: 6px;
+  margin-top: var(--space-sm);
+}
+
+.cmd-empty-suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.cmd-empty-suggestion:hover {
+  border-color: var(--color-accent-border);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-tertiary));
+  color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.cmd-empty-suggestion:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* Clear-all-filters affordance in the active filter bar */
+.cmd-filter-clear-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  border: 1px dashed color-mix(in srgb, var(--color-border) 80%, transparent);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.cmd-filter-clear-all:hover {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+/* Clear button inside the cheat-sheet search field */
+.cmd-cheatsheet-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.cmd-cheatsheet-clear:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent-border);
+}
+
+/* Inspector hero: gentler scrim and a touch of depth on the image */
+.cmd-inspector-hero-img {
+  object-position: center 30%;
+  transition: transform var(--duration-normal) var(--ease-standard);
+}
+
+.cmd-inspector-hero:hover .cmd-inspector-hero-img {
+  transform: scale(1.03);
+}
+
+/* Calculator hero gets a softer ambient glow */
+.cmd-inspector-calc-result {
+  text-shadow: 0 0 18px var(--color-accent-glow);
+}
+
+/* Respect reduced-motion for the new transforms/animations */
+@media (prefers-reduced-motion: reduce) {
+  .command-palette-item,
+  .command-palette-item::before,
+  .command-palette-item-thumb,
+  .cmd-theme-swatch-badge,
+  .cmd-scope-dropdown-item,
+  .cmd-inspector-hero-img,
+  .cmd-empty-suggestion,
+  .cmd-prompt-chip,
+  .cmd-filter-toggle-pill,
+  .command-palette-quick-btn,
+  .cmd-inspector-btn {
+    transition: none !important;
+    transform: none !important;
+  }
 }
 

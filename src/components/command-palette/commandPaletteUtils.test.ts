@@ -13,8 +13,11 @@ import {
   formatDurationSeconds,
   formatRelativeTime,
   formatSummaryParagraphs,
+  frecencyScore,
+  sortRecentItems,
 } from "./commandPaletteUtils";
 import type { Game } from "../../types/game";
+import type { PaletteRecentItem } from "./commandPaletteTypes";
 
 describe("commandPaletteUtils", () => {
   describe("parseQueryFilters", () => {
@@ -84,6 +87,45 @@ describe("commandPaletteUtils", () => {
       expect(p3.year).toBe(2023);
       expect(p3.yearOp).toBe("=");
       expect(p3.cleanQuery).toBe("baldur");
+    });
+
+    it("parses exclusion filters for favorites", () => {
+      expect(parseQueryFilters("!fav cyberpunk").excludeFavorite).toBe(true);
+      expect(parseQueryFilters("!fav cyberpunk").cleanQuery).toBe("cyberpunk");
+      expect(parseQueryFilters("-fav").excludeFavorite).toBe(true);
+      expect(parseQueryFilters("fav:false").excludeFavorite).toBe(true);
+      expect(parseQueryFilters("is:fav").excludeFavorite).toBeUndefined();
+    });
+  });
+
+  describe("frecency ranking", () => {
+    const now = Date.now();
+    const item = (
+      id: string,
+      timestamp: number,
+      frequency: number
+    ): PaletteRecentItem => ({ id, title: id, category: "games", timestamp, frequency });
+
+    it("rewards frequency and decays with age", () => {
+      const frequentOld = item("old", now - 1000 * 3600 * 24 * 7, 10);
+      const rareFresh = item("fresh", now - 1000, 1);
+      expect(frecencyScore(frequentOld, now)).toBeGreaterThan(0);
+      expect(frecencyScore(rareFresh, now)).toBeGreaterThan(0);
+      expect(frecencyScore(item("x", now, 3), now)).toBeGreaterThan(
+        frecencyScore(item("x", now, 1), now)
+      );
+    });
+
+    it("sorts recents by frecency without mutating the input", () => {
+      const list = [
+        item("a", now - 1000, 1),
+        item("b", now - 1000, 5),
+        item("c", now - 1000 * 3600 * 24 * 30, 5),
+      ];
+      const original = [...list];
+      const sorted = sortRecentItems(list, now);
+      expect(sorted[0].id).toBe("b");
+      expect(list).toEqual(original);
     });
   });
 

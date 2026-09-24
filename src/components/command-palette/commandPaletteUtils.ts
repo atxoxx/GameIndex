@@ -163,7 +163,7 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
     ) {
       filters.isFavorite = true;
     } else if (lower === "!fav" || lower === "-fav" || lower === "fav:false") {
-      // Exclude favorites
+      filters.excludeFavorite = true;
     } else if (lower === "is:unplayed" || lower === "unplayed:true" || lower === "is:backlog") {
       filters.isUnplayed = true;
     } else if (lower === "is:untracked" || lower === "untracked:true") {
@@ -908,6 +908,29 @@ export function clearRecentItems() {
   } catch {
     // Ignore
   }
+}
+
+/** Frecency half-life: a command's weight halves roughly every three days. */
+const FRECENCY_HALF_LIFE_HOURS = 72;
+
+/**
+ * Frecency score combining how often a command was used with how recently.
+ * A command used twice today outranks one used once last week, but a
+ * frequently used older command can still surface above a one-off recent hit.
+ */
+export function frecencyScore(item: PaletteRecentItem, now: number = Date.now()): number {
+  const frequency = Math.max(1, item.frequency || 1);
+  const ageHours = Math.max(0, now - item.timestamp) / 3_600_000;
+  const recency = Math.pow(0.5, ageHours / FRECENCY_HALF_LIFE_HOURS);
+  return frequency * recency;
+}
+
+/** Sorts recent items by frecency (highest first) without mutating the input. */
+export function sortRecentItems(
+  items: PaletteRecentItem[],
+  now: number = Date.now()
+): PaletteRecentItem[] {
+  return [...items].sort((a, b) => frecencyScore(b, now) - frecencyScore(a, now));
 }
 
 /**

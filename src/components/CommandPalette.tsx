@@ -115,6 +115,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputId = useId();
+  const listId = useId();
 
   // Active running game (if any)
   const runningGame = useMemo(() => {
@@ -122,7 +123,9 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     return games.find((g) => runningGameIds.includes(g.id)) ?? null;
   }, [games, runningGameIds]);
 
-  // Selected random game for Roll / Surprise Me
+  // Selected random game for Roll / Surprise Me. Deliberately keyed to the
+  // library length and the roll counter only: updating one game (favoriting
+  // it, renaming it) must not re-roll the picker out from under the user.
   const randomGame = useMemo(() => {
     if (games.length === 0) return null;
     const installed = games.filter((g) => g.installed);
@@ -130,7 +133,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     const idx = Math.floor(Math.random() * pool.length);
     return pool[idx] || null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [games, randomGameKey]);
+  }, [games.length, randomGameKey]);
 
   // Reset state when opened
   useEffect(() => {
@@ -149,12 +152,28 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     }
   }, [isOpen]);
 
+  // Escape closes the palette no matter where focus currently sits (the search
+  // field, the scope bar, a quick-action button). Sub-modals handle their own
+  // Escape so they close first.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !actionDrawerOpen && !cheatSheetOpen) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, actionDrawerOpen, cheatSheetOpen, onClose]);
+
   // Parse structured filters & query
   const parsedFilters = useMemo(() => parseQueryFilters(rawQuery), [rawQuery]);
   const cleanQuery = parsedFilters.cleanQuery;
 
-  // Instant calculator / converter / estimator expression
-  const calcResult = useMemo(() => evaluateExpression(rawQuery), [rawQuery]);
+  // Instant calculator / converter / estimator expression. Uses the cleaned
+  // query so scope prefixes (~, =) and filter tokens don't break parsing.
+  const calcResult = useMemo(() => evaluateExpression(cleanQuery), [cleanQuery]);
 
   // Handle query change and prefix triggers
   const handleQueryChange = (val: string) => {
@@ -292,6 +311,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     setRandomGameKey,
     libraryStats,
     runningGame,
+    runningGameIds,
     games,
     systemActions,
     navRoutes,
@@ -339,6 +359,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   if (!isOpen) return null;
 
   const currentSelectedItem = items[selectedIndex] || null;
+  const activeDescendantId = currentSelectedItem ? `${listId}-opt-${selectedIndex}` : undefined;
   let currentCategory = "";
 
   return createPortal(
@@ -384,6 +405,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               onToggleInspector={() => setShowInspector((prev) => !prev)}
               onOpenCheatSheet={() => setCheatSheetOpen(true)}
               t={t}
+              listId={listId}
+              activeDescendantId={activeDescendantId}
             />
 
             {/* Scope Filter Ribbon */}
@@ -414,12 +437,58 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
             />
 
             {/* Results List */}
-            <div ref={listRef} className="command-palette-list" role="listbox">
+            <div ref={listRef} id={listId} className="command-palette-list" role="listbox">
               {items.length === 0 ? (
                 <div className="command-palette-empty">
                   <Search className="command-palette-empty-icon" />
                   <span className="cmd-empty-title">{t("commandPalette.noResults")}</span>
                   <span className="cmd-empty-hint">{t("commandPalette.noResultsHint")}</span>
+                  <div className="cmd-empty-suggestions">
+                    <button
+                      type="button"
+                      className="cmd-empty-suggestion"
+                      onClick={() => {
+                        setScope("games");
+                        setSelectedIndex(0);
+                      }}
+                    >
+                      {t("commandPalette.emptySuggestGames")}
+                    </button>
+                    <button
+                      type="button"
+                      className="cmd-empty-suggestion"
+                      onClick={() => {
+                        setScope("store");
+                        setSelectedIndex(0);
+                      }}
+                    >
+                      {t("commandPalette.emptySuggestStore")}
+                    </button>
+                    <button
+                      type="button"
+                      className="cmd-empty-suggestion"
+                      onClick={() => {
+                        setScope("wishlist");
+                        setSelectedIndex(0);
+                      }}
+                    >
+                      {t("commandPalette.emptySuggestWishlist")}
+                    </button>
+                    {rawQuery.length > 0 && (
+                      <button
+                        type="button"
+                        className="cmd-empty-suggestion"
+                        onClick={() => {
+                          setRawQuery("");
+                          setScope("all");
+                          setSelectedIndex(0);
+                          inputRef.current?.focus();
+                        }}
+                      >
+                        {t("commandPalette.emptySuggestClear")}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 items.map((item, idx) => {
@@ -465,6 +534,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                         item={item}
                         isSelected={isSelected}
                         cleanQuery={cleanQuery}
+                        optionId={`${listId}-opt-${idx}`}
                         onSelect={item.onSelect}
                         onMouseEnter={() => setSelectedIndex(idx)}
                       />
