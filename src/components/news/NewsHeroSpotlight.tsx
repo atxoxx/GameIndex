@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
 import { formatArticleDate, estimateReadingTime } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
@@ -28,7 +28,13 @@ export default function NewsHeroSpotlight({
   const { t } = useLanguage();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [progress, setProgress] = useState(0);
+
+  // The progress bar is driven straight off the DOM (see the rAF effect
+  // below) so moving it never re-renders the spotlight. `progress` used to
+  // be React state updated every 50 ms — ~20 renders/sec of the whole hero.
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const elapsedRef = useRef(0);
+  const prevIndexRef = useRef(0);
 
   // Pick top spotlight articles with valid images and non-empty titles
   const spotlightArticles = useMemo(() => {
@@ -70,36 +76,52 @@ export default function NewsHeroSpotlight({
       .slice(0, 8);
   }, [articles]);
 
-  // Auto-advance timer
+  // Reset accumulated progress whenever the visible article changes.
+  useEffect(() => {
+    if (prevIndexRef.current === activeIndex) return;
+    prevIndexRef.current = activeIndex;
+    elapsedRef.current = 0;
+    if (progressBarRef.current) {
+      progressBarRef.current.style.transform = "scaleX(0)";
+    }
+  }, [activeIndex]);
+
+  // Auto-advance + progress bar. Accumulate elapsed time on rAF and write
+  // the bar width directly to the DOM; pausing simply suspends accumulation
+  // so the advance timer and the bar always stay in lockstep. The reused
+  // `elapsedRef` lets a resumed hero pick up where it paused.
   useEffect(() => {
     if (spotlightArticles.length <= 1 || isPaused) return;
 
-    setProgress(0);
-    const start = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const pct = Math.min(100, (elapsed / ROTATION_INTERVAL_MS) * 100);
-      setProgress(pct);
-
-      if (elapsed >= ROTATION_INTERVAL_MS) {
-        setActiveIndex((prev) => (prev + 1) % spotlightArticles.length);
-        setProgress(0);
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      elapsedRef.current += now - last;
+      last = now;
+      const pct = Math.min(1, elapsedRef.current / ROTATION_INTERVAL_MS);
+      if (progressBarRef.current) {
+        progressBarRef.current.style.transform = `scaleX(${pct})`;
       }
-    }, 50);
+      if (elapsedRef.current >= ROTATION_INTERVAL_MS) {
+        elapsedRef.current = 0;
+        setActiveIndex((prev) => (prev + 1) % spotlightArticles.length);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
 
-    return () => clearInterval(interval);
+    return () => cancelAnimationFrame(raf);
   }, [spotlightArticles.length, activeIndex, isPaused]);
 
   const activeArticle = spotlightArticles[activeIndex] ?? spotlightArticles[0];
 
   const handlePrev = useCallback(() => {
     setActiveIndex((prev) => (prev - 1 + spotlightArticles.length) % spotlightArticles.length);
-    setProgress(0);
   }, [spotlightArticles.length]);
 
   const handleNext = useCallback(() => {
     setActiveIndex((prev) => (prev + 1) % spotlightArticles.length);
-    setProgress(0);
   }, [spotlightArticles.length]);
 
   if (!activeArticle || spotlightArticles.length === 0) {
@@ -136,10 +158,7 @@ export default function NewsHeroSpotlight({
       {/* Progress track */}
       {spotlightArticles.length > 1 && (
         <div className="news-hero-progress-track">
-          <div
-            className="news-hero-progress-bar"
-            style={{ width: `${progress}%` }}
-          />
+          <div ref={progressBarRef} className="news-hero-progress-bar" />
         </div>
       )}
 
@@ -248,7 +267,6 @@ export default function NewsHeroSpotlight({
                 className={`news-hero-thumbnail-item ${idx === activeIndex ? "active" : ""}`}
                 onClick={() => {
                   setActiveIndex(idx);
-                  setProgress(0);
                 }}
               >
                 <div className="news-hero-thumb-img-wrapper">
