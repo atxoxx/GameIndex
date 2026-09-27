@@ -1168,6 +1168,34 @@ static REQUIREMENTS_CACHE: OnceLock<Mutex<HashMap<u32, (Instant, PcRequirementsP
 const REQUIREMENTS_CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
 const ABOUT_CACHE_TTL: Duration = Duration::from_secs(6 * 60 * 60);
+
+/// Upper bound for each TTL-only metadata cache. They are keyed by
+/// game/language and previously kept an entry for every title the user ever
+/// opened until restart — the About payloads in particular carry full Steam
+/// HTML plus trailer lists. Once a cache passes the cap we evict the oldest
+/// entries first so the freshest data stays hot.
+const METADATA_CACHE_MAX_ENTRIES: usize = 64;
+
+/// Evict oldest-first until `map` holds at most `max` entries. `map` values
+/// are `(inserted_at, payload)` tuples, matching every metadata cache here.
+fn prune_metadata_cache<K, V>(map: &mut HashMap<K, (Instant, V)>, max: usize)
+where
+    K: Eq + std::hash::Hash + Clone,
+{
+    while map.len() > max {
+        let oldest = map
+            .iter()
+            .min_by_key(|(_, (inserted_at, _))| *inserted_at)
+            .map(|(key, _)| key.clone());
+        match oldest {
+            Some(key) => {
+                map.remove(&key);
+            }
+            None => break,
+        }
+    }
+}
+
 // ─── System Requirements Parser ────────────────────────────────────────────
 
 /// Convert a Steam `pc_requirements.minimum` / `.recommended`
@@ -1567,6 +1595,7 @@ async fn fetch_steam_requirements_cached(app_id: u32) -> Option<PcRequirementsPa
         if let Some(cache) = REQUIREMENTS_CACHE.get() {
             if let Ok(mut guard) = cache.lock() {
                 guard.insert(app_id, (Instant::now(), payload.clone()));
+                prune_metadata_cache(&mut *guard, METADATA_CACHE_MAX_ENTRIES);
             }
         }
     }
@@ -1667,6 +1696,7 @@ pub async fn fetch_steam_features(
             if let Some(cache) = FEATURES_CACHE.get() {
                 if let Ok(mut guard) = cache.lock() {
                     guard.insert((app_id, lang), (Instant::now(), p.clone()));
+                    prune_metadata_cache(&mut *guard, METADATA_CACHE_MAX_ENTRIES);
                 }
             }
         }
@@ -2075,6 +2105,7 @@ pub async fn fetch_about_bundle(
     if let Some(cache) = ABOUT_BUNDLE_CACHE.get() {
         if let Ok(mut guard) = cache.lock() {
             guard.insert(cache_key, (Instant::now(), bundle.clone()));
+            prune_metadata_cache(&mut *guard, METADATA_CACHE_MAX_ENTRIES);
         }
     }
 
@@ -2221,6 +2252,7 @@ async fn fetch_steam_about_for_lang_cached(app_id: u32, lang: &str) -> Option<Ri
         if let Some(cache) = ABOUT_CACHE.get() {
             if let Ok(mut guard) = cache.lock() {
                 guard.insert((app_id, lang.to_string()), (Instant::now(), payload.clone()));
+                prune_metadata_cache(&mut *guard, METADATA_CACHE_MAX_ENTRIES);
             }
         }
     }

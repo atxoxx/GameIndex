@@ -495,8 +495,29 @@ struct CachedSteamSchema {
 static STEAM_SCHEMA_CACHE: OnceLock<Mutex<HashMap<(u32, String), CachedSteamSchema>>> =
     OnceLock::new();
 
+/// Upper bound on cached schemas. Keys are per appid *and* language, so an
+/// ever-growing library opening games in more than one language would
+/// otherwise retain every achievement list until restart. Evicts the
+/// oldest-fetched entries first.
+const STEAM_SCHEMA_MAX_ENTRIES: usize = 128;
+
 fn steam_schema_cache() -> &'static Mutex<HashMap<(u32, String), CachedSteamSchema>> {
     STEAM_SCHEMA_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn prune_steam_schema_cache(cache: &mut HashMap<(u32, String), CachedSteamSchema>) {
+    while cache.len() > STEAM_SCHEMA_MAX_ENTRIES {
+        let oldest = cache
+            .iter()
+            .min_by_key(|(_, entry)| entry.fetched_at)
+            .map(|(key, _)| key.clone());
+        match oldest {
+            Some(key) => {
+                cache.remove(&key);
+            }
+            None => break,
+        }
+    }
 }
 
 /// Fetch the achievement schema for a Steam appid from Steam's own
@@ -543,6 +564,7 @@ pub async fn fetch_steam_schema(
             fetched_at: Instant::now(),
         },
     );
+    prune_steam_schema_cache(&mut cache);
 
     Ok(schema)
 }
