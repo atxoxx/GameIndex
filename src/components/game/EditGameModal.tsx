@@ -111,7 +111,7 @@ export function EditGameModal(props: EditGameModalProps) {
 
 function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameModalProps) {
   const { showToast } = useToast();
-  const { updateGame, getGame, isGameUntracked, toggleGameTracking } = useGames();
+  const { updateGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { t } = useLanguage();
   const { showFullLinuxUi, isWindowsHost, isLinuxHost } = useSettings();
@@ -559,6 +559,25 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
     return slot === "hero" ? { bannerUrl: url } : { logoUrl: url };
   }
 
+  /** DB-only artwork patch for `patch_game`: just the touched column(s), with
+   *  `null` to clear. `patch_game` ignores missing keys, so this can never
+   *  revive a stale value for another slot. */
+  function artworkDbPatch(
+    key: "icon" | "cover" | "hero" | "banner" | "logo",
+    value: string
+  ): Record<string, string | null> {
+    const slot = key === "banner" ? "hero" : key;
+    const url = value || null;
+    if (slot === "icon") return { iconUrl: url };
+    if (slot === "cover") {
+      return {
+        coverArtUrl: url,
+        coverSourceUrl: /^https:\/\//i.test(value) ? value : null,
+      };
+    }
+    return slot === "hero" ? { bannerUrl: url } : { logoUrl: url };
+  }
+
   function persistImageSlot(
     key: "icon" | "cover" | "hero" | "banner" | "logo",
     value: string
@@ -566,8 +585,13 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
     const patch = artworkPatch(key, value);
     setImageSlot(key, value);
     updateGame(game.id, patch);
-    const fresh = getGame(game.id) ?? game;
-    invoke("save_game", { game: { ...fresh, ...patch } }).catch((err) =>
+    // Persist only the touched artwork column through the merge-safe
+    // `patch_game`. A full-row `save_game` built from a stale snapshot could
+    // roll back another slot (or wipe the heavy media arrays) when the user
+    // picks several images, so the targeted patch is what makes each
+    // selection stick. `null` clears a column because `patch_game` leaves
+    // absent keys untouched.
+    invoke("patch_game", { id: game.id, patch: artworkDbPatch(key, value) }).catch((err) =>
       console.warn(`Immediate artwork persist failed for ${game.name}:`, err)
     );
   }

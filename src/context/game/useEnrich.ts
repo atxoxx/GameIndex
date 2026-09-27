@@ -173,27 +173,32 @@ export function useEnrich(options: {
             console.warn(`Steam tags fetch failed for ${gameName} (${resolvedSteamAppId}):`, err);
           }
         }
-        const mergedGenres = deduplicateAndMergeTags(current.genres, steamTags);
+        // HowLongToBeat might still know the game even when IGDB doesn't.
+        // Re-read the record after all awaits so a user edit made while the
+        // searches ran (e.g. custom artwork in the edit modal) is not rolled
+        // back by this full-row persist.
+        let latest = gamesRef.current.find((g) => g.id === gameId) ?? current;
 
-        // IGDB had no match but HowLongToBeat might still know the game.
         let hltb: TimeToBeat | null = null;
-        if (!current.timeToBeat?.hltb) {
+        if (!latest.timeToBeat?.hltb) {
           try {
             hltb = await invoke<TimeToBeat | null>("fetch_hltb_stats", { gameName, hltbId: null });
           } catch (err) {
             console.warn(`HLTB fetch failed for ${gameName}:`, err);
           }
         }
-        const timeToBeat = mergeTimeToBeat(current.timeToBeat, hltb);
+        latest = gamesRef.current.find((g) => g.id === gameId) ?? latest;
+        const mergedGenres = deduplicateAndMergeTags(latest.genres, steamTags);
+        const timeToBeat = mergeTimeToBeat(latest.timeToBeat, hltb);
 
         const noMatchPatch: Partial<Game> = {
-          metadataSource: current.metadataSource ?? NO_IGDB_MATCH_SOURCE,
+          metadataSource: latest.metadataSource ?? NO_IGDB_MATCH_SOURCE,
           steamAppId: resolvedSteamAppId,
           ...(mergedGenres.length > 0 ? { genres: mergedGenres } : {}),
           ...(timeToBeat ? { timeToBeat } : {}),
         };
         updateGame(gameId, noMatchPatch);
-        invoke("save_game", { game: { ...current, ...noMatchPatch } }).catch((err) =>
+        invoke("save_game", { game: { ...latest, ...noMatchPatch } }).catch((err) =>
           console.warn(`Immediate persist (no-match) failed for ${gameName}:`, err)
         );
         enrichAttemptsThisSession.delete(gameId);
@@ -221,14 +226,6 @@ export function useEnrich(options: {
         }
       }
 
-      // Deduplicate and merge tags/genres from all sources
-      const mergedGenres = deduplicateAndMergeTags(
-        current.genres,
-        meta.genres,
-        meta.themes,
-        steamTags
-      );
-
       const pickImage = (key: "cover" | "hero" | "banner" | "logo"): string | null => {
         if (resolvedSteamAppId && (key === "hero" || key === "banner")) {
           const steam = results.find((r) => r.sourceName === "Steam");
@@ -251,16 +248,26 @@ export function useEnrich(options: {
         return null;
       };
 
+      // Snapshot used to decide which slots still need artwork downloaded.
+      const latestBeforeImages = gamesRef.current.find((g) => g.id === gameId) ?? current;
+
       const images = await fetchAllImages({
-        cover: pickImage("cover"),
-        hero: pickImage("hero"),
-        banner: pickImage("banner"),
-        logo: pickImage("logo"),
+        // Never re-download a slot the user has already filled: enrichment
+        // writes to the same `artwork/<gameId>/<slot>.<ext>` path, so it
+        // would silently replace their picked file on disk.
+        cover: isFrontendUsableImage(latestBeforeImages.coverArtUrl) ? null : pickImage("cover"),
+        hero: isFrontendUsableImage(latestBeforeImages.bannerUrl) ? null : pickImage("hero"),
+        banner: isFrontendUsableImage(latestBeforeImages.bannerUrl) ? null : pickImage("banner"),
+        logo: isFrontendUsableImage(latestBeforeImages.logoUrl) ? null : pickImage("logo"),
       }, gameId);
 
-      const setIfEmpty = <K extends keyof Game>(key: K, value: Game[K] | undefined): Game[K] | undefined => {
-        if (current[key] === undefined || current[key] === null) return value;
-        return current[key];
+      const setIfEmptyFrom = <K extends keyof Game>(
+        base: Game,
+        key: K,
+        value: Game[K] | undefined
+      ): Game[K] | undefined => {
+        if (base[key] === undefined || base[key] === null) return value;
+        return base[key];
       };
 
       let sgdbIconUrl: string | undefined;
@@ -284,50 +291,65 @@ export function useEnrich(options: {
         }
       }
 
+      // Re-read the record after every await above: the metadata search and
+      // artwork downloads can take seconds, and the user may have edited this
+      // game meanwhile (e.g. picked custom cover/icon/hero/logo in the edit
+      // modal, which persists those slots instantly). Building the patch from
+      // the stale `current` snapshot would write those slots straight back to
+      // their pre-edit values. `latest` is the source of truth; enrichment
+      // only fills fields that are still empty on it.
+      const latest = gamesRef.current.find((g) => g.id === gameId) ?? current;
+      const mergedGenres = deduplicateAndMergeTags(
+        latest.genres,
+        meta.genres,
+        meta.themes,
+        steamTags
+      );
+
       const enrichPatch: Partial<Game> = {
         steamAppId: resolvedSteamAppId,
-        description: setIfEmpty("description", meta.description ?? undefined),
-        developer: setIfEmpty("developer", meta.developer ?? undefined),
-        publisher: setIfEmpty("publisher", meta.publisher ?? undefined),
-        releaseDate: setIfEmpty("releaseDate", meta.releaseDate ?? undefined),
-        genres: mergedGenres.length > 0 ? mergedGenres : current.genres,
-        coverArtUrl: isFrontendUsableImage(current.coverArtUrl)
-          ? current.coverArtUrl
-          : (images.coverArtUrl ?? current.coverArtUrl),
-        coverSourceUrl: isFrontendUsableImage(current.coverArtUrl)
-          ? current.coverSourceUrl
-          : (images.coverSourceUrl ?? current.coverSourceUrl),
-        bannerUrl: isFrontendUsableImage(current.bannerUrl)
-          ? current.bannerUrl
-          : (images.bannerUrl ?? current.bannerUrl),
-        logoUrl: isFrontendUsableImage(current.logoUrl)
-          ? current.logoUrl
-          : (images.logoUrl ?? sgdbLogoUrl ?? current.logoUrl),
-        iconUrl: isFrontendUsableImage(current.iconUrl)
-          ? current.iconUrl
-          : (sgdbIconUrl ?? current.iconUrl),
-        igdbRating: current.igdbRating ?? meta.igdbRating ?? undefined,
-        criticRating: current.criticRating ?? meta.criticRating ?? undefined,
-        themes: current.themes ?? meta.themes ?? undefined,
-        gameModes: current.gameModes ?? meta.gameModes ?? undefined,
-        playerPerspectives: current.playerPerspectives ?? meta.playerPerspectives ?? undefined,
-        screenshots: current.screenshots ?? meta.screenshots ?? undefined,
-        videos: current.videos ?? meta.videos ?? undefined,
-        websites: current.websites ?? meta.websites ?? undefined,
-        timeToBeat: mergeTimeToBeat(current.timeToBeat, meta.timeToBeat),
-        similarGames: current.similarGames ?? meta.similarGames ?? undefined,
-        releases: current.releases ?? meta.releases ?? undefined,
-        igdbReviews: current.igdbReviews ?? meta.igdbReviews ?? undefined,
-        collection: setIfEmpty("collection", meta.collection ?? undefined),
-        collectionId: setIfEmpty("collectionId", meta.collectionId ?? undefined),
-        franchise: setIfEmpty("franchise", meta.franchise ?? undefined),
-        igdbId: setIfEmpty("igdbId", meta.igdbId ?? undefined),
+        description: setIfEmptyFrom(latest, "description", meta.description ?? undefined),
+        developer: setIfEmptyFrom(latest, "developer", meta.developer ?? undefined),
+        publisher: setIfEmptyFrom(latest, "publisher", meta.publisher ?? undefined),
+        releaseDate: setIfEmptyFrom(latest, "releaseDate", meta.releaseDate ?? undefined),
+        genres: mergedGenres.length > 0 ? mergedGenres : latest.genres,
+        coverArtUrl: isFrontendUsableImage(latest.coverArtUrl)
+          ? latest.coverArtUrl
+          : (images.coverArtUrl ?? latest.coverArtUrl),
+        coverSourceUrl: isFrontendUsableImage(latest.coverArtUrl)
+          ? latest.coverSourceUrl
+          : (images.coverSourceUrl ?? latest.coverSourceUrl),
+        bannerUrl: isFrontendUsableImage(latest.bannerUrl)
+          ? latest.bannerUrl
+          : (images.bannerUrl ?? latest.bannerUrl),
+        logoUrl: isFrontendUsableImage(latest.logoUrl)
+          ? latest.logoUrl
+          : (images.logoUrl ?? sgdbLogoUrl ?? latest.logoUrl),
+        iconUrl: isFrontendUsableImage(latest.iconUrl)
+          ? latest.iconUrl
+          : (sgdbIconUrl ?? latest.iconUrl),
+        igdbRating: latest.igdbRating ?? meta.igdbRating ?? undefined,
+        criticRating: latest.criticRating ?? meta.criticRating ?? undefined,
+        themes: latest.themes ?? meta.themes ?? undefined,
+        gameModes: latest.gameModes ?? meta.gameModes ?? undefined,
+        playerPerspectives: latest.playerPerspectives ?? meta.playerPerspectives ?? undefined,
+        screenshots: latest.screenshots ?? meta.screenshots ?? undefined,
+        videos: latest.videos ?? meta.videos ?? undefined,
+        websites: latest.websites ?? meta.websites ?? undefined,
+        timeToBeat: mergeTimeToBeat(latest.timeToBeat, meta.timeToBeat),
+        similarGames: latest.similarGames ?? meta.similarGames ?? undefined,
+        releases: latest.releases ?? meta.releases ?? undefined,
+        igdbReviews: latest.igdbReviews ?? meta.igdbReviews ?? undefined,
+        collection: setIfEmptyFrom(latest, "collection", meta.collection ?? undefined),
+        collectionId: setIfEmptyFrom(latest, "collectionId", meta.collectionId ?? undefined),
+        franchise: setIfEmptyFrom(latest, "franchise", meta.franchise ?? undefined),
+        igdbId: setIfEmptyFrom(latest, "igdbId", meta.igdbId ?? undefined),
         metadataSource: meta.sourceName,
         metadataUrl: meta.sourceUrl,
       };
 
       updateGame(gameId, enrichPatch);
-      invoke("save_game", { game: { ...current, ...enrichPatch } }).catch((err) =>
+      invoke("save_game", { game: { ...latest, ...enrichPatch } }).catch((err) =>
         console.warn(`Immediate persist failed for ${gameName}:`, err)
       );
 
@@ -362,11 +384,14 @@ export function useEnrich(options: {
           hltbId: current.timeToBeat?.hltb?.gameId ?? null,
         });
         if (!fresh) return;
-        const timeToBeat = mergeTimeToBeat(current.timeToBeat, fresh);
+        // Re-read after the network round-trip, then persist only the
+        // `timeToBeat` column. A full-row save from the pre-await snapshot
+        // would roll back artwork the user changed while HLTB was loading.
+        const latest = gamesRef.current.find((g) => g.id === gameId) ?? current;
+        const timeToBeat = mergeTimeToBeat(latest.timeToBeat, fresh);
         if (!timeToBeat) return;
-        const patch: Partial<Game> = { timeToBeat };
-        updateGame(gameId, patch);
-        invoke("save_game", { game: { ...current, ...patch } }).catch((err) =>
+        updateGame(gameId, { timeToBeat });
+        invoke("patch_game", { id: gameId, patch: { timeToBeat } }).catch((err) =>
           console.warn(`HLTB persist failed for ${gameName}:`, err)
         );
       } catch (err) {

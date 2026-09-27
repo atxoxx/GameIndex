@@ -527,10 +527,10 @@ describe("EditGameModal instant artwork save", () => {
     );
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
-        "save_game",
+        "patch_game",
         expect.objectContaining({
-          game: expect.objectContaining({
-            id: "game-1",
+          id: "game-1",
+          patch: expect.objectContaining({
             iconUrl: expect.stringContaining("asset://localhost/"),
           }),
         })
@@ -544,6 +544,143 @@ describe("EditGameModal instant artwork save", () => {
     );
     expect(updateGameMock.mock.calls[0][1].iconUrl).not.toBe(
       "asset://localhost/old-icon.png"
+    );
+  });
+
+  it("persists a chosen cover to coverArtUrl and clears the stale coverSourceUrl", async () => {
+    openMock.mockResolvedValueOnce("/pictures/new-cover.png");
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "store_artwork_file") {
+        return Promise.resolve("artwork/game-1/cover.png");
+      }
+      if (cmd === "artwork_asset_url") {
+        return Promise.resolve("file:///tmp/artwork/game-1/cover.png");
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <EditGameModal
+        game={makeGame({
+          coverArtUrl: "asset://localhost/old-cover.png",
+          coverSourceUrl: "https://old.example/cover.png",
+        })}
+        onClose={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "File" })[1]);
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "patch_game",
+        expect.objectContaining({
+          id: "game-1",
+          patch: expect.objectContaining({
+            coverArtUrl: expect.stringContaining("asset://localhost/"),
+            coverSourceUrl: null,
+          }),
+        })
+      )
+    );
+    expect(updateGameMock).toHaveBeenCalledWith(
+      "game-1",
+      expect.objectContaining({
+        coverArtUrl: expect.stringContaining("asset://localhost/"),
+      })
+    );
+  });
+
+  it("persists a chosen hero to bannerUrl", async () => {
+    openMock.mockResolvedValueOnce("/pictures/new-hero.png");
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "store_artwork_file") {
+        return Promise.resolve("artwork/game-1/hero.png");
+      }
+      if (cmd === "artwork_asset_url") {
+        return Promise.resolve("file:///tmp/artwork/game-1/hero.png");
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <EditGameModal
+        game={makeGame({ bannerUrl: "asset://localhost/old-hero.png" })}
+        onClose={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "File" })[2]);
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "patch_game",
+        expect.objectContaining({
+          id: "game-1",
+          patch: expect.objectContaining({
+            bannerUrl: expect.stringContaining("asset://localhost/"),
+          }),
+        })
+      )
+    );
+  });
+
+  it("persists a chosen logo to logoUrl", async () => {
+    openMock.mockResolvedValueOnce("/pictures/new-logo.png");
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "store_artwork_file") {
+        return Promise.resolve("artwork/game-1/logo.png");
+      }
+      if (cmd === "artwork_asset_url") {
+        return Promise.resolve("file:///tmp/artwork/game-1/logo.png");
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <EditGameModal
+        game={makeGame({ logoUrl: "asset://localhost/old-logo.png" })}
+        onClose={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "File" })[3]);
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "patch_game",
+        expect.objectContaining({
+          id: "game-1",
+          patch: expect.objectContaining({
+            logoUrl: expect.stringContaining("asset://localhost/"),
+          }),
+        })
+      )
+    );
+  });
+
+  it("clears a slot through patch_game when the user removes an image", async () => {
+    render(
+      <EditGameModal
+        game={makeGame({ logoUrl: "asset://localhost/old-logo.png" })}
+        onClose={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    fireEvent.click(screen.getByTitle("Clear this image slot"));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "patch_game",
+        expect.objectContaining({
+          id: "game-1",
+          patch: expect.objectContaining({ logoUrl: null }),
+        })
+      )
+    );
+    expect(updateGameMock).toHaveBeenCalledWith(
+      "game-1",
+      expect.objectContaining({ logoUrl: undefined })
     );
   });
 
@@ -562,7 +699,7 @@ describe("EditGameModal instant artwork save", () => {
     await waitFor(() =>
       expect(showToastMock).toHaveBeenCalledWith("Failed to load image", "error")
     );
-    expect(invokeMock).not.toHaveBeenCalledWith("save_game", expect.anything());
+    expect(invokeMock).not.toHaveBeenCalledWith("patch_game", expect.anything());
     expect(updateGameMock).not.toHaveBeenCalled();
   });
 });
