@@ -49,7 +49,7 @@ export default function ModsPage() {
               (!!g.path || g.steamAppId != null)) ||
             (overview.get(g.id)?.total ?? 0) > 0
         )
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .sort((a, b) => gameDisplayName(a).localeCompare(gameDisplayName(b))),
     [games, overview]
   );
 
@@ -114,7 +114,11 @@ export default function ModsPage() {
     // Filter by search query (name, platform, or detected engine)
     if (q) {
       list = list.filter((g) => {
-        if (g.name.toLowerCase().includes(q)) return true;
+        if (
+          gameDisplayName(g).toLowerCase().includes(q) ||
+          g.name.toLowerCase().includes(q)
+        )
+          return true;
         if (g.platform.toLowerCase().includes(q)) return true;
         const engines = overview.get(g.id)?.engines ?? [];
         return engines.some((e) => e.toLowerCase().includes(q));
@@ -129,7 +133,7 @@ export default function ModsPage() {
       const ai = a.installed !== false && (!!a.path || a.steamAppId != null);
       const bi = b.installed !== false && (!!b.path || b.steamAppId != null);
       if (ai !== bi) return ai ? -1 : 1;
-      return a.name.localeCompare(b.name);
+      return gameDisplayName(a).localeCompare(gameDisplayName(b));
     });
   }, [candidates, games, overview, search, railFilter]);
 
@@ -386,20 +390,20 @@ export default function ModsPage() {
                       hasMods ? "has-mods" : ""
                     } ${isRailCollapsed ? "compact" : ""}`}
                     onClick={() => setSelectedGameId(g.id)}
-                    title={g.name}
+                    title={gameDisplayName(g)}
                   >
                     <div className="mods-game-cover">
                       {g.coverArtUrl ? (
                         <img src={g.coverArtUrl} alt="" loading="lazy" />
                       ) : (
-                        <span>{g.name.slice(0, 2).toUpperCase()}</span>
+                        <span>{gameDisplayName(g).slice(0, 2).toUpperCase()}</span>
                       )}
                     </div>
 
                     {!isRailCollapsed && (
                       <div className="mods-game-info">
-                        <span className="mods-game-name" title={g.name}>
-                          {g.name}
+                        <span className="mods-game-name" title={gameDisplayName(g)}>
+                          {gameDisplayName(g)}
                         </span>
                         <div className="mods-game-meta">
                           {entry ? (
