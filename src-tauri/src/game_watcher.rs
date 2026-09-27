@@ -31,7 +31,7 @@
 //! 4. Size: final tiebreaker — largest remaining candidate
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -61,6 +61,20 @@ pub struct GameRef {
     /// Steam protocol-launch flow that benefits from this carry-over.
     #[allow(dead_code)]
     pub steam_app_id: Option<u32>,
+    /// Library's `installed` flag at the last index rebuild. The Steam
+    /// install scan uses it as the baseline so an install/uninstall that
+    /// happened while the app was closed is detected on the next scan
+    /// (and so a not-installed owned game is never mistaken for one).
+    pub installed: bool,
+}
+
+/// Library-declared Steam game, captured at watcher-index rebuild time.
+/// Only Steam games carry an AppID, so this doubles as the set the
+/// install scan is allowed to emit transitions for.
+#[derive(Debug, Clone)]
+struct SteamLibraryGame {
+    name: String,
+    installed: bool,
 }
 
 /// A running game session tracked by the watcher.
@@ -234,32 +248,76 @@ pub struct SteamInstallChangedPayload {
 /// Owned inputs for one Steam-install scan, captured under the watcher
 /// lock so the scan's registry + library-folder I/O can run unlocked.
 struct SteamScanInputs {
-    is_first_run: bool,
+    /// `false` when a local Steam install can't be located. The scan then
+    /// emits nothing: an absent/unmounted Steam produces an empty
+    /// manifest map that must not be read as a wholesale uninstall.
+    steam_available: bool,
+    /// AppID → fully-installed state observed at the previous scan,
+    /// seeded from the library's declared install state on the first
+    /// scan after an index rebuild (see `reconciled_baseline`).
     previous: HashMap<u32, bool>,
-    /// AppID → game name, used to resolve a newly installed game's exe.
-    names: HashMap<u32, String>,
+    /// AppIDs already reported as uninstalled. Suppresses a repeat event
+    /// while the library index hasn't caught up and dropped the entry.
+    missing_reported: HashSet<u32>,
+    /// Every Steam game the library knows about (installed or not).
+    library: HashMap<u32, SteamLibraryGame>,
 }
 
-/// Run one Steam manifest scan and emit `steam-install-changed` for every
-/// install-state transition. Disk I/O and `resolve_steam_game_exe` are
-/// slow, so this runs with the watcher lock released; the caller applies
-/// the returned manifest state afterwards.
-fn run_steam_install_scan(inputs: SteamScanInputs, app_handle: &AppHandle) -> HashMap<u32, bool> {
-    let current: HashMap<u32, bool> = crate::steam::sync::detect_steam_manifest_state();
-
-    if inputs.is_first_run {
-        return current;
+/// Merge the library's declared install state into the scan baseline.
+///
+/// On a reconcile scan (first scan, or right after the library index is
+/// rebuilt), a game the library believes is installed but whose manifest
+/// has since vanished is otherwise invisible: the previous-scan map has
+/// no entry to diff against. Seeding the baseline with the library's own
+/// `installed` flags makes a closed-app install/uninstall look like an
+/// ordinary transition.
+///
+/// The mirror case matters too: if the library says a game is *not*
+/// installed, any observed entry is dropped. Otherwise a first scan that
+/// ran before the library loaded (and therefore saw an install the
+/// library doesn't know about yet) would suppress the very install event
+/// this reconciliation exists to produce. The library is authoritative
+/// for the direction it points; observed disk state wins only for games
+/// the library hasn't seen.
+fn reconciled_baseline(
+    observed: &HashMap<u32, bool>,
+    library: &HashMap<u32, SteamLibraryGame>,
+) -> HashMap<u32, bool> {
+    let mut baseline = observed.clone();
+    for (appid, game) in library {
+        if game.installed {
+            // Keep an observed value (e.g. mid-update `false`) rather
+            // than clobbering it with `true`.
+            baseline.entry(*appid).or_insert(true);
+        } else {
+            baseline.remove(appid);
+        }
     }
+    baseline
+}
 
-    // A game is newly installed when its manifest reports fully
-    // installed now but wasn't at the last poll — a fresh install
-    // finishing, or an update that had dropped `StateFlags` completing.
-    // Manifests that are present-but-not-fully-installed (mid-download)
-    // never emit: the game isn't playable yet.
+/// Pure install/uninstall transition diff for one Steam scan.
+///
+/// Returns `(newly_installed, uninstalled)` AppIDs. Only games the
+/// library knows about are ever reported — the scan sees every manifest
+/// on disk, but an AppID with no library entry has nothing to update.
+fn diff_steam_install_transitions(
+    current: &HashMap<u32, bool>,
+    previous: &HashMap<u32, bool>,
+    library: &HashMap<u32, SteamLibraryGame>,
+    missing_reported: &HashSet<u32>,
+) -> (Vec<u32>, Vec<u32>) {
+    // Newly installed: fully installed now, was not fully installed at
+    // the baseline. A library game that was already installed is in
+    // `previous` (seeded from the library), so it never re-announces.
+    // Present-but-not-fully-installed manifests (mid-download) never
+    // emit: the game isn't playable yet.
     let newly_installed: Vec<u32> = current
         .iter()
         .filter(|(appid, fully)| {
-            **fully && !matches!(inputs.previous.get(appid), Some(true))
+            **fully
+                && library.contains_key(*appid)
+                && !matches!(previous.get(*appid), Some(true))
         })
         .map(|(appid, _)| *appid)
         .collect();
@@ -267,17 +325,68 @@ fn run_steam_install_scan(inputs: SteamScanInputs, app_handle: &AppHandle) -> Ha
     // A game is uninstalled only when its appmanifest disappears from
     // disk entirely. Steam deletes the manifest on uninstall; an update
     // keeps it and merely flips `StateFlags`, so a present-but-not-
-    // installed manifest must never count as an uninstall (that would
-    // rip the game out of the library mid-update).
-    let uninstalled: Vec<u32> = inputs
-        .previous
-        .keys()
-        .filter(|appid| !current.contains_key(*appid))
-        .copied()
-        .collect();
+    // installed manifest must never count as an uninstall. `previous`
+    // carries both the library-seeded baseline and last scan's observed
+    // manifests, covering the case where the library flag lags behind.
+    let mut uninstalled: Vec<u32> = Vec::new();
+    let candidates = library
+        .iter()
+        .filter(|(_, game)| game.installed)
+        .map(|(appid, _)| *appid)
+        .chain(previous.keys().copied());
+    for appid in candidates {
+        if current.contains_key(&appid) {
+            continue;
+        }
+        if !library.contains_key(&appid) {
+            continue;
+        }
+        if missing_reported.contains(&appid) || uninstalled.contains(&appid) {
+            continue;
+        }
+        uninstalled.push(appid);
+    }
+
+    (newly_installed, uninstalled)
+}
+
+/// Run one Steam manifest scan and emit `steam-install-changed` for every
+/// install-state transition. Disk I/O and `resolve_steam_game_exe` are
+/// slow, so this runs with the watcher lock released; the caller applies
+/// the returned manifest state afterwards via
+/// `apply_steam_install_scan`.
+fn run_steam_install_scan(
+    inputs: SteamScanInputs,
+    app_handle: &AppHandle,
+) -> (HashMap<u32, bool>, HashSet<u32>) {
+    if !inputs.steam_available {
+        // Steam can't be located (never installed, uninstalled, or its
+        // drive unmounted). The manifest scan would come back empty, but
+        // that is not evidence of uninstall — keep the previous state and
+        // emit nothing.
+        return (inputs.previous, inputs.missing_reported);
+    }
+
+    let current: HashMap<u32, bool> = crate::steam::sync::detect_steam_manifest_state();
+
+    // A game whose manifest reappeared is no longer "missing", so a later
+    // uninstall is announced again.
+    let mut missing_reported = inputs.missing_reported;
+    missing_reported.retain(|appid| !current.contains_key(appid));
+
+    let (newly_installed, uninstalled) = diff_steam_install_transitions(
+        &current,
+        &inputs.previous,
+        &inputs.library,
+        &missing_reported,
+    );
 
     for appid in newly_installed {
-        let name = inputs.names.get(&appid).cloned().unwrap_or_default();
+        let name = inputs
+            .library
+            .get(&appid)
+            .map(|g| g.name.clone())
+            .unwrap_or_default();
         let exe_path = resolve_steam_game_exe(appid, &name);
 
         let _ = app_handle.emit(
@@ -291,6 +400,7 @@ fn run_steam_install_scan(inputs: SteamScanInputs, app_handle: &AppHandle) -> Ha
     }
 
     for appid in uninstalled {
+        missing_reported.insert(appid);
         let _ = app_handle.emit(
             "steam-install-changed",
             SteamInstallChangedPayload {
@@ -301,7 +411,7 @@ fn run_steam_install_scan(inputs: SteamScanInputs, app_handle: &AppHandle) -> Ha
         );
     }
 
-    current
+    (current, missing_reported)
 }
 
 // ─── GameWatcher ──────────────────────────────────────────────────────────────
@@ -336,6 +446,19 @@ pub struct GameWatcher {
     /// manifest — from an in-progress update, which keeps the manifest
     /// and only flips `StateFlags`.
     steam_manifest_appids: std::collections::HashMap<u32, bool>,
+    /// Every Steam game in the library, refreshed on each index rebuild.
+    /// The install scan uses it both to resolve a newly installed game's
+    /// exe and as the baseline that surfaces installs/uninstalls which
+    /// happened while the app was closed.
+    steam_library: HashMap<u32, SteamLibraryGame>,
+    /// `true` once the library has been (re)loaded and the next Steam
+    /// scan should reconcile its declared install state against disk.
+    /// Bypasses the scan throttle so startup/mutation reconciling is
+    /// prompt instead of waiting out the 60 s cadence.
+    steam_baseline_dirty: bool,
+    /// AppIDs already announced as uninstalled. Stops a repeat event
+    /// while the library index hasn't yet dropped the removed entry.
+    steam_missing_reported: HashSet<u32>,
 }
 
 impl GameWatcher {
@@ -350,6 +473,9 @@ impl GameWatcher {
             wake_tx: None,
             last_steam_install_poll: None,
             steam_manifest_appids: std::collections::HashMap::new(),
+            steam_library: HashMap::new(),
+            steam_baseline_dirty: true,
+            steam_missing_reported: HashSet::new(),
         }
     }
 
@@ -390,6 +516,38 @@ impl GameWatcher {
 
     /// Rebuild the process index from a list of game references.
     pub fn rebuild_index(&mut self, games: Vec<GameRef>) {
+        // Capture the library's Steam entries first: the process index
+        // only holds games with a resolvable exe/install dir, but the
+        // install scan needs every Steam game (including owned-but-not-
+        // installed ones) to reconcile closed-app install/uninstall.
+        let mut steam_library: HashMap<u32, SteamLibraryGame> = HashMap::new();
+        for game in &games {
+            if let Some(appid) = game.steam_app_id {
+                steam_library.insert(
+                    appid,
+                    SteamLibraryGame {
+                        name: game.game_name.clone(),
+                        installed: game.installed,
+                    },
+                );
+            }
+        }
+        // Only a change to the Steam AppID set or an install flag needs a
+        // reconcile scan. Metadata-only rebuilds (artwork, description,
+        // display-name enrichment) fire constantly and must not each
+        // trigger a full manifest scan.
+        let steam_set_changed = steam_library.len() != self.steam_library.len()
+            || steam_library.iter().any(|(appid, game)| {
+                self.steam_library
+                    .get(appid)
+                    .map(|old| old.installed != game.installed)
+                    .unwrap_or(true)
+            });
+        self.steam_library = steam_library;
+        if steam_set_changed {
+            self.steam_baseline_dirty = true;
+        }
+
         let mut index: HashMap<String, Vec<GameRef>> = HashMap::new();
 
         for game in games {
@@ -409,6 +567,12 @@ impl GameWatcher {
         }
 
         self.process_index = index;
+
+        // Reconcile the newly-loaded library against disk on the next
+        // poll rather than waiting out the steady/idle sleep.
+        if self.steam_baseline_dirty {
+            self.request_immediate_poll();
+        }
     }
 
     pub fn set_gpu(&mut self, id: Option<String>, name: Option<String>) {
@@ -517,40 +681,53 @@ impl GameWatcher {
     /// throttle, so the slow part (`run_steam_install_scan`: registry +
     /// `appmanifest_*.acf` reads, `resolve_steam_game_exe`) can run
     /// without the watcher lock held. Returns `None` while throttled.
+    ///
+    /// A "reconcile" scan (first run, or right after the library index
+    /// was rebuilt) skips the throttle and seeds the baseline from the
+    /// library's declared install state — see `reconciled_baseline`.
     fn steam_install_scan_inputs(&mut self) -> Option<SteamScanInputs> {
         let now = Instant::now();
-        if let Some(last) = self.last_steam_install_poll {
-            // Re-scan throttle (registry + appmanifest_*.acf files). The
-            // diff only emits on actual install-state changes, so a 60 s
-            // cadence is plenty.
-            if now.duration_since(last) < std::time::Duration::from_secs(60) {
-                return None;
+        let reconcile = self.steam_baseline_dirty || self.last_steam_install_poll.is_none();
+        if !reconcile {
+            if let Some(last) = self.last_steam_install_poll {
+                // Re-scan throttle (registry + appmanifest_*.acf files).
+                // The diff only emits on actual install-state changes, so
+                // a 60 s cadence is plenty.
+                if now.duration_since(last) < std::time::Duration::from_secs(60) {
+                    return None;
+                }
             }
         }
 
-        let is_first_run = self.last_steam_install_poll.is_none();
         self.last_steam_install_poll = Some(now);
+        self.steam_baseline_dirty = false;
 
-        // AppID → game name, used to resolve an exe path when a newly
-        // installed game is announced. Built here so the scan itself never
-        // touches the process index.
-        let mut names: HashMap<u32, String> = HashMap::new();
-        for game in self.process_index.values().flatten() {
-            if let Some(appid) = game.steam_app_id {
-                names.entry(appid).or_insert_with(|| game.game_name.clone());
-            }
-        }
+        // Only reconcile the library's declared state on a reconcile
+        // scan; on a steady scan `steam_manifest_appids` is the accurate
+        // observed baseline and must not be rewritten from a library
+        // flag that may lag behind an in-flight install.
+        let previous = if reconcile {
+            reconciled_baseline(&self.steam_manifest_appids, &self.steam_library)
+        } else {
+            self.steam_manifest_appids.clone()
+        };
 
         Some(SteamScanInputs {
-            is_first_run,
-            previous: self.steam_manifest_appids.clone(),
-            names,
+            steam_available: crate::steam::sync::steam_install_dir_available(),
+            previous,
+            missing_reported: self.steam_missing_reported.clone(),
+            library: self.steam_library.clone(),
         })
     }
 
     /// Apply the completed Steam-install scan (computed off-lock).
-    fn apply_steam_install_scan(&mut self, current: HashMap<u32, bool>) {
+    fn apply_steam_install_scan(
+        &mut self,
+        current: HashMap<u32, bool>,
+        missing_reported: HashSet<u32>,
+    ) {
         self.steam_manifest_appids = current;
+        self.steam_missing_reported = missing_reported;
     }
 
     /// `true` while at least one game session is being tracked. Read by the
@@ -2538,8 +2715,8 @@ pub fn start_background_poll(
             Ok(w) => w,
             Err(_) => break,
         };
-        if let Some(current) = steam_scan {
-            w.apply_steam_install_scan(current);
+        if let Some((current, missing_reported)) = steam_scan {
+            w.apply_steam_install_scan(current, missing_reported);
         }
         // `apply_poll` removes ended sessions from the map but defers the
         // slow finalization to us; grab a cheap `Db` clone and drop the
@@ -2817,6 +2994,7 @@ pub fn build_game_refs_from_library(games: &[GameRefInput]) -> Vec<GameRef> {
                 },
                 install_dir,
                 steam_app_id: g.steam_app_id,
+                installed: g.installed,
             }
         })
         .collect()
@@ -2837,6 +3015,13 @@ pub struct GameRefInput {
     pub platform: String,
     pub exe_path: String,
     pub steam_app_id: Option<u32>,
+    /// Library's current `installed` flag. Drives the Steam install
+    /// scan's baseline so a game installed/uninstalled while the app was
+    /// closed is reconciled on the next scan. `#[serde(default)]` keeps
+    /// older frontend payloads (which omitted it) deserializing to
+    /// `false`.
+    #[serde(default)]
+    pub installed: bool,
     /// Emulator linkage when the game is a scanned ROM. Every ROM of one
     /// emulator shares the emulator's executable as its exe path, so a
     /// single running emulator process would match every ROM in the
@@ -2940,6 +3125,7 @@ mod tests {
                 platform: "NES".to_string(),
                 exe_path: "C:\\Emulators\\RetroArch\\retroarch.exe".to_string(),
                 steam_app_id: None,
+                installed: false,
                 emulator_id: Some("emu-nes".to_string()),
             },
             GameRefInput {
@@ -2948,6 +3134,7 @@ mod tests {
                 platform: "NES".to_string(),
                 exe_path: "C:\\Emulators\\RetroArch\\retroarch.exe".to_string(),
                 steam_app_id: None,
+                installed: false,
                 emulator_id: Some("emu-nes".to_string()),
             },
             GameRefInput {
@@ -2956,6 +3143,7 @@ mod tests {
                 platform: "Steam".to_string(),
                 exe_path: "C:\\Steam\\steamapps\\common\\Skyrim\\Skyrim.exe".to_string(),
                 steam_app_id: Some(489830),
+                installed: true,
                 emulator_id: None,
             },
         ];
@@ -2963,6 +3151,159 @@ mod tests {
         let refs = build_game_refs_from_library(&input);
         assert_eq!(refs.len(), 1, "only non-emulator games may enter the index");
         assert_eq!(refs[0].game_id, "steam-1");
+    }
+
+    // ── Steam install/uninstall detection ────────────────────────────
+
+    fn steam_lib(entries: &[(u32, bool)]) -> HashMap<u32, SteamLibraryGame> {
+        entries
+            .iter()
+            .map(|(appid, installed)| {
+                (
+                    *appid,
+                    SteamLibraryGame {
+                        name: format!("Game {appid}"),
+                        installed: *installed,
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn manifest_map(entries: &[(u32, bool)]) -> HashMap<u32, bool> {
+        entries.iter().copied().collect()
+    }
+
+    #[test]
+    fn reconcile_baseline_seeds_installed_library_games_without_clobbering_observed() {
+        let observed = manifest_map(&[(1, false), (7, true)]); // 1 mid-update, 7 not in library
+        let library = steam_lib(&[(1, true), (2, true), (3, false), (7, false)]);
+
+        let baseline = reconciled_baseline(&observed, &library);
+
+        // Observed value wins for appid 1 (library lags disk).
+        assert_eq!(baseline.get(&1), Some(&false));
+        // A library-installed game with no observed entry seeds `true` so
+        // its missing manifest shows up as an uninstall.
+        assert_eq!(baseline.get(&2), Some(&true));
+        // A not-installed library game is never seeded.
+        assert_eq!(baseline.get(&3), None);
+        // The mirror case: an observed install the library says isn't
+        // installed is dropped so the install is announced, not masked by
+        // a first scan that ran before the library loaded.
+        assert_eq!(baseline.get(&7), None);
+    }
+
+    #[test]
+    fn diff_detects_closed_app_uninstall_from_seeded_baseline() {
+        // Library thinks 440 is installed, but its manifest is gone.
+        let library = steam_lib(&[(440, true)]);
+        let previous = reconciled_baseline(&HashMap::new(), &library);
+        let current = manifest_map(&[]);
+
+        let (installed, uninstalled) =
+            diff_steam_install_transitions(&current, &previous, &library, &HashSet::new());
+
+        assert_eq!(installed, Vec::<u32>::new());
+        assert_eq!(uninstalled, vec![440]);
+    }
+
+    #[test]
+    fn diff_detects_closed_app_install_for_not_installed_library_game() {
+        // Library thinks 570 is not installed, but it finished downloading
+        // while the app was closed.
+        let library = steam_lib(&[(570, false)]);
+        let previous = reconciled_baseline(&HashMap::new(), &library);
+        let current = manifest_map(&[(570, true)]);
+
+        let (installed, uninstalled) =
+            diff_steam_install_transitions(&current, &previous, &library, &HashSet::new());
+
+        assert_eq!(installed, vec![570]);
+        assert_eq!(uninstalled, Vec::<u32>::new());
+    }
+
+    #[test]
+    fn diff_ignores_manifests_with_no_library_entry() {
+        // The scan sees every manifest on disk; an AppID with no library
+        // entry must never produce an event.
+        let library = steam_lib(&[]);
+        let current = manifest_map(&[(999, true)]);
+
+        let (installed, uninstalled) = diff_steam_install_transitions(
+            &current,
+            &HashMap::new(),
+            &library,
+            &HashSet::new(),
+        );
+
+        assert!(installed.is_empty());
+        assert!(uninstalled.is_empty());
+    }
+
+    #[test]
+    fn diff_never_re_announces_an_already_reported_uninstall() {
+        let library = steam_lib(&[(440, true)]);
+        let previous = reconciled_baseline(&HashMap::new(), &library);
+        let current = manifest_map(&[]);
+        let reported: HashSet<u32> = [440].into_iter().collect();
+
+        let (installed, uninstalled) =
+            diff_steam_install_transitions(&current, &previous, &library, &reported);
+
+        assert!(installed.is_empty());
+        assert!(uninstalled.is_empty(), "must not repeat the uninstall event");
+    }
+
+    #[test]
+    fn diff_does_not_treat_mid_update_as_uninstall() {
+        // Manifest present but not fully installed (StateFlags flips
+        // during an update) is a transition, not a disappearance.
+        let library = steam_lib(&[(440, true)]);
+        let previous = reconciled_baseline(&manifest_map(&[(440, true)]), &library);
+        let current = manifest_map(&[(440, false)]);
+
+        let (installed, uninstalled) =
+            diff_steam_install_transitions(&current, &previous, &library, &HashSet::new());
+
+        assert!(installed.is_empty(), "mid-update is not an install");
+        assert!(uninstalled.is_empty(), "mid-update keeps the manifest");
+    }
+
+    #[test]
+    fn diff_announces_install_after_update_completes() {
+        let library = steam_lib(&[(440, false)]);
+        let previous = manifest_map(&[(440, false)]);
+        let current = manifest_map(&[(440, true)]);
+
+        let (installed, uninstalled) =
+            diff_steam_install_transitions(&current, &previous, &library, &HashSet::new());
+
+        assert_eq!(installed, vec![440]);
+        assert!(uninstalled.is_empty());
+    }
+
+    #[test]
+    fn rebuild_index_captures_all_library_steam_games_including_not_installed() {
+        // Owned-but-not-installed Steam games have no exe/install dir, so
+        // they never enter the process index — but the install scan needs
+        // them to reconcile a later install.
+        let tmp = tempfile::tempdir().unwrap();
+        let mut watcher = GameWatcher::new(crate::db::Db::open(tmp.path()).unwrap());
+        watcher.rebuild_index(vec![GameRef {
+            game_id: "steam-570".to_string(),
+            game_name: "Dota 2".to_string(),
+            platform: "Steam".to_string(),
+            exe_path: None,
+            install_dir: None,
+            steam_app_id: Some(570),
+            installed: false,
+        }]);
+
+        assert!(watcher.steam_baseline_dirty);
+        let entry = watcher.steam_library.get(&570).expect("library entry kept");
+        assert_eq!(entry.name, "Dota 2");
+        assert!(!entry.installed);
     }
 
     // ── is_currently_running ─────────────────────────────────────────
@@ -3341,6 +3682,7 @@ mod tests {
             exe_path: Some("/home/user/Games/Foo/game.exe".to_string()),
             install_dir: Some(PathBuf::from("/home/user/Games/Foo")),
             steam_app_id: None,
+            installed: false,
         }]);
 
         // The key is produced by the same normalization the matcher uses,

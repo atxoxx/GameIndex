@@ -19,6 +19,10 @@ export function toWatcherRefs(games: Game[], untrackedIds?: Set<string>) {
       platform: g.platform,
       exePath: g.path || "",
       steamAppId: g.steamAppId ?? null,
+      // The Rust watcher seeds its install/uninstall baseline from this
+      // flag, so a game installed or uninstalled while the app was closed
+      // is reconciled on the next scan instead of staying stale.
+      installed: g.installed,
       // Emulator ROMs share the emulator exe as their path; the
       // backend excludes them from the passive-detection index so
       // one running emulator process can't record a phantom session
@@ -82,7 +86,11 @@ export function useWatcherIndex(options: {
       // the library instead of keeping a stale "not installed" row.
       if (!installed) {
         const removed = gamesRef.current.find((g) => g.steamAppId === appId);
-        if (removed) {
+        // Only drop entries the library believed were installed. An owned
+        // game that was never installed is absent from the backend's
+        // uninstall baseline in the first place, but guard here too so a
+        // stray event can't remove a deliberately-kept not-installed game.
+        if (removed && removed.installed) {
           removeGamesRef.current?.((g) => g.steamAppId === appId);
           showToast(t("game.uninstalledToast", { name: removed.name }), "info");
         }

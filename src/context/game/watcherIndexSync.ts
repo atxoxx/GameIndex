@@ -14,9 +14,15 @@ let lastSentFingerprint: string | null = null;
 export function watcherFingerprint(refs: ReturnType<typeof toWatcherRefs>): string {
   return refs
     .map((r) =>
-      [r.gameId, r.exePath, r.steamAppId ?? "", r.platform, r.emulatorId ?? "", r.gameName].join(
-        "\u0001"
-      )
+      [
+        r.gameId,
+        r.exePath,
+        r.steamAppId ?? "",
+        r.platform,
+        r.emulatorId ?? "",
+        r.gameName,
+        r.installed ? "1" : "0",
+      ].join("\u0001")
     )
     .join("\u0002");
 }
