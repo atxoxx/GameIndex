@@ -325,25 +325,43 @@ export function MediaFetchBrowser({
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
   const [animationMode, setAnimationMode] = useState<"hover" | "always">("hover");
   const [previewCandidate, setPreviewCandidate] = useState<Candidate | null>(null);
+  // The chooser starts on the game's own name but the title can be edited and
+  // re-searched, which is how users find art for remasters, ports or games the
+  // metadata match missed. `activeQuery` is the term whose results are shown;
+  // `draftQuery` is the editable input. The nonce lets the same term re-run.
+  const [draftQuery, setDraftQuery] = useState(gameName);
+  const [activeQuery, setActiveQuery] = useState(gameName);
+  const [searchNonce, setSearchNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      const query = activeQuery.trim() || gameName;
+      // Only trust the game's own Steam AppID while searching its own name —
+      // an edited query can be a different game, and the AppID would pull the
+      // wrong cover/hero/logo from the Steam CDN.
+      const searchAppId =
+        query.toLowerCase() === gameName.trim().toLowerCase() ? steamAppId : undefined;
       const [result, lbResult] = await Promise.all([
-        collectCandidates(slot, gameName, steamAppId),
-        collectLaunchboxCandidates(slot, gameName),
+        collectCandidates(slot, query, searchAppId),
+        collectLaunchboxCandidates(slot, query),
       ]);
       if (!cancelled) {
         setCandidates(result);
         setLaunchboxCandidates(lbResult);
+        setLoading(false);
       }
-      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [slot, gameName, steamAppId]);
+  }, [slot, activeQuery, searchNonce, gameName, steamAppId]);
+
+  function runSearch() {
+    setActiveQuery(draftQuery.trim() || gameName);
+    setSearchNonce((n) => n + 1);
+  }
 
   const allCandidates = useMemo(
     () => [...candidates, ...launchboxCandidates],
@@ -540,6 +558,43 @@ function CandidateCard({
           </button>
         </div>
 
+        <form
+          className="media-fetch-search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            runSearch();
+          }}
+        >
+          <svg
+            className="media-fetch-search-icon"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            className="media-fetch-search-input"
+            type="text"
+            value={draftQuery}
+            onChange={(e) => setDraftQuery(e.target.value)}
+            placeholder="Search for a game title…"
+            aria-label="Search game title"
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <Button variant="primary" size="sm" type="submit">
+            Search
+          </Button>
+        </form>
+
         <div className="lb-browser-body media-fetch-body">
           {!loading && allCandidates.length > 0 && (
             <div className="media-fetch-toolbar">
@@ -578,17 +633,17 @@ function CandidateCard({
           {loading ? (
             <div className="metadata-loading">
               <div className="metadata-spinner" />
-              <p>Searching for {SLOT_LABEL[slot].toLowerCase()} media…</p>
+              <p>Searching for {SLOT_LABEL[slot].toLowerCase()} images for “{activeQuery.trim() || gameName}”…</p>
             </div>
           ) : allCandidates.length === 0 ? (
             <div className="metadata-empty">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-              <p>No {SLOT_LABEL[slot].toLowerCase()} images found for this title.</p>
+              <p>No {SLOT_LABEL[slot].toLowerCase()} images found for “{activeQuery.trim() || gameName}”. Try another title.</p>
             </div>
           ) : filteredCandidates.length === 0 ? (
             <div className="metadata-empty">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-              <p>No {formatFilter.toUpperCase()} images found for this title.</p>
+              <p>No {formatFilter.toUpperCase()} images found for “{activeQuery.trim() || gameName}”.</p>
               <Button variant="secondary" size="sm" onClick={() => setFormatFilter("all")}>
                 Show all images ({allCandidates.length})
               </Button>

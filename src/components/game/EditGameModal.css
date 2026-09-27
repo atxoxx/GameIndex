@@ -1701,6 +1701,44 @@
   width: min(96vw, 1080px);
 }
 
+/* Title search above the scrollable results: prefilled with the game name,
+ * editable so the user can look up remasters/ports the auto-match missed. */
+.media-fetch-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+}
+
+.media-fetch-search-icon {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+}
+
+.media-fetch-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.media-fetch-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.media-fetch-search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
 .media-fetch-toolbar {
   display: flex;
   align-items: center;
