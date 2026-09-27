@@ -297,7 +297,7 @@ fn collect_metrics_loop(
             );
         }
 
-        samples.push(sample);
+        push_sample(&mut samples, sample);
 
         // Sleep for the poll interval, checking for the stop signal.
         let start = Instant::now();
@@ -854,7 +854,7 @@ fn collect_metrics_loop(
         }
 
         sample.t = loop_start.elapsed().as_secs_f64();
-        samples.push(sample);
+        push_sample(&mut samples, sample);
 
         // Sleep for the polling interval, but check for stop signal periodically
         let start = Instant::now();
@@ -1266,6 +1266,29 @@ fn query_hwmon(wmi_con: &WMIConnection) -> Option<(f32, f32, f32, f32)> {
 /// charts, so anything past a few hundred points is pure storage / IPC
 /// overhead with no rendering benefit.
 const MAX_PERSISTED_SAMPLES: usize = 240;
+
+/// Hard ceiling on the samples held in memory for a session. Persisted data
+/// is bucket-averaged down to `MAX_PERSISTED_SAMPLES` regardless, so letting
+/// the live `Vec` grow without bound only wastes memory on a very long
+/// session at a very fast interval. When the cap is reached we halve the
+/// resolution in place; averaged stats are essentially unchanged and the
+/// remaining samples still cover the full session span.
+const MAX_IN_MEMORY_SAMPLES: usize = 50_000;
+
+/// Append a sample, halving the in-memory resolution first if the cap is hit.
+fn push_sample(samples: &mut Vec<MetricsSample>, sample: MetricsSample) {
+    if samples.len() >= MAX_IN_MEMORY_SAMPLES {
+        let mut write = 0;
+        for read in 0..samples.len() {
+            if read % 2 == 0 {
+                samples.swap(write, read);
+                write += 1;
+            }
+        }
+        samples.truncate(write);
+    }
+    samples.push(sample);
+}
 
 /// Reduce a session's sample list to at most `MAX_PERSISTED_SAMPLES` points by
 /// bucket-averaging. Averaging (rather than stride-decimating) preserves the
