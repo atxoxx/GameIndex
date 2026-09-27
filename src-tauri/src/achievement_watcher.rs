@@ -26,8 +26,17 @@ use crate::{achievements, db, local_achievements};
 /// kv flag controlling whether the watcher runs.
 pub const KV_LOCAL_ACHIEVEMENTS: &str = "local_achievements_enabled";
 
-/// Poll cadence — matches the game watcher's steady interval.
+/// Tick cadence. While a game is running the watcher scans on every tick so
+/// unlocks are picked up promptly; with nothing running it backs off to
+/// [`IDLE_SCAN_INTERVAL`] (the tick still wakes on this cadence, but only
+/// reads a boolean — no filesystem walk).
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Minimum gap between full scan passes when no game session is active.
+/// Crack/emulator achievement files only change while their game runs, so
+/// walking the cracker roots every 5 s with nothing running is wasted disk
+/// I/O. A slow baseline pass still catches files edited between sessions.
+const IDLE_SCAN_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Max dirty games synced concurrently in one pass. Schema fetches carry
 /// a 20s timeout; syncing sequentially would turn an offline startup
@@ -168,14 +177,35 @@ pub fn start(app: AppHandle) {
         run_pass(&app, &client, &mut file_stats, false).await;
 
         // ── Steady poll ─────────────────────────────────────────────
+        // Scan on every tick while a game is running (unlocks change only
+        // then); with nothing running, back off to IDLE_SCAN_INTERVAL. The
+        // 5 s tick still fires either way, but the idle path only reads the
+        // cheap `game_is_running` flag — no filesystem walk.
+        let mut last_scan = std::time::Instant::now();
         loop {
             tokio::time::sleep(POLL_INTERVAL).await;
             if !is_enabled(&app) {
                 continue;
             }
+            let running = game_is_running(&app);
+            if !running && last_scan.elapsed() < IDLE_SCAN_INTERVAL {
+                continue;
+            }
+            last_scan = std::time::Instant::now();
             run_pass(&app, &client, &mut file_stats, true).await;
         }
     });
+}
+
+/// Whether any game session is currently tracked, read from the shared
+/// `GameWatcher`. The mutex is held only long enough to read a bool.
+fn game_is_running(app: &AppHandle) -> bool {
+    let watcher =
+        app.state::<std::sync::Arc<std::sync::Mutex<crate::game_watcher::GameWatcher>>>();
+    watcher
+        .lock()
+        .map(|w| w.has_active_sessions())
+        .unwrap_or(false)
 }
 
 /// One scan pass. When `notify` is false (pre-search) we still update the

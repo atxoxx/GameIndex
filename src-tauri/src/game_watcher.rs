@@ -146,15 +146,14 @@ const POLL_INTERVAL_STEADY: std::time::Duration = std::time::Duration::from_secs
 const POLL_INTERVAL_FAST: std::time::Duration = std::time::Duration::from_secs(1);
 
 /// Poll interval when no session is active at all. The loop still has to
-/// run — it passively detects games launched outside GameIndex — but
-/// WMI process enumeration every 5 s with nothing running is wasted
-/// work, so idle polls relax to this cadence. App-launched sessions
-/// never wait on it: launches wake the loop immediately (see
-/// `request_immediate_poll`). Passive detection of an externally
-/// launched game therefore starts ≤15 s later than before, which only
-/// delays session start — recorded playtime is anchored at attach, so
-/// nothing is lost.
-const POLL_INTERVAL_IDLE: std::time::Duration = std::time::Duration::from_secs(15);
+/// run — it passively detects games launched outside GameIndex — but a
+/// full process snapshot with nothing running is wasted work, so idle
+/// polls relax to this cadence. App-launched sessions never wait on it:
+/// launches wake the loop immediately (see `request_immediate_poll`).
+/// Passive detection of an externally launched game therefore starts
+/// ≤30 s later than before, which only delays session start — recorded
+/// playtime is anchored at attach, so nothing is lost.
+const POLL_INTERVAL_IDLE: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Grace period once a tracked process goes missing before the session
 /// is ended. A lost session polls at POLL_INTERVAL_FAST, so this window
@@ -552,6 +551,39 @@ impl GameWatcher {
     /// Apply the completed Steam-install scan (computed off-lock).
     fn apply_steam_install_scan(&mut self, current: HashMap<u32, bool>) {
         self.steam_manifest_appids = current;
+    }
+
+    /// `true` while at least one game session is being tracked. Read by the
+    /// local-achievements watcher (via `AppHandle` state) so it only scans
+    /// crack/emulator files at the fast cadence while a game is running.
+    pub fn has_active_sessions(&self) -> bool {
+        !self.active_sessions.is_empty()
+    }
+
+    /// Path/stem inputs that let the process snapshot decide which processes
+    /// need a working-set read (see [`MemoryScanFilter`]). Empty when no
+    /// session is active, which skips every per-process memory query.
+    fn memory_scan_filter(&self) -> MemoryScanFilter {
+        let mut filter = MemoryScanFilter::default();
+        for session in self.active_sessions.values() {
+            if let Some(dir) = session.install_dir.as_ref() {
+                let prefix =
+                    trim_path_separators(&normalize_path_lower(&dir.to_string_lossy())).to_string();
+                if !prefix.is_empty() && !filter.dir_prefixes.iter().any(|p| *p == prefix) {
+                    filter.dir_prefixes.push(prefix);
+                }
+            }
+            if let Some(stem) = Path::new(&session.matched_exe)
+                .file_stem()
+                .and_then(|s| s.to_str())
+            {
+                let stem = stem.to_lowercase();
+                if !stem.is_empty() && !filter.exe_stems.iter().any(|s| *s == stem) {
+                    filter.exe_stems.push(stem);
+                }
+            }
+        }
+        filter
     }
 
     /// Run one poll cycle. Resolves pending sessions, re-attaches sessions
@@ -1279,7 +1311,7 @@ fn is_sweep_candidate(proc_path_lower: &str, dir_lower: &str, expected_exe_lower
 /// Returns `true` if at least one matching process was terminated.
 #[cfg(windows)]
 pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Option<&str>) -> bool {
-    let processes = query_running_processes();
+    let processes = query_running_processes(&MemoryScanFilter::default());
     if processes.is_empty() {
         return false;
     }
@@ -1342,7 +1374,7 @@ pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Opti
 /// killed.
 #[cfg(target_os = "linux")]
 fn linux_force_close_targets(expected_exe_lower: &str, install_dir_lower: Option<&str>) -> Vec<u32> {
-    let processes = query_running_processes();
+    let processes = query_running_processes(&MemoryScanFilter::default());
     let mut targets: Vec<u32> = Vec::new();
 
     // 1. Exact tracked-exe match (fast, no install-dir assumption).
@@ -1744,11 +1776,50 @@ struct RunningSessionSnapshot {
     elapsed_seconds: u64,
 }
 
+/// Tells `query_running_processes` which processes need their working-set
+/// size read. Working-set memory is only consulted to score launcher /
+/// hand-off candidates: processes inside an active session's install tree
+/// (`find_best_process_in_dir`, `find_handoff_descendant`) or ones sharing
+/// the session's tracked exe stem (the parent-directory tier of
+/// `find_session_process`). Reading it for every process in a snapshot, as
+/// the poll used to, is wasted work — and when no session is active the
+/// filter is empty, so every per-process memory query is skipped.
+#[derive(Debug, Default, Clone)]
+struct MemoryScanFilter {
+    /// Normalized, lowercased install-dir prefixes of active sessions.
+    dir_prefixes: Vec<String>,
+    /// Lowercased exe stems of active sessions.
+    exe_stems: Vec<String>,
+}
+
+impl MemoryScanFilter {
+    /// `true` when the process at `exe_path` is a plausible hand-off
+    /// candidate for an active session, so its working set is worth reading.
+    fn wants(&self, exe_path: &str) -> bool {
+        if self.dir_prefixes.is_empty() && self.exe_stems.is_empty() {
+            return false;
+        }
+        let lower = normalize_path_lower(exe_path);
+        if self.dir_prefixes.iter().any(|prefix| lower.starts_with(prefix)) {
+            return true;
+        }
+        if !self.exe_stems.is_empty() {
+            if let Some(stem) = Path::new(exe_path).file_stem().and_then(|s| s.to_str()) {
+                let stem = stem.to_lowercase();
+                if self.exe_stems.iter().any(|s| *s == stem) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
 /// Query running processes natively using Toolhelp32 snapshot.
 /// This is 1000x faster than WMI, handles UAC elevated processes via
 /// PROCESS_QUERY_LIMITED_INFORMATION, and does not depend on COM or WMI service availability.
 #[cfg(windows)]
-fn query_running_processes() -> Vec<ProcessInfo> {
+fn query_running_processes(mem_scan: &MemoryScanFilter) -> Vec<ProcessInfo> {
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
     };
@@ -1782,13 +1853,23 @@ fn query_running_processes() -> Vec<ProcessInfo> {
                                 .to_string_lossy()
                                 .into_owned();
 
-                            let mut counters = PROCESS_MEMORY_COUNTERS::default();
-                            let working_set = if GetProcessMemoryInfo(
-                                handle,
-                                &mut counters,
-                                std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
-                            ).is_ok() {
-                                counters.WorkingSetSize as u64
+                            // Working-set size is only consulted to score
+                            // launcher / hand-off candidates for active
+                            // sessions (see `MemoryScanFilter`). Skip the
+                            // extra query for the hundreds of unrelated
+                            // processes each snapshot contains; at idle this
+                            // skips every process.
+                            let working_set = if mem_scan.wants(&path) {
+                                let mut counters = PROCESS_MEMORY_COUNTERS::default();
+                                if GetProcessMemoryInfo(
+                                    handle,
+                                    &mut counters,
+                                    std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+                                ).is_ok() {
+                                    counters.WorkingSetSize as u64
+                                } else {
+                                    0
+                                }
                             } else {
                                 0
                             };
@@ -1816,7 +1897,7 @@ fn query_running_processes() -> Vec<ProcessInfo> {
 }
 
 #[cfg(target_os = "linux")]
-fn query_running_processes() -> Vec<ProcessInfo> {
+fn query_running_processes(_mem_scan: &MemoryScanFilter) -> Vec<ProcessInfo> {
     let mut result = Vec::new();
     let procs: Vec<procfs::process::Process> = match procfs::process::all_processes() {
         Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
@@ -1907,7 +1988,7 @@ fn pick_wine_exe_arg(cmdline: &[String], cwd: Option<&std::path::Path>) -> Optio
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
-fn query_running_processes() -> Vec<ProcessInfo> {
+fn query_running_processes(_mem_scan: &MemoryScanFilter) -> Vec<ProcessInfo> {
     Vec::new()
 }
 
@@ -2437,12 +2518,12 @@ pub fn start_background_poll(
         // a short lock only to read its inputs or apply its result, so
         // launch / force-close IPC no longer waits on a full process
         // snapshot or a library-folder scan.
-        let steam_inputs = {
+        let (steam_inputs, mem_scan) = {
             let mut w = match watcher.lock() {
                 Ok(w) => w,
                 Err(_) => break,
             };
-            w.steam_install_scan_inputs()
+            (w.steam_install_scan_inputs(), w.memory_scan_filter())
         };
         let steam_scan =
             steam_inputs.map(|inputs| run_steam_install_scan(inputs, &app_handle));
@@ -2451,7 +2532,7 @@ pub fn start_background_poll(
         // the entire scan duration, worsening the enumeration→lock gap and
         // the launcher→game hand-off race (a new game PID the snapshot
         // predates reads as "not running" and strands the session).
-        let processes = query_running_processes();
+        let processes = query_running_processes(&mem_scan);
 
         let mut w = match watcher.lock() {
             Ok(w) => w,
@@ -3076,6 +3157,50 @@ mod tests {
 
         watcher.active_sessions.clear();
         assert_eq!(watcher.current_poll_interval(), POLL_INTERVAL_STEADY);
+    }
+
+    // ── MemoryScanFilter ─────────────────────────────────────────────
+
+    #[test]
+    fn memory_scan_filter_empty_wants_nothing() {
+        let filter = MemoryScanFilter::default();
+        assert!(!filter.wants(r"C:\Games\Foo\game.exe"));
+        assert!(!filter.wants(""));
+    }
+
+    #[test]
+    fn memory_scan_filter_wants_dir_and_stem_matches_only() {
+        let mut filter = MemoryScanFilter::default();
+        filter.dir_prefixes.push(normalize_path_lower(r"C:\Games\Foo"));
+        filter.exe_stems.push("bar".to_string());
+
+        // Inside the install tree → wanted.
+        assert!(filter.wants(r"C:\Games\Foo\sub\launcher.exe"));
+        // Any process sharing the tracked exe stem → wanted (parent tier).
+        assert!(filter.wants(r"D:\Elsewhere\BAR.exe"));
+        // Unrelated system process → not wanted.
+        assert!(!filter.wants(r"C:\Windows\explorer.exe"));
+    }
+
+    #[test]
+    fn memory_scan_filter_derives_from_active_sessions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut watcher = GameWatcher::new(crate::db::Db::open(tmp.path()).unwrap());
+
+        // Idle watcher: no sessions → every per-process memory read is skipped.
+        assert!(!watcher.memory_scan_filter().wants(r"C:\Games\Foo\game.exe"));
+
+        let mut session = make_session(1234, false);
+        session.matched_exe = r"C:\Games\Foo\game.exe".to_string();
+        session.install_dir = Some(PathBuf::from(r"C:\Games\Foo"));
+        watcher
+            .active_sessions
+            .insert("g1".to_string(), session);
+
+        let filter = watcher.memory_scan_filter();
+        assert!(filter.wants(r"C:\Games\Foo\sub\anything.exe"));
+        assert!(filter.wants(r"D:\Other\game.exe"));
+        assert!(!filter.wants(r"C:\Windows\explorer.exe"));
     }
 
     // ── find_best_process_in_dir ─────────────────────────────────────
