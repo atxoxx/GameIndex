@@ -16,6 +16,8 @@ export interface Toast {
   id: number;
   message: string;
   type: ToastType;
+  /** Bumped every time a duplicate re-arms the toast, restarting its countdown. */
+  nonce: number;
 }
 
 interface ToastContextType {
@@ -33,13 +35,35 @@ const ToastContext =
 
 let nextToastId = 0;
 
+/** How long a toast stays on screen before auto-dismissing (matches toasts.css). */
+const TOAST_LIFETIME_MS = 4000;
+
+/** Never stack more than this many toasts — the oldest ones get pushed out. */
+const MAX_VISIBLE_TOASTS = 3;
+
+function toastKey(message: string, type: ToastType): string {
+  return `${type}::${message}`;
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType) => {
     playNotificationSound();
     const id = nextToastId++;
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => {
+      const key = toastKey(message, type);
+      const existing = prev.find((t) => toastKey(t.message, t.type) === key);
+      // A repeat of a toast we already show is a refresh, not a new entry: keep it
+      // in place and bump its nonce so the countdown restarts from full.
+      const next = existing
+        ? prev.map((t) => (t === existing ? { ...t, nonce: id } : t))
+        : [...prev, { id, message, type, nonce: id }];
+      // Full stack: the oldest toast is pushed out to make room.
+      return next.length > MAX_VISIBLE_TOASTS
+        ? next.slice(next.length - MAX_VISIBLE_TOASTS)
+        : next;
+    });
   }, []);
 
   const dismissToast = useCallback((id: number) => {
@@ -82,9 +106,9 @@ function ToastItem({
 
   useEffect(() => {
     if (isPaused) return;
-    const timer = setTimeout(() => onDismiss(toast.id), 4000);
+    const timer = setTimeout(() => onDismiss(toast.id), TOAST_LIFETIME_MS);
     return () => clearTimeout(timer);
-  }, [toast.id, isPaused, onDismiss]);
+  }, [toast.id, toast.nonce, isPaused, onDismiss]);
 
   const icon =
     toast.type === "success" ? (
@@ -133,6 +157,7 @@ function ToastItem({
       </button>
       <div className="toast-progress-track" aria-hidden="true">
         <div
+          key={toast.nonce}
           className={`toast-progress-bar toast-progress--${toast.type}${isPaused ? " is-paused" : ""}`}
         />
       </div>
