@@ -12,7 +12,7 @@ import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useBumperScopeDeclaration } from "./bigscreenLegend";
 import { driveBuckets } from "../../pages/storage/utils";
-import type { Game, GameAchievementData } from "../../types/game";
+import type { Game, AchievementSummary } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import "../../styles/achievements.css";
 
@@ -299,21 +299,15 @@ function StorageView() {
 function AchievementsHubView() {
   const { t } = useLanguage();
   const { games } = useGames();
-  const { getGameAchievements } = useAchievements();
+  const { summaries } = useAchievements();
   const navigate = useNavigate();
 
   const gamesWithAchievements = useMemo(() => {
     return games
-      .map((g) => {
-        const data = getGameAchievements(g.id);
-        return {
-          game: g,
-          data,
-        };
-      })
-      .filter((x) => x.data && x.data.total > 0)
-      .sort((a, b) => (b.data?.unlocked ?? 0) - (a.data?.unlocked ?? 0));
-  }, [games, getGameAchievements]);
+      .map((g) => ({ game: g, summary: summaries[g.id] ?? null }))
+      .filter((x) => x.summary && x.summary.total > 0)
+      .sort((a, b) => (b.summary?.unlocked ?? 0) - (a.summary?.unlocked ?? 0));
+  }, [games, summaries]);
 
   return (
     <div className="bigscreen-system-section-view">
@@ -324,11 +318,11 @@ function AchievementsHubView() {
         </div>
       ) : (
         <div className="system-achievements-list">
-          {gamesWithAchievements.map(({ game, data }) => (
+          {gamesWithAchievements.map(({ game, summary }) => (
             <AchievementGameRow
               key={game.id}
               game={game}
-              data={data}
+              summary={summary}
               onOpen={() => navigate(`/library/${game.id}`)}
             />
           ))}
@@ -484,23 +478,23 @@ function DownloadRow({
 
 function AchievementGameRow({
   game,
-  data,
+  summary,
   onOpen,
 }: {
   game: Game;
-  data: GameAchievementData | null;
+  summary: AchievementSummary | null;
   onOpen: () => void;
 }) {
   const { t } = useLanguage();
   const cardProps = useFocusable(onOpen);
-  const pct = data ? Math.round((data.unlocked / data.total) * 100) : 0;
+  const pct = summary ? Math.round((summary.unlocked / summary.total) * 100) : 0;
 
   return (
     <div className="system-achievement-game-row" {...cardProps} role="link">
       <div className="ach-game-header">
         <span className="ach-game-name">{gameDisplayName(game)}</span>
         <span className="ach-game-counts">
-          {t("bigscreen.system.achCounts", { unlocked: data?.unlocked ?? 0, total: data?.total ?? 0, pct })}
+          {t("bigscreen.system.achCounts", { unlocked: summary?.unlocked ?? 0, total: summary?.total ?? 0, pct })}
         </span>
       </div>
       <div className="dl-progress-bar">

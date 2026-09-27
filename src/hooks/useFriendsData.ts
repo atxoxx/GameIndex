@@ -103,7 +103,7 @@ export interface UseFriendsDataResult {
 export function useFriendsData(): UseFriendsDataResult {
   const { t } = useLanguage();
   const { games, runningGameIds } = useGames();
-  const { cache } = useAchievements();
+  const { summaries } = useAchievements();
   const { showToast } = useToast();
   const { dmReadReceipts } = useSettings();
 
@@ -144,22 +144,17 @@ export function useFriendsData(): UseFriendsDataResult {
     });
 
     let achievementsCount = 0;
-    if (cache && cache.games) {
-      Object.keys(cache.games).forEach((gameId) => {
-        const achData = cache.games[gameId];
-        if (achData && typeof achData.unlocked === "number") {
-          achievementsCount += achData.unlocked;
-        }
-      });
+    for (const s of Object.values(summaries)) {
+      achievementsCount += s.unlocked;
     }
 
     return { gamesCount, playtimeMinutes, achievementsCount };
-  }, [games, cache]);
+  }, [games, summaries]);
 
   // Lightweight per-game snapshot published to friends for truthful comparison.
   const selfSharedGames = useMemo<SharedGameStat[]>(() => {
     return games.map((game) => {
-      const achData = cache?.games?.[game.id];
+      const achData = summaries[game.id];
       const achTotal = achData?.total || 0;
       const achUnlocked = achData?.unlocked || 0;
       const achievementPercent = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : 0;
@@ -171,7 +166,7 @@ export function useFriendsData(): UseFriendsDataResult {
         genres: (game as any).genres || [],
       };
     });
-  }, [games, cache]);
+  }, [games, summaries]);
 
   // Refs keep the latest profile/stats for the background sync loop so it never
   // publishes a stale closure after the user launches/quits a game or gains stats.

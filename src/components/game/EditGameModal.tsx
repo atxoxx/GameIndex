@@ -80,7 +80,36 @@ interface EditGameModalProps {
   initialTab?: EditGameTab;
 }
 
-export function EditGameModal({ game, onClose, initialTab = "details" }: EditGameModalProps) {
+/**
+ * Gate the editor on the full game record. The library now holds lightweight
+ * summaries, so the editor fetches the heavy record (screenshots, videos,
+ * reviews, …) first — otherwise the form would initialize empty and saving it
+ * would clear those columns.
+ */
+export function EditGameModal(props: EditGameModalProps) {
+  const { loadGameDetail, isGameDetailLoaded } = useGames();
+  const [ready, setReady] = useState(() => isGameDetailLoaded(props.game.id));
+
+  useEffect(() => {
+    let cancelled = false;
+    if (isGameDetailLoaded(props.game.id)) {
+      setReady(true);
+      return;
+    }
+    setReady(false);
+    void loadGameDetail(props.game.id).finally(() => {
+      if (!cancelled) setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.game.id, loadGameDetail, isGameDetailLoaded]);
+
+  if (!ready) return null;
+  return <EditGameModalInner {...props} />;
+}
+
+function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameModalProps) {
   const { showToast } = useToast();
   const { updateGame, getGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();

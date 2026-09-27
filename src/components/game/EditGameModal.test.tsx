@@ -20,6 +20,8 @@ vi.mock("../../context/GameContext", () => ({
   useGames: () => ({
     updateGame: updateGameMock,
     getGame: () => undefined,
+    loadGameDetail: vi.fn().mockResolvedValue(null),
+    isGameDetailLoaded: () => true,
     isGameUntracked: () => false,
     toggleGameTracking: vi.fn(),
   }),

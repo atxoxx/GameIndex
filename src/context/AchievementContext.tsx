@@ -16,9 +16,14 @@ import { useLanguage } from "./LanguageContext";
 import type {
   Game,
   GameAchievementData,
-  AchievementsCache,
-  AchievementLink,
   Achievement,
+  AchievementLink,
+  AchievementOverview,
+  AchievementSummary,
+  AchievementMonthlyPoint,
+  AchievementUnlockRecord,
+  AchievementCompletionEntry,
+  AchievementLibraryStats,
   RetroSettings,
   RetroSettingsUpdate,
   RaConsole,
@@ -37,7 +42,7 @@ export interface AchievementSettings {
   autoSyncOnSteamSync: boolean;
   /** Show descriptions for locked achievements (vs "Hidden achievement"). */
   showLockedDescriptions: boolean;
-  /** Show toast when a newly unlocked achievement is detected. */
+  /** Show toast when a newly-unlocked achievement is detected. */
   notifyOnUnlock: boolean;
   /**
    * Track achievements for cracked / downloaded (non-Steam) games by
@@ -73,11 +78,39 @@ function saveSettings(s: AchievementSettings) {
 // ── Context type ────────────────────────────────────────────────────────
 
 interface AchievementContextType {
-  /** Full achievements cache (all games). */
-  cache: AchievementsCache;
-  /** Get achievements for a specific game. */
+  /**
+   * Backend-computed cross-game overview: compact per-game summaries plus
+   * the bounded showcase lists (recent/rarest unlocks, perfect/
+   * near-completion, monthly activity). `null` until the first load.
+   */
+  overview: AchievementOverview | null;
+  /** Convenience view of `overview.summaries` (empty until loaded). */
+  summaries: Record<string, AchievementSummary>;
+  /** Library-wide aggregates (null until loaded). */
+  stats: AchievementLibraryStats | null;
+  /** Monthly unlock activity, oldest first. */
+  monthly: AchievementMonthlyPoint[];
+  /** Newest unlocks across the library. */
+  recentUnlocks: AchievementUnlockRecord[];
+  /** Rarest unlocked achievements across the library. */
+  rarestUnlocks: AchievementUnlockRecord[];
+  /** Games at 100% completion, most recently completed first. */
+  perfectGames: AchievementCompletionEntry[];
+  /** Games at 50–99% completion, highest percentage first. */
+  nearCompletion: AchievementCompletionEntry[];
+  /** Synchronous summary lookup for a single game (null when uncached). */
+  getAchievementSummary: (gameId: string) => AchievementSummary | null;
+  /**
+   * Full achievement payload for a single game, or `null` until it has
+   * been loaded via `loadGameAchievements`. Only the detail surfaces that
+   * render the achievement list need this.
+   */
   getGameAchievements: (gameId: string) => GameAchievementData | null;
-  /** Fetch achievements for a single game from Steam and update cache. */
+  /** Lazily fetch + cache one game's full achievement payload. */
+  loadGameAchievements: (gameId: string) => Promise<GameAchievementData | null>;
+  /** Re-fetch the cross-game overview (after syncs, clears, etc.). */
+  refreshOverview: () => Promise<void>;
+  /** Fetch achievements for a single game from Steam and update the cache. */
   syncGameAchievements: (gameId: string, steamAppId: number) => Promise<void>;
   /**
    * Sync achievements for a single game from local crack/emulator files.
@@ -98,7 +131,7 @@ interface AchievementContextType {
   updateSettings: (updates: Partial<AchievementSettings>) => void;
   /** Clear the entire achievements cache. */
   clearCache: () => Promise<void>;
-  /** Reload the achievements cache from disk. */
+  /** Reload the cross-game overview and drop cached per-game details. */
   reloadCache: () => Promise<void>;
   /** Per-game source identities (`achievement_links` table), keyed by game ID. */
   links: Record<string, AchievementLink[]>;
@@ -147,6 +180,11 @@ interface AchievementContextType {
   ) => Promise<RaSearchResult[]>;
 }
 
+const EMPTY_SUMMARIES: Record<string, AchievementSummary> = {};
+const EMPTY_MONTHLY: AchievementMonthlyPoint[] = [];
+const EMPTY_UNLOCKS: AchievementUnlockRecord[] = [];
+const EMPTY_COMPLETIONS: AchievementCompletionEntry[] = [];
+
 // Persist the React context instance across Vite HMR module re-evaluations so
 // lazy-loaded page chunks never lose their Provider instance.
 const globalAchievementObj = globalThis as unknown as {
@@ -159,7 +197,18 @@ const AchievementContext =
 // ── Provider ────────────────────────────────────────────────────────────
 
 export function AchievementProvider({ children }: { children: ReactNode }) {
-  const [cache, setCache] = useState<AchievementsCache>({ games: {} });
+  // Cross-game overview (small: summaries + bounded showcase lists). This
+  // is the only achievement state loaded at startup — the full per-game
+  // arrays live in `details` and are fetched on demand.
+  const [overview, setOverview] = useState<AchievementOverview | null>(null);
+
+  // Lazily-populated full per-game payloads, keyed by game id. Only the
+  // detail surfaces that render the achievement list populate this.
+  const [details, setDetails] = useState<Record<string, GameAchievementData>>({});
+  const detailsRef = useRef(details);
+  // Game ids with an in-flight `get_achievements_for_game` request.
+  const inFlightRef = useRef<Set<string>>(new Set());
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{
     current: number;
@@ -171,105 +220,111 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
   // refreshes it after link-mutating calls.
   const [links, setLinks] = useState<Record<string, AchievementLink[]>>({});
 
-  // Mirrors the latest cache so persistence can always save a full,
-  // current snapshot from outside React state — writing inside a
-  // `setCache` updater would be unsafe under StrictMode (updaters run
-  // twice in dev). Every mutation site in this provider updates it
-  // synchronously, so it never lags the source of truth.
-  const cacheRef = useRef(cache);
-
-  // Serialize DB writes. `save_achievements_cache` rewrites the whole
-  // table inside one transaction; two overlapping snapshots (e.g. a
-  // bulk-loop flush racing a game-exit per-game sync) could otherwise
-  // interleave and the older snapshot wins. Chaining the invokes keeps
-  // last-writer-wins == newest-wins. Each call stringifies at call time
-  // so the chained snapshots are the freshest available then.
+  // Serialize per-game writes so two overlapping syncs for the same game
+  // can't interleave and let an older payload win.
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
 
-  // Whether a bulk sync owns the in-memory cache. reloadCache defers
-  // while true so the disk snapshot can't clobber games synced since
-  // the last flush.
+  // Whether a bulk sync owns the in-memory overview. reloadCache defers
+  // while true so the disk snapshot can't clobber games synced since the
+  // last refresh.
   const isSyncingRef = useRef(false);
   const reloadQueuedRef = useRef(false);
 
-  // Persist the current cache snapshot to disk. Immediate — no debounce:
-  // the old 1s debounce silently dropped a just-synced game when the app
-  // reloaded before the timer fired, which is exactly the "synced data
-  // resets on reload" bug. Per-game syncs are user-initiated and
-  // infrequent; the bulk sync calls this on a batch cadence instead.
-  const persistCache = useCallback(() => {
-    const snapshot = JSON.stringify(cacheRef.current);
+  const refreshOverview = useCallback(async () => {
+    try {
+      const next = await invoke<AchievementOverview>("get_achievement_overview");
+      setOverview(next);
+    } catch (err) {
+      console.warn("[AchievementContext] Failed to load overview:", err);
+    }
+  }, []);
+
+  // Load the cross-game overview on mount. Deferred to idle: even the
+  // compact overview parses every cached payload server-side, and doing
+  // it inline would compete with `load_games` for the boot path.
+  useEffect(() => {
+    deferToIdle(() => {
+      void refreshOverview();
+    }, 2500);
+  }, [refreshOverview]);
+
+  const getAchievementSummary = useCallback(
+    (gameId: string): AchievementSummary | null => overview?.summaries[gameId] ?? null,
+    [overview]
+  );
+
+  const getGameAchievements = useCallback(
+    (gameId: string): GameAchievementData | null => details[gameId] ?? null,
+    [details]
+  );
+
+  const loadGameAchievements = useCallback(
+    async (gameId: string): Promise<GameAchievementData | null> => {
+      const cached = detailsRef.current[gameId];
+      if (cached) return cached;
+      if (inFlightRef.current.has(gameId)) return null;
+      inFlightRef.current.add(gameId);
+      try {
+        const raw = await invoke<GameAchievementData | null>(
+          "get_achievements_for_game",
+          { gameId }
+        );
+        if (raw) {
+          detailsRef.current = { ...detailsRef.current, [gameId]: raw };
+          setDetails(detailsRef.current);
+          return raw;
+        }
+        return null;
+      } catch (err) {
+        console.warn(
+          `[AchievementContext] Failed to load achievements for ${gameId}:`,
+          err
+        );
+        return null;
+      } finally {
+        inFlightRef.current.delete(gameId);
+      }
+    },
+    []
+  );
+
+  /** Persist one game's payload and mirror it into the in-memory detail map. */
+  const persistGame = useCallback((gameId: string, data: GameAchievementData) => {
+    detailsRef.current = { ...detailsRef.current, [gameId]: data };
+    setDetails(detailsRef.current);
+    const snapshot = JSON.stringify(data);
     saveChainRef.current = saveChainRef.current.then(async () => {
       try {
-        await invoke("save_achievements_cache", { data: snapshot });
+        await invoke("save_achievement", { gameId, data: snapshot });
       } catch (err) {
-        console.warn("[AchievementContext] Failed to save cache:", err);
+        console.warn("[AchievementContext] Failed to save achievements:", err);
       }
     });
     return saveChainRef.current;
   }, []);
 
-  // Load cache from disk on mount. Guarded: if a sync already wrote
-  // entries before the (async) load resolved, keep the fresher data.
-  // Deferred to idle: the payload is multi-MB of JSON, and parsing it on
-  // the boot path competed with `load_games` for the main thread.
-  useEffect(() => {
-    deferToIdle(() => {
-      (async () => {
-        try {
-          const raw: string = await invoke("load_achievements_cache");
-          if (raw) {
-            const parsed = JSON.parse(raw) as AchievementsCache;
-            if (parsed && parsed.games) {
-              if (Object.keys(cacheRef.current.games).length > 0) return;
-              cacheRef.current = parsed;
-              setCache(parsed);
-            }
-          }
-        } catch (err) {
-          console.warn("[AchievementContext] Failed to load cache:", err);
-        }
-      })();
-    }, 2500);
-  }, []);
-
   const clearCache = useCallback(async () => {
-    cacheRef.current = { games: {} };
-    setCache({ games: {} });
-    // The backend turns an empty payload into a table wipe (see
-    // upsert_many_from_payload), so a clear followed by a reload really
-    // is cleared — it must not resurrect the old rows.
-    await persistCache();
-  }, [persistCache]);
+    detailsRef.current = {};
+    setDetails({});
+    try {
+      await invoke("clear_achievements_cache");
+    } catch (err) {
+      console.warn("[AchievementContext] Failed to clear cache:", err);
+    }
+    await refreshOverview();
+  }, [refreshOverview]);
 
   const reloadCache = useCallback(async () => {
-    // A bulk sync owns the in-memory cache: loading the disk snapshot
-    // now would clobber games synced since the last flush. Defer the
-    // reload instead — syncAllAchievements runs it once the loop ends.
+    // A bulk sync owns the in-memory overview: loading now would clobber
+    // games synced since the last refresh. Defer until the loop ends.
     if (isSyncingRef.current) {
       reloadQueuedRef.current = true;
       return;
     }
-    try {
-      const raw: string = await invoke("load_achievements_cache");
-      if (raw) {
-        const parsed = JSON.parse(raw) as AchievementsCache;
-        if (parsed && parsed.games) {
-          cacheRef.current = parsed;
-          setCache(parsed);
-        }
-      }
-    } catch (err) {
-      console.warn("[AchievementContext] Failed to reload cache:", err);
-    }
-  }, []);
-
-  const getGameAchievements = useCallback(
-    (gameId: string): GameAchievementData | null => {
-      return cache.games[gameId] ?? null;
-    },
-    [cache]
-  );
+    detailsRef.current = {};
+    setDetails({});
+    await refreshOverview();
+  }, [refreshOverview]);
 
   const getSteamSession = useCallback(async () => {
     // Probe the OS keychain first — it owns the verified session blob.
@@ -311,27 +366,16 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
         apiToken: session.apiKey,
       });
 
-      // Stamp sync time
       data.lastSynced = Date.now();
-
-      setCache((prev) => ({
-        ...prev,
-        games: { ...prev.games, [gameId]: data },
-      }));
-      // Persist right away so a reload (even seconds later) keeps the
-      // sync — the old debounced save could lose it.
-      cacheRef.current = {
-        ...cacheRef.current,
-        games: { ...cacheRef.current.games, [gameId]: data },
-      };
-      await persistCache();
+      await persistGame(gameId, data);
+      await refreshOverview();
     },
-    [getSteamSession, persistCache]
+    [getSteamSession, persistGame, refreshOverview]
   );
 
-  // How often the bulk loop flushes a snapshot to disk. Saving after
-  // every game would hammer the DB with full-cache transactions; once
-  // per batch keeps a mid-sync app reload from losing everything.
+  // How often the bulk loop flushes to disk. Per-game writes are cheap,
+  // but refreshing the whole overview after every game would re-parse the
+  // entire cache N times; refresh once per batch instead.
   const SAVE_EVERY_N_GAMES = 10;
 
   const syncAllAchievements = useCallback(
@@ -359,17 +403,9 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
               apiToken: session.apiKey,
             });
             data.lastSynced = Date.now();
-            // Functional update — merging into the latest state so any
-            // per-game sync that lands mid-run (game-exit auto-sync,
-            // tab syncs) is never clobbered by a stale snapshot.
-            setCache((prev) => ({
-              ...prev,
-              games: { ...prev.games, [game.id]: data },
-            }));
-            cacheRef.current = {
-              ...cacheRef.current,
-              games: { ...cacheRef.current.games, [game.id]: data },
-            };
+            // Per-game state update keeps any per-game sync that lands
+            // mid-run from being clobbered by a stale snapshot.
+            await persistGame(game.id, data);
           } catch (err) {
             console.warn(
               `[AchievementContext] Failed to sync ${game.name}:`,
@@ -379,10 +415,10 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
           current++;
           setSyncProgress({ current, total: steamGames.length });
 
-          // Incremental save: an app reload mid-sync keeps every game
-          // synced so far instead of losing the whole run.
+          // Refresh the cross-game overview incrementally so an app
+          // reload mid-sync still sees everything synced so far.
           if (current % SAVE_EVERY_N_GAMES === 0) {
-            await persistCache();
+            await refreshOverview();
           }
 
           // Rate limit: Steam API allows ~100k/day but can 429 on bursts.
@@ -392,23 +428,22 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Final flush — always persists the tail of the loop.
-        await persistCache();
+        // Final refresh — always reflects the tail of the loop.
+        await refreshOverview();
       } finally {
         setIsSyncing(false);
         isSyncingRef.current = false;
         setSyncProgress(null);
         // reloadCache calls that arrived mid-run (e.g. an
         // `achievements-updated` event) were deferred because the bulk
-        // loop owns the in-memory cache; run them now that it's
-        // quiescent so their fresher disk state lands.
+        // loop owns the in-memory overview; run them now.
         if (reloadQueuedRef.current) {
           reloadQueuedRef.current = false;
           await reloadCache();
         }
       }
     },
-    [getSteamSession, persistCache, reloadCache]
+    [getSteamSession, persistGame, refreshOverview, reloadCache]
   );
 
   const { showToast } = useToast();
@@ -421,41 +456,25 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
         steamAppId: steamAppId ?? null,
       });
       data.lastSynced = Date.now();
-      setCache((prev) => ({
-        ...prev,
-        games: { ...prev.games, [gameId]: data },
-      }));
-      cacheRef.current = {
-        ...cacheRef.current,
-        games: { ...cacheRef.current.games, [gameId]: data },
-      };
-      await persistCache();
+      await persistGame(gameId, data);
+      await refreshOverview();
     },
-    [persistCache]
+    [persistGame, refreshOverview]
   );
 
   // ── Multi-source sync helper ──────────────────────────────────────────
 
   // Generic "apply a freshly synced payload" step shared by every
   // non-Steam source (retro / manual / gog / epic). Mirrors the Steam
-  // path exactly: stamp the sync time, merge into the latest in-memory
-  // cache via a functional update (so a concurrent sync is never
-  // clobbered by a stale snapshot), update the ref mirror, then kick the
-  // same immediate, serialized persist chain.
+  // path: stamp the sync time, mirror into the detail map, persist the
+  // one row, then refresh the cross-game overview.
   const applySynced = useCallback(
-    (gameId: string, data: GameAchievementData) => {
+    async (gameId: string, data: GameAchievementData): Promise<void> => {
       data.lastSynced = Date.now();
-      setCache((prev) => ({
-        ...prev,
-        games: { ...prev.games, [gameId]: data },
-      }));
-      cacheRef.current = {
-        ...cacheRef.current,
-        games: { ...cacheRef.current.games, [gameId]: data },
-      };
-      return persistCache();
+      await persistGame(gameId, data);
+      await refreshOverview();
     },
-    [persistCache]
+    [persistGame, refreshOverview]
   );
 
   // ── Achievement links ─────────────────────────────────────────────────
@@ -481,7 +500,7 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
   }, [loadLinks]);
 
   // Load the achievement-links map from disk on mount, alongside the
-  // cache, so consumers (e.g. per-game source pickers) can read links
+  // overview, so consumers (e.g. per-game source pickers) can read links
   // immediately without waiting for the first mutation.
   useEffect(() => {
     loadLinks();
@@ -724,8 +743,8 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
     };
   }, [syncGameAchievements, syncLocalAchievements]);
 
-  // Backend watcher events: reload the affected game's cache, and toast
-  // on newly-unlocked achievements.
+  // Backend watcher events: refresh the overview, and toast on
+  // newly-unlocked achievements.
   useEffect(() => {
     const unlistenUpdated = listen<{ gameId: string }>(
       "achievements-updated",
@@ -764,9 +783,27 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const summaries = overview?.summaries ?? EMPTY_SUMMARIES;
+  const stats = overview?.stats ?? null;
+  const monthly = overview?.monthly ?? EMPTY_MONTHLY;
+  const recentUnlocks = overview?.recentUnlocks ?? EMPTY_UNLOCKS;
+  const rarestUnlocks = overview?.rarestUnlocks ?? EMPTY_UNLOCKS;
+  const perfectGames = overview?.perfectGames ?? EMPTY_COMPLETIONS;
+  const nearCompletion = overview?.nearCompletion ?? EMPTY_COMPLETIONS;
+
   const contextValue = useMemo(() => ({
-    cache,
+    overview,
+    summaries,
+    stats,
+    monthly,
+    recentUnlocks,
+    rarestUnlocks,
+    perfectGames,
+    nearCompletion,
+    getAchievementSummary,
     getGameAchievements,
+    loadGameAchievements,
+    refreshOverview,
     syncGameAchievements,
     syncLocalAchievements,
     syncAllAchievements,
@@ -793,8 +830,18 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
     getRetroConsoles,
     searchRetroGames,
   }), [
-    cache,
+    overview,
+    summaries,
+    stats,
+    monthly,
+    recentUnlocks,
+    rarestUnlocks,
+    perfectGames,
+    nearCompletion,
+    getAchievementSummary,
     getGameAchievements,
+    loadGameAchievements,
+    refreshOverview,
     syncGameAchievements,
     syncLocalAchievements,
     syncAllAchievements,

@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { gameDisplayName, type Game, type StoreGameSummary } from "../../types/game";
+import { gameDisplayName, type AchievementSummary, type Game, type StoreGameSummary } from "../../types/game";
 import type { TorrentDownload } from "../../types/download";
 import type {
   CalculationResult,
@@ -54,7 +54,7 @@ export interface UseCommandPaletteItemsParams {
   wishlistItems: StoreGameSummary[];
   isWishlisted: (slug: string) => boolean;
   toggleWishlist?: (game: StoreGameSummary) => void;
-  achievementsCache?: Record<string, any>;
+  achievementsCache?: Record<string, AchievementSummary>;
   t: (key: string, vars?: Record<string, unknown>) => string;
   onClose: () => void;
   navigate: (path: string) => void;
@@ -370,15 +370,13 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
 
     // 1. Running Game (promoted to top if active)
     if (runningGame && (scope === "all" || scope === "games")) {
-      const runningAch =
-        achievementsCache?.[runningGame.id] ||
-        (runningGame.steamAppId ? achievementsCache?.[String(runningGame.steamAppId)] : undefined);
+      const runningAch = achievementsCache?.[runningGame.id];
       const achStats =
-        runningAch?.totalCount && runningAch.totalCount > 0
+        runningAch && runningAch.total > 0
           ? {
-              unlocked: runningAch.unlockedCount,
-              total: runningAch.totalCount,
-              percentage: Math.round((runningAch.unlockedCount / runningAch.totalCount) * 100),
+              unlocked: runningAch.unlocked,
+              total: runningAch.total,
+              percentage: Math.round((runningAch.unlocked / runningAch.total) * 100),
             }
           : undefined;
 
@@ -501,15 +499,13 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       );
 
       matchedGames.forEach((game) => {
-        const ach =
-          achievementsCache?.[game.id] ||
-          (game.steamAppId ? achievementsCache?.[String(game.steamAppId)] : undefined);
+        const ach = achievementsCache?.[game.id];
         const achStats =
-          ach?.totalCount && ach.totalCount > 0
+          ach && ach.total > 0
             ? {
-                unlocked: ach.unlockedCount,
-                total: ach.totalCount,
-                percentage: Math.round((ach.unlockedCount / ach.totalCount) * 100),
+                unlocked: ach.unlocked,
+                total: ach.total,
+                percentage: Math.round((ach.unlocked / ach.total) * 100),
               }
             : undefined;
 

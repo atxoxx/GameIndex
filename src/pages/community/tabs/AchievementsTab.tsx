@@ -8,16 +8,24 @@ import {
   computeRarestAchievements,
   collectUnlockedAchievements,
 } from "../statsCalculations";
-import type { Game, GameAchievementData } from "../statsTypes";
+import type { Game } from "../statsTypes";
+import type {
+  AchievementSummary,
+  AchievementUnlockRecord,
+} from "../../../types/game";
 
 interface AchievementsTabProps {
-  achievementCache: Record<string, GameAchievementData>;
+  summaries: Record<string, AchievementSummary>;
+  rarestUnlocks: AchievementUnlockRecord[];
+  recentUnlocks: AchievementUnlockRecord[];
   games: Game[];
   hideAchievementProgress: boolean;
 }
 
 export function AchievementsTab({
-  achievementCache,
+  summaries,
+  rarestUnlocks,
+  recentUnlocks,
   games,
   hideAchievementProgress,
 }: AchievementsTabProps) {
@@ -28,8 +36,8 @@ export function AchievementsTab({
   const { totalAchievements, unlockedAchievements, totalGamerscore } = useMemo(() => {
     let tot = 0;
     let unl = 0;
-    for (const gid of Object.keys(achievementCache)) {
-      const data = achievementCache[gid];
+    for (const gid of Object.keys(summaries)) {
+      const data = summaries[gid];
       tot += data.total;
       unl += data.unlocked;
     }
@@ -39,33 +47,33 @@ export function AchievementsTab({
       unlockedAchievements: unl,
       totalGamerscore: unl * 15,
     };
-  }, [achievementCache]);
+  }, [summaries]);
 
   const completionPct =
     totalAchievements > 0 ? Math.round((unlockedAchievements / totalAchievements) * 100) : 0;
 
   // Perfect Games Wall of Fame (100% unlocked)
   const perfectGames = useMemo(
-    () => computePerfectGames(achievementCache, games),
-    [achievementCache, games]
+    () => computePerfectGames(summaries, games),
+    [summaries, games]
   );
 
   // Near Completion Games (50% - 99%)
   const nearCompletionGames = useMemo(
-    () => computeNearCompletionGames(achievementCache, games),
-    [achievementCache, games]
+    () => computeNearCompletionGames(summaries, games),
+    [summaries, games]
   );
 
-  // Rarest Achievements Unlocked
+  // Rarest Achievements Unlocked (backend-shipped list)
   const rarestAchievements = useMemo(
-    () => computeRarestAchievements(achievementCache, games),
-    [achievementCache, games]
+    () => computeRarestAchievements(rarestUnlocks, games),
+    [rarestUnlocks, games]
   );
 
-  // Recently Unlocked Achievements
-  const recentUnlocks = useMemo(
-    () => collectUnlockedAchievements(achievementCache, games),
-    [achievementCache, games]
+  // Recently Unlocked Achievements (backend-shipped list)
+  const recentUnlocksList = useMemo(
+    () => collectUnlockedAchievements(recentUnlocks, games),
+    [recentUnlocks, games]
   );
 
   if (hideAchievementProgress) {
@@ -246,11 +254,11 @@ export function AchievementsTab({
       )}
 
       {/* ── Recently Unlocked Achievements Timeline Rail ───────────── */}
-      {recentUnlocks.length > 0 && (
+      {recentUnlocksList.length > 0 && (
         <section className="stats-section">
           <h2 className="stats-section-title">🏅 {t("communityExtras.recentlyUnlocked")}</h2>
           <div className="stats-recent-ach-rail">
-            {recentUnlocks.map((a, i) => (
+            {recentUnlocksList.map((a, i) => (
               <div key={`${a.gameName}-${a.name}-${i}`} className="stats-recent-ach-card">
                 <div className="stats-recent-ach-cover">
                   {a.coverArtUrl ? (

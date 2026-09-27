@@ -134,12 +134,12 @@ function GameDetail({ game }: { game: Game }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
   const { t } = useLanguage();
-  const { launchGame, enrichGameMetadata, fetchGameHltb, removeGame, updateGame } = useGames();
+  const { launchGame, enrichGameMetadata, fetchGameHltb, removeGame, updateGame, loadGameDetail } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
   const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
   const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("game");
-  const { getGameAchievements } = useAchievements();
+  const { getAchievementSummary } = useAchievements();
   const {
     notes: gameNotes,
     loading: notesLoading,
@@ -154,7 +154,13 @@ function GameDetail({ game }: { game: Game }) {
   // manual), falling back to the legacy Steam-synced array for games that
   // predate the multi-source cache.
   const achievementTotal =
-    getGameAchievements(game.id)?.total ?? game.steamAchievements?.length ?? null;
+    getAchievementSummary(game.id)?.total ?? game.steamAchievements?.length ?? null;
+
+  // The library holds lightweight summaries; fetch the full record (hero
+  // media, screenshots, reviews, releases, similar games) for this page.
+  useEffect(() => {
+    void loadGameDetail(game.id);
+  }, [game.id, loadGameDetail]);
 
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   // Which edit-modal section to open, or null while the modal is closed.

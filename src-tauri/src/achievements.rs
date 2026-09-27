@@ -20,13 +20,21 @@ const USER_AGENT: &str =
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Achievement {
+    #[serde(default)]
     pub api_name: String,
+    #[serde(default)]
     pub display_name: String,
+    #[serde(default)]
     pub description: String,
+    #[serde(default)]
     pub icon: String,
+    #[serde(default)]
     pub icon_gray: String,
+    #[serde(default)]
     pub achieved: bool,
+    #[serde(default)]
     pub unlock_time: u64,
+    #[serde(default)]
     pub percent: f64,
 }
 
@@ -55,11 +63,6 @@ pub struct GameAchievementData {
 /// written before multi-source support are Steam data.
 fn default_source() -> String {
     "steam".to_string()
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AchievementsCache {
-    pub games: std::collections::HashMap<String, GameAchievementData>,
 }
 
 // ── Steam API response types (private, for deserialization only) ─────
@@ -443,27 +446,6 @@ pub async fn load_achievements_cache(app: tauri::AppHandle) -> Result<String, St
     tauri::async_runtime::spawn_blocking(move || db::achievements::read_all_as_payload_json(&db))
         .await
         .map_err(|e| format!("load_achievements_cache task: {e}"))?
-}
-
-/// Internal helper: read the achievements cache as a Rust struct.
-pub fn load_cache_internal(app: &tauri::AppHandle) -> Result<AchievementsCache, String> {
-    let payload = load_achievements_cache_inner(app)?;
-    serde_json::from_str(&payload).map_err(|e| format!("parse payload: {e}"))
-}
-
-/// Internal helper: save the achievements cache from a struct.
-pub fn save_cache_internal(
-    app: &tauri::AppHandle,
-    cache: &AchievementsCache,
-) -> Result<(), String> {
-    let json = serde_json::to_string(cache).map_err(|e| e.to_string())?;
-    let db = app.state::<db::Db>().inner().clone();
-    save_achievements_cache_blocking(&db, &json)
-}
-
-fn load_achievements_cache_inner(app: &tauri::AppHandle) -> Result<String, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    db::achievements::read_all_as_payload_json(db_state.inner())
 }
 
 // ── Local (crack / emulator) achievements ───────────────────────────────

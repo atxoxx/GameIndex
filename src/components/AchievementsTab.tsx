@@ -79,6 +79,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
   const { isBigScreen } = useBigScreen();
   const {
     getGameAchievements,
+    loadGameAchievements,
     syncGameAchievements,
     syncLocalAchievements,
     syncRetroAchievements,
@@ -105,6 +106,9 @@ export default function AchievementsTab({ game }: { game: Game }) {
   const [autoState, setAutoState] = useState<"idle" | "loading" | "noappid" | "done">("idle");
   const autoTriedRef = useRef<string | null>(null);
   const linkedSyncRef = useRef<string | null>(null);
+  // Whether the on-disk payload has been checked for this game. Gates the
+  // network auto-sync so a cached payload is preferred over re-syncing.
+  const [cacheChecked, setCacheChecked] = useState(false);
 
   // Modal + unlink-confirm state
   const [showManualLink, setShowManualLink] = useState(false);
@@ -371,8 +375,23 @@ export default function AchievementsTab({ game }: { game: Game }) {
     }
   }
 
+  // Load the cached per-game payload on demand (the context no longer
+  // holds every game's full achievement list in memory).
+  useEffect(() => {
+    let cancelled = false;
+    setCacheChecked(false);
+    (async () => {
+      await loadGameAchievements(game.id);
+      if (!cancelled) setCacheChecked(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [game.id, loadGameAchievements]);
+
   // Auto-load achievements
   useEffect(() => {
+    if (!cacheChecked) return;
     if (achievementData) return;
 
     if (manualLink && game.steamAppId == null) {
@@ -442,7 +461,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
       autoTriedRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.id, achievementData, manualLink]);
+  }, [game.id, achievementData, manualLink, cacheChecked]);
 
   const emptySyncFocus = useFocusable(handleSync);
   const refreshFocus = useFocusProps(handleRefresh);

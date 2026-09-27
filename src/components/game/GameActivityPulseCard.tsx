@@ -25,10 +25,10 @@ export default function GameActivityPulseCard({
 }: GameActivityPulseCardProps) {
   const { t } = useLanguage();
   const { getGameSessions } = useActivity();
-  const { getGameAchievements } = useAchievements();
+  const { getAchievementSummary } = useAchievements();
 
   const sessions = useMemo(() => getGameSessions(game.id), [getGameSessions, game.id]);
-  const achData = useMemo(() => getGameAchievements(game.id), [getGameAchievements, game.id]);
+  const achData = useMemo(() => getAchievementSummary(game.id), [getAchievementSummary, game.id]);
 
   const latestSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
   const sessionCount = sessions.length;

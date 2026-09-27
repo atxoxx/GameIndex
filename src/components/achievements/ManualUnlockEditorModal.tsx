@@ -42,7 +42,7 @@ export default function ManualUnlockEditorModal({
 }: ManualUnlockEditorModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { fetchManualSchema, getGameAchievements, saveManualUnlocks } =
+  const { fetchManualSchema, loadGameAchievements, saveManualUnlocks } =
     useAchievements();
 
   const [schema, setSchema] = useState<Achievement[] | null>(null);
@@ -67,7 +67,11 @@ export default function ManualUnlockEditorModal({
       try {
         const list = await fetchManualSchema(appid);
         if (cancelled) return;
-        const cached = getGameAchievements(gameId)?.achievements ?? [];
+        // Seed from the cached payload (fetched on demand — the context no
+        // longer holds every game's full achievement list).
+        const cachedData = await loadGameAchievements(gameId);
+        if (cancelled) return;
+        const cached = cachedData?.achievements ?? [];
         const seed: Record<string, number> = {};
         for (const a of list) {
           const existing = cached.find((c) => c.apiName === a.apiName);
@@ -83,7 +87,7 @@ export default function ManualUnlockEditorModal({
     return () => {
       cancelled = true;
     };
-  }, [fetchManualSchema, getGameAchievements, gameId, link.providerId]);
+  }, [fetchManualSchema, loadGameAchievements, gameId, link.providerId]);
 
   // Close on Escape (but not mid-save, so an in-flight write isn't orphaned).
   useEffect(() => {

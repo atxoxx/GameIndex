@@ -76,8 +76,9 @@ function SidebarGameItemBase({
         );
         if (cancelled) return;
         updateGame(game.id, { iconUrl: assetUrl });
-        const fresh = getGame(game.id) ?? game;
-        invoke("save_game", { game: { ...fresh, iconUrl: assetUrl } }).catch(
+        // Patch just the icon column: the in-memory game may be a lightweight
+        // summary, so a full `save_game` here would clear the heavy columns.
+        invoke("patch_game", { id: game.id, patch: { iconUrl: assetUrl } }).catch(
           (err) => console.warn(`Persist sidebar icon failed for ${game.name}:`, err)
         );
       })

@@ -131,9 +131,14 @@ type GamePageTab =
   | "more";
 
 function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProps) {
-  const { runningGameIds, launchGame, forceCloseGame, enrichGameMetadata } = useGames();
+  const { runningGameIds, launchGame, forceCloseGame, enrichGameMetadata, loadGameDetail } = useGames();
   const { t } = useLanguage();
   const gamepad = useGamepad();
+  // The library holds lightweight summaries; fetch the full record so the
+  // screenshot rail, language list and reviews have their data.
+  useEffect(() => {
+    void loadGameDetail(game.id);
+  }, [game.id, loadGameDetail]);
   // Steam appid resolution for the player-count badge. Identical
   // pattern to the desktop hero: falls back to a one-shot Steam
   // name lookup for non-Steam titles and persists the resolved

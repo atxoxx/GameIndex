@@ -23,30 +23,22 @@ interface HomeAchievementItem {
 }
 
 export default function HomeAchievements() {
-  const { cache } = useAchievements();
+  const { recentUnlocks } = useAchievements();
   const { games } = useGames();
   const { t } = useLanguage();
   const navigate = useNavigate();
 
   const recent = useMemo<HomeAchievementItem[]>(() => {
-    const all: HomeAchievementItem[] = [];
-    for (const [gameId, data] of Object.entries(cache.games)) {
-      const game = games.find((g) => g.id === gameId);
-      for (const a of data.achievements ?? []) {
-        if (a.achieved && a.unlockTime > 0) {
-          all.push({
-            achievement: a,
-            gameName: game ? gameDisplayName(game) : t("splash.unknown"),
-            gameId,
-            gameCover: game?.coverArtUrl,
-          });
-        }
-      }
-    }
-    return all
-      .sort((a, b) => b.achievement.unlockTime - a.achievement.unlockTime)
-      .slice(0, MAX_RECENT);
-  }, [cache, games, t]);
+    return recentUnlocks.slice(0, MAX_RECENT).map((r) => {
+      const game = games.find((g) => g.id === r.gameId);
+      return {
+        achievement: r.achievement,
+        gameName: game ? gameDisplayName(game) : t("splash.unknown"),
+        gameId: r.gameId,
+        gameCover: game?.coverArtUrl,
+      };
+    });
+  }, [recentUnlocks, games, t]);
 
   if (recent.length === 0) return null;
 

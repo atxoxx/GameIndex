@@ -115,7 +115,7 @@ export default function FriendsPage() {
   const { t } = useLanguage();
   const { games, runningGameIds, launchGame } = useGames();
   const { wishlist, toggle: toggleWishlist } = useWishlistContext();
-  const { cache } = useAchievements();
+  const { summaries } = useAchievements();
   const { showToast } = useToast();
   const { friendsNotifications, dmReadReceipts, isSimpleUi } = useSettings();
 
@@ -203,22 +203,17 @@ export default function FriendsPage() {
     });
 
     let achievementsCount = 0;
-    if (cache && cache.games) {
-      Object.keys(cache.games).forEach((gameId) => {
-        const achData = cache.games[gameId];
-        if (achData && typeof achData.unlocked === "number") {
-          achievementsCount += achData.unlocked;
-        }
-      });
+    for (const s of Object.values(summaries)) {
+      achievementsCount += s.unlocked;
     }
 
     return { gamesCount, playtimeMinutes, achievementsCount };
-  }, [games, cache]);
+  }, [games, summaries]);
 
   // Self Shared Games snapshot
   const selfSharedGames = useMemo<SharedGameStat[]>(() => {
     return games.map((game) => {
-      const achData = cache?.games?.[game.id];
+      const achData = summaries[game.id];
       const achTotal = achData?.total || 0;
       const achUnlocked = achData?.unlocked || 0;
       const achievementPercent = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : 0;
@@ -230,7 +225,7 @@ export default function FriendsPage() {
         genres: (game as any).genres || [],
       };
     });
-  }, [games, cache]);
+  }, [games, summaries]);
 
   const myGameIds = useMemo(() => new Set(games.map((g) => g.id)), [games]);
 

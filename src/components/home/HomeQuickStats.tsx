@@ -11,7 +11,7 @@ function HomeQuickStatsBase() {
   const navigate = useNavigate();
   const { games } = useGames();
   const { sessions } = useActivity();
-  const { cache: achCache } = useAchievements();
+  const { stats: achStats } = useAchievements();
   const { t } = useLanguage();
 
   const stats = useMemo(() => {
@@ -28,18 +28,9 @@ function HomeQuickStatsBase() {
     const weekMinutes = weekSessions.reduce((acc, s) => acc + s.durationMin, 0);
     const weekSessionCount = weekSessions.length;
 
-    // 3. Achievements
-    let unlockedAch = 0;
-    let totalAch = 0;
-    for (const data of Object.values(achCache.games)) {
-      if (!data?.achievements) continue;
-      for (const a of data.achievements) {
-        totalAch++;
-        if (a.achieved && a.unlockTime > 0) {
-          unlockedAch++;
-        }
-      }
-    }
+    // 3. Achievements — library-wide counts computed in the backend.
+    const unlockedAch = achStats?.unlocked ?? 0;
+    const totalAch = achStats?.total ?? 0;
     const achRate = totalAch > 0 ? Math.round((unlockedAch / totalAch) * 100) : 0;
 
     // 4. Storage
@@ -66,7 +57,7 @@ function HomeQuickStatsBase() {
       totalBytes,
       sizedGamesCount,
     };
-  }, [games, sessions, achCache]);
+  }, [games, sessions, achStats]);
 
   if (stats.totalGames === 0) return null;
 

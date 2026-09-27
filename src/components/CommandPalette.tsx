@@ -320,7 +320,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     wishlistItems: wishlistCtx?.wishlist || [],
     isWishlisted: (slug) => wishlistCtx?.isWishlisted(slug) ?? false,
     toggleWishlist: (g) => wishlistCtx?.toggle(g),
-    achievementsCache: achievementsCtx?.cache as Record<string, any> | undefined,
+    achievementsCache: achievementsCtx?.summaries,
     t,
     onClose,
     navigate,

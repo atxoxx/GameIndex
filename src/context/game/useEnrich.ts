@@ -105,8 +105,9 @@ async function fetchAllImages(images: { icon?: string | null; cover?: string | n
 export function useEnrich(options: {
   gamesRef: React.MutableRefObject<Game[]>;
   updateGame: (id: string, updates: Partial<Game>) => void;
+  loadGameDetail: (id: string) => Promise<Game | null>;
 }) {
-  const { gamesRef, updateGame } = options;
+  const { gamesRef, updateGame, loadGameDetail } = options;
 
   // Background auto-enrichment queue
   const queueRef = useRef<{ id: string; name: string; steamAppId?: number }[]>([]);
@@ -127,7 +128,10 @@ export function useEnrich(options: {
     enrichAttemptsThisSession.set(gameId, previousAttempts + 1);
 
     try {
-      const current = gamesRef.current.find((g) => g.id === gameId);
+      // Enrichment writes heavy fields (screenshots, videos, reviews, …);
+      // load the full record first so a summary base can't drop them.
+      const full = await loadGameDetail(gameId);
+      const current = full ?? gamesRef.current.find((g) => g.id === gameId);
       if (!current) return;
 
       let resolvedSteamAppId =
@@ -342,14 +346,15 @@ export function useEnrich(options: {
       console.error("enrichGameMetadata failed:", err);
       enrichAttemptsThisSession.delete(gameId);
     }
-  }, [gamesRef, updateGame]);
+  }, [gamesRef, updateGame, loadGameDetail]);
 
   /** Refresh only the HowLongToBeat stats for a game (no IGDB
    *  metadata round-trip). Used by the game page to upgrade rows that
    *  still carry legacy IGDB time-to-beat values or none at all. */
   const fetchGameHltb = useCallback(
     async (gameId: string, gameName: string) => {
-      const current = gamesRef.current.find((g) => g.id === gameId);
+      const full = await loadGameDetail(gameId);
+      const current = full ?? gamesRef.current.find((g) => g.id === gameId);
       if (!current) return;
       try {
         const fresh = await invoke<TimeToBeat | null>("fetch_hltb_stats", {
@@ -368,7 +373,7 @@ export function useEnrich(options: {
         console.warn(`HLTB fetch failed for ${gameName}:`, err);
       }
     },
-    [gamesRef, updateGame]
+    [gamesRef, updateGame, loadGameDetail]
   );
 
   /** Sequential queue processor with 350ms pacing between requests. */
@@ -444,6 +449,9 @@ export function useEnrich(options: {
   const fetchGameReviews = useCallback(
     async (gameId: string, gameName: string, steamAppId?: number) => {
       try {
+        // Reviews are a heavy field: ensure the full record is resident so
+        // the follow-up update is persisted as a full row, not a patch.
+        await loadGameDetail(gameId);
         const result = await invoke<{ reviews: IgdbReview[]; source: string; error?: string }>(
           "fetch_game_reviews",
           { gameName, steamAppId }
@@ -455,7 +463,7 @@ export function useEnrich(options: {
         console.error(`Fetch reviews failed for ${gameName}:`, err);
       }
     },
-    [updateGame]
+    [updateGame, loadGameDetail]
   );
 
   return {

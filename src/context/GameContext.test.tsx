@@ -82,7 +82,7 @@ let launchHandler: () => Promise<unknown> = () => Promise.resolve("session-1");
 function installInvokeMock() {
   mockedInvoke.mockImplementation((command: string) => {
     switch (command) {
-      case "load_games":
+      case "load_games_summary":
         return Promise.resolve(loadedGames);
       case "launch_game":
         return launchHandler();
@@ -249,7 +249,9 @@ describe("useEnrich isolation", () => {
     const updateGame = vi.fn();
     metadataResults = [makeMeta()];
 
-    const { result } = renderHook(() => useEnrich({ gamesRef, updateGame }));
+    const { result } = renderHook(() =>
+      useEnrich({ gamesRef, updateGame, loadGameDetail: vi.fn().mockResolvedValue(null) })
+    );
     await act(async () => {
       await result.current.enrichGameMetadata("game-b", "Beta");
     });
@@ -293,7 +295,9 @@ describe("useEnrich isolation", () => {
     const updateGame = vi.fn();
     metadataError = new Error("igdb down");
 
-    const { result } = renderHook(() => useEnrich({ gamesRef, updateGame }));
+    const { result } = renderHook(() =>
+      useEnrich({ gamesRef, updateGame, loadGameDetail: vi.fn().mockResolvedValue(null) })
+    );
     await act(async () => {
       await result.current.enrichGameMetadata("game-b", "Beta");
     });

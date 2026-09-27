@@ -40,6 +40,7 @@ mod store_checker;
 mod downloads;
 mod updater;
 mod achievements;
+mod achievement_stats;
 mod local_achievements;
 mod achievement_watcher;
 mod manual_links;
@@ -119,7 +120,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![get_platform, scan_folders_for_exes, cancel_scan_exes, launch_game, force_close_game, launch_splash::open_launch_splash, launch_splash::update_launch_splash_status, launch_splash::get_launch_splash_state, launch_splash::show_launch_splash_window, launch_splash::retry_launch_splash, launch_splash::close_launch_splash, save_games, save_games_subset, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_hltb_stats, get_steam_tags, download_image, download_artwork, store_artwork_file, artwork_asset_url, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, relink_sessions_for_game, insert_session, load_game_notes, save_game_note, delete_game_note, delete_game_notes_for_game, get_system_ram_gb, get_system_info, refresh_hardware, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, resolve_mounts, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, fetch_spotlight_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_recommended_config, get_steam_page_features,
+        .invoke_handler(tauri::generate_handler![get_platform, scan_folders_for_exes, cancel_scan_exes, launch_game, force_close_game, launch_splash::open_launch_splash, launch_splash::update_launch_splash_status, launch_splash::get_launch_splash_state, launch_splash::show_launch_splash_window, launch_splash::retry_launch_splash, launch_splash::close_launch_splash, save_games, save_games_subset, save_game, load_games, load_games_summary, get_game_detail, patch_game, delete_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_hltb_stats, get_steam_tags, download_image, download_artwork, store_artwork_file, artwork_asset_url, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, relink_sessions_for_game, insert_session, load_game_notes, save_game_note, delete_game_note, delete_game_notes_for_game, get_system_ram_gb, get_system_info, refresh_hardware, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, resolve_mounts, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, fetch_spotlight_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_recommended_config, get_steam_page_features,
             get_language, set_language, get_theme, set_theme, get_accent_color, set_accent_color, get_adaptive_palette, set_adaptive_palette, get_about_bundle,             save_wishlist, load_wishlist, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url, deals::fetch_playtester_games, deals::fetch_playtester_game_detail,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,
@@ -204,6 +205,14 @@ pub fn run() {
             achievements::save_achievements_cache,
             achievements::load_achievements_cache,
             achievements::sync_local_achievements,
+            // Derived cross-game achievement views. The frontend no longer
+            // holds the full per-game cache; these commands compute the
+            // summaries and bounded showcase lists in Rust instead.
+            achievement_stats::get_achievement_overview,
+            achievement_stats::get_achievements_for_game,
+            achievement_stats::save_achievement,
+            achievement_stats::delete_achievement,
+            achievement_stats::clear_achievements_cache,
             // RetroAchievements provider (L1a) — settings, console/game
             // lookup, per-game link override, and full achievement sync.
             retro::retro_get_settings,

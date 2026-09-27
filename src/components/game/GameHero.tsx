@@ -234,8 +234,8 @@ export default function GameHero({
   // Achievement progress — prefer the multi-source cache (Steam / GOG /
   // Epic / Retro / manual) so non-Steam games surface real progress, then
   // fall back to the legacy Steam-synced array. Library only.
-  const { getGameAchievements } = useAchievements();
-  const achData = isGame && game ? getGameAchievements(game.id) : null;
+  const { getAchievementSummary } = useAchievements();
+  const achData = isGame && game ? getAchievementSummary(game.id) : null;
   const achievements = game?.steamAchievements;
   const achUnlocked =
     achData?.unlocked ?? achievements?.filter((a) => a.achieved).length ?? 0;

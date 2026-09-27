@@ -14,7 +14,8 @@ import {
   computeGoalPace,
 } from "../statsCalculations";
 import { saveMonthlyGoal } from "../statsStorage";
-import type { Game, GameSession, GameAchievementData, DayCell } from "../statsTypes";
+import type { Game, GameSession, DayCell } from "../statsTypes";
+import type { AchievementSummary } from "../../../types/game";
 
 const DONUT_PALETTE = [
   "var(--color-accent)",
@@ -43,7 +44,7 @@ function heatLevel(minutes: number, max: number): number {
 interface OverviewTabProps {
   sessions: GameSession[];
   games: Game[];
-  achievementCache: Record<string, GameAchievementData>;
+  summaries: Record<string, AchievementSummary>;
   initialGoalMin: number;
   hideAchievementProgress: boolean;
 }
@@ -51,7 +52,7 @@ interface OverviewTabProps {
 export function OverviewTab({
   sessions,
   games,
-  achievementCache,
+  summaries,
   initialGoalMin,
   hideAchievementProgress,
 }: OverviewTabProps) {
@@ -100,17 +101,17 @@ export function OverviewTab({
   const goalPct = goalMin > 0 ? Math.min(100, Math.round((monthToDate / goalMin) * 100)) : 0;
   const goalPace = useMemo(() => computeGoalPace(monthToDate, goalMin), [monthToDate, goalMin]);
 
-  // Achievement counts
+  // Achievement counts (backend-computed summaries)
   const achievementCounts = useMemo(() => {
     let total = 0;
     let unlocked = 0;
-    for (const gid of Object.keys(achievementCache)) {
-      const g = achievementCache[gid];
+    for (const gid of Object.keys(summaries)) {
+      const g = summaries[gid];
       total += g.total;
       unlocked += g.unlocked;
     }
     return { total, unlocked };
-  }, [achievementCache]);
+  }, [summaries]);
 
   const achievementPct =
     achievementCounts.total > 0

@@ -1035,6 +1035,76 @@ export interface AchievementsCache {
   games: Record<string, GameAchievementData>;
 }
 
+/**
+ * Compact per-game achievement summary computed by the backend. Replaces
+ * the full `GameAchievementData` for every count-only UI surface so the
+ * frontend never has to hold the whole cache in memory.
+ */
+export interface AchievementSummary {
+  steamAppId: number;
+  total: number;
+  unlocked: number;
+  lastSynced?: number;
+  source: AchievementSource;
+  providerId?: string;
+  pointsEarned: number;
+  pointsTotal: number;
+  rarity: Record<AchievementRarity, number>;
+  /** Newest unlock timestamp (seconds), 0 when none. */
+  lastUnlockTime: number;
+}
+
+/** An unlocked achievement plus the game it belongs to. */
+export interface AchievementUnlockRecord {
+  gameId: string;
+  achievement: Achievement;
+}
+
+/** One month of unlock activity. */
+export interface AchievementMonthlyPoint {
+  monthKey: string;
+  count: number;
+  points: number;
+}
+
+/** A game in the perfect / near-completion lists. */
+export interface AchievementCompletionEntry {
+  gameId: string;
+  total: number;
+  unlocked: number;
+  percentage: number;
+  lastUnlockTime: number;
+}
+
+/** Library-wide achievement aggregates computed in the backend. */
+export interface AchievementLibraryStats {
+  total: number;
+  unlocked: number;
+  overallPct: number;
+  perfectGames: number;
+  gamesWithData: number;
+  avgCompletion: number;
+  gamerscoreEarned: number;
+  gamerscoreTotal: number;
+  bySource: Record<AchievementSource, number>;
+  rarityTotal: Record<AchievementRarity, number>;
+  rarityUnlocked: Record<AchievementRarity, number>;
+}
+
+/**
+ * Everything the frontend needs to render achievements without holding
+ * the full per-game arrays. Built by `get_achievement_overview`.
+ */
+export interface AchievementOverview {
+  summaries: Record<string, AchievementSummary>;
+  stats: AchievementLibraryStats;
+  monthly: AchievementMonthlyPoint[];
+  recentUnlocks: AchievementUnlockRecord[];
+  rarestUnlocks: AchievementUnlockRecord[];
+  perfectGames: AchievementCompletionEntry[];
+  nearCompletion: AchievementCompletionEntry[];
+}
+
 /** Achievement rarity tier thresholds (based on global unlock %). */
 export type AchievementRarity = "common" | "uncommon" | "rare" | "ultra_rare";
 

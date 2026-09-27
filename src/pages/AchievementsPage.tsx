@@ -8,22 +8,15 @@ import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import {
   type AchievementSource,
-  type AchievementRarity,
   gameDisplayName,
-  getAchievementRarity,
 } from "../types/game";
 import {
   ACHIEVEMENT_SOURCES,
-  sourceOfPayload,
 } from "../components/achievements/AchievementSourceBadge";
 import { PageHeader } from "../components/ui";
 import PageWidget from "../components/PageWidget";
 
-import {
-  calculateLibraryGamerscore,
-  calculateGameGamerscore,
-  getMonthlyUnlockActivity,
-} from "../components/achievements/achievementUtils";
+import type { MonthlyActivityItem } from "../components/achievements/achievementUtils";
 import AchievementsSummaryHero from "../components/achievements/AchievementsSummaryHero";
 import AchievementsRarityChart from "../components/achievements/AchievementsRarityChart";
 import AchievementsActivityChart from "../components/achievements/AchievementsActivityChart";
@@ -44,7 +37,10 @@ type ViewMode = "grid" | "list";
 export default function AchievementsPage() {
   const { games } = useGames();
   const {
-    cache,
+    summaries,
+    stats: achStats,
+    monthly: overviewMonthly,
+    recentUnlocks,
     syncAllAchievements,
     syncRetroAchievements,
     syncManualAchievements,
@@ -65,18 +61,21 @@ export default function AchievementsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [bulkSyncing, setBulkSyncing] = useState(false);
 
-  // Aggregate gamerscore points across library
+  // Aggregate gamerscore points across the library (backend-computed).
   const gamerscore = useMemo(() => {
-    return calculateLibraryGamerscore(cache.games);
-  }, [cache]);
+    const earned = achStats?.gamerscoreEarned ?? 0;
+    const total = achStats?.gamerscoreTotal ?? 0;
+    return { earned, total, pct: total > 0 ? Math.round((earned / total) * 100) : 0 };
+  }, [achStats]);
 
-  // Build enriched base game list with achievement data (only recomputed when library or cache changes)
+  // Build enriched base game list from the backend-computed summaries (only
+  // recomputed when the library or the summary map changes).
   const baseAchievementGames = useMemo(() => {
     return games
       .filter(
         (g) =>
           g.steamAppId ||
-          cache.games[g.id] ||
+          summaries[g.id] ||
           g.gogGameId ||
           g.epicNamespace ||
           g.emulatorId ||
@@ -84,32 +83,26 @@ export default function AchievementsPage() {
           (links[g.id]?.length ?? 0) > 0
       )
       .map((g) => {
-        const data = cache.games[g.id];
-        const rarity: Record<AchievementRarity, number> = {
-          common: 0,
-          uncommon: 0,
-          rare: 0,
-          ultra_rare: 0,
-        };
-        for (const a of data?.achievements ?? []) {
-          if (a.achieved) rarity[getAchievementRarity(a.percent)]++;
-        }
-        const gamePoints = calculateGameGamerscore(data?.achievements ?? []);
-
+        const data = summaries[g.id];
         return {
           game: g,
           data,
           total: data?.total ?? 0,
           unlocked: data?.unlocked ?? 0,
           pct: data && data.total > 0 ? Math.round((data.unlocked / data.total) * 100) : 0,
-          pointsEarned: gamePoints.earned,
-          pointsTotal: gamePoints.total,
+          pointsEarned: data?.pointsEarned ?? 0,
+          pointsTotal: data?.pointsTotal ?? 0,
           lastSynced: data?.lastSynced ?? 0,
-          source: sourceOfPayload(data),
-          rarity,
+          source: data?.source ?? "steam",
+          rarity: data?.rarity ?? {
+            common: 0,
+            uncommon: 0,
+            rare: 0,
+            ultra_rare: 0,
+          },
         };
       });
-  }, [games, cache, links]);
+  }, [games, summaries, links]);
 
   // Filtered & sorted games (fast, without re-analyzing raw achievement arrays)
   const gamesWithAchievements = useMemo(() => {
@@ -136,96 +129,62 @@ export default function AchievementsPage() {
       });
   }, [baseAchievementGames, completionFilter, sourceFilter, sortBy, searchQuery]);
 
-  // Aggregate stats
-  const stats = useMemo(() => {
-    let totalAchievements = 0;
-    let totalUnlocked = 0;
-    let perfectGames = 0;
-    let gamesWithData = 0;
+  // Aggregate stats (backend-computed).
+  const stats = useMemo(() => ({
+    totalAchievements: achStats?.total ?? 0,
+    totalUnlocked: achStats?.unlocked ?? 0,
+    overallPct: achStats?.overallPct ?? 0,
+    perfectGames: achStats?.perfectGames ?? 0,
+    gamesWithData: achStats?.gamesWithData ?? 0,
+    avgCompletion: achStats?.avgCompletion ?? 0,
+  }), [achStats]);
 
-    for (const item of Object.values(cache.games)) {
-      if (item.total > 0) {
-        gamesWithData++;
-        totalAchievements += item.total;
-        totalUnlocked += item.unlocked;
-        if (item.unlocked === item.total) perfectGames++;
-      }
-    }
-
-    return {
-      totalAchievements,
-      totalUnlocked,
-      overallPct: totalAchievements > 0 ? Math.round((totalUnlocked / totalAchievements) * 100) : 0,
-      perfectGames,
-      gamesWithData,
-      avgCompletion:
-        gamesWithData > 0
-          ? Math.round(
-              Object.values(cache.games)
-                .filter((d) => d.total > 0)
-                .reduce((sum, d) => sum + (d.unlocked / d.total) * 100, 0) / gamesWithData
-            )
-          : 0,
-    };
-  }, [cache]);
-
-  // Unlocked achievement counts per source
-  const bySource = useMemo(() => {
-    const counts: Record<AchievementSource, number> = {
-      steam: 0,
-      retro: 0,
-      manual: 0,
-      gog: 0,
-      epic: 0,
-    };
-    for (const data of Object.values(cache.games)) {
-      const src = sourceOfPayload(data);
-      for (const a of data.achievements) {
-        if (a.achieved) counts[src]++;
-      }
-    }
-    return counts;
-  }, [cache]);
+  // Unlocked achievement counts per source (backend-computed).
+  const bySource = useMemo((): Record<AchievementSource, number> => ({
+    steam: achStats?.bySource.steam ?? 0,
+    retro: achStats?.bySource.retro ?? 0,
+    manual: achStats?.bySource.manual ?? 0,
+    gog: achStats?.bySource.gog ?? 0,
+    epic: achStats?.bySource.epic ?? 0,
+  }), [achStats]);
 
   const bySourceTotal = ACHIEVEMENT_SOURCES.reduce((sum, s) => sum + bySource[s], 0);
 
-  // Rarity distribution across all achievements (total and unlocked)
-  const { rarityTotal, rarityUnlocked } = useMemo(() => {
-    const totalMap: Record<AchievementRarity, number> = {
-      common: 0,
-      uncommon: 0,
-      rare: 0,
-      ultra_rare: 0,
-    };
-    const unlockedMap: Record<AchievementRarity, number> = {
-      common: 0,
-      uncommon: 0,
-      rare: 0,
-      ultra_rare: 0,
-    };
+  // Rarity distribution across all achievements (backend-computed).
+  const rarityTotal = achStats?.rarityTotal ?? {
+    common: 0,
+    uncommon: 0,
+    rare: 0,
+    ultra_rare: 0,
+  };
+  const rarityUnlocked = achStats?.rarityUnlocked ?? {
+    common: 0,
+    uncommon: 0,
+    rare: 0,
+    ultra_rare: 0,
+  };
 
-    for (const data of Object.values(cache.games)) {
-      for (const a of data.achievements ?? []) {
-        const tier = getAchievementRarity(a.percent);
-        totalMap[tier]++;
-        if (a.achieved) {
-          unlockedMap[tier]++;
-        }
-      }
-    }
-    return { rarityTotal: totalMap, rarityUnlocked: unlockedMap };
-  }, [cache]);
-
-  // Monthly unlock activity
-  const monthlyActivity = useMemo(() => {
-    return getMonthlyUnlockActivity(cache.games, 6);
-  }, [cache]);
+  // Monthly unlock activity — the backend ships monthKey/count/points; the
+  // chart needs localized labels, so derive them here.
+  const monthlyActivity = useMemo<MonthlyActivityItem[]>(() => {
+    return overviewMonthly.map((m) => {
+      const [year, month] = m.monthKey.split("-");
+      const d = new Date(Number(year), Number(month) - 1, 1);
+      return {
+        monthKey: m.monthKey,
+        label: d.toLocaleDateString(undefined, { month: "short", year: "numeric" }),
+        shortLabel: d.toLocaleDateString(undefined, { month: "short" }),
+        count: m.count,
+        points: m.points,
+      };
+    });
+  }, [overviewMonthly]);
 
   // Almost Done games (>= 70% and < 100%)
   const almostDoneGames = useMemo<AlmostDoneGameItem[]>(() => {
     const list: AlmostDoneGameItem[] = [];
     for (const g of games) {
-      const data = cache.games[g.id];
+      const data = summaries[g.id];
       if (data && data.total > 0) {
         const pct = Math.round((data.unlocked / data.total) * 100);
         if (pct >= 70 && pct < 100) {
@@ -235,37 +194,29 @@ export default function AchievementsPage() {
             unlocked: data.unlocked,
             pct,
             remaining: data.total - data.unlocked,
-            source: sourceOfPayload(data),
+            source: data.source ?? "steam",
           });
         }
       }
     }
     return list.sort((a, b) => b.pct - a.pct).slice(0, 8);
-  }, [games, cache]);
+  }, [games, summaries]);
 
-  // Recent achievements (last 16 across all games)
+  // Recent achievements (backend-computed, newest first).
   const recentAchievements = useMemo<RecentAchievementFeedItem[]>(() => {
     const gameMap = new Map<string, (typeof games)[0]>();
     for (const g of games) gameMap.set(g.id, g);
 
-    const all: RecentAchievementFeedItem[] = [];
-    for (const [gameId, data] of Object.entries(cache.games)) {
-      const game = gameMap.get(gameId);
-      for (const a of data.achievements ?? []) {
-        if (a.achieved && a.unlockTime > 0) {
-          all.push({
-            achievement: a,
-            game,
-            gameId,
-            gameCover: game?.coverArtUrl,
-          });
-        }
-      }
-    }
-    return all
-      .sort((a, b) => b.achievement.unlockTime - a.achievement.unlockTime)
-      .slice(0, 16);
-  }, [cache, games]);
+    return recentUnlocks.slice(0, 16).map((r) => {
+      const game = gameMap.get(r.gameId);
+      return {
+        achievement: r.achievement,
+        game,
+        gameId: r.gameId,
+        gameCover: game?.coverArtUrl,
+      };
+    });
+  }, [recentUnlocks, games]);
 
   /**
    * Sync All — Steam + non-Steam sources in parallel lanes

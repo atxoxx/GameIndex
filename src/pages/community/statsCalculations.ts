@@ -1,6 +1,11 @@
 // Analytical pure functions for the Statistics page and subtabs.
 
-import type { Game, GameSession, GameAchievementData } from "../../types/game";
+import type {
+  Game,
+  GameSession,
+  AchievementSummary,
+  AchievementUnlockRecord,
+} from "../../types/game";
 import type {
   DayCell,
   StreakInfo,
@@ -789,27 +794,23 @@ export function computeMilestones(
 
 // ── Perfect Games Detector (100% Unlocked) ────────────────────────
 export function computePerfectGames(
-  achievementCache: Record<string, GameAchievementData>,
+  summaries: Record<string, AchievementSummary>,
   games: Game[]
 ): PerfectGame[] {
   const gameById = new Map(games.map((g) => [g.id, g]));
   const list: PerfectGame[] = [];
 
-  for (const gid of Object.keys(achievementCache)) {
-    const data = achievementCache[gid];
+  for (const gid of Object.keys(summaries)) {
+    const data = summaries[gid];
     if (data.total > 0 && data.unlocked === data.total) {
       const lib = gameById.get(gid);
-      const lastUnlock = data.achievements.reduce(
-        (max, a) => Math.max(max, a.unlockTime || 0),
-        0
-      );
       list.push({
         gameId: gid,
         gameName: lib?.name ?? String(data.steamAppId || gid),
         coverArtUrl: lib?.coverArtUrl,
         totalAchievements: data.total,
         platform: lib?.platform,
-        lastUnlockedTime: lastUnlock,
+        lastUnlockedTime: data.lastUnlockTime ?? 0,
       });
     }
   }
@@ -820,14 +821,14 @@ export function computePerfectGames(
 
 // ── Near-Completion Games (50% - 99%) ──────────────────────────────
 export function computeNearCompletionGames(
-  achievementCache: Record<string, GameAchievementData>,
+  summaries: Record<string, AchievementSummary>,
   games: Game[]
 ): NearCompletionGame[] {
   const gameById = new Map(games.map((g) => [g.id, g]));
   const list: NearCompletionGame[] = [];
 
-  for (const gid of Object.keys(achievementCache)) {
-    const data = achievementCache[gid];
+  for (const gid of Object.keys(summaries)) {
+    const data = summaries[gid];
     if (data.total > 0 && data.unlocked < data.total) {
       const pct = Math.round((data.unlocked / data.total) * 100);
       if (pct >= 50) {
@@ -851,65 +852,51 @@ export function computeNearCompletionGames(
 }
 
 // ── Rarest Achievements Showcase ──────────────────────────────────
+// The backend ships the cross-game rarest list (already sorted, capped);
+// this maps game ids to the library rows the UI renders.
 export function computeRarestAchievements(
-  achievementCache: Record<string, GameAchievementData>,
+  rarestUnlocks: AchievementUnlockRecord[],
   games: Game[]
 ): RarestAchievement[] {
   const gameById = new Map(games.map((g) => [g.id, g]));
-  const list: RarestAchievement[] = [];
 
-  for (const gid of Object.keys(achievementCache)) {
-    const data = achievementCache[gid];
-    const lib = gameById.get(gid);
-
-    for (const ach of data.achievements) {
-      if (ach.achieved) {
-        // Global percent from Steam metadata or computed fallback
-        const rarity = typeof ach.percent === "number" && ach.percent > 0 ? ach.percent : 100;
-        list.push({
-          gameName: lib?.name ?? String(data.steamAppId || gid),
-          gameId: gid,
-          coverArtUrl: lib?.coverArtUrl,
-          achievementId: ach.apiName || ach.displayName,
-          displayName: ach.displayName,
-          description: ach.description,
-          iconUrl: ach.icon,
-          rarityPct: Math.round(rarity * 10) / 10,
-          unlockTime: ach.unlockTime,
-        });
-      }
-    }
-  }
-
-  list.sort((a, b) => a.rarityPct - b.rarityPct);
-  return list.slice(0, 10);
+  return rarestUnlocks.slice(0, 10).map((rec) => {
+    const lib = gameById.get(rec.gameId);
+    const ach = rec.achievement;
+    // Global percent from Steam metadata or computed fallback
+    const rarity = typeof ach.percent === "number" && ach.percent > 0 ? ach.percent : 100;
+    return {
+      gameName: lib?.name ?? rec.gameId,
+      gameId: rec.gameId,
+      coverArtUrl: lib?.coverArtUrl,
+      achievementId: ach.apiName || ach.displayName,
+      displayName: ach.displayName,
+      description: ach.description,
+      iconUrl: ach.icon,
+      rarityPct: Math.round(rarity * 10) / 10,
+      unlockTime: ach.unlockTime,
+    };
+  });
 }
 
 // ── Recently Unlocked Achievements ────────────────────────────────
+// Backend-shipped cross-game recent list (newest first, capped).
 export function collectUnlockedAchievements(
-  cache: Record<string, GameAchievementData>,
+  recentUnlocks: AchievementUnlockRecord[],
   games: Game[]
 ): UnlockedAchievementItem[] {
   const byId = new Map(games.map((g) => [g.id, g]));
-  const out: UnlockedAchievementItem[] = [];
 
-  for (const gid of Object.keys(cache)) {
-    const data = cache[gid];
-    const lib = byId.get(gid);
-    for (const ach of data.achievements) {
-      if (ach.unlockTime && ach.unlockTime > 0) {
-        out.push({
-          gameName: lib?.name ?? String(data.steamAppId),
-          name: ach.displayName,
-          description: ach.description,
-          unlockTime: ach.unlockTime,
-          coverArtUrl: lib?.coverArtUrl,
-          iconUrl: ach.icon,
-        });
-      }
-    }
-  }
-
-  out.sort((a, b) => b.unlockTime - a.unlockTime);
-  return out.slice(0, 15);
+  return recentUnlocks.slice(0, 15).map((rec) => {
+    const lib = byId.get(rec.gameId);
+    const ach = rec.achievement;
+    return {
+      gameName: lib?.name ?? rec.gameId,
+      name: ach.displayName,
+      description: ach.description,
+      unlockTime: ach.unlockTime,
+      coverArtUrl: lib?.coverArtUrl,
+      iconUrl: ach.icon,
+    };
+  });
 }

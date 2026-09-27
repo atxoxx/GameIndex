@@ -37,7 +37,7 @@ export default function StatsPage() {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { sessions } = useActivity();
-  const { cache: achievementCache } = useAchievements();
+  const { summaries, rarestUnlocks, recentUnlocks } = useAchievements();
   const { games } = useGames();
   const { hideAchievementProgress, isSimpleUi } = useSettings();
   const subtabsVisible = useWidgetVisible("community", "subtabs");
@@ -72,14 +72,14 @@ export default function StatsPage() {
   const timeOfDay = useMemo(() => computeTimeOfDay(filteredSessions), [filteredSessions]);
   const heatmap = useMemo(() => buildHeatmap(filteredSessions, 16), [filteredSessions]);
 
-  // Total unlocked achievements count
+  // Total unlocked achievements count (backend-computed summaries)
   const totalAchievementsUnlocked = useMemo(() => {
     let unl = 0;
-    for (const gid of Object.keys(achievementCache.games)) {
-      unl += achievementCache.games[gid].unlocked;
+    for (const gid of Object.keys(summaries)) {
+      unl += summaries[gid].unlocked;
     }
     return unl;
-  }, [achievementCache]);
+  }, [summaries]);
 
   // Genre breakdown
   const genreBreakdown = useMemo(() => {
@@ -238,7 +238,7 @@ export default function StatsPage() {
           <OverviewTab
             sessions={filteredSessions}
             games={games}
-            achievementCache={achievementCache.games}
+            summaries={summaries}
             initialGoalMin={initialGoalMin}
             hideAchievementProgress={hideAchievementProgress}
           />
@@ -253,7 +253,9 @@ export default function StatsPage() {
 
         {effectiveTab === "achievements" && (
           <AchievementsTab
-            achievementCache={achievementCache.games}
+            summaries={summaries}
+            rarestUnlocks={rarestUnlocks}
+            recentUnlocks={recentUnlocks}
             games={games}
             hideAchievementProgress={hideAchievementProgress}
           />

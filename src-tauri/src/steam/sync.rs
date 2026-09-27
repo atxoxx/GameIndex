@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use reqwest::Client;
 use serde::Deserialize;
+use tauri::Manager;
 
 use super::types::{SteamSession, SteamSyncResult, SyncedGameEntry};
 use crate::game_watcher;
@@ -239,93 +240,92 @@ pub async fn steam_sync_games(
     // ── Sync achievements if requested ──────────────────────────────
     let mut achievements_synced: u32 = 0;
     if include_achievements {
-        if let Ok(mut cache) = crate::achievements::load_cache_internal(&app) {
-            // Decide which games actually need a (re)fetch, then run those
-            // fetches concurrently (bounded to ~6 in flight) instead of
-            // one-at-a-time with a 150ms sleep between each. Overlapping the
-            // network latency gives a large speed-up on big libraries while
-            // staying gentle enough not to trip Steam's rate limits — the
-            // worker retries 429s with backoff, so a throttled burst ends
-            // up synced instead of silently dropped.
-            let mut to_fetch: Vec<(String, u32)> = Vec::new();
-            for game in &owned_games {
-                let game_key = format!("steam-{}", game.appid);
-                let needs_sync = match cache.games.get(&game_key) {
-                    None => true, // Not in cache
-                    Some(entry) => {
-                        let is_installed = installed_set.contains(&game.appid);
-                        if is_installed {
-                            true
-                        } else if game.playtime_forever > 0 {
-                            match entry.last_synced {
-                                None => true,
-                                Some(last_synced_ms) => {
-                                    let last_played_ms = game.rtime_last_played * 1000;
-                                    last_played_ms > last_synced_ms
-                                }
-                            }
-                        } else {
-                            false
-                        }
+        // Re-fetch only the games that need it, then persist each row
+        // individually. Reading the whole cache payload just to consult
+        // `last_synced` (and rewriting it after) is exactly the kind of
+        // multi-MB in-memory round-trip the per-game store avoids.
+        let db = app.state::<crate::db::Db>().inner().clone();
+        let last_synced = crate::db::achievements::last_synced_map(&db).unwrap_or_default();
+        let mut to_fetch: Vec<(String, u32)> = Vec::new();
+        for game in &owned_games {
+            let game_key = format!("steam-{}", game.appid);
+            let needs_sync = match last_synced.get(&game_key) {
+                None => true, // Not in cache
+                Some(&last_synced_ms) => {
+                    if installed_set.contains(&game.appid) {
+                        true
+                    } else if game.playtime_forever > 0 {
+                        let last_played_ms = game.rtime_last_played * 1000;
+                        last_played_ms > last_synced_ms
+                    } else {
+                        false
                     }
-                };
-                if needs_sync {
-                    to_fetch.push((game_key, game.appid));
                 }
+            };
+            if needs_sync {
+                to_fetch.push((game_key, game.appid));
+            }
+        }
+
+        if !to_fetch.is_empty() {
+            let ach_sem = std::sync::Arc::new(tokio::sync::Semaphore::new(6));
+            let mut handles = Vec::with_capacity(to_fetch.len());
+            for (game_key, appid) in to_fetch {
+                let permit = ach_sem
+                    .clone()
+                    .acquire_owned()
+                    .await
+                    .map_err(|e| format!("achievement semaphore: {e}"))?;
+                let client = client.clone();
+                let steam_id = session.steam_id.clone();
+                let api_key = session.api_key.clone();
+                let handle = tokio::spawn(async move {
+                    let _permit = permit;
+                    let res = crate::achievements::fetch_achievements_with_client(
+                        &client,
+                        appid,
+                        &steam_id,
+                        &api_key,
+                    )
+                    .await;
+                    (game_key, res)
+                });
+                handles.push(handle);
             }
 
-            if !to_fetch.is_empty() {
-                let ach_sem = std::sync::Arc::new(tokio::sync::Semaphore::new(6));
-                let mut handles = Vec::with_capacity(to_fetch.len());
-                for (game_key, appid) in to_fetch {
-                    let permit = ach_sem
-                        .clone()
-                        .acquire_owned()
-                        .await
-                        .map_err(|e| format!("achievement semaphore: {e}"))?;
-                    let client = client.clone();
-                    let steam_id = session.steam_id.clone();
-                    let api_key = session.api_key.clone();
-                    let handle = tokio::spawn(async move {
-                        let _permit = permit;
-                        let res = crate::achievements::fetch_achievements_with_client(
-                            &client,
-                            appid,
-                            &steam_id,
-                            &api_key,
-                        )
-                        .await;
-                        (game_key, res)
-                    });
-                    handles.push(handle);
-                }
-
-                for h in handles {
-                    match h.await {
-                        Ok((game_key, Ok(mut data))) => {
-                            let now_ms = std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_millis() as u64;
-                            data.last_synced = Some(now_ms);
-                            cache.games.insert(game_key, data);
-                            achievements_synced += 1;
-                        }
-                        Ok((game_key, Err(e))) => {
-                            eprintln!(
-                                "[steam_sync] Failed to fetch achievements for {}: {}",
+            for h in handles {
+                match h.await {
+                    Ok((game_key, Ok(mut data))) => {
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() as u64;
+                        data.last_synced = Some(now_ms);
+                        let payload = serde_json::to_string(&data).unwrap_or_default();
+                        match crate::db::achievements::upsert(
+                            &db,
+                            &game_key,
+                            data.steam_app_id,
+                            &payload,
+                            now_ms,
+                            "steam",
+                            data.provider_id.as_deref(),
+                        ) {
+                            Ok(()) => achievements_synced += 1,
+                            Err(e) => eprintln!(
+                                "[steam_sync] Failed to save achievements for {}: {}",
                                 game_key, e
-                            );
-                        }
-                        Err(e) => {
-                            eprintln!("[steam_sync] achievement task panicked: {}", e);
+                            ),
                         }
                     }
-                }
-
-                if achievements_synced > 0 {
-                    if let Err(e) = crate::achievements::save_cache_internal(&app, &cache) {
-                        eprintln!("[steam_sync] Failed to save achievements cache: {}", e);
+                    Ok((game_key, Err(e))) => {
+                        eprintln!(
+                            "[steam_sync] Failed to fetch achievements for {}: {}",
+                            game_key, e
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("[steam_sync] achievement task panicked: {}", e);
                     }
                 }
             }

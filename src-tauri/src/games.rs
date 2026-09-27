@@ -747,6 +747,142 @@ fn load_games_blocking(db: &db::Db, app_data_dir: &std::path::Path) -> Result<Ve
     Ok(out)
 }
 
+/// Heavy IGDB / media columns that are stripped from a library *summary*
+/// and fetched on demand via `get_game_detail`. These are the large JSON
+/// arrays the resident frontend library no longer needs to hold.
+const HEAVY_GAME_FIELDS: &[&str] = &[
+    "screenshots",
+    "videos",
+    "similarGames",
+    "releases",
+    "igdbReviews",
+    "languageSupports",
+    "steamAchievements",
+];
+
+/// Drop the heavy arrays from a record before it is sent as a summary.
+fn strip_heavy_fields(game: &mut GameData) {
+    game.screenshots = None;
+    game.videos = None;
+    game.similar_games = None;
+    game.releases = None;
+    game.igdb_reviews = None;
+    game.language_supports = None;
+    game.steam_achievements = None;
+}
+
+/// Load the library as lightweight summaries: every presentational and
+/// launch-relevant field, but without the heavy IGDB/media arrays (see
+/// [`HEAVY_GAME_FIELDS`]). The frontend fetches a full record on demand
+/// with `get_game_detail`.
+#[tauri::command]
+pub async fn load_games_summary(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut out = load_games_blocking(&db, &app_data_dir)?;
+        for game in out.iter_mut() {
+            strip_heavy_fields(game);
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|e| format!("load_games_summary task: {e}"))?
+}
+
+/// Load one full game record (including the heavy arrays) for the detail
+/// surfaces — the game page and the edit modal.
+#[tauri::command]
+pub async fn get_game_detail(
+    app: tauri::AppHandle,
+    id: String,
+) -> Result<Option<GameData>, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut row = db::games::get(&db, &id)?;
+        if let Some(r) = row.as_mut() {
+            externalize_row_artwork(&db, &app_data_dir, r);
+        }
+        let mut game = row.map(GameData::from);
+        // Mirror `load_games_blocking`: re-attach the per-game compatibility
+        // profile from its own table so the edit modal sees it.
+        if let Some(game) = game.as_mut() {
+            if let Ok(mut compat_map) = db::compatibility::list_all_for_games(&db) {
+                if let Some(c) = compat_map.remove(&game.id) {
+                    game.compatibility = Some(c);
+                }
+            }
+        }
+        Ok(game)
+    })
+    .await
+    .map_err(|e| format!("get_game_detail task: {e}"))?
+}
+
+/// Merge a sparse patch into an existing game row. Only keys present in
+/// `patch` are applied; every other column keeps its stored value. The
+/// frontend sends a library *summary* (heavy arrays omitted) for light
+/// mutations — playtime, last-played, favorite, installed, launch flags,
+/// size — so those writes can never overwrite the heavy media columns.
+#[tauri::command]
+pub async fn patch_game(
+    app: tauri::AppHandle,
+    id: String,
+    patch: serde_json::Value,
+) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || patch_game_blocking(&db, &id, &patch))
+        .await
+        .map_err(|e| format!("patch_game task: {e}"))?
+}
+
+fn patch_game_blocking(
+    db: &db::Db,
+    id: &str,
+    patch: &serde_json::Value,
+) -> Result<(), String> {
+    let Some(row) = db::games::get(db, id)? else {
+        // The row was removed; nothing to patch.
+        return Ok(());
+    };
+    let mut base = serde_json::to_value(&row).map_err(|e| e.to_string())?;
+    let base_map = base
+        .as_object_mut()
+        .ok_or_else(|| "patch base is not an object".to_string())?;
+    let patch_map = match patch.as_object() {
+        Some(m) => m,
+        None => return Ok(()),
+    };
+    for (key, value) in patch_map {
+        // Heavy media columns are never carried by a summary; ignore them
+        // even if a caller sends one so a stale/empty array can't wipe art.
+        if HEAVY_GAME_FIELDS.contains(&key.as_str()) {
+            continue;
+        }
+        // The compatibility profile lives in its own table and is edited
+        // through the compatibility commands, not a game-row patch.
+        if key == "compatibility" {
+            continue;
+        }
+        base_map.insert(key.clone(), value.clone());
+    }
+    // Unknown keys are ignored by serde (GameRow has no `deny_unknown_fields`).
+    let merged: db::games::GameRow =
+        serde_json::from_value(base).map_err(|e| format!("patch merge: {e}"))?;
+    db::games::upsert_one(db, &merged)
+}
+
+/// Delete a set of games by id (used by the frontend's targeted library
+/// saves so removals no longer require a full-library rewrite).
+#[tauri::command]
+pub async fn delete_games(app: tauri::AppHandle, ids: Vec<String>) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || db::games::delete_many(&db, &ids))
+        .await
+        .map_err(|e| format!("delete_games task: {e}"))?
+}
+
 /// Move the four base64 artwork columns of one row onto disk, rewriting
 /// the stored URL to a `file://` URL the frontend already knows how to
 /// convert (`normalizeGameArtworkUrls`). No-op for non-data URLs.
@@ -1130,6 +1266,69 @@ mod tests {
         let reviews = game.igdb_reviews.expect("valid review should survive");
         assert_eq!(reviews.len(), 1);
         assert_eq!(reviews[0].title.as_deref(), Some("ok"));
+    }
+
+    fn seeded_db() -> (tempfile::TempDir, crate::db::Db) {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = crate::db::Db::open(tmp.path()).unwrap();
+        crate::db::migrate::run_migrations(&db).unwrap();
+        let row: GameRow =
+            serde_json::from_value(serde_json::to_value(full_game_data()).unwrap()).unwrap();
+        crate::db::games::upsert_one(&db, &row).unwrap();
+        (tmp, db)
+    }
+
+    #[test]
+    fn patch_game_applies_light_fields_and_preserves_heavy_ones() {
+        let (_tmp, db) = seeded_db();
+        // Summary-shaped patch: heavy arrays omitted, light fields changed.
+        let patch = json!({ "lastPlayed": 4242u64, "playTime": "5h", "favorite": true });
+        patch_game_blocking(&db, "g1", &patch).unwrap();
+
+        let after = crate::db::games::get(&db, "g1").unwrap().unwrap();
+        assert_eq!(after.last_played, Some(4242));
+        assert_eq!(after.play_time, "5h");
+        assert_eq!(after.favorite, Some(true));
+        // Heavy media columns survive a summary patch.
+        assert_eq!(after.screenshots.as_ref().map(|v| v.len()), Some(2));
+        assert_eq!(after.videos.as_ref().map(|v| v.len()), Some(1));
+        assert!(after.igdb_reviews.is_some());
+        assert!(after.similar_games.is_some());
+        assert!(after.releases.is_some());
+    }
+
+    #[test]
+    fn patch_game_ignores_heavy_keys_even_when_sent() {
+        let (_tmp, db) = seeded_db();
+        // A stale/buggy caller trying to null the artwork must not win.
+        let patch = json!({ "screenshots": serde_json::Value::Null, "lastPlayed": 1u64 });
+        patch_game_blocking(&db, "g1", &patch).unwrap();
+        let after = crate::db::games::get(&db, "g1").unwrap().unwrap();
+        assert_eq!(after.screenshots.as_ref().map(|v| v.len()), Some(2));
+        assert_eq!(after.last_played, Some(1));
+    }
+
+    #[test]
+    fn patch_game_missing_row_is_a_noop() {
+        let (_tmp, db) = seeded_db();
+        assert!(patch_game_blocking(&db, "does-not-exist", &json!({ "playTime": "1h" })).is_ok());
+    }
+
+    #[test]
+    fn strip_heavy_fields_removes_only_media_arrays() {
+        let mut game = full_game_data();
+        strip_heavy_fields(&mut game);
+        assert!(game.screenshots.is_none());
+        assert!(game.videos.is_none());
+        assert!(game.similar_games.is_none());
+        assert!(game.releases.is_none());
+        assert!(game.igdb_reviews.is_none());
+        assert!(game.language_supports.is_none());
+        assert!(game.steam_achievements.is_none());
+        // Light fields used by lists/search survive.
+        assert!(game.alternative_names.is_some());
+        assert!(game.genres.is_some());
+        assert_eq!(game.name, "Test Game");
     }
 }
 

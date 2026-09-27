@@ -20,23 +20,17 @@ function formatHours(totalMinutes: number): string {
 export default function BigScreenCommunity() {
   const { t } = useLanguage();
   const { getAllStats, sessions } = useActivity();
-  const { cache } = useAchievements();
+  const { stats: achStats } = useAchievements();
   const { games } = useGames();
   const navigate = useNavigate();
 
   const stats = useMemo(() => getAllStats(), [getAllStats]);
 
-  // Count total achievements across all cached games
-  const achievementCounts = useMemo(() => {
-    let total = 0;
-    let unlocked = 0;
-    for (const gid of Object.keys(cache.games)) {
-      const g = cache.games[gid];
-      total += g.total;
-      unlocked += g.unlocked;
-    }
-    return { total, unlocked };
-  }, [cache]);
+  // Library-wide achievement counts (computed in the backend).
+  const achievementCounts = useMemo(
+    () => ({ total: achStats?.total ?? 0, unlocked: achStats?.unlocked ?? 0 }),
+    [achStats]
+  );
 
   // Total achievements completion %
   const achievementPct = achievementCounts.total > 0

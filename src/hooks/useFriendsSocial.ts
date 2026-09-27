@@ -304,7 +304,7 @@ export interface UseFriendsSocialResult {
 export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResult {
   const { t } = useLanguage();
   const { games } = useGames();
-  const { cache } = useAchievements();
+  const { summaries, recentUnlocks } = useAchievements();
   const { wishlist, toggle } = useWishlistContext();
   const { showToast } = useToast();
   const { dmReadReceipts } = useSettings();
@@ -489,7 +489,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
 
   const selfSharedGames = useMemo<SharedGameStat[]>(() => {
     return games.map((game) => {
-      const achData = cache?.games?.[game.id];
+      const achData = summaries[game.id];
       const achTotal = achData?.total || 0;
       const achUnlocked = achData?.unlocked || 0;
       const achievementPercent = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : 0;
@@ -501,7 +501,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
         genres: (game as { genres?: string[] }).genres || [],
       };
     });
-  }, [games, cache]);
+  }, [games, summaries]);
 
   const publishToNostr = useCallback(
     async (p: UserProfile, s: GameSession[], recs: GameRecommendation[], sugs: GameSuggestion[]) => {
@@ -1330,26 +1330,25 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       });
     });
     const unlockWindow = 30 * 24 * 60 * 60 * 1000;
-    Object.entries(cache?.games || {}).forEach(([gameId, data]) => {
-      const game = games.find((g) => g.id === gameId);
-      if (!game || !data || !data.achievements) return;
-      data.achievements
-        .filter((a) => a.achieved && a.unlockTime > 0 && Date.now() - a.unlockTime * 1000 < unlockWindow)
-        .forEach((a) => {
-          items.push({
-            key: `ach_${gameId}_${a.apiName}`,
-            timestamp: a.unlockTime * 1000,
-            kind: "achievement",
-            title: t("friendsPage.activityUnlock", { game: game.name, ach: a.displayName }),
-            detail: "",
-            gameName: game.name,
-          });
-        });
+    recentUnlocks.forEach((r) => {
+      const a = r.achievement;
+      if (!(a.achieved && a.unlockTime > 0)) return;
+      if (Date.now() - a.unlockTime * 1000 >= unlockWindow) return;
+      const game = games.find((g) => g.id === r.gameId);
+      if (!game) return;
+      items.push({
+        key: `ach_${r.gameId}_${a.apiName}`,
+        timestamp: a.unlockTime * 1000,
+        kind: "achievement",
+        title: t("friendsPage.activityUnlock", { game: game.name, ach: a.displayName }),
+        detail: "",
+        gameName: game.name,
+      });
     });
     return items
       .filter((i) => i.timestamp > 0)
       .sort((a, b) => b.timestamp - a.timestamp);
-  }, [sessions, recommendations, suggestions, friends, cache, games, profile.name, t]);
+  }, [sessions, recommendations, suggestions, friends, recentUnlocks, games, profile.name, t]);
 
   const playingNow = useMemo<PlayingNowEntry[]>(() => {
     const byName = new Map<string, Game>();
@@ -1473,7 +1472,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     ids.forEach((id) => {
       const myGame = selfById.get(id);
       const friendGame = friendGameMap.get(id);
-      const selfAchData = myGame ? cache?.games?.[myGame.id] : undefined;
+      const selfAchData = myGame ? summaries[myGame.id] : undefined;
       const selfAchTotal = selfAchData?.total || 0;
       const selfAchUnlocked = selfAchData?.unlocked || 0;
       const selfAchPercent = selfAchTotal > 0 ? Math.round((selfAchUnlocked / selfAchTotal) * 100) : 0;
@@ -1504,7 +1503,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       });
     });
     return compareList;
-  }, [games, cache, compareFriend]);
+  }, [games, summaries, compareFriend]);
 
   const matchScore = useMemo(() => {
     if (!compareFriend || comparisonData.length === 0) return 0;

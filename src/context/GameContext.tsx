@@ -27,6 +27,7 @@ import { useSessions } from "./game/useSessions";
 import { useLaunch } from "./game/useLaunch";
 import { useEnrich, gameNeedsEnrichment } from "./game/useEnrich";
 import { deduplicateAndMergeTags } from "../utils/genreTags";
+import { normalizeGameArtworkUrls } from "../utils/artworkUrl";
 
 interface GameContextType {
   games: Game[];
@@ -44,6 +45,14 @@ interface GameContextType {
   removeGames: (predicate: (game: Game) => boolean) => void;
   updateGame: (id: string, updates: Partial<Game>) => void;
   getGame: (id: string) => Game | undefined;
+  /**
+   * Fetch and merge the full game record (screenshots, videos, reviews,
+   * releases, similar games, …) for a single game. The library loads
+   * lightweight summaries; detail surfaces call this on mount.
+   */
+  loadGameDetail: (id: string) => Promise<Game | null>;
+  /** Whether `loadGameDetail` has already fetched a game's full record. */
+  isGameDetailLoaded: (id: string) => boolean;
   runningGameIds: string[];
   /** Game ids whose tracked process just went missing and are in the
    *  watcher's grace period (e.g. a launcher handing off to the real game).
@@ -179,6 +188,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // dependency without re-registering the event listener every render.
   const removeGamesRef = useRef<((predicate: (game: Game) => boolean) => void) | null>(null);
 
+  // Ids whose full game record has been fetched via `get_game_detail`.
+  // Games loaded from the summary list are absent; detail-loaded games are
+  // persisted with a full `save_game`, while summary-only games use the
+  // merge-safe `patch_game` so a light mutation can't clear heavy columns.
+  const detailLoadedIdsRef = useRef<Set<string>>(new Set());
+
+  const loadGameDetail = useCallback(async (id: string): Promise<Game | null> => {
+    if (detailLoadedIdsRef.current.has(id)) {
+      return gamesRef.current.find((g) => g.id === id) ?? null;
+    }
+    try {
+      const full = await invoke<Game | null>("get_game_detail", { id });
+      if (!full) return null;
+      detailLoadedIdsRef.current.add(id);
+      const normalized = normalizeGameArtworkUrls(full);
+      setGames((prev) => prev.map((g) => (g.id === id ? { ...g, ...normalized } : g)));
+      return normalized;
+    } catch (err) {
+      console.warn(`[GameContext] Failed to load detail for ${id}:`, err);
+      return null;
+    }
+  }, []);
+
+  const isGameDetailLoaded = useCallback(
+    (id: string) => detailLoadedIdsRef.current.has(id),
+    []
+  );
+
   // ── Per-game narrow subscriptions ────────────────────────────────
   // `gameMapRef` mirrors the games array as an id→Game map so a
   // `useGameById(id)` consumer can snapshot its own game without walking
@@ -303,6 +340,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setGames,
     gamesRef,
     untrackedGameIdsRef,
+    isDetailLoaded: isGameDetailLoaded,
     onLoaded: () => setGamesHydrated(true),
   });
 
@@ -327,6 +365,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   } = useEnrich({
     gamesRef,
     updateGame,
+    loadGameDetail,
   });
 
   // Ref-forwarded card actions. `launchGame`/`enrichGameMetadata` are
@@ -363,6 +402,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const addGame = useCallback((game: Game) => {
     const id = game.id || generateId();
     const withId = { ...game, id };
+    // Authored in-memory with its full metadata, so it is detail-loaded.
+    detailLoadedIdsRef.current.add(id);
     setGames((prev) => dedupeGamesById([...prev, withId]));
     // Refresh the watcher index so the new game is passively detectable.
     scheduleWatcherIndexRebuild();
@@ -372,6 +413,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const addGames = useCallback((newGames: Game[]) => {
     const withIds = newGames.map((g) => ({ ...g, id: g.id || generateId() }));
+    withIds.forEach((g) => detailLoadedIdsRef.current.add(g.id));
     setGames((prev) => dedupeGamesById([...prev, ...withIds]));
     // Refresh the watcher index so the imported games are passively
     // detectable without a restart.
@@ -384,6 +426,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const removeGame = useCallback(
     (id: string) => {
+      detailLoadedIdsRef.current.delete(id);
       setGames((prev) => prev.filter((g) => g.id !== id));
       setSelectedGameId((current) => (current === id ? null : current));
       sessions.setUntrackedGameIds((prev) => {
@@ -414,6 +457,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // be cleaned up without side effects inside the updater.
       const removedIds = gamesRef.current.filter(predicate).map((g) => g.id);
       for (const removedId of removedIds) {
+        detailLoadedIdsRef.current.delete(removedId);
         invoke("delete_game_notes_for_game", { gameId: removedId }).catch((err) =>
           console.error("Failed to delete game notes:", err)
         );
@@ -526,6 +570,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       metadataUrl: metadata.sourceUrl,
     };
 
+    detailLoadedIdsRef.current.add(newGame.id);
     setGames((prev) => [...prev, newGame]);
     // Refresh the watcher index so the new store game is passively
     // detectable once it has a path.
@@ -628,6 +673,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     if (imported.length > 0) {
+      imported.forEach((g) => detailLoadedIdsRef.current.add(g.id));
       setGames((prev) => [...prev, ...imported]);
       // Refresh the watcher index so the imported exes are passively
       // detectable immediately.
@@ -691,6 +737,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     removeGames,
     updateGame,
     getGame,
+    loadGameDetail,
+    isGameDetailLoaded,
     runningGameIds: sessions.runningGameIds,
     closingGameIds: sessions.closingGameIds,
     launchGame,
@@ -714,6 +762,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     removeGames,
     updateGame,
     getGame,
+    loadGameDetail,
+    isGameDetailLoaded,
     sessions.runningGameIds,
     sessions.closingGameIds,
     launchGame,

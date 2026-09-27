@@ -113,6 +113,74 @@ pub fn list_all(db: &Db) -> Result<Vec<(String, u32, String, String, Option<Stri
     Ok(out)
 }
 
+/// Read every cached row including `last_synced` — the shape the
+/// cross-game overview builder needs. Returns
+/// `(game_id, steam_app_id, payload_json, last_synced, source, provider_id)`.
+pub fn list_rows_for_overview(
+    db: &Db,
+) -> Result<Vec<(String, u32, String, Option<u64>, String, Option<String>)>, String> {
+    let conn = db.achievements().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT game_id, steam_app_id, payload_json, last_synced, source, provider_id
+               FROM achievements_cache",
+        )
+        .map_err(|e| format!("achievements overview prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, u32>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<i64>>(3)?.map(|n| n as u64),
+                r.get::<_, String>(4)?,
+                r.get::<_, Option<String>>(5)?,
+            ))
+        })
+        .map_err(|e| format!("achievements overview query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("achievements overview row: {e}"))?);
+    }
+    Ok(out)
+}
+
+/// Map of `game_id -> last_synced` for every cached row that has one. Lets
+/// the Steam sync decide which games need a re-fetch without loading the
+/// whole cache payload into memory.
+pub fn last_synced_map(db: &Db) -> Result<std::collections::HashMap<String, u64>, String> {
+    let conn = db.achievements().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT game_id, last_synced FROM achievements_cache \
+              WHERE last_synced IS NOT NULL",
+        )
+        .map_err(|e| format!("achievements last_synced prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u64))
+        })
+        .map_err(|e| format!("achievements last_synced query: {e}"))?;
+    let mut out = std::collections::HashMap::new();
+    for row in rows {
+        let (id, ts) = row.map_err(|e| format!("achievements last_synced row: {e}"))?;
+        out.insert(id, ts);
+    }
+    Ok(out)
+}
+
+/// Drop a single cached game (invalidated when a game is re-synced or
+/// removed from the library).
+pub fn delete(db: &Db, game_id: &str) -> Result<(), String> {
+    let conn = db.achievements().map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM achievements_cache WHERE game_id = ?1",
+        params![game_id],
+    )
+    .map_err(|e| format!("achievements delete: {e}"))?;
+    Ok(())
+}
+
 /// Drop every cached game (used by `clearCache`).
 pub fn clear(db: &Db) -> Result<(), String> {
     let conn = db.achievements().map_err(|e| e.to_string())?;

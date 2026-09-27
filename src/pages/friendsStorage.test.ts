@@ -58,7 +58,7 @@ vi.mock("../context/GameContext", () => ({
   useGames: () => ({ games: [], runningGameIds: [] }),
 }));
 vi.mock("../context/AchievementContext", () => ({
-  useAchievements: () => ({ cache: null }),
+  useAchievements: () => ({ summaries: {}, rarestUnlocks: [], recentUnlocks: [] }),
 }));
 vi.mock("../context/ToastContext", () => ({
   useToast: () => ({ showToast: vi.fn() }),

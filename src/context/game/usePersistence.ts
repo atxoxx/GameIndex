@@ -10,12 +10,14 @@ export function usePersistence(options: {
   setGames: React.Dispatch<React.SetStateAction<Game[]>>;
   gamesRef: React.MutableRefObject<Game[]>;
   untrackedGameIdsRef: React.MutableRefObject<Set<string>>;
-  /** Called once the initial `load_games` read has settled (success or
+  /** True when a game's full record has been fetched (see `loadGameDetail`). */
+  isDetailLoaded: (id: string) => boolean;
+  /** Called once the initial summary read has settled (success or
    *  failure) so the provider can flip its hydration flag. Page shells use
    *  it to avoid flashing an "empty library" while the async load runs. */
   onLoaded?: () => void;
 }) {
-  const { games, setGames, untrackedGameIdsRef, onLoaded } = options;
+  const { games, setGames, untrackedGameIdsRef, isDetailLoaded, onLoaded } = options;
 
   const loadedRef = useRef(false);
   // Arrays `load_games` handed to state. The first `[games]` effect run
@@ -31,9 +33,11 @@ export function usePersistence(options: {
   // `save_games` rewrite.
   const lastSavedGamesRef = useRef<Game[] | null>(null);
 
-  // Load persisted games on mount
+  // Load persisted game summaries on mount. The library carries every
+  // presentational/launch field but omits the heavy IGDB/media arrays,
+  // which detail surfaces fetch on demand via `get_game_detail`.
   useEffect(() => {
-    invoke<Game[]>("load_games")
+    invoke<Game[]>("load_games_summary")
       .then((data) => {
         if (data.length > 0) {
           // Legacy rows may carry `file://` artwork URLs (written before
@@ -58,14 +62,12 @@ export function usePersistence(options: {
 
   // Persist whenever games change (skip initial empty state before load).
   //
-  // Writes are normally targeted. `planGameSave` diffs the pending array
-  // against the last array known to be on disk and upserts only the
-  // changed rows in one `save_games_subset` transaction (async, off the
-  // GTK main thread); a full-library `save_games` rewrite
-  // (DELETE + re-insert every row) is reserved for structural changes
-  // (add/remove/reorder) or a diff bigger than `MAX_TARGETED_ROWS`.
-  // Metadata enrichment patches one game at a time, so this keeps a
-  // scrolled cover fetch from rewriting the whole table.
+  // Writes are always targeted now. `planGameSave` diffs the pending array
+  // against the last array known to be on disk by id: changed rows are
+  // upserted, removed ids deleted. Detail-loaded rows are written whole;
+  // summary-only rows go through the merge-safe `patch_game` so their
+  // unloaded heavy columns are preserved. There is no full-library rewrite,
+  // so a summary row can never overwrite another game's metadata.
   //
   // The serialization and scheduling below are load-bearing:
   //
@@ -107,12 +109,26 @@ export function usePersistence(options: {
       return;
     }
 
-    const write =
-      plan.kind === "rows"
-        ? invoke("save_games_subset", { games: plan.rows })
-        : invoke("save_games", { games: snapshot });
+    // Targeted writes only:
+    //  • detail-loaded rows are written whole via `save_games_subset`;
+    //  • summary-only rows use the merge-safe `patch_game`, which updates
+    //    only the fields present — heavy columns are never touched;
+    //  • removed ids are deleted explicitly.
+    const writes: Promise<unknown>[] = [];
+    const fullRows = plan.rows.filter((game) => isDetailLoaded(game.id));
+    if (fullRows.length > 0) {
+      writes.push(invoke("save_games_subset", { games: fullRows }));
+    }
+    for (const game of plan.rows) {
+      if (!isDetailLoaded(game.id)) {
+        writes.push(invoke("patch_game", { id: game.id, patch: game }));
+      }
+    }
+    if (plan.removedIds.length > 0) {
+      writes.push(invoke("delete_games", { ids: plan.removedIds }));
+    }
 
-    write
+    Promise.all(writes)
       .then(() => {
         // On failure this stays put, so the next flush re-diffs and retries
         // the same rows instead of treating them as already persisted.

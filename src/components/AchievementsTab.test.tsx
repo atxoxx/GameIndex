@@ -20,11 +20,13 @@ const { registerAction, registered } = vi.hoisted(() => {
 const {
   syncGameAchievements,
   getGameAchievements,
+  loadGameAchievements,
   fetchManualSchema,
   linksHolder,
 } = vi.hoisted(() => ({
   syncGameAchievements: vi.fn().mockResolvedValue(undefined),
   getGameAchievements: vi.fn(),
+  loadGameAchievements: vi.fn().mockResolvedValue(null),
   fetchManualSchema: vi.fn().mockResolvedValue([]),
   linksHolder: {
     links: {} as Record<
@@ -54,6 +56,7 @@ vi.mock("../context/ToastContext", () => ({
 vi.mock("../context/AchievementContext", () => ({
   useAchievements: () => ({
     getGameAchievements,
+    loadGameAchievements,
     syncGameAchievements,
     syncLocalAchievements: vi.fn(),
     syncRetroAchievements: vi.fn(),
