@@ -146,6 +146,7 @@ function LibraryGameCardBase({
               src={displayUrl}
               alt={displayName}
               loading="lazy"
+              decoding="async"
               onError={handleError}
               className={isIcon ? "lib-card-icon-img" : "lib-card-poster-img"}
             />

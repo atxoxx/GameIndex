@@ -3184,3 +3184,18 @@
   justify-content: space-between;
   gap: var(--space-xs);
 }
+
+/* ── Backdrop-blur budget ────────────────────────────────────────────────
+   Large and sticky/scrollable surfaces use a static translucent background
+   instead of a backdrop blur. A blurred layer holds an offscreen render
+   surface (VRAM) and is re-rasterized whenever the content beneath it
+   changes, which is costly on scroll. Blur is reserved for small transient
+   menus/popovers (tooltips, command palette, dropdowns, toasts). */
+.store-toolbar,
+.store-filter-sidebar,
+.store-filter-overlay,
+.store-filter-overlay-scrim,
+.store-empty {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

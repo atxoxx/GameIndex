@@ -7782,3 +7782,16 @@
   gap: 0.75rem;
   min-width: 0;
 }
+
+/* ── Backdrop-blur budget ────────────────────────────────────────────────
+   Big-screen header, bottom bar, sticky tab bar and the repeated KPI cards
+   use a static translucent background instead of a backdrop blur. Blur on
+   these large/scroll-adjacent surfaces holds an offscreen render surface
+   and re-rasterizes on every scroll. */
+.bigscreen-gamepage > .bigscreen-tab-bar,
+.bigscreen-v3-header,
+.bigscreen-v3-bottom-bar,
+.bigscreen-kpi-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

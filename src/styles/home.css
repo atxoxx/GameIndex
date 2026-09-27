@@ -2420,3 +2420,11 @@
     height: 26px;
   }
 }
+
+/* ── Deferred off-screen rendering ───────────────────────────────────────
+   Home rail cards skip layout/paint until they scroll into view; the
+   intrinsic size keeps the rail's track sizing stable. */
+.home-rail-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 260px;
+}

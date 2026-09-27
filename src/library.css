@@ -4221,3 +4221,23 @@ select.lib-filter-search option {
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-semibold);
 }
+
+/* ── Backdrop-blur budget ────────────────────────────────────────────────
+   Large/sticky surfaces use a static translucent background instead of a
+   backdrop blur (which holds an offscreen render surface and re-rasterizes
+   on scroll). Blur is reserved for small transient menus/popovers. */
+.lib-toolbar,
+.lib-filter,
+.lib-filter-overlay,
+.lib-filter-overlay-scrim {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── Deferred off-screen rendering ───────────────────────────────────────
+   Skip layout/paint of rail cards scrolled out of view; the intrinsic size
+   keeps track sizing stable while the card is skipped. */
+.lib-rail-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
