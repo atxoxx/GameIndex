@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatPlayTime, type Game, type GameSession } from "../../types/game";
 import { useActivity } from "../../context/ActivityContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -38,7 +38,7 @@ export function ActivityPerformance({
   sourceFilter,
 }: ActivityPerformanceProps) {
   const { t } = useLanguage();
-  const { totalRamGb, selectedGpu } = useActivity();
+  const { totalRamGb, selectedGpu, ensureSamplesFor } = useActivity();
   const { tempUnit } = useSettings();
   const [metricTab, setMetricTab] = useState<ComparisonMetric>("fps");
   const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
@@ -49,6 +49,12 @@ export function ActivityPerformance({
     out = filterSessionsBySource(out, games, sourceFilter);
     return out;
   }, [sessions, startDate, endDate, games, sourceFilter]);
+
+  // The performance views chart measured curves across the filtered window,
+  // so hydrate their samples on demand.
+  useEffect(() => {
+    void ensureSamplesFor(filteredSessions.map((s) => s.id));
+  }, [filteredSessions, ensureSamplesFor]);
 
   const gameAverages = useMemo(
     () => buildGameAverages(filteredSessions, games, t("activityDash.unknownGame")),

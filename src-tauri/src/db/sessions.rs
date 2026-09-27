@@ -14,7 +14,7 @@
 //!   page activity stats, future history exports).
 //! - Crash-safe (atomic SQL inserts; no half-written JSON).
 
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 
 use super::pool::Db;
 
@@ -311,6 +311,22 @@ pub fn list_all(db: &Db) -> Result<Vec<SessionRecord>, String> {
     Ok(out)
 }
 
+/// Return the raw `metrics_json` blob for one session, or `None` when the
+/// row is missing or carries no metrics. Paired with a list that has the
+/// per-sample array stripped (`sessions::get_sessions`), this lets the
+/// frontend lazy-load telemetry only for the sessions it actually charts.
+pub fn metrics_json_for(db: &Db, id: i64) -> Result<Option<String>, String> {
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    conn.query_row(
+        "SELECT metrics_json FROM sessions WHERE id = ?1",
+        params![id],
+        |r| r.get::<_, Option<String>>(0),
+    )
+    .optional()
+    .map_err(|e| format!("sessions metrics_json_for: {e}"))
+    .map(|opt| opt.flatten())
+}
+
 /// Delete a single session row by its primary key. Returns the number
 /// of rows removed (0 if the id didn't exist).
 pub fn delete(db: &Db, id: i64) -> Result<u64, String> {
@@ -464,6 +480,32 @@ mod tests {
 
         // Idempotent: no rows left for "a".
         assert_eq!(delete_for_game(&db, "a").unwrap(), 0);
+    }
+
+    #[test]
+    fn metrics_json_for_returns_blob_then_none_for_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        let id = insert(
+            &db,
+            "g",
+            "Game",
+            1000,
+            2000,
+            10,
+            None,
+            None,
+            None,
+            None,
+            Some(r#"{"avgFps":60,"samples":[{"t":0.0}]}"#),
+        )
+        .unwrap();
+
+        assert!(metrics_json_for(&db, id).unwrap().is_some());
+        // A missing id is "no telemetry", not an error.
+        assert!(metrics_json_for(&db, id + 999).unwrap().is_none());
     }
 
     #[test]

@@ -1,5 +1,6 @@
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import type { GameSession } from "../../types/game";
+import { useActivity } from "../../context/ActivityContext";
 import { formatTemp, toDisplayTemps, tempMinY, tempMaxY, tempUnitLabel } from "../../utils/temp";
 import { buildSingleSessionSeries } from "../../utils/perfSamples";
 import { generateConsistentSeries } from "./GameActivityShared";
@@ -29,7 +30,14 @@ export function GameSessionDetail({
   hasTemps: boolean;
 }) {
   const { t } = useLanguage();
+  const { ensureSamplesFor } = useActivity();
   const m = session.metrics;
+
+  // Hydrate this session's measured curves (the list ships summaries only).
+  useEffect(() => {
+    void ensureSamplesFor([session.id]);
+  }, [session.id, ensureSamplesFor]);
+
   if (!m) return null;
 
   const { labels, cpu, gpu, ram, cpuTemp, gpuTemp, fps, real } = useMemo(() => {

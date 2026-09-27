@@ -237,6 +237,111 @@ describe("ActivityProvider aggregation", () => {
     expect(activityRef.current!.getAllStats().totalSessions).toBe(0);
   });
 
+  it("lazy-loads session samples into the matching session (happy path)", async () => {
+    gamesHolder.current = [makeGame("g1", "Alpha", "Steam", [])];
+    sessionRecords = [
+      makeRec(1, "g1", "Alpha", 60, {
+        metricsJson: JSON.stringify({
+          avgFps: 60,
+          avgCpuUsage: 40,
+          avgGpuUsage: 50,
+          avgRamUsage: 30,
+          avgCpuTemp: 50,
+          avgGpuTemp: 60,
+          minFps: 40,
+          maxFps: 90,
+          resolution: "1080p",
+        }),
+      }),
+    ];
+    mockedInvoke.mockImplementation((command: string, args?: unknown) => {
+      if (command === "get_sessions") return Promise.resolve(sessionRecords);
+      if (command === "get_session_samples") {
+        const ids = (args as { ids: number[] }).ids;
+        return Promise.resolve(
+          ids.map((id) => ({
+            id,
+            samples: [
+              { t: 0, cpu: 10, gpu: 20, ram: 30, cpuTemp: 40, gpuTemp: 50, fps: 60 },
+            ],
+          })),
+        );
+      }
+      if (command === "detect_gpus") return Promise.resolve([]);
+      if (command === "get_system_ram_gb") return Promise.resolve(16);
+      if (command === "load_sessions") return Promise.resolve("[]");
+      return Promise.resolve(null);
+    });
+
+    await renderActivity();
+    // The history list ships summaries only — no samples before hydration.
+    expect(activityRef.current!.sessions[0].metrics?.samples).toBeUndefined();
+
+    await act(async () => {
+      await activityRef.current!.ensureSamplesFor(["1"]);
+    });
+
+    const samples = activityRef.current!.sessions[0].metrics?.samples;
+    expect(samples).toHaveLength(1);
+    expect(samples?.[0].cpu).toBe(10);
+  });
+
+  it("keeps the session when the samples fetch fails and retries later (error path)", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    gamesHolder.current = [makeGame("g1", "Alpha", "Steam", [])];
+    sessionRecords = [
+      makeRec(1, "g1", "Alpha", 60, {
+        metricsJson: JSON.stringify({
+          avgFps: 60,
+          avgCpuUsage: 40,
+          avgGpuUsage: 50,
+          avgRamUsage: 30,
+          avgCpuTemp: 50,
+          avgGpuTemp: 60,
+          minFps: 40,
+          maxFps: 90,
+          resolution: "1080p",
+        }),
+      }),
+    ];
+    let calls = 0;
+    mockedInvoke.mockImplementation((command: string) => {
+      if (command === "get_sessions") return Promise.resolve(sessionRecords);
+      if (command === "get_session_samples") {
+        calls += 1;
+        return calls === 1
+          ? Promise.reject(new Error("backend down"))
+          : Promise.resolve([
+              {
+                id: 1,
+                samples: [
+                  { t: 0, cpu: 10, gpu: 20, ram: 30, cpuTemp: 40, gpuTemp: 50, fps: 60 },
+                ],
+              },
+            ]);
+      }
+      if (command === "detect_gpus") return Promise.resolve([]);
+      if (command === "get_system_ram_gb") return Promise.resolve(16);
+      if (command === "load_sessions") return Promise.resolve("[]");
+      return Promise.resolve(null);
+    });
+
+    await renderActivity();
+    await act(async () => {
+      await activityRef.current!.ensureSamplesFor(["1"]);
+    });
+    // A failed fetch leaves the summary intact and is not marked hydrated.
+    expect(activityRef.current!.sessions).toHaveLength(1);
+    expect(activityRef.current!.sessions[0].metrics?.samples).toBeUndefined();
+
+    await act(async () => {
+      await activityRef.current!.ensureSamplesFor(["1"]);
+    });
+    expect(activityRef.current!.sessions[0].metrics?.samples).toHaveLength(1);
+
+    errorSpy.mockRestore();
+  });
+
   it("excludes an in-progress row (null ended_at / null elapsed) and sub-minute rows", async () => {
     gamesHolder.current = [makeGame("g1", "Alpha", "Steam", ["Action"])];
     sessionRecords = [

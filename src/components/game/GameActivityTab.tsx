@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../../utils/color";
@@ -34,11 +34,16 @@ import {
 import * as Icons from "../activity/Icons";
 
 export function GameActivityTab({ game }: { game: Game }) {
-  const { getGameSessions, deleteSession } = useActivity();
+  const { getGameSessions, deleteSession, ensureSamplesFor } = useActivity();
   const { tempUnit } = useSettings();
   const { showToast } = useToast();
   const { t, language } = useLanguage();
   const sessions = useMemo(() => getGameSessions(game.id), [game.id, getGameSessions]);
+
+  // This tab charts this game's measured curves, so hydrate their samples.
+  useEffect(() => {
+    void ensureSamplesFor(sessions.map((s) => s.id));
+  }, [sessions, ensureSamplesFor]);
 
   const [viewMode, setViewMode] = useState<ViewMode>("playtime");
   const [timeframe, setTimeframe] = useState<Timeframe>("30d");

@@ -15,6 +15,7 @@ import { deferToIdle } from "../utils/idle";
 import {
   type GameSession,
   type SessionMetrics,
+  type PerfSample,
   type ActivityStats,
   type GpuInfo,
   type Game,
@@ -52,6 +53,12 @@ interface ActivityContextType {
     newGameId: string,
     newGameName: string
   ) => Promise<number>;
+  /** Ensure per-sample telemetry is loaded into `sessions[].metrics.samples`
+   *  for the given session ids, fetching only the ids not yet hydrated and
+   *  coalescing concurrent requests. The boot-time `get_sessions` list ships
+   *  compact summaries (no `samples`) to keep the resident history small, so
+   *  components call this when they actually render a measured curve. */
+  ensureSamplesFor: (sessionIds: string[]) => Promise<void>;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -154,6 +161,12 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
 
   // Keep a ref to selectedGpu so the event listener always sees the latest value
   const selectedGpuRef = useRef<GpuInfo | null>(null);
+
+  // Session ids whose per-sample telemetry has been lazy-loaded, plus ids with
+  // a fetch in flight. The backend strips `samples` from the history list, so
+  // `ensureSamplesFor` pulls curves only for the sessions a chart renders.
+  const hydratedSamplesRef = useRef<Set<string>>(new Set());
+  const pendingSamplesRef = useRef<Set<string>>(new Set());
 
   // Initialize sessions from SQLite and detect GPUs after the first idle
   // slice instead of synchronously on mount. Nothing on the default landing
@@ -298,6 +311,9 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
       const mapped = records
         .map(mapDbSession)
         .filter((s): s is GameSession => s !== null);
+      // Fresh rows are summaries — drop the hydration marks so any visible
+      // chart re-fetches its samples against the new history.
+      hydratedSamplesRef.current.clear();
       setSessions(mapped);
     } catch (e) {
       console.error("Failed to reload sessions:", e);
@@ -308,6 +324,50 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     // The backend is the sole writer; just refresh from the DB.
     await reloadSessions();
   }, [reloadSessions]);
+
+  // Lazy-load per-session telemetry. Batches the missing ids into a single
+  // IPC call, dedupes ids already hydrated or in flight, and merges the
+  // curves back into the matching sessions so existing chart code that reads
+  // `session.metrics.samples` keeps working unchanged.
+  const ensureSamplesFor = useCallback(async (sessionIds: string[]) => {
+    const wanted = Array.from(new Set(sessionIds)).filter(
+      (id) =>
+        id &&
+        !hydratedSamplesRef.current.has(id) &&
+        !pendingSamplesRef.current.has(id)
+    );
+    if (wanted.length === 0) return;
+
+    const numericIds = wanted
+      .map((id) => Number(id))
+      .filter((n) => Number.isFinite(n));
+    if (numericIds.length === 0) return;
+
+    for (const id of wanted) pendingSamplesRef.current.add(id);
+    try {
+      const rows = await invoke<{ id: number; samples: PerfSample[] }[]>(
+        "get_session_samples",
+        { ids: numericIds }
+      );
+      const byId = new Map<number, PerfSample[]>();
+      for (const row of rows) byId.set(row.id, row.samples);
+      for (const id of wanted) hydratedSamplesRef.current.add(id);
+
+      if (byId.size > 0) {
+        setSessions((prev) =>
+          prev.map((s) => {
+            const samples = byId.get(Number(s.id));
+            if (!samples || !s.metrics) return s;
+            return { ...s, metrics: sanitizeSessionMetrics({ ...s.metrics, samples }) };
+          })
+        );
+      }
+    } catch (e) {
+      console.error("Failed to load session samples:", e);
+    } finally {
+      for (const id of wanted) pendingSamplesRef.current.delete(id);
+    }
+  }, []);
 
   // ─── Refs for the game-exited listener ──────────────────────────────────
   // The Tauri event listener subscribes once on mount. Using refs ensures
@@ -454,6 +514,7 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     deleteSession,
     deleteSessionsForGame,
     relinkSessionsForGame,
+    ensureSamplesFor,
   }), [
     sessions,
     selectedGpu,
@@ -468,6 +529,7 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     deleteSession,
     deleteSessionsForGame,
     relinkSessionsForGame,
+    ensureSamplesFor,
   ]);
 
   return (

@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { GameSession } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
+import { useActivity } from "../../context/ActivityContext";
 import { formatTemp } from "../../utils/temp";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -26,6 +27,7 @@ export function SessionComparisonModal({
 }: SessionComparisonModalProps) {
   const { t, language } = useLanguage();
   const { tempUnit } = useSettings();
+  const { ensureSamplesFor } = useActivity();
 
   const sessionsWithHw = useMemo(() => {
     return sessions.filter((s) => s.metrics && s.metrics.avgFps > 0);
@@ -49,6 +51,14 @@ export function SessionComparisonModal({
 
   const sessionA = useMemo(() => candidateSessions.find((s) => s.id === sessionAId) ?? null, [candidateSessions, sessionAId]);
   const sessionB = useMemo(() => candidateSessions.find((s) => s.id === sessionBId) ?? null, [candidateSessions, sessionBId]);
+
+  // Comparison insights read measured curves; hydrate the two selected
+  // sessions while the modal is open.
+  useEffect(() => {
+    if (isOpen) {
+      void ensureSamplesFor([sessionAId, sessionBId].filter(Boolean));
+    }
+  }, [isOpen, sessionAId, sessionBId, ensureSamplesFor]);
 
   const comparison = useMemo(() => {
     if (!sessionA || !sessionB) return null;

@@ -619,8 +619,14 @@ function ActivitySessionItem({
   const [activeChartTab, setActiveChartTab] = useState<"usage" | "temps" | "ram" | "fps">("usage");
   const [isEditingNote, setIsEditingNote] = useState(false);
   const { tempUnit } = useSettings();
-  const { totalRamGb } = useActivity();
+  const { totalRamGb, ensureSamplesFor } = useActivity();
   const { getNote, setNote, setTags } = useSessionNotes();
+
+  // Pull the measured curves only once the row is expanded — the history list
+  // ships summaries without per-sample telemetry.
+  useEffect(() => {
+    if (isExpanded) void ensureSamplesFor([session.id]);
+  }, [isExpanded, session.id, ensureSamplesFor]);
   const { t, language } = useLanguage();
   const navigate = useNavigate();
 
