@@ -219,8 +219,8 @@ export function ActivityDashboard({
   }, [gameIsolatedSessions]);
 
   const dayOfWeekDist = useMemo(() => {
-    return buildDayOfWeekDistribution(gameIsolatedSessions);
-  }, [gameIsolatedSessions]);
+    return buildDayOfWeekDistribution(gameIsolatedSessions, language);
+  }, [gameIsolatedSessions, language]);
 
   const heatmapDays = useMemo(() => {
     return dateRange === "all" ? 365 : rangeDays(dateRange);

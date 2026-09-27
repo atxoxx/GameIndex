@@ -75,7 +75,7 @@ export function DayOfWeekDistribution({
             <div
               key={day.dayIndex}
               className={`act-dow-col ${isPeak ? "act-dow-col--peak" : ""} ${isWeekend ? "act-dow-col--weekend" : ""}`}
-              title={`${day.dayName}: ${formatPlayTime(day.minutes)} (${day.sessionsCount} sessions)`}
+              title={`${day.dayName}: ${formatPlayTime(day.minutes)} (${day.sessionsCount} ${day.sessionsCount === 1 ? t("activity.sessionOne") : t("activity.sessionsMany")})`}
             >
               <div className="act-dow-bar-track">
                 <div

@@ -145,9 +145,11 @@ export function WeeklyHeatmap({
                   day: "numeric",
                   year: "numeric",
                 });
-                const gamesInfo = cell.games.length > 0 ? `\nGames: ${cell.games.join(", ")}` : "";
+                const gamesInfo = cell.games.length > 0 ? `\n${t("activityDash.games")}: ${cell.games.join(", ")}` : "";
                 const sessionsInfo =
-                  cell.sessionsCount > 0 ? `\nSessions: ${cell.sessionsCount}` : "";
+                  cell.sessionsCount > 0
+                    ? `\n${t("activity.sessions")}: ${cell.sessionsCount}`
+                    : "";
                 const title = `${formattedDate} — ${cell.minutes > 0 ? formatPlayTime(cell.minutes) : t("activity.noPlaytimeData")}${sessionsInfo}${gamesInfo}`;
 
                 return (
