@@ -6,6 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import {
   type Achievement,
   type AchievementRarity,
+  gameDisplayName,
   getAchievementRarity,
   RARITY_COLORS,
 } from "../../types/game";
@@ -35,7 +36,7 @@ export default function HomeAchievements() {
         if (a.achieved && a.unlockTime > 0) {
           all.push({
             achievement: a,
-            gameName: game?.name ?? t("splash.unknown"),
+            gameName: game ? gameDisplayName(game) : t("splash.unknown"),
             gameId,
             gameCover: game?.coverArtUrl,
           });

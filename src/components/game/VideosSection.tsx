@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import type { AboutBundle, Game, MovieEntry } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 import { steamCodeForUi } from "../../i18n/languages";
 import { IconVideo } from "./icons";
 import { getVideoEmbedUrl, getVideoThumbnail } from "./video";
@@ -271,7 +272,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
           <div className="video-iframe-wrapper">
             <iframe
               src={embedUrl}
-              title={t("videos.iframeTitle", { name: game.name })}
+              title={t("videos.iframeTitle", { name: gameDisplayName(game) })}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />

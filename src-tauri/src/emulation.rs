@@ -649,7 +649,7 @@ mod tests {
     use crate::db::schema::{
         EMULATORS_DDL, EMULATORS_V2_DDL, GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL,
         GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL,
-        GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL,
+        GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL, GAMES_V12_DDL,
     };
 
     fn test_db() -> (tempfile::TempDir, db::Db) {
@@ -663,7 +663,7 @@ mod tests {
             for ddl in [
                 GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL,
                 GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL,
-                GAMES_V11_DDL,
+                GAMES_V11_DDL, GAMES_V12_DDL,
             ] {
                 games.execute_batch(ddl).unwrap();
             }

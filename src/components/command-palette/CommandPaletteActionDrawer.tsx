@@ -18,6 +18,7 @@ import {
 import type { PaletteItem, PaletteSecondaryAction } from "./commandPaletteTypes";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../context/SettingsContext";
+import { gameDisplayName } from "../../types/game";
 
 interface CommandPaletteActionDrawerProps {
   item: PaletteItem | null;
@@ -127,7 +128,7 @@ export default function CommandPaletteActionDrawer({
       acts.push({
         id: "act-copy-title",
         title: t("commandPalette.copyTitle"),
-        description: game.name,
+        description: gameDisplayName(game),
         icon: <Copy size={15} />,
         shortcut: "Ctrl+Shift+C",
         onExecute: () => {
@@ -198,7 +199,7 @@ export default function CommandPaletteActionDrawer({
       acts.push({
         id: "act-pcgamingwiki",
         title: "PCGamingWiki Fixes & Configs",
-        description: `Search PCGamingWiki for ${game.name}`,
+        description: `Search PCGamingWiki for ${gameDisplayName(game)}`,
         icon: <ExternalLink size={15} />,
         badge: "PCGW",
         onExecute: () => {
@@ -213,7 +214,7 @@ export default function CommandPaletteActionDrawer({
       acts.push({
         id: "act-hltb",
         title: "HowLongToBeat",
-        description: `Search completion times for ${game.name}`,
+        description: `Search completion times for ${gameDisplayName(game)}`,
         icon: <Clock size={15} />,
         badge: "HLTB",
         onExecute: () => {
@@ -238,8 +239,8 @@ export default function CommandPaletteActionDrawer({
             toggleGameTracking(game.id);
             showToast(
               isUntracked
-                ? t("commandPalette.trackingEnabledToast", { name: game.name })
-                : t("commandPalette.trackingDisabledToast", { name: game.name }),
+                ? t("commandPalette.trackingEnabledToast", { name: gameDisplayName(game) })
+                : t("commandPalette.trackingDisabledToast", { name: gameDisplayName(game) }),
               "info"
             );
           },

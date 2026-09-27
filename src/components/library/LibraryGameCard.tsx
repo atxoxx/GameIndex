@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Badge } from "../ui";
 import type { Game } from "../../types/game";
-import { PLAY_STATUS_DETAILS } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
 import { useGameCardActions, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useCardDisplaySettings } from "../../context/SettingsContext";
@@ -57,6 +57,8 @@ function LibraryGameCardBase({
   } = useCardDisplaySettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState(false);
+
+  const displayName = gameDisplayName(game);
 
   const isList = density === "list";
   const { displayUrl, isIcon, handleError, staticPosterUrl, animatedPosterUrl } = useGameCardArt({
@@ -126,7 +128,7 @@ function LibraryGameCardBase({
             }
           }
         }}
-        aria-label={game.name}
+        aria-label={displayName}
       >
         {selectable && (
           <span className={`lib-card-select${selected ? " checked" : ""}`} aria-hidden="true">
@@ -142,21 +144,21 @@ function LibraryGameCardBase({
           {displayUrl ? (
             <img
               src={displayUrl}
-              alt={game.name}
+              alt={displayName}
               loading="lazy"
               onError={handleError}
               className={isIcon ? "lib-card-icon-img" : "lib-card-poster-img"}
             />
           ) : (
             <div className="lib-card-placeholder">
-              <span className="lib-card-placeholder-letter">{game.name.charAt(0)}</span>
+              <span className="lib-card-placeholder-letter">{displayName.charAt(0)}</span>
             </div>
           )}
         </div>
 
         <div className="lib-card-list-info">
-          <h3 className="lib-card-name" title={game.name}>
-            {game.name}
+          <h3 className="lib-card-name" title={displayName}>
+            {displayName}
           </h3>
           {game.developer && (
             <span className="lib-card-list-dev" title={game.developer}>
@@ -223,7 +225,7 @@ function LibraryGameCardBase({
             className={`lib-card-list-play-btn${isRunning ? " running" : ""}`}
             onClick={handleLaunch}
             title={isRunning ? t("game.resume") : t("game.play")}
-            aria-label={isRunning ? t("game.resumeAria", { name: game.name }) : t("game.playAria", { name: game.name })}
+            aria-label={isRunning ? t("game.resumeAria", { name: displayName }) : t("game.playAria", { name: displayName })}
           >
             <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" aria-hidden="true">
               <polygon points="5 3 19 12 5 21 5 3" />
@@ -262,7 +264,7 @@ function LibraryGameCardBase({
           }
         }
       }}
-      aria-label={game.name}
+      aria-label={displayName}
     >
       <div className="lib-card-cover" ref={coverRef}>
         {selectable && (
@@ -279,7 +281,7 @@ function LibraryGameCardBase({
           <>
             <img
               src={staticPosterUrl || displayUrl!}
-              alt={game.name}
+              alt={displayName}
               loading="lazy"
               decoding="async"
               onError={handleError}
@@ -329,7 +331,7 @@ function LibraryGameCardBase({
           type="button"
           className="lib-card-fab"
           onClick={handleLaunch}
-          aria-label={isRunning ? t("game.resumeAria", { name: game.name }) : t("game.playAria", { name: game.name })}
+          aria-label={isRunning ? t("game.resumeAria", { name: displayName }) : t("game.playAria", { name: displayName })}
           title={isRunning ? t("game.resume") : t("game.play")}
         >
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -339,8 +341,8 @@ function LibraryGameCardBase({
       </div>
 
       <div className="lib-card-body">
-        <h3 className="lib-card-name" title={game.name}>
-          {game.name}
+        <h3 className="lib-card-name" title={displayName}>
+          {displayName}
         </h3>
         {showCardBadges &&
           (badgePlatform ||

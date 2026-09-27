@@ -1679,6 +1679,8 @@ export const ru: TranslationDict = {
   "edit.label.description": "Описание",
   "edit.label.dev": "Разраб:",
   "edit.label.developer": "Разработчик",
+  "edit.label.displayName": "Отображаемое имя",
+  "edit.label.displayNameHint": "Показывается во всём приложении. Оставьте пустым, чтобы использовать название игры.",
   "edit.label.executablePath": "Путь к исполняемому файлу",
   "edit.label.franchise": "Франшиза",
   "edit.label.gameModes": "Игровые режимы",

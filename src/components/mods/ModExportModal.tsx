@@ -4,6 +4,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
 import type { Game } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 import type { GameMod } from "../../types/mods";
 
 interface ModExportModalProps {
@@ -27,7 +28,7 @@ export default function ModExportModal({
 
   const exportedText = useMemo(() => {
     if (format === "markdown") {
-      const header = `### ${game.name} — Mod Load Order (${mods.length} mods)\n\n| # | Status | Mod Name | Version | Engine | Size |\n|---|---|---|---|---|---|`;
+      const header = `### ${gameDisplayName(game)} — Mod Load Order (${mods.length} mods)\n\n| # | Status | Mod Name | Version | Engine | Size |\n|---|---|---|---|---|---|`;
       const rows = mods.map((m, i) => {
         const status = m.enabled ? "✅ Enabled" : "❌ Disabled";
         const ver = m.version ? `v${m.version}` : "—";
@@ -38,7 +39,7 @@ export default function ModExportModal({
       });
       return [header, ...rows].join("\n");
     } else {
-      const header = `=== ${game.name} Mod Load Order (${mods.length} mods) ===\n`;
+      const header = `=== ${gameDisplayName(game)} Mod Load Order (${mods.length} mods) ===\n`;
       const rows = mods.map((m, i) => {
         const mark = m.enabled ? "[x]" : "[ ]";
         const ver = m.version ? ` v${m.version}` : "";
@@ -46,7 +47,7 @@ export default function ModExportModal({
       });
       return header + rows.join("\n");
     }
-  }, [game.name, mods, format]);
+  }, [game, mods, format]);
 
   if (!isOpen) return null;
 

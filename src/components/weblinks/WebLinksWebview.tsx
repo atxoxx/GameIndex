@@ -6,6 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { OpenExternalIcon, SteamIcon } from "./WebLinksIcons";
 import type { SourceDef, SteamSectionDef } from "./types";
 import type { Game } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 
 const PREVIEW_LABEL_PREFIX = "weblinks-preview-";
 
@@ -290,7 +291,7 @@ export default function WebLinksWebview({
           <p>
             {t("weblinks.steamAppIdNotDetectedBody", {
               section: activeSteamSection?.label ?? "",
-              game: game.name,
+              game: gameDisplayName(game),
               appid: "{appid}",
             })}
           </p>
@@ -317,7 +318,7 @@ export default function WebLinksWebview({
             </span>
             <h3>{t("weblinks.steamSearchMode")}</h3>
           </div>
-          <p>{t("weblinks.steamSearchModeBody", { game: game.name })}</p>
+          <p>{t("weblinks.steamSearchModeBody", { game: gameDisplayName(game) })}</p>
         </div>
       ) : null}
 

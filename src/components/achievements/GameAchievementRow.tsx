@@ -4,6 +4,7 @@ import {
   type Game,
   type AchievementSource,
   type AchievementRarity,
+  gameDisplayName,
   RARITY_COLORS,
 } from "../../types/game";
 import AchievementSourceBadge from "./AchievementSourceBadge";
@@ -47,7 +48,7 @@ function GameAchievementRowBase({
     <div className={`achievements-game-row ${isPerfect ? "is-perfect" : ""}`} onClick={onClick}>
       <div className="achievements-game-cover">
         {game.coverArtUrl ? (
-          <img src={game.coverArtUrl} alt={game.name} loading="lazy" />
+          <img src={game.coverArtUrl} alt={gameDisplayName(game)} loading="lazy" />
         ) : (
           <div className="achievements-game-cover-placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
@@ -61,7 +62,7 @@ function GameAchievementRowBase({
 
       <div className="achievements-game-info">
         <div className="achievements-game-name-row">
-          <span className="achievements-game-name">{game.name}</span>
+          <span className="achievements-game-name">{gameDisplayName(game)}</span>
           {pointsTotal > 0 && (
             <span className="ach-row-points-badge">
               {pointsEarned} / {pointsTotal} pts

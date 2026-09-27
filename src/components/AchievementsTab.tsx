@@ -8,6 +8,7 @@ import {
   type Game,
   type AchievementSource,
   type AchievementRarity,
+  gameDisplayName,
   getAchievementRarity,
   RARITY_COLORS,
 } from "../types/game";
@@ -588,7 +589,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
         {/* Cover Thumbnail */}
         <div className="ach-tab-cover">
           {game.coverArtUrl ? (
-            <img src={game.coverArtUrl} alt={game.name} loading="lazy" />
+            <img src={game.coverArtUrl} alt={gameDisplayName(game)} loading="lazy" />
           ) : (
             <div className="ach-tab-cover-placeholder">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="28" height="28">
@@ -635,7 +636,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
         {/* Identity & Dates & Gamerscore */}
         <div className="ach-tab-identity">
           <div className="ach-tab-title-row">
-            <h3 className="ach-tab-name">{game.name}</h3>
+            <h3 className="ach-tab-name">{gameDisplayName(game)}</h3>
             <AchievementSourceBadge source={source} />
             {isPerfect && (
               <span className="ach-tab-perfect-pill" title={t("achievements.perfectComplete")}>
@@ -1043,7 +1044,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
       <ConfirmModal
         open={confirmUnlink}
         title={t("achievements.unlink")}
-        message={t("achievements.unlinkConfirm", { name: game.name })}
+        message={t("achievements.unlinkConfirm", { name: gameDisplayName(game) })}
         confirmLabel="achievements.unlink"
         cancelLabel="common.cancel"
         busy={syncing}

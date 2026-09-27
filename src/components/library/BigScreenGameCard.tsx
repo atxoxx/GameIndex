@@ -13,7 +13,7 @@
 // `useCallback` + cleanupRef pattern did.
 
 import { useState } from "react";
-import { type Game } from "../../types/game";
+import { gameDisplayName, type Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useLanguage } from "../../context/LanguageContext";
@@ -61,7 +61,7 @@ export default function BigScreenGameCard({
           <>
             <img
               src={staticPosterUrl || displayUrl!}
-              alt={game.name}
+              alt={gameDisplayName(game)}
               loading="lazy"
               decoding="async"
               onError={handleError}
@@ -98,7 +98,7 @@ export default function BigScreenGameCard({
         )}
       </div>
       <div className="bigscreen-game-card-body">
-        <h3 className="bigscreen-game-card-name">{game.name}</h3>
+        <h3 className="bigscreen-game-card-name">{gameDisplayName(game)}</h3>
         <div className="bigscreen-game-card-meta">
           <span className="bigscreen-game-card-platform">{game.platform}</span>
           {game.playTime && (

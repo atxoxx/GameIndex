@@ -5,6 +5,7 @@ import { useActivity } from "../../context/ActivityContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
+import { gameDisplayName } from "../../types/game";
 
 function formatHours(totalMinutes: number): string {
   if (!totalMinutes || totalMinutes <= 0) return "0m";
@@ -49,6 +50,7 @@ export default function BigScreenCommunity() {
       const libGame = games.find((lg) => lg.id === g.gameId);
       return {
         ...g,
+        gameName: libGame ? gameDisplayName(libGame) : g.gameName,
         coverArtUrl: libGame?.coverArtUrl,
         platform: libGame?.platform,
         pct: maxMin > 0 ? Math.round((g.minutes / maxMin) * 100) : 0,

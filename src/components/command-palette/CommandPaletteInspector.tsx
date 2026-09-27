@@ -28,6 +28,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { PaletteItem } from "./commandPaletteTypes";
 import { formatBytes, formatRelativeTime, formatSummaryParagraphs } from "./commandPaletteUtils";
 import { useSettings } from "../../context/SettingsContext";
+import { gameDisplayName } from "../../types/game";
 
 interface CommandPaletteInspectorProps {
   item: PaletteItem | null;
@@ -166,7 +167,7 @@ export default function CommandPaletteInspector({
               )}
               <span className="cmd-badge cmd-badge--platform">{game.platform || "PC"}</span>
             </div>
-            <h3 className="cmd-inspector-title">{game.name}</h3>
+            <h3 className="cmd-inspector-title">{gameDisplayName(game)}</h3>
           </div>
         </div>
 
@@ -364,8 +365,8 @@ export default function CommandPaletteInspector({
                 </span>
               )}
             </div>
-            <h3 className="cmd-inspector-title" title={gameData.name}>
-              {gameData.name}
+            <h3 className="cmd-inspector-title" title={gameDisplayName(gameData)}>
+              {gameDisplayName(gameData)}
             </h3>
           </div>
         </div>

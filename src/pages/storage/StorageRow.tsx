@@ -6,7 +6,7 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
-import { formatSize, type Game } from "../../types/game";
+import { formatSize, gameDisplayName, type Game } from "../../types/game";
 import { driveOf, gameTotalBytes } from "./utils";
 import { Button } from "../../components/ui";
 import ContextMenu from "../../components/ui/ContextMenu";
@@ -103,7 +103,7 @@ function StorageRowBase({
       });
       onSizeUpdated?.();
       showToast(
-        t("storageRow.detectedSize", { size: formatSize(result.sizeBytes, unit), name: game.name }),
+        t("storageRow.detectedSize", { size: formatSize(result.sizeBytes, unit), name: gameDisplayName(game) }),
         "success"
       );
     } catch (err) {
@@ -142,7 +142,7 @@ function StorageRowBase({
       sizeRootPath: undefined,
       sizeDetectedAt: undefined,
     });
-    showToast(t("storageRow.clearedSize", { name: game.name }), "info");
+    showToast(t("storageRow.clearedSize", { name: gameDisplayName(game) }), "info");
   }
 
   const storageMenu = useContextMenu();
@@ -216,7 +216,7 @@ function StorageRowBase({
               type="checkbox"
               checked={selected}
               onChange={() => onToggleSelect?.()}
-              aria-label={t("storageRow.selectGame", { name: game.name })}
+              aria-label={t("storageRow.selectGame", { name: gameDisplayName(game) })}
             />
           </label>
         )}
@@ -239,8 +239,8 @@ function StorageRowBase({
         {/* Game Name & Badges */}
         <div className="storage__row-name-col">
           <div className="storage__row-name-line">
-            <span className="storage__row-name" title={game.name}>
-              {game.name}
+            <span className="storage__row-name" title={gameDisplayName(game)}>
+              {gameDisplayName(game)}
             </span>
             {drive && drive !== "Unknown" && (
               <span className="storage__row-drive-badge" title={drive}>
@@ -327,7 +327,7 @@ function StorageRowBase({
         <div
           className="storage__row-panel"
           role="region"
-          aria-label={t("storageRow.detailsAria", { name: game.name })}
+          aria-label={t("storageRow.detailsAria", { name: gameDisplayName(game) })}
         >
           {/* Path section with 1-click copy */}
           <div className="storage__row-path-block">
@@ -516,11 +516,11 @@ function StorageRowBase({
           y={storageMenu.state.y}
           items={storageMenuItems}
           onClose={storageMenu.close}
-          ariaLabel={game.name}
+          ariaLabel={gameDisplayName(game)}
           header={
             <>
-              <span className="context-menu-title" title={game.name}>
-                {game.name}
+              <span className="context-menu-title" title={gameDisplayName(game)}>
+                {gameDisplayName(game)}
               </span>
               <span className="ctx-badge">{game.platform}</span>
             </>

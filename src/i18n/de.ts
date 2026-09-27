@@ -1679,6 +1679,8 @@ export const de: TranslationDict = {
   "edit.label.description": "Beschreibung",
   "edit.label.dev": "Entw:",
   "edit.label.developer": "Entwickler",
+  "edit.label.displayName": "Anzeigename",
+  "edit.label.displayNameHint": "Wird in der gesamten App angezeigt. Leer lassen, um den Spielnamen zu verwenden.",
   "edit.label.executablePath": "Ausführungs-Pfad",
   "edit.label.franchise": "Franchise",
   "edit.label.gameModes": "Spielmodi",

@@ -4,6 +4,7 @@ import {
   type Game,
   type AchievementSource,
   type AchievementRarity,
+  gameDisplayName,
   RARITY_COLORS,
 } from "../../types/game";
 import AchievementSourceBadge from "./AchievementSourceBadge";
@@ -53,7 +54,7 @@ function GameAchievementCardBase({
         {game.coverArtUrl ? (
           <img
             src={game.coverArtUrl}
-            alt={game.name}
+            alt={gameDisplayName(game)}
             className="ach-game-card-cover"
             loading="lazy"
           />
@@ -85,8 +86,8 @@ function GameAchievementCardBase({
 
       {/* Card Body */}
       <div className="ach-game-card-body">
-        <h4 className="ach-game-card-name" title={game.name}>
-          {game.name}
+        <h4 className="ach-game-card-name" title={gameDisplayName(game)}>
+          {gameDisplayName(game)}
         </h4>
 
         {/* Points & Progress stats */}

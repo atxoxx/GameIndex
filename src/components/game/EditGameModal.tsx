@@ -98,6 +98,7 @@ export function EditGameModal({ game, onClose, initialTab = "details" }: EditGam
   const activeEditTab = editTab === "compatibility" && !showFullLinuxUi ? "details" : editTab;
 
   const [editName, setEditName] = useState(game.name);
+  const [editDisplayName, setEditDisplayName] = useState(game.displayName || "");
   const [editPlatform, setEditPlatform] = useState(game.platform);
   const cachedVersion = getCachedInstalledVersion(game.id);
   const [editVersion, setEditVersion] = useState(game.version || cachedVersion || "");
@@ -944,6 +945,7 @@ export function EditGameModal({ game, onClose, initialTab = "details" }: EditGam
 
     updateGame(game.id, {
       name: newName,
+      displayName: editDisplayName.trim() || undefined,
       platform: newPlatform,
       steamAppId: newSteamAppId,
       iconUrl: newIcon,
@@ -1241,7 +1243,7 @@ export function EditGameModal({ game, onClose, initialTab = "details" }: EditGam
                 {t(PLAY_STATUS_DETAILS[editPlayStatus].labelKey)}
               </span>
             </div>
-            <h3 className="edit-preview-title">{editName || game.name}</h3>
+            <h3 className="edit-preview-title">{editDisplayName.trim() || editName.trim() || game.name}</h3>
             {(editDeveloper || editPublisher) && (
               <p className="edit-preview-sub">
                 {[editDeveloper, editPublisher].filter(Boolean).join(" · ")}
@@ -1390,6 +1392,11 @@ export function EditGameModal({ game, onClose, initialTab = "details" }: EditGam
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-name">{t("edit.label.name")}</label>
                     <input id="edit-name" className="edit-input" type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Game name" />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-display-name">{t("edit.label.displayName")}</label>
+                    <input id="edit-display-name" className="edit-input" type="text" value={editDisplayName} onChange={(e) => setEditDisplayName(e.target.value)} placeholder={game.name} />
+                    <span className="edit-field-hint">{t("edit.label.displayNameHint")}</span>
                   </div>
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-play-status">{t("edit.label.playStatus")}</label>

@@ -7,7 +7,7 @@ import { useBigScreen } from "../context/BigScreenContext";
 import { useFocusable } from "../hooks/useFocusable";
 import { useLanguage } from "../context/LanguageContext";
 import { useGameCardArt } from "../hooks/useGameCardArt";
-import { slugify } from "../types/game";
+import { slugify, gameDisplayName } from "../types/game";
 import type {
   Game,
   GameMetadataResult,
@@ -239,7 +239,7 @@ function buildLibraryGroups(
           seen.add(key);
           matches.push({
             id: 0,
-            name: g.name,
+            name: gameDisplayName(g),
             coverUrl: g.coverArtUrl,
             libraryGameId: g.id,
             inLibrary: true,
@@ -268,7 +268,7 @@ function buildLibraryGroups(
           seen.add(key);
           matches.push({
             id: 0,
-            name: g.name,
+            name: gameDisplayName(g),
             coverUrl: g.coverArtUrl,
             libraryGameId: g.id,
             inLibrary: true,
@@ -297,7 +297,7 @@ function buildLibraryGroups(
           seen.add(key);
           matches.push({
             id: 0,
-            name: g.name,
+            name: gameDisplayName(g),
             coverUrl: g.coverArtUrl,
             libraryGameId: g.id,
             inLibrary: true,
@@ -326,7 +326,7 @@ function buildLibraryGroups(
           seen.add(key);
           matches.push({
             id: 0,
-            name: g.name,
+            name: gameDisplayName(g),
             coverUrl: g.coverArtUrl,
             libraryGameId: g.id,
             inLibrary: true,
@@ -346,7 +346,7 @@ function buildLibraryGroups(
 
   // 5. Shared Genres & Tags (relevance-sorted by overlap count)
   if (current.genres && current.genres.length > 0) {
-    const scoredMatches: { game: RelatedGame; score: number }[] = [];
+    const scoredMatches: { game: RelatedGame; key: string; score: number }[] = [];
     for (const g of library) {
       if (g.id === current.id) continue;
       if (!g.genres || g.genres.length === 0) continue;
@@ -357,19 +357,20 @@ function buildLibraryGroups(
       scoredMatches.push({
         game: {
           id: 0,
-          name: g.name,
+          name: gameDisplayName(g),
           coverUrl: g.coverArtUrl,
           libraryGameId: g.id,
           inLibrary: true,
         },
+        key,
         score: overlap,
       });
     }
     // Highest tag overlap first
     scoredMatches.sort((a, b) => b.score - a.score);
     const matches: RelatedGame[] = [];
-    for (const { game } of scoredMatches.slice(0, 16)) {
-      seen.add(normalizeName(game.name));
+    for (const { game, key } of scoredMatches.slice(0, 16)) {
+      seen.add(key);
       matches.push(game);
     }
     if (matches.length > 0) {
@@ -479,7 +480,7 @@ function buildStoreGroups(
     seen.add(key);
     inLibrary.push({
       id: 0,
-      name: g.name,
+      name: gameDisplayName(g),
       coverUrl: g.coverArtUrl,
       libraryGameId: g.id,
       inLibrary: true,
@@ -559,7 +560,7 @@ function buildStoreGroups(
           seen.add(key);
           matches.push({
             id: 0,
-            name: g.name,
+            name: gameDisplayName(g),
             coverUrl: g.coverArtUrl,
             libraryGameId: g.id,
             inLibrary: true,
@@ -587,7 +588,7 @@ function buildStoreGroups(
           seen.add(key);
           matches.push({
             id: 0,
-            name: g.name,
+            name: gameDisplayName(g),
             coverUrl: g.coverArtUrl,
             libraryGameId: g.id,
             inLibrary: true,
@@ -627,7 +628,7 @@ function buildStoreGroups(
           seen.add(key);
           matches.push({
             id: 0,
-            name: g.name,
+            name: gameDisplayName(g),
             coverUrl: g.coverArtUrl,
             libraryGameId: g.id,
             inLibrary: true,
@@ -655,7 +656,7 @@ function buildStoreGroups(
           seen.add(key);
           matches.push({
             id: 0,
-            name: g.name,
+            name: gameDisplayName(g),
             coverUrl: g.coverArtUrl,
             libraryGameId: g.id,
             inLibrary: true,
@@ -675,7 +676,7 @@ function buildStoreGroups(
 
   // 8. Shared Genres & Tags (relevance-sorted by overlap count)
   if (current.genres && current.genres.length > 0) {
-    const scoredMatches: { game: RelatedGame; score: number }[] = [];
+    const scoredMatches: { game: RelatedGame; key: string; score: number }[] = [];
     for (const g of library) {
       if (!g.genres || g.genres.length === 0) continue;
       const overlap = countOverlap(g.genres, current.genres);
@@ -685,18 +686,19 @@ function buildStoreGroups(
       scoredMatches.push({
         game: {
           id: 0,
-          name: g.name,
+          name: gameDisplayName(g),
           coverUrl: g.coverArtUrl,
           libraryGameId: g.id,
           inLibrary: true,
         },
+        key,
         score: overlap,
       });
     }
     scoredMatches.sort((a, b) => b.score - a.score);
     const matches: RelatedGame[] = [];
-    for (const { game } of scoredMatches.slice(0, 16)) {
-      seen.add(normalizeName(game.name));
+    for (const { game, key } of scoredMatches.slice(0, 16)) {
+      seen.add(key);
       matches.push(game);
     }
     if (matches.length > 0) {

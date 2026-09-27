@@ -13,6 +13,10 @@ use std::collections::HashSet;
 pub(crate) struct GameData {
     pub(crate) id: String,
     pub(crate) name: String,
+    /// Optional user-chosen label shown across the UI. Presentational
+    /// only; `name` stays canonical for matching and launches.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) display_name: Option<String>,
     pub(crate) path: String,
     pub(crate) platform: String,
     pub(crate) installed: bool,
@@ -338,6 +342,7 @@ impl From<GameData> for db::games::GameRow {
         db::games::GameRow {
             id: g.id,
             name: g.name,
+            display_name: g.display_name,
             path: g.path,
             platform: g.platform,
             installed: g.installed,
@@ -433,6 +438,7 @@ impl From<db::games::GameRow> for GameData {
         GameData {
             id: r.id,
             name: r.name,
+            display_name: r.display_name,
             path: r.path,
             platform: r.platform,
             installed: r.installed,
@@ -834,6 +840,7 @@ mod tests {
             r#"{
             "id": "g1",
             "name": "Test Game",
+            "displayName": "My Custom Label",
             "path": "C:/Games/Test/game.exe",
             "platform": "GOG",
             "installed": true,
@@ -955,6 +962,7 @@ mod tests {
             r#"{
             "id": "g1",
             "name": "Test Game",
+            "displayName": "My Custom Label",
             "path": "C:/Games/Test/game.exe",
             "platform": "GOG",
             "installed": true,

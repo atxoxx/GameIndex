@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Game } from "../../types/game";
+import { gameDisplayName, type Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Card } from "../ui";
@@ -126,7 +126,7 @@ const RecentlyAddedCard = memo(function RecentlyAddedCard({
           <>
             <img
               src={staticPosterUrl || displayUrl!}
-              alt={game.name}
+              alt={gameDisplayName(game)}
               loading="lazy"
               decoding="async"
               onError={handleError}
@@ -160,7 +160,7 @@ const RecentlyAddedCard = memo(function RecentlyAddedCard({
         </span>
       </div>
       <div className="lib-rail-card-body">
-        <div className="lib-rail-name" title={game.name}>{game.name}</div>
+        <div className="lib-rail-name" title={gameDisplayName(game)}>{gameDisplayName(game)}</div>
         <div className="lib-rail-meta">{game.playTime}</div>
       </div>
     </Card>

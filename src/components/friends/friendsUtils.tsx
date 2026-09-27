@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
-import type { StoreGameSummary } from "../../types/game";
+import { gameDisplayName, type StoreGameSummary } from "../../types/game";
 import type { Friend } from "./friendsTypes";
 import {
   displayName,
@@ -317,9 +317,9 @@ export function SearchableGameSelector({
       <div className="selected-game-display-card searchable-game-selector__selected">
         <div className="selected-game-details">
           <div className="selected-game-thumb">
-            {selectedGame.name.slice(0, 2).toUpperCase()}
+            {gameDisplayName(selectedGame).slice(0, 2).toUpperCase()}
           </div>
-          <span className="selected-game-title">{selectedGame.name}</span>
+          <span className="selected-game-title">{gameDisplayName(selectedGame)}</span>
         </div>
         <button
           type="button"
@@ -375,9 +375,9 @@ export function SearchableGameSelector({
                 }}
               >
                 <div className="game-search-item-thumb">
-                  {game.name.slice(0, 2).toUpperCase()}
+                  {gameDisplayName(game).slice(0, 2).toUpperCase()}
                 </div>
-                <span className="game-search-item-name">{game.name}</span>
+                <span className="game-search-item-name">{gameDisplayName(game)}</span>
               </button>
             ))
           )}

@@ -14,7 +14,7 @@ import {
 import { isSameUrl, parseCustomLink, serializeCustomLink } from "./sources";
 import type { ParsedCustomLink } from "./sources";
 import type { Game } from "../../types/game";
-import { slugify } from "../../types/game";
+import { slugify, gameDisplayName } from "../../types/game";
 
 interface MyLinksManagerProps {
   game: Game;
@@ -180,7 +180,7 @@ export default function MyLinksManager({
         break;
       case "wiki":
         url = `https://${gameSlug.replace(/-/g, "")}.fandom.com/`;
-        label = `${game.name} Wiki`;
+        label = `${gameDisplayName(game)} Wiki`;
         tag = "Wiki";
         break;
       case "speedrun":

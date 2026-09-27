@@ -1,5 +1,5 @@
 import type { Game, LibrarySource, PlayStatus } from "../types/game";
-import { parsePlayTime } from "../types/game";
+import { gameDisplayName, parsePlayTime } from "../types/game";
 
 /** Status facets for the library filter sidebar. */
 export type LibraryStatus = "all" | "installed" | "not_installed";
@@ -107,6 +107,8 @@ export function tokenizeSearchQuery(query: string): string[] {
 export function getGameSearchFields(game: Game): string[] {
   const fields: string[] = [];
   if (game.name) fields.push(game.name.toLowerCase());
+  const displayName = gameDisplayName(game);
+  if (displayName && displayName !== game.name) fields.push(displayName.toLowerCase());
   if (game.developer) fields.push(game.developer.toLowerCase());
   if (game.publisher) fields.push(game.publisher.toLowerCase());
   if (game.description) fields.push(game.description.toLowerCase());
@@ -165,7 +167,7 @@ export function gameMatchesSearchTokens(game: Game, tokens: string[]): boolean {
 export function getSearchRelevanceScore(game: Game, normalizedQuery: string, tokens: string[]): number {
   if (!normalizedQuery || tokens.length === 0) return 0;
   const q = normalizedQuery.toLowerCase().trim();
-  const nameLower = (game.name || "").toLowerCase().trim();
+  const nameLower = gameDisplayName(game).toLowerCase().trim();
 
   if (nameLower === q) return 100;
   if (q && nameLower.startsWith(q)) return 80;
@@ -357,7 +359,7 @@ export function sortGames(games: Game[], sort: LibrarySort): Game[] {
   const sorted = [...games];
   switch (sort) {
     case "alphabetical":
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      sorted.sort((a, b) => gameDisplayName(a).localeCompare(gameDisplayName(b)));
       break;
     case "date_added":
       sorted.sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));

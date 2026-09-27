@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useSteamGridArt } from "../../context/SteamGridDbContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { PLAY_STATUS_DETAILS } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
 import { accentForPlatform } from "../../types/emulator";
 import { preloadGameDetail } from "../../utils/routePreload";
 import { toWebviewAssetUrl } from "../../utils/artworkUrl";
@@ -44,6 +44,7 @@ function SidebarGameItemBase({
   const { updateGame, enrichGameMetadata, getGame } = useGames();
   const { t } = useLanguage();
   const coverRef = useRef<HTMLDivElement | null>(null);
+  const displayName = gameDisplayName(game);
 
   const [isNearViewport, setIsNearViewport] = useState(false);
   const sgdb = useSteamGridArt(
@@ -162,7 +163,7 @@ function SidebarGameItemBase({
         {game.iconUrl ? (
           <img
             src={game.iconUrl}
-            alt={game.name}
+            alt={displayName}
             loading="lazy"
             decoding="async"
             onError={(e) => {
@@ -175,7 +176,7 @@ function SidebarGameItemBase({
         ) : game.coverArtUrl ? (
           <img
             src={game.coverArtUrl}
-            alt={game.name}
+            alt={displayName}
             loading="lazy"
             decoding="async"
             onError={(e) => {
@@ -224,7 +225,7 @@ function SidebarGameItemBase({
               {game.platform}
             </span>
           )}
-          <HighlightedName name={game.name} query={searchQuery} />
+          <HighlightedName name={displayName} query={searchQuery} />
         </div>
 
         {density !== "compact" && (

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { formatPlayTime, type Game, type GameSession } from "../../types/game";
+import { formatPlayTime, gameDisplayName, type Game, type GameSession } from "../../types/game";
 import BarChart from "../../components/charts/BarChart";
 import LineChart from "../../components/charts/LineChart";
 import DonutChart from "../../components/charts/DonutChart";
@@ -105,7 +105,7 @@ export function ActivityDashboard({
       const game = games.find((g) => g.id === gameId);
       return {
         id: gameId,
-        title: game?.name || gameNames.get(gameId) || t("activityDash.unknownGame"),
+        title: game ? gameDisplayName(game) : gameNames.get(gameId) || t("activityDash.unknownGame"),
         platform: game?.platform || "Local",
         iconUrl: game?.iconUrl || null,
         coverArtUrl: game?.coverArtUrl || null,
@@ -497,7 +497,7 @@ export function ActivityDashboard({
               <div className="activity-main-chart__header-left">
                 <h3 className="activity-main-chart__title">
                   {selectedGame
-                    ? selectedGame.name
+                    ? gameDisplayName(selectedGame)
                     : selectedGameId
                       ? gameIsolatedSessions[0]?.gameName || t("game.tab.overview")
                       : t("game.tab.overview")}

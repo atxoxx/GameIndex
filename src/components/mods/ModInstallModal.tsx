@@ -6,6 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
 import type { Game } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 
 interface ModInstallModalProps {
   game: Game;
@@ -101,7 +102,7 @@ export default function ModInstallModal({
         <div className="mods-modal-header">
           <div>
             <h3 id="mods-install-title">{t("mods.installMod")}</h3>
-            <p className="mods-modal-subtitle">{game.name}</p>
+            <p className="mods-modal-subtitle">{gameDisplayName(game)}</p>
           </div>
           <button
             type="button"

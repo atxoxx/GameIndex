@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../types/game";
-import { PLAY_STATUS_DETAILS } from "../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
 import { useGameCardArt } from "../hooks/useGameCardArt";
 
@@ -336,7 +336,7 @@ const SidebarHoverPreviewCard = forwardRef<HTMLDivElement, SidebarHoverPreviewCa
           {displayUrl ? (
             <img
               src={displayUrl}
-              alt={game.name}
+              alt={gameDisplayName(game)}
               draggable={false}
               onError={handleError}
             />
@@ -362,8 +362,8 @@ const SidebarHoverPreviewCard = forwardRef<HTMLDivElement, SidebarHoverPreviewCa
         </div>
 
         <div className="sidebar-hover-preview__body">
-          <div className="sidebar-hover-preview__name" title={game.name}>
-            {game.name}
+          <div className="sidebar-hover-preview__name" title={gameDisplayName(game)}>
+            {gameDisplayName(game)}
           </div>
           <div className="sidebar-hover-preview__developer">{developer}</div>
 

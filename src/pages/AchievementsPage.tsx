@@ -9,6 +9,7 @@ import { useLanguage } from "../context/LanguageContext";
 import {
   type AchievementSource,
   type AchievementRarity,
+  gameDisplayName,
   getAchievementRarity,
 } from "../types/game";
 import {
@@ -115,7 +116,7 @@ export default function AchievementsPage() {
     const q = searchQuery.trim().toLowerCase();
     return baseAchievementGames
       .filter((item) => {
-        if (q && !item.game.name.toLowerCase().includes(q)) {
+        if (q && !gameDisplayName(item.game).toLowerCase().includes(q)) {
           return false;
         }
         if (completionFilter === "perfect") return item.pct === 100 && item.total > 0;
@@ -126,7 +127,7 @@ export default function AchievementsPage() {
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === "name") return a.game.name.localeCompare(b.game.name);
+        if (sortBy === "name") return gameDisplayName(a.game).localeCompare(gameDisplayName(b.game));
         if (sortBy === "completion") return b.pct - a.pct || b.unlocked - a.unlocked;
         if (sortBy === "gamerscore") return b.pointsEarned - a.pointsEarned || b.pointsTotal - a.pointsTotal;
         if (sortBy === "total") return b.total - a.total;
@@ -254,7 +255,7 @@ export default function AchievementsPage() {
         if (a.achieved && a.unlockTime > 0) {
           all.push({
             achievement: a,
-            gameName: game?.name ?? t("splash.unknown"),
+            game,
             gameId,
             gameCover: game?.coverArtUrl,
           });
@@ -264,7 +265,7 @@ export default function AchievementsPage() {
     return all
       .sort((a, b) => b.achievement.unlockTime - a.achievement.unlockTime)
       .slice(0, 16);
-  }, [cache, games, t]);
+  }, [cache, games]);
 
   /**
    * Sync All — Steam + non-Steam sources in parallel lanes

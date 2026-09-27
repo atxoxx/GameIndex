@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 import {
   useNewsFeeds,
   parseRSS,
@@ -484,7 +485,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
               ? t("game.news.noMatchSubtitle")
               : failed
               ? t("game.news.emptyError")
-              : t("game.news.emptySubtitle", { game: game.name })}
+              : t("game.news.emptySubtitle", { game: gameDisplayName(game) })}
           </p>
           <div className="game-news-empty-actions">
             {searchQuery || activeCategory !== "all" ? (
@@ -572,7 +573,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
             <span>
               {t("game.news.footer", {
                 count: displayedArticles.length,
-                game: game.name,
+                game: gameDisplayName(game),
               })}
             </span>
             <Button variant="ghost" size="sm" onClick={() => navigate("/news")}>

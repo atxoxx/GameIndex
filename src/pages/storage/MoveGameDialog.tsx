@@ -6,7 +6,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
-import { formatSize, type Game } from "../../types/game";
+import { formatSize, gameDisplayName, type Game } from "../../types/game";
 import { Button } from "../../components/ui";
 import { relocateExe, gameTotalBytes } from "./utils";
 import type { DriveUsage } from "./useDriveUsage";
@@ -228,7 +228,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
                 <ul className="move-dialog-list">
                   {games.map((g) => (
                     <li key={g.id} className="move-dialog-list-item">
-                      <span className="move-dialog-list-name">{g.name}</span>
+                      <span className="move-dialog-list-name">{gameDisplayName(g)}</span>
                       <span className="move-dialog-list-size">
                         {formatSize(gameTotalBytes(g), unit)}
                       </span>

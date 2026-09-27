@@ -1679,6 +1679,8 @@ export const es: TranslationDict = {
   "edit.label.description": "Descripción",
   "edit.label.dev": "Dev:",
   "edit.label.developer": "Desarrollador",
+  "edit.label.displayName": "Nombre mostrado",
+  "edit.label.displayNameHint": "Se muestra en toda la aplicación. Déjalo vacío para usar el nombre del juego.",
   "edit.label.executablePath": "Ruta del ejecutable",
   "edit.label.franchise": "Franquicia",
   "edit.label.gameModes": "Modos de juego",

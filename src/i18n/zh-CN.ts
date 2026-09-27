@@ -1679,6 +1679,8 @@ export const zhCN: TranslationDict = {
   "edit.label.description": "描述",
   "edit.label.dev": "开发:",
   "edit.label.developer": "开发商",
+  "edit.label.displayName": "显示名称",
+  "edit.label.displayNameHint": "在整个应用中显示。留空则使用游戏名称。",
   "edit.label.executablePath": "可执行文件路径",
   "edit.label.franchise": "系列",
   "edit.label.gameModes": "游戏模式",

@@ -1,4 +1,4 @@
-import type { Game } from "../../types/game";
+import { gameDisplayName, type Game } from "../../types/game";
 import { IconImage } from "./icons";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
@@ -91,7 +91,7 @@ export default function ScreenshotsSection({
                   key={index}
                   src={src}
                   index={index}
-                  name={game.name}
+                  name={gameDisplayName(game)}
                   onOpen={onOpen}
                 />
               );

@@ -4,7 +4,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useGames } from "../../context/GameContext";
 import { useSettings } from "../../context/SettingsContext";
-import type { Game } from "../../types/game";
+import { gameDisplayName, type Game } from "../../types/game";
 import { EDIT_GAME_TABS, type EditGameTab } from "./editGameTabs";
 
 export interface GameQuickActionsProps {
@@ -49,8 +49,8 @@ export default function GameQuickActions({
       toggleGameTracking(game.id, nextUntracked);
       showToast(
         nextUntracked
-          ? t("gamePage.trackingDisabledToast", { name: game.name || gameName })
-          : t("gamePage.trackingEnabledToast", { name: game.name || gameName }),
+          ? t("gamePage.trackingDisabledToast", { name: gameDisplayName(game) || gameName })
+          : t("gamePage.trackingEnabledToast", { name: gameDisplayName(game) || gameName }),
         "info"
       );
     }
@@ -131,7 +131,7 @@ export default function GameQuickActions({
         <div className="game-quick-actions__menu" role="menu">
           {/* Header */}
           <div className="game-quick-actions__header">
-            <span className="game-quick-actions__game-title">{gameName}</span>
+            <span className="game-quick-actions__game-title">{game ? gameDisplayName(game) : gameName}</span>
             {steamAppId && <span className="game-quick-actions__appid">AppID: {steamAppId}</span>}
           </div>
 

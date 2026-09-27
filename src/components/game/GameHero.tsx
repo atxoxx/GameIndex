@@ -9,7 +9,7 @@ import {
 } from "react";
 import { KpiTile } from "../ui";
 import PageWidget from "../PageWidget";
-import { type Game } from "../../types/game";
+import { gameDisplayName, type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
 import { useSettings, useHeroElementLayout, useHeroGridLayout } from "../../context/SettingsContext";
 import { applyGameAccentFamily } from "../../utils/color";
@@ -120,6 +120,7 @@ export default function GameHero({
 
   const isGame = !!game;
   const name = game?.name ?? nameProp ?? "";
+  const displayName = game ? gameDisplayName(game) : name;
   const coverUrl = game?.coverArtUrl ?? coverProp ?? null;
   const bannerUrl = game?.bannerUrl ?? bannerProp ?? null;
   const accentSrc = accentProp ?? coverUrl ?? bannerUrl ?? null;
@@ -242,7 +243,7 @@ export default function GameHero({
   const achPercent = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : null;
 
   const variant = variantProp ?? (isGame ? "cinematic" : "compact");
-  const friends = friendsProp ?? (isGame ? { gameName: game.name, gameId: game.id } : null);
+  const friends = friendsProp ?? (isGame ? { gameName: gameDisplayName(game), gameId: game.id } : null);
 
   // ── Layout Studio: per-scope element order + visibility ──────────────
   // The hero is shared by the Library game page (scope "game") and the Store
@@ -359,12 +360,12 @@ export default function GameHero({
         {logoUrl && !logoErrored ? (
           <img
             src={logoUrl}
-            alt={name}
+            alt={displayName}
             className="game-hero-logo"
             onError={() => setLogoErrored(true)}
           />
         ) : (
-          <h1 className="game-hero-title">{name}</h1>
+          <h1 className="game-hero-title">{displayName}</h1>
         )}
       </div>
     ),

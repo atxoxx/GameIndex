@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo } from "react";
 import type { Game } from "../types/game";
-import { parsePlayTime } from "../types/game";
+import { gameDisplayName, parsePlayTime } from "../types/game";
 import { useLibraryFilterState } from "../context/LibraryFilterContext";
 import {
   EMPTY_LIBRARY_FILTERS,
@@ -97,7 +97,7 @@ export function useLibraryFilters(games: Game[]) {
         if (sb !== sa) return sb - sa;
         switch (deferredFilters.sort) {
           case "alphabetical":
-            return a.name.localeCompare(b.name);
+            return gameDisplayName(a).localeCompare(gameDisplayName(b));
           case "date_added":
             return (b.addedAt ?? 0) - (a.addedAt ?? 0);
           case "most_played":

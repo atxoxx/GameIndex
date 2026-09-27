@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import type { Game } from "../../types/game";
+import { gameDisplayName, type Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useActivity } from "../../context/ActivityContext";
 import { useToast } from "../../context/ToastContext";
@@ -83,7 +83,7 @@ export function LinkGameModal({
       showToast(
         t("activityLink.success", {
           from: unlinkedGameTitle,
-          to: selectedTargetGame.name,
+          to: gameDisplayName(selectedTargetGame),
         }),
         "success"
       );
@@ -166,11 +166,11 @@ export function LinkGameModal({
                     iconUrl={g.iconUrl}
                     coverArtUrl={g.coverArtUrl}
                     steamAppId={g.steamAppId}
-                    name={g.name}
+                    name={gameDisplayName(g)}
                     className="act-link-modal__item-thumb"
                   />
                   <div className="act-link-modal__item-info">
-                    <span className="act-link-modal__item-name">{g.name}</span>
+                    <span className="act-link-modal__item-name">{gameDisplayName(g)}</span>
                     <span className="act-link-modal__item-meta">
                       <span className="act-link-modal__badge">{g.platform || "Local"}</span>
                       {g.playTime && (

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Game } from "../../types/game";
+import { gameDisplayName, type Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import HomeSection from "./HomeSection";
@@ -75,8 +75,8 @@ export default function HomeQuickLaunch() {
               </div>
 
               <div className="home-quick-launch__info">
-                <span className="home-quick-launch__name" title={game.name}>
-                  {game.name}
+                <span className="home-quick-launch__name" title={gameDisplayName(game)}>
+                  {gameDisplayName(game)}
                 </span>
                 <span className="home-quick-launch__meta">
                   {isRunning ? (

@@ -9,6 +9,7 @@ import {
   type Game,
   type IgdbReview,
   type ReviewFetchResult,
+  gameDisplayName,
   extractSteamAppId,
   resolveSteamAppId,
 } from "../../types/game";
@@ -479,7 +480,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         id: "metacritic",
         name: "Metacritic",
         url: buildExternalUrl(game, "metacritic"),
-        description: `Search “${game.name}” on Metacritic`,
+        description: `Search “${gameDisplayName(game)}” on Metacritic`,
         accent: "#ffcc33",
         criticKey: "metacritic",
       },
@@ -487,13 +488,13 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         id: "opencritic",
         name: "OpenCritic",
         url: buildExternalUrl(game, "opencritic"),
-        description: `Search “${game.name}” on OpenCritic`,
+        description: `Search “${gameDisplayName(game)}” on OpenCritic`,
         accent: "#ff5722",
         criticKey: "opencritic",
       },
     );
     return sources;
-  }, [game.metadataUrl, game.metadataSource, game.platform, game.path, game.name]);
+  }, [game.metadataUrl, game.metadataSource, game.platform, game.path, game.name, game.displayName]);
 
   const steamCount =
     totalReviewCount > 0 ? totalReviewCount : allReviews.filter((r) => r.source === "steam").length;

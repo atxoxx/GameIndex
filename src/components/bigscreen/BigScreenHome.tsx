@@ -5,7 +5,7 @@ import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
-import { PLAY_STATUS_DETAILS } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
 import type { Game } from "../../types/game";
 import BigScreenRail from "../library/BigScreenRail";
 import BigScreenDashboardBackdrop from "./BigScreenDashboardBackdrop";
@@ -135,12 +135,12 @@ export default function BigScreenHome() {
                 {featuredGame.logoUrl && !logoError ? (
                   <img
                     src={featuredGame.logoUrl}
-                    alt={featuredGame.name}
+                    alt={gameDisplayName(featuredGame)}
                     className="bigscreen-details-logo"
                     onError={() => setLogoError(true)}
                   />
                 ) : (
-                  <h2 className="bigscreen-details-title">{featuredGame.name}</h2>
+                  <h2 className="bigscreen-details-title">{gameDisplayName(featuredGame)}</h2>
                 )}
               </div>
 

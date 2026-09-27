@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
-import type { Game, AchievementSource } from "../../types/game";
+import { gameDisplayName, type Game, type AchievementSource } from "../../types/game";
 import AchievementSourceBadge from "./AchievementSourceBadge";
 
 export interface AlmostDoneGameItem {
@@ -50,7 +50,7 @@ export default function AchievementsAlmostDoneShelf({
           >
             <div className="ach-almost-done-cover">
               {item.game.coverArtUrl ? (
-                <img src={item.game.coverArtUrl} alt={item.game.name} loading="lazy" />
+                <img src={item.game.coverArtUrl} alt={gameDisplayName(item.game)} loading="lazy" />
               ) : (
                 <div className="ach-almost-done-cover-placeholder">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
@@ -64,8 +64,8 @@ export default function AchievementsAlmostDoneShelf({
 
             <div className="ach-almost-done-info">
               <div className="ach-almost-done-top">
-                <span className="ach-almost-done-name" title={item.game.name}>
-                  {item.game.name}
+                <span className="ach-almost-done-name" title={gameDisplayName(item.game)}>
+                  {gameDisplayName(item.game)}
                 </span>
                 <AchievementSourceBadge source={item.source} />
               </div>

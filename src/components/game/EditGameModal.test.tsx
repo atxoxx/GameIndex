@@ -76,6 +76,34 @@ describe("EditGameModal save", () => {
     expect(updates.path).toBe("");
   });
 
+  it("saves a custom display name override", () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText("Display Name"), {
+      target: { value: "  My Library Label  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    expect(updateGameMock).toHaveBeenCalledTimes(1);
+    // Trimmed, and the real `name` is left untouched.
+    expect(updateGameMock.mock.calls[0][1].displayName).toBe("My Library Label");
+    expect(updateGameMock.mock.calls[0][1].name).toBe("Test Game");
+  });
+
+  it("clears the display name back to undefined when emptied", () => {
+    render(
+      <EditGameModal game={makeGame({ displayName: "Old Label" })} onClose={() => {}} />
+    );
+
+    fireEvent.change(screen.getByLabelText("Display Name"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    expect(updateGameMock).toHaveBeenCalledTimes(1);
+    expect(updateGameMock.mock.calls[0][1].displayName).toBeUndefined();
+  });
+
   it("defaults the compatibility toggle on for a Windows .exe on a Linux host", () => {
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
 

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
-import { parsePlayTime, formatPlayTime } from "../../types/game";
+import { parsePlayTime, formatPlayTime, gameDisplayName } from "../../types/game";
 import { useGames, useLiveElapsed } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -216,7 +216,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
       setCustomSpotlight(picked);
       setActiveIndex(0);
       setRollingDice(false);
-      showToast(t("home.spotlight.surpriseToast", { name: picked.name }), "success");
+      showToast(t("home.spotlight.surpriseToast", { name: gameDisplayName(picked) }), "success");
     }, 450);
   }, [games, showToast, t]);
 
@@ -376,7 +376,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
                       isItemRunning ? " is-running" : ""
                     }`}
                     onClick={() => setActiveIndex(idx)}
-                    title={item.game.name}
+                    title={gameDisplayName(item.game)}
                   >
                     {isItemRunning && <span className="home-hero__pill-dot" aria-hidden />}
                     <span className="home-hero__pill-label">{t(item.categoryKey)}</span>
@@ -454,7 +454,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
                   handleOpenActiveGame();
                 }
               }}
-              aria-label={activeGame.name}
+              aria-label={gameDisplayName(activeGame)}
             >
               <div className="home-spotlight__cover">
                 {activeGame.videos && activeGame.videos.length > 0 ? (
@@ -462,7 +462,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
                 ) : spotlightPoster ? (
                   <img
                     src={spotlightPoster}
-                    alt={activeGame.name}
+                    alt={gameDisplayName(activeGame)}
                     loading="lazy"
                     onError={sgdbHeroUrl ? () => setSgdbHeroFailed(true) : undefined}
                   />
@@ -495,8 +495,8 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
                   onClick={handleLaunch}
                   aria-label={
                     isRunning
-                      ? t("game.resumeAria", { name: activeGame.name })
-                      : t("game.playAria", { name: activeGame.name })
+                      ? t("game.resumeAria", { name: gameDisplayName(activeGame) })
+                      : t("game.playAria", { name: gameDisplayName(activeGame) })
                   }
                   title={isRunning ? t("game.resume") : t("game.play")}
                 >
@@ -507,8 +507,8 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
 
                 {/* Overlay body */}
                 <div className="home-spotlight__body">
-                  <h2 className="home-spotlight__name" title={activeGame.name}>
-                    {activeGame.name}
+                  <h2 className="home-spotlight__name" title={gameDisplayName(activeGame)}>
+                    {gameDisplayName(activeGame)}
                   </h2>
                   {activeGame.developer && (
                     <p className="home-spotlight__dev">

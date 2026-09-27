@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game, GameSession } from "../../types/game";
-import { formatPlayTime } from "../../types/game";
+import { formatPlayTime, gameDisplayName } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { GameThumbnail } from "./GameThumbnail";
 import {
@@ -119,13 +119,13 @@ export function BacklogCompletionHub({
                   iconUrl={game.iconUrl}
                   coverArtUrl={game.coverArtUrl}
                   steamAppId={game.steamAppId}
-                  name={game.name}
+                  name={gameDisplayName(game)}
                   className="act-backlog-card__thumb"
                 />
                 <div className="act-backlog-card__titles">
                   <span
                     className="act-backlog-card__name"
-                    title={game.name}
+                    title={gameDisplayName(game)}
                     role="button"
                     tabIndex={0}
                     onClick={() => navigate(`/library/${game.id}?tab=activity`)}
@@ -135,7 +135,7 @@ export function BacklogCompletionHub({
                       }
                     }}
                   >
-                    {game.name}
+                    {gameDisplayName(game)}
                   </span>
                   <span className="act-backlog-card__sub">
                     {formatPlayTime(totalMinutes)} · {progress.mainStoryHours ? `${progress.mainStoryHours}h ${t("activityBacklog.target")}` : t("activityBacklog.inProgress")}

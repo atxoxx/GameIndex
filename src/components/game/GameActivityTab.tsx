@@ -5,7 +5,7 @@ import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from ".
 import { useActivity } from "../../context/ActivityContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
-import { type Game } from "../../types/game";
+import { type Game, gameDisplayName } from "../../types/game";
 import { buildTimelineFromSessions, buildSingleSessionSeries } from "../../utils/perfSamples";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { Button } from "../ui";
@@ -70,7 +70,7 @@ export function GameActivityTab({ game }: { game: Game }) {
 
       const dataUrl = canvas.toDataURL("image/png");
       const filePath = await save({
-        title: t("gameActivity.saveScreenshot", { game: game.name }),
+        title: t("gameActivity.saveScreenshot", { game: gameDisplayName(game) }),
         defaultPath: `${game.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_activity_screenshot_${new Date().toISOString().slice(0, 10)}.png`,
         filters: [{ name: t("activity.pngImage"), extensions: ["png"] }],
       });
@@ -88,7 +88,7 @@ export function GameActivityTab({ game }: { game: Game }) {
     try {
       const baseName = `${game.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_sessions_${new Date().toISOString().slice(0, 10)}`;
       const filePath = await save({
-        title: t("activity.exportTitle", { name: game.name }),
+        title: t("activity.exportTitle", { name: gameDisplayName(game) }),
         defaultPath: `${baseName}.${format}`,
         filters: [{ name: format === "csv" ? t("activity.csvFile") : t("activity.jsonFile"), extensions: [format] }],
       });

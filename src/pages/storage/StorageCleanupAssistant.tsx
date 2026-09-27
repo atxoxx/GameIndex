@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Game } from "../../types/game";
-import { formatSize } from "../../types/game";
+import { formatSize, gameDisplayName } from "../../types/game";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { useGames } from "../../context/GameContext";
@@ -97,7 +97,7 @@ export function StorageCleanupAssistant({
         });
         onRefreshStale();
         showToast(
-          t("storageRow.detectedSize", { size: formatSize(result.sizeBytes, unit), name: game.name }),
+          t("storageRow.detectedSize", { size: formatSize(result.sizeBytes, unit), name: gameDisplayName(game) }),
           "success"
         );
       } catch (err) {
@@ -118,7 +118,7 @@ export function StorageCleanupAssistant({
         sizeDetectedAt: undefined,
       });
       onRefreshStale();
-      showToast(t("storageRow.clearedSize", { name: game.name }), "info");
+      showToast(t("storageRow.clearedSize", { name: gameDisplayName(game) }), "info");
     },
     [updateGame, onRefreshStale, showToast, t]
   );
@@ -221,7 +221,7 @@ export function StorageCleanupAssistant({
               {staleGames.map((g) => (
                 <li key={g.id} className="storage-cleanup-stale-item">
                   <div className="storage-cleanup-stale-info">
-                    <span className="storage-cleanup-stale-name">{g.name}</span>
+                    <span className="storage-cleanup-stale-name">{gameDisplayName(g)}</span>
                     <span className="storage-cleanup-stale-path" title={g.sizeRootPath ?? ""}>
                       {g.sizeRootPath ?? g.path}
                     </span>
@@ -315,8 +315,8 @@ export function StorageCleanupAssistant({
                     <span className="storage-hog-rank">{`#${index + 1}`}</span>
                     <div className="storage-hog-meta">
                       <div className="storage-hog-headline">
-                        <span className="storage-hog-name" title={g.name}>
-                          {g.name}
+                        <span className="storage-hog-name" title={gameDisplayName(g)}>
+                          {gameDisplayName(g)}
                         </span>
                         <span className="storage-hog-size">{formatSize(b, unit)}</span>
                       </div>
@@ -387,7 +387,7 @@ export function StorageCleanupAssistant({
               {fullDriveGames.map((g) => (
                 <li key={g.id} className="storage-cleanup-stale-item">
                   <div className="storage-cleanup-stale-info">
-                    <span className="storage-cleanup-stale-name">{g.name}</span>
+                    <span className="storage-cleanup-stale-name">{gameDisplayName(g)}</span>
                     <span className="storage-cleanup-stale-path">
                       {`${driveOf(g.sizeRootPath)} · ${formatSize(gameTotalBytes(g), unit)}`}
                     </span>

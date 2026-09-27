@@ -5,7 +5,7 @@ import { useGames, useLiveElapsed } from "../../context/GameContext";
 import { useGameUpdateCheck } from "../../hooks/useGameUpdateCheck";
 import { IconDownload, IconPlay } from "./icons";
 import DownloadButton from "../DownloadButton";
-import { formatPlayTime, type Game } from "../../types/game";
+import { formatPlayTime, gameDisplayName, type Game } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
@@ -119,8 +119,8 @@ export default function GameLaunchActions({
             className="game-launch-btn game-launch-btn--force-close"
             onClick={handleForceClose}
             disabled={isClosing}
-            title={isClosing ? t("launch.closingTitle", { name: game.name }) : t("launch.forceCloseTitle", { name: game.name })}
-            aria-label={t("launch.forceCloseTitle", { name: game.name })}
+            title={isClosing ? t("launch.closingTitle", { name: gameDisplayName(game) }) : t("launch.forceCloseTitle", { name: gameDisplayName(game) })}
+            aria-label={t("launch.forceCloseTitle", { name: gameDisplayName(game) })}
           >
             <svg
               viewBox="0 0 24 24"

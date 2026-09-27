@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import type { Game } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 import type { Emulator, DuplicateGroup } from "../../types/emulator";
 import { formatBytesShort } from "../../types/download";
 import { Button } from "../ui";
@@ -414,9 +415,9 @@ function EmulatorRomManagerBase({
                 type="button"
                 className="emu-recent-chip"
                 onClick={() => onInspect(g)}
-                title={g.name}
+                title={gameDisplayName(g)}
               >
-                <span className="emu-recent-chip-name">{g.name}</span>
+                <span className="emu-recent-chip-name">{gameDisplayName(g)}</span>
                 <span className="emu-recent-chip-time">
                   {new Date(g.lastPlayed ?? 0).toLocaleDateString(undefined, {
                     month: "short",
@@ -533,7 +534,7 @@ function EmulatorRomManagerBase({
                     </div>
                     {group.games.map((g) => (
                       <div key={g.id} className="emu-dup-game">
-                        <span className="emu-dup-game-name">{g.name}</span>
+                        <span className="emu-dup-game-name">{gameDisplayName(g)}</span>
                         <span className="emu-mono emu-dup-game-path" title={g.romPath}>
                           {g.romPath}
                         </span>

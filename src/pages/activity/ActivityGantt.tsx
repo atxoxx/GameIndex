@@ -6,7 +6,7 @@ import { useToast } from "../../context/ToastContext";
 import { useSessionNotes } from "../../context/SessionNotesContext";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game, GameSession, SessionMetrics } from "../../types/game";
-import { formatPlayTime } from "../../types/game";
+import { formatPlayTime, gameDisplayName } from "../../types/game";
 import { SessionInspectorModal } from "../../components/activity/SessionInspectorModal";
 import * as Icons from "./Icons";
 
@@ -179,6 +179,8 @@ export function ActivityGantt({
     return m;
   }, [games]);
 
+  const hoverGame = hover ? gameById.get(hover.seg.gameId) : undefined;
+
   // 2. Filter sessions by range + source/platform + game filter
   const filtered = useMemo(() => {
     const rangeStart = new Date(startDate + "T00:00:00").getTime();
@@ -349,10 +351,13 @@ export function ActivityGantt({
   const availableGamesForFilter = useMemo(() => {
     const gameIds = new Set(sessions.map((s) => s.gameId));
     return Array.from(gameIds)
-      .map((id) => ({
-        id,
-        name: gameById.get(id)?.name || sessions.find((s) => s.gameId === id)?.gameName || id,
-      }))
+      .map((id) => {
+        const game = gameById.get(id);
+        return {
+          id,
+          name: game ? gameDisplayName(game) : sessions.find((s) => s.gameId === id)?.gameName || id,
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [sessions, gameById]);
 
@@ -516,7 +521,7 @@ export function ActivityGantt({
       <div className="activity-gantt__legend">
         {topGames.map(([id, mins]) => {
           const game = gameById.get(id);
-          const name = game?.name || sessions.find((s) => s.gameId === id)?.gameName || id;
+          const name = game ? gameDisplayName(game) : sessions.find((s) => s.gameId === id)?.gameName || id;
           const isDim = highlightGame !== null && highlightGame !== id;
           return (
             <button
@@ -596,6 +601,7 @@ export function ActivityGantt({
                   const isDimmed = highlightGame !== null && highlightGame !== seg.gameId;
                   const note = getNote(seg.sessionId);
                   const hasNote = Boolean(note.note || note.tags.length > 0);
+                  const segGame = gameById.get(seg.gameId);
 
                   const barClasses = [
                     "activity-gantt__bar",
@@ -630,7 +636,7 @@ export function ActivityGantt({
                         });
                       }}
                       onMouseLeave={() => setHover(null)}
-                      aria-label={`${seg.gameName}: ${formatPlayTime(seg.durationMin)}`}
+                      aria-label={`${segGame ? gameDisplayName(segGame) : seg.gameName}: ${formatPlayTime(seg.durationMin)}`}
                     >
                       {hasNote && (
                         <span className="activity-gantt__bar-note-dot" title={t("sessionNotes.title")} />
@@ -658,7 +664,7 @@ export function ActivityGantt({
               className="activity-gantt__tooltip-dot"
               style={{ background: colorForGame(hover.seg.gameId) }}
             />
-            <span className="activity-gantt__tooltip-name">{hover.seg.gameName}</span>
+            <span className="activity-gantt__tooltip-name">{hoverGame ? gameDisplayName(hoverGame) : hover.seg.gameName}</span>
           </div>
           <div className="activity-gantt__tooltip-time">
             {hover.seg.absoluteStart.toLocaleTimeString(language, {

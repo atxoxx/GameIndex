@@ -22,7 +22,7 @@ import { useWishlistContext } from "../context/WishlistContext";
 import { useDensityContext } from "../context/DensityContext";
 import { useAchievements } from "../context/AchievementContext";
 import { SidebarCollapseContext } from "../context/SidebarCollapseContext";
-import type { StoreGameSummary } from "../types/game";
+import { gameDisplayName, type StoreGameSummary } from "../types/game";
 import DownloadModal from "./DownloadModal";
 import { playLaunchSound, playTabSound } from "../utils/soundEffects";
 import type { PaletteCategory } from "./command-palette/commandPaletteTypes";
@@ -256,7 +256,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       resumeAllDownloads: downloadsCtx?.resumeAll,
       checkForUpdates: updateCtx?.checkForUpdates,
       activeDownloadsCount: downloadsCtx?.activeCount || 0,
-      runningGame: runningGame ? { id: runningGame.id, name: runningGame.name } : null,
+      runningGame: runningGame ? { id: runningGame.id, name: gameDisplayName(runningGame) } : null,
       forceCloseGame: runningGame ? () => forceCloseGame(runningGame) : undefined,
       onHistoryCleared: () => setRecentVersion((v) => v + 1),
       onOpenCheatSheet: () => setCheatSheetOpen(true),
@@ -559,7 +559,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   toggleWishlist={(game) => wishlistCtx?.toggle(game)}
                   onLaunchGame={(game) => {
                     playLaunchSound();
-                    saveRecentItem(game.id, game.name, "games");
+                    saveRecentItem(game.id, gameDisplayName(game), "games");
                     onClose();
                     launchGame(game);
                   }}

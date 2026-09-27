@@ -7,6 +7,7 @@ import {
   parseReleaseYear,
 } from "./libraryFilters";
 import type { Game } from "../types/game";
+import { gameDisplayName } from "../types/game";
 
 function makeGame(overrides: Partial<Game> & { name: string }): Game {
   const base: Game = {
@@ -139,5 +140,33 @@ describe("sortGames", () => {
     ];
     const sorted = sortGames(games, "date_added");
     expect(sorted.map((g) => g.name)).toEqual(["New", "Mid", "Old"]);
+  });
+});
+
+describe("game display name", () => {
+  it("returns the override when set, and the real name otherwise", () => {
+    expect(gameDisplayName({ name: "Internal", displayName: "Shown" })).toBe("Shown");
+    expect(gameDisplayName({ name: "Internal" })).toBe("Internal");
+    // Empty / whitespace-only overrides fall back to the real name so a
+    // cleared field never blanks the label.
+    expect(gameDisplayName({ name: "Internal", displayName: "" })).toBe("Internal");
+    expect(gameDisplayName({ name: "Internal", displayName: "   " })).toBe("Internal");
+  });
+
+  it("sorts alphabetically by the display name", () => {
+    const zelda = makeGame({ name: "Zelda", displayName: "A Link to the Past" });
+    const alpha = makeGame({ name: "Alpha" });
+    const sorted = sortGames([zelda, alpha], "alphabetical");
+    expect(sorted.map((g) => g.id)).toEqual([zelda.id, alpha.id]);
+  });
+
+  it("matches search against the display name", () => {
+    const game = makeGame({ name: "InternalBuildName", displayName: "Friendly Title" });
+    expect(
+      gameMatchesFilters(game, { ...EMPTY_LIBRARY_FILTERS, search: "friendly" })
+    ).toBe(true);
+    expect(
+      gameMatchesFilters(game, { ...EMPTY_LIBRARY_FILTERS, search: "nomatch" })
+    ).toBe(false);
   });
 });

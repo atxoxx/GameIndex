@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
-import type { Game, SessionMetrics } from "../../types/game";
+import { gameDisplayName, type Game, type SessionMetrics } from "../../types/game";
 import { useActivity } from "../../context/ActivityContext";
 import { useSessionNotes } from "../../context/SessionNotesContext";
 import { useToast } from "../../context/ToastContext";
@@ -134,7 +134,7 @@ export function ManualSessionModal({
       }
 
       recordSession();
-      showToast(t("activityManual.sessionLoggedSuccess", { name: selectedGame.name }), "success");
+      showToast(t("activityManual.sessionLoggedSuccess", { name: gameDisplayName(selectedGame) }), "success");
       onSessionSaved?.();
       onClose();
     } catch (err) {
@@ -194,11 +194,11 @@ export function ManualSessionModal({
                   iconUrl={selectedGame?.iconUrl}
                   coverArtUrl={selectedGame?.coverArtUrl}
                   steamAppId={selectedGame?.steamAppId}
-                  name={selectedGame?.name || ""}
+                  name={selectedGame ? gameDisplayName(selectedGame) : ""}
                   className="act-selected-game-thumb"
                 />
                 <div className="act-selected-game-meta">
-                  <span className="act-selected-game-name">{selectedGame?.name}</span>
+                  <span className="act-selected-game-name">{selectedGame ? gameDisplayName(selectedGame) : ""}</span>
                   <span className="act-selected-game-platform">{selectedGame?.platform || "Local"}</span>
                 </div>
               </div>
@@ -221,7 +221,7 @@ export function ManualSessionModal({
                 >
                   {filteredGames.map((g) => (
                     <option key={g.id} value={g.id}>
-                      {g.name} ({g.platform || "Local"})
+                      {gameDisplayName(g)} ({g.platform || "Local"})
                     </option>
                   ))}
                 </select>

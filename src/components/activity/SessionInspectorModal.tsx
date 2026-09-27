@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { Game, GameSession } from "../../types/game";
-import { formatPlayTime } from "../../types/game";
+import { formatPlayTime, gameDisplayName } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSessionNotes } from "../../context/SessionNotesContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -132,11 +132,11 @@ export function SessionInspectorModal({
                 iconUrl={game?.iconUrl}
                 coverArtUrl={game?.coverArtUrl}
                 steamAppId={game?.steamAppId}
-                name={game?.name || session.gameName}
+                name={game ? gameDisplayName(game) : session.gameName}
                 className="act-modal__game-thumb"
               />
               <div>
-                <h3 className="act-modal__title">{game?.name || session.gameName}</h3>
+                <h3 className="act-modal__title">{game ? gameDisplayName(game) : session.gameName}</h3>
                 <span className="act-modal__sub">
                   {formattedDate} • {formattedStartTime} – {formattedEndTime}
                 </span>
@@ -349,7 +349,7 @@ export function SessionInspectorModal({
           open={confirmDelete}
           title={t("activitySessions.deleteConfirmTitle")}
           message={t("activitySessions.deleteConfirmBody", {
-            game: game?.name || session.gameName,
+            game: game ? gameDisplayName(game) : session.gameName,
             date: formattedDate,
           })}
           confirmLabel={t("common.delete")}

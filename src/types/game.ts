@@ -20,9 +20,27 @@ export function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * The label to render for a game: the user's optional display name when
+ * set, otherwise the real `name`. Use this for every user-facing game
+ * label, sort and search so a renamed game reads consistently, while
+ * `name` keeps driving metadata/store/launch identity.
+ */
+export function gameDisplayName(game: { name: string; displayName?: string }): string {
+  const display = game.displayName?.trim();
+  return display ? display : game.name;
+}
+
 export interface Game {
   id: string;
   name: string;
+  /**
+   * Optional user-chosen label shown across the UI in place of `name`.
+   * Purely presentational — `name` stays the canonical identity used for
+   * metadata matching, store sync and launch resolution. Empty/undefined
+   * falls back to `name` (see `gameDisplayName`).
+   */
+  displayName?: string;
   path: string; // full path to the game executable
   platform: string; // e.g., "Local", "Steam", "GOG"
   installed: boolean;

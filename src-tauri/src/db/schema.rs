@@ -87,6 +87,11 @@ pub const GAMES_V10_DDL: &str = include_str!("schema_games_v10.sql");
 /// so no positional read shifts.
 pub const GAMES_V11_DDL: &str = include_str!("schema_games_v11.sql");
 
+/// DDL for the `games` domain, v12 migration: the optional
+/// `display_name` override shown across the UI. Presentational only —
+/// `name` stays the canonical identity used for matching and launches.
+pub const GAMES_V12_DDL: &str = include_str!("schema_games_v12.sql");
+
 /// DDL for the `game_notes` domain: user-authored notes / guides
 /// attached to library games (Markdown content + tags + pin flag).
 pub const GAME_NOTES_DDL: &str = include_str!("schema_game_notes.sql");
@@ -189,7 +194,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "games",
-        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL), ("v8", GAMES_V8_DDL), ("v9", GAMES_V9_DDL), ("v10", GAMES_V10_DDL), ("v11", GAMES_V11_DDL)],
+        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL), ("v8", GAMES_V8_DDL), ("v9", GAMES_V9_DDL), ("v10", GAMES_V10_DDL), ("v11", GAMES_V11_DDL), ("v12", GAMES_V12_DDL)],
     },
     DomainSchema {
         label: "sessions",

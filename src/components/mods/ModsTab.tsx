@@ -4,6 +4,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import ModManager from "./ModManager";
@@ -36,7 +37,7 @@ export default function ModsTab({ game, onModsSized }: ModsTabProps) {
             {game.coverArtUrl ? (
               <img src={game.coverArtUrl} alt="" loading="lazy" />
             ) : (
-              <span>{game.name.slice(0, 2).toUpperCase()}</span>
+              <span>{gameDisplayName(game).slice(0, 2).toUpperCase()}</span>
             )}
           </div>
           <div className="mods-tab-title-group">
@@ -48,7 +49,7 @@ export default function ModsTab({ game, onModsSized }: ModsTabProps) {
                 </span>
               )}
             </div>
-            <h2 className="mods-tab-game-title">{game.name}</h2>
+            <h2 className="mods-tab-game-title">{gameDisplayName(game)}</h2>
             <p className="mods-tab-subtitle">{t("mods.tab.bannerSubtitle")}</p>
           </div>
         </div>

@@ -9,7 +9,7 @@ import {
 import { listen } from "@tauri-apps/api/event";
 import { useSplash } from "../context/SplashContext";
 import type { LaunchStep } from "../context/SplashContext";
-import type { Game } from "../types/game";
+import { gameDisplayName, type Game } from "../types/game";
 import { formatPlayTimeCompact } from "./game/shared";
 import { useLanguage } from "../context/LanguageContext";
 import { Button } from "./ui/Button";
@@ -482,7 +482,7 @@ export default function Splashscreen({
       }
       role="dialog"
       aria-modal="true"
-      aria-label={t("splash.launchingName", { name: game.name })}
+      aria-label={t("splash.launchingName", { name: gameDisplayName(game) })}
       onClick={handleBackdropClick}
     >
       {/* Immersive ambient artwork & atmospheric mesh */}
@@ -553,11 +553,11 @@ export default function Splashscreen({
             {game.logoUrl ? (
               <img
                 src={game.logoUrl}
-                alt={game.name}
+                alt={gameDisplayName(game)}
                 className="splashscreen-logo"
               />
             ) : (
-              <h2 className="splashscreen-display-title">{game.name}</h2>
+              <h2 className="splashscreen-display-title">{gameDisplayName(game)}</h2>
             )}
           </div>
         </div>
@@ -568,7 +568,7 @@ export default function Splashscreen({
           <div className="splashscreen-info-row">
             <div className="splashscreen-info-titles">
               {game.logoUrl && (
-                <h2 className="splashscreen-title">{game.name}</h2>
+                <h2 className="splashscreen-title">{gameDisplayName(game)}</h2>
               )}
               {(game.developer || game.publisher) && (
                 <span className="splashscreen-credits">

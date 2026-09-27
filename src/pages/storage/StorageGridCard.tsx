@@ -5,7 +5,7 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
-import { formatSize, type Game } from "../../types/game";
+import { formatSize, gameDisplayName, type Game } from "../../types/game";
 import { driveOf, gameTotalBytes } from "./utils";
 import { Button } from "../../components/ui";
 import ContextMenu from "../../components/ui/ContextMenu";
@@ -94,7 +94,7 @@ function StorageGridCardBase({
       });
       onSizeUpdated?.();
       showToast(
-        t("storageRow.detectedSize", { size: formatSize(result.sizeBytes, unit), name: game.name }),
+        t("storageRow.detectedSize", { size: formatSize(result.sizeBytes, unit), name: gameDisplayName(game) }),
         "success"
       );
     } catch (err) {
@@ -152,7 +152,7 @@ function StorageGridCardBase({
             type="checkbox"
             checked={selected}
             onChange={() => onToggleSelect?.()}
-            aria-label={t("storageRow.selectGame", { name: game.name })}
+            aria-label={t("storageRow.selectGame", { name: gameDisplayName(game) })}
           />
         </label>
       )}
@@ -182,7 +182,7 @@ function StorageGridCardBase({
           </>
         ) : (
           <div className="storage-grid-card-placeholder">
-            <span className="storage-grid-card-letter">{game.name.charAt(0)}</span>
+            <span className="storage-grid-card-letter">{gameDisplayName(game).charAt(0)}</span>
           </div>
         )}
 
@@ -290,8 +290,8 @@ function StorageGridCardBase({
 
       {/* Card Info */}
       <div className="storage-grid-card-content">
-        <h3 className="storage-grid-card-title" title={game.name}>
-          {game.name}
+        <h3 className="storage-grid-card-title" title={gameDisplayName(game)}>
+          {gameDisplayName(game)}
         </h3>
 
         <div className="storage-grid-card-size-row">
@@ -332,11 +332,11 @@ function StorageGridCardBase({
           y={storageMenu.state.y}
           items={storageMenuItems}
           onClose={storageMenu.close}
-          ariaLabel={game.name}
+          ariaLabel={gameDisplayName(game)}
           header={
             <>
-              <span className="context-menu-title" title={game.name}>
-                {game.name}
+              <span className="context-menu-title" title={gameDisplayName(game)}>
+                {gameDisplayName(game)}
               </span>
               <span className="ctx-badge">{game.platform}</span>
             </>

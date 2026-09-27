@@ -12,7 +12,7 @@ import { Button, PageHeader } from "../../components/ui";
 import ModManager from "../../components/mods/ModManager";
 import PageWidget from "../../components/PageWidget";
 import { ENGINE_LABELS, type ModEngine, type ModsOverviewEntry } from "../../types/mods";
-import type { Game } from "../../types/game";
+import { gameDisplayName, type Game } from "../../types/game";
 import "../../styles/page-mods.css";
 
 type RailFilter = "all" | "modded" | "updates";
@@ -144,7 +144,7 @@ export default function ModsPage() {
     games.find((g) => g.id === selectedGameId) ?? null;
 
   useEffect(() => {
-    setModsGameName(selectedGame?.name ?? null);
+    setModsGameName(selectedGame ? gameDisplayName(selectedGame) : null);
   }, [selectedGame, setModsGameName]);
 
   return (
@@ -477,7 +477,7 @@ export default function ModsPage() {
               <>
                 <div className="mods-manager-game-bar">
                   <div className="mods-manager-game-bar-info">
-                    <span className="mods-manager-game-bar-name">{selectedGame.name}</span>
+                    <span className="mods-manager-game-bar-name">{gameDisplayName(selectedGame)}</span>
                     <span className="mods-manager-game-bar-platform">{selectedGame.platform}</span>
                   </div>
                   <Button

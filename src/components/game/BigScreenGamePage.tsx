@@ -45,7 +45,7 @@ import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
-import { PLAY_STATUS_DETAILS } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import DownloadModal from "../DownloadModal";
@@ -321,7 +321,7 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
       {/* ── Hero (a header band, paused on Overview) ────────── */}
       <section
         className="bigscreen-gamepage-hero"
-        aria-label={`${game.name} banner`}
+        aria-label={`${gameDisplayName(game)} banner`}
       >
         <BigScreenHeroBackground
           bannerUrl={backdrop.staticUrl ?? resolvedBanner}
@@ -364,14 +364,14 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
           {resolvedLogo && !logoError ? (
             <img
               src={resolvedLogo}
-              alt={game.name}
+              alt={gameDisplayName(game)}
               className="bigscreen-gamepage-hero-logo"
               width={480}
               height={140}
               onError={() => setLogoError(true)}
             />
           ) : (
-            <h1 className="bigscreen-gamepage-hero-title">{game.name}</h1>
+            <h1 className="bigscreen-gamepage-hero-title">{gameDisplayName(game)}</h1>
           )}
             <div className="bigscreen-gamepage-hero-subtitle-row">
               {game.developer && (

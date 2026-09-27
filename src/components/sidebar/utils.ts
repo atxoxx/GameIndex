@@ -1,5 +1,5 @@
 import type { Game, PlayStatus } from "../../types/game";
-import { PLAY_STATUS_DETAILS, parsePlayTime } from "../../types/game";
+import { gameDisplayName, PLAY_STATUS_DETAILS, parsePlayTime } from "../../types/game";
 import type {
   SidebarGroup,
   SidebarGroupBy,
@@ -368,7 +368,7 @@ export function groupGames(
     }
   } else if (groupBy === "letter") {
     for (const game of games) {
-      const first = (game.name || "").trim().charAt(0).toUpperCase();
+      const first = gameDisplayName(game).trim().charAt(0).toUpperCase();
       const letter = /^[A-Z]$/.test(first) ? first : "#";
       const existing = map.get(letter);
       if (existing) {

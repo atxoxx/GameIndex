@@ -26,6 +26,11 @@ use super::pool::Db;
 pub struct GameRow {
     pub id: String,
     pub name: String,
+    /// Optional user-chosen label shown across the UI (`gameDisplayName`).
+    /// Purely presentational: `name` remains the identity used for
+    /// metadata matching, sync dedup and launches.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub path: String,
     pub platform: String,
     pub installed: bool,
@@ -353,6 +358,7 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                  rom_archived, favorite, compat_notes, rom_profile,
                  version,
                  collection_id,
+                 display_name,
                  content_hash
              ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
@@ -376,8 +382,8 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                  ?63,?64,
                  ?65,?66,?67,?68,?69,
                  ?70,?71,?72,?73,?74,
-                 ?75,
-                 ?76
+                 ?75,?76,
+                 ?77
              )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -472,6 +478,7 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
             json_opt(&r.rom_profile),
             r.version,
             r.collection_id.map(|n| n as i64),
+            r.display_name,
             // v11 content fingerprint — last column, matching the list above.
             hash,
         ])
@@ -540,6 +547,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             rom_archived, favorite, compat_notes, rom_profile,
             version,
             collection_id,
+            display_name,
             content_hash
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
@@ -563,8 +571,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?63,?64,
             ?65,?66,?67,?68,?69,
             ?70,?71,?72,?73,?74,
-            ?75,
-            ?76
+            ?75,?76,
+            ?77
         )",
         params![
             r.id,
@@ -644,6 +652,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             json_opt(&r.rom_profile),
             r.version,
             r.collection_id.map(|n| n as i64),
+            r.display_name,
             hash,
         ],
     )
@@ -749,7 +758,8 @@ pub fn list_watch_targets(db: &Db) -> Result<Vec<GameWatchTarget>, String> {
 }
 
 /// Names for a small set of ids — enough to label the tray's Recent
-/// Games submenu without reading a single artwork column.
+/// Games submenu without reading a single artwork column. Prefers the
+/// user's `display_name` override (empty/whitespace falls back to `name`).
 pub fn list_names_by_ids(
     db: &Db,
     ids: &[String],
@@ -763,7 +773,10 @@ pub fn list_names_by_ids(
         .map(|i| format!("?{i}"))
         .collect::<Vec<_>>()
         .join(",");
-    let sql = format!("SELECT id, name FROM games WHERE id IN ({placeholders})");
+    let sql = format!(
+        "SELECT id, COALESCE(NULLIF(TRIM(display_name), ''), name) \
+         FROM games WHERE id IN ({placeholders})"
+    );
     let mut stmt = conn
         .prepare(&sql)
         .map_err(|e| format!("games names prepare: {e}"))?;
@@ -853,7 +866,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -954,6 +967,9 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // v10 collection_id column — read after version column.
         // NULL rows (pre-v10) read back as `None`.
         collection_id: r.get::<_, Option<i64>>(76)?.map(|n| n as u64),
+        // v12 display_name column — read after collection_id.
+        // NULL rows (pre-v12) read back as `None`.
+        display_name: r.get(77)?,
         // Compatibility profile is isolated into compatibility.db
         compatibility_json: None,
     })
@@ -992,7 +1008,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL};
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL, GAMES_V12_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -1011,6 +1027,7 @@ mod tests {
             conn.execute_batch(GAMES_V9_DDL).unwrap();
             conn.execute_batch(GAMES_V10_DDL).unwrap();
             conn.execute_batch(GAMES_V11_DDL).unwrap();
+            conn.execute_batch(GAMES_V12_DDL).unwrap();
         }
         (dir, db)
     }
@@ -1019,6 +1036,7 @@ mod tests {
         serde_json::from_value(json!({
             "id": "g1",
             "name": "Test Game",
+            "displayName": "My Custom Label",
             "path": "",
             "platform": "GOG",
             "installed": true,
@@ -1084,6 +1102,7 @@ mod tests {
         assert!(got.rom_profile.is_some());
         assert_eq!(got.version.as_deref(), Some("1.0.4"));
         assert_eq!(got.collection_id, Some(420));
+        assert_eq!(got.display_name.as_deref(), Some("My Custom Label"));
     }
 
     /// Repro: the exact payload the edit modal sends after the user
@@ -1161,6 +1180,24 @@ mod tests {
         assert!(got.rom_profile.is_some());
         assert_eq!(got.version.as_deref(), Some("1.0.4"));
         assert_eq!(got.collection_id, Some(420));
+        assert_eq!(got.display_name.as_deref(), Some("My Custom Label"));
+    }
+
+    /// A pre-v12 payload (no `displayName` key) must still deserialize,
+    /// with the column reading back as `None` rather than dropping the row.
+    #[test]
+    fn missing_display_name_defaults_to_none() {
+        let row: GameRow = serde_json::from_value(json!({
+            "id": "legacy",
+            "name": "Legacy",
+            "path": "",
+            "platform": "GOG",
+            "installed": false,
+            "playTime": "0m",
+            "addedAt": 1u64
+        }))
+        .expect("legacy payload must deserialize");
+        assert_eq!(row.display_name, None);
     }
 
     /// Re-saving an identical library must not rewrite a single row.
@@ -1306,14 +1343,25 @@ mod tests {
         let mut a = sample_row();
         a.id = "a".into();
         a.name = "Alpha".into();
+        a.display_name = None;
         let mut b = sample_row();
         b.id = "b".into();
         b.name = "Beta".into();
-        upsert_all(&db, &[a, b]).unwrap();
+        b.display_name = None;
+        // A row carrying an override: the tray label should prefer it.
+        let mut c = sample_row();
+        c.id = "c".into();
+        c.name = "Canonical".into();
+        c.display_name = Some("Shown".into());
+        upsert_all(&db, &[a, b, c]).unwrap();
 
         let names = list_names_by_ids(&db, &["a".into()]).unwrap();
         assert_eq!(names.get("a").map(String::as_str), Some("Alpha"));
         assert_eq!(names.get("b"), None);
+
+        // The user's display name wins over the real name when set.
+        let names = list_names_by_ids(&db, &["c".into()]).unwrap();
+        assert_eq!(names.get("c").map(String::as_str), Some("Shown"));
 
         // Happy path: many ids, all found.
         let names = list_names_by_ids(&db, &["a".into(), "b".into()]).unwrap();

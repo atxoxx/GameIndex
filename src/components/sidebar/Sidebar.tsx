@@ -11,6 +11,7 @@ import { useSidebarCollapse } from "../../context/SidebarCollapseContext";
 import { useSidebarSectionVisible } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import {
+  gameDisplayName,
   gameNameFromPath,
   PLAY_STATUS_DETAILS,
   type Game,
@@ -313,7 +314,7 @@ export default function Sidebar() {
   const availableLetters = useMemo(() => {
     const set = new Set<string>();
     for (const g of processedFilteredGames) {
-      const first = (g.name || "").trim().charAt(0).toUpperCase();
+      const first = gameDisplayName(g).trim().charAt(0).toUpperCase();
       set.add(/^[A-Z]$/.test(first) ? first : "#");
     }
     return Array.from(set).sort((a, b) => {
@@ -326,7 +327,7 @@ export default function Sidebar() {
   const handleSelectLetter = useCallback(
     (letter: string) => {
       const target = processedFilteredGames.find((g) => {
-        const first = (g.name || "").trim().charAt(0).toUpperCase();
+        const first = gameDisplayName(g).trim().charAt(0).toUpperCase();
         return letter === "#" ? !/^[A-Z]$/.test(first) : first === letter;
       });
       if (!target) return;
@@ -419,7 +420,7 @@ export default function Sidebar() {
       /* ignore scroll error */
     }
 
-    showToast(t("sidebar.randomGameRolled", { name: chosen.name }), "success");
+    showToast(t("sidebar.randomGameRolled", { name: gameDisplayName(chosen) }), "success");
 
     setTimeout(() => {
       setRandomPickedGameId((cur) => (cur === chosen.id ? null : cur));
@@ -613,7 +614,7 @@ export default function Sidebar() {
   function handleRemoveFromContextMenu(game: Game) {
     removeGame(game.id);
     setContextMenu(null);
-    showToast(t("gamePage.removed", { name: game.name }), "info");
+    showToast(t("gamePage.removed", { name: gameDisplayName(game) }), "info");
   }
 
   const togglePin = useCallback((game: Game) => {

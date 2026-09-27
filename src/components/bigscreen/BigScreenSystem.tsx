@@ -13,6 +13,7 @@ import { useGamepad } from "../../hooks/GamepadProvider";
 import { useBumperScopeDeclaration } from "./bigscreenLegend";
 import { driveBuckets } from "../../pages/storage/utils";
 import type { Game, GameAchievementData } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 import "../../styles/achievements.css";
 
 type SystemSection =
@@ -497,7 +498,7 @@ function AchievementGameRow({
   return (
     <div className="system-achievement-game-row" {...cardProps} role="link">
       <div className="ach-game-header">
-        <span className="ach-game-name">{game.name}</span>
+        <span className="ach-game-name">{gameDisplayName(game)}</span>
         <span className="ach-game-counts">
           {t("bigscreen.system.achCounts", { unlocked: data?.unlocked ?? 0, total: data?.total ?? 0, pct })}
         </span>

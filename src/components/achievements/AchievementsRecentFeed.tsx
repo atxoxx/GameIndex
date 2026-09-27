@@ -3,6 +3,8 @@ import { useLanguage } from "../../context/LanguageContext";
 import {
   type Achievement,
   type AchievementRarity,
+  type Game,
+  gameDisplayName,
   getAchievementRarity,
   RARITY_COLORS,
 } from "../../types/game";
@@ -10,7 +12,8 @@ import { formatRelativeTime, formatUnlockDate } from "./achievementUtils";
 
 export interface RecentAchievementFeedItem {
   achievement: Achievement;
-  gameName: string;
+  /** The library game this unlock belongs to. Absent for orphan cache rows. */
+  game?: Game;
   gameId: string;
   gameCover?: string | null;
 }
@@ -49,6 +52,7 @@ export default function AchievementsRecentFeed({
         {recentAchievements.map((item, i) => {
           const rarity: AchievementRarity = getAchievementRarity(item.achievement.percent);
           const rarityColor = RARITY_COLORS[rarity];
+          const gameLabel = item.game ? gameDisplayName(item.game) : t("splash.unknown");
 
           return (
             <div
@@ -74,7 +78,7 @@ export default function AchievementsRecentFeed({
                   <img
                     className="ach-recent-feed-game-thumb"
                     src={item.gameCover}
-                    alt={item.gameName}
+                    alt={gameLabel}
                     loading="lazy"
                   />
                 )}
@@ -93,8 +97,8 @@ export default function AchievementsRecentFeed({
                   </span>
                 </div>
 
-                <span className="ach-recent-feed-game" title={item.gameName}>
-                  {item.gameName}
+                <span className="ach-recent-feed-game" title={gameLabel}>
+                  {gameLabel}
                 </span>
 
                 {item.achievement.description && (

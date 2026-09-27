@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { Game, GameMetadataResult } from "../../types/game";
+import { gameDisplayName, type Game, type GameMetadataResult } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useActivity } from "../../context/ActivityContext";
 import { useToast } from "../../context/ToastContext";
@@ -136,7 +136,7 @@ export function AddActivityGameModal({
       // Re-link existing activity sessions to the new game
       await relinkSessionsForGame(unlinkedGameId, newGame.id, newGame.name);
 
-      showToast(t("activityAdd.success", { name: newGame.name }), "success");
+      showToast(t("activityAdd.success", { name: gameDisplayName(newGame) }), "success");
       onAdded?.(newGame);
       onClose();
     } catch (err) {

@@ -32,7 +32,7 @@ import { useStalePaths } from "./storage/useStalePaths";
 import { useMountVersion } from "./storage/mounts";
 import type { Game } from "../types/game";
 import type { Emulator } from "../types/emulator";
-import { formatSize } from "../types/game";
+import { formatSize, gameDisplayName } from "../types/game";
 import "./StoragePage.css";
 import "../styles/page-storage.css";
 
@@ -237,10 +237,10 @@ export default function StoragePage() {
 
   // Open file explorer
   const handleOpenFolder = useCallback(
-    async (game: { sizeRootPath?: string; path?: string; name: string }) => {
+    async (game: { sizeRootPath?: string; path?: string; name: string; displayName?: string }) => {
       const target = game.sizeRootPath || game.path;
       if (!target) {
-        showToast(t("storage.noFolderKnown", { name: game.name }), "info");
+        showToast(t("storage.noFolderKnown", { name: gameDisplayName(game) }), "info");
         return;
       }
       try {
@@ -394,7 +394,7 @@ export default function StoragePage() {
         removeGame(g.id);
         removed++;
       } catch (err) {
-        showToast(t("storage.uninstallFailed", { name: g.name, error: err }), "error");
+        showToast(t("storage.uninstallFailed", { name: gameDisplayName(g), error: err }), "error");
       }
     }
     setUninstalling(false);
@@ -801,7 +801,7 @@ export default function StoragePage() {
         open={uninstallGames !== null}
         title={
           uninstallGames && uninstallGames.length === 1
-            ? t("storage.uninstallTitle", { name: uninstallGames[0].name })
+            ? t("storage.uninstallTitle", { name: gameDisplayName(uninstallGames[0]) })
             : t("storage.uninstallTitleMulti", { count: uninstallGames?.length ?? 0 })
         }
         message={

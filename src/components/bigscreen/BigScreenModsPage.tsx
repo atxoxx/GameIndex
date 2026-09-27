@@ -35,6 +35,7 @@ import {
   type ModsOverviewEntry,
 } from "../../types/mods";
 import type { Game } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
 import BigScreenBackHeader from "./BigScreenBackHeader";
 import BigScreenModal from "./BigScreenModal";
 import GameGrid from "./GameGrid";
@@ -151,7 +152,7 @@ function ModsManagerView({
 
   // Discord presence: expose the game currently being configured.
   useEffect(() => {
-    setModsGameName(game.name);
+    setModsGameName(gameDisplayName(game));
     return () => setModsGameName(null);
   }, [game, setModsGameName]);
 
@@ -219,7 +220,7 @@ function ModsManagerView({
   return (
     <div className="bigscreen-library-dashboard">
       <BigScreenBackHeader
-        title={game.name}
+        title={gameDisplayName(game)}
         subtitle={t("bigscreen.mods.managing")}
         onBack={onBack}
       />

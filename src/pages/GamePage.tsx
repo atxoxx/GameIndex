@@ -19,7 +19,7 @@ import { EDIT_GAME_TABS, type EditGameTab } from "../components/game/editGameTab
 import PageWidget, { PageWidgetSlot } from "../components/PageWidget";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
-import { type Game } from "../types/game";
+import { type Game, gameDisplayName } from "../types/game";
 import WebLinksTab from "../components/WebLinksTab";
 import ReviewsTab from "../components/ReviewsTab";
 import CrackWatchCard from "../components/CrackWatchCard";
@@ -273,7 +273,7 @@ function GameDetail({ game }: { game: Game }) {
 
   const handleConfirmRemove = () => {
     removeGame(game.id);
-    showToast(t("game.removed", { name: game.name }), "info");
+    showToast(t("game.removed", { name: gameDisplayName(game) }), "info");
     navigate("/library");
   };
 
@@ -568,7 +568,7 @@ function GameDetail({ game }: { game: Game }) {
                 >
                   <SteamFeaturesCard
                     steamAppId={game.steamAppId ?? heroSteamAppId}
-                    gameName={game.name}
+                    gameName={gameDisplayName(game)}
                   />
                 </PageWidgetSlot>
               )}
@@ -690,13 +690,13 @@ function GameDetail({ game }: { game: Game }) {
         isOpen={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
         onSelectIndex={setLightboxIndex}
-        title={game.name}
+        title={gameDisplayName(game)}
       />
 
       {/* Confirm Remove Modal */}
       <ConfirmModal
         open={showRemoveConfirm}
-        title={t("game.removeConfirmTitle", { name: game.name })}
+        title={t("game.removeConfirmTitle", { name: gameDisplayName(game) })}
         message={t("gamePage.removeConfirmBody")}
         confirmLabel={t("common.remove")}
         cancelLabel={t("game.keep")}

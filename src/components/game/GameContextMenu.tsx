@@ -25,7 +25,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
 import { copyTextToClipboard } from "../../utils/clipboard";
-import { PLAY_STATUS_DETAILS, type Game, type PlayStatus } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName, type Game, type PlayStatus } from "../../types/game";
 
 const STATUS_ORDER: PlayStatus[] = ["backlog", "playing", "completed", "on_hold", "abandoned"];
 
@@ -93,7 +93,7 @@ export default function GameContextMenu({
   const handleShowInFolder = useCallback(() => {
     onClose();
     if (!game.path) {
-      showToast(t("sidebar.noLocalPath", { name: game.name }), "info");
+      showToast(t("sidebar.noLocalPath", { name: gameDisplayName(game) }), "info");
       return;
     }
     invoke("open_folder", { path: game.path }).catch((err) =>
@@ -118,9 +118,9 @@ export default function GameContextMenu({
 
   const handleRefreshMetadata = useCallback(() => {
     onClose();
-    showToast(t("sidebar.refreshingMetadata", { name: game.name }), "info");
+    showToast(t("sidebar.refreshingMetadata", { name: gameDisplayName(game) }), "info");
     enrichGameMetadata(game.id, game.name, game.steamAppId)
-      .then(() => showToast(t("sidebar.metadataRefreshed", { name: game.name }), "success"))
+      .then(() => showToast(t("sidebar.metadataRefreshed", { name: gameDisplayName(game) }), "success"))
       .catch((err) => console.warn("Metadata refresh failed:", err));
   }, [enrichGameMetadata, game.id, game.name, game.steamAppId, onClose, showToast, t]);
 
@@ -139,8 +139,8 @@ export default function GameContextMenu({
     toggleGameTracking(game.id);
     showToast(
       isUntracked
-        ? t("commandPalette.trackingEnabledToast", { name: game.name })
-        : t("commandPalette.trackingDisabledToast", { name: game.name }),
+        ? t("commandPalette.trackingEnabledToast", { name: gameDisplayName(game) })
+        : t("commandPalette.trackingDisabledToast", { name: gameDisplayName(game) }),
       "info"
     );
   }, [game.id, game.name, isUntracked, onClose, showToast, t, toggleGameTracking]);
@@ -151,7 +151,7 @@ export default function GameContextMenu({
       updateGame(game.id, { playStatus: status });
       const meta = PLAY_STATUS_DETAILS[status];
       showToast(
-        t("sidebar.statusSet", { name: game.name, status: meta ? t(meta.labelKey) : status }),
+        t("sidebar.statusSet", { name: gameDisplayName(game), status: meta ? t(meta.labelKey) : status }),
         "success"
       );
     },
@@ -345,12 +345,12 @@ export default function GameContextMenu({
       y={y}
       items={items}
       onClose={onClose}
-      ariaLabel={game.name}
+      ariaLabel={gameDisplayName(game)}
       className="game-context-menu"
       header={
         <>
-          <span className="context-menu-title" title={game.name}>
-            {game.name}
+          <span className="context-menu-title" title={gameDisplayName(game)}>
+            {gameDisplayName(game)}
           </span>
           <span className="game-context-menu__meta">
             {isRunning && (

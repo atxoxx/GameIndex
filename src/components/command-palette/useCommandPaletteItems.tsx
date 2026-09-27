@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import type { Game, StoreGameSummary } from "../../types/game";
+import { gameDisplayName, type Game, type StoreGameSummary } from "../../types/game";
 import type { TorrentDownload } from "../../types/download";
 import type {
   CalculationResult,
@@ -311,7 +311,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       result.push({
         id: `random-game-${randomGame.id}`,
         category: "utility",
-        title: `${t("commandPalette.surpriseMe")}: ${randomGame.name}`,
+        title: `${t("commandPalette.surpriseMe")}: ${gameDisplayName(randomGame)}`,
         subtitle: `${randomGame.platform || "PC"} · ${randomGame.playTime || "0h"} · ${t("commandPalette.rerollHint")}`,
         badge: "SURPRISE",
         badgeType: "accent",
@@ -337,7 +337,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
         ],
         onSelect: () => {
           playLaunchSound();
-          saveRecentItem(randomGame.id, randomGame.name, "games");
+          saveRecentItem(randomGame.id, gameDisplayName(randomGame), "games");
           onClose();
           if (randomGame.installed) launchGame(randomGame);
           else navigate(`/library/${randomGame.id}`);
@@ -385,7 +385,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       result.push({
         id: `running-${runningGame.id}`,
         category: "games",
-        title: runningGame.name,
+        title: gameDisplayName(runningGame),
         subtitle: `${t("commandPalette.badgeRunning")} · ${runningGame.platform || "PC"} · ${runningGame.playTime || "0h"}`,
         badge: t("commandPalette.badgeRunning"),
         badgeType: "success",
@@ -421,7 +421,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
         ],
         onSelect: () => {
           playLaunchSound();
-          saveRecentItem(runningGame.id, runningGame.name, "games");
+          saveRecentItem(runningGame.id, gameDisplayName(runningGame), "games");
           onClose();
           launchGame(runningGame);
         },
@@ -470,7 +470,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
             onSelect: () => {
               if (matchedGame) {
                 playLaunchSound();
-                saveRecentItem(matchedGame.id, matchedGame.name, "games");
+                saveRecentItem(matchedGame.id, gameDisplayName(matchedGame), "games");
                 onClose();
                 if (matchedGame.installed) launchGame(matchedGame);
                 else navigate(`/library/${matchedGame.id}`);
@@ -516,7 +516,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
         result.push({
           id: `game-${game.id}`,
           category: "games",
-          title: game.name,
+          title: gameDisplayName(game),
           subtitle: `${game.platform || "PC"} · ${game.playTime || "0h"}`,
           thumb: game.coverArtUrl,
           badge: game.installed ? t("commandPalette.badgeInstalled") : undefined,
@@ -537,7 +537,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
                     onClick: (e: React.MouseEvent) => {
                       e.stopPropagation();
                       playLaunchSound();
-                      saveRecentItem(game.id, game.name, "games");
+                      saveRecentItem(game.id, gameDisplayName(game), "games");
                       onClose();
                       launchGame(game);
                     },
@@ -569,7 +569,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
               onClick: (e: React.MouseEvent) => {
                 e.stopPropagation();
                 playActionSound();
-                saveRecentItem(game.id, game.name, "games");
+                saveRecentItem(game.id, gameDisplayName(game), "games");
                 onClose();
                 navigate(`/library/${game.id}`);
               },
@@ -593,7 +593,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
           ],
           onSelect: () => {
             playLaunchSound();
-            saveRecentItem(game.id, game.name, "games");
+            saveRecentItem(game.id, gameDisplayName(game), "games");
             onClose();
             if (game.installed) {
               launchGame(game);
@@ -603,7 +603,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
           },
           onSecondarySelect: () => {
             playActionSound();
-            saveRecentItem(game.id, game.name, "games");
+            saveRecentItem(game.id, gameDisplayName(game), "games");
             onClose();
             navigate(`/library/${game.id}`);
           },
