@@ -9,6 +9,10 @@ import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
 import BigScreenStoreRail from "./BigScreenStoreRail";
 import BigScreenDashboardBackdrop from "../bigscreen/BigScreenDashboardBackdrop";
 import BigScreenPill from "../bigscreen/BigScreenPill";
+import BigScreenSpotlight, {
+  type SpotlightFact,
+} from "../bigscreen/BigScreenSpotlight";
+import { extractYear } from "../bigscreen/bigscreenFormat";
 import type { StoreGameSummary } from "../../types/game";
 import "../../styles/wishlist.css";
 
@@ -136,91 +140,100 @@ export default function BigScreenStore() {
 
   const detailsFocusable = useFocusable(handleDetails);
 
-  const [logoError, setLogoError] = useState(false);
-
-  useEffect(() => {
-    setLogoError(false);
-  }, [featuredGame?.id, featuredGame?.logoUrl]);
-
-  // Anchored above every rail so switching rails never reflows the
-  // dashboard (same rationale as the Home pane).
-  const renderDetailsPane = () => {
-    const featuredLogo = featuredGame?.logoUrl || (featuredGame?.websites ? (() => {
+  const featuredLogo = useMemo(() => {
+    if (featuredGame?.logoUrl) return featuredGame.logoUrl;
+    if (featuredGame?.websites) {
       for (const url of featuredGame.websites) {
         const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
-        if (match) return `https://cdn.cloudflare.steamstatic.com/steam/apps/${match[1]}/logo.png`;
+        if (match) {
+          return `https://cdn.cloudflare.steamstatic.com/steam/apps/${match[1]}/logo.png`;
+        }
       }
-      return null;
-    })() : null);
+    }
+    return null;
+  }, [featuredGame?.logoUrl, featuredGame?.websites]);
+
+  const spotlightFacts = useMemo<SpotlightFact[]>(() => {
+    if (!featuredGame) return [];
+    const facts: SpotlightFact[] = [];
+    if (featuredGame.rating) {
+      facts.push({
+        label: "IGDB",
+        value: String(Math.round(featuredGame.rating)),
+      });
+    }
+    const year = extractYear(featuredGame.firstReleaseDate ?? undefined);
+    if (year) facts.push({ label: t("gameInfo.releaseDate"), value: String(year) });
+    if (featuredGame.genres?.[0]) {
+      facts.push({ label: t("bigscreen.overview.genres"), value: featuredGame.genres.slice(0, 2).join(" · ") });
+    }
+    return facts;
+  }, [featuredGame, t]);
+
+  // Anchored above every rail so switching rails never reflows the
+  // dashboard (same rationale as the Home spotlight).
+  const renderSpotlight = () => {
+    if (!featuredGame) {
+      return (
+        <section className="bigscreen-spotlight animate-fade-in">
+          <div className="bigscreen-spotlight-info">
+            <span className="bigscreen-spotlight-eyebrow">
+              {t("nav.store")}
+            </span>
+            <h1 className="bigscreen-spotlight-title">
+              {t("bigscreen.store.welcomeTitle")}
+            </h1>
+            <p className="bigscreen-spotlight-description">
+              {t("bigscreen.store.welcomeDesc")}
+            </p>
+          </div>
+        </section>
+      );
+    }
 
     return (
-      <section className="bigscreen-dashboard-details-pane bigscreen-store-featured-pane animate-fade-in" aria-label={t("bigscreen.store.gameInfo")}>
-        <div className="bigscreen-details-pane-content">
-          {featuredGame ? (
-            <>
-              <div className="bigscreen-details-logo-area">
-                {featuredLogo && !logoError ? (
-                  <img
-                    src={featuredLogo}
-                    alt={featuredGame.name}
-                    className="bigscreen-gamepage-hero-logo bigscreen-store-featured-logo"
-                    width={360}
-                    height={88}
-                    onError={() => setLogoError(true)}
-                  />
-                ) : (
-                  <h1 className="bigscreen-gamepage-hero-title bigscreen-store-featured-title">{featuredGame.name}</h1>
-                )}
-              </div>
-
-              <div className="bigscreen-details-meta">
-                {featuredGame.rating && (
-                  <BigScreenPill tone="accent" size="sm">
-                    {t("bigscreen.store.score", { score: Math.round(featuredGame.rating) })}
-                  </BigScreenPill>
-                )}
-                {featuredGame.genres && featuredGame.genres.slice(0, 2).map((g: string) => (
-                  <BigScreenPill key={g} tone="muted" size="sm">
-                    {g}
-                  </BigScreenPill>
-                ))}
-              </div>
-
-              {/* Always rendered so the reserved description slot keeps
-                  the actions row stable while navigating between games. */}
-              <p className="bigscreen-details-description">
-                {featuredGame.summary
-                  ? featuredGame.summary.length > 200
-                    ? `${featuredGame.summary.substring(0, 200)}...`
-                    : featuredGame.summary
-                  : ""}
-              </p>
-
-              <div className="bigscreen-details-actions">
-                <button
-                  type="button"
-                  className="bigscreen-details-btn bigscreen-details-btn--primary"
-                  {...detailsFocusable}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                  <span>{t("bigscreen.store.storeDetails")}</span>
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="bigscreen-details-placeholder">
-              <h2 className="bigscreen-details-title">{t("bigscreen.store.welcomeTitle")}</h2>
-              <p className="bigscreen-details-description">
-                {t("bigscreen.store.welcomeDesc")}
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
+      <BigScreenSpotlight
+        eyebrow={t("store.spotlight.featuredTag")}
+        title={featuredGame.name}
+        logoUrl={featuredLogo}
+        ariaLabel={t("bigscreen.store.gameInfo")}
+        facts={spotlightFacts}
+        description={
+          featuredGame.summary
+            ? featuredGame.summary.length > 200
+              ? `${featuredGame.summary.substring(0, 200)}...`
+              : featuredGame.summary
+            : ""
+        }
+        meta={
+          <>
+            {featuredGame.rating && (
+              <BigScreenPill tone="accent" size="sm">
+                {t("bigscreen.store.score", { score: Math.round(featuredGame.rating) })}
+              </BigScreenPill>
+            )}
+            {featuredGame.genres && featuredGame.genres.slice(0, 2).map((g: string) => (
+              <BigScreenPill key={g} tone="muted" size="sm">
+                {g}
+              </BigScreenPill>
+            ))}
+          </>
+        }
+        actions={
+          <button
+            type="button"
+            className="bigscreen-details-btn bigscreen-details-btn--primary"
+            {...detailsFocusable}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>{t("bigscreen.store.storeDetails")}</span>
+          </button>
+        }
+      />
     );
   };
 
@@ -237,15 +250,6 @@ export default function BigScreenStore() {
 
       {/* Main scrolling wrapper */}
       <div className="bigscreen-dashboard-scrollable-content">
-        {/* Section context */}
-        <div className="bigscreen-store-context" aria-live="polite">
-          <div>
-            <span className="bigscreen-store-context-eyebrow">{t("nav.store")}</span>
-            <strong>{view === "wishlist" ? t("nav.wishlist") : t("nav.store")}</strong>
-          </div>
-          <span className="bigscreen-store-context-hint">A {t("gamepad.click")} · D-pad {t("gamepad.move")}</span>
-        </div>
-
         {/* Content */}
         <div className="bigscreen-store-panel-content">
           {view === "wishlist" ? (
@@ -275,7 +279,7 @@ export default function BigScreenStore() {
                 </div>
               ) : (
                 <div className="store-rails-group">
-                  {renderDetailsPane()}
+                  {renderSpotlight()}
                   <BigScreenStoreRail
                     railId="trending"
                     title={t("store.tab.trending")}

@@ -82,6 +82,12 @@ export interface VirtualMouseState {
   moving: boolean;
   /** performance.now() of last stick motion. Drives idle fade. */
   lastInputMs: number;
+  /**
+   * performance.now() of the last dispatched click (A button, or a
+   * trigger press). The cursor flashes its pressed state off this —
+   * `leftDown`/`rightDown` only cover press-and-hold drags.
+   */
+  lastClickMs: number;
 }
 
 export interface GamepadState {
@@ -180,6 +186,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     rightDown: false,
     moving: false,
     lastInputMs: 0,
+    lastClickMs: 0,
   });
   const lastPublishedVMRef = useRef<VirtualMouseState>({ ...virtualMouseRef.current });
   const [virtualMouse, setVirtualMouse] = useState<VirtualMouseState>(
@@ -541,7 +548,8 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         prev.y !== cur.y ||
         prev.leftDown !== cur.leftDown ||
         prev.rightDown !== cur.rightDown ||
-        prev.moving !== cur.moving
+        prev.moving !== cur.moving ||
+        prev.lastClickMs !== cur.lastClickMs
       ) {
         lastPublishedVMRef.current = { ...cur };
         setVirtualMouse({ ...cur });
@@ -735,6 +743,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
             dispatchMouse("mousedown", vm.x, vm.y, 0, true, vm.rightDown);
             dispatchMouse("mouseup", vm.x, vm.y, 0, false, vm.rightDown);
             dispatchMouse("click", vm.x, vm.y, 0, false, vm.rightDown);
+            vm.lastClickMs = now;
 
             // Sync gamepad focus state to the clicked element if it is registered
             const registeredEntry = entriesRef.current.find(

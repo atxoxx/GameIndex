@@ -321,6 +321,35 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
   const releaseYear = extractYear(game.releaseDate);
   const rating = game.igdbRating ?? game.criticRating;
 
+  // At-a-glance numbers for the hero's right-hand card: the values a
+  // player checks before pressing Play, kept out of the pill strip so
+  // neither row has to compete for width.
+  const heroFacts = useMemo(() => {
+    const facts: { label: string; value: string }[] = [
+      { label: t("hero.playTime"), value: game.playTime || "0h" },
+    ];
+    if (game.lastPlayed) {
+      facts.push({
+        label: t("game.lastPlayed"),
+        value: formatLastPlayed(game.lastPlayed),
+      });
+    }
+    if (rating != null && rating > 0) {
+      facts.push({
+        label: game.igdbRating != null ? "IGDB" : t("game.tab.reviews"),
+        value: `${Math.round(rating)}%`,
+      });
+    }
+    const achTotal = game.steamAchievements?.length ?? 0;
+    if (achTotal > 0) {
+      facts.push({
+        label: t("achievementsPage.achievements"),
+        value: `${achCount} / ${achTotal}`,
+      });
+    }
+    return facts;
+  }, [game.playTime, game.lastPlayed, game.igdbRating, game.steamAchievements, rating, achCount, t]);
+
   return (
     <div ref={pageRef} className="bigscreen-gamepage">
       {/* ── Hero (a header band, paused on Overview) ────────── */}
@@ -365,6 +394,7 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
             <span>{t("common.back")}</span>
           </button>
 
+          <div className="bigscreen-gamepage-hero-main">
           <div className="bigscreen-gamepage-hero-info">
           {resolvedLogo && !logoError ? (
             <img
@@ -394,7 +424,8 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
               )}
             </div>
 
-            {/* Metatrip inline */}
+            {/* Metatrip inline — identity and live state only; the
+                numeric at-a-glance values live in the hero facts card. */}
             <BigScreenMetaStrip
               aria-label="Game metadata"
               className="bigscreen-gamepage-meta-strip-inline"
@@ -410,51 +441,9 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
               >
                 {t(status.labelKey)}
               </BigScreenPill>
-              <BigScreenPill
-                tone="muted"
-                size="sm"
-                icon={
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                    width="12"
-                    height="12"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                }
-              >
-                {game.playTime || "0h"}
-              </BigScreenPill>
               {resolvedSteamAppId != null && (
                 <BigScreenPill tone="muted" size="sm">
                   <PlayerCountBadge appId={resolvedSteamAppId} className="bigscreen-steam-players" /> on Steam
-                </BigScreenPill>
-              )}
-              {rating != null && rating > 0 && (
-                <BigScreenPill
-                  tone="muted"
-                  size="sm"
-                  icon={
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden
-                      width="12"
-                      height="12"
-                    >
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                  }
-                >
-                  {Math.round(rating)}%{" "}
-                  {game.igdbRating != null ? "IGDB" : "Critic"}
                 </BigScreenPill>
               )}
               {game.installed ? (
@@ -503,6 +492,20 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
             onDownload={() => setDownloadOpen(true)}
             onTrailer={() => playableTrailer && setLightbox(playableTrailer)}
           />
+          </div>
+
+          {heroFacts.length > 0 && (
+            <aside className="bigscreen-facts bigscreen-gamepage-hero-facts">
+              {heroFacts.map((fact) => (
+                <div className="bigscreen-fact" key={fact.label}>
+                  <span className="bigscreen-fact__label">{fact.label}</span>
+                  <span className="bigscreen-fact__value" title={fact.value}>
+                    {fact.value}
+                  </span>
+                </div>
+              ))}
+            </aside>
+          )}
         </div>
       </section>
 
@@ -519,7 +522,7 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
       {/* ── Per-tab scroll region ───────────────────────────── */}
       <div className="bigscreen-gamepage-tab-scroll-region">
         <BigScreenTabPanel tabId="overview" activeTab={activeTab}>
-          <BigScreenGamePageOverview game={game} />
+          <BigScreenGamePageOverview game={game} onOpenLightbox={setLightbox} />
         </BigScreenTabPanel>
         <BigScreenTabPanel tabId="media" activeTab={activeTab}>
           <BigScreenGamePageMedia
@@ -639,7 +642,16 @@ function BigScreenBlock({ children }: { children: ReactNode }) {
   return <div className="bigscreen-gamepage-block">{children}</div>;
 }
 
-function BigScreenGamePageOverview({ game }: { game: Game }) {
+function BigScreenGamePageOverview({
+  game,
+  onOpenLightbox,
+}: {
+  game: Game;
+  onOpenLightbox: (src: string) => void;
+}) {
+  const { t } = useLanguage();
+  const hasScreenshots = !!game.screenshots && game.screenshots.length > 0;
+
   return (
     <div className="bigscreen-gamepage-overview">
       <div className="bigscreen-gamepage-overview-layout">
@@ -648,65 +660,40 @@ function BigScreenGamePageOverview({ game }: { game: Game }) {
             <StorylineSection game={game} />
           </BigScreenBlock>
           <AboutSection game={game} />
+          <BigScreenGamePageStats game={game} />
         </div>
         <BigScreenGamePageRail game={game} />
       </div>
+
+      {/* Media peek: the tab body used to end after the two columns, which
+          left the lower half of a TV empty. The rail is the page's own
+          "there is more to look at" affordance, and it focuses like every
+          other rail. */}
+      {hasScreenshots && (
+        <BigScreenRailScroller
+          railId="game-hub-overview-media"
+          label={t("community.tab.screenshots")}
+        >
+          <ScreenshotsSection game={game} onOpen={onOpenLightbox} />
+        </BigScreenRailScroller>
+      )}
     </div>
   );
 }
 
-// ─── Overview metadata rail ─────────────────────────────────────────
+// ─── Overview quick stats ───────────────────────────────────────────
 //
-// The right-hand column of the Overview tab, modeled on Playnite's
-// desktop Details view + Vapour's fullscreen metadata panel. Blocks
-// render only when their data is present:
-//   • 2×2 quick stats  (Playtime / Status / Last played / Released)
-//   • Steam achievement progress  (rounded bar + recent unlocks)
-//   • IGDB + critic ratings
-//   • Genres chips
-//   • Time-to-beat
-//   • Developer / Publisher / Franchise / Collection rows
-//   • Supported languages
+// Playtime / status / last played / released, as a 2×2 strip. It sits
+// under the prose in the wide column rather than at the top of the
+// metadata rail: the rail is the tall column, and a four-cell block
+// there left the prose side looking empty on titles with little to say.
 
-function BigScreenGamePageRail({ game }: { game: Game }) {
+function BigScreenGamePageStats({ game }: { game: Game }) {
   const { t } = useLanguage();
   const status = PLAY_STATUS_DETAILS[game.playStatus || "backlog"];
 
-  // Steam-synced achievement snapshot (the same source the desktop
-  // hero uses for its progress ring).
-  const achievements = game.steamAchievements;
-  const achUnlocked = achievements?.filter((a) => a.achieved).length ?? 0;
-  const achTotal = achievements?.length ?? 0;
-  const achPct = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : null;
-  const recentUnlocks = achievements
-    ? [...achievements]
-        .filter((a) => a.achieved && a.unlocktime > 0)
-        .sort((a, b) => b.unlocktime - a.unlocktime)
-        .slice(0, 3)
-    : [];
-
-  const hasTimeToBeat = (() => {
-    const ttb = game.timeToBeat;
-    return (
-      !!ttb &&
-      ((ttb.normally ?? 0) > 0 ||
-        (ttb.completely ?? 0) > 0 ||
-        (ttb.hastily ?? 0) > 0)
-    );
-  })();
-
-  const hasAnyIdentity =
-    !!game.developer ||
-    !!game.publisher ||
-    !!game.franchise ||
-    !!game.collection;
-
   return (
-    <aside
-      className="bigscreen-gamepage-rail"
-      aria-label={t("bigscreen.overview.rail")}
-    >
-      {/* ── 2×2 quick stats ─────────────────────────────────── */}
+    <div className="bigscreen-gamepage-stats">
       <div className="bigscreen-gamepage-rail-grid">
         <div className="bigscreen-rail-stat">
           <span className="bigscreen-rail-stat__label">{t("hero.playTime")}</span>
@@ -748,7 +735,59 @@ function BigScreenGamePageRail({ game }: { game: Game }) {
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
 
+// ─── Overview metadata rail ─────────────────────────────────────────
+//
+// The right-hand column of the Overview tab, modeled on Playnite's
+// desktop Details view + Vapour's fullscreen metadata panel. Blocks
+// render only when their data is present:
+//   • Steam achievement progress  (rounded bar + recent unlocks)
+//   • IGDB + critic ratings
+//   • Genres chips
+//   • Time-to-beat
+//   • Developer / Publisher / Franchise / Collection rows
+//   • Supported languages
+
+function BigScreenGamePageRail({ game }: { game: Game }) {
+  const { t } = useLanguage();
+
+  // Steam-synced achievement snapshot (the same source the desktop
+  // hero uses for its progress ring).
+  const achievements = game.steamAchievements;
+  const achUnlocked = achievements?.filter((a) => a.achieved).length ?? 0;
+  const achTotal = achievements?.length ?? 0;
+  const achPct = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : null;
+  const recentUnlocks = achievements
+    ? [...achievements]
+        .filter((a) => a.achieved && a.unlocktime > 0)
+        .sort((a, b) => b.unlocktime - a.unlocktime)
+        .slice(0, 3)
+    : [];
+
+  const hasTimeToBeat = (() => {
+    const ttb = game.timeToBeat;
+    return (
+      !!ttb &&
+      ((ttb.normally ?? 0) > 0 ||
+        (ttb.completely ?? 0) > 0 ||
+        (ttb.hastily ?? 0) > 0)
+    );
+  })();
+
+  const hasAnyIdentity =
+    !!game.developer ||
+    !!game.publisher ||
+    !!game.franchise ||
+    !!game.collection;
+
+  return (
+    <aside
+      className="bigscreen-gamepage-rail"
+      aria-label={t("bigscreen.overview.rail")}
+    >
       {/* ── Achievement progress ────────────────────────────── */}
       {achTotal > 0 && achPct != null && (
         <BigScreenBlock>

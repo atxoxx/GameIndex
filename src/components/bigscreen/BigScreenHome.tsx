@@ -10,7 +10,8 @@ import type { Game } from "../../types/game";
 import BigScreenRail from "../library/BigScreenRail";
 import BigScreenDashboardBackdrop from "./BigScreenDashboardBackdrop";
 import BigScreenPill from "./BigScreenPill";
-import { extractYear } from "./bigscreenFormat";
+import BigScreenSpotlight, { type SpotlightFact } from "./BigScreenSpotlight";
+import { extractYear, formatLastPlayed } from "./bigscreenFormat";
 
 export default function BigScreenHome() {
   const { t } = useLanguage();
@@ -18,7 +19,6 @@ export default function BigScreenHome() {
   const gamepad = useGamepad();
   const navigate = useNavigate();
 
-  const [logoError, setLogoError] = useState(false);
 
   // Compute game lists
   const continuePlaying = useMemo(() => {
@@ -48,10 +48,6 @@ export default function BigScreenHome() {
       setActiveRailId("recently-added");
     }
   }, [continuePlaying, activeRailId]);
-
-  useEffect(() => {
-    setLogoError(false);
-  }, [selectedGame?.id]);
 
   // Sync selected game on load or when library initialFeatured changes
   useEffect(() => {
@@ -121,91 +117,113 @@ export default function BigScreenHome() {
   const playProps = useFocusable(handlePlay);
   const detailsProps = useFocusable(handleDetails);
 
-  // The details pane is anchored above every rail and simply follows
-  // the spotlight. Rendering it per-rail (the old approach) made the
-  // whole dashboard jump by the pane's height whenever vertical
-  // navigation moved between rails.
-  const renderDetailsPane = () => {
+  // The spotlight is anchored above every rail and simply follows the
+  // focused card. Rendering it per-rail (the old approach) made the whole
+  // dashboard jump by the pane's height whenever vertical navigation
+  // moved between rails.
+  const spotlightFacts = useMemo<SpotlightFact[]>(() => {
+    if (!featuredGame) return [];
+    const facts: SpotlightFact[] = [
+      { label: t("hero.playTime"), value: featuredGame.playTime || "0h" },
+    ];
+    if (featuredGame.lastPlayed) {
+      facts.push({
+        label: t("game.lastPlayed"),
+        value: formatLastPlayed(featuredGame.lastPlayed),
+      });
+    }
+    if (status) {
+      facts.push({ label: t("hero.status"), value: t(status.labelKey) });
+    }
+    if (releaseYear) {
+      facts.push({ label: t("gameInfo.releaseDate"), value: String(releaseYear) });
+    }
+    return facts;
+  }, [featuredGame, status, releaseYear, t]);
+
+  const renderSpotlight = () => {
+    if (!featuredGame) {
+      return (
+        <section className="bigscreen-spotlight animate-fade-in">
+          <div className="bigscreen-spotlight-info">
+            <span className="bigscreen-spotlight-eyebrow">
+              {t("bigscreen.spotlight.welcomeLib")}
+            </span>
+            <h1 className="bigscreen-spotlight-title">
+              {t("bigscreen.home.welcome")}
+            </h1>
+            <p className="bigscreen-spotlight-description">
+              {t("bigscreen.home.welcomeDesc")}
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    const eyebrowKey =
+      activeRailId === "continue-playing"
+        ? "lib.rail.continue.title"
+        : "lib.rail.recentlyAdded.title";
+
     return (
-      <div className="bigscreen-dashboard-details-pane animate-fade-in" style={{ padding: "0 64px 24px 64px" }}>
-        <div className="bigscreen-details-pane-content">
-          {featuredGame ? (
-            <>
-              <div className="bigscreen-details-logo-area">
-                {featuredGame.logoUrl && !logoError ? (
-                  <img
-                    src={featuredGame.logoUrl}
-                    alt={gameDisplayName(featuredGame)}
-                    className="bigscreen-details-logo"
-                    onError={() => setLogoError(true)}
-                  />
-                ) : (
-                  <h2 className="bigscreen-details-title">{gameDisplayName(featuredGame)}</h2>
-                )}
-              </div>
-
-              <div className="bigscreen-details-meta">
-                <BigScreenPill tone="accent" size="sm">
-                  {featuredGame.platform}
-                </BigScreenPill>
-                {status && (
-                  <BigScreenPill tone="muted" size="sm" dot customColor={status.color}>
-                    {t(status.labelKey)}
-                  </BigScreenPill>
-                )}
-                {releaseYear && (
-                  <BigScreenPill tone="muted" size="sm">
-                    {releaseYear}
-                  </BigScreenPill>
-                )}
-              </div>
-
-              {/* Always rendered so the reserved description slot keeps
-                  the actions row stable while navigating between games. */}
-              <p className="bigscreen-details-description">
-                {featuredGame.description
-                  ? featuredGame.description.length > 200
-                    ? `${featuredGame.description.substring(0, 200)}...`
-                    : featuredGame.description
-                  : ""}
-              </p>
-
-              <div className="bigscreen-details-actions">
-                <button
-                  type="button"
-                  className="bigscreen-details-btn bigscreen-details-btn--primary"
-                  {...playProps}
-                  disabled={isRunning}
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                    <polygon points="6 4 20 12 6 20 6 4" />
-                  </svg>
-                  <span>{isRunning ? t("game.running") : t("game.play")}</span>
-                </button>
-                <button
-                  type="button"
-                  className="bigscreen-details-btn bigscreen-details-btn--secondary"
-                  {...detailsProps}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                  <span>{t("bigscreen.home.gameHub")}</span>
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="bigscreen-details-placeholder">
-              <h2 className="bigscreen-details-title">{t("bigscreen.home.welcome")}</h2>
-              <p className="bigscreen-details-description">
-                {t("bigscreen.home.welcomeDesc")}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      <BigScreenSpotlight
+        eyebrow={t(eyebrowKey)}
+        title={gameDisplayName(featuredGame)}
+        logoUrl={featuredGame.logoUrl}
+        ariaLabel={t("bigscreen.spotlight.featuredGame")}
+        facts={spotlightFacts}
+        description={
+          featuredGame.description
+            ? featuredGame.description.length > 200
+              ? `${featuredGame.description.substring(0, 200)}...`
+              : featuredGame.description
+            : ""
+        }
+        meta={
+          <>
+            <BigScreenPill tone="accent" size="sm">
+              {featuredGame.platform}
+            </BigScreenPill>
+            {status && (
+              <BigScreenPill tone="muted" size="sm" dot customColor={status.color}>
+                {t(status.labelKey)}
+              </BigScreenPill>
+            )}
+            {releaseYear && (
+              <BigScreenPill tone="muted" size="sm">
+                {releaseYear}
+              </BigScreenPill>
+            )}
+          </>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              className="bigscreen-details-btn bigscreen-details-btn--primary"
+              {...playProps}
+              disabled={isRunning}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                <polygon points="6 4 20 12 6 20 6 4" />
+              </svg>
+              <span>{isRunning ? t("game.running") : t("game.play")}</span>
+            </button>
+            <button
+              type="button"
+              className="bigscreen-details-btn bigscreen-details-btn--secondary"
+              {...detailsProps}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              <span>{t("bigscreen.home.gameHub")}</span>
+            </button>
+          </>
+        }
+      />
     );
   };
 
@@ -221,7 +239,7 @@ export default function BigScreenHome() {
       <div className="bigscreen-dashboard-scrollable-content">
         {/* Shelves / Rails */}
         <div className="bigscreen-dashboard-main-rail">
-          {renderDetailsPane()}
+          {renderSpotlight()}
 
           {continuePlaying.length > 0 && (
             <BigScreenRail

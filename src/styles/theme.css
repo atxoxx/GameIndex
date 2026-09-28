@@ -228,6 +228,15 @@
   --z-modal: 1400;
   --z-toast: 1500;
   --z-splash: 2000;
+  /* Big Screen (TV) mode owns a full-window shell that has to cover the
+     whole desktop UI, so it sits above the ladder. Portaled surfaces are
+     siblings of that shell (they render into <body>, not into it), which
+     means they would be buried by it — the two rungs below are where they
+     come back: `-float` for modals / lightboxes / toasts, and `-pointer`
+     for the controller cursor, which stays above every overlay. */
+  --z-bigscreen: 5000;
+  --z-bigscreen-float: 5100;
+  --z-bigscreen-pointer: 5200;
 
   /* ── Focus / Interaction Ring System ──────────────────────────────
      Double-ring focus: a dark halo separating the accent ring from

@@ -34,6 +34,11 @@ const MIN_OPACITY = 0.45;
 const IDLE_BREATH_OPACITY = 0.85;
 const ACTIVE_OPACITY = 1.0;
 const DRAG_OPACITY = 0.7;
+const PRESS_FLASH_MS = 160;
+
+/** Anything a click could usefully land on — drives the `--target` glow. */
+const CLICKABLE_SELECTOR =
+  "button, a, input, select, textarea, [role='button'], [role='link'], [tabindex], [data-focus-key]";
 
 /**
  * Smooth cursor motion via rAF. The state value comes from the
@@ -42,10 +47,11 @@ const DRAG_OPACITY = 0.7;
  * the position can track sub-frame changes (window resize, etc.)
  * without forcing a VirtualCursor re-render at every poll tick.
  *
- * The visual transform is `translate3d(x, y, 0)` which the GPU
- * composes without invalidating layout. Coupled with the smooth CSS
- * transition on the `<div class="virtual-cursor">` element, the
- * motion feels continuous even though the poll only updates state.
+ * The visual transform is `translate3d(x, y, 0)` centred on the polled
+ * point — the ring's middle, not its corner, is where a press lands.
+ * Coupled with the smooth CSS transition on the `<div
+ * class="virtual-cursor">` element, the motion feels continuous even
+ * though the poll only updates state.
  */
 export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
   const cursorRef = useRef<HTMLDivElement | null>(null);
@@ -56,6 +62,9 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
     y: -1,
     ts: 0,
   });
+  // Half the rendered box, measured once so the pointer is centred on the
+  // click point. Cached to avoid a layout read on every frame.
+  const halfRef = useRef(13);
 
   // Idle fade tracking — separate from x/y because we want the
   // breathing idle pulse to keep ticking on the render thread even
@@ -114,14 +123,15 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
         el.style.opacity = String(ACTIVE_OPACITY);
         fadeRef.current = ACTIVE_OPACITY;
         lastVisible = true;
+        halfRef.current = (el.offsetWidth || 26) / 2;
       }
 
       // ── Cursor position update via transform ────────────────
-      if (
-        cur.x !== lastRenderRef.current.x ||
-        cur.y !== lastRenderRef.current.y
-      ) {
-        el.style.transform = `translate3d(${cur.x - 4}px, ${cur.y - 3}px, 0)`;
+      const moved =
+        cur.x !== lastRenderRef.current.x || cur.y !== lastRenderRef.current.y;
+      if (moved) {
+        const half = halfRef.current;
+        el.style.transform = `translate3d(${cur.x - half}px, ${cur.y - half}px, 0)`;
         lastRenderRef.current = { x: cur.x, y: cur.y, ts: performance.now() };
       }
       // ── Opacity (idle fade + drag indicator) ─────────────
@@ -149,6 +159,23 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
       // outer ring's animated glow during click-and-drag.
       el.classList.toggle("virtual-cursor--dragging", isDragging);
       if (isDragging) el.style.setProperty("--drag-opacity", String(DRAG_OPACITY));
+
+      // Any press (A click, or a held trigger) flashes the squash state so
+      // every click has visible feedback, even on a plain div target.
+      const pressed =
+        isDragging || now - cur.lastClickMs < PRESS_FLASH_MS;
+      el.classList.toggle("virtual-cursor--pressed", pressed);
+
+      // Target affordance: only re-probe when the pointer actually moved
+      // (elementFromPoint forces a hit test), so an idle cursor costs
+      // nothing.
+      if (moved && typeof document !== "undefined") {
+        const hit = document.elementFromPoint(cur.x, cur.y);
+        el.classList.toggle(
+          "virtual-cursor--target",
+          !!hit && hit.closest(CLICKABLE_SELECTOR) !== null,
+        );
+      }
 
       rafId = requestAnimationFrame(tick);
     }
