@@ -94,6 +94,11 @@ pub async fn initialize_engine(
             // lock released.
             let (heals, progress) = {
                 let mut guard = loop_handle.write().await;
+                // Nothing can change on its own: skip the refresh without
+                // even flushing the (clean) record set.
+                if !guard.needs_tick() {
+                    continue;
+                }
                 let heals = guard.refresh_stats();
                 guard.flush_if_dirty();
                 let progress = guard.take_progress_update();

@@ -755,6 +755,38 @@ impl DownloadManager {
 
         to_heal
     }
+
+    /// Cheap gate for the 1 s status loop.
+    ///
+    /// Reconciliation only matters while a record can still change on its
+    /// own: an in-flight transfer, a torrent that is seeding, or a
+    /// manager-owned Queued/Paused state whose intent is re-enforced
+    /// against the session every tick. Once every record is terminal
+    /// (Completed / Error / Removed) and nothing is pending a persist, the
+    /// loop can skip the lock-heavy refresh entirely.
+    pub fn needs_tick(&self) -> bool {
+        if self.dirty {
+            return true;
+        }
+        if self.downloads.values().any(|d| {
+            matches!(
+                d.status,
+                DownloadStatus::FetchingMetadata
+                    | DownloadStatus::Downloading
+                    | DownloadStatus::Queued
+                    | DownloadStatus::Paused
+                    | DownloadStatus::Seeding
+            )
+        }) {
+            return true;
+        }
+        // A session torrent can outlive its record (a timed-out add that
+        // resolved late). Keep ticking so the orphan sweep can remove it.
+        match &self.session {
+            Some(session) => session.with_torrents(|iter| iter.next().is_some()),
+            None => false,
+        }
+    }
 }
 
 // ─── Start orchestration (needs the shared Arc, so free functions) ──────────
