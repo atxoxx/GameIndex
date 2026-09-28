@@ -6493,6 +6493,8 @@ export const zhCN: TranslationDict = {
   "settings.appearance.motionDesc": "配置整个界面的动画行为与视觉过渡效果。",
   "settings.appearance.reduceMotionTitle": "减弱动态效果",
   "settings.appearance.reduceMotionDesc": "关闭平滑缩放与滑动动效，带来即时响应、超低延迟的交互体验。",
+  "settings.appearance.animatedMediaTitle": "动画媒体",
+  "settings.appearance.animatedMediaDesc": "允许动画封面、动态背景和预告片自动播放。关闭后仅显示静态图片。",
   "settings.section.appearanceSplash": "启动画面",
   "settings.splash.sectionDesc": "选择 GameIndex 在应用或游戏启动时显示哪些启动画面。",
   "settings.splash.launchTitle": "游戏启动画面",

@@ -134,6 +134,7 @@ const LS_UI_SCALE = "gamelib.ui_scale";
 // Append-only, like every other key.
 const LS_FIRST_LAUNCH = "gamelib.first_launch";
 const LS_REDUCE_MOTION = "gamelib.reduce_motion";
+const LS_ANIMATED_MEDIA = "gamelib.animated_media_enabled";
 const LS_SHOW_CARD_BADGES = "gamelib.show_card_badges";
 const LS_SHOW_GAME_ART_BACKDROP = "gamelib.show_game_art_backdrop";
 const LS_SHOW_NAVBAR_NOW_PLAYING = "gamelib.show_navbar_now_playing";
@@ -467,6 +468,11 @@ export interface SettingsContextValue {
   setUiScale: (next: UiScale) => void;
   reduceMotion: boolean;
   setReduceMotion: (next: boolean) => void;
+  /** Whether animated media (animated WebP/APNG covers, animated hero
+   *  art and trailer autoplay) is allowed to play. Independent from
+   *  `reduceMotion`, which governs UI transitions. */
+  animatedMediaEnabled: boolean;
+  setAnimatedMediaEnabled: (next: boolean) => void;
   showCardBadges: boolean;
   setShowCardBadges: (next: boolean) => void;
   showGameArtBackdrop: boolean;
@@ -1320,6 +1326,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [reduceMotion]);
 
+  // Animated media master switch (Settings → Appearance → Motion). ON by
+  // default so existing users keep animated covers, animated hero art and
+  // trailer autoplay; switching it off makes consumers resolve static art
+  // and stops autoplaying video (see useGameCardArt / useGameBackdropArt
+  // and the hero trailer components).
+  const [animatedMediaEnabled, setAnimatedMediaEnabledState] = useState<boolean>(
+    () => lsGet(LS_ANIMATED_MEDIA) !== "false",
+  );
+  const setAnimatedMediaEnabled = useCallback((next: boolean) => {
+    setAnimatedMediaEnabledState(next);
+    lsSet(LS_ANIMATED_MEDIA, String(next));
+  }, []);
+
   const [showCardBadges, setShowCardBadgesState] = useState<boolean>(
     () => lsGet(LS_SHOW_CARD_BADGES) !== "false",
   );
@@ -1742,6 +1761,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setUiScale,
       reduceMotion,
       setReduceMotion,
+      animatedMediaEnabled,
+      setAnimatedMediaEnabled,
       showCardBadges,
       setShowCardBadges,
       showGameArtBackdrop,
@@ -1859,6 +1880,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setUiScale,
       reduceMotion,
       setReduceMotion,
+      animatedMediaEnabled,
+      setAnimatedMediaEnabled,
       showCardBadges,
       setShowCardBadges,
       showGameArtBackdrop,
@@ -1956,6 +1979,17 @@ export function useSettings(): SettingsContextValue {
  */
 export function useCardDisplaySettings(): CardDisplaySettings {
   return useContext(CardDisplaySettingsContext);
+}
+
+/**
+ * Whether animated media (animated WebP/APNG covers, animated hero art
+ * and trailer autoplay) is enabled. Null-safe: outside a
+ * SettingsProvider (isolated tests, static renders) animated media is
+ * allowed, matching the shipped default.
+ */
+export function useAnimatedMediaEnabled(): boolean {
+  const ctx = useContext(SettingsContext);
+  return ctx ? ctx.animatedMediaEnabled : true;
 }
 
 // ── Visibility helpers (Settings → Interface / Layout Studio) ───────────────

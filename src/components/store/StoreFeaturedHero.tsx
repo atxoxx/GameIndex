@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo, useContext, type Rea
 import { invoke } from "@tauri-apps/api/core";
 import type { AboutBundle, GameMetadataResult, StoreGameSummary } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { useAnimatedMediaEnabled } from "../../context/SettingsContext";
 import { steamCodeForUi } from "../../i18n/languages";
 import { WishlistContext } from "../../context/WishlistContext";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
@@ -140,6 +141,8 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     []
   );
+  const animatedMediaEnabled = useAnimatedMediaEnabled();
+  const videoMotionDisabled = reduceMotion || !animatedMediaEnabled;
 
   // Keep active dock thumbnail visible horizontally inside the dock reel without
   // touching ancestor scroll positions (scrollIntoView would drag .app-main back to top).
@@ -394,12 +397,12 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     const video = videoRef.current;
     if (!video) return;
 
-    if (!isInView || isPaused || manualVideoPaused || reduceMotion || pauseMotion) {
+    if (!isInView || isPaused || manualVideoPaused || videoMotionDisabled || pauseMotion) {
       video.pause();
     } else {
       video.play().catch(() => {});
     }
-  }, [isInView, isPaused, manualVideoPaused, reduceMotion, trailerVideoSrc, pauseMotion]);
+  }, [isInView, isPaused, manualVideoPaused, videoMotionDisabled, trailerVideoSrc, pauseMotion]);
 
   // Subtle pointer parallax for the hero backdrop + poster. Normalized
   // pointer position (0..1) is published as --spot-x / --spot-y on the
@@ -649,7 +652,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
         >
           {/* Animated Background Mesh, Backdrop & Silent Video Trailer */}
           <div className="store-spotlight-bg" aria-hidden="true">
-            {trailerVideoSrc && isInView && !reduceMotion ? (
+            {trailerVideoSrc && isInView && !videoMotionDisabled ? (
               <video
                 ref={videoRef}
                 key={trailerVideoSrc}

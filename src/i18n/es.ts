@@ -6494,6 +6494,8 @@ export const es: TranslationDict = {
   "settings.appearance.motionDesc": "Configura el comportamiento de las animaciones y transiciones visuales en la interfaz.",
   "settings.appearance.reduceMotionTitle": "Reducir movimiento",
   "settings.appearance.reduceMotionDesc": "Desactiva las animaciones de deslizamiento y escala para una interfaz instantánea y de baja latencia.",
+  "settings.appearance.animatedMediaTitle": "Medios animados",
+  "settings.appearance.animatedMediaDesc": "Permite carátulas animadas, fondos animados y la reproducción automática de tráilers. Desactívalo para mostrar solo imágenes estáticas.",
   "settings.section.appearanceSplash": "Pantallas de inicio",
   "settings.splash.sectionDesc": "Elige qué pantallas de inicio muestra GameIndex al arrancar la aplicación o un juego.",
   "settings.splash.launchTitle": "Pantalla de inicio de juego",

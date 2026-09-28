@@ -6483,6 +6483,8 @@ export const en: TranslationDict = {
   "settings.appearance.motionDesc": "Configure animation behavior and visual transitions across the interface.",
   "settings.appearance.reduceMotionTitle": "Reduce Motion",
   "settings.appearance.reduceMotionDesc": "Disable smooth sliding and scaling animations for an instantaneous, low-latency interface feel.",
+  "settings.appearance.animatedMediaTitle": "Animated Media",
+  "settings.appearance.animatedMediaDesc": "Allow animated covers, animated backgrounds and trailer autoplay. Turn off to show static art only.",
   "settings.section.appearanceSplash": "Splash Screens",
   "settings.splash.sectionDesc": "Choose which splash screens GameIndex shows when the app or a game starts.",
   "settings.splash.launchTitle": "Game launch splash",

@@ -6493,6 +6493,8 @@ export const fr: TranslationDict = {
   "settings.appearance.motionDesc": "Configurez le comportement des animations et des transitions visuelles de l'interface.",
   "settings.appearance.reduceMotionTitle": "Réduire les animations",
   "settings.appearance.reduceMotionDesc": "Désactive les animations de glissement et d'agrandissement pour une navigation instantanée et ultra-réactive.",
+  "settings.appearance.animatedMediaTitle": "Médias animés",
+  "settings.appearance.animatedMediaDesc": "Autorise les jaquettes animées, les arrière-plans animés et la lecture automatique des bandes-annonces. Désactivez pour n'afficher que des images statiques.",
   "settings.section.appearanceSplash": "Écrans de démarrage",
   "settings.splash.sectionDesc": "Choisissez les écrans de démarrage affichés par GameIndex au lancement de l'application ou d'un jeu.",
   "settings.splash.launchTitle": "Écran de lancement de jeu",

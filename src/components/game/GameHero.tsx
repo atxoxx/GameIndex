@@ -11,7 +11,7 @@ import { KpiTile } from "../ui";
 import PageWidget from "../PageWidget";
 import { gameDisplayName, type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
-import { useSettings, useHeroElementLayout, useHeroGridLayout } from "../../context/SettingsContext";
+import { useSettings, useHeroElementLayout, useHeroGridLayout, useAnimatedMediaEnabled } from "../../context/SettingsContext";
 import { applyGameAccentFamily } from "../../utils/color";
 import { useAchievements } from "../../context/AchievementContext";
 import { HERO_ELEMENTS, type HeroElementKey } from "../../context/interfaceLayout";
@@ -177,6 +177,7 @@ export default function GameHero({
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     []
   );
+  const animatedMediaEnabled = useAnimatedMediaEnabled();
 
   useEffect(() => {
     const el = heroRef.current;
@@ -217,12 +218,12 @@ export default function GameHero({
       : null;
   const ambientCandidates = useMemo(
     () => {
-      const preferred = reduceMotion
+      const preferred = reduceMotion || !animatedMediaEnabled
         ? [steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl]
         : [sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl];
       return preferred.filter((u): u is string => !!u);
     },
-    [reduceMotion, sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl]
+    [reduceMotion, animatedMediaEnabled, sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl]
   );
   const ambientSrc =
     ambientStep < ambientCandidates.length ? ambientCandidates[ambientStep] : null;

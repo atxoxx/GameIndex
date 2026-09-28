@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { useAnimatedMediaEnabled } from "../../context/SettingsContext";
 
 /**
  * HeroTrailer
@@ -106,7 +107,8 @@ export default function HeroTrailer({
     };
   }, []);
 
-  const shouldAutoplay = autoplay && !reduceMotion;
+  const animatedMediaEnabled = useAnimatedMediaEnabled();
+  const shouldAutoplay = autoplay && !reduceMotion && animatedMediaEnabled;
   const playing = shouldAutoplay || activated;
 
   useEffect(() => {

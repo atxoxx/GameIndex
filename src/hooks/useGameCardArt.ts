@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, type SyntheticEvent } from "react";
 import { useSteamGridArt } from "../context/SteamGridDbContext";
+import { useAnimatedMediaEnabled } from "../context/SettingsContext";
 import {
   extractSteamAppId,
   extractSteamAppIdFromWebsites,
@@ -123,6 +124,11 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
 
   const sgdb = useSteamGridArt(steamAppId);
 
+  // Animated covers honor the Settings → Appearance → Motion master switch.
+  // When off we resolve to the static poster only, so no animated asset is
+  // requested or rendered anywhere a card is shown.
+  const animatedMediaEnabled = useAnimatedMediaEnabled();
+
   // Extract base assets
   const ownCover = useMemo(() => {
     if (defaultCoverUrl) return defaultCoverUrl;
@@ -140,7 +146,10 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
   }, [defaultIconUrl, game]);
 
   const sgdbStatic = sgdb?.gridUrl && !sgdbStaticFailed ? sgdb.gridUrl : null;
-  const sgdbAnimated = sgdb?.gridAnimatedUrl && !sgdbAnimatedFailed ? sgdb.gridAnimatedUrl : null;
+  const sgdbAnimated =
+    animatedMediaEnabled && sgdb?.gridAnimatedUrl && !sgdbAnimatedFailed
+      ? sgdb.gridAnimatedUrl
+      : null;
   const sgdbIcon = sgdb?.iconUrl && !sgdbIconFailed ? sgdb.iconUrl : null;
   const isActive = isHovered || isFocused;
 

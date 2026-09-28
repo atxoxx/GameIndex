@@ -6493,6 +6493,8 @@ export const de: TranslationDict = {
   "settings.appearance.motionDesc": "Konfiguriere Animationen und visuelle Übergänge der Benutzeroberfläche.",
   "settings.appearance.reduceMotionTitle": "Bewegung reduzieren",
   "settings.appearance.reduceMotionDesc": "Deaktiviert Gleit- und Skalierungsanimationen für sofortige, verzögerungsfreie Übergänge.",
+  "settings.appearance.animatedMediaTitle": "Animierte Medien",
+  "settings.appearance.animatedMediaDesc": "Erlaubt animierte Cover, animierte Hintergründe und automatisch abspielende Trailer. Deaktivieren, um nur statische Bilder zu zeigen.",
   "settings.section.appearanceSplash": "Splash-Screens",
   "settings.splash.sectionDesc": "Lege fest, welche Splash-Screens GameIndex beim Start der App oder eines Spiels anzeigt.",
   "settings.splash.launchTitle": "Splash beim Spielstart",

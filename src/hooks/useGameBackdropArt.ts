@@ -18,6 +18,7 @@
 
 import { useMemo } from "react";
 import { useSteamGridArt } from "../context/SteamGridDbContext";
+import { useAnimatedMediaEnabled } from "../context/SettingsContext";
 import { resolveSteamAppId } from "./useGameCardArt";
 import type { Game, StoreGameSummary } from "../types/game";
 
@@ -120,6 +121,10 @@ export function useGameBackdropArt(
 
   const sgdb = useSteamGridArt(enabled ? steamAppId : null);
 
+  // Animated hero backgrounds respect the Settings → Appearance → Motion
+  // master switch; when off we return the static layer only.
+  const animatedMediaEnabled = useAnimatedMediaEnabled();
+
   return useMemo(() => {
     // The Steam CDN fallback is deliberately gated on Steam-platform
     // titles: a name-matched appid for a GOG/Epic game can be wrong,
@@ -129,13 +134,13 @@ export function useGameBackdropArt(
       platform === "Steam" ? steamLibraryHeroUrl(steamAppId) : null;
 
     return pickBackdropArt({
-      heroAnimatedUrl: sgdb?.heroAnimatedUrl ?? null,
+      heroAnimatedUrl: animatedMediaEnabled ? sgdb?.heroAnimatedUrl ?? null : null,
       heroUrl: sgdb?.heroUrl ?? null,
       bannerUrl: readBannerUrl(game),
       steamHeroUrl,
       coverArtUrl: readCoverArtUrl(game),
     });
-  }, [game, sgdb, steamAppId]);
+  }, [game, sgdb, steamAppId, animatedMediaEnabled]);
 }
 
 export default useGameBackdropArt;

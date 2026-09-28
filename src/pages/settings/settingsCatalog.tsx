@@ -169,7 +169,8 @@ export function buildSettingsCatalog(
         {
           id: "appearance-motion",
           labelKey: "settings.appearance.motionTitle",
-          keywords: "motion reduce animations transitions accessibility speed instant",
+          keywords:
+            "motion reduce animations transitions accessibility speed instant animated media gif webp apng covers autoplay video trailers",
         },
         {
           id: "appearance-sound",

@@ -47,6 +47,7 @@
 // add a `paused` prop and have the parent bubble focus state.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAnimatedMediaEnabled } from "../../context/SettingsContext";
 
 interface BigScreenHeroBackgroundProps {
   bannerUrl?: string;
@@ -112,6 +113,11 @@ export default function BigScreenHeroBackground({
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
+  // The animated-media master switch (Settings → Appearance → Motion)
+  // removes the autoplaying video and animated APNG/WebP layers, leaving
+  // the screenshot cycle / static fallbacks in place.
+  const animatedMediaEnabled = useAnimatedMediaEnabled();
+  const skipAnimatedMedia = reducedMotion || !animatedMediaEnabled;
 
   // Pick the active source. Memoized so the cycle doesn't re-decide
   // when an unrelated prop changes.
@@ -134,20 +140,20 @@ export default function BigScreenHeroBackground({
   // iframe where the URL actually plays.
   const mode = useMemo(() => {
     if (
-      !reducedMotion &&
+      !skipAnimatedMedia &&
       videos &&
       videos.length > 0 &&
       isDirectVideoUrl(videos[0])
     ) {
       return "video" as const;
     }
-    if (!reducedMotion && animatedUrl) return "animated" as const;
+    if (!skipAnimatedMedia && animatedUrl) return "animated" as const;
     if (screenshots && screenshots.length >= 2) return "cycle" as const;
     if (screenshots && screenshots.length >= 1) return "single-shot" as const;
     if (bannerUrl) return "banner" as const;
     if (coverArtUrl) return "cover" as const;
     return "empty" as const;
-  }, [reducedMotion, videos, animatedUrl, screenshots, bannerUrl, coverArtUrl]);
+  }, [skipAnimatedMedia, videos, animatedUrl, screenshots, bannerUrl, coverArtUrl]);
 
   if (mode === "video") {
     return <VideoBackground src={videos![0]} paused={paused} />;

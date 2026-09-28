@@ -6494,6 +6494,8 @@ export const ru: TranslationDict = {
   "settings.appearance.motionDesc": "Настройка параметров анимаций и визуальных переходов в интерфейсе.",
   "settings.appearance.reduceMotionTitle": "Уменьшить движение",
   "settings.appearance.reduceMotionDesc": "Отключить анимации скольжения и масштабирования для мгновенного отклика интерфейса.",
+  "settings.appearance.animatedMediaTitle": "Анимированные медиа",
+  "settings.appearance.animatedMediaDesc": "Разрешить анимированные обложки, анимированные фоны и автоматическое воспроизведение трейлеров. Отключите, чтобы показывать только статические изображения.",
   "settings.section.appearanceSplash": "Экраны запуска",
   "settings.splash.sectionDesc": "Выберите, какие экраны запуска показывает GameIndex при старте приложения или игры.",
   "settings.splash.launchTitle": "Экран запуска игры",

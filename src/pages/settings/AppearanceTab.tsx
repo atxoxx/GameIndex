@@ -161,6 +161,8 @@ export default function AppearanceTab() {
     setUiSoundVolume,
     reduceMotion,
     setReduceMotion,
+    animatedMediaEnabled,
+    setAnimatedMediaEnabled,
     launchSplashEnabled,
     setLaunchSplashEnabled,
     startupSplashEnabled,
@@ -616,6 +618,16 @@ export default function AppearanceTab() {
             checked={reduceMotion}
             onChange={(checked) => {
               setReduceMotion(checked);
+              if (uiSoundEnabled) playActionSound();
+            }}
+          />
+          {/* Animated Media */}
+          <SettingsToggleCard
+            title={t("settings.appearance.animatedMediaTitle")}
+            desc={t("settings.appearance.animatedMediaDesc")}
+            checked={animatedMediaEnabled}
+            onChange={(checked) => {
+              setAnimatedMediaEnabled(checked);
               if (uiSoundEnabled) playActionSound();
             }}
           />
