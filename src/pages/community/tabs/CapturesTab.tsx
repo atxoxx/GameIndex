@@ -43,8 +43,21 @@ const folderIcon = (
   </svg>
 );
 
-// Global in-memory cache for resolved base64 data URLs
+// Global in-memory cache for resolved base64 data URLs. These are full-size
+// screenshot fallbacks (only used when `convertFileSrc` can't serve the
+// file), so the cap is deliberately small — a handful of 4K PNGs is already
+// tens of MB. Oldest entries are evicted first (Map preserves insert order).
+const MEDIA_DATA_URL_CACHE_MAX = 12;
 const mediaDataUrlCache = new Map<string, string>();
+
+function cacheMediaDataUrl(path: string, dataUrl: string): void {
+  mediaDataUrlCache.set(path, dataUrl);
+  while (mediaDataUrlCache.size > MEDIA_DATA_URL_CACHE_MAX) {
+    const oldest = mediaDataUrlCache.keys().next().value;
+    if (oldest === undefined) break;
+    mediaDataUrlCache.delete(oldest);
+  }
+}
 
 interface CaptureThumbProps {
   path: string;
@@ -77,7 +90,7 @@ function CaptureThumb({
     }
     invoke<string>("read_cover_image", { filePath: path })
       .then((dataUrl) => {
-        mediaDataUrlCache.set(path, dataUrl);
+        cacheMediaDataUrl(path, dataUrl);
         setImgSrc(dataUrl);
       })
       .catch(() => {
@@ -167,7 +180,7 @@ function LightboxMedia({ path }: LightboxMediaProps) {
   const handleError = useCallback(() => {
     invoke<string>("read_cover_image", { filePath: path })
       .then((dataUrl) => {
-        mediaDataUrlCache.set(path, dataUrl);
+        cacheMediaDataUrl(path, dataUrl);
         setSrc(dataUrl);
       })
       .catch(() => {
@@ -228,7 +241,7 @@ function CarouselThumb({ path, active, onClick }: CarouselThumbProps) {
   const handleError = useCallback(() => {
     invoke<string>("read_cover_image", { filePath: path })
       .then((dataUrl) => {
-        mediaDataUrlCache.set(path, dataUrl);
+        cacheMediaDataUrl(path, dataUrl);
         setSrc(dataUrl);
       })
       .catch(() => {

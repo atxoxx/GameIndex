@@ -6,8 +6,30 @@ import type { TorrentDownload } from "../types/download";
 
 const STORAGE_KEY = "gameindex_dl_posters_v1";
 
-// In-memory cache backed by localStorage
+// Posters are matched by cleaned release title, so this map grows with every
+// distinct download name the user has ever had. Cap it: the whole map is
+// mirrored into localStorage and re-serialized on every write, so leaving it
+// unbounded both bloats memory and makes the persisted JSON grow forever.
+const COVER_ART_CACHE_MAX = 200;
+
+// In-memory cache backed by localStorage. Map insertion order doubles as the
+// recency order used for eviction.
 const coverArtCache = new Map<string, string | null>();
+
+function trimCoverArtCache(): void {
+  while (coverArtCache.size > COVER_ART_CACHE_MAX) {
+    const oldest = coverArtCache.keys().next().value;
+    if (oldest === undefined) break;
+    coverArtCache.delete(oldest);
+  }
+}
+
+function cacheCoverArt(key: string, value: string | null): void {
+  // Re-insert so the touched entry becomes the most recent.
+  coverArtCache.delete(key);
+  coverArtCache.set(key, value);
+  trimCoverArtCache();
+}
 
 // Initialize cache from localStorage
 try {
@@ -20,6 +42,7 @@ try {
           coverArtCache.set(k, v);
         }
       });
+      trimCoverArtCache();
     }
   }
 } catch {}
@@ -165,13 +188,13 @@ export function useDownloadCoverArt(download: TorrentDownload): {
     fetchPosterMetadata(cleanedName)
       .then((art) => {
         if (!isMounted) return;
-        coverArtCache.set(normCleaned, art);
+        cacheCoverArt(normCleaned, art);
         saveCacheToStorage();
         setRemoteArtwork(art);
       })
       .catch((err) => {
         console.warn(`[useDownloadCoverArt] Failed to fetch poster for "${cleanedName}":`, err);
-        coverArtCache.set(normCleaned, null);
+        cacheCoverArt(normCleaned, null);
         saveCacheToStorage();
       })
       .finally(() => {
