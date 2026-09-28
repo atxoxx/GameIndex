@@ -23,6 +23,10 @@ export function useBandwidthHistory(maxSamples = 300): BandwidthPoint[] {
   useEffect(() => {
     // Collect sample every 1 second
     const interval = setInterval(() => {
+      // A hidden window has nothing to draw: skip the tick so a minimized
+      // app doesn't keep allocating a new history array and re-rendering.
+      if (typeof document !== "undefined" && document.hidden) return;
+
       const now = new Date();
       const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now
         .getMinutes()
