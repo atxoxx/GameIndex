@@ -7,6 +7,30 @@ use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use crate::game_scraper;
 
+/// Upper bound for every appid-keyed Steam cache below. Appids are unbounded
+/// in practice and a TTL alone never removes an entry that is simply never
+/// read again, so without a cap each map grows for the life of the process.
+const STEAM_CACHE_MAX_ENTRIES: usize = 128;
+
+/// Evict the least-recently-fetched entries once `map` exceeds the cap.
+fn prune_fetched<K, V>(map: &mut HashMap<K, V>, fetched_at: impl Fn(&V) -> Instant)
+where
+    K: Eq + std::hash::Hash + Clone,
+{
+    while map.len() > STEAM_CACHE_MAX_ENTRIES {
+        let oldest = map
+            .iter()
+            .min_by_key(|(_, v)| fetched_at(v))
+            .map(|(k, _)| k.clone());
+        match oldest {
+            Some(key) => {
+                map.remove(&key);
+            }
+            None => break,
+        }
+    }
+}
+
 // === Steam Player Count ======================================================
 //
 // In-memory cache for live concurrent-player counts. Multiple banners
@@ -132,6 +156,7 @@ pub async fn get_steam_player_count(
         if let Some(count) = player_count {
             if result_ok {
                 cache.insert(app_id, (count, Instant::now()));
+                prune_fetched(&mut cache, |(_, at)| *at);
             }
         }
     }
@@ -317,6 +342,7 @@ pub async fn get_steam_player_history(
 
         let mut map = cache.raw.lock().map_err(|e| e.to_string())?;
         map.insert(app_id, (s.clone(), Instant::now()));
+        prune_fetched(&mut map, |(_, at)| *at);
         s
     } else {
         series
@@ -581,6 +607,7 @@ async fn fetch_steam_game_details_impl(
         let err = format!("appdetails returned HTTP {}", resp.status());
         let mut neg = cache.details_neg.lock().map_err(|e| e.to_string())?;
         neg.insert(app_id, Instant::now());
+        prune_fetched(&mut neg, |at| *at);
         return Err(err);
     }
 
@@ -685,6 +712,7 @@ async fn fetch_steam_game_details_impl(
     {
         let mut map = cache.details.lock().map_err(|e| e.to_string())?;
         map.insert(app_id, (Some(details.clone()), Instant::now()));
+        prune_fetched(&mut map, |(_, at)| *at);
     }
 
     Ok(Some(details))
@@ -735,6 +763,7 @@ async fn fetch_steam_game_reviews_impl(
         let err = format!("appreviews returned HTTP {}", resp.status());
         let mut neg = cache.reviews_neg.lock().map_err(|e| e.to_string())?;
         neg.insert(app_id, Instant::now());
+        prune_fetched(&mut neg, |at| *at);
         return Err(err);
     }
 
@@ -795,6 +824,7 @@ async fn fetch_steam_game_reviews_impl(
     {
         let mut map = cache.reviews.lock().map_err(|e| e.to_string())?;
         map.insert(app_id, (Some(reviews.clone()), Instant::now()));
+        prune_fetched(&mut map, |(_, at)| *at);
     }
 
     Ok(Some(reviews))
@@ -848,5 +878,41 @@ pub async fn get_steam_game_stats(
         details_error: details_res.err(),
         reviews_error: reviews_res.err(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prune_fetched_evicts_oldest_entries_above_the_cap() {
+        let mut map: HashMap<u32, (u32, Instant)> = HashMap::new();
+        let base = Instant::now();
+        let total = STEAM_CACHE_MAX_ENTRIES as u32 + 20;
+        for i in 0..total {
+            map.insert(i, (i, base + Duration::from_millis(i as u64)));
+        }
+
+        prune_fetched(&mut map, |(_, at)| *at);
+
+        assert_eq!(map.len(), STEAM_CACHE_MAX_ENTRIES);
+        // The 20 lowest timestamps are the ones dropped.
+        assert!(!map.contains_key(&0));
+        assert!(!map.contains_key(&19));
+        assert!(map.contains_key(&20));
+        assert!(map.contains_key(&(total - 1)));
+    }
+
+    #[test]
+    fn prune_fetched_leaves_a_small_map_untouched() {
+        let mut map: HashMap<u32, Instant> = HashMap::new();
+        for i in 0..10u32 {
+            map.insert(i, Instant::now());
+        }
+
+        prune_fetched(&mut map, |at| *at);
+
+        assert_eq!(map.len(), 10);
+    }
 }
 
