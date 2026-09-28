@@ -246,8 +246,12 @@ pub struct HltbReviewBucket {
 #[derive(Debug, Clone)]
 struct SearchToken {
     token: String,
-    hp_key: String,
-    hp_val: String,
+    /// Legacy bot-protection pair. HLTB's init endpoint used to return
+    /// `hpKey`/`hpVal` and the search rejects requests that don't echo
+    /// them; current builds only return `token`, so both are optional
+    /// and only sent when present.
+    hp_key: Option<String>,
+    hp_val: Option<String>,
     fetched_at: Instant,
 }
 
@@ -422,16 +426,29 @@ async fn get_token(force: bool) -> Option<SearchToken> {
         return None;
     }
     let value: Value = resp.json().await.ok()?;
-    let cached = SearchToken {
-        token: value.get("token")?.as_str()?.to_string(),
-        hp_key: value.get("hpKey")?.as_str()?.to_string(),
-        hp_val: value.get("hpVal")?.as_str()?.to_string(),
-        fetched_at: Instant::now(),
-    };
+    let cached = parse_search_token(&value)?;
     if let Ok(mut guard) = token_cache().lock() {
         *guard = Some(cached.clone());
     }
     Some(cached)
+}
+
+/// Parse the `/api/search/site/init` payload. `token` is required; the
+/// legacy `hpKey`/`hpVal` pair is optional because newer HLTB builds
+/// no longer return it.
+fn parse_search_token(value: &Value) -> Option<SearchToken> {
+    Some(SearchToken {
+        token: value.get("token")?.as_str()?.to_string(),
+        hp_key: value
+            .get("hpKey")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        hp_val: value
+            .get("hpVal")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        fetched_at: Instant::now(),
+    })
 }
 
 async fn search_items(name: &str, token: &SearchToken) -> Option<Vec<SearchItem>> {
@@ -463,22 +480,22 @@ async fn search_items(name: &str, token: &SearchToken) -> Option<Vec<SearchItem>
         },
         "useCache": true
     });
-    if let Some(obj) = body.as_object_mut() {
-        obj.insert(token.hp_key.clone(), Value::String(token.hp_val.clone()));
+    if let (Some(key), Some(val)) = (token.hp_key.as_ref(), token.hp_val.as_ref()) {
+        if let Some(obj) = body.as_object_mut() {
+            obj.insert(key.clone(), Value::String(val.clone()));
+        }
     }
 
     pace().await;
-    let resp = http_client()
+    let mut request = http_client()
         .post(format!("{}/api/search/site", BASE))
         .header("Content-Type", "application/json")
         .header("x-auth-token", &token.token)
-        .header("x-hp-key", &token.hp_key)
-        .header("x-hp-val", &token.hp_val)
-        .header("Referer", format!("{}/", BASE))
-        .json(&body)
-        .send()
-        .await
-        .ok()?;
+        .header("Referer", format!("{}/", BASE));
+    if let (Some(key), Some(val)) = (token.hp_key.as_ref(), token.hp_val.as_ref()) {
+        request = request.header("x-hp-key", key).header("x-hp-val", val);
+    }
+    let resp = request.json(&body).send().await.ok()?;
     if !resp.status().is_success() {
         return None;
     }
@@ -1082,5 +1099,29 @@ mod tests {
     fn search_terms_strip_years_and_punctuation() {
         assert_eq!(search_terms("Prototype (2009)"), vec!["Prototype"]);
         assert_eq!(search_terms("Half-Life 2"), vec!["Half-Life", "2"]);
+    }
+
+    #[test]
+    fn parses_token_only_init_payload() {
+        // Current HLTB builds return just a token.
+        let value = json!({ "token": "abc123" });
+        let token = parse_search_token(&value).expect("token parses");
+        assert_eq!(token.token, "abc123");
+        assert!(token.hp_key.is_none());
+        assert!(token.hp_val.is_none());
+    }
+
+    #[test]
+    fn parses_legacy_init_payload_with_hp_pair() {
+        let value = json!({ "token": "abc123", "hpKey": "HPKEY", "hpVal": "hpval" });
+        let token = parse_search_token(&value).expect("token parses");
+        assert_eq!(token.hp_key.as_deref(), Some("HPKEY"));
+        assert_eq!(token.hp_val.as_deref(), Some("hpval"));
+    }
+
+    #[test]
+    fn rejects_init_payload_without_token() {
+        assert!(parse_search_token(&json!({ "hpKey": "HPKEY" })).is_none());
+        assert!(parse_search_token(&json!({})).is_none());
     }
 }
