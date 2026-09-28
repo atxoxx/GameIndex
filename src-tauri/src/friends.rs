@@ -439,6 +439,27 @@ async fn sync_with_friend(
     Ok(())
 }
 
+/// True when an internet-sync tick can be skipped: the friends DB has been
+/// read at least once, its file mtime is unchanged since, and internet sync
+/// is known to be unconfigured. This lets an app with sync turned off avoid
+/// reading and parsing the whole DB every 30 s just to rediscover that.
+fn can_skip_sync_tick(
+    have_snapshot: bool,
+    modified: Option<std::time::SystemTime>,
+    last_modified: Option<std::time::SystemTime>,
+    sync_id: &str,
+) -> bool {
+    have_snapshot && modified == last_modified && sync_id.is_empty()
+}
+
+/// mtime of the friends DB file, or `None` when it doesn't exist yet.
+fn friends_db_modified(app: &tauri::AppHandle) -> Option<std::time::SystemTime> {
+    let app_data = app.path().app_data_dir().ok()?;
+    std::fs::metadata(app_data.join("friends_db").join("database.json"))
+        .ok()
+        .and_then(|m| m.modified().ok())
+}
+
 pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle) {
     let state = match INTERNET_SYNC_STATE.get() {
         Some(s) => s.clone(),
@@ -447,14 +468,32 @@ pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle) {
     
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
     let mut active_listener: Option<u16> = None;
+
+    // Snapshot of the friends DB used to skip ticks while sync is off.
+    let mut have_snapshot = false;
+    let mut last_modified: Option<std::time::SystemTime> = None;
+    let mut sync_id_seen = String::new();
     
     loop {
         interval.tick().await;
+
+        let modified = friends_db_modified(&app);
+        if can_skip_sync_tick(have_snapshot, modified, last_modified, &sync_id_seen) {
+            continue;
+        }
 
         let db_payload = match load_friends_db_payload(&app) {
             Some(p) => p,
             None => continue,
         };
+
+        have_snapshot = true;
+        last_modified = modified;
+        sync_id_seen = db_payload
+            .profile
+            .as_ref()
+            .map(|p| p.sync_id.clone())
+            .unwrap_or_default();
 
         let profile = match db_payload.profile {
             Some(p) => p,
@@ -557,6 +596,33 @@ pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn can_skip_only_when_snapshot_is_current_and_sync_is_off() {
+        let t0 = SystemTime::UNIX_EPOCH;
+        let t1 = t0 + Duration::from_secs(5);
+
+        // Never read the DB yet — must check it.
+        assert!(!can_skip_sync_tick(false, Some(t0), Some(t0), ""));
+
+        // Read, file unchanged, sync off — skip.
+        assert!(can_skip_sync_tick(true, Some(t0), Some(t0), ""));
+
+        // File touched since the snapshot — re-read.
+        assert!(!can_skip_sync_tick(true, Some(t1), Some(t0), ""));
+
+        // Sync configured — keep ticking even when the file is unchanged.
+        assert!(!can_skip_sync_tick(true, Some(t0), Some(t0), "abc"));
+
+        // No file yet, already snapshotted as unconfigured — skip.
+        assert!(can_skip_sync_tick(true, None, None, ""));
     }
 }
 
