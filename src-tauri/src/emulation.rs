@@ -558,12 +558,27 @@ pub fn delete_rom_file(app: tauri::AppHandle, game_id: String) -> Result<u64, St
 /// emulator has `autoScan` on, or offers a "rescan now" toast
 /// otherwise — so users never have to manually rescan after dropping a
 /// file in.
+/// Cadence while at least one emulator has a ROM folder configured.
+const ROM_POLL_SECS: u64 = 25;
+/// Back-off cadence when no emulator has a ROM folder: there is nothing to
+/// watch, so don't pay for a DB query + directory signature every 25 s.
+const ROM_IDLE_POLL_SECS: u64 = 120;
+
 pub fn start_rom_watcher(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let mut last_signatures: std::collections::HashMap<String, Vec<(String, u64, u64)>> =
             std::collections::HashMap::new();
+        // Start at the normal cadence so a freshly-configured folder is
+        // picked up promptly, then adapt once we know whether anything is
+        // actually being watched.
+        let mut has_targets = true;
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(25));
+            let secs = if has_targets {
+                ROM_POLL_SECS
+            } else {
+                ROM_IDLE_POLL_SECS
+            };
+            std::thread::sleep(std::time::Duration::from_secs(secs));
             let Some(db_state) = app.try_state::<db::Db>() else {
                 continue;
             };
@@ -574,11 +589,13 @@ pub fn start_rom_watcher(app: tauri::AppHandle) {
                     continue;
                 }
             };
-            for emu in rows {
+            let mut targets = 0usize;
+            for emu in &rows {
                 let folder = emu.rom_folder.trim().to_string();
                 if folder.is_empty() {
                     continue;
                 }
+                targets += 1;
                 let sig = crate::roms::folder_signature(std::path::Path::new(&folder));
                 match (last_signatures.get(&emu.id), sig) {
                     (Some(prev), Some(cur)) => {
@@ -600,6 +617,12 @@ pub fn start_rom_watcher(app: tauri::AppHandle) {
                     _ => {}
                 }
             }
+            // Forget signatures for emulators that were removed so the map
+            // can't grow across add/remove cycles.
+            let live: std::collections::HashSet<&str> =
+                rows.iter().map(|e| e.id.as_str()).collect();
+            last_signatures.retain(|id, _| live.contains(id.as_str()));
+            has_targets = targets > 0;
         }
     });
 }
