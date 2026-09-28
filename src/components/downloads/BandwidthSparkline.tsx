@@ -12,6 +12,68 @@ const PADDING = 6;
 
 type TimeWindow = 60 | 180 | 300;
 
+interface SplinePoint {
+  x: number;
+  y: number;
+}
+
+const fmt = (v: number) => v.toFixed(1);
+
+// Monotone cubic Hermite spline emitted as cubic Beziers. A plain polyline
+// reads as a sawtooth at one-sample-per-pixel, and a Catmull-Rom curve would
+// overshoot below the baseline on spiky bandwidth data. Fritsch-Carlson keeps
+// the curve smooth while never exceeding the sampled values between points.
+function smoothPath(points: SplinePoint[]): string {
+  const n = points.length;
+  if (n === 0) return "";
+  if (n === 1) return `M ${fmt(points[0].x)} ${fmt(points[0].y)}`;
+  if (n === 2) {
+    return `M ${fmt(points[0].x)} ${fmt(points[0].y)} L ${fmt(points[1].x)} ${fmt(points[1].y)}`;
+  }
+
+  const dx: number[] = [];
+  const slopes: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const h = points[i + 1].x - points[i].x;
+    dx.push(h);
+    slopes.push(h === 0 ? 0 : (points[i + 1].y - points[i].y) / h);
+  }
+
+  const m: number[] = new Array(n);
+  m[0] = slopes[0];
+  m[n - 1] = slopes[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = slopes[i - 1] * slopes[i] <= 0 ? 0 : (slopes[i - 1] + slopes[i]) / 2;
+  }
+
+  for (let i = 0; i < n - 1; i++) {
+    if (slopes[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+      continue;
+    }
+    const a = m[i] / slopes[i];
+    const b = m[i + 1] / slopes[i];
+    const s = a * a + b * b;
+    if (s > 9) {
+      const t = 3 / Math.sqrt(s);
+      m[i] = t * a * slopes[i];
+      m[i + 1] = t * b * slopes[i];
+    }
+  }
+
+  let d = `M ${fmt(points[0].x)} ${fmt(points[0].y)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i];
+    const c1x = points[i].x + h / 3;
+    const c1y = points[i].y + (m[i] * h) / 3;
+    const c2x = points[i + 1].x - h / 3;
+    const c2y = points[i + 1].y - (m[i + 1] * h) / 3;
+    d += ` C ${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(points[i + 1].x)} ${fmt(points[i + 1].y)}`;
+  }
+  return d;
+}
+
 export default function BandwidthSparkline() {
   const history = useBandwidthHistory();
   const { activeDownloads } = useDownloads();
@@ -52,9 +114,6 @@ export default function BandwidthSparkline() {
     const dlPts: { x: number; y: number; speed: number; time: string }[] = [];
     const ulPts: { x: number; y: number; speed: number; time: string }[] = [];
 
-    const dlSegments: string[] = [];
-    const ulSegments: string[] = [];
-
     for (let i = 0; i < n; i++) {
       const pt = visibleHistory[i];
       const x = PADDING + i * xStep;
@@ -67,27 +126,26 @@ export default function BandwidthSparkline() {
 
       dlPts.push({ x, y: yDl, speed: pt.down, time: pt.time });
       ulPts.push({ x, y: yUl, speed: pt.up, time: pt.time });
-
-      const command = i === 0 ? "M" : "L";
-      dlSegments.push(`${command} ${x.toFixed(1)} ${yDl.toFixed(1)}`);
-      ulSegments.push(`${command} ${x.toFixed(1)} ${yUl.toFixed(1)}`);
     }
 
     const firstX = PADDING;
     const lastX = PADDING + (n - 1) * xStep;
     const bottomY = VIEW_HEIGHT - PADDING;
 
+    const dlLine = smoothPath(dlPts);
+    const ulLine = smoothPath(ulPts);
+
     const dlAreaPath = n > 0
-      ? `${dlSegments.join(" ")} L ${lastX.toFixed(1)} ${bottomY} L ${firstX.toFixed(1)} ${bottomY} Z`
+      ? `${dlLine} L ${fmt(lastX)} ${fmt(bottomY)} L ${fmt(firstX)} ${fmt(bottomY)} Z`
       : "";
 
     const ulAreaPath = n > 0
-      ? `${ulSegments.join(" ")} L ${lastX.toFixed(1)} ${bottomY} L ${firstX.toFixed(1)} ${bottomY} Z`
+      ? `${ulLine} L ${fmt(lastX)} ${fmt(bottomY)} L ${fmt(firstX)} ${fmt(bottomY)} Z`
       : "";
 
     return {
-      dlPath: dlSegments.join(" "),
-      ulPath: ulSegments.join(" "),
+      dlPath: dlLine,
+      ulPath: ulLine,
       dlArea: dlAreaPath,
       ulArea: ulAreaPath,
       dlPoints: dlPts,
@@ -173,7 +231,7 @@ export default function BandwidthSparkline() {
           >
             <ChevronIcon
               style={{
-                transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+                transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
                 transition: "transform 0.2s ease",
                 width: 13,
                 height: 13,
