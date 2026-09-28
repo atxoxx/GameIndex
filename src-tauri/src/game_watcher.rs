@@ -2131,7 +2131,31 @@ fn query_running_processes(_mem_scan: &MemoryScanFilter) -> Vec<ProcessInfo> {
 #[cfg(target_os = "linux")]
 fn cmdline_game_exe(proc: &procfs::process::Process) -> Option<String> {
     let cmdline = proc.cmdline().ok()?;
-    pick_wine_exe_arg(&cmdline, proc.cwd().ok().as_deref())
+    // `/proc/<pid>/cwd` is a readlink, and this runs for every process on
+    // every poll. Only a RELATIVE `.exe` argument needs it, so resolve it
+    // lazily rather than paying for it on all of them.
+    let cwd = if has_relative_exe_arg(&cmdline) {
+        proc.cwd().ok()
+    } else {
+        None
+    };
+    pick_wine_exe_arg(&cmdline, cwd.as_deref())
+}
+
+/// True when argv carries an `.exe` argument that isn't absolute - the only
+/// case [`pick_wine_exe_arg`] consults the process cwd for. The cwd lookup
+/// exists precisely for this, including Windows-style paths passed to Wine
+/// (no POSIX root, so they read as relative).
+#[cfg(target_os = "linux")]
+fn has_relative_exe_arg(cmdline: &[String]) -> bool {
+    cmdline
+        .iter()
+        .any(|arg| is_exe_arg(arg) && !std::path::Path::new(arg).is_absolute())
+}
+
+#[cfg(target_os = "linux")]
+fn is_exe_arg(arg: &str) -> bool {
+    arg.len() >= 4 && arg.as_bytes()[arg.len() - 4..].eq_ignore_ascii_case(b".exe")
 }
 
 /// Pure argv-scan used by [`cmdline_game_exe`]; split out so it can be
@@ -2141,7 +2165,7 @@ fn pick_wine_exe_arg(cmdline: &[String], cwd: Option<&std::path::Path>) -> Optio
     let mut last: Option<String> = None;
     let mut existing: Option<String> = None;
     for arg in cmdline {
-        if !arg.to_lowercase().ends_with(".exe") {
+        if !is_exe_arg(arg) {
             continue;
         }
         last = Some(arg.clone());
@@ -4028,6 +4052,28 @@ mod tests {
     fn test_pick_wine_exe_arg_no_exe_arg_returns_none() {
         let cmdline = vec!["gamescope".to_string(), "-f".to_string()];
         assert_eq!(pick_wine_exe_arg(&cmdline, None), None);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_has_relative_exe_arg_only_flags_cwd_dependent_argv() {
+        assert!(!has_relative_exe_arg(&[
+            "wine".to_string(),
+            "/games/foo/game.exe".to_string(),
+        ]));
+        assert!(has_relative_exe_arg(&[
+            "gamemoderun".to_string(),
+            "./game.exe".to_string(),
+        ]));
+        assert!(has_relative_exe_arg(&[
+            "wine".to_string(),
+            "C:\\Games\\foo\\game.exe".to_string(),
+        ]));
+        assert!(!has_relative_exe_arg(&[
+            "gamescope".to_string(),
+            "-f".to_string(),
+        ]));
+        assert!(!has_relative_exe_arg(&[]));
     }
 
     #[test]
