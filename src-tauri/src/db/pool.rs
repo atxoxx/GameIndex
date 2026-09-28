@@ -232,9 +232,87 @@ fn init_connection(conn: &mut Connection) -> rusqlite::Result<()> {
     )
 }
 
+/// Free-page share above which rewriting the file is worth more than the copy
+/// it costs.
+const VACUUM_FREE_PAGE_RATIO: f64 = 0.25;
+
+/// Compact one domain file: truncate its WAL, then `VACUUM` if at least
+/// [`VACUUM_FREE_PAGE_RATIO`] of its pages sit on the freelist. Returns the
+/// bytes reclaimed.
+///
+/// Delete-then-insert churn leaves freed pages on the freelist, which SQLite
+/// reuses but never returns to the filesystem, so the file only grows.
+///
+/// The caller must hold the *only* connection to the file: `VACUUM` takes an
+/// exclusive lock, so this is safe from [`super::init`] and nowhere else.
+pub fn compact_connection(conn: &Connection) -> Result<u64, String> {
+    // TRUNCATE, not the passive default: a logically empty WAL keeps whatever
+    // size it grew to, and every open pays to read its index.
+    conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+        .map_err(|e| format!("wal_checkpoint: {e}"))?;
+
+    let page_size: i64 = conn
+        .query_row("PRAGMA page_size", [], |r| r.get(0))
+        .map_err(|e| format!("read page_size: {e}"))?;
+    let page_count: i64 = conn
+        .query_row("PRAGMA page_count", [], |r| r.get(0))
+        .map_err(|e| format!("read page_count: {e}"))?;
+    let free_pages: i64 = conn
+        .query_row("PRAGMA freelist_count", [], |r| r.get(0))
+        .map_err(|e| format!("read freelist_count: {e}"))?;
+
+    if page_count <= 0 || (free_pages as f64) < (page_count as f64) * VACUUM_FREE_PAGE_RATIO {
+        return Ok(0);
+    }
+
+    let before = page_count * page_size;
+    conn.execute_batch("VACUUM;")
+        .map_err(|e| format!("vacuum: {e}"))?;
+    let after_pages: i64 = conn
+        .query_row("PRAGMA page_count", [], |r| r.get(0))
+        .map_err(|e| format!("read page_count after vacuum: {e}"))?;
+    Ok((before - after_pages * page_size).max(0) as u64)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compact_connection_reclaims_freelist_pages() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = Connection::open(dir.path().join("bloated.db")).unwrap();
+        init_connection(&mut conn).unwrap();
+        conn.execute_batch("CREATE TABLE t (id INTEGER PRIMARY KEY, blob BLOB);")
+            .unwrap();
+        for _ in 0..200 {
+            conn.execute("INSERT INTO t (blob) VALUES (zeroblob(20000))", []).unwrap();
+        }
+        conn.execute("DELETE FROM t", []).unwrap();
+
+        let free_before: i64 = conn
+            .query_row("PRAGMA freelist_count", [], |r| r.get(0))
+            .unwrap();
+        assert!(free_before > 0, "deleting rows should leave free pages");
+
+        let reclaimed = compact_connection(&conn).unwrap();
+        assert!(reclaimed > 0, "expected reclaimed bytes, got {reclaimed}");
+        let free_after: i64 = conn
+            .query_row("PRAGMA freelist_count", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(free_after, 0);
+
+        assert_eq!(compact_connection(&conn).unwrap(), 0);
+    }
+
+    #[test]
+    fn compact_connection_skips_a_file_without_free_pages() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = Connection::open(dir.path().join("lean.db")).unwrap();
+        init_connection(&mut conn).unwrap();
+        conn.execute_batch("CREATE TABLE t (id INTEGER PRIMARY KEY);").unwrap();
+        assert_eq!(compact_connection(&conn).unwrap(), 0);
+    }
 
     #[test]
     fn open_creates_all_domain_dbs_in_tempdir() {

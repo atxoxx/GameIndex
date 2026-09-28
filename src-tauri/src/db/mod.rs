@@ -100,5 +100,51 @@ pub fn init(app_data_dir: &std::path::Path) -> Result<Db, String> {
     split_migrate::run(&db, app_data_dir)?;
     split_migrate::migrate_compatibility_domain(&db)?;
     legacy::auto_import(&db, app_data_dir)?;
+    compact(&db, app_data_dir);
     Ok(db)
+}
+
+/// Truncate each domain's WAL and reclaim free pages from any file that has
+/// accumulated enough of them.
+///
+/// Runs here because this is the only point in the app's life where no other
+/// connection is touching the databases, which is what `VACUUM` requires.
+/// Migrations and the legacy import are the biggest writers of the run, so
+/// compaction also lands right after the churn they cause. A domain that fails
+/// to compact is logged and skipped - it is still perfectly usable.
+fn compact(db: &Db, app_data_dir: &std::path::Path) {
+    let mut reclaimed = 0u64;
+    let mut compacted = 0usize;
+    for dom in schema::DOMAIN_SCHEMAS {
+        let Some(pool) = db.pool(dom.label) else { continue };
+        let wal = app_data_dir.join(format!("{}.db-wal", dom.label));
+        let wal_before = file_len(&wal);
+        let Ok(conn) = pool.get() else { continue };
+        match pool::compact_connection(&conn) {
+            Ok(bytes) => {
+                drop(conn);
+                let freed = bytes + wal_before.saturating_sub(file_len(&wal));
+                if freed > 0 {
+                    compacted += 1;
+                    reclaimed += freed;
+                    eprintln!(
+                        "[gameindex] compacted {}.db, reclaimed {:.1} MB",
+                        dom.label,
+                        freed as f64 / 1_048_576.0
+                    );
+                }
+            }
+            Err(e) => eprintln!("[gameindex] compact {}.db failed: {e}", dom.label),
+        }
+    }
+    if reclaimed > 0 {
+        eprintln!(
+            "[gameindex] compacted {compacted} database(s), reclaimed {:.1} MB total",
+            reclaimed as f64 / 1_048_576.0
+        );
+    }
+}
+
+fn file_len(path: &std::path::Path) -> u64 {
+    std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)
 }
