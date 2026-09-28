@@ -383,6 +383,14 @@ body.launch-splash-window {
   color: var(--scrim-text-muted);
 }
 
+.splashscreen-badge--mo2 {
+  background: color-mix(in srgb, var(--splash-accent, var(--accent, #6366f1)) 22%, var(--scrim-dark));
+  border-color: color-mix(in srgb, var(--splash-accent, var(--accent, #6366f1)) 60%, var(--scrim-border));
+  color: var(--accent-contrast, #fff);
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--splash-accent, var(--accent, #6366f1)) 35%, transparent);
+}
+
 /* Bottom hero overlay: Logo or Display Title */
 .splashscreen-hero-bottom {
   position: absolute;
@@ -454,6 +462,53 @@ body.launch-splash-window {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.splashscreen-mo2-details {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs, 0.5rem);
+  flex-wrap: wrap;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--splash-accent, var(--accent, #6366f1)) 10%, rgba(0, 0, 0, 0.35));
+  border: 1px solid color-mix(in srgb, var(--splash-accent, var(--accent, #6366f1)) 30%, var(--color-border));
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.splashscreen-mo2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.splashscreen-mo2-chip strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.splashscreen-mo2-divider {
+  opacity: 0.4;
+  color: var(--color-text-muted);
+}
+
+.splashscreen-mo2-usvfs {
+  color: var(--color-success, #10b981);
+  font-weight: var(--font-weight-bold);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--color-success, #10b981) 15%, transparent);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid color-mix(in srgb, var(--color-success, #10b981) 30%, transparent);
+}
+
+.splashscreen-icon--mo2 {
+  width: 14px;
+  height: 14px;
+  color: var(--splash-accent, var(--accent, #6366f1));
 }
 
 /* ── Laser Progress Bar ─────────────────────────────────────────────────── */

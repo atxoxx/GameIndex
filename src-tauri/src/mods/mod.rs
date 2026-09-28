@@ -17,6 +17,7 @@
 //!   local files (MD5 search) and checking for updates.
 
 pub mod detect;
+pub mod mo2;
 pub mod nexus;
 pub mod operations;
 
@@ -772,3 +773,94 @@ pub async fn nexus_check_updates(
     }
     payload_from_db(&db, &game_id)
 }
+
+// ─── Mod Organizer 2 Commands ────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn mo2_detect_instances(game_path: String, game_name: String) -> Result<Vec<mo2::Mo2Instance>, String> {
+    Ok(mo2::detect_mo2_instances(&game_path, &game_name))
+}
+
+#[tauri::command]
+pub fn mo2_get_profile_details(instance_path: String, profile_name: String) -> Result<mo2::Mo2ProfileDetails, String> {
+    mo2::get_profile_details(&instance_path, &profile_name)
+}
+
+#[tauri::command]
+pub fn mo2_set_mod_enabled(
+    instance_path: String,
+    profile_name: String,
+    mod_name: String,
+    enabled: bool,
+) -> Result<(), String> {
+    mo2::set_mod_enabled(&instance_path, &profile_name, &mod_name, enabled)
+}
+
+#[tauri::command]
+pub fn mo2_set_mods_enabled(
+    instance_path: String,
+    profile_name: String,
+    updates: std::collections::HashMap<String, bool>,
+) -> Result<(), String> {
+    mo2::set_mods_enabled(&instance_path, &profile_name, updates)
+}
+
+#[tauri::command]
+pub fn mo2_reorder_mods(
+    instance_path: String,
+    profile_name: String,
+    ordered_mod_names: Vec<String>,
+) -> Result<(), String> {
+    mo2::reorder_mods(&instance_path, &profile_name, ordered_mod_names)
+}
+
+#[tauri::command]
+pub fn mo2_set_plugin_enabled(
+    instance_path: String,
+    profile_name: String,
+    plugin_name: String,
+    enabled: bool,
+) -> Result<(), String> {
+    mo2::set_plugin_enabled(&instance_path, &profile_name, &plugin_name, enabled)
+}
+
+#[tauri::command]
+pub fn mo2_reorder_plugins(
+    instance_path: String,
+    profile_name: String,
+    ordered_plugin_names: Vec<String>,
+) -> Result<(), String> {
+    mo2::reorder_plugins(&instance_path, &profile_name, ordered_plugin_names)
+}
+
+#[tauri::command]
+pub fn mo2_switch_profile(instance_path: String, profile_name: String) -> Result<(), String> {
+    mo2::switch_profile(&instance_path, &profile_name)
+}
+
+#[tauri::command]
+pub fn mo2_create_profile(
+    instance_path: String,
+    profile_name: String,
+    clone_from: Option<String>,
+) -> Result<(), String> {
+    mo2::create_profile(&instance_path, &profile_name, clone_from.as_deref())
+}
+
+#[tauri::command]
+pub fn mo2_delete_profile(instance_path: String, profile_name: String) -> Result<(), String> {
+    mo2::delete_profile(&instance_path, &profile_name)
+}
+
+#[tauri::command]
+pub fn mo2_launch_game(
+    app: tauri::AppHandle,
+    game_id: String,
+    game_name: String,
+    instance_path: String,
+    profile_name: String,
+    executable: String,
+) -> Result<String, String> {
+    mo2::launch_with_mo2(&app, &game_id, &game_name, &instance_path, &profile_name, &executable)
+}
+

@@ -264,11 +264,21 @@ fn scan_bethesda(game_id: &str, game_dir: &Path, exe_lower: &str, out: &mut Scan
     }
 
     let profile = bethesda_profile_for_exe(exe_lower);
-    let plugins_txt: Option<PathBuf> = profile.as_ref().and_then(|pr| {
+    let mut plugins_txt: Option<PathBuf> = profile.as_ref().and_then(|pr| {
         std::env::var("LOCALAPPDATA").ok().map(|lad| {
             Path::new(&lad).join(pr.local_folder).join("Plugins.txt")
         })
     });
+    // Check if an MO2 instance exists for this game and has an active profile with plugins.txt
+    let mo2_instances = super::mo2::detect_mo2_instances(&game_dir.to_string_lossy(), "");
+    if let Some(inst) = mo2_instances.first() {
+        let mo2_p = Path::new(&inst.profiles_dir)
+            .join(&inst.selected_profile)
+            .join("plugins.txt");
+        if mo2_p.is_file() {
+            plugins_txt = Some(mo2_p);
+        }
+    }
     let state = plugins_txt
         .as_ref()
         .filter(|p| p.is_file())

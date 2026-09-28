@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Game } from "../../types/game";
+import { gameDisplayName } from "../../types/game";
+import type { Mo2Instance } from "../../types/mo2";
+import { getGameMo2Config } from "../../utils/mo2Storage";
 import type { RomLaunchPlan } from "../../types/emulator";
 import { isSplashEnabled } from "../SplashContext";
 import type { SplashContextType } from "../SplashContext";
@@ -160,10 +163,19 @@ export function useLaunch(options: {
       }
     }
 
+    // Resolve MO2 launch settings
+    const mo2Config = getGameMo2Config(game.id);
+    const isMo2Enabled = game.mo2LaunchEnabled ?? mo2Config?.enabled ?? false;
+    const mo2Profile = game.mo2Profile || mo2Config?.profile;
+    const mo2Executable = game.mo2Executable || mo2Config?.executable;
+    const gameForSplash: Game = isMo2Enabled
+      ? { ...game, mo2LaunchEnabled: true, mo2Profile, mo2Executable }
+      : game;
+
     // Show the launch splash if the user has it enabled
     const splashOn = isSplashEnabled();
     if (splashOn) {
-      splash.open({ game }, { retry: () => launchGameRef.current(game) });
+      splash.open({ game: gameForSplash }, { retry: () => launchGameRef.current(game) });
     }
 
     setRunningGameIds((prev) => [...prev, game.id]);
@@ -181,6 +193,48 @@ export function useLaunch(options: {
     );
 
     try {
+      // ── Mod Organizer 2: launch with virtualized filesystem (USVFS) ──
+      if (isMo2Enabled) {
+        let instancePath = game.mo2InstancePath || mo2Config?.instancePath;
+        let profileName = mo2Profile;
+        let executable = mo2Executable;
+
+        if (!instancePath) {
+          try {
+            const list = await invoke<Mo2Instance[]>("mo2_detect_instances", {
+              gamePath: game.path ?? "",
+              gameName: gameDisplayName(game),
+            });
+            if (list && list.length > 0) {
+              instancePath = list[0].instancePath;
+              if (!profileName) profileName = list[0].selectedProfile || list[0].profiles[0] || "Default";
+              if (!executable && list[0].customExecutables && list[0].customExecutables.length > 0) {
+                executable = list[0].customExecutables[0].title;
+              }
+            }
+          } catch (e) {
+            console.warn("Failed to auto-detect MO2 instance during launch:", e);
+          }
+        }
+
+        if (instancePath) {
+          await invoke<string>("mo2_launch_game", {
+            gameId: game.id,
+            gameName: game.name,
+            instancePath,
+            profileName: profileName || "Default",
+            executable: executable || game.path || "",
+          });
+          if (splashOn) armSplashFallback(game.id);
+          showToast(
+            t("gameContext.launchedMo2", { name: game.name, profile: profileName || "Default" }) ||
+              t("gameContext.launched", { name: game.name }),
+            "success"
+          );
+          return;
+        }
+      }
+
       // ── Rockstar: launch through the Rockstar Games Launcher ──
       // Playnite routes play via `Launcher.exe -launchTitleInFolder
       // "<installDir>"` so Rockstar's DRM / Social Club bootstrap

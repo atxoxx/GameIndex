@@ -21,7 +21,10 @@ import {
   type PlayStatus,
   PLAY_STATUS_DETAILS,
   extractSteamAppIdFromWebsites,
+  gameDisplayName,
 } from "../../types/game";
+import type { Mo2Instance } from "../../types/mo2";
+import { getGameMo2Config, saveGameMo2Config } from "../../utils/mo2Storage";
 import type { SteamLaunchOption } from "../../types/steam";
 import { Button } from "../../components/ui";
 import { EDIT_GAME_TABS, type EditGameTab } from "./editGameTabs";
@@ -208,6 +211,51 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
       ? game.companionApps.map((c) => ({ ...c }))
       : []
   );
+
+  // ── Mod Organizer 2 State ─────────────────────────────────────────
+  const [mo2Instances, setMo2Instances] = useState<Mo2Instance[]>([]);
+  const [editMo2LaunchEnabled, setEditMo2LaunchEnabled] = useState<boolean>(() => {
+    const cfg = getGameMo2Config(game.id);
+    return game.mo2LaunchEnabled ?? cfg?.enabled ?? false;
+  });
+  const [editMo2Profile, setEditMo2Profile] = useState<string>(() => {
+    const cfg = getGameMo2Config(game.id);
+    return game.mo2Profile || cfg?.profile || "";
+  });
+  const [editMo2Executable, setEditMo2Executable] = useState<string>(() => {
+    const cfg = getGameMo2Config(game.id);
+    return game.mo2Executable || cfg?.executable || "";
+  });
+  const [editMo2InstancePath, setEditMo2InstancePath] = useState<string>(() => {
+    const cfg = getGameMo2Config(game.id);
+    return game.mo2InstancePath || cfg?.instancePath || "";
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    invoke<Mo2Instance[]>("mo2_detect_instances", {
+      gamePath: game.path ?? "",
+      gameName: gameDisplayName(game),
+    })
+      .then((instances) => {
+        if (cancelled) return;
+        setMo2Instances(instances || []);
+        if (instances && instances.length > 0) {
+          const first = instances[0];
+          setEditMo2InstancePath((prev) => prev || first.instancePath);
+          setEditMo2Profile((prev) => prev || first.selectedProfile || first.profiles[0] || "Default");
+          if (first.customExecutables && first.customExecutables.length > 0) {
+            setEditMo2Executable((prev) => prev || first.customExecutables[0].title);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to detect MO2 instances:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.path, game.name, game.displayName]);
 
   // ── Compatibility / Proton / Wine State ──────────────────────────
   const [compatSubtab, setCompatSubtab] = useState<CompatSubtab>("runner");
@@ -1071,6 +1119,10 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                 runAsAdmin: c.runAsAdmin || undefined,
               }))
           : undefined,
+      mo2LaunchEnabled: editMo2LaunchEnabled,
+      mo2Profile: editMo2Profile.trim() || undefined,
+      mo2Executable: editMo2Executable.trim() || undefined,
+      mo2InstancePath: editMo2InstancePath.trim() || undefined,
       playStatus: editPlayStatus,
       playTime: formatPlayTime(
         Math.max(0, Math.floor(editPlaytimeHours)) * 60 +
@@ -1187,12 +1239,22 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
             }
           : undefined,
     });
+    saveGameMo2Config(game.id, {
+      enabled: editMo2LaunchEnabled,
+      profile: editMo2Profile.trim() || undefined,
+      executable: editMo2Executable.trim() || undefined,
+      instancePath: editMo2InstancePath.trim() || undefined,
+    });
     if (editUntracked !== (game.untracked ?? isGameUntracked(game.id))) {
       toggleGameTracking(game.id, editUntracked);
     }
     onClose();
     showToast("Game updated", "success");
   }
+
+  const activeMo2Instance =
+    mo2Instances.find((i) => i.instancePath === editMo2InstancePath) ||
+    mo2Instances[0];
 
   const selectedRunner = availableRunners.find(
     (r) => r.path === compatCustomRunner.trim()
@@ -2083,6 +2145,114 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                   </div>
                 )}
               </div>
+
+              {/* Mod Organizer 2 Card (shown if MO2 is detected or configured) */}
+              {(mo2Instances.length > 0 || Boolean(editMo2InstancePath)) && (
+                <div className={`edit-launch-card ${editMo2LaunchEnabled ? "is-enabled" : ""}`}>
+                  <div
+                    className="edit-launch-toggle-card"
+                    style={{ background: "transparent", border: "none", padding: 0 }}
+                    onClick={() => setEditMo2LaunchEnabled(!editMo2LaunchEnabled)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === " " || e.key === "Enter") {
+                        e.preventDefault();
+                        setEditMo2LaunchEnabled(!editMo2LaunchEnabled);
+                      }
+                    }}
+                  >
+                    <div className="edit-launch-toggle-main">
+                      <div className="edit-launch-card-icon edit-launch-icon-mo2">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                          <line x1="12" y1="22.08" x2="12" y2="12" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-toggle-text">
+                        <div className="edit-launch-toggle-title-row">
+                          <h4 className="edit-launch-card-title">{t("edit.mo2LaunchTitle")}</h4>
+                          <span className={`edit-launch-badge ${editMo2LaunchEnabled ? "active" : "muted"}`}>
+                            {editMo2LaunchEnabled ? t("edit.badgeMo2Active") : t("edit.badgeMo2Disabled")}
+                          </span>
+                        </div>
+                        <p className="edit-launch-card-desc">{t("edit.mo2LaunchHint")}</p>
+                      </div>
+                    </div>
+                    <div className={`edit-toggle-switch ${editMo2LaunchEnabled ? "active" : ""}`} aria-hidden="true">
+                      <div className="edit-toggle-knob" />
+                    </div>
+                  </div>
+
+                  {editMo2LaunchEnabled && (
+                    <div className="edit-mo2-fields-grid" onClick={(e) => e.stopPropagation()}>
+                      {mo2Instances.length > 1 && (
+                        <div className="edit-mo2-field">
+                          <label className="edit-mo2-label">{t("edit.mo2Instance")}</label>
+                          <select
+                            className="edit-input edit-mo2-select"
+                            value={editMo2InstancePath}
+                            onChange={(e) => {
+                              const newPath = e.target.value;
+                              setEditMo2InstancePath(newPath);
+                              const inst = mo2Instances.find((i) => i.instancePath === newPath);
+                              if (inst) {
+                                setEditMo2Profile(inst.selectedProfile || inst.profiles[0] || "Default");
+                                if (inst.customExecutables && inst.customExecutables.length > 0) {
+                                  setEditMo2Executable(inst.customExecutables[0].title);
+                                }
+                              }
+                            }}
+                          >
+                            {mo2Instances.map((inst) => (
+                              <option key={inst.id} value={inst.instancePath}>
+                                {inst.name} ({inst.isPortable ? "Portable" : "Global"})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="edit-mo2-field">
+                        <label className="edit-mo2-label">{t("edit.mo2Profile")}</label>
+                        <select
+                          className="edit-input edit-mo2-select"
+                          value={editMo2Profile}
+                          onChange={(e) => setEditMo2Profile(e.target.value)}
+                        >
+                          {(activeMo2Instance?.profiles || [editMo2Profile || "Default"]).map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="edit-mo2-field">
+                        <label className="edit-mo2-label">{t("edit.mo2Executable")}</label>
+                        <select
+                          className="edit-input edit-mo2-select"
+                          value={editMo2Executable}
+                          onChange={(e) => setEditMo2Executable(e.target.value)}
+                        >
+                          {activeMo2Instance?.customExecutables && activeMo2Instance.customExecutables.length > 0 ? (
+                            activeMo2Instance.customExecutables.map((exe) => (
+                              <option key={exe.title} value={exe.title}>
+                                {exe.title}
+                              </option>
+                            ))
+                          ) : (
+                            <option value={game.path || "Default"}>
+                              {game.path ? game.path.split(/[\\/]/).pop() : "Default Executable"}
+                            </option>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Automation Scripts Card */}
               <div className="edit-launch-card">

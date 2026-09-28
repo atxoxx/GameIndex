@@ -2487,6 +2487,97 @@
   gap: 4px;
 }
 
+/* MO2 Tabs & Profiles inside Presets Modal */
+.mods-presets-type-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  background: var(--color-bg-tertiary);
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.mods-presets-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mods-presets-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-card-hover, rgba(255, 255, 255, 0.04));
+}
+
+.mods-presets-tab.active {
+  background: var(--color-accent);
+  color: #ffffff;
+  font-weight: var(--font-weight-semibold);
+}
+
+.mods-presets-clone-select {
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  padding: 0 var(--space-sm);
+  font-size: var(--font-size-xs);
+  max-width: 200px;
+}
+
+.mods-presets-clone-select:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.mods-preset-title-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.mo2-active-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.active-mo2-profile {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.mo2-instance-subtext {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: none;
+  font-weight: 400;
+}
+
+.mo2-current-tag {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: #10b981;
+  padding: 4px 8px;
+}
+
 /* ── Export Modal Elements ───────────────────────────────────────── */
 
 .mods-export-format-row {

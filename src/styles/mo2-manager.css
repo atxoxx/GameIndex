@@ -1,0 +1,847 @@
+/* Mod Organizer 2 Management Styles */
+
+.mo2-manager-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md, 1rem);
+  width: 100%;
+}
+
+/* Header Cockpit Card */
+.mo2-header-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md, 1rem);
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-lg, 1.25rem);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.mo2-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md, 1rem);
+  flex-wrap: wrap;
+}
+
+.mo2-title-block {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md, 1rem);
+}
+
+.mo2-logo-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--accent-gradient, linear-gradient(135deg, var(--accent, #6366f1), var(--accent-hover, #4f46e5)));
+  color: var(--accent-contrast, #ffffff);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.mo2-title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mo2-eyebrow-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mo2-brand-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.mo2-instance-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+}
+
+/* Launch Group */
+.mo2-launch-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 0.5rem);
+}
+
+.mo2-exec-select,
+.mo2-profile-select,
+.mo2-instance-switch {
+  background: var(--bg-surface, rgba(0, 0, 0, 0.3));
+  color: var(--text-primary, #ffffff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md, 6px);
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.mo2-exec-select:hover,
+.mo2-profile-select:hover,
+.mo2-instance-switch:hover {
+  border-color: var(--accent, #6366f1);
+}
+
+.mo2-default-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--bg-surface, rgba(0, 0, 0, 0.3));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md, 6px);
+  padding: 0.42rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mo2-default-toggle-btn:hover {
+  background: var(--bg-surface-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.25));
+  color: var(--text-primary, #ffffff);
+}
+
+.mo2-default-toggle-btn.active {
+  background: color-mix(in srgb, var(--accent, #6366f1) 16%, var(--bg-surface, rgba(0, 0, 0, 0.3)));
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 50%, var(--border-color));
+  color: var(--text-primary, #ffffff);
+}
+
+.mo2-default-toggle-btn .mo2-toggle-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted, #71717a);
+  transition: background 0.15s ease;
+}
+
+.mo2-default-toggle-btn.active .mo2-toggle-dot {
+  background: var(--color-success, #10b981);
+  box-shadow: 0 0 6px var(--color-success, #10b981);
+}
+
+.mo2-toggle-state-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.mo2-toggle-state-badge.on {
+  background: color-mix(in srgb, var(--color-success, #10b981) 20%, transparent);
+  color: var(--color-success, #10b981);
+}
+
+.mo2-toggle-state-badge.off {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted, rgba(255, 255, 255, 0.45));
+}
+
+.mo2-launch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.mo2-icon-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--bg-surface, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 6px);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mo2-icon-action-btn:hover {
+  color: var(--text-primary, #ffffff);
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.2));
+}
+
+/* Header Meta Row */
+.mo2-header-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+  padding-top: var(--space-sm, 0.75rem);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.mo2-profile-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mo2-meta-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+}
+
+.mo2-stats-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.mo2-stat-chip {
+  font-size: 0.8rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.65));
+  background: var(--bg-surface, rgba(0, 0, 0, 0.2));
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.mo2-stat-chip strong {
+  color: var(--accent, #6366f1);
+}
+
+/* Controls Bar */
+.mo2-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md, 1rem);
+  flex-wrap: wrap;
+}
+
+.mo2-tabs-group {
+  display: flex;
+  gap: 0.35rem;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  padding: 0.25rem;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.mo2-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mo2-tab-btn.active {
+  background: var(--accent, #6366f1);
+  color: var(--accent-contrast, #ffffff);
+}
+
+.mo2-tab-count {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mo2-search-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.mo2-search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-surface, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 6px);
+  padding: 0.35rem 0.65rem;
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+
+.mo2-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary, #ffffff);
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.mo2-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.mo2-pill-btn {
+  background: var(--bg-surface, rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.mo2-pill-btn.active {
+  background: var(--accent-subtle, rgba(99, 102, 241, 0.2));
+  border-color: var(--accent, #6366f1);
+  color: var(--text-primary, #ffffff);
+}
+
+/* Mod & Plugin Rows */
+.mo2-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: calc(100vh - 280px);
+  min-height: 480px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.35rem;
+}
+
+.mo2-mod-row,
+.mo2-plugin-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  min-height: 46px;
+  box-sizing: border-box;
+  background: var(--bg-card, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-md, 6px);
+  padding: 0.45rem 0.75rem;
+  transition: all 0.15s ease;
+}
+
+.mo2-mod-row:hover,
+.mo2-plugin-row:hover {
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.06));
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.14));
+}
+
+.mo2-mod-row.disabled,
+.mo2-plugin-row.disabled {
+  opacity: 0.55;
+}
+
+.mo2-reorder-group {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.mo2-arrow-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  cursor: pointer;
+  padding: 0;
+}
+
+.mo2-arrow-btn:hover {
+  color: var(--text-primary, #ffffff);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.1));
+}
+
+.mo2-priority-badge {
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent, #6366f1);
+  min-width: 28px;
+  text-align: center;
+}
+
+/* Switch */
+.mo2-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.mo2-toggle-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.mo2-toggle-switch {
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--bg-surface, rgba(255, 255, 255, 0.12));
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.mo2-toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.2s ease;
+}
+
+.mo2-toggle-checkbox:checked + .mo2-toggle-switch {
+  background: var(--accent, #6366f1);
+}
+
+.mo2-toggle-checkbox:checked + .mo2-toggle-switch::after {
+  transform: translateX(14px);
+}
+
+/* Info */
+.mo2-mod-info,
+.mo2-plugin-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.mo2-mod-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mo2-mod-name,
+.mo2-plugin-name {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-primary, #ffffff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mo2-version-tag,
+.mo2-category-tag,
+.mo2-unmanaged-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+}
+
+.mo2-category-tag {
+  background: var(--accent-subtle, rgba(99, 102, 241, 0.12));
+  color: var(--accent, #6366f1);
+}
+
+.mo2-unmanaged-tag {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+}
+
+.mo2-author-line {
+  font-size: 0.72rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.45));
+}
+
+.mo2-mod-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mo2-size-text {
+  font-size: 0.75rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.mo2-nexus-btn {
+  background: rgba(222, 109, 28, 0.15);
+  border: 1px solid rgba(222, 109, 28, 0.35);
+  color: #de6d1c;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mo2-nexus-btn:hover {
+  background: rgba(222, 109, 28, 0.3);
+}
+
+/* Collapsible Categories */
+.mo2-category-section {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: var(--bg-card, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 8px);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 0.35rem;
+}
+
+.mo2-category-section:hover {
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.14));
+}
+
+.mo2-category-section.expanded {
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.12));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.mo2-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md, 0.75rem);
+  padding: 0.65rem 0.9rem;
+  background: var(--bg-surface, rgba(0, 0, 0, 0.25));
+  border-top-left-radius: var(--radius-md, 7px);
+  border-top-right-radius: var(--radius-md, 7px);
+  border-bottom-left-radius: var(--radius-md, 7px);
+  border-bottom-right-radius: var(--radius-md, 7px);
+  border-left: 3px solid var(--accent, #6366f1);
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.mo2-category-section.expanded .mo2-category-header {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.mo2-category-header:hover {
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.06));
+}
+
+.mo2-category-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.mo2-category-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.mo2-category-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.mo2-category-header:hover .mo2-category-chevron {
+  color: var(--text-primary, #ffffff);
+}
+
+.mo2-category-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--accent-subtle, rgba(99, 102, 241, 0.15));
+  color: var(--accent, #6366f1);
+  flex-shrink: 0;
+}
+
+.mo2-category-name {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mo2-category-count-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--bg-surface, rgba(255, 255, 255, 0.08));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.mo2-category-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.mo2-category-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-sm, 5px);
+  background: var(--bg-surface, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.mo2-category-toggle-btn:hover {
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.12));
+  color: var(--text-primary, #ffffff);
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.2));
+}
+
+.mo2-category-toggle-btn.all-active {
+  background: var(--accent-subtle, rgba(99, 102, 241, 0.18));
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+
+.mo2-category-toggle-btn.partial {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: rgba(234, 179, 8, 0.4);
+  color: #eab308;
+}
+
+.mo2-category-toggle-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.mo2-category-body {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom-left-radius: var(--radius-md, 7px);
+  border-bottom-right-radius: var(--radius-md, 7px);
+}
+
+.mo2-category-empty {
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+  text-align: center;
+}
+
+.mo2-collapse-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-surface, rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-muted, rgba(255, 255, 255, 0.7));
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mo2-collapse-all-btn:hover {
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, #ffffff);
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.18));
+}
+
+/* Empty Card */
+.mo2-empty-card {
+  padding: var(--space-xl, 2rem);
+  text-align: center;
+}
+
+.mo2-empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.mo2-empty-icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-surface, rgba(255, 255, 255, 0.05));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.mo2-empty-title {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text-primary, #ffffff);
+}
+
+.mo2-empty-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  line-height: 1.4;
+}
+
+.mo2-browse-btn {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Manager Engine Switcher */
+.mods-engine-switcher-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-md, 1rem);
+}
+
+.mods-engine-tabs {
+  display: flex;
+  gap: 0.35rem;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  padding: 0.25rem;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.mods-engine-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mods-engine-tab-btn:hover {
+  color: var(--text-primary, #ffffff);
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.06));
+}
+
+.mods-engine-tab-btn.active {
+  background: var(--accent, #6366f1);
+  color: var(--accent-contrast, #ffffff);
+}
+
+.mo2-tag-mini {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.05em;
+}
+
+.mods-tab-count-pill {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mods-tab-count-pill.active-mo2 {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mo2-manage-profiles-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-card, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.8));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mo2-manage-profiles-btn:hover {
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #ffffff);
+  border-color: var(--accent, #6366f1);
+}
+
+

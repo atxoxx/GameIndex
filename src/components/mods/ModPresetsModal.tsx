@@ -6,6 +6,7 @@ import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
 import type { Game } from "../../types/game";
 import type { GameMod } from "../../types/mods";
+import type { useMo2 } from "../../hooks/useMo2";
 
 export interface ModPreset {
   id: string;
@@ -22,6 +23,7 @@ interface ModPresetsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyPreset: (preset: ModPreset) => Promise<void>;
+  mo2?: ReturnType<typeof useMo2>;
 }
 
 export function getGamePresets(gameId: string): ModPreset[] {
@@ -47,6 +49,7 @@ export default function ModPresetsModal({
   isOpen,
   onClose,
   onApplyPreset,
+  mo2,
 }: ModPresetsModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -54,9 +57,24 @@ export default function ModPresetsModal({
   const [nameInput, setNameInput] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const hasMo2 = !!(mo2 && mo2.instances.length > 0 && mo2.selectedInstance);
+  const [activeTab, setActiveTab] = useState<"mo2" | "standard">("standard");
+
+  // MO2 Profile Creation state
+  const [mo2NewName, setMo2NewName] = useState("");
+  const [mo2CloneFrom, setMo2CloneFrom] = useState<string>("");
+  const [mo2Busy, setMo2Busy] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       setNameInput("");
+      setMo2NewName("");
+      if (hasMo2) {
+        setActiveTab("mo2");
+        setMo2CloneFrom(mo2?.selectedProfile || "");
+      } else {
+        setActiveTab("standard");
+      }
       invoke<ModPreset[]>("mods_profiles_list", { gameId: game.id })
         .then((rows) => setPresets(rows.map((p) => ({
           id: p.id,
@@ -68,9 +86,11 @@ export default function ModPresetsModal({
         }))))
         .catch(() => setPresets(getGamePresets(game.id)));
     }
-  }, [isOpen, game.id]);
+  }, [isOpen, game.id, hasMo2, mo2?.selectedProfile]);
 
   if (!isOpen) return null;
+
+  // ── Standard Presets Handlers ──────────────────────────────────────────────
 
   const handleSaveCurrent = () => {
     const name = nameInput.trim();
@@ -158,6 +178,52 @@ export default function ModPresetsModal({
     }
   };
 
+  // ── MO2 Profiles Handlers ──────────────────────────────────────────────────
+
+  const handleCreateMo2Profile = async () => {
+    if (!mo2 || !mo2NewName.trim()) return;
+    const name = mo2NewName.trim();
+    setMo2Busy(true);
+    try {
+      await mo2.createProfile(name, mo2CloneFrom || undefined);
+      showToast(t("mods.presets.mo2ProfileCreated", { name }), "success");
+      setMo2NewName("");
+    } catch (e) {
+      showToast(String(e), "error");
+    } finally {
+      setMo2Busy(false);
+    }
+  };
+
+  const handleSwitchMo2Profile = async (profileName: string) => {
+    if (!mo2) return;
+    setMo2Busy(true);
+    try {
+      await mo2.switchProfile(profileName);
+      showToast(t("mods.presets.switchedToProfile", { name: profileName }), "success");
+    } catch (e) {
+      showToast(String(e), "error");
+    } finally {
+      setMo2Busy(false);
+    }
+  };
+
+  const handleDeleteMo2Profile = async (profileName: string) => {
+    if (!mo2) return;
+    if (!window.confirm(t("mods.presets.deleteMo2ProfileConfirm", { name: profileName }))) {
+      return;
+    }
+    setMo2Busy(true);
+    try {
+      await mo2.deleteProfile(profileName);
+      showToast(t("mods.presets.deleted", { name: profileName }), "info");
+    } catch (e) {
+      showToast(String(e), "error");
+    } finally {
+      setMo2Busy(false);
+    }
+  };
+
   return createPortal(
     <div className="mods-modal-backdrop" onClick={onClose}>
       <div
@@ -180,98 +246,243 @@ export default function ModPresetsModal({
           </button>
         </div>
 
-        {/* Save Current Section */}
-        <div className="mods-presets-save-box">
-          <label htmlFor="preset-name-input" className="mods-presets-label">
-            {t("mods.presets.saveCurrent")}
-          </label>
-          <div className="mods-presets-input-row">
-            <input
-              id="preset-name-input"
-              type="text"
-              className="mods-presets-input"
-              placeholder={t("mods.presets.namePlaceholder")}
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveCurrent();
-              }}
-            />
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSaveCurrent}
-              disabled={!nameInput.trim()}
+        {/* Tab Switcher if MO2 is detected */}
+        {hasMo2 && (
+          <div className="mods-presets-type-tabs">
+            <button
+              type="button"
+              className={`mods-presets-tab ${activeTab === "mo2" ? "active" : ""}`}
+              onClick={() => setActiveTab("mo2")}
             >
-              {t("mods.presets.save")}
-            </Button>
+              <span className="mo2-tag-mini">MO2</span>
+              {t("mods.presets.mo2Profiles")}
+              <span className="mods-tab-count-pill">
+                {mo2?.selectedInstance?.profiles.length ?? 0}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`mods-presets-tab ${activeTab === "standard" ? "active" : ""}`}
+              onClick={() => setActiveTab("standard")}
+            >
+              {t("mods.presets.standardPresets")}
+              <span className="mods-tab-count-pill">{presets.length}</span>
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* Presets List */}
-        <div className="mods-presets-list-wrap">
-          <div className="mods-presets-list-header">
-            <span>{t("mods.presets")} ({presets.length})</span>
-            <Button variant="ghost" size="sm" onClick={handleImport}>
-              {t("mods.presets.import")}
-            </Button>
-          </div>
-
-          {presets.length === 0 ? (
-            <div className="mods-presets-empty">{t("mods.presets.noPresets")}</div>
-          ) : (
-            <div className="mods-presets-list">
-              {presets.map((p) => {
-                const activeCount = Object.values(p.modStates).filter(Boolean).length;
-                return (
-                  <div key={p.id} className="mods-preset-item">
-                    <div className="mods-preset-info">
-                      <span className="mods-preset-name">{p.name}</span>
-                      <span className="mods-preset-meta">
-                        {t("mods.enabledCount", {
-                          enabled: String(activeCount),
-                          total: String(Object.keys(p.modStates).length),
-                        })} · {new Date(p.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="mods-preset-actions">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => void handleApply(p)}
-                        isLoading={busy}
-                      >
-                        {t("mods.presets.apply")}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleExport(p)}
-                        title={t("mods.presets.export")}
-                      >
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleDelete(p)}
-                        title={t("mods.presets.delete")}
-                      >
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        </svg>
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+        {activeTab === "mo2" && hasMo2 && mo2?.selectedInstance ? (
+          <>
+            {/* Create MO2 Profile Section */}
+            <div className="mods-presets-save-box">
+              <label htmlFor="mo2-profile-name-input" className="mods-presets-label">
+                {t("mods.presets.createMo2Profile")}
+              </label>
+              <div className="mods-presets-input-row">
+                <input
+                  id="mo2-profile-name-input"
+                  type="text"
+                  className="mods-presets-input"
+                  placeholder={t("mods.presets.mo2ProfileNamePlaceholder")}
+                  value={mo2NewName}
+                  onChange={(e) => setMo2NewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleCreateMo2Profile();
+                  }}
+                />
+                <select
+                  aria-label={t("mods.presets.cloneFrom")}
+                  className="mods-presets-clone-select"
+                  value={mo2CloneFrom}
+                  onChange={(e) => setMo2CloneFrom(e.target.value)}
+                  title={t("mods.presets.cloneFrom")}
+                >
+                  <option value="">{t("mods.presets.cloneEmpty")}</option>
+                  {mo2.selectedInstance.profiles.map((p) => (
+                    <option key={p} value={p}>
+                      {t("mods.presets.cloneFrom")}: {p}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleCreateMo2Profile()}
+                  disabled={!mo2NewName.trim() || mo2Busy}
+                  isLoading={mo2Busy}
+                >
+                  {t("mods.presets.save")}
+                </Button>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* MO2 Profiles List */}
+            <div className="mods-presets-list-wrap">
+              <div className="mods-presets-list-header">
+                <span>
+                  {t("mods.presets.mo2Profiles")} ({mo2.selectedInstance.profiles.length})
+                </span>
+                <span className="mo2-instance-subtext">{mo2.selectedInstance.name}</span>
+              </div>
+
+              <div className="mods-presets-list">
+                {mo2.selectedInstance.profiles.map((p) => {
+                  const isActive = p.toLowerCase() === (mo2.selectedProfile || "").toLowerCase();
+                  return (
+                    <div
+                      key={p}
+                      className={`mods-preset-item ${isActive ? "active-mo2-profile" : ""}`}
+                    >
+                      <div className="mods-preset-info">
+                        <div className="mods-preset-title-line">
+                          <span className="mods-preset-name">{p}</span>
+                          {isActive && (
+                            <span className="mo2-active-badge">
+                              {t("mods.presets.activeProfile")}
+                            </span>
+                          )}
+                        </div>
+                        <span className="mods-preset-meta">
+                          {isActive
+                            ? `${mo2.details?.activeModCount ?? 0} ${t("mods.enabledCount", {
+                                enabled: String(mo2.details?.activeModCount ?? 0),
+                                total: String(mo2.details?.totalModCount ?? 0),
+                              })}`
+                            : t("mods.presets.inactiveProfile")}
+                        </span>
+                      </div>
+                      <div className="mods-preset-actions">
+                        {!isActive ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => void handleSwitchMo2Profile(p)}
+                            disabled={mo2Busy}
+                          >
+                            {t("mods.presets.switchProfile")}
+                          </Button>
+                        ) : (
+                          <span className="mo2-current-tag">
+                            {t("mods.presets.current")}
+                          </span>
+                        )}
+                        {!isActive && p.toLowerCase() !== "default" && (
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => void handleDeleteMo2Profile(p)}
+                            disabled={mo2Busy}
+                            title={t("mods.presets.delete")}
+                          >
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Standard Presets Save Current Section */}
+            <div className="mods-presets-save-box">
+              <label htmlFor="preset-name-input" className="mods-presets-label">
+                {t("mods.presets.saveCurrent")}
+              </label>
+              <div className="mods-presets-input-row">
+                <input
+                  id="preset-name-input"
+                  type="text"
+                  className="mods-presets-input"
+                  placeholder={t("mods.presets.namePlaceholder")}
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveCurrent();
+                  }}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSaveCurrent}
+                  disabled={!nameInput.trim()}
+                >
+                  {t("mods.presets.save")}
+                </Button>
+              </div>
+            </div>
+
+            {/* Standard Presets List */}
+            <div className="mods-presets-list-wrap">
+              <div className="mods-presets-list-header">
+                <span>{t("mods.presets")} ({presets.length})</span>
+                <Button variant="ghost" size="sm" onClick={handleImport}>
+                  {t("mods.presets.import")}
+                </Button>
+              </div>
+
+              {presets.length === 0 ? (
+                <div className="mods-presets-empty">{t("mods.presets.noPresets")}</div>
+              ) : (
+                <div className="mods-presets-list">
+                  {presets.map((p) => {
+                    const activeCount = Object.values(p.modStates).filter(Boolean).length;
+                    return (
+                      <div key={p.id} className="mods-preset-item">
+                        <div className="mods-preset-info">
+                          <span className="mods-preset-name">{p.name}</span>
+                          <span className="mods-preset-meta">
+                            {t("mods.enabledCount", {
+                              enabled: String(activeCount),
+                              total: String(Object.keys(p.modStates).length),
+                            })} · {new Date(p.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="mods-preset-actions">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => void handleApply(p)}
+                            isLoading={busy}
+                          >
+                            {t("mods.presets.apply")}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleExport(p)}
+                            title={t("mods.presets.export")}
+                          >
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDelete(p)}
+                            title={t("mods.presets.delete")}
+                          >
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>,
     document.body

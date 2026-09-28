@@ -8,7 +8,8 @@ export type ModEngine =
   | "melonloader"
   | "unreal"
   | "workshop"
-  | "generic";
+  | "generic"
+  | "mo2";
 
 export interface GameMod {
   id: string;
@@ -90,4 +91,5 @@ export const ENGINE_LABELS: Record<ModEngine, string> = {
   unreal: "Unreal",
   workshop: "Workshop",
   generic: "Mods folder",
+  mo2: "Mod Organizer 2",
 };

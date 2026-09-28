@@ -226,6 +226,14 @@ export interface Game {
   untracked?: boolean;
   /** Wine / Proton / Linux compatibility profile and overrides */
   compatibility?: CompatibilityProfile;
+  /** When true and MO2 is detected, the game is launched through Mod Organizer 2. */
+  mo2LaunchEnabled?: boolean;
+  /** The selected MO2 profile name to launch with (e.g. "Custom Hardcore 0.1"). */
+  mo2Profile?: string;
+  /** The selected MO2 executable title or relative path (e.g. "Anomaly Launcher"). */
+  mo2Executable?: string;
+  /** The root directory path of the MO2 instance associated with this game. */
+  mo2InstancePath?: string;
 }
 
 /** Remove repeated library records while preserving the first record for each stable id. */

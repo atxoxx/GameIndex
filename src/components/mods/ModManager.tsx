@@ -23,6 +23,8 @@ import NexusDrawer from "./NexusDrawer";
 import ModPresetsModal, { type ModPreset } from "./ModPresetsModal";
 import ModExportModal from "./ModExportModal";
 import ModInstallModal from "./ModInstallModal";
+import Mo2Manager from "./Mo2Manager";
+import { useMo2 } from "../../hooks/useMo2";
 import "../../styles/page-mods.css";
 
 interface ModManagerProps {
@@ -59,6 +61,9 @@ export default function ModManager({
     setNexusDomain,
   } = useGameMods(game);
 
+  const mo2 = useMo2(game);
+  const [managerMode, setManagerMode] = useState<"standard" | "mo2">("standard");
+
   const [search, setSearch] = useState("");
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [selectedEngine, setSelectedEngine] = useState<string | null>(null);
@@ -80,7 +85,89 @@ export default function ModManager({
   const copy = useCopyToClipboard();
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const mods = payload?.mods ?? [];
+  const rawMods = payload?.mods ?? [];
+  const isMo2Detected = mo2.instances.length > 0;
+
+  // Build lookup maps from active MO2 profile mods and plugins
+  const mo2StatusMap = useMemo(() => {
+    if (!isMo2Detected || !mo2.details) return null;
+    const map = new Map<string, boolean>();
+    for (const m of mo2.details.mods) {
+      if (!m.isSeparator) {
+        const lower = m.name.toLowerCase().trim();
+        map.set(lower, m.enabled);
+        map.set(lower.replace(/\.(zip|7z|rar|tar|gz|pak)$/, ""), m.enabled);
+      }
+    }
+    for (const p of mo2.details.plugins) {
+      const lower = p.name.toLowerCase().trim();
+      map.set(lower, p.enabled);
+      map.set(lower.replace(/\.(esp|esm|esl)$/, ""), p.enabled);
+    }
+    return map;
+  }, [isMo2Detected, mo2.details]);
+
+  // Sync standard mods with MO2 active profile enabled/disabled status
+  const mods = useMemo<GameMod[]>(() => {
+    if (!isMo2Detected || !mo2StatusMap) {
+      return rawMods;
+    }
+
+    const matchMo2State = (m: GameMod): boolean | undefined => {
+      const lowerName = m.name.toLowerCase().trim();
+      if (mo2StatusMap.has(lowerName)) return mo2StatusMap.get(lowerName);
+      const withoutExt = lowerName.replace(/\.(zip|7z|rar|tar|gz|pak|esp|esm|esl)$/, "");
+      if (mo2StatusMap.has(withoutExt)) return mo2StatusMap.get(withoutExt);
+      const fname = m.path ? m.path.split(/[\\/]/).pop()?.toLowerCase().trim() : null;
+      if (fname && mo2StatusMap.has(fname)) return mo2StatusMap.get(fname);
+      return undefined;
+    };
+
+    const existingNames = new Set<string>();
+    const syncedRawMods = rawMods.map((m) => {
+      existingNames.add(m.name.toLowerCase().trim());
+      const mo2State = matchMo2State(m);
+      if (mo2State !== undefined && mo2State !== m.enabled) {
+        return { ...m, enabled: mo2State };
+      }
+      return m;
+    });
+
+    // If MO2 has mods, merge any not already in standard mods
+    if (mo2.details?.mods) {
+      const additionalMo2Mods: GameMod[] = [];
+      for (const mo2Mod of mo2.details.mods) {
+        if (mo2Mod.isSeparator) continue;
+        const lower = mo2Mod.name.toLowerCase().trim();
+        const withoutExt = lower.replace(/\.(zip|7z|rar|tar|gz|pak)$/, "");
+        if (!existingNames.has(lower) && !existingNames.has(withoutExt)) {
+          additionalMo2Mods.push({
+            id: `mo2-${mo2Mod.name.toLowerCase().replace(/[^a-z0-9_-]/g, "-")}`,
+            gameId: game.id,
+            name: mo2Mod.name,
+            version: mo2Mod.version,
+            author: mo2Mod.author,
+            engine: "mo2",
+            kind: mo2Mod.isUnmanaged ? "unmanaged" : "archive",
+            path: mo2Mod.path,
+            enabled: mo2Mod.enabled,
+            loadOrder: mo2Mod.priority,
+            sizeBytes: mo2Mod.sizeBytes,
+            fileCount: mo2Mod.fileCount,
+            nexusModId: mo2Mod.nexusModId,
+            nexusDomain: mo2Mod.nexusDomain,
+            updateAvailable: false,
+            detectedAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
+      }
+      return [...syncedRawMods, ...additionalMo2Mods];
+    }
+
+    return syncedRawMods;
+  }, [rawMods, isMo2Detected, mo2StatusMap, mo2.details?.mods, game.id]);
+
   const engines = payload?.engines ?? [];
   const supportsReorder = payload?.supportsReorder ?? false;
   const canScan = !!game.path || game.steamAppId != null;
@@ -214,7 +301,31 @@ export default function ModManager({
 
   const handleToggle = async (mod: GameMod) => {
     try {
-      await setEnabled(mod.id, !mod.enabled);
+      const nextState = !mod.enabled;
+      if (isMo2Detected && mo2.details) {
+        const lowerName = mod.name.toLowerCase().trim();
+        const withoutExt = lowerName.replace(/\.(zip|7z|rar|tar|gz|pak|esp|esm|esl)$/, "");
+
+        const matchingMo2Mod = mo2.details.mods.find(
+          (m) => m.name.toLowerCase().trim() === lowerName || m.name.toLowerCase().trim() === withoutExt
+        );
+        if (matchingMo2Mod) {
+          await mo2.setModEnabled(matchingMo2Mod.name, nextState);
+        }
+
+        const matchingPlugin = mo2.details.plugins.find(
+          (p) =>
+            p.name.toLowerCase().trim() === lowerName ||
+            p.name.toLowerCase().trim().replace(/\.(esp|esm|esl)$/, "") === withoutExt
+        );
+        if (matchingPlugin) {
+          await mo2.setPluginEnabled(matchingPlugin.name, nextState);
+        }
+      }
+
+      if (!mod.id.startsWith("mo2-")) {
+        await setEnabled(mod.id, nextState);
+      }
       onChanged?.();
     } catch (e) {
       showToast(String(e), "error");
@@ -293,33 +404,71 @@ export default function ModManager({
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     setBulkProcessing(true);
-    const results = await Promise.allSettled(ids.map((id) => setEnabled(id, targetEnabled)));
-    const success = results.filter((r) => r.status === "fulfilled").length;
-    const firstError =
-      (results.find(
-        (r): r is PromiseRejectedResult => r.status === "rejected"
-      )?.reason as unknown) ?? null;
-    setBulkProcessing(false);
-    const suffix = firstError !== null ? ` — ${String(firstError)}` : "";
-    if (success === 0) {
-      showToast(`${t("mods.bulkFailed", { count: String(ids.length) })}${suffix}`, "error");
-    } else if (success < ids.length) {
-      showToast(
-        `${t(targetEnabled ? "mods.bulkEnabledPartial" : "mods.bulkDisabledPartial", {
-          success: String(success),
-          total: String(ids.length),
-        })}${suffix}`,
-        "warning"
-      );
-    } else {
-      showToast(
-        t(targetEnabled ? "mods.bulkEnabled" : "mods.bulkDisabled", {
-          count: String(success),
-        }),
-        "success"
-      );
+
+    try {
+      if (isMo2Detected && mo2.details) {
+        const updates: Record<string, boolean> = {};
+        for (const id of ids) {
+          const mod = sortedMods.find((m) => m.id === id);
+          if (mod) {
+            const lowerName = mod.name.toLowerCase().trim();
+            const withoutExt = lowerName.replace(/\.(zip|7z|rar|tar|gz|pak|esp|esm|esl)$/, "");
+            const matchingMo2Mod = mo2.details.mods.find(
+              (m) => m.name.toLowerCase().trim() === lowerName || m.name.toLowerCase().trim() === withoutExt
+            );
+            if (matchingMo2Mod) {
+              updates[matchingMo2Mod.name] = targetEnabled;
+            }
+          }
+        }
+        if (Object.keys(updates).length > 0) {
+          await mo2.setModsEnabled(updates);
+        }
+      }
+
+      const standardIds = ids.filter((id) => !id.startsWith("mo2-"));
+      if (standardIds.length > 0) {
+        const results = await Promise.allSettled(
+          standardIds.map((id) => setEnabled(id, targetEnabled))
+        );
+        const success = results.filter((r) => r.status === "fulfilled").length;
+        const firstError =
+          (results.find(
+            (r): r is PromiseRejectedResult => r.status === "rejected"
+          )?.reason as unknown) ?? null;
+        const suffix = firstError !== null ? ` — ${String(firstError)}` : "";
+        if (success === 0 && standardIds.length > 0) {
+          showToast(`${t("mods.bulkFailed", { count: String(standardIds.length) })}${suffix}`, "error");
+        } else if (success < standardIds.length) {
+          showToast(
+            `${t(targetEnabled ? "mods.bulkEnabledPartial" : "mods.bulkDisabledPartial", {
+              success: String(success),
+              total: String(standardIds.length),
+            })}${suffix}`,
+            "warning"
+          );
+        } else {
+          showToast(
+            t(targetEnabled ? "mods.bulkEnabled" : "mods.bulkDisabled", {
+              count: String(ids.length),
+            }),
+            "success"
+          );
+        }
+      } else {
+        showToast(
+          t(targetEnabled ? "mods.bulkEnabled" : "mods.bulkDisabled", {
+            count: String(ids.length),
+          }),
+          "success"
+        );
+      }
+      onChanged?.();
+    } catch (e) {
+      showToast(String(e), "error");
+    } finally {
+      setBulkProcessing(false);
     }
-    onChanged?.();
   };
 
   const handleBulkDelete = async () => {
@@ -384,9 +533,30 @@ export default function ModManager({
     if (missingIds.length > 0) {
       showToast(t("mods.profileMissingMods", { count: String(missingIds.length) }), "warning");
     }
+
+    if (isMo2Detected && mo2.details) {
+      const mo2Updates: Record<string, boolean> = {};
+      for (const [modId, state] of Object.entries(preset.modStates)) {
+        const current = mods.find((m) => m.id === modId);
+        if (current) {
+          const lower = current.name.toLowerCase().trim();
+          const withoutExt = lower.replace(/\.(zip|7z|rar|tar|gz|pak|esp|esm|esl)$/, "");
+          const matchingMo2Mod = mo2.details.mods.find(
+            (m) => m.name.toLowerCase().trim() === lower || m.name.toLowerCase().trim() === withoutExt
+          );
+          if (matchingMo2Mod) {
+            mo2Updates[matchingMo2Mod.name] = state;
+          }
+        }
+      }
+      if (Object.keys(mo2Updates).length > 0) {
+        await mo2.setModsEnabled(mo2Updates);
+      }
+    }
+
     for (const [modId, state] of Object.entries(preset.modStates)) {
       const current = mods.find((m) => m.id === modId);
-      if (current && current.enabled !== state) {
+      if (current && current.enabled !== state && !modId.startsWith("mo2-")) {
         await setEnabled(modId, state);
       }
     }
@@ -553,8 +723,41 @@ export default function ModManager({
 
   return (
     <div className="mods-manager" ref={rootRef}>
-      {/* KPI Hero Stats Bar */}
-      <ModsHeroStats
+      {/* Top Manager Engine Switcher: Native Loose Mods vs Mod Organizer 2 */}
+      {(mo2.instances.length > 0 || engines.length > 0) && (
+        <div className="mods-engine-switcher-bar">
+          <div className="mods-engine-tabs">
+            <button
+              type="button"
+              className={`mods-engine-tab-btn ${managerMode === "standard" ? "active" : ""}`}
+              onClick={() => setManagerMode("standard")}
+            >
+              {t("mods.nativeManager")}
+              {mods.length > 0 && <span className="mods-tab-count-pill">{mods.length}</span>}
+            </button>
+            <button
+              type="button"
+              className={`mods-engine-tab-btn ${managerMode === "mo2" ? "active" : ""}`}
+              onClick={() => setManagerMode("mo2")}
+            >
+              <span className="mo2-tag-mini">MO2</span>
+              {t("mods.mo2.title")}
+              {mo2.instances.length > 0 && (
+                <span className="mods-tab-count-pill active-mo2">
+                  {mo2.details?.totalModCount ?? mo2.instances.length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {managerMode === "mo2" ? (
+        <Mo2Manager game={game} onOpenPresets={() => setShowPresetsModal(true)} />
+      ) : (
+        <>
+          {/* KPI Hero Stats Bar */}
+          <ModsHeroStats
         mods={mods}
         activeFilter={filterTab}
         onFilterChange={setFilterTab}
@@ -750,6 +953,8 @@ export default function ModManager({
           />
         </div>
       )}
+        </>
+      )}
 
       {/* Mod context menu */}
       {contextMod && modMenu.state && (
@@ -797,6 +1002,7 @@ export default function ModManager({
         isOpen={showPresetsModal}
         onClose={() => setShowPresetsModal(false)}
         onApplyPreset={handleApplyPreset}
+        mo2={mo2}
       />
 
       {/* Export Load Order Modal */}

@@ -13,6 +13,7 @@ import { gameDisplayName, type Game } from "../types/game";
 import { formatPlayTimeCompact } from "./game/shared";
 import { useLanguage } from "../context/LanguageContext";
 import { Button } from "./ui/Button";
+import { getGameMo2Config } from "../utils/mo2Storage";
 
 /**
  * Minimum visibility before fade-out begins. Holds the splash long
@@ -466,6 +467,13 @@ export default function Splashscreen({
   const hasPlayTime = playTimeStr && playTimeStr !== "0h";
   const primaryGenre = game.genres && game.genres.length > 0 ? game.genres[0] : null;
 
+  const mo2Config = getGameMo2Config(game.id);
+  const isMo2Launch = Boolean(
+    game.mo2LaunchEnabled ?? mo2Config?.enabled ?? false
+  );
+  const mo2Profile = game.mo2Profile || mo2Config?.profile;
+  const mo2Executable = game.mo2Executable || mo2Config?.executable;
+
   return (
     <div
       className={`splashscreen-root${
@@ -545,6 +553,12 @@ export default function Splashscreen({
                   {primaryGenre}
                 </span>
               )}
+              {isMo2Launch && (
+                <span className="splashscreen-badge splashscreen-badge--mo2" title={t("edit.mo2LaunchHint")}>
+                  <Mo2Icon />
+                  <span>MO2{mo2Profile ? ` • ${mo2Profile}` : ""}</span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -574,6 +588,30 @@ export default function Splashscreen({
                 <span className="splashscreen-credits">
                   {[game.developer, game.publisher].filter(Boolean).join(" • ")}
                 </span>
+              )}
+              {isMo2Launch && (
+                <div className="splashscreen-mo2-details">
+                  <span className="splashscreen-mo2-chip">
+                    <Mo2Icon />
+                    <strong>Mod Organizer 2</strong>
+                  </span>
+                  <span className="splashscreen-mo2-divider">•</span>
+                  <span className="splashscreen-mo2-chip">
+                    <span>{t("splash.mo2Profile")}:</span>
+                    <strong>{mo2Profile || "Default"}</strong>
+                  </span>
+                  {mo2Executable && (
+                    <>
+                      <span className="splashscreen-mo2-divider">•</span>
+                      <span className="splashscreen-mo2-chip">
+                        <span>{t("splash.mo2Target")}:</span>
+                        <strong>{mo2Executable}</strong>
+                      </span>
+                    </>
+                  )}
+                  <span className="splashscreen-mo2-divider">•</span>
+                  <span className="splashscreen-mo2-usvfs">USVFS ACTIVE</span>
+                </div>
               )}
             </div>
           </div>
@@ -802,6 +840,25 @@ function PlatformIcon({ platform }: { platform: string }) {
       <line x1="15" y1="13" x2="15.01" y2="13" />
       <line x1="18" y1="11" x2="18.01" y2="11" />
       <rect x="2" y="6" width="20" height="12" rx="6" />
+    </svg>
+  );
+}
+
+function Mo2Icon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="splashscreen-icon splashscreen-icon--mo2"
+      aria-hidden="true"
+    >
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+      <line x1="12" y1="22.08" x2="12" y2="12" />
     </svg>
   );
 }
