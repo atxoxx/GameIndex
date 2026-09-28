@@ -523,11 +523,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
       steamTags
     );
 
-    // Download all images to base64 for offline use
-    const imageData = await fetchAllImages(metadata.images);
+    // Download artwork to disk under the new id and reference it through the
+    // asset protocol. Passing an id keeps full base64 images out of React
+    // state and out of the DB row (where they'd otherwise linger until the
+    // next boot externalized them).
+    const newGameId = generateId();
+    const imageData = await fetchAllImages(metadata.images, newGameId);
 
     const newGame: Game = {
-      id: generateId(),
+      id: newGameId,
       name: metadata.title,
       path: "",
       platform: "Store",
@@ -614,9 +618,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
           steamTags
         );
 
-        const imageData = await fetchAllImages(item.metadata.images);
+        const newGameId = generateId();
+        const imageData = await fetchAllImages(item.metadata.images, newGameId);
         newGame = {
-          id: generateId(),
+          id: newGameId,
           name: item.metadata.title,
           path: item.path,
           platform: "Local",
