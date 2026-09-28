@@ -58,22 +58,35 @@ export default function GameTabs<T extends string = string>({
     const container = containerRef.current;
     if (!container) return;
 
-    const handleUpdate = () => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
       const activeEl = tabRefs.current.get(activeTab);
-      if (activeEl) {
-        const containerRect = container.getBoundingClientRect();
-        const elRect = activeEl.getBoundingClientRect();
-        setIndicatorStyle({
-          left: elRect.left - containerRect.left + container.scrollLeft,
-          width: elRect.width,
-          opacity: 1,
-        });
-      }
+      if (!activeEl) return;
+      const containerRect = container.getBoundingClientRect();
+      const elRect = activeEl.getBoundingClientRect();
+      const next = {
+        left: elRect.left - containerRect.left + container.scrollLeft,
+        width: elRect.width,
+        opacity: 1,
+      };
+      // Coalesce to one geometry read per frame; scroll fires far faster.
+      setIndicatorStyle((prev) =>
+        prev.left === next.left && prev.width === next.width && prev.opacity === 1
+          ? prev
+          : next
+      );
+    };
+
+    const handleUpdate = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(update);
     };
 
     window.addEventListener("resize", handleUpdate);
     container.addEventListener("scroll", handleUpdate, { passive: true });
     return () => {
+      if (frame) cancelAnimationFrame(frame);
       window.removeEventListener("resize", handleUpdate);
       container.removeEventListener("scroll", handleUpdate);
     };
