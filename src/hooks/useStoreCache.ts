@@ -14,6 +14,8 @@ function emptyCache(): StoreCache {
 // the same map and deduplicate per debounced query window.
 
 const searchMemoryCache = new Map<string, { data: StoreGameSummary[]; fetchedAt: number }>();
+// Bounded so a browsing session can't retain a full result page per query.
+const MAX_SEARCH_CACHE_ENTRIES = 60;
 const searchCacheListeners = new Set<() => void>();
 const pendingSearchRequests = new Map<string, Promise<StoreGameSummary[]>>();
 
@@ -71,7 +73,14 @@ export function getCachedSearch(key: string): StoreGameSummary[] | null {
 }
 
 export function setCachedSearch(key: string, data: StoreGameSummary[]): void {
+  // Re-inserting moves the key to the end, making eviction least-recently-set.
+  searchMemoryCache.delete(key);
   searchMemoryCache.set(key, { data, fetchedAt: Date.now() });
+  while (searchMemoryCache.size > MAX_SEARCH_CACHE_ENTRIES) {
+    const oldest = searchMemoryCache.keys().next().value;
+    if (oldest === undefined) break;
+    searchMemoryCache.delete(oldest);
+  }
   notifySearchCache();
 }
 
