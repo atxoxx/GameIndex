@@ -17,6 +17,26 @@ import Splashscreen from "./Splashscreen";
 import "../styles/theme.css";
 import "../styles/themes.css";
 import "../styles/splashscreen.css";
+import "../styles/platform-linux.css";
+
+// This window mounts neither SettingsProvider nor the App.css barrel, so the
+// platform-scoped Linux overrides have to be opted into here. A synchronous
+// UA sniff (the same rule SettingsContext uses) sets the attribute before the
+// first paint, where an IPC round-trip would let a blurred frame show first.
+function detectPlatform(): string {
+  const ua = (navigator.userAgent || "").toLowerCase();
+  const plat = (navigator.platform || "").toLowerCase();
+  if (plat.includes("win") || ua.includes("windows")) return "windows";
+  if (plat.includes("linux") || ua.includes("linux")) return "linux";
+  if (plat.includes("mac") || ua.includes("macintosh") || ua.includes("macos")) {
+    return "macos";
+  }
+  return "windows";
+}
+
+if (typeof document !== "undefined") {
+  document.documentElement.dataset.platform = detectPlatform();
+}
 
 /** Snapshot mirrored from Rust (`launch_splash::LaunchSplashSnapshot`). */
 export interface LaunchSplashState {

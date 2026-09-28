@@ -536,10 +536,33 @@
           transition: none;
         }
       }
+
+      /* WebKitGTK renders filters in software, so these glows are blurred and
+         re-rasterised on every frame of a 3-5.5s infinite breathing
+         animation while the app boots. The radial gradients underneath
+         already fade to transparent, so dropping both the filter and the
+         animation is visually near-identical. `data-platform` is set by the
+         script below, before first paint. */
+      [data-platform="linux"] .ambient-glow-primary,
+      [data-platform="linux"] .ambient-glow-secondary,
+      [data-platform="linux"] .emblem-halo {
+        filter: none;
+        animation: none;
+      }
     </style>
     <script>
       (function () {
         var root = document.documentElement;
+
+        // Same platform rule SettingsContext applies to the main window, set
+        // here before first paint so the Linux overrides in the style block
+        // above are in effect from the first frame.
+        var ua = (navigator.userAgent || "").toLowerCase();
+        var plat = (navigator.platform || "").toLowerCase();
+        root.dataset.platform =
+          plat.indexOf("linux") !== -1 || ua.indexOf("linux") !== -1
+            ? "linux"
+            : "other";
 
         // Built-in palettes from src/styles/themes.css
         // [bg, text, sub, accent, accent-2]
@@ -1052,6 +1075,11 @@
           var particleCount = 32;
           var animationFrameId = null;
           var isReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          // A per-particle `shadowBlur` is the most expensive canvas operation
+          // in this loop and is invisible on a sub-3px dot, so it is skipped
+          // where the compositor is software (WebKitGTK on Linux).
+          var softParticles =
+            document.documentElement.dataset.platform !== "linux";
 
           function resizeCanvas() {
             var dpr = window.devicePixelRatio || 1;
@@ -1106,7 +1134,7 @@
               ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
               ctx.fillStyle = "rgba(255, 255, 255, " + Math.max(0, p.alpha) + ")";
               ctx.shadowColor = accentColor;
-              ctx.shadowBlur = 6;
+              ctx.shadowBlur = softParticles ? 6 : 0;
               ctx.fill();
 
               // Subtle connecting lines between close particles

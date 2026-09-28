@@ -92,3 +92,55 @@
 [data-platform="linux"] .dl-row-bar-fill--active {
   animation: none;
 }
+
+/* The six UI styles paint the shell, the sidebar and the card primitives with
+   `backdrop-filter` at `!important`, which the attribute-scoped declarations
+   above cannot override. These are the largest and longest-lived surfaces in
+   the app - `.app-main` is the whole content scroller - and on WebKitGTK each
+   one is a backdrop capture that is redone on every scroll frame. Their
+   backgrounds are already theme tints, so the blur is dropped here exactly as
+   the earlier passes did for the top nav and the modal scrims. */
+[data-platform="linux"] .app-main,
+[data-platform="linux"] .sidebar,
+[data-platform="linux"] .sidebar-filter-popover,
+[data-platform="linux"] .sidebar-view-options-menu,
+[data-platform="linux"] .sidebar-bulk-action-bar,
+[data-platform="linux"] .ui-card,
+[data-platform="linux"] .ui-card--glass,
+[data-platform="linux"] .kpi-tile,
+[data-platform="linux"] .lib-hero,
+[data-platform="linux"] .lib-group-header,
+[data-platform="linux"] .lib-filter-overlay-scrim,
+[data-platform="linux"] .settings-section,
+[data-platform="linux"] .settings-behavior-card,
+[data-platform="linux"] .modal,
+[data-platform="linux"] .context-menu,
+[data-platform="linux"] .ctx-menu,
+[data-platform="linux"] .ui-tooltip__content,
+[data-platform="linux"] .image-lightbox__backdrop,
+[data-platform="linux"] .image-lightbox__thumb-strip,
+[data-platform="linux"] .bigscreen-tab-bar,
+[data-platform="linux"] .bigscreen-search-scrim,
+[data-platform="linux"] .bigscreen-overlay-drawer,
+[data-platform="linux"] .bigscreen-overlay-drawer--modal {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* The launch splash runs while the game is starting - the worst moment to make
+   WebKitGTK capture and blur a full-size backdrop. Its root is a transparent
+   window with a window-wide blur, and its two glow layers re-rasterise a
+   20-24px blur on every frame of a 6-7s infinite breathing animation. The
+   gradients underneath already fade out, so removing the filter is visually
+   near-identical. The static ambient artwork keeps its one-off blur: it is
+   rasterised once and never re-blurred. */
+[data-platform="linux"] .splashscreen-root--window {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-platform="linux"] .splashscreen-ambient-glow-primary,
+[data-platform="linux"] .splashscreen-ambient-glow-secondary {
+  filter: none !important;
+  animation: none !important;
+}
