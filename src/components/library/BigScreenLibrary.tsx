@@ -146,23 +146,32 @@ export default function BigScreenLibrary() {
           </div>
 
           <button type="button" className="bigscreen-filter-chip" {...platformChip}>
-            {t("bigscreen.library.chipPlatform")} <span>{platformLabel}</span>
+            {t("bigscreen.library.chipPlatform", { value: platformLabel })}
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...genreChip}>
-            {t("bigscreen.library.chipGenre")} <span>{genreLabel}</span>
+            {t("bigscreen.library.chipGenre", { value: genreLabel })}
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...statusChip}>
-            {t("bigscreen.library.chipStatus")} <span>{filters.status === "all" ? t("common.all") : filters.status === "installed" ? t("filter.installed") : t("filter.notInstalled")}</span>
+            {t("bigscreen.library.chipStatus", {
+              value:
+                filters.status === "all"
+                  ? t("common.all")
+                  : filters.status === "installed"
+                    ? t("filter.installed")
+                    : t("filter.notInstalled"),
+            })}
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...sourceChip}>
-            {t("bigscreen.library.chipSource")} <span>{filters.source === "all" ? t("bigscreen.library.allSources") : filters.source.toUpperCase()}</span>
+            {t("bigscreen.library.chipSource", {
+              value: filters.source === "all" ? t("bigscreen.library.allSources") : filters.source.toUpperCase(),
+            })}
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...sortChip}>
-            {t("bigscreen.library.chipSort")} <span>{SORT_LABELS[filters.sort]}</span>
+            {t("bigscreen.library.chipSort", { value: SORT_LABELS[filters.sort] })}
           </button>
 
           {(filters.search ||
