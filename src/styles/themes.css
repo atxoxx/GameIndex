@@ -1223,7 +1223,7 @@
 }
 
 /* =============================================================================
-   DISTINCT UI STYLE THEMES (Material You 3, Steam, Epic, Neo-Modern, Liquid Glass)
+   DISTINCT UI STYLE THEMES (Material You 3, Steam, Cyberdeck, Fluent, Liquid Glass)
    ============================================================================= */
 
 /* ── 20. Material You 3 (Expressive Tonal Surfaces & Pill Geometry) ───────── */
@@ -1357,7 +1357,7 @@
   --shadow-glow: 0 0 16px var(--color-accent-glow);
 }
 
-/* ── 22. Epic Launcher (Stealth Obsidian Slabs & High Contrast) ──────────── */
+/* ── 22. Cyberdeck (Neon Terminal Grid & Obsidian) ───────────────────────── */
 [data-theme="epic"] {
   color-scheme: dark;
   --color-bg-primary: #121212;
@@ -1419,7 +1419,7 @@
   --shadow-glow: 0 0 16px var(--color-accent-glow);
 }
 
-/* ── 23. Neo-Modern (Studio Precision & Hairline Minimal) ────────────────── */
+/* ── 23. Fluent (Mica Depth & Hairline Precision) ────────────────────────── */
 [data-theme="modern"] {
   color-scheme: dark;
   --color-bg-primary: #09090b;

@@ -1056,11 +1056,12 @@ textarea.settings-input {
 /* Individual preview aesthetics — every backdrop is derived from theme
    tokens, so each re-tints itself under light / OLED / custom palettes.
    The six separate by *composition* as much as colour: a beveled plinth
-   (classic), a tonal halo + FAB (materialyou), a brushed steel shelf
-   (steam), a gridded frame with a corner bracket (epic), a studio
-   baseline (modern) and layered frosted panes (liquidglass). Each preview
-   gets its own pseudo-element scenery so the styles read apart before you
-   parse a single border radius. */
+   (classic), a tonal halo + FAB (materialyou), a scanned CRT backplane
+   (steam), a neon HUD grid with a targeting bracket (epic), a Mica sheet
+   carrying an accent underline (modern) and a vibrant gradient curtain
+   behind frosted panes (liquidglass). Each preview gets its own
+   pseudo-element scenery so the styles read apart before you parse a
+   single border radius. */
 .ui-style-preview--classic {
   background:
     linear-gradient(
@@ -1125,10 +1126,17 @@ textarea.settings-input {
   z-index: 0;
 }
 
-/* Steam is a steel plate: brushed vertical streaks over a banded sheet
-   with a hard seam, so it stays a distinct metal even under light themes. */
+/* Steam is a CRT backplane: horizontal scanlines ruled over brushed vertical
+   streaks on a banded steel sheet, so it stays a distinct metal under light. */
 .ui-style-preview--steam {
   background:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-text-primary) 5%, transparent) 0,
+      color-mix(in srgb, var(--color-text-primary) 5%, transparent) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
     repeating-linear-gradient(
       90deg,
       color-mix(in srgb, var(--color-text-primary) 3%, transparent) 0,
@@ -1179,15 +1187,18 @@ textarea.settings-input {
   z-index: 0;
 }
 
+/* Epic is a live neon grid: accent rules over a bloom, with a targeting
+   bracket in the corner. */
 .ui-style-preview--epic {
   background-color: var(--color-bg-primary);
   background-image:
-    linear-gradient(color-mix(in srgb, var(--color-text-primary) 6%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--color-text-primary) 6%, transparent) 1px, transparent 1px);
-  background-size: 14px 14px;
+    linear-gradient(color-mix(in srgb, var(--color-accent) 12%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 12%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse 84% 62% at 50% 0%, color-mix(in srgb, var(--color-accent) 22%, transparent) 0%, transparent 72%);
+  background-size: 14px 14px, 14px 14px, auto;
 }
 
-/* Header rule — a hard accent slab backed by a flat rail. */
+/* Header rule — a glowing accent slab backed by a flat rail. */
 .ui-style-preview--epic::before {
   content: "";
   position: absolute;
@@ -1202,10 +1213,11 @@ textarea.settings-input {
     color-mix(in srgb, var(--color-text-primary) 16%, transparent) 34%,
     color-mix(in srgb, var(--color-text-primary) 16%, transparent) 100%
   );
+  box-shadow: 0 0 16px var(--color-accent-glow);
   z-index: 0;
 }
 
-/* Corner bracket — the brutalist full stop. */
+/* Corner bracket — the HUD targeting reticle. */
 .ui-style-preview--epic::after {
   content: "";
   position: absolute;
@@ -1215,13 +1227,17 @@ textarea.settings-input {
   height: 20px;
   border-right: 2px solid var(--color-accent);
   border-bottom: 2px solid var(--color-accent);
+  filter: drop-shadow(0 0 6px var(--color-accent-glow));
   z-index: 0;
 }
 
+/* Modern is a Windows 11 Mica wallpaper wash: an accent-tinted field with a
+   soft second bloom, carrying an acrylic sheet in front. */
 .ui-style-preview--modern {
   background:
-    radial-gradient(ellipse 70% 48% at 50% 0%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 74%),
-    var(--color-bg-primary);
+    radial-gradient(ellipse 90% 58% at 50% -8%, color-mix(in srgb, var(--color-accent) 16%, transparent) 0%, transparent 72%),
+    radial-gradient(ellipse 60% 42% at 104% 108%, color-mix(in srgb, var(--color-accent-2) 10%, transparent) 0%, transparent 72%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg-secondary) 92%, transparent) 0%, var(--color-bg-primary) 100%);
 }
 
 /* Studio baseline hairline — the only structure behind the panel. */
@@ -1242,11 +1258,13 @@ textarea.settings-input {
   z-index: 0;
 }
 
+/* Liquid Glass sits on a vibrant curtain: a few huge, smooth accent gradients
+   rather than a busy mesh. */
 .ui-style-preview--liquidglass {
   background:
-    radial-gradient(circle at 20% 16%, color-mix(in srgb, var(--color-accent) 55%, transparent) 0%, transparent 58%),
-    radial-gradient(circle at 84% 82%, color-mix(in srgb, var(--color-accent-2) 48%, transparent) 0%, transparent 58%),
-    radial-gradient(circle at 72% 10%, color-mix(in srgb, var(--color-info) 30%, transparent) 0%, transparent 55%),
+    radial-gradient(110% 80% at 10% -6%, color-mix(in srgb, var(--color-accent) 48%, transparent) 0%, transparent 62%),
+    radial-gradient(90% 70% at 104% 10%, color-mix(in srgb, var(--color-accent-2) 40%, transparent) 0%, transparent 62%),
+    radial-gradient(110% 80% at 48% 112%, color-mix(in srgb, var(--color-accent-hover) 30%, transparent) 0%, transparent 66%),
     var(--color-bg-primary);
 }
 
@@ -1311,54 +1329,68 @@ textarea.settings-input {
 
 /* materialyou — M3 Expressive: filled-tonal container, ultra-round, soft
    blurred elevation and airy padding. Geometry lg (24px). */
+/* materialyou — M3 Expressive: deep filled-tonal container, hard squircle,
+   soft blurred elevation and airy padding. */
 .ui-style-mock--materialyou {
-  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface-raised));
-  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
-  border-radius: 24px;
+  background: color-mix(in srgb, var(--color-accent) 24%, var(--color-surface-raised));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-radius: 28px;
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 16%, transparent),
     var(--shadow-md);
   padding: 12px 18px;
 }
 
-/* steam — industrial: near-square, 2px rules and a genuinely recessed tray
-   (dark top edge, shaded top lip). Geometry lg (4px). */
+/* steam — industrial CRT: near-square, ruled edge, a genuinely recessed tray
+   and a phosphor bloom. */
 .ui-style-mock--steam {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-bg-primary) 78%, var(--color-surface-raised)) 0%,
-    var(--color-surface-raised) 100%
-  );
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--color-text-primary) 5%, transparent) 0, color-mix(in srgb, var(--color-text-primary) 5%, transparent) 1px, transparent 1px, transparent 3px),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-primary) 78%, var(--color-surface-raised)) 0%,
+      var(--color-surface-raised) 100%
+    );
   border: 2px solid color-mix(in srgb, var(--color-text-primary) 24%, transparent);
   border-radius: 4px;
   box-shadow:
     inset 0 3px 6px color-mix(in srgb, var(--color-scrim) 62%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+    inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 10%, transparent),
+    0 0 16px var(--color-accent-glow);
   padding: 9px 12px;
 }
 
-/* epic — brutalist: zero radius, 2px flat border, no elevation at all. */
+/* epic — neon HUD: zero radius, glowing accent edge and an inner wash. */
 .ui-style-mock--epic {
-  background: var(--color-surface-raised);
-  border: 2px solid color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+  position: relative;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-raised)) 0%, var(--color-surface-raised) 100%);
+  border: 1px solid var(--color-accent);
   border-radius: 0;
-  box-shadow: none;
+  box-shadow:
+    0 0 18px var(--color-accent-glow),
+    inset 0 0 14px color-mix(in srgb, var(--color-accent) 14%, transparent);
   padding: 9px 12px;
 }
 
-/* modern — studio minimal: a borderless-at-rest hairline panel carrying the
-   signature laser-thin accent underline. No bevel, no inset highlight. The
-   hairline only resolves under the card's hover. */
+/* modern — Fluent: an acrylic Mica panel with a fine edge and the signature
+   accent underline text field. The edge brightens under the card's hover. */
 .ui-style-mock--modern {
-  background: var(--color-surface);
-  border: 1px solid transparent;
-  border-radius: 13px;
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--color-scrim) 26%, transparent);
-  transition: border-color var(--duration-normal) var(--ease-standard);
+  background: color-mix(in srgb, var(--color-surface-raised) 78%, transparent);
+  backdrop-filter: blur(var(--blur-md)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(120%);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent),
+    0 12px 30px color-mix(in srgb, var(--color-scrim) 24%, transparent);
+  transition: border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
 }
 
 .ui-style-card:hover .ui-style-mock--modern {
-  border-color: var(--color-border);
+  border-color: var(--color-border-light);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 8%, transparent),
+    0 16px 36px color-mix(in srgb, var(--color-scrim) 30%, transparent);
 }
 
 .ui-style-mock--modern::after {
@@ -1380,17 +1412,18 @@ textarea.settings-input {
   z-index: 0;
 }
 
-/* liquidglass — frosted: translucent fill, backdrop blur, translucent
-   hairline, inset gloss and a soft bloom. Geometry xl (22px). */
+/* liquidglass — a Big Sur vibrancy pane: translucent fill, strong backdrop
+   blur, translucent hairline, inset gloss, deep squircle and a soft bloom. */
 .ui-style-mock--liquidglass {
   background: color-mix(in srgb, var(--color-surface-raised) 34%, transparent);
   backdrop-filter: blur(var(--blur-md)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%);
   border: 1px solid color-mix(in srgb, var(--color-text-primary) 26%, transparent);
-  border-radius: 22px;
+  border-radius: 26px;
   box-shadow:
-    inset 0 1px 1px color-mix(in srgb, var(--color-text-primary) 34%, transparent),
-    0 8px 24px var(--color-accent-glow);
+    inset 0 1px 1px color-mix(in srgb, var(--color-text-primary) 38%, transparent),
+    inset 0 -2px 6px color-mix(in srgb, var(--color-scrim) 18%, transparent),
+    0 10px 28px var(--color-accent-glow);
 }
 
 .ui-style-mock-pill {
@@ -1420,7 +1453,7 @@ textarea.settings-input {
   box-shadow: 0 4px 14px var(--color-accent-glow);
 }
 
-/* steam — beveled gradient block, uppercase industrial tracking. */
+/* steam — beveled gradient block, uppercase mono tracking, phosphor lit. */
 .ui-style-mock-pill--steam {
   border-radius: 3px;
   background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
@@ -1430,12 +1463,14 @@ textarea.settings-input {
   letter-spacing: 0.06em;
   font-size: 10px;
   font-weight: 700;
+  font-family: var(--font-mono);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 35%, transparent),
-    inset 0 -1px 0 var(--color-accent-active);
+    inset 0 -1px 0 var(--color-accent-active),
+    0 0 14px var(--color-accent-glow);
 }
 
-/* epic — flat solid accent slab, zero radius, wide-tracked uppercase. */
+/* epic — flat solid accent slab, zero radius, wide-tracked uppercase, neon lit. */
 .ui-style-mock-pill--epic {
   border-radius: 0;
   background: var(--color-accent);
@@ -1443,8 +1478,10 @@ textarea.settings-input {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-weight: 800;
+  font-family: var(--font-mono);
   font-size: 9.5px;
   padding: 5px 12px;
+  box-shadow: 0 0 14px var(--color-accent-glow);
 }
 
 /* modern — ghost hairline pill: the accent lives in the underline, not the
@@ -1458,15 +1495,17 @@ textarea.settings-input {
   letter-spacing: -0.01em;
 }
 
-/* liquidglass — large accent gradient capsule with an inset gloss. */
+/* liquidglass — the Aqua gel capsule: saturated base, bright top band, a
+   specular gloss and a soft bloom. */
 .ui-style-mock-pill--liquidglass {
   border-radius: 9999px;
-  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 80%, var(--color-accent-contrast)) 0%, var(--color-accent) 48%, var(--color-accent-active) 100%);
   color: var(--color-accent-contrast);
-  border: 1px solid color-mix(in srgb, var(--color-text-primary) 32%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 42%, transparent);
   padding: 5px 14px;
   box-shadow:
-    inset 0 1px 1px color-mix(in srgb, var(--color-accent-contrast) 55%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 60%, transparent),
+    inset 0 -2px 5px color-mix(in srgb, var(--color-scrim) 22%, transparent),
     0 4px 16px var(--color-accent-glow);
 }
 
@@ -1477,12 +1516,13 @@ textarea.settings-input {
   letter-spacing: -0.01em;
 }
 
-/* Industrial / brutalist labels track wide and shout in caps. */
+/* Industrial / brutalist labels track wide, shout in caps and read as mono. */
 .ui-style-mock--steam .ui-style-mock-tag {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 10px;
   font-weight: 700;
+  font-family: var(--font-mono);
   color: var(--color-text-muted);
 }
 
@@ -1491,6 +1531,7 @@ textarea.settings-input {
   letter-spacing: 0.14em;
   font-size: 10px;
   font-weight: 800;
+  font-family: var(--font-mono);
   color: var(--color-text-primary);
 }
 

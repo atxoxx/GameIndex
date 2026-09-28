@@ -81,7 +81,7 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs) — with animated game backdrops, focus memory, and fluid rail wrapping. |
 | **Live Player Counts** | Steam player counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
 | **Command Palette** | Global `Ctrl/Cmd+K` launcher for navigation, search, and system actions — recents, calculator, cheat sheet, random-game picker, and power filters — with synthesized UI sounds and a live now-playing chip. |
-| **Themes & UI Styles** | **Six selectable UI styles** — Classic, Neo-Modern, Steam Client, Epic Launcher, Material You 3 and Liquid Glass — each a distinct token-driven architecture, on top of adaptive theming that samples the active game's artwork into chrome accents, dark/light + alternate color themes with a custom accent picker, and a full **theme creator** (live preview, presets, JSON import/export). |
+| **Themes & UI Styles** | **Six selectable UI styles** — Classic, Fluent, Steam Client, Cyberdeck, Material You 3 and Liquid Glass — each a distinct token-driven architecture, on top of adaptive theming that samples the active game's artwork into chrome accents, dark/light + alternate color themes with a custom accent picker, and a full **theme creator** (live preview, presets, JSON import/export). |
 | **Layout Studio** | Settings → Interface: a live layout editor for the whole shell — toggle and reorder navbar tabs, header buttons, sidebar dock and sections, per-page widgets, detail-page tabs, the detail top bar and individual side cards, plus a free-form 12-column hero grid. Viewport previews (16:9 / 16:10 / 21:9 / 4:3), inspect mode, built-in presets and JSON import/export. |
 | **Customizable Interface** | Drag-and-drop top-nav ordering with per-item visibility, right-click context menus across library, downloads, store, mods, news, emulators and storage, a resizable sidebar that folds to an icon rail on narrow windows, a settings hub with category navigation and search, and fluid layouts tuned for handhelds and Steam Deck. |
 | **i18n & Privacy** | Six-language support via `LanguageContext` (English, German, French, Spanish, Russian, Chinese) and a Privacy & Data tab to view and wipe local storage. |
@@ -425,7 +425,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Native Linux emulator installs (AppImage/tarball) & Flatpak/Snap discovery
 - ✅ Standalone always-on-top launch splash window that survives minimize-on-launch
 - ✅ Layout Studio — whole-app layout editor with per-page widgets, reorderable detail top bar, itemized side cards and a free-form hero grid, plus presets and JSON import/export
-- ✅ Six token-driven UI styles (Classic, Neo-Modern, Steam Client, Epic Launcher, Material You 3, Liquid Glass)
+- ✅ Six token-driven UI styles (Classic, Fluent, Steam Client, Cyberdeck, Material You 3, Liquid Glass)
 - ✅ Settings hub with top-category navigation, search and collapsible subtabs
 - ✅ In-app Web Links browser with address bar, zoom and a personal links manager
 - ✅ Stats dashboard (overview, trends, achievements, captures gallery, milestones)

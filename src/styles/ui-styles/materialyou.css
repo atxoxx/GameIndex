@@ -1,11 +1,17 @@
 /* =============================================================================
-   4. UI Style: Material You (M3 Expressive — Tonal Containers & Pill Geometry)
+   4. UI Style: Material You (M3 Expressive — Tonal Containers & Shape Morph)
    ─────────────────────────────────────────────────────────────────────────────
    A floating, accent-tinted shell with generous margin. Surfaces are *tonal
-   containers* — accent mixed into a theme surface, never flat neutral — lifted
-   by soft, wide elevation. Controls round to capsules, cards to 28px, and
-   interaction answers with tonal fill + glow + a small vertical lift, never a
-   text-blurring scale. Signature: the full-capsule pill FAB.
+   containers* — accent mixed deep into a theme surface, never flat neutral —
+   lifted by soft, wide elevation. Controls round to capsules and cards to hard
+   expressive squircles. This layer commits hard to **M3 Expressive**: the tonal
+   ladder is stronger, the radius ladder is bigger and more varied, primary
+   actions wear a two-tone accent gradient, and interactive tiles **morph their
+   corner radius** on hover (large → medium) as they rise — the shape language
+   doing the talking, not a border.
+
+   Signature: the full-capsule pill FAB, the oversized radial tonal halo behind
+   the shell, and the springy overshoot in the M3 emphasized motion scheme.
    Token-driven only (`--color-*` / `--color-surface*` + color-mix of those), so
    every theme reskins it for free; the radius ladder is the one place raw px
    lives. Every rule is `!important`, every resting property restates its
@@ -14,18 +20,18 @@
    dialogs, list store cards) are re-asserted after their generic rule.
    Responsive size / padding / font-size is never forced.
 
-   Round 2 — app-wide propagation: the token block also redefines the elevation
-   ladder (soft, wide, low-alpha tonal depth) and the motion tokens (M3
-   "emphasized" easing), which every feature page reads, plus an identical
-   app-wide label-typography layer and a high-contrast guard.
+   App-wide propagation: the token block also redefines the elevation ladder
+   (soft, wide, low-alpha tonal depth) and the motion tokens (M3 "emphasized"
+   easing with a gentle overshoot), which every feature page reads, plus an
+   identical app-wide label-typography layer and a high-contrast guard.
    ============================================================================= */
 [data-ui-style="materialyou"] {
-  /* Canonical M3 radius ladder — hard, expressive rounding. */
-  --radius-xs: 8px; --radius-sm: 14px; --radius-md: 20px; --radius-lg: 28px; --radius-xl: 36px; --radius-2xl: 48px; --radius-3xl: 60px;
+  /* Canonical M3 Expressive radius ladder — hard, varied rounding. */
+  --radius-xs: 10px; --radius-sm: 16px; --radius-md: 22px; --radius-lg: 30px; --radius-xl: 38px; --radius-2xl: 50px; --radius-3xl: 64px;
 
   /* Tonal strength ladder — the light theme raises it below, because the same
      accent mix that reads on a dark surface vanishes over pure white. */
-  --m3-strength-low: 4%; --m3-strength-mid: 8%; --m3-strength-high: 15%;
+  --m3-strength-low: 6%; --m3-strength-mid: 11%; --m3-strength-high: 19%;
 
   /* Internal aliases — referenced only inside this layer. */
   --m3-outline: color-mix(in srgb, var(--color-text-primary) 12%, transparent); --m3-outline-strong: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
@@ -37,50 +43,51 @@
   --m3-ring: 0 0 0 3px var(--color-focus-ring);
   --m3-control: color var(--duration-normal) var(--ease-standard), background-color var(--duration-normal) var(--ease-standard),
     border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard),
-    filter var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+    filter var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard), border-radius var(--duration-normal) var(--ease-standard);
   --m3-surface: background-color var(--duration-slow) var(--ease-standard), border-color var(--duration-slow) var(--ease-standard),
-    box-shadow var(--duration-slow) var(--ease-standard), transform var(--duration-slow) var(--ease-standard);
+    box-shadow var(--duration-slow) var(--ease-standard), transform var(--duration-slow) var(--ease-standard), border-radius var(--duration-slow) var(--ease-standard);
 
   /* ── App-wide propagation: elevation + motion ──────────────────────────────
      Every feature surface reads this ladder, so redefining it restyles the
      whole app, not just chrome. Shadows use the mode-agnostic scrim ink (dark
      ink on white AND on OLED) — never --color-text-primary, which flips light. */
   --elevation-1: 0 1px 2px color-mix(in srgb, var(--color-scrim) 10%, transparent);
-  --elevation-2: 0 2px 6px color-mix(in srgb, var(--color-scrim) 14%, transparent), 0 8px 24px color-mix(in srgb, var(--color-scrim) 11%, transparent);
-  --elevation-3: 0 4px 12px color-mix(in srgb, var(--color-scrim) 16%, transparent), 0 16px 40px color-mix(in srgb, var(--color-scrim) 13%, transparent);
-  --elevation-4: 0 6px 18px color-mix(in srgb, var(--color-scrim) 18%, transparent), 0 24px 56px color-mix(in srgb, var(--color-scrim) 15%, transparent);
-  --elevation-5: 0 10px 28px color-mix(in srgb, var(--color-scrim) 22%, transparent), 0 40px 88px color-mix(in srgb, var(--color-scrim) 18%, transparent);
+  --elevation-2: 0 2px 7px color-mix(in srgb, var(--color-scrim) 14%, transparent), 0 10px 28px color-mix(in srgb, var(--color-scrim) 11%, transparent);
+  --elevation-3: 0 5px 14px color-mix(in srgb, var(--color-scrim) 16%, transparent), 0 18px 46px color-mix(in srgb, var(--color-scrim) 13%, transparent);
+  --elevation-4: 0 8px 22px color-mix(in srgb, var(--color-scrim) 18%, transparent), 0 28px 64px color-mix(in srgb, var(--color-scrim) 15%, transparent);
+  --elevation-5: 0 12px 34px color-mix(in srgb, var(--color-scrim) 22%, transparent), 0 46px 100px color-mix(in srgb, var(--color-scrim) 18%, transparent);
   --shadow-xs: var(--elevation-1);
   --shadow-sm: var(--elevation-2);
   --shadow-md: var(--elevation-3);
   --shadow-lg: var(--elevation-4);
   --shadow-xl: var(--elevation-5);
 
-  /* M3 "emphasized" motion — expressive decelerate on entry, calm standard. */
+  /* M3 "emphasized" motion — expressive decelerate on entry, with a gentle
+     spring overshoot so key interactions feel alive rather than mechanical. */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-enter: cubic-bezier(0.2, 1.35, 0.35, 1);
   --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);
   --ease-in-out: cubic-bezier(0.2, 0, 0, 1);
   --duration-instant: 100ms;
   --duration-fast: 180ms;
-  --duration-normal: 280ms;
-  --duration-slow: 420ms;
-  --duration-slower: 600ms;
+  --duration-normal: 300ms;
+  --duration-slow: 440ms;
+  --duration-slower: 640ms;
 }
 
 /* Light surfaces swallow a low accent mix, so the tonal ladder steps up before
    the M3 containers read as toned rather than generic white. */
 [data-theme="light"][data-ui-style="materialyou"] {
-  --m3-strength-low: 8%; --m3-strength-mid: 14%; --m3-strength-high: 22%;
+  --m3-strength-low: 10%; --m3-strength-mid: 16%; --m3-strength-high: 25%;
 }
 
 /* ── Canvas ─────────────────────────────────────────────────────────────── */
 [data-ui-style="materialyou"] .app-layout {
   padding: var(--space-sm) !important; background-color: var(--color-bg-primary) !important;
   background-image:
-    radial-gradient(ellipse 90% 60% at 50% -12%, color-mix(in srgb, var(--color-accent) 16%, transparent) 0%, transparent 68%),
-    radial-gradient(ellipse 70% 50% at 100% 100%, color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 10%, transparent) 0%, transparent 70%),
+    radial-gradient(ellipse 96% 62% at 50% -14%, color-mix(in srgb, var(--color-accent) 20%, transparent) 0%, transparent 66%),
+    radial-gradient(ellipse 74% 52% at 104% 104%, color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 13%, transparent) 0%, transparent 70%),
     var(--color-bg-gradient) !important;
 }
 [data-ui-style="materialyou"] .app-main {
@@ -96,13 +103,13 @@
 }
 /* Preserve the runtime per-game accent chrome wash (ordered after the generic bar). */
 [data-ui-style="materialyou"][data-game-accent] .topnav {
-  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-bg-primary)) !important; border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent) !important;
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-primary)) !important; border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent) !important;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent) 24%, transparent) !important;
 }
 [data-ui-style="materialyou"] .topnav-logo__word { color: var(--color-accent) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-extrabold) !important; letter-spacing: -0.03em !important; }
 [data-ui-style="materialyou"] .topnav-logo__version {
-  border-radius: var(--radius-full) !important; color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)) !important;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent) !important;
+  border-radius: var(--radius-full) !important; color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface-raised)) !important;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent) !important;
   font-weight: var(--font-weight-semibold) !important; font-variant-numeric: tabular-nums !important;
 }
 [data-ui-style="materialyou"] .topnav-tabs {
@@ -111,7 +118,7 @@
 [data-ui-style="materialyou"] .topnav-tab { border-radius: var(--radius-full) !important; color: var(--color-text-secondary) !important; font-weight: var(--font-weight-medium) !important; transition: var(--m3-control) !important; }
 [data-ui-style="materialyou"] .topnav-tab:not(.active):hover { color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; }
 [data-ui-style="materialyou"] .topnav-tab.active {
-  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: 0 2px 12px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent) !important;
+  color: var(--color-accent-contrast) !important; background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent)) 100%) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: 0 3px 16px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent) !important;
 }
 [data-ui-style="materialyou"] .topnav-tab:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
 [data-ui-style="materialyou"] .topnav-btn--cmd {
@@ -137,7 +144,7 @@
 [data-ui-style="materialyou"] .sidebar { border: none !important; border-radius: 0 !important; background: var(--m3-tonal-low) !important; box-shadow: var(--m3-bevel), inset -1px 0 0 var(--m3-outline) !important; }
 /* Preserve the runtime per-game accent wash. */
 [data-ui-style="materialyou"][data-game-accent] .sidebar {
-  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary)) !important; box-shadow: var(--m3-bevel), inset -1px 0 0 color-mix(in srgb, var(--color-accent) 24%, transparent) !important;
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)) !important; box-shadow: var(--m3-bevel), inset -1px 0 0 color-mix(in srgb, var(--color-accent) 24%, transparent) !important;
 }
 /* Docked-right flips the hairline edge to the sidebar's left side. */
 [data-ui-style="materialyou"][data-sidebar-position="right"] .sidebar { box-shadow: var(--m3-bevel), inset 1px 0 0 var(--m3-outline) !important; }
@@ -151,11 +158,11 @@
 [data-ui-style="materialyou"] .sidebar-game-item:hover:not(.active) { background: var(--m3-tonal) !important; box-shadow: var(--m3-bevel) !important; }
 [data-ui-style="materialyou"] .sidebar-game-item:active:not(.active) { background: var(--m3-tonal-high) !important; }
 [data-ui-style="materialyou"] .sidebar-game-item.active {
-  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface-raised)) !important; box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 26%, transparent), var(--m3-bevel) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 24%, var(--color-surface-raised)) 0%, color-mix(in srgb, var(--color-accent) 16%, var(--color-surface-raised)) 100%) !important; box-shadow: 0 3px 16px color-mix(in srgb, var(--color-accent) 28%, transparent), var(--m3-bevel) !important;
 }
-[data-ui-style="materialyou"] .sidebar-game-item.active:hover { background: color-mix(in srgb, var(--color-accent) 29%, var(--color-surface-raised)) !important; }
+[data-ui-style="materialyou"] .sidebar-game-item.active:hover { background: color-mix(in srgb, var(--color-accent) 30%, var(--color-surface-raised)) !important; }
 [data-ui-style="materialyou"] .sidebar-game-item.bulk-selected,
-[data-ui-style="materialyou"] .sidebar-game-item.bulk-selected:hover { background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface-raised)) !important; }
+[data-ui-style="materialyou"] .sidebar-game-item.bulk-selected:hover { background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface-raised)) !important; }
 [data-ui-style="materialyou"] .sidebar-game-item:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
 /* M3 pill navigation has no left rail indicator. */
 [data-ui-style="materialyou"] .sidebar-game-item::after { display: none !important; }
@@ -169,13 +176,13 @@
    inner title text separately, so both nodes are re-set here. */
 [data-ui-style="materialyou"] .sidebar-section-header,
 [data-ui-style="materialyou"] .sidebar-section-header .sidebar-section-title-text { text-transform: none !important; letter-spacing: normal !important; }
-[data-ui-style="materialyou"] .sidebar-section-header { color: var(--color-accent) !important; font-weight: var(--font-weight-medium) !important; }
+[data-ui-style="materialyou"] .sidebar-section-header { color: var(--color-accent) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-semibold) !important; }
 [data-ui-style="materialyou"] .sidebar-filter-btn {
   border-radius: var(--radius-full) !important; background: var(--m3-tonal) !important; border: 1px solid var(--m3-outline) !important; color: var(--color-text-secondary) !important; box-shadow: var(--m3-bevel) !important; transition: var(--m3-control) !important;
 }
 [data-ui-style="materialyou"] .sidebar-filter-btn:hover { color: var(--color-text-primary) !important; background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 40%, transparent) !important; }
 [data-ui-style="materialyou"] .sidebar-filter-btn.active {
-  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: 0 2px 12px var(--color-accent-glow) !important;
+  color: var(--color-accent-contrast) !important; background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent)) 100%) !important; border-color: var(--color-accent) !important; box-shadow: 0 3px 14px var(--color-accent-glow) !important;
 }
 [data-ui-style="materialyou"] .sidebar-filter-btn:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
 [data-ui-style="materialyou"] .sidebar-section-toggle {
@@ -195,20 +202,21 @@
 [data-ui-style="materialyou"] .ui-btn { border-radius: var(--radius-full) !important; font-weight: var(--font-weight-semibold) !important; transition: var(--m3-control) !important; }
 [data-ui-style="materialyou"] .ui-btn--sm,
 [data-ui-style="materialyou"] .ui-btn--lg { border-radius: var(--radius-full) !important; }
+/* Expressive primary: a two-tone accent gradient that grows on hover. */
 [data-ui-style="materialyou"] .ui-btn--primary {
-  background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent), 0 4px 16px var(--color-accent-glow) !important;
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent)) 100%) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 28%, transparent), 0 5px 20px var(--color-accent-glow) !important;
 }
 [data-ui-style="materialyou"] .ui-btn--primary:hover:not(:disabled) {
-  filter: brightness(1.08) !important; transform: translateY(-1px) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 34%, transparent), 0 8px 26px var(--color-accent-glow) !important;
+  filter: brightness(1.08) !important; transform: scale(1.02) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 36%, transparent), 0 10px 30px var(--color-accent-glow) !important;
 }
 [data-ui-style="materialyou"] .ui-btn--primary:active:not(:disabled) {
-  filter: brightness(0.96) !important; transform: translateY(0) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 20%, transparent), 0 2px 10px var(--color-accent-glow) !important;
+  filter: brightness(0.96) !important; transform: scale(0.98) !important; box-shadow: inset 0 2px 8px color-mix(in srgb, var(--color-scrim) 30%, transparent), 0 3px 12px var(--color-accent-glow) !important;
 }
 [data-ui-style="materialyou"] .ui-btn--secondary {
   background: var(--m3-tonal) !important; color: var(--color-accent) !important; border-color: color-mix(in srgb, var(--color-accent) 22%, transparent) !important; box-shadow: var(--m3-bevel) !important;
 }
 [data-ui-style="materialyou"] .ui-btn--secondary:hover:not(:disabled) {
-  background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 42%, transparent) !important; transform: translateY(-1px) !important; box-shadow: var(--m3-bevel), 0 4px 16px var(--color-accent-glow) !important;
+  background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 42%, transparent) !important; transform: translateY(-2px) !important; box-shadow: var(--m3-bevel), 0 6px 18px var(--color-accent-glow) !important;
 }
 [data-ui-style="materialyou"] .ui-btn--secondary:active:not(:disabled) {
   background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface-raised)) !important; transform: translateY(0) !important; box-shadow: var(--m3-bevel) !important;
@@ -217,12 +225,12 @@
 [data-ui-style="materialyou"] .ui-btn--ghost:hover:not(:disabled) { background: var(--m3-tonal) !important; color: var(--color-text-primary) !important; border-color: transparent !important; transform: translateY(-1px) !important; }
 [data-ui-style="materialyou"] .ui-btn--ghost:active:not(:disabled) { background: var(--m3-tonal-high) !important; transform: translateY(0) !important; }
 [data-ui-style="materialyou"] .ui-btn--danger {
-  background: var(--color-danger) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 20%, transparent), 0 4px 16px color-mix(in srgb, var(--color-danger) 32%, transparent) !important;
+  background: var(--color-danger) !important; color: var(--color-accent-contrast) !important; border-color: transparent !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 20%, transparent), 0 5px 20px color-mix(in srgb, var(--color-danger) 34%, transparent) !important;
 }
 [data-ui-style="materialyou"] .ui-btn--danger:hover:not(:disabled) {
-  filter: brightness(1.08) !important; transform: translateY(-1px) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent), 0 8px 24px color-mix(in srgb, var(--color-danger) 44%, transparent) !important;
+  filter: brightness(1.08) !important; transform: scale(1.02) !important; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent), 0 10px 28px color-mix(in srgb, var(--color-danger) 46%, transparent) !important;
 }
-[data-ui-style="materialyou"] .ui-btn--danger:active:not(:disabled) { filter: brightness(0.96) !important; transform: translateY(0) !important; }
+[data-ui-style="materialyou"] .ui-btn--danger:active:not(:disabled) { filter: brightness(0.96) !important; transform: scale(0.98) !important; }
 [data-ui-style="materialyou"] .ui-btn:focus-visible,
 [data-ui-style="materialyou"] .ui-btn--primary:focus-visible,
 [data-ui-style="materialyou"] .ui-btn--secondary:focus-visible,
@@ -231,12 +239,12 @@
 [data-ui-style="materialyou"] .ui-btn__icon { display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important; }
 [data-ui-style="materialyou"] .ui-btn__label { display: inline-flex !important; align-items: center !important; min-width: 0 !important; }
 [data-ui-style="materialyou"] .lib-card-list-play-btn {
-  border-radius: var(--radius-full) !important; background: var(--color-accent) !important; color: var(--color-accent-contrast) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: 0 3px 14px var(--color-accent-glow) !important; transition: var(--m3-control) !important;
+  border-radius: var(--radius-full) !important; background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent)) 100%) !important; color: var(--color-accent-contrast) !important; font-weight: var(--font-weight-semibold) !important; box-shadow: 0 4px 18px var(--color-accent-glow) !important; transition: var(--m3-control) !important;
 }
-[data-ui-style="materialyou"] .lib-card-list-play-btn:hover { transform: translateY(-1px) !important; box-shadow: 0 6px 20px var(--color-accent-glow) !important; }
-[data-ui-style="materialyou"] .lib-card-list-play-btn:active { transform: translateY(0) !important; }
+[data-ui-style="materialyou"] .lib-card-list-play-btn:hover { transform: scale(1.07) !important; box-shadow: 0 8px 24px var(--color-accent-glow) !important; }
+[data-ui-style="materialyou"] .lib-card-list-play-btn:active { transform: scale(0.98) !important; }
 [data-ui-style="materialyou"] .lib-card-list-play-btn:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
-[data-ui-style="materialyou"] .lib-card-list-play-btn.running { background: var(--color-success) !important; box-shadow: 0 3px 14px color-mix(in srgb, var(--color-success) 34%, transparent) !important; }
+[data-ui-style="materialyou"] .lib-card-list-play-btn.running { background: var(--color-success) !important; box-shadow: 0 4px 18px color-mix(in srgb, var(--color-success) 34%, transparent) !important; }
 
 /* ── Cards & surfaces ───────────────────────────────────────────────────── */
 /* Generic card chrome excludes the tonal variants and the flat list rows,
@@ -247,24 +255,25 @@
 [data-ui-style="materialyou"] .store-game-card:not(.store-game-card-list) {
   border-radius: var(--radius-lg) !important; border: 1px solid var(--m3-outline) !important; background: var(--m3-tonal-low) !important; box-shadow: var(--m3-bevel), var(--elevation-2) !important; overflow: hidden !important; transition: var(--m3-surface) !important;
 }
-[data-ui-style="materialyou"] .ui-card__header { border-bottom: 1px solid var(--m3-outline) !important; color: var(--color-text-primary) !important; font-weight: var(--font-weight-semibold) !important; }
+[data-ui-style="materialyou"] .ui-card__header { border-bottom: 1px solid var(--m3-outline) !important; color: var(--color-text-primary) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-semibold) !important; }
 [data-ui-style="materialyou"] .ui-card__body { color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important; }
+/* Signature shape-morph: the tile rises and its squircle tightens (lg → md). */
 [data-ui-style="materialyou"] .lib-card:not(.lib-card--list):hover,
 [data-ui-style="materialyou"] .store-game-card:not(.store-game-card-list):hover,
 [data-ui-style="materialyou"] .kpi-tile--clickable:hover {
-  transform: translateY(-4px) !important; background: var(--m3-tonal) !important; border-color: color-mix(in srgb, var(--color-accent) 45%, transparent) !important;
-  box-shadow: 0 10px 34px var(--color-accent-glow), var(--m3-bevel) !important;
+  transform: translateY(-6px) scale(1.012) !important; border-radius: var(--radius-md) !important; background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 48%, transparent) !important;
+  box-shadow: 0 14px 40px var(--color-accent-glow), var(--m3-bevel) !important;
 }
 /* Running cards re-assert their success frame after the generic hover. */
 [data-ui-style="materialyou"] .lib-card.running:not(.lib-card--list),
 [data-ui-style="materialyou"] .lib-card.running:not(.lib-card--list):hover {
   border-color: var(--color-success) !important;
-  box-shadow: 0 0 28px color-mix(in srgb, var(--color-success) 42%, transparent), inset 0 0 12px color-mix(in srgb, var(--color-success) 20%, transparent) !important;
+  box-shadow: 0 0 30px color-mix(in srgb, var(--color-success) 44%, transparent), inset 0 0 12px color-mix(in srgb, var(--color-success) 20%, transparent) !important;
 }
 [data-ui-style="materialyou"] .lib-card:not(.lib-card--list):focus-visible,
 [data-ui-style="materialyou"] .store-game-card:not(.store-game-card-list):focus-visible,
 [data-ui-style="materialyou"] .kpi-tile--clickable:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
-[data-ui-style="materialyou"] .lib-card-cover { border-radius: var(--radius-md) !important; margin: var(--space-2xs) var(--space-2xs) 0 !important; background: var(--color-surface) !important; overflow: hidden !important; }
+[data-ui-style="materialyou"] .lib-card-cover { border-radius: var(--radius-md) !important; margin: var(--space-2xs) var(--space-2xs) 0 !important; background: var(--color-surface) !important; overflow: hidden !important; transition: border-radius var(--duration-slow) var(--ease-standard) !important; }
 /* The animated crossfade owns its own opacity/visibility transition. */
 [data-ui-style="materialyou"] .lib-card-cover img:not(.lib-card-cover-animated) {
   display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important; transition: transform var(--duration-slow) var(--ease-standard) !important;
@@ -273,11 +282,11 @@
 [data-ui-style="materialyou"] .lib-card-fab {
   display: inline-flex !important; align-items: center !important; justify-content: center !important; padding: 0 var(--space-md) !important; min-width: calc(var(--space-3xl) + var(--space-sm)) !important; min-height: calc(var(--space-3xl) - var(--space-sm)) !important;
   border-radius: var(--radius-full) !important; border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 24%, transparent) !important;
-  background: var(--color-accent) !important; color: var(--color-accent-contrast) !important;
-  box-shadow: var(--m3-bevel), 0 6px 22px var(--color-accent-glow) !important; transition: var(--m3-control) !important;
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent)) 100%) !important; color: var(--color-accent-contrast) !important;
+  box-shadow: var(--m3-bevel), 0 8px 26px var(--color-accent-glow) !important; transition: var(--m3-control) !important;
 }
-[data-ui-style="materialyou"] .lib-card-fab:hover { filter: brightness(1.08) !important; transform: translateY(-2px) !important; box-shadow: var(--m3-bevel), 0 10px 30px var(--color-accent-glow) !important; }
-[data-ui-style="materialyou"] .lib-card-fab:active { filter: brightness(0.96) !important; transform: translateY(0) !important; }
+[data-ui-style="materialyou"] .lib-card-fab:hover { filter: brightness(1.08) !important; transform: scale(1.06) !important; box-shadow: var(--m3-bevel), 0 12px 34px var(--color-accent-glow) !important; }
+[data-ui-style="materialyou"] .lib-card-fab:active { filter: brightness(0.96) !important; transform: scale(0.98) !important; }
 [data-ui-style="materialyou"] .lib-card-fab:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
 [data-ui-style="materialyou"] .lib-hero { border-radius: var(--radius-xl) !important; border: 1px solid var(--m3-outline) !important; background: var(--m3-tonal-low) !important; box-shadow: var(--m3-bevel), var(--elevation-3) !important; }
 /* The list-layout store card stays a flat row, only lightly re-toned. */
@@ -330,7 +339,7 @@
 [data-ui-style="materialyou"] .sidebar-active-filter:hover { color: var(--color-text-primary) !important; background: var(--m3-tonal-high) !important; border-color: color-mix(in srgb, var(--color-accent) 42%, transparent) !important; }
 [data-ui-style="materialyou"] .filter-pill.active,
 [data-ui-style="materialyou"] .sidebar-active-filter.active {
-  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: 0 2px 10px var(--color-accent-glow) !important;
+  color: var(--color-accent-contrast) !important; background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent)) 100%) !important; border-color: var(--color-accent) !important; box-shadow: 0 3px 12px var(--color-accent-glow) !important;
 }
 [data-ui-style="materialyou"] .filter-pill:focus-visible,
 [data-ui-style="materialyou"] .sidebar-active-filter:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
@@ -377,17 +386,17 @@
 }
 [data-ui-style="materialyou"] .settings-subtab-item:hover { background: var(--m3-tonal-high) !important; color: var(--color-text-primary) !important; border-color: color-mix(in srgb, var(--color-accent) 38%, transparent) !important; }
 [data-ui-style="materialyou"] .settings-subtab-item.active {
-  color: var(--color-accent-contrast) !important; background: var(--color-accent) !important; border-color: var(--color-accent) !important; box-shadow: 0 3px 12px var(--color-accent-glow) !important;
+  color: var(--color-accent-contrast) !important; background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent)) 100%) !important; border-color: var(--color-accent) !important; box-shadow: 0 4px 16px var(--color-accent-glow) !important;
 }
 [data-ui-style="materialyou"] .settings-subtab-item:focus-visible { outline: none !important; box-shadow: var(--m3-ring) !important; }
 
 /* ── Page headers ───────────────────────────────────────────────────────── */
 [data-ui-style="materialyou"] .page-header { border-bottom: 1px solid var(--m3-outline) !important; }
 [data-ui-style="materialyou"] .page-header::after {
-  width: var(--space-3xl) !important; height: 3px !important; border-radius: var(--radius-full) !important; background: var(--color-accent) !important; box-shadow: 0 0 14px var(--color-accent-glow) !important;
+  width: var(--space-3xl) !important; height: 4px !important; border-radius: var(--radius-full) !important; background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent)) 100%) !important; box-shadow: 0 0 18px var(--color-accent-glow) !important;
 }
 [data-ui-style="materialyou"] .page-header__eyebrow { display: block !important; }
-[data-ui-style="materialyou"] .page-header__title { color: var(--color-text-primary) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-bold) !important; letter-spacing: -0.02em !important; }
+[data-ui-style="materialyou"] .page-header__title { color: var(--color-text-primary) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-extrabold) !important; letter-spacing: -0.025em !important; }
 [data-ui-style="materialyou"] .page-header__icon { border-radius: var(--radius-lg) !important; color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface-raised)) !important; }
 [data-ui-style="materialyou"] .page-header__description { color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important; }
 [data-ui-style="materialyou"] .page-header__actions { gap: var(--space-sm) !important; }
@@ -395,13 +404,13 @@
 /* ── Overlays · menus · tooltips ────────────────────────────────────────── */
 [data-ui-style="materialyou"] .modal-backdrop { background: var(--color-scrim) !important; backdrop-filter: var(--blur-scrim) !important; -webkit-backdrop-filter: var(--blur-scrim) !important; }
 [data-ui-style="materialyou"] .modal {
-  border-radius: var(--radius-lg) !important; border: 1px solid var(--m3-outline) !important; background-color: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-bg-secondary)) !important;
+  border-radius: var(--radius-xl) !important; border: 1px solid var(--m3-outline) !important; background-color: color-mix(in srgb, var(--color-accent) var(--m3-strength-low), var(--color-bg-secondary)) !important;
   box-shadow: var(--m3-bevel), var(--elevation-5) !important;
 }
 [data-ui-style="materialyou"] .modal-header { border-bottom: 1px solid var(--m3-outline) !important; }
 [data-ui-style="materialyou"] .modal-body { overflow-y: auto !important; }
 [data-ui-style="materialyou"] .modal-footer { border-top: 1px solid var(--m3-outline) !important; }
-[data-ui-style="materialyou"] .modal-title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; }
+[data-ui-style="materialyou"] .modal-title { color: var(--color-text-primary) !important; font-family: var(--font-display) !important; font-weight: var(--font-weight-bold) !important; }
 /* Confirm dialogs keep their danger-tinted frame (re-asserted after .modal). */
 [data-ui-style="materialyou"] .confirm-modal {
   border: 1px solid color-mix(in srgb, var(--color-danger) 30%, var(--color-border)) !important; box-shadow: var(--elevation-5), 0 0 32px color-mix(in srgb, var(--color-danger) 18%, transparent) !important;

@@ -1,10 +1,15 @@
 /* =============================================================================
-   3. UI Style: Steam Client (Industrial Charcoal Shelf & Inset Wells)
+   3. UI Style: Steam Client (Industrial Valve Rack & CRT Phosphor)
    ─────────────────────────────────────────────────────────────────────────────
    Identity: dense, boxy Valve-era chrome — thick 2px rules, near-square corners,
-   beveled gradient buttons and sunken inset trays that read like a physical rack,
-   with cyan-glow hovers that never lift. Signature detail: beveled shelf tabs
-   sitting in inset wells.
+   beveled gradient buttons and sunken inset trays that read like a physical rack.
+   This layer pushes it into **CRT terminal** territory: a faint scanline field
+   lies over the whole canvas, a deep vignette sinks the shell, and every label
+   is monospace and tracked uppercase. Hovers do not lift; they light up with a
+   phosphor halo, exactly like the accent glowing on a glass tube.
+
+   Signature details: beveled shelf tabs sitting in inset wells, mono labels,
+   the scanline canvas and the phosphor bloom on active chrome.
 
    Colour-agnostic by construction: only theme tokens are referenced. Depth is
    built from an ink that reads on pure black — a `--color-text-primary` / border
@@ -20,10 +25,10 @@
    accent, right dock, running cards, list rows, warn, confirm dialogs) are
    re-asserted afterwards.
 
-   Round 2 — app-wide propagation: the token block also redefines the elevation
-   ladder (tight, hard-edged, high-contrast drop shadows) and short snappy
-   durations, so every feature page inherits the industrial feel, plus an
-   identical app-wide label-typography layer and a high-contrast guard.
+   App-wide propagation: the token block also redefines the elevation ladder
+   (tight, hard-edged, high-contrast drop shadows) and short snappy durations, so
+   every feature page inherits the industrial feel, plus an identical app-wide
+   label-typography layer and a high-contrast guard.
    ============================================================================= */
 
 [data-ui-style="steam"] {
@@ -40,12 +45,15 @@
   --steam-well: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 14%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 7%, transparent),
     inset 0 2px 4px color-mix(in srgb, var(--color-scrim) 55%, transparent);
+  /* Phosphor bloom — the accent glowing on a glass tube. */
+  --steam-phosphor: 0 0 16px color-mix(in srgb, var(--color-accent) 55%, transparent);
+  --steam-phosphor-soft: 0 0 10px color-mix(in srgb, var(--color-accent) 38%, transparent);
   /* One focus vocabulary: an inset accent lip that survives clipping plus a
      soft outer halo. Every :focus-visible below uses this single alias. */
   --steam-ring: inset 0 0 0 2px var(--color-accent), var(--ring-accent-soft);
-  --steam-chrome-fast: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard),
+  --steam-chrome-fast: color var(--duration-fast) var(--ease-standard), background-color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
-  --steam-control: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard),
+  --steam-control: color var(--duration-normal) var(--ease-standard), background-color var(--duration-normal) var(--ease-standard),
     border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard),
     transform var(--duration-normal) var(--ease-standard);
 
@@ -78,15 +86,18 @@
 }
 
 /* ── Canvas ─────────────────────────────────────────────────────────────── */
+/* CRT scanlines over the industrial gradient sheet. */
 [data-ui-style="steam"] .app-layout {
   padding: 0 !important;
   background-color: var(--color-bg-primary) !important;
-  background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 4%, var(--color-bg-secondary)) 0%, var(--color-bg-primary) 100%) !important;
+  background-image:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--color-text-primary) 4%, transparent) 0, color-mix(in srgb, var(--color-text-primary) 4%, transparent) 1px, transparent 1px, transparent 3px),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 4%, var(--color-bg-secondary)) 0%, var(--color-bg-primary) 100%) !important;
 }
 [data-ui-style="steam"] .app-main {
   margin: 0 !important; border-radius: 0 !important; border: none !important;
   border-left: 2px solid color-mix(in srgb, var(--color-text-primary) 14%, transparent) !important;
-  box-shadow: var(--steam-bevel) !important;
+  box-shadow: var(--steam-bevel), inset 0 0 140px color-mix(in srgb, var(--color-scrim) 45%, transparent) !important;
 }
 
 /* ── Top navigation ─────────────────────────────────────────────────────── */
@@ -102,11 +113,12 @@
   border-bottom: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
 }
 [data-ui-style="steam"] .topnav-logo__word {
-  text-transform: uppercase !important; font-weight: var(--font-weight-extrabold) !important; letter-spacing: 0.05em !important;
+  font-family: var(--font-mono) !important; text-transform: uppercase !important; font-weight: var(--font-weight-extrabold) !important; letter-spacing: 0.06em !important;
+  text-shadow: var(--steam-phosphor) !important;
 }
 [data-ui-style="steam"] .topnav-logo__version {
   border-radius: var(--radius-xs) !important; text-transform: uppercase !important;
-  letter-spacing: 0.06em !important; font-weight: var(--font-weight-bold) !important; color: var(--color-text-secondary) !important;
+  letter-spacing: 0.06em !important; font-weight: var(--font-weight-bold) !important; color: var(--color-text-secondary) !important; font-family: var(--font-mono) !important;
 }
 /* Beveled shelf tray: a recessed well with a faint lit lip. */
 [data-ui-style="steam"] .topnav-tabs {
@@ -117,18 +129,18 @@
 }
 [data-ui-style="steam"] .topnav-tab {
   border-radius: var(--radius-xs) !important; text-transform: uppercase !important; letter-spacing: 0.05em !important;
-  font-weight: var(--font-weight-semibold) !important; color: var(--color-text-secondary) !important;
+  font-weight: var(--font-weight-semibold) !important; color: var(--color-text-secondary) !important; font-family: var(--font-mono) !important;
   transition: var(--steam-chrome-fast) !important;
 }
 [data-ui-style="steam"] .topnav-tab:not(.active):hover {
   color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important;
-  transform: none !important;
+  transform: none !important; text-shadow: var(--steam-phosphor-soft) !important;
 }
 [data-ui-style="steam"] .topnav-tab.active {
   background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%) !important;
   color: var(--color-accent-contrast) !important; transform: none !important;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 40%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--color-accent-active) 55%, transparent), 0 2px 8px var(--color-accent-glow) !important;
+    inset 0 -1px 0 var(--color-accent-active), var(--steam-phosphor) !important;
 }
 [data-ui-style="steam"] .topnav-tab:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
 [data-ui-style="steam"] .topnav-btn--cmd {
@@ -138,14 +150,14 @@
 }
 [data-ui-style="steam"] .topnav-btn--cmd:hover {
   color: var(--color-accent) !important; border-color: var(--color-accent-border) !important; background: var(--color-bg-hover) !important;
-  box-shadow: 0 0 14px var(--color-accent-glow), var(--steam-bevel) !important; transform: none !important;
+  box-shadow: var(--steam-phosphor), var(--steam-bevel) !important; transform: none !important;
 }
 [data-ui-style="steam"] .topnav-btn--cmd:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
 [data-ui-style="steam"] .topnav-now-playing-chip {
   border-radius: var(--radius-xs) !important; border: 1px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
   transition: var(--steam-chrome-fast) !important;
 }
-[data-ui-style="steam"] .topnav-now-playing-chip:hover { transform: none !important; }
+[data-ui-style="steam"] .topnav-now-playing-chip:hover { transform: none !important; box-shadow: var(--steam-phosphor-soft) !important; }
 
 /* ── Sidebar ────────────────────────────────────────────────────────────── */
 [data-ui-style="steam"] .sidebar {
@@ -173,13 +185,13 @@
 }
 [data-ui-style="steam"] .sidebar-search:focus-within {
   border-color: var(--color-accent) !important; background: var(--color-bg-secondary) !important;
-  box-shadow: var(--ring-accent-soft), var(--steam-well) !important;
+  box-shadow: var(--ring-accent-soft), var(--steam-well), var(--steam-phosphor-soft) !important;
 }
 /* Flat shelf rows: no gaps, hairline separators, left accent block. */
 [data-ui-style="steam"] .sidebar-game-item {
   border-radius: 0 !important; margin: 0 !important;
   border-bottom: 1px solid color-mix(in srgb, var(--color-text-primary) 6%, transparent) !important;
-  transition: background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard) !important;
+  transition: background-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard) !important;
 }
 [data-ui-style="steam"] .sidebar-game-item:hover:not(.active) {
   background: color-mix(in srgb, var(--color-text-primary) 7%, transparent) !important; box-shadow: none !important;
@@ -187,20 +199,22 @@
 [data-ui-style="steam"] .sidebar-game-item.active {
   background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface-raised)) !important;
   border-left: 3px solid var(--color-accent) !important; border-radius: 0 !important;
-  box-shadow: inset 3px 0 12px color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+  box-shadow: inset 3px 0 12px color-mix(in srgb, var(--color-accent) 20%, transparent), inset 0 0 26px -12px var(--color-accent-glow) !important;
 }
 [data-ui-style="steam"] .sidebar-game-item.active:hover {
   background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface-raised)) !important;
 }
 [data-ui-style="steam"] .sidebar-game-item::after { border-radius: 0 !important; }
+[data-ui-style="steam"] .sidebar-game-item.active::after,
+[data-ui-style="steam"] .sidebar-game-item.bulk-selected::after { box-shadow: var(--steam-phosphor-soft) !important; }
 [data-ui-style="steam"] .sidebar-game-item:focus-visible {
   outline: none !important;
   box-shadow: var(--steam-ring) !important;
 }
-[data-ui-style="steam"] .sidebar-game-icon { border-radius: var(--radius-sm) !important; }
+[data-ui-style="steam"] .sidebar-game-icon { border-radius: var(--radius-sm) !important; box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 12%, transparent) !important; }
 [data-ui-style="steam"] .sidebar-section-header {
-  text-transform: uppercase !important; font-weight: var(--font-weight-bold) !important; letter-spacing: 0.09em !important;
-  color: var(--color-text-muted) !important;
+  text-transform: uppercase !important; font-weight: var(--font-weight-bold) !important; letter-spacing: 0.1em !important;
+  color: var(--color-text-muted) !important; font-family: var(--font-mono) !important;
   border-bottom: 1px solid color-mix(in srgb, var(--color-text-primary) 10%, transparent) !important;
 }
 [data-ui-style="steam"] .sidebar-filter-btn {
@@ -213,12 +227,12 @@
 }
 [data-ui-style="steam"] .sidebar-filter-btn.active {
   color: var(--color-accent-contrast) !important; background: var(--color-accent) !important;
-  border-color: var(--color-accent) !important; box-shadow: 0 2px 10px var(--color-accent-glow) !important;
+  border-color: var(--color-accent) !important; box-shadow: var(--steam-phosphor) !important;
 }
 [data-ui-style="steam"] .sidebar-filter-btn:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
 [data-ui-style="steam"] .sidebar-section-toggle {
   border-radius: var(--radius-xs) !important; color: var(--color-text-muted) !important;
-  font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.08em !important;
+  font-weight: var(--font-weight-bold) !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; font-family: var(--font-mono) !important;
   transition: var(--steam-chrome-fast) !important;
 }
 [data-ui-style="steam"] .sidebar-section-toggle:hover {
@@ -238,22 +252,22 @@
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 [data-ui-style="steam"] .ui-btn {
   border-radius: var(--radius-md) !important; font-weight: var(--font-weight-semibold) !important;
-  letter-spacing: 0.01em !important; transition: var(--steam-control) !important;
+  letter-spacing: 0.02em !important; transition: var(--steam-control) !important;
 }
 [data-ui-style="steam"] .ui-btn--sm { border-radius: var(--radius-xs) !important; }
 [data-ui-style="steam"] .ui-btn--lg { border-radius: var(--radius-lg) !important; }
-/* Beveled accent gradient — the classic valve shelf button. */
+/* Beveled accent gradient — the classic valve shelf button, now with phosphor. */
 [data-ui-style="steam"] .ui-btn--primary,
 [data-ui-style="steam"] .lib-card-list-play-btn {
   background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%) !important;
   color: var(--color-accent-contrast) !important; border: 1px solid var(--color-accent-border) !important;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 38%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--color-accent-active) 55%, transparent), var(--elevation-2) !important;
+    inset 0 -1px 0 var(--color-accent-active), var(--elevation-2) !important;
 }
 [data-ui-style="steam"] .ui-btn--primary:hover:not(:disabled) {
   filter: brightness(1.12) !important; transform: none !important;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 48%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--color-accent-active) 55%, transparent), 0 0 16px var(--color-accent-glow) !important;
+    inset 0 -1px 0 var(--color-accent-active), var(--steam-phosphor) !important;
 }
 [data-ui-style="steam"] .ui-btn--primary:active:not(:disabled) {
   transform: none !important;
@@ -296,9 +310,9 @@
   transition: var(--steam-control) !important;
 }
 [data-ui-style="steam"] .lib-card-list-play-btn:hover {
-  transform: none !important; box-shadow: 0 0 14px var(--color-accent-glow) !important;
+  transform: none !important; box-shadow: var(--steam-phosphor) !important;
 }
-[data-ui-style="steam"] .lib-card-list-play-btn.running { background: var(--color-success) !important; }
+[data-ui-style="steam"] .lib-card-list-play-btn.running { background: var(--color-success) !important; box-shadow: 0 0 16px color-mix(in srgb, var(--color-success) 50%, transparent) !important; }
 
 /* ── Cards & surfaces ───────────────────────────────────────────────────── */
 [data-ui-style="steam"] .ui-card,
@@ -323,7 +337,7 @@
 [data-ui-style="steam"] .ui-card__header {
   padding: var(--space-md) var(--space-lg) !important;
   border-bottom: 1px solid var(--color-border) !important; color: var(--color-text-primary) !important;
-  font-weight: var(--font-weight-semibold) !important; letter-spacing: 0.01em !important;
+  font-weight: var(--font-weight-semibold) !important; letter-spacing: 0.03em !important; font-family: var(--font-mono) !important; text-transform: uppercase !important;
 }
 [data-ui-style="steam"] .ui-card__body {
   padding: var(--space-lg) !important;
@@ -333,14 +347,14 @@
 [data-ui-style="steam"] .lib-card-cover img:not(.lib-card-cover-animated) {
   display: block !important; width: 100% !important; height: 100% !important; object-fit: cover !important;
 }
-/* Cyan-glow hovers: outline + halo, never a lift. List rows opt out. */
+/* Phosphor hovers: a lit outline + glow, never a lift. List rows opt out. */
 [data-ui-style="steam"] .lib-card:hover:not(.lib-card--list),
 [data-ui-style="steam"] .store-game-card:not(.store-game-card-list):hover {
   border-color: var(--color-accent) !important;
-  box-shadow: 0 0 0 2px var(--color-accent), 0 0 20px var(--color-accent-glow) !important; transform: none !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 60%, transparent), var(--steam-phosphor) !important; transform: none !important;
 }
 /* The running card owns its success frame — re-asserted after the generic
-   hover so a pointer never swaps the success glow back to cyan. */
+   hover so a pointer never swaps the success glow back to accent. */
 [data-ui-style="steam"] .lib-card.running { border-color: var(--color-success) !important; }
 [data-ui-style="steam"] .lib-card.running:hover {
   border-color: var(--color-success) !important;
@@ -371,6 +385,7 @@
   border-radius: var(--radius-sm) !important;
   background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%) !important;
   color: var(--color-accent-contrast) !important; border: 1px solid var(--color-accent-border) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 38%, transparent), var(--steam-phosphor-soft) !important;
 }
 [data-ui-style="steam"] .lib-hero {
   border-radius: var(--radius-lg) !important; box-shadow: var(--steam-bevel), var(--elevation-3) !important;
@@ -379,7 +394,7 @@
 /* ── Badges · chips · pills ─────────────────────────────────────────────── */
 [data-ui-style="steam"] .ui-badge {
   border-radius: var(--radius-xs) !important; font-weight: var(--font-weight-bold) !important;
-  text-transform: uppercase !important; letter-spacing: 0.06em !important; box-shadow: var(--steam-bevel-faint) !important;
+  text-transform: uppercase !important; letter-spacing: 0.06em !important; box-shadow: var(--steam-bevel-faint) !important; font-family: var(--font-mono) !important;
 }
 [data-ui-style="steam"] .ui-badge--default { background: var(--color-bg-tertiary) !important; color: var(--color-text-secondary) !important; border-color: var(--color-border) !important; }
 [data-ui-style="steam"] .ui-badge--success { background: color-mix(in srgb, var(--color-success) 14%, transparent) !important; color: var(--color-success) !important; border-color: color-mix(in srgb, var(--color-success) 30%, transparent) !important; }
@@ -390,7 +405,7 @@
 [data-ui-style="steam"] .lib-card-badge,
 [data-ui-style="steam"] .lib-card-platform {
   border-radius: var(--radius-xs) !important; font-weight: var(--font-weight-bold) !important;
-  text-transform: uppercase !important; letter-spacing: 0.05em !important;
+  text-transform: uppercase !important; letter-spacing: 0.05em !important; font-family: var(--font-mono) !important;
 }
 [data-ui-style="steam"] .lib-card-platform {
   color: var(--color-accent) !important; background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important;
@@ -412,7 +427,7 @@
 [data-ui-style="steam"] .filter-pill.active,
 [data-ui-style="steam"] .sidebar-active-filter.active {
   color: var(--color-accent-contrast) !important; background: var(--color-accent) !important;
-  border-color: var(--color-accent) !important; box-shadow: 0 2px 8px var(--color-accent-glow) !important;
+  border-color: var(--color-accent) !important; box-shadow: var(--steam-phosphor-soft) !important;
 }
 [data-ui-style="steam"] .filter-pill:focus-visible,
 [data-ui-style="steam"] .sidebar-active-filter:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
@@ -434,20 +449,20 @@
 [data-ui-style="steam"] .settings-row { gap: var(--space-md) !important; }
 [data-ui-style="steam"] .settings-label {
   color: var(--color-text-secondary) !important; font-weight: var(--font-weight-semibold) !important;
-  text-transform: uppercase !important; letter-spacing: 0.07em !important;
+  text-transform: uppercase !important; letter-spacing: 0.07em !important; font-family: var(--font-mono) !important;
 }
 [data-ui-style="steam"] .settings-control { display: flex !important; flex-direction: column !important; gap: var(--space-xs) !important; }
 [data-ui-style="steam"] .settings-input,
 [data-ui-style="steam"] .settings-select {
   border-radius: var(--radius-sm) !important; background-color: color-mix(in srgb, var(--color-bg-primary) 82%, transparent) !important;
   border: 1px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
-  color: var(--color-text-primary) !important; box-shadow: var(--steam-well) !important;
+  color: var(--color-text-primary) !important; box-shadow: var(--steam-well) !important; font-family: var(--font-mono) !important;
 }
 [data-ui-style="steam"] .settings-select:hover { border-color: var(--color-border-light) !important; }
 [data-ui-style="steam"] .settings-input:focus,
 [data-ui-style="steam"] .settings-select:focus {
   border-color: var(--color-accent) !important; background-color: var(--color-bg-secondary) !important;
-  box-shadow: var(--ring-accent-soft) !important;
+  box-shadow: var(--ring-accent-soft), var(--steam-phosphor-soft) !important;
 }
 [data-ui-style="steam"] .settings-checkbox-label { color: var(--color-text-secondary) !important; }
 [data-ui-style="steam"] .settings-checkbox-label:hover { color: var(--color-text-primary) !important; }
@@ -486,7 +501,7 @@
 [data-ui-style="steam"] .settings-subtab-item.active {
   color: var(--color-text-primary) !important; background: color-mix(in srgb, var(--color-accent) 16%, transparent) !important;
   border-color: color-mix(in srgb, var(--color-accent) 45%, transparent) !important;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 25%, transparent) !important;
+  box-shadow: var(--steam-phosphor-soft) !important;
 }
 [data-ui-style="steam"] .settings-subtab-item:focus-visible { outline: none !important; box-shadow: var(--steam-ring) !important; }
 
@@ -494,22 +509,24 @@
 [data-ui-style="steam"] .page-header {
   border-bottom: 2px solid color-mix(in srgb, var(--color-text-primary) 16%, transparent) !important;
 }
-/* Heavy flat accent underline bar. */
+/* Heavy flat accent underline bar with a phosphor bloom. */
 [data-ui-style="steam"] .page-header::after {
   width: var(--space-2xl) !important; height: 3px !important; border-radius: 0 !important; background: var(--color-accent) !important;
+  box-shadow: var(--steam-phosphor) !important;
 }
 [data-ui-style="steam"] .page-header__eyebrow {
-  display: block !important; text-transform: uppercase !important; letter-spacing: 0.14em !important;
+  display: block !important; text-transform: uppercase !important; letter-spacing: 0.16em !important; font-family: var(--font-mono) !important;
   color: var(--color-accent) !important; font-weight: var(--font-weight-bold) !important;
 }
-/* Uppercase title is part of the identity — headings only, never body copy. */
+/* Uppercase mono title is part of the identity — headings only, never body copy. */
 [data-ui-style="steam"] .page-header__title {
-  text-transform: uppercase !important; letter-spacing: 0.01em !important;
+  text-transform: uppercase !important; letter-spacing: 0.02em !important; font-family: var(--font-mono) !important;
   color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important;
 }
 [data-ui-style="steam"] .page-header__icon {
   border-radius: var(--radius-md) !important; background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
   border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent) !important; color: var(--color-accent) !important;
+  box-shadow: var(--steam-phosphor-soft) !important;
 }
 [data-ui-style="steam"] .page-header__description {
   color: var(--color-text-secondary) !important; line-height: var(--line-height-relaxed) !important;
@@ -530,7 +547,7 @@
 /* Confirm dialogs keep their danger-tinted hairline frame. */
 [data-ui-style="steam"] .confirm-modal .modal-header { border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important; }
 [data-ui-style="steam"] .confirm-modal .modal-footer { border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent) !important; }
-[data-ui-style="steam"] .modal-title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; }
+[data-ui-style="steam"] .modal-title { color: var(--color-text-primary) !important; font-weight: var(--font-weight-bold) !important; font-family: var(--font-mono) !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; }
 [data-ui-style="steam"] .context-menu {
   background: var(--color-surface-raised) !important; border: 1px solid var(--color-border-light) !important;
   border-radius: var(--radius-md) !important; box-shadow: var(--elevation-4) !important;
@@ -580,7 +597,7 @@
   border-radius: var(--radius-xs) !important; border: 1px solid transparent !important; background-clip: padding-box !important;
 }
 [data-ui-style="steam"] ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--color-text-muted) 52%, transparent) !important; background-clip: padding-box !important;
+  background: color-mix(in srgb, var(--color-accent) 55%, transparent) !important; background-clip: padding-box !important;
 }
 /* Firefox fallback — matches the webkit rail. */
 [data-ui-style="steam"] * {
@@ -628,6 +645,7 @@
 ) {
   text-transform: uppercase !important;
   letter-spacing: 0.06em !important;
+  font-family: var(--font-mono) !important;
   font-weight: var(--font-weight-bold) !important;
   font-variant-numeric: tabular-nums !important;
 }
@@ -647,6 +665,8 @@
   --shadow-md: 0 0 transparent;
   --shadow-lg: 0 0 transparent;
   --shadow-xl: 0 0 transparent;
+  --steam-phosphor: 0 0 transparent;
+  --steam-phosphor-soft: 0 0 transparent;
   --color-accent-glow: transparent;
 }
 
