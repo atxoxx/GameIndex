@@ -61,6 +61,11 @@ pub use runtime::PluginRawResult;
 /// documented search-fresh policy).
 const PLUGIN_CACHE_TTL: Duration = Duration::from_secs(15 * 60);
 
+/// Upper bound on cached `(plugin, query)` result sets. The TTL alone never
+/// removes stale entries (they only linger until re-read), so without a cap
+/// the map grows with every distinct search the user ever runs.
+const PLUGIN_CACHE_MAX_ENTRIES: usize = 64;
+
 /// Outer wall-clock cap for one plugin's sandboxed search.
 const PLUGIN_SEARCH_TIMEOUT: Duration = Duration::from_secs(20);
 
@@ -336,6 +341,21 @@ impl PluginManager {
             .cache
             .lock()
             .map_err(|e| format!("plugin cache lock: {e}"))?;
+        // Drop expired entries on write so the map doesn't retain every
+        // query ever run, then evict the oldest entry if we're at the cap.
+        cache.retain(|_, (at, _)| at.elapsed() < PLUGIN_CACHE_TTL);
+        while cache.len() >= PLUGIN_CACHE_MAX_ENTRIES {
+            let oldest = cache
+                .iter()
+                .min_by_key(|(_, (at, _))| *at)
+                .map(|(k, _)| k.clone());
+            match oldest {
+                Some(key) => {
+                    cache.remove(&key);
+                }
+                None => break,
+            }
+        }
         cache.insert(key, (Instant::now(), results.clone()));
         Ok(results)
     }
