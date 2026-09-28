@@ -57,3 +57,4 @@ scripts/test-plugins.mjs
 .direnv/
 /node_modules.b/
 package-lock.json.b
+.omo
