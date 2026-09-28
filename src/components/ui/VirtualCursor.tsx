@@ -63,6 +63,19 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
   const fadeRef = useRef<number>(0); // 1.0 = full opacity, 0 = min
 
   useEffect(() => {
+    // Park the element and stop the frame loop while the cursor is hidden.
+    // An idle Big Screen session should not run an rAF loop just to keep an
+    // invisible pointer in sync; `virtualMouse.visible` flips back on and
+    // re-runs this effect the moment the pad shows the cursor.
+    if (!gamepad.virtualMouse.visible) {
+      const el = cursorRef.current;
+      if (el) {
+        el.style.display = "none";
+        el.style.opacity = "0";
+      }
+      return;
+    }
+
     let rafId: number;
     // Track visibility so we can fully hide the element (display:none)
     // whenever the cursor is toggled off — an opacity-only fade left
@@ -142,7 +155,7 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, []);
+  }, [gamepad.virtualMouse.visible]);
 
   if (typeof document === "undefined") return null;
 

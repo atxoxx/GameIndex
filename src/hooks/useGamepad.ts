@@ -55,6 +55,11 @@ import {
 } from "../context/BigScreenContext";
 import { useSettings } from "../context/SettingsContext";
 
+// How often to re-check for a controller while none is connected. A
+// desktop with no pad should not hold a 60 Hz rAF loop alive, and
+// `gamepadconnected` restarts the full-rate loop the moment one appears.
+const GAMEPAD_IDLE_POLL_MS = 500;
+
 // ── Types ───────────────────────────────────────────────────────
 
 export interface FocusableEntry {
@@ -512,7 +517,19 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     }
     window.addEventListener("resize", onResize);
 
-    let rafId: number;
+    let rafId = 0;
+    // When no controller is connected we drop the rAF loop to a slow timer
+    // so an idle machine isn't paying for a 60 Hz poll that never sees a pad.
+    let idleTimer = 0;
+
+    function startLoop(): void {
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+        idleTimer = 0;
+      }
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(poll);
+    }
 
     function publishVirtualMouse(force = false): void {
       const cur = virtualMouseRef.current;
@@ -557,7 +574,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         // stick's (possibly different) resting position.
         calibrationRef.current = { startedAt: 0, leftMax: 0, rightMax: 0, done: false };
         lastFrameTimeRef.current = timestamp;
-        rafId = requestAnimationFrame(poll);
+        idleTimer = window.setTimeout(startLoop, GAMEPAD_IDLE_POLL_MS);
         return;
       }
 
@@ -904,10 +921,19 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       rafId = requestAnimationFrame(poll);
     }
 
-    rafId = requestAnimationFrame(poll);
+    // A pad can wake while we're parked on the idle timer; restart the
+    // full-rate loop at once instead of waiting out the interval.
+    function onGamepadConnected(): void {
+      startLoop();
+    }
+    window.addEventListener("gamepadconnected", onGamepadConnected);
+
+    startLoop();
     return () => {
       cancelAnimationFrame(rafId);
+      if (idleTimer) window.clearTimeout(idleTimer);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("gamepadconnected", onGamepadConnected);
     };
   }, [enabled]);
 
