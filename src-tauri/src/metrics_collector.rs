@@ -200,14 +200,19 @@ fn collect_metrics_loop(
     // Resolve GPU sensor sources once per session (sysfs paths are stable;
     // only the values change). Mirrors the Windows loop opening its WMI
     // connections once instead of per sample.
-    let gpu_source = LinuxGpuSource::detect(gpu_id.as_deref());
+    let mut gpu_source = LinuxGpuSource::detect(gpu_id.as_deref());
 
-    // MangoHud CSV candidates are re-listed per sample, but each file is
-    // head-checked only once (the checked set) and known-good logs are
-    // kept, so the freshness scan stays cheap.
+    // The hwmon layout is stable for the session too, so the CPU sensor files
+    // are resolved once instead of re-walking /sys/class/hwmon per sample.
+    let cpu_temp_source = CpuTempSource::detect();
+
+    // MangoHud CSV candidates are re-listed on a slow cadence rather than per
+    // sample, and each file is head-checked only once (the checked set) with
+    // known-good logs kept, so the freshness scan stays cheap.
     let mut mangohud_known: Vec<std::path::PathBuf> = Vec::new();
     let mut mangohud_checked: std::collections::HashSet<std::path::PathBuf> =
         std::collections::HashSet::new();
+    let mut mangohud_last_list: Option<Instant> = None;
 
     // Previous /proc/stat counters for the CPU% delta. Seeded before the
     // loop so the very first sample already has a real interval.
@@ -263,7 +268,7 @@ fn collect_metrics_loop(
 
         // ── CPU temperature — coretemp / k10temp / zenpower hwmon ───────
         let cpu_temp = if config.capture_cpu_temp {
-            read_cpu_temp_celsius().unwrap_or(0.0)
+            cpu_temp_source.sample().unwrap_or(0.0)
         } else {
             0.0
         };
@@ -271,8 +276,12 @@ fn collect_metrics_loop(
         // ── FPS — active MangoHud log first, then the gamescope
         //    `--stats-path` FIFO (compositor rate) as a fallback ──────────
         let fps = if config.capture_fps {
-            read_mangohud_fps(&mut mangohud_known, &mut mangohud_checked)
-                .or_else(read_gamescope_stats_fps)
+            read_mangohud_fps(
+                &mut mangohud_known,
+                &mut mangohud_checked,
+                &mut mangohud_last_list,
+            )
+            .or_else(read_gamescope_stats_fps)
         } else {
             None
         };
@@ -299,13 +308,13 @@ fn collect_metrics_loop(
 
         push_sample(&mut samples, sample);
 
-        // Sleep for the poll interval, checking for the stop signal.
-        let start = Instant::now();
-        while start.elapsed() < interval {
-            if stop_rx.try_recv().is_ok() {
-                return samples;
-            }
-            std::thread::sleep(Duration::from_millis(200));
+        // Wait out the poll interval. `recv_timeout` wakes on the stop signal
+        // immediately, replacing the old 200 ms re-check loop that woke this
+        // thread 25 times for a single 5 s sample.
+        match stop_rx.recv_timeout(interval) {
+            Ok(()) => return samples,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return samples,
         }
     }
 
@@ -372,42 +381,61 @@ fn parse_kb_value(rest: &str) -> f64 {
         .unwrap_or(0.0)
 }
 
-/// Highest temperature across coretemp / k10temp / zenpower hwmon chips, in
-/// °C. These are the standard Linux CPU temperature providers; other hwmon
-/// chips (NVMe, motherboard, GPU) are deliberately ignored.
+/// CPU temperature sensors for one session, resolved once.
+///
+/// Walking `/sys/class/hwmon` (a `read_dir`, a `name` read per chip, then a
+/// second `read_dir` plus a read per `temp*_input`) cost dozens of file opens
+/// on every sample. The layout is stable for the life of a session, so it is
+/// resolved up front and the per-sample cost drops to reading the sensors.
 #[cfg(target_os = "linux")]
-fn read_cpu_temp_celsius() -> Option<f32> {
-    let hwmon = std::path::Path::new("/sys/class/hwmon");
-    let entries = std::fs::read_dir(hwmon).ok()?;
-    for entry in entries.flatten() {
-        let Ok(chip_raw) = std::fs::read_to_string(entry.path().join("name")) else {
-            continue;
-        };
-        let chip = chip_raw.trim();
-        if chip != "coretemp" && chip != "k10temp" && chip != "zenpower" {
-            continue;
-        }
-        let mut max_milli: f64 = 0.0;
-        if let Ok(sensors) = std::fs::read_dir(entry.path()) {
-            for s in sensors.flatten() {
-                let fname = s.file_name().to_string_lossy().to_string();
-                if !fname.starts_with("temp") || !fname.ends_with("_input") {
+struct CpuTempSource {
+    files: Vec<std::path::PathBuf>,
+}
+
+#[cfg(target_os = "linux")]
+impl CpuTempSource {
+    /// Collect the `temp*_input` files of the coretemp / k10temp / zenpower
+    /// chips - the standard Linux CPU temperature providers. Other hwmon
+    /// chips (NVMe, motherboard, GPU) are deliberately ignored.
+    fn detect() -> Self {
+        let mut files = Vec::new();
+        if let Ok(entries) = std::fs::read_dir("/sys/class/hwmon") {
+            for entry in entries.flatten() {
+                let Ok(chip_raw) = std::fs::read_to_string(entry.path().join("name")) else {
+                    continue;
+                };
+                let chip = chip_raw.trim();
+                if chip != "coretemp" && chip != "k10temp" && chip != "zenpower" {
                     continue;
                 }
-                if let Ok(raw) = std::fs::read_to_string(s.path()) {
-                    if let Ok(v) = raw.trim().parse::<f64>() {
-                        if v > max_milli {
-                            max_milli = v;
+                if let Ok(sensors) = std::fs::read_dir(entry.path()) {
+                    for s in sensors.flatten() {
+                        let fname = s.file_name().to_string_lossy().to_string();
+                        if fname.starts_with("temp") && fname.ends_with("_input") {
+                            files.push(s.path());
                         }
                     }
                 }
             }
         }
-        if max_milli > 0.0 {
-            return Some((max_milli / 1000.0) as f32);
-        }
+        CpuTempSource { files }
     }
-    None
+
+    /// Highest sensor value in degrees C, or `None` when none is readable.
+    fn sample(&self) -> Option<f32> {
+        let mut max_milli: f64 = 0.0;
+        for path in &self.files {
+            let Ok(raw) = std::fs::read_to_string(path) else {
+                continue;
+            };
+            if let Ok(v) = raw.trim().parse::<f64>() {
+                if v > max_milli {
+                    max_milli = v;
+                }
+            }
+        }
+        (max_milli > 0.0).then_some((max_milli / 1000.0) as f32)
+    }
 }
 
 /// DRM cards in the same order/filter as `gpu_detector::detect_gpus` (PCI-slot
@@ -430,6 +458,10 @@ struct LinuxGpuSource {
     /// to `nvidia-smi -i` so monitoring reads THIS GPU's sensors instead of
     /// always the first one. `None` when the id couldn't be resolved.
     nvidia_bus: Option<String>,
+    /// Last `(sampled_at, utilization, temperature)` from nvidia-smi. That
+    /// call is a full process spawn while the driver only refreshes its
+    /// counters about once a second, so a faster poll reuses this reading.
+    nvidia_cache: Option<(Instant, f32, f32)>,
 }
 
 #[cfg(target_os = "linux")]
@@ -446,6 +478,7 @@ impl LinuxGpuSource {
                 gpu_temp_file: None,
                 use_nvidia_smi: false,
                 nvidia_bus: None,
+                nvidia_cache: None,
             };
         };
 
@@ -482,23 +515,23 @@ impl LinuxGpuSource {
             gpu_temp_file,
             use_nvidia_smi,
             nvidia_bus,
+            nvidia_cache: None,
         }
     }
 
     /// Returns (gpu_usage%, gpu_temp°C).
-    fn sample(&self) -> (f32, f32) {
+    fn sample(&mut self) -> (f32, f32) {
         let mut usage = 0.0f32;
+        let mut smi_temp = 0.0f32;
+
         if let Some(busy) = &self.gpu_busy_file {
             if let Ok(raw) = std::fs::read_to_string(busy) {
                 usage = raw.trim().parse::<f32>().unwrap_or(0.0);
             }
         } else if self.use_nvidia_smi {
-            if let Some((u, t)) = linux_nvidia_smi_sample(self.nvidia_bus.as_deref()) {
-                if self.gpu_temp_file.is_none() {
-                    return (u, t);
-                }
-                usage = u;
-            }
+            let (u, t) = self.nvidia_usage_temp();
+            usage = u;
+            smi_temp = t;
         }
 
         let temp = self
@@ -507,10 +540,35 @@ impl LinuxGpuSource {
             .and_then(|p| std::fs::read_to_string(p).ok())
             .and_then(|s| s.trim().parse::<f64>().ok())
             .map(|milli| (milli / 1000.0) as f32)
-            .unwrap_or(0.0);
+            .unwrap_or(smi_temp);
         (usage, temp)
     }
+
+    /// nvidia-smi utilization + temperature, throttled to one process spawn
+    /// per [`NVIDIA_SMI_MIN_INTERVAL`] and reused in between. A failed call
+    /// falls back to the last good reading rather than reporting 0%.
+    fn nvidia_usage_temp(&mut self) -> (f32, f32) {
+        if let Some((_, u, t)) = self
+            .nvidia_cache
+            .filter(|(at, _, _)| at.elapsed() < NVIDIA_SMI_MIN_INTERVAL)
+        {
+            return (u, t);
+        }
+        match linux_nvidia_smi_sample(self.nvidia_bus.as_deref()) {
+            Some((u, t)) => {
+                self.nvidia_cache = Some((Instant::now(), u, t));
+                (u, t)
+            }
+            None => self.nvidia_cache.map(|(_, u, t)| (u, t)).unwrap_or((0.0, 0.0)),
+        }
+    }
 }
+
+/// Minimum gap between `nvidia-smi` spawns. The driver refreshes its
+/// utilization counters about once a second, so polling faster than this
+/// burns CPU on a subprocess for data that has not changed.
+#[cfg(target_os = "linux")]
+const NVIDIA_SMI_MIN_INTERVAL: Duration = Duration::from_secs(1);
 
 /// First `hwmon*/temp1_input` under a DRM card's device directory.
 #[cfg(target_os = "linux")]
@@ -584,6 +642,12 @@ fn linux_mangohud_candidates() -> Vec<std::path::PathBuf> {
     out
 }
 
+/// How often the MangoHud output folders are re-listed for new logs. Cheap
+/// enough to matter per sample, fast enough that a new log is picked up
+/// within a couple of samples.
+#[cfg(target_os = "linux")]
+const MANGOHUD_RESCAN: Duration = Duration::from_secs(10);
+
 /// Best-effort FPS for the active session: the newest MangoHud log written
 /// within the last 90 seconds. Stale logs from previous sessions are ignored
 /// so we never report FPS for a game that isn't running anymore.
@@ -591,10 +655,17 @@ fn linux_mangohud_candidates() -> Vec<std::path::PathBuf> {
 fn read_mangohud_fps(
     known: &mut Vec<std::path::PathBuf>,
     checked: &mut std::collections::HashSet<std::path::PathBuf>,
+    last_list: &mut Option<Instant>,
 ) -> Option<f64> {
-    for p in linux_mangohud_candidates() {
-        if checked.insert(p.clone()) && linux_looks_like_mangohud(&p) {
-            known.push(p);
+    if last_list
+        .map(|at| at.elapsed() >= MANGOHUD_RESCAN)
+        .unwrap_or(true)
+    {
+        *last_list = Some(Instant::now());
+        for p in linux_mangohud_candidates() {
+            if checked.insert(p.clone()) && linux_looks_like_mangohud(&p) {
+                known.push(p);
+            }
         }
     }
 
@@ -856,13 +927,12 @@ fn collect_metrics_loop(
         sample.t = loop_start.elapsed().as_secs_f64();
         push_sample(&mut samples, sample);
 
-        // Sleep for the polling interval, but check for stop signal periodically
-        let start = Instant::now();
-        while start.elapsed() < interval {
-            if stop_rx.try_recv().is_ok() {
-                return samples;
-            }
-            std::thread::sleep(Duration::from_millis(200));
+        // Wait out the polling interval. `recv_timeout` wakes on the stop
+        // signal immediately instead of re-checking it every 200 ms.
+        match stop_rx.recv_timeout(interval) {
+            Ok(()) => return samples,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return samples,
         }
     }
 
