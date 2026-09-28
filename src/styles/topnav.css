@@ -808,6 +808,14 @@ html[data-game-accent] .window-controls-btn:active {
   }
 }
 
-
+/* ── Backdrop-blur budget ────────────────────────────────────────────────
+   The top bar is a grid row above the actual scroller (.app-main), so its
+   backdrop never changes on scroll — the blur only pins a large composited
+   layer over a static background. The small `...-more-dropdown` keeps its
+   blur (transient menu). */
+.topnav {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 
 

@@ -3049,3 +3049,16 @@
   }
 }
 
+/* ── Backdrop-blur budget ────────────────────────────────────────────────
+   `.game-section` is repeated once per content section and `.game-tabs` sits
+   sticky above the scrolling panel; each backdrop-filter holds an offscreen
+   surface that is re-rasterized on scroll. Both keep their static translucent
+   background, which reads the same over the page. Blur stays on small
+   transient surfaces (dropdowns, popovers). */
+.game-section,
+.game-tabs {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+

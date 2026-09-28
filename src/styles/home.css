@@ -68,7 +68,7 @@
   grid-template-columns: repeat(10, 1fr);
   grid-auto-rows: 1fr;
   opacity: 0.28;
-  filter: blur(36px) saturate(1.4);
+  filter: blur(20px) saturate(1.4);
   transform: scale(1.3);
   mask-image: linear-gradient(105deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.45) 60%, transparent 100%);
   -webkit-mask-image: linear-gradient(105deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.45) 60%, transparent 100%);
