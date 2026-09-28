@@ -306,15 +306,28 @@ export default function NewsArticlePreview({
 
     syncGeometry();
 
-    const observer = new ResizeObserver(() => syncGeometry());
+    // A single resize/scroll burst fires many events (and a capture-phase
+    // scroll listener hears every inner scroller). Coalesce them into one
+    // geometry sync per frame so we don't fire three IPC calls per event.
+    let frame = 0;
+    const scheduleSync = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        syncGeometry();
+      });
+    };
+
+    const observer = new ResizeObserver(() => scheduleSync());
     observer.observe(placeholderRef.current);
-    window.addEventListener("resize", syncGeometry);
-    window.addEventListener("scroll", syncGeometry, true);
+    window.addEventListener("resize", scheduleSync);
+    window.addEventListener("scroll", scheduleSync, true);
 
     return () => {
+      if (frame) cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener("resize", syncGeometry);
-      window.removeEventListener("scroll", syncGeometry, true);
+      window.removeEventListener("resize", scheduleSync);
+      window.removeEventListener("scroll", scheduleSync, true);
     };
   }, [webviewReady]);
 

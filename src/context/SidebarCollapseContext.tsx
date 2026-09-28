@@ -181,9 +181,21 @@ export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onResize = () => setViewportWidth(window.innerWidth);
+    // Coalesce the burst of native resize events into one state update per
+    // frame; each update fans out through the whole layout context.
+    let frame = 0;
+    const onResize = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setViewportWidth(window.innerWidth);
+      });
+    };
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
   // Sync width CSS variable to document root so CSS layout tracks the custom
