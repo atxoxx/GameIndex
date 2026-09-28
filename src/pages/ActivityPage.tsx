@@ -179,6 +179,7 @@ export default function ActivityPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     showToast(t("activity.exportedAs", { format: "CSV" }), "success");
   };
 
