@@ -37,8 +37,9 @@ const API_BASE: &str = "https://www.steamgriddb.com/api/v2";
 const CACHE_KEY_PREFIX: &str = "sgdb:v3:";
 /// KV key prefix for full gallery results.
 const ALL_CACHE_KEY_PREFIX: &str = "sgdb:all:v1:";
-/// KV key prefix for resolved game IDs from autocomplete search.
-const SEARCH_CACHE_PREFIX: &str = "sgdb:gameid:v1:";
+/// KV key prefix for resolved game IDs from autocomplete search. v2 drops the
+/// ids resolved from the punctuation-stripped query.
+const SEARCH_CACHE_PREFIX: &str = "sgdb:gameid:v2:";
 /// Cache TTL for hits and negatives (7 days — community art rarely churns).
 const CACHE_TTL_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 
@@ -178,6 +179,11 @@ struct SgdbApiResponse {
 struct SgdbSearchItem {
     id: u64,
     name: String,
+    /// Unix seconds; absent when SteamGridDB has no release date.
+    #[serde(default)]
+    release_date: Option<i64>,
+    #[serde(default)]
+    verified: bool,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -186,6 +192,20 @@ struct SgdbSearchResponse {
     success: bool,
     #[serde(default)]
     data: Vec<SgdbSearchItem>,
+}
+
+/// One game match from the autocomplete endpoint, shown in the media picker's
+/// search dropdown so the user can point the gallery at a specific entry.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SgdbGameSuggestion {
+    pub id: u64,
+    pub name: String,
+    /// Unix seconds — formatted by the frontend.
+    #[serde(default)]
+    pub release_date: Option<i64>,
+    #[serde(default)]
+    pub verified: bool,
 }
 
 /// Cache envelope stored in the KV store.
@@ -216,6 +236,39 @@ fn normalize_title(title: &str) -> String {
 
 fn search_cache_key(norm_name: &str) -> String {
     format!("{SEARCH_CACHE_PREFIX}{norm_name}")
+}
+
+/// Rank autocomplete hits for `query`.
+///
+/// A hit must carry every word of the query before it is trusted: the older
+/// prefix rule let the bare entry "Stalker" answer the query "stalker gamma",
+/// so "S.T.A.L.K.E.R.: GAMMA" resolved to a different game with 1 grid instead
+/// of 21. Hits that share no words at all fall back to the API's own order.
+fn best_match<'a>(items: &'a [SgdbSearchItem], query: &str) -> Option<&'a SgdbSearchItem> {
+    let norm_query = normalize_title(query);
+    if norm_query.is_empty() {
+        return None;
+    }
+
+    if let Some(hit) = items.iter().find(|i| normalize_title(&i.name) == norm_query) {
+        return Some(hit);
+    }
+
+    let query_tokens: Vec<&str> = norm_query.split(' ').collect();
+    let mut covered: Vec<(usize, &SgdbSearchItem)> = items
+        .iter()
+        .filter_map(|item| {
+            let normalized = normalize_title(&item.name);
+            let tokens: Vec<&str> = normalized.split(' ').collect();
+            query_tokens
+                .iter()
+                .all(|wanted| tokens.contains(wanted))
+                .then_some((tokens.len().saturating_sub(query_tokens.len()), item))
+        })
+        .collect();
+    covered.sort_by_key(|(extra_words, _)| *extra_words);
+
+    covered.first().map(|(_, hit)| *hit).or_else(|| items.first())
 }
 
 /// MIME types the frontend can render in an `<img>` tag or download as artwork.
@@ -276,6 +329,8 @@ const MIN_REQUEST_GAP_MS: u64 = 300;
 const MAX_ALL_PAGES: u32 = 6;
 /// Items per page returned by the v2 API (also the "last page" signal).
 const PAGE_SIZE: usize = 50;
+/// Game matches handed to the media picker's search dropdown.
+const MAX_SUGGESTIONS: usize = 8;
 
 /// Process-wide request throttle shared by every SGDB HTTP call.
 static SGDB_RATE_LOCK: OnceLock<Mutex<Instant>> = OnceLock::new();
@@ -412,53 +467,48 @@ impl SgdbService {
         pick_best(body.data)
     }
 
-    async fn search_game_id(&self, api_key: &str, game_name: &str) -> Option<u64> {
-        let norm_query = normalize_title(game_name);
-        if norm_query.is_empty() {
-            return None;
-        }
-
-        let encoded = urlencoding::encode(&norm_query);
+    async fn autocomplete(&self, api_key: &str, term: &str) -> Vec<SgdbSearchItem> {
+        let encoded = urlencoding::encode(term);
         let url = format!("{API_BASE}/search/autocomplete/{encoded}");
         throttle_request().await;
-        let resp = self
+        let resp = match self
             .client
             .get(&url)
             .header("Authorization", format!("Bearer {api_key}"))
             .send()
             .await
-            .ok()?;
+        {
+            Ok(r) => r,
+            Err(_) => return Vec::new(),
+        };
         if !resp.status().is_success() {
+            return Vec::new();
+        }
+        match resp.json::<SgdbSearchResponse>().await {
+            Ok(body) if body.success => body.data,
+            _ => Vec::new(),
+        }
+    }
+
+    /// Resolve `game_name` to a SteamGridDB game id, searching the title as
+    /// stored — see [`best_match`] for why the term must not be normalized.
+    async fn search_game_id(&self, api_key: &str, game_name: &str) -> Option<u64> {
+        let raw = game_name.trim();
+        if raw.is_empty() {
             return None;
         }
-        let body: SgdbSearchResponse = resp.json().await.ok()?;
-        if !body.success || body.data.is_empty() {
-            return None;
+
+        let mut hits = self.autocomplete(api_key, raw).await;
+        if hits.is_empty() {
+            // Imported rows carry noise the endpoint can't match (release
+            // years, brackets, edition tags) — retry once without punctuation.
+            let normalized = normalize_title(raw);
+            if !normalized.is_empty() && normalized != raw.to_lowercase() {
+                hits = self.autocomplete(api_key, &normalized).await;
+            }
         }
 
-        // 1. Exact normalized match
-        if let Some(m) = body.data.iter().find(|i| normalize_title(&i.name) == norm_query) {
-            return Some(m.id);
-        }
-
-        // 2. Item starts with query or query starts with item
-        if let Some(m) = body.data.iter().find(|i| {
-            let n = normalize_title(&i.name);
-            n.starts_with(&norm_query) || norm_query.starts_with(&n)
-        }) {
-            return Some(m.id);
-        }
-
-        // 3. Item contains query or query contains item
-        if let Some(m) = body.data.iter().find(|i| {
-            let n = normalize_title(&i.name);
-            n.contains(&norm_query) || norm_query.contains(&n)
-        }) {
-            return Some(m.id);
-        }
-
-        // 4. Default to top result
-        body.data.first().map(|i| i.id)
+        best_match(&hits, raw).map(|hit| hit.id)
     }
 }
 
@@ -723,15 +773,57 @@ fn read_all_cache(db: &Db, target: SgdbTarget) -> Option<Option<SgdbAllAssets>> 
     (cached.updated_at + CACHE_TTL_MS > now_ms()).then_some(cached.data)
 }
 
-/// Fetch every SteamGridDB upload for a Steam AppID or game name (all pages of
-/// grids, heroes, icons and logos), for the edit-modal media picker.
+/// Live SteamGridDB game search backing the media picker's suggestion
+/// dropdown. Returns nothing without a key or for terms under two characters,
+/// so the picker hides the dropdown instead of showing an empty panel.
+#[tauri::command]
+pub async fn sgdb_search_games(query: String) -> Vec<SgdbGameSuggestion> {
+    let term = query.trim();
+    if term.len() < 2 || !has_api_key() {
+        return Vec::new();
+    }
+    let api_key = crate::config::get_steamgriddb_api_key();
+    service()
+        .autocomplete(&api_key, term)
+        .await
+        .into_iter()
+        .take(MAX_SUGGESTIONS)
+        .map(|item| SgdbGameSuggestion {
+            id: item.id,
+            name: item.name,
+            release_date: item.release_date.filter(|seconds| *seconds > 0),
+            verified: item.verified,
+        })
+        .collect()
+}
+
+/// Fetch every SteamGridDB upload for a SteamGridDB game id, Steam AppID or
+/// game name (all pages of grids, heroes, icons and logos), for the edit-modal
+/// media picker.
 #[tauri::command]
 pub async fn sgdb_get_all_assets(
     app: tauri::AppHandle,
     steam_app_id: Option<u32>,
     game_name: Option<String>,
+    sgdb_game_id: Option<u64>,
 ) -> Option<SgdbAllAssets> {
     let db = app.state::<Db>().inner().clone();
+
+    // A game picked in the search dropdown outranks both the Steam AppID and
+    // the name lookup — mods and fan projects live on their own entry.
+    if let Some(game_id) = sgdb_game_id {
+        let target = SgdbTarget::Game(game_id);
+        if let Some(cached) = read_all_cache(&db, target) {
+            return cached.filter(has_any_all_assets);
+        }
+        if !has_api_key() {
+            return None;
+        }
+        let api_key = crate::config::get_steamgriddb_api_key();
+        let assets = fetch_all_assets(&api_key, target).await;
+        persist_all(&db, target, &assets);
+        return has_any_all_assets(&assets).then_some(assets);
+    }
 
     // 1. Try steam_app_id if provided
     if let Some(app_id) = steam_app_id {
@@ -1001,5 +1093,74 @@ mod tests {
         assert_eq!(normalize_title("Minecraft"), "minecraft");
         assert_eq!(normalize_title("Minecraft: Java Edition"), "minecraft java edition");
         assert_eq!(normalize_title("  The   Witcher 3:  Wild Hunt  "), "the witcher 3 wild hunt");
+    }
+
+    fn hit(id: u64, name: &str) -> SgdbSearchItem {
+        SgdbSearchItem {
+            id,
+            name: name.to_string(),
+            release_date: None,
+            verified: true,
+        }
+    }
+
+    /// Verbatim order returned by `search/autocomplete/S.T.A.L.K.E.R.: GAMMA`.
+    fn gamma_autocomplete() -> Vec<SgdbSearchItem> {
+        vec![
+            hit(5518013, "S.T.A.L.K.E.R.: GAMMA"),
+            hit(1838, "S.T.A.L.K.E.R.: Clear Sky"),
+            hit(9723, "S.T.A.L.K.E.R.: Call of Pripyat"),
+            hit(11025, "S.T.A.L.K.E.R.: Shadow of Chernobyl"),
+            hit(5247104, "S.T.A.L.K.E.R.: Anomaly"),
+            hit(5270202, "S.T.A.L.K.E.R. 2: Heart of Chornobyl"),
+        ]
+    }
+
+    #[test]
+    fn best_match_picks_the_gamma_entry_over_its_siblings() {
+        let items = gamma_autocomplete();
+        assert_eq!(
+            best_match(&items, "S.T.A.L.K.E.R.: GAMMA").map(|i| i.id),
+            Some(5518013)
+        );
+    }
+
+    /// The bare "Stalker" entry used to win via `query.starts_with(name)`,
+    /// which is how the media picker served 1 grid instead of 21.
+    #[test]
+    fn best_match_never_lets_a_bare_word_answer_a_longer_query() {
+        let items = vec![
+            hit(5263811, "Stalker"),
+            hit(27949, "Stalker Crab Simulator"),
+            hit(5518013, "S.T.A.L.K.E.R.: GAMMA"),
+        ];
+        assert_eq!(
+            best_match(&items, "S.T.A.L.K.E.R.: GAMMA").map(|i| i.id),
+            Some(5518013)
+        );
+    }
+
+    #[test]
+    fn best_match_rejects_hits_missing_a_query_word() {
+        let items = vec![hit(5263811, "Stalker"), hit(5248784, "Stalker Online")];
+        assert_eq!(best_match(&items, "stalker gamma").map(|i| i.id), Some(5263811));
+    }
+
+    #[test]
+    fn best_match_prefers_the_fewest_extra_words() {
+        let items = vec![hit(3, "Halo 3 ODST"), hit(2, "Halo 3"), hit(1, "Halo 3 Custom Edition")];
+        assert_eq!(best_match(&items, "Halo 3").map(|i| i.id), Some(2));
+    }
+
+    #[test]
+    fn best_match_keeps_api_order_when_no_words_match() {
+        let items = vec![hit(9, "Zelda"), hit(8, "Metroid")];
+        assert_eq!(best_match(&items, "Totally Unrelated").map(|i| i.id), Some(9));
+    }
+
+    #[test]
+    fn best_match_needs_a_query_and_a_hit() {
+        assert!(best_match(&[], "Halo").is_none());
+        assert!(best_match(&[hit(1, "Halo")], "   ").is_none());
     }
 }

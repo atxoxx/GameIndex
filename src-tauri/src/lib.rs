@@ -188,6 +188,7 @@ pub fn run() {
             steamgriddb::sgdb_get_assets,
             steamgriddb::sgdb_get_all_assets,
             steamgriddb::sgdb_get_assets_batch,
+            steamgriddb::sgdb_search_games,
             price::fetch_game_prices_batch,
             protondb::fetch_protondb_status,
             fetch_url,

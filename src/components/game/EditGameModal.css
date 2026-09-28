@@ -1739,6 +1739,82 @@
   color: var(--color-text-muted);
 }
 
+/* SteamGridDB game matches under the search box: the user can point the
+ * gallery at a specific entry (a mod's own page, a remaster, a fan project)
+ * instead of relying on the name match alone. */
+.media-fetch-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.media-fetch-search-field .media-fetch-search-input {
+  width: 100%;
+}
+
+.media-fetch-suggest {
+  position: absolute;
+  top: calc(100% + var(--space-2xs));
+  left: 0;
+  right: 0;
+  z-index: var(--z-popover);
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-2xs);
+  list-style: none;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xl);
+}
+
+.media-fetch-suggest-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.media-fetch-suggest-item.is-active {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.media-fetch-suggest-status {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.media-fetch-suggest-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-fetch-suggest-year {
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.media-fetch-suggest-verified {
+  flex: 0 0 auto;
+  padding: 2px var(--space-xs);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border-radius: var(--radius-full);
+}
+
 .media-fetch-toolbar {
   display: flex;
   align-items: center;

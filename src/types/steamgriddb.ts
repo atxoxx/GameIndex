@@ -49,3 +49,14 @@ export interface SgdbAllAssets {
   icons: SgdbArtworkItem[];
   logos: SgdbArtworkItem[];
 }
+
+/** One game match from the `sgdb_search_games` command, shown in the media
+ *  picker's suggestion dropdown so the gallery can be pointed at a specific
+ *  entry (a mod's own page, a remaster, a fan project). */
+export interface SgdbGameSuggestion {
+  id: number;
+  name: string;
+  /** Unix seconds; absent when SteamGridDB has no release date. */
+  releaseDate?: number | null;
+  verified: boolean;
+}

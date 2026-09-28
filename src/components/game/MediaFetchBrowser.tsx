@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -6,7 +12,7 @@ import {
   type GameMetadataResult,
   type LaunchBoxImageResult,
 } from "../../types/game";
-import type { SgdbAllAssets } from "../../types/steamgriddb";
+import type { SgdbAllAssets, SgdbGameSuggestion } from "../../types/steamgriddb";
 import { Button } from "../ui";
 import "./EditGameModal.css";
 
@@ -21,6 +27,14 @@ export interface Candidate {
   resolution?: string;
   region?: string | null;
   animated?: boolean;
+}
+
+/** The fetch currently on screen: the term, the SteamGridDB entry the user
+ *  picked for it (if any), and a nonce so the same term can re-run. */
+interface SearchRequest {
+  query: string;
+  sgdbGameId: number | null;
+  nonce: number;
 }
 
 interface MediaFetchBrowserProps {
@@ -40,6 +54,10 @@ const SLOT_LABEL: Record<MediaSlot, string> = {
 
 const ALLOWED_EXT = /\.(jpe?g|png|webp|ico)(\?|$)/i;
 const ALLOWED_MIME = /^image\/(jpe?g|png|webp|x-icon|vnd\.microsoft\.icon|ico)$/i;
+
+const SUGGEST_DEBOUNCE_MS = 280;
+const SUGGEST_MIN_CHARS = 2;
+const SUGGEST_LIST_ID = "media-fetch-suggestions";
 
 function allowed(url: string, mime?: string | null): boolean {
   if (mime && ALLOWED_MIME.test(mime)) return true;
@@ -188,14 +206,17 @@ function steamCdnUrlsForSlot(slot: MediaSlot, appId: number): string | null {
 /** Fetch candidate images for a single media slot across Steam, IGDB and
  *  SteamGridDB, restricted to jpg/jpeg/png/webp. Filters by extension and
  *  MIME where available, dedupes URLs, and preserves a stable source order.
- *  SteamGridDB needs a Steam AppID; when the game row lacks one we try to
- *  recover it from the metadata's Steam store links. The SteamGridDB query
- *  pulls the FULL gallery (all pages, throttled server-side) so the picker
- *  shows every community upload, not just the single best item. */
+ *  SteamGridDB is queried by `sgdbGameId` when the user picked an entry in the
+ *  suggestion dropdown, otherwise by the game row's Steam AppID, otherwise by
+ *  name — recovering the AppID from the metadata's Steam store links when the
+ *  row has none. The SteamGridDB query pulls the FULL gallery (all pages,
+ *  throttled server-side) so the picker shows every community upload, not just
+ *  the single best item. */
 async function collectCandidates(
   slot: MediaSlot,
   gameName: string,
-  steamAppId?: number
+  steamAppId?: number,
+  sgdbGameId?: number
 ): Promise<Candidate[]> {
   const out: Candidate[] = [];
   const seen = new Set<string>();
@@ -239,6 +260,7 @@ async function collectCandidates(
       const assets = await invoke<SgdbAllAssets | null>("sgdb_get_all_assets", {
         steamAppId: sgdbAppId ?? null,
         gameName: gameName || undefined,
+        sgdbGameId: sgdbGameId ?? null,
       });
       if (assets) {
         const items =
@@ -327,24 +349,66 @@ export function MediaFetchBrowser({
   const [previewCandidate, setPreviewCandidate] = useState<Candidate | null>(null);
   // The chooser starts on the game's own name but the title can be edited and
   // re-searched, which is how users find art for remasters, ports or games the
-  // metadata match missed. `activeQuery` is the term whose results are shown;
-  // `draftQuery` is the editable input. The nonce lets the same term re-run.
+  // metadata match missed. `draftQuery` is the editable input and `search` is
+  // the request whose results are on screen — carrying the SteamGridDB entry
+  // picked from the suggestions, if the user picked one.
   const [draftQuery, setDraftQuery] = useState(gameName);
-  const [activeQuery, setActiveQuery] = useState(gameName);
-  const [searchNonce, setSearchNonce] = useState(0);
+  const [pickedGame, setPickedGame] = useState<SgdbGameSuggestion | null>(null);
+  const [search, setSearch] = useState<SearchRequest>({
+    query: gameName,
+    sgdbGameId: null,
+    nonce: 0,
+  });
+
+  const [suggestions, setSuggestions] = useState<SgdbGameSuggestion[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const pickedTermRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const term = draftQuery.trim();
+    if (!suggestionsOpen || term.length < SUGGEST_MIN_CHARS) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSuggestionsLoading(true);
+    const timer = window.setTimeout(() => {
+      invoke<SgdbGameSuggestion[]>("sgdb_search_games", { query: term })
+        .then((hits) => {
+          if (cancelled) return;
+          setSuggestions(hits);
+          setActiveSuggestion(-1);
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSuggestionsLoading(false);
+        });
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [draftQuery, suggestionsOpen]);
+
+  const shownQuery = search.query.trim() || gameName;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const query = activeQuery.trim() || gameName;
+      const query = search.query.trim() || gameName;
       // Only trust the game's own Steam AppID while searching its own name —
       // an edited query can be a different game, and the AppID would pull the
       // wrong cover/hero/logo from the Steam CDN.
       const searchAppId =
         query.toLowerCase() === gameName.trim().toLowerCase() ? steamAppId : undefined;
       const [result, lbResult] = await Promise.all([
-        collectCandidates(slot, query, searchAppId),
+        collectCandidates(slot, query, searchAppId, search.sgdbGameId ?? undefined),
         collectLaunchboxCandidates(slot, query),
       ]);
       if (!cancelled) {
@@ -356,11 +420,53 @@ export function MediaFetchBrowser({
     return () => {
       cancelled = true;
     };
-  }, [slot, activeQuery, searchNonce, gameName, steamAppId]);
+  }, [slot, search, gameName, steamAppId]);
 
   function runSearch() {
-    setActiveQuery(draftQuery.trim() || gameName);
-    setSearchNonce((n) => n + 1);
+    setSearch((prev) => ({
+      query: draftQuery.trim() || gameName,
+      sgdbGameId: pickedGame?.id ?? null,
+      nonce: prev.nonce + 1,
+    }));
+  }
+
+  function handleQueryChange(value: string) {
+    setDraftQuery(value);
+    // A new title invalidates the entry picked from the dropdown.
+    setPickedGame(null);
+    setSuggestionsOpen(true);
+  }
+
+  function chooseSuggestion(suggestion: SgdbGameSuggestion) {
+    pickedTermRef.current = suggestion.name;
+    setDraftQuery(suggestion.name);
+    setPickedGame(suggestion);
+    setSuggestionsOpen(false);
+    setSuggestions([]);
+    setActiveSuggestion(-1);
+    setSearch((prev) => ({
+      query: suggestion.name,
+      sgdbGameId: suggestion.id,
+      nonce: prev.nonce + 1,
+    }));
+  }
+
+  function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setSuggestionsOpen(false);
+      return;
+    }
+    if (!suggestionsOpen || suggestions.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveSuggestion((index) => (index + 1) % suggestions.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSuggestion((index) => (index <= 0 ? suggestions.length - 1 : index - 1));
+    } else if (event.key === "Enter" && activeSuggestion >= 0) {
+      event.preventDefault();
+      chooseSuggestion(suggestions[activeSuggestion]);
+    }
   }
 
   const allCandidates = useMemo(
@@ -580,16 +686,69 @@ function CandidateCard({
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input
-            className="media-fetch-search-input"
-            type="text"
-            value={draftQuery}
-            onChange={(e) => setDraftQuery(e.target.value)}
-            placeholder="Search for a game title…"
-            aria-label="Search game title"
-            spellCheck={false}
-            autoComplete="off"
-          />
+          <div className="media-fetch-search-field">
+            <input
+              className="media-fetch-search-input"
+              type="text"
+              role="combobox"
+              value={draftQuery}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              onFocus={() => {
+                if (draftQuery.trim() !== pickedTermRef.current) setSuggestionsOpen(true);
+              }}
+              onBlur={() => setSuggestionsOpen(false)}
+              placeholder="Search for a game title…"
+              aria-label="Search game title"
+              aria-autocomplete="list"
+              aria-expanded={suggestionsOpen && suggestions.length > 0}
+              aria-controls={
+                suggestionsOpen && suggestions.length > 0 ? SUGGEST_LIST_ID : undefined
+              }
+              aria-activedescendant={
+                activeSuggestion >= 0 ? `${SUGGEST_LIST_ID}-${activeSuggestion}` : undefined
+              }
+              spellCheck={false}
+              autoComplete="off"
+            />
+            {suggestionsOpen && (suggestionsLoading || suggestions.length > 0) && (
+              <ul
+                className="media-fetch-suggest"
+                id={SUGGEST_LIST_ID}
+                role="listbox"
+                aria-label="SteamGridDB matches"
+              >
+                {suggestions.length === 0 ? (
+                  <li className="media-fetch-suggest-status">Searching SteamGridDB…</li>
+                ) : (
+                  suggestions.map((suggestion, index) => (
+                    <li
+                      key={suggestion.id}
+                      id={`${SUGGEST_LIST_ID}-${index}`}
+                      role="option"
+                      aria-selected={index === activeSuggestion}
+                      className={`media-fetch-suggest-item${index === activeSuggestion ? " is-active" : ""}`}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        chooseSuggestion(suggestion);
+                      }}
+                      onMouseEnter={() => setActiveSuggestion(index)}
+                    >
+                      <span className="media-fetch-suggest-name">{suggestion.name}</span>
+                      {suggestion.releaseDate ? (
+                        <span className="media-fetch-suggest-year">
+                          {new Date(suggestion.releaseDate * 1000).getFullYear()}
+                        </span>
+                      ) : null}
+                      {suggestion.verified && (
+                        <span className="media-fetch-suggest-verified">verified</span>
+                      )}
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
+          </div>
           <Button variant="primary" size="sm" type="submit">
             Search
           </Button>
@@ -633,17 +792,17 @@ function CandidateCard({
           {loading ? (
             <div className="metadata-loading">
               <div className="metadata-spinner" />
-              <p>Searching for {SLOT_LABEL[slot].toLowerCase()} images for “{activeQuery.trim() || gameName}”…</p>
+              <p>Searching for {SLOT_LABEL[slot].toLowerCase()} images for “{shownQuery}”…</p>
             </div>
           ) : allCandidates.length === 0 ? (
             <div className="metadata-empty">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-              <p>No {SLOT_LABEL[slot].toLowerCase()} images found for “{activeQuery.trim() || gameName}”. Try another title.</p>
+              <p>No {SLOT_LABEL[slot].toLowerCase()} images found for “{shownQuery}”. Try another title.</p>
             </div>
           ) : filteredCandidates.length === 0 ? (
             <div className="metadata-empty">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-              <p>No {formatFilter.toUpperCase()} images found for “{activeQuery.trim() || gameName}”.</p>
+              <p>No {formatFilter.toUpperCase()} images found for “{shownQuery}”.</p>
               <Button variant="secondary" size="sm" onClick={() => setFormatFilter("all")}>
                 Show all images ({allCandidates.length})
               </Button>
