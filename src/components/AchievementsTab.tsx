@@ -389,6 +389,31 @@ export default function AchievementsTab({ game }: { game: Game }) {
     };
   }, [game.id, loadGameAchievements]);
 
+  // The context detail cache is bounded, so this game's payload can be
+  // evicted while the tab stays mounted (e.g. a bulk sync busy-evicts older
+  // games). Re-read it from the local DB when that happens instead of
+  // leaving the panel empty — a cache reload, not another network sync.
+  const hadPayloadRef = useRef(false);
+  useEffect(() => {
+    hadPayloadRef.current = false;
+  }, [game.id]);
+  useEffect(() => {
+    if (achievementData) {
+      hadPayloadRef.current = true;
+      return;
+    }
+    if (!hadPayloadRef.current) return;
+    hadPayloadRef.current = false;
+    let cancelled = false;
+    (async () => {
+      await loadGameAchievements(game.id);
+      if (!cancelled) setCacheChecked(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [achievementData, game.id, loadGameAchievements]);
+
   // Auto-load achievements
   useEffect(() => {
     if (!cacheChecked) return;

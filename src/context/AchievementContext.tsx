@@ -34,6 +34,7 @@ import type {
 } from "../types/game";
 import type { SteamSession } from "../types/steam";
 import { deferToIdle } from "../utils/idle";
+import { putAchievementDetail } from "./achievementDetailCache";
 
 // ── Settings persistence ────────────────────────────────────────────────
 
@@ -270,7 +271,7 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
           { gameId }
         );
         if (raw) {
-          detailsRef.current = { ...detailsRef.current, [gameId]: raw };
+          detailsRef.current = putAchievementDetail(detailsRef.current, gameId, raw);
           setDetails(detailsRef.current);
           return raw;
         }
@@ -290,7 +291,9 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
 
   /** Persist one game's payload and mirror it into the in-memory detail map. */
   const persistGame = useCallback((gameId: string, data: GameAchievementData) => {
-    detailsRef.current = { ...detailsRef.current, [gameId]: data };
+    // Bounded: a whole-library sync must not pin every game's payload in
+    // memory. The backend holds the durable copy.
+    detailsRef.current = putAchievementDetail(detailsRef.current, gameId, data);
     setDetails(detailsRef.current);
     const snapshot = JSON.stringify(data);
     saveChainRef.current = saveChainRef.current.then(async () => {
