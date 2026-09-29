@@ -283,7 +283,7 @@ export function SchematicHero({
   badgeText,
   variant = "home",
 }: {
-  title?: string;
+  title?: ReactNode;
   badgeText?: string;
   variant?: "home" | "library" | "store";
 }) {
@@ -316,3 +316,92 @@ export function SchematicHero({
     </div>
   );
 }
+
+/** Schematic Sparkline bar wave. */
+export function SchematicSparkline({
+  height = 28,
+  bars = [20, 45, 30, 60, 40, 85, 55, 95, 70, 80, 65, 90, 75, 100],
+  color = "var(--color-accent)",
+}: {
+  height?: number;
+  bars?: number[];
+  color?: string;
+}) {
+  return (
+    <div className="studio-schematic-sparkline" style={{ height: `${height}px` }} aria-hidden="true">
+      {bars.map((h, i) => (
+        <span
+          key={i}
+          className="studio-schematic-sparkline__bar"
+          style={{ height: `${h}%`, backgroundColor: color }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Schematic Donut chart representation. */
+export function SchematicDonut({
+  size = 56,
+  stroke = 7,
+}: {
+  size?: number;
+  stroke?: number;
+}) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="studio-schematic-donut" aria-hidden="true">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-border)" strokeWidth={stroke} />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="var(--color-accent)"
+        strokeWidth={stroke}
+        strokeDasharray={`${c * 0.45} ${c * 0.55}`}
+        strokeDashoffset={c * 0.25}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="var(--color-brand-cyan, #06b6d4)"
+        strokeWidth={stroke}
+        strokeDasharray={`${c * 0.3} ${c * 0.7}`}
+        strokeDashoffset={-c * 0.2}
+      />
+    </svg>
+  );
+}
+
+/** Schematic Disk Meter: drive letter, label, space, and a track. */
+export function SchematicDiskMeter({
+  drive,
+  label,
+  used,
+  total,
+  percent,
+}: {
+  drive: string;
+  label: string;
+  used: string;
+  total: string;
+  percent: number;
+}) {
+  return (
+    <div className="studio-schematic-disk">
+      <div className="studio-schematic-disk__head">
+        <span className="studio-schematic-disk__drive">{drive}</span>
+        <span className="studio-schematic-disk__label">{label}</span>
+        <span className="studio-schematic-disk__space">
+          {used} / {total}
+        </span>
+      </div>
+      <Track value={percent} />
+    </div>
+  );
+}
+

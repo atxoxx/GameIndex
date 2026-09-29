@@ -36,6 +36,16 @@ import { HomePagePreview } from "./HomePagePreview";
 import { LibraryPagePreview } from "./LibraryPagePreview";
 import { StorePagePreview } from "./StorePagePreview";
 import { WishlistPagePreview } from "./WishlistPagePreview";
+import { DealsPagePreview } from "./DealsPagePreview";
+import { NewsPagePreview } from "./NewsPagePreview";
+import { ActivityPagePreview } from "./ActivityPagePreview";
+import { AchievementsPagePreview } from "./AchievementsPagePreview";
+import { DownloadsPagePreview } from "./DownloadsPagePreview";
+import { StoragePagePreview } from "./StoragePagePreview";
+import { CommunityPagePreview } from "./CommunityPagePreview";
+import { FriendsPagePreview } from "./FriendsPagePreview";
+import { EmulatorsPagePreview } from "./EmulatorsPagePreview";
+import { ModsPagePreview } from "./ModsPagePreview";
 import { WIDGET_ICON, WIDGET_KEY_BY_ITEM } from "./widgetIcons";
 import type { OrderListItem, ViewportPreset } from "./types";
 
@@ -749,6 +759,116 @@ export function StudioPreview({
               ) : page === "wishlist" ? (
                 <div className="studio-detail-scroll">
                   <WishlistPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "deals" ? (
+                <div className="studio-detail-scroll">
+                  <DealsPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "news" ? (
+                <div className="studio-detail-scroll">
+                  <NewsPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "activity" ? (
+                <div className="studio-detail-scroll">
+                  <ActivityPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "achievements" ? (
+                <div className="studio-detail-scroll">
+                  <AchievementsPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "downloads" ? (
+                <div className="studio-detail-scroll">
+                  <DownloadsPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "storage" ? (
+                <div className="studio-detail-scroll">
+                  <StoragePagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "community" ? (
+                <div className="studio-detail-scroll">
+                  <CommunityPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "friends" ? (
+                <div className="studio-detail-scroll">
+                  <FriendsPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "emulators" ? (
+                <div className="studio-detail-scroll">
+                  <EmulatorsPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "mods" ? (
+                <div className="studio-detail-scroll">
+                  <ModsPagePreview
                     widgetItems={pageItems}
                     inspectMode={inspectMode}
                     highlightedId={highlightedId}
