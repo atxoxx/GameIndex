@@ -161,7 +161,13 @@ export default function GameHero({
   const [coverErrored, setCoverErrored] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
   const [sgdbPosterFailed, setSgdbPosterFailed] = useState(false);
-  const { autoGameAccent, showGameArtBackdrop } = useSettings();
+  const {
+    autoGameAccent,
+    showGameArtBackdrop,
+    showHeroTilt = true,
+    showHeroBackdropControls = true,
+    showHeroInteractiveControls = true,
+  } = useSettings();
   const { currentTheme } = useTheme();
   const isAdaptive = currentTheme === "adaptive";
   const gamePalette = useGameAccent(accentSrc || undefined);
@@ -240,7 +246,7 @@ export default function GameHero({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (reduceMotion || !heroRef.current) return;
+      if (reduceMotion || !showHeroTilt || !heroRef.current) return;
       const rect = heroRef.current.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
       const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -434,33 +440,47 @@ export default function GameHero({
 
   const metaRow = isGame ? (
     <>
-      <button
-        type="button"
-        className="game-hero-meta-item game-hero-meta-item--btn"
-        onClick={() => {
-          if (game?.platform) {
-            navigate(`/library?platform=${encodeURIComponent(game.platform)}`);
-          }
-        }}
-        title={t("hero.filterByPlatform", { platform: game!.platform })}
-      >
-        <IconPlatform size={12} />
-        <span>{game!.platform}</span>
-      </button>
+      {showHeroInteractiveControls ? (
+        <button
+          type="button"
+          className="game-hero-meta-item game-hero-meta-item--btn"
+          onClick={() => {
+            if (game?.platform) {
+              navigate(`/library?platform=${encodeURIComponent(game.platform)}`);
+            }
+          }}
+          title={t("hero.filterByPlatform", { platform: game!.platform })}
+        >
+          <IconPlatform size={12} />
+          <span>{game!.platform}</span>
+        </button>
+      ) : (
+        <span className="game-hero-meta-item">
+          <IconPlatform size={12} />
+          <span>{game!.platform}</span>
+        </span>
+      )}
       <span className="game-hero-meta-dot" />
       <span>{t("hero.playTime")}: {game!.playTime}</span>
       {rating && (
         <>
           <span className="game-hero-meta-dot" />
-          <button
-            type="button"
-            className={`game-hero-rating-badge ${ratingBadgeClass}${onTabChange ? " game-hero-rating-badge--interactive" : ""}`}
-            title={onTabChange ? t("hero.viewReviews") : t("ratings.title")}
-            onClick={onTabChange ? () => onTabChange("reviews") : undefined}
-          >
-            <IconStar size={11} className="game-hero-rating-star" />
-            <span>{Math.round(rating)}</span>
-          </button>
+          {showHeroInteractiveControls && onTabChange ? (
+            <button
+              type="button"
+              className={`game-hero-rating-badge ${ratingBadgeClass} game-hero-rating-badge--interactive`}
+              title={t("hero.viewReviews")}
+              onClick={() => onTabChange("reviews")}
+            >
+              <IconStar size={11} className="game-hero-rating-star" />
+              <span>{Math.round(rating)}</span>
+            </button>
+          ) : (
+            <span className={`game-hero-rating-badge ${ratingBadgeClass}`} title={t("ratings.title")}>
+              <IconStar size={11} className="game-hero-rating-star" />
+              <span>{Math.round(rating)}</span>
+            </span>
+          )}
         </>
       )}
     </>
@@ -475,15 +495,22 @@ export default function GameHero({
       {rating && (
         <>
           {(metaItems?.length ?? 0) > 0 && <span className="game-hero-meta-dot" />}
-          <button
-            type="button"
-            className={`game-hero-rating-badge ${ratingBadgeClass}${onTabChange ? " game-hero-rating-badge--interactive" : ""}`}
-            title={onTabChange ? t("hero.viewReviews") : t("ratings.title")}
-            onClick={onTabChange ? () => onTabChange("reviews") : undefined}
-          >
-            <IconStar size={11} className="game-hero-rating-star" />
-            <span>{Math.round(rating)}</span>
-          </button>
+          {showHeroInteractiveControls && onTabChange ? (
+            <button
+              type="button"
+              className={`game-hero-rating-badge ${ratingBadgeClass} game-hero-rating-badge--interactive`}
+              title={t("hero.viewReviews")}
+              onClick={() => onTabChange("reviews")}
+            >
+              <IconStar size={11} className="game-hero-rating-star" />
+              <span>{Math.round(rating)}</span>
+            </button>
+          ) : (
+            <span className={`game-hero-rating-badge ${ratingBadgeClass}`} title={t("ratings.title")}>
+              <IconStar size={11} className="game-hero-rating-star" />
+              <span>{Math.round(rating)}</span>
+            </span>
+          )}
         </>
       )}
     </>
@@ -492,20 +519,31 @@ export default function GameHero({
   // ── KPI strip ────────────────────────────────────────────────
   const kpis = (
     <>
-      {steamAppId != null && (
-        <div
-          className="game-hero-kpi-interactive game-hero-kpi-interactive--active"
-          onClick={handleOpenSteamCommunity}
-          title={t("hero.viewCommunityHub")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleOpenSteamCommunity(e as unknown as React.MouseEvent);
-            }
-          }}
-        >
+      {steamAppId != null &&
+        (showHeroInteractiveControls ? (
+          <div
+            className="game-hero-kpi-interactive game-hero-kpi-interactive--active"
+            onClick={handleOpenSteamCommunity}
+            title={t("hero.viewCommunityHub")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleOpenSteamCommunity(e as unknown as React.MouseEvent);
+              }
+            }}
+          >
+            <KpiTile
+              glass
+              size="sm"
+              label={t("hero.playersNow")}
+              icon={<IconUsers size={12} />}
+              value={<PlayerCountBadge appId={steamAppId} />}
+              intent="accent"
+            />
+          </div>
+        ) : (
           <KpiTile
             glass
             size="sm"
@@ -514,26 +552,33 @@ export default function GameHero({
             value={<PlayerCountBadge appId={steamAppId} />}
             intent="accent"
           />
-        </div>
-      )}
-      {isGame && (
-        <div
-          className={`game-hero-kpi-interactive${onTabChange ? " game-hero-kpi-interactive--active" : ""}`}
-          onClick={onTabChange ? () => onTabChange("activity") : undefined}
-          title={onTabChange ? t("hero.viewActivity") : undefined}
-          role={onTabChange ? "button" : undefined}
-          tabIndex={onTabChange ? 0 : undefined}
-          onKeyDown={
-            onTabChange
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onTabChange("activity");
-                  }
-                }
-              : undefined
-          }
-        >
+        ))}
+      {isGame &&
+        (showHeroInteractiveControls && onTabChange ? (
+          <div
+            className="game-hero-kpi-interactive game-hero-kpi-interactive--active"
+            onClick={() => onTabChange("activity")}
+            title={t("hero.viewActivity")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onTabChange("activity");
+              }
+            }}
+          >
+            <KpiTile
+              glass
+              size="sm"
+              label={t("hero.playTime")}
+              icon={<IconClock size={12} />}
+              value={formatHeroPlayTime(game!.playTime)}
+              subtext={game!.installed ? t("filter.installed") : t("game.notInstalled")}
+              intent={game!.installed ? "success" : "default"}
+            />
+          </div>
+        ) : (
           <KpiTile
             glass
             size="sm"
@@ -543,26 +588,33 @@ export default function GameHero({
             subtext={game!.installed ? t("filter.installed") : t("game.notInstalled")}
             intent={game!.installed ? "success" : "default"}
           />
-        </div>
-      )}
-      {achPercent != null && (
-        <div
-          className={`game-hero-kpi-interactive${onTabChange ? " game-hero-kpi-interactive--active" : ""}`}
-          onClick={onTabChange ? () => onTabChange("achievements") : undefined}
-          title={onTabChange ? t("hero.viewAchievements") : undefined}
-          role={onTabChange ? "button" : undefined}
-          tabIndex={onTabChange ? 0 : undefined}
-          onKeyDown={
-            onTabChange
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onTabChange("achievements");
-                  }
-                }
-              : undefined
-          }
-        >
+        ))}
+      {achPercent != null &&
+        (showHeroInteractiveControls && onTabChange ? (
+          <div
+            className="game-hero-kpi-interactive game-hero-kpi-interactive--active"
+            onClick={() => onTabChange("achievements")}
+            title={t("hero.viewAchievements")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onTabChange("achievements");
+              }
+            }}
+          >
+            <KpiTile
+              glass
+              size="sm"
+              label={t("nav.achievements")}
+              icon={<IconShield size={12} />}
+              value={`${achPercent}%`}
+              subtext={`${achUnlocked}/${achTotal}`}
+              intent={achPercent >= 100 ? "success" : "default"}
+            />
+          </div>
+        ) : (
           <KpiTile
             glass
             size="sm"
@@ -572,8 +624,7 @@ export default function GameHero({
             subtext={`${achUnlocked}/${achTotal}`}
             intent={achPercent >= 100 ? "success" : "default"}
           />
-        </div>
-      )}
+        ))}
     </>
   );
 
@@ -600,18 +651,25 @@ export default function GameHero({
       <>
         {genres.length > 0 && (
           <div className="game-hero-genres">
-            {genres.slice(0, 5).map((g) => (
-              <button
-                key={g}
-                type="button"
-                className="game-hero-genre-chip game-hero-genre-chip--interactive"
-                onClick={() => handleGenreClick(g)}
-                title={t("hero.filterByGenre", { genre: g })}
-              >
-                <IconTag size={10} className="game-hero-genre-chip-icon" />
-                <span>{g}</span>
-              </button>
-            ))}
+            {genres.slice(0, 5).map((g) =>
+              showHeroInteractiveControls ? (
+                <button
+                  key={g}
+                  type="button"
+                  className="game-hero-genre-chip game-hero-genre-chip--interactive"
+                  onClick={() => handleGenreClick(g)}
+                  title={t("hero.filterByGenre", { genre: g })}
+                >
+                  <IconTag size={10} className="game-hero-genre-chip-icon" />
+                  <span>{g}</span>
+                </button>
+              ) : (
+                <span key={g} className="game-hero-genre-chip">
+                  <IconTag size={10} className="game-hero-genre-chip-icon" />
+                  <span>{g}</span>
+                </span>
+              ),
+            )}
           </div>
         )}
         {friends && (
@@ -688,6 +746,8 @@ export default function GameHero({
     // poster (or whose art failed to load) keeps the original backdrop cap.
     posterHiddenByUser ? "game-hero--no-poster" : "",
     gridMode ? "game-hero--grid" : "",
+    !showHeroTilt ? "game-hero--no-tilt" : "",
+    !showHeroInteractiveControls ? "game-hero--no-interactive" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -755,19 +815,25 @@ export default function GameHero({
       return (
         <div
           key="poster"
-          className="game-hero__poster game-hero__block--poster"
+          className={`game-hero__poster game-hero__block--poster${
+            !showHeroInteractiveControls ? " game-hero__poster--static" : ""
+          }`}
           style={gridStyle("poster")}
-          onClick={handleOpenPoster}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleOpenPoster();
-            }
-          }}
-          tabIndex={0}
-          role="button"
-          title={t("hero.viewPoster")}
-          aria-label={t("hero.viewPoster")}
+          onClick={showHeroInteractiveControls ? handleOpenPoster : undefined}
+          onKeyDown={
+            showHeroInteractiveControls
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleOpenPoster();
+                  }
+                }
+              : undefined
+          }
+          tabIndex={showHeroInteractiveControls ? 0 : undefined}
+          role={showHeroInteractiveControls ? "button" : undefined}
+          title={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
+          aria-label={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
         >
           <img
             src={posterSrc!}
@@ -781,13 +847,15 @@ export default function GameHero({
               }
             }}
           />
-          <div className="game-hero__poster-sheen" aria-hidden="true" />
-          <div className="game-hero__poster-overlay" aria-hidden="true">
-            <span className="game-hero__poster-inspect-pill">
-              <IconMaximize size={11} />
-              <span>{t("hero.viewPoster")}</span>
-            </span>
-          </div>
+          {showHeroTilt && <div className="game-hero__poster-sheen" aria-hidden="true" />}
+          {showHeroInteractiveControls && (
+            <div className="game-hero__poster-overlay" aria-hidden="true">
+              <span className="game-hero__poster-inspect-pill">
+                <IconMaximize size={11} />
+                <span>{t("hero.viewPoster")}</span>
+              </span>
+            </div>
+          )}
           {isGame && game!.installed && (
             <span className="game-hero__poster-badge game-hero__poster-badge--installed">
               {t("filter.installed")}
@@ -847,58 +915,60 @@ export default function GameHero({
         <div className="game-hero__bg game-hero__bg--fallback" aria-hidden="true" />
       )}
       <div className="game-hero__scrim" aria-hidden="true" />
-      <div className="game-hero__spotlight" aria-hidden="true" />
+      {showHeroTilt && <div className="game-hero__spotlight" aria-hidden="true" />}
 
       {/* Interactive Backdrop & Wallpaper Toolbar */}
-      <div className="game-hero__backdrop-controls">
-        {allBackdrops.length > 1 && (
-          <>
+      {showHeroBackdropControls && (
+        <div className="game-hero__backdrop-controls">
+          {allBackdrops.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
+                onClick={handlePrevBackdrop}
+                title={t("hero.prevArtwork")}
+                aria-label={t("hero.prevArtwork")}
+              >
+                <IconChevronLeft size={13} />
+              </button>
+              <span className="game-hero__ctrl-counter">
+                <IconImage size={11} className="game-hero__ctrl-icon" />
+                <span>{activeBackdropIdx + 1}/{allBackdrops.length}</span>
+              </span>
+              <button
+                type="button"
+                className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
+                onClick={handleNextBackdrop}
+                title={t("hero.nextArtwork")}
+                aria-label={t("hero.nextArtwork")}
+              >
+                <IconChevronRight size={13} />
+              </button>
+              <div className="game-hero__ctrl-divider" aria-hidden="true" />
+            </>
+          )}
+          {currentBackdrop && (
             <button
               type="button"
-              className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
-              onClick={handlePrevBackdrop}
-              title={t("hero.prevArtwork")}
-              aria-label={t("hero.prevArtwork")}
+              className="game-hero__ctrl-btn"
+              onClick={handleOpenBackdrop}
+              title={t("hero.viewWallpaper")}
             >
-              <IconChevronLeft size={13} />
+              <IconMaximize size={12} />
+              <span className="game-hero__ctrl-label">{t("hero.viewWallpaper")}</span>
             </button>
-            <span className="game-hero__ctrl-counter">
-              <IconImage size={11} className="game-hero__ctrl-icon" />
-              <span>{activeBackdropIdx + 1}/{allBackdrops.length}</span>
-            </span>
-            <button
-              type="button"
-              className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
-              onClick={handleNextBackdrop}
-              title={t("hero.nextArtwork")}
-              aria-label={t("hero.nextArtwork")}
-            >
-              <IconChevronRight size={13} />
-            </button>
-            <div className="game-hero__ctrl-divider" aria-hidden="true" />
-          </>
-        )}
-        {currentBackdrop && (
+          )}
           <button
             type="button"
-            className="game-hero__ctrl-btn"
-            onClick={handleOpenBackdrop}
-            title={t("hero.viewWallpaper")}
+            className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
+            onClick={handleCopyTitle}
+            title={t("hero.copyTitle")}
+            aria-label={t("hero.copyTitle")}
           >
-            <IconMaximize size={12} />
-            <span className="game-hero__ctrl-label">{t("hero.viewWallpaper")}</span>
+            <IconCopy size={13} />
           </button>
-        )}
-        <button
-          type="button"
-          className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
-          onClick={handleCopyTitle}
-          title={t("hero.copyTitle")}
-          aria-label={t("hero.copyTitle")}
-        >
-          <IconCopy size={13} />
-        </button>
-      </div>
+        </div>
+      )}
 
       {gridMode ? (
         <div className="game-hero__grid">
@@ -909,19 +979,23 @@ export default function GameHero({
           {/* 2:3 poster — docks left or right based on its order index. */}
           {posterVisible && (
             <div
-              className="game-hero__poster"
+              className={`game-hero__poster${!showHeroInteractiveControls ? " game-hero__poster--static" : ""}`}
               style={{ order: posterOrder }}
-              onClick={handleOpenPoster}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleOpenPoster();
-                }
-              }}
-              tabIndex={0}
-              role="button"
-              title={t("hero.viewPoster")}
-              aria-label={t("hero.viewPoster")}
+              onClick={showHeroInteractiveControls ? handleOpenPoster : undefined}
+              onKeyDown={
+                showHeroInteractiveControls
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleOpenPoster();
+                      }
+                    }
+                  : undefined
+              }
+              tabIndex={showHeroInteractiveControls ? 0 : undefined}
+              role={showHeroInteractiveControls ? "button" : undefined}
+              title={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
+              aria-label={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
             >
               <img
                 src={posterSrc!}
@@ -935,13 +1009,15 @@ export default function GameHero({
                   }
                 }}
               />
-              <div className="game-hero__poster-sheen" aria-hidden="true" />
-              <div className="game-hero__poster-overlay" aria-hidden="true">
-                <span className="game-hero__poster-inspect-pill">
-                  <IconMaximize size={11} />
-                  <span>{t("hero.viewPoster")}</span>
-                </span>
-              </div>
+              {showHeroTilt && <div className="game-hero__poster-sheen" aria-hidden="true" />}
+              {showHeroInteractiveControls && (
+                <div className="game-hero__poster-overlay" aria-hidden="true">
+                  <span className="game-hero__poster-inspect-pill">
+                    <IconMaximize size={11} />
+                    <span>{t("hero.viewPoster")}</span>
+                  </span>
+                </div>
+              )}
               {isGame && game.installed && (
                 <span className="game-hero__poster-badge game-hero__poster-badge--installed">
                   {t("filter.installed")}

@@ -188,6 +188,12 @@ export default function LayoutStudio() {
     setShowCardBadges,
     showNavbarNowPlaying,
     setShowNavbarNowPlaying,
+    showHeroTilt,
+    setShowHeroTilt,
+    showHeroBackdropControls,
+    setShowHeroBackdropControls,
+    showHeroInteractiveControls,
+    setShowHeroInteractiveControls,
     detailSectionVisible,
     setDetailSectionVisible,
     detailTabOrder,
@@ -398,6 +404,9 @@ export default function LayoutStudio() {
       showGameArtBackdrop,
       showCardBadges,
       showNavbarNowPlaying,
+      showHeroTilt,
+      showHeroBackdropControls,
+      showHeroInteractiveControls,
       detailSectionVisible,
       detailTabOrder,
       detailTopBarOrder,
@@ -421,6 +430,9 @@ export default function LayoutStudio() {
       showGameArtBackdrop,
       showCardBadges,
       showNavbarNowPlaying,
+      showHeroTilt,
+      showHeroBackdropControls,
+      showHeroInteractiveControls,
       detailSectionVisible,
       detailTabOrder,
       detailTopBarOrder,
@@ -681,6 +693,15 @@ export default function LayoutStudio() {
       if (typeof snapshot.showNavbarNowPlaying === "boolean") {
         setShowNavbarNowPlaying(snapshot.showNavbarNowPlaying);
       }
+      if (typeof snapshot.showHeroTilt === "boolean") {
+        setShowHeroTilt(snapshot.showHeroTilt);
+      }
+      if (typeof snapshot.showHeroBackdropControls === "boolean") {
+        setShowHeroBackdropControls(snapshot.showHeroBackdropControls);
+      }
+      if (typeof snapshot.showHeroInteractiveControls === "boolean") {
+        setShowHeroInteractiveControls(snapshot.showHeroInteractiveControls);
+      }
       if (snapshot.detailSectionVisible) {
         for (const [k, v] of Object.entries(snapshot.detailSectionVisible)) {
           setDetailSectionVisible(k as DetailSectionKey, v);
@@ -796,6 +817,9 @@ export default function LayoutStudio() {
         for (const key of availableDetailSectionKeys) {
           setDetailSectionVisible(key, true);
         }
+        setShowHeroTilt(true);
+        setShowHeroBackdropControls(true);
+        setShowHeroInteractiveControls(true);
       }
       playSound();
     },
@@ -827,6 +851,9 @@ export default function LayoutStudio() {
     }
     setShowCardBadges(true);
     setShowNavbarNowPlaying(true);
+    setShowHeroTilt(true);
+    setShowHeroBackdropControls(true);
+    setShowHeroInteractiveControls(true);
     for (const key of availableDetailSectionKeys) {
       setDetailSectionVisible(key, true);
     }
@@ -1118,6 +1145,21 @@ export default function LayoutStudio() {
             onHeroGridTidy={handleHeroGridTidy}
             onHeroGridReset={handleHeroGridReset}
             onHeroGridConvert={handleHeroGridConvert}
+            showHeroTilt={showHeroTilt}
+            onToggleHeroTilt={() => {
+              setShowHeroTilt(!showHeroTilt);
+              playSound();
+            }}
+            showHeroBackdropControls={showHeroBackdropControls}
+            onToggleHeroBackdropControls={() => {
+              setShowHeroBackdropControls(!showHeroBackdropControls);
+              playSound();
+            }}
+            showHeroInteractiveControls={showHeroInteractiveControls}
+            onToggleHeroInteractiveControls={() => {
+              setShowHeroInteractiveControls(!showHeroInteractiveControls);
+              playSound();
+            }}
           />
 
           <p className="studio-pane__hint">

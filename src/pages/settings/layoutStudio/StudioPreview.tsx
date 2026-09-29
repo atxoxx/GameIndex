@@ -6,8 +6,10 @@ import {
   Gamepad2,
   GripVertical,
   HardDrive,
+  Layers,
   LayoutGrid,
   type LucideIcon,
+  MousePointerClick,
   PanelLeft,
   PanelRight,
   Scale,
@@ -16,6 +18,7 @@ import {
   Sparkles,
   Star,
   Store,
+  Wallpaper,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { HeroGridLayout } from "../../../context/heroGrid";
@@ -175,6 +178,12 @@ export interface StudioPreviewProps {
   onHeroGridReset?: () => void;
   /** Seed a hero grid from the current flex order. */
   onHeroGridConvert?: () => void;
+  showHeroTilt?: boolean;
+  onToggleHeroTilt?: () => void;
+  showHeroBackdropControls?: boolean;
+  onToggleHeroBackdropControls?: () => void;
+  showHeroInteractiveControls?: boolean;
+  onToggleHeroInteractiveControls?: () => void;
 }
 
 export function StudioPreview({
@@ -217,6 +226,12 @@ export function StudioPreview({
   onHeroGridTidy,
   onHeroGridReset,
   onHeroGridConvert,
+  showHeroTilt = true,
+  onToggleHeroTilt,
+  showHeroBackdropControls = true,
+  onToggleHeroBackdropControls,
+  showHeroInteractiveControls = true,
+  onToggleHeroInteractiveControls,
 }: StudioPreviewProps) {
   const { t } = useLanguage();
   const isGlobal = page === "global";
@@ -696,6 +711,49 @@ export function StudioPreview({
                       ))}
                     </div>
                   </div>
+
+                  {/* Hero features & controls — 3D tilt, wallpaper controls, interactive links */}
+                  <div
+                    className="studio-preview__tuner"
+                    role="group"
+                    aria-label={t("settings.interface.subtabHeroFeatures")}
+                  >
+                    <div className="studio-preview__tuner-head">
+                      <span className="studio-preview__tuner-label">
+                        <Sparkles size={11} aria-hidden="true" />
+                        {t("settings.interface.subtabHeroFeatures")}
+                      </span>
+                    </div>
+                    <div className="studio-preview__tuner-chips">
+                      <ToggleChip
+                        id="hero-tilt"
+                        label={t("settings.interface.heroTiltChip")}
+                        icon={Layers}
+                        active={showHeroTilt !== false}
+                        inspectMode={inspectMode}
+                        onInspect={onInspectElement}
+                        onToggle={onToggleHeroTilt ?? (() => {})}
+                      />
+                      <ToggleChip
+                        id="hero-backdrop-controls"
+                        label={t("settings.interface.heroBackdropControlsChip")}
+                        icon={Wallpaper}
+                        active={showHeroBackdropControls !== false}
+                        inspectMode={inspectMode}
+                        onInspect={onInspectElement}
+                        onToggle={onToggleHeroBackdropControls ?? (() => {})}
+                      />
+                      <ToggleChip
+                        id="hero-interactive-controls"
+                        label={t("settings.interface.heroInteractiveControlsChip")}
+                        icon={MousePointerClick}
+                        active={showHeroInteractiveControls !== false}
+                        inspectMode={inspectMode}
+                        onInspect={onInspectElement}
+                        onToggle={onToggleHeroInteractiveControls ?? (() => {})}
+                      />
+                    </div>
+                  </div>
                 </div>
               ) : showDetailMocks && detailScope ? (
                 <div className="studio-detail-scroll">
@@ -721,6 +779,12 @@ export function StudioPreview({
                     onHeroGridTidy={onHeroGridTidy}
                     onHeroGridReset={onHeroGridReset}
                     onHeroGridConvert={onHeroGridConvert}
+                    showHeroTilt={showHeroTilt}
+                    onToggleHeroTilt={onToggleHeroTilt}
+                    showHeroBackdropControls={showHeroBackdropControls}
+                    onToggleHeroBackdropControls={onToggleHeroBackdropControls}
+                    showHeroInteractiveControls={showHeroInteractiveControls}
+                    onToggleHeroInteractiveControls={onToggleHeroInteractiveControls}
                   />
                 </div>
               ) : page === "home" ? (

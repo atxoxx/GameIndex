@@ -55,6 +55,12 @@ export default function InterfaceDefaults() {
     setCommandPaletteMode,
     showGameArtBackdrop,
     setShowGameArtBackdrop,
+    showHeroTilt,
+    setShowHeroTilt,
+    showHeroBackdropControls,
+    setShowHeroBackdropControls,
+    showHeroInteractiveControls,
+    setShowHeroInteractiveControls,
     detailSectionVisible,
     setDetailSectionVisible,
     showDeckVerified,
@@ -121,6 +127,24 @@ export default function InterfaceDefaults() {
               desc={t("settings.appearance.artBackdropDesc")}
               checked={showGameArtBackdrop}
               onChange={setShowGameArtBackdrop}
+            />
+            <SettingsToggleCard
+              title={t("settings.appearance.heroTiltTitle")}
+              desc={t("settings.appearance.heroTiltDesc")}
+              checked={showHeroTilt}
+              onChange={setShowHeroTilt}
+            />
+            <SettingsToggleCard
+              title={t("settings.appearance.heroBackdropControlsTitle")}
+              desc={t("settings.appearance.heroBackdropControlsDesc")}
+              checked={showHeroBackdropControls}
+              onChange={setShowHeroBackdropControls}
+            />
+            <SettingsToggleCard
+              title={t("settings.appearance.heroInteractiveControlsTitle")}
+              desc={t("settings.appearance.heroInteractiveControlsDesc")}
+              checked={showHeroInteractiveControls}
+              onChange={setShowHeroInteractiveControls}
             />
           </div>
         </div>

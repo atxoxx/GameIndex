@@ -1480,6 +1480,28 @@ button.game-hero-meta-item--btn:hover {
   }
 }
 
+.game-hero--no-tilt:hover .game-hero__poster {
+  transform: translateY(-2px) scale(1.01) rotate(-0.5deg) !important;
+}
+.game-hero--no-tilt:hover .game-hero__bg {
+  transform: none !important;
+}
+.game-hero--no-tilt .game-hero__spotlight,
+.game-hero--no-tilt .game-hero__poster-sheen {
+  display: none !important;
+}
+
+.game-hero__poster--static,
+.game-hero--no-interactive .game-hero__poster {
+  cursor: default !important;
+}
+.game-hero--no-interactive:hover .game-hero__poster {
+  transform: none !important;
+}
+.game-hero--no-interactive .game-hero__poster-overlay {
+  display: none !important;
+}
+
 /* Short viewports (720p and below): cap the hero so the content below
    it stays above the fold. Poster/inner must follow or they overflow.
    Declared before the width media so the ≤860px stacked poster keeps

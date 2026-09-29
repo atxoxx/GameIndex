@@ -13,12 +13,15 @@ import {
   Grid2x2,
   GripVertical,
   HardDrive,
-  LayoutGrid,
+  Layers,
+  Maximize2,
+  MousePointerClick,
   RotateCcw,
   ShieldCheck,
   Sparkles,
   Star,
   TriangleAlert,
+  Wallpaper,
   WandSparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -497,6 +500,12 @@ interface HeroMockProps {
   onGridReset?: () => void;
   /** Seed a grid from the current flex order. */
   onGridConvert?: () => void;
+  showHeroTilt?: boolean;
+  onToggleHeroTilt?: () => void;
+  showHeroBackdropControls?: boolean;
+  onToggleHeroBackdropControls?: () => void;
+  showHeroInteractiveControls?: boolean;
+  onToggleHeroInteractiveControls?: () => void;
 }
 
 /**
@@ -530,6 +539,12 @@ function HeroMock({
   onGridTidy,
   onGridReset,
   onGridConvert,
+  showHeroTilt = true,
+  onToggleHeroTilt,
+  showHeroBackdropControls = true,
+  onToggleHeroBackdropControls,
+  showHeroInteractiveControls = true,
+  onToggleHeroInteractiveControls,
 }: HeroMockProps) {
   const { t } = useLanguage();
   const drag = useOrderDrag(onReorder);
@@ -677,7 +692,15 @@ function HeroMock({
         onClick={() => interact(posterItem.id, () => onToggle(posterItem.id, !posterItem.hidden))}
       >
         <span className="studio-hero-mock__poster-art" aria-hidden="true" />
+        {showHeroTilt && (
+          <span className="studio-hero-mock__poster-sheen" aria-hidden="true" />
+        )}
         <span className="studio-hero-mock__poster-badge" aria-hidden="true" />
+        {showHeroInteractiveControls && (
+          <span className="studio-hero-mock__poster-inspect" aria-hidden="true">
+            <Maximize2 size={8} />
+          </span>
+        )}
         {renderEye(posterItem)}
       </div>
     );
@@ -752,7 +775,15 @@ function HeroMock({
         {key === "poster" ? (
           <>
             <span className="studio-hero-mock__poster-art" aria-hidden="true" />
+            {showHeroTilt && (
+              <span className="studio-hero-mock__poster-sheen" aria-hidden="true" />
+            )}
             <span className="studio-hero-mock__poster-badge" aria-hidden="true" />
+            {showHeroInteractiveControls && (
+              <span className="studio-hero-mock__poster-inspect" aria-hidden="true">
+                <Maximize2 size={8} />
+              </span>
+            )}
           </>
         ) : (
           <HeroElementVisual element={item.id as HeroElementKey} />
@@ -803,54 +834,88 @@ function HeroMock({
 
   return (
     <div className={`studio-hero-editor${gridMode ? " is-grid-mode" : ""}`}>
-      {(gridMode || onGridConvert) && (
-        <div
-          className="studio-hero-editor__toolbar"
-          role="group"
-          aria-label={t("settings.interface.heroGridTitle")}
-        >
-          <span className="studio-hero-editor__label">
-            <LayoutGrid size={11} aria-hidden="true" />
-            {t("settings.interface.heroGridTitle")}
-          </span>
+      <div
+        className="studio-hero-editor__toolbar"
+        role="group"
+        aria-label={t("settings.interface.heroFeaturesTitle")}
+      >
+        <span className="studio-hero-editor__label">
+          <Sparkles size={11} aria-hidden="true" />
+          {t("settings.interface.heroFeaturesTitle")}
+        </span>
 
-          {gridMode ? (
-            <>
-              <button
-                type="button"
-                className={`studio-hero-editor__chip${showGuides ? " is-active" : ""}`}
-                aria-pressed={showGuides}
-                title={t("settings.interface.heroGridShowGuides")}
-                onClick={() => setShowGuides((v) => !v)}
-              >
-                <Grid2x2 size={11} aria-hidden="true" />
-                <span>{t("settings.interface.heroGridShowGuides")}</span>
-              </button>
-              {onGridTidy && (
+        <button
+          type="button"
+          className={`studio-hero-editor__chip${showHeroTilt ? " is-active" : ""}`}
+          aria-pressed={showHeroTilt}
+          title={t("settings.appearance.heroTiltDesc")}
+          onClick={onToggleHeroTilt}
+        >
+          <Layers size={11} aria-hidden="true" />
+          <span>{t("settings.interface.heroTiltChip")}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`studio-hero-editor__chip${showHeroBackdropControls ? " is-active" : ""}`}
+          aria-pressed={showHeroBackdropControls}
+          title={t("settings.appearance.heroBackdropControlsDesc")}
+          onClick={onToggleHeroBackdropControls}
+        >
+          <Wallpaper size={11} aria-hidden="true" />
+          <span>{t("settings.interface.heroBackdropControlsChip")}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`studio-hero-editor__chip${showHeroInteractiveControls ? " is-active" : ""}`}
+          aria-pressed={showHeroInteractiveControls}
+          title={t("settings.appearance.heroInteractiveControlsDesc")}
+          onClick={onToggleHeroInteractiveControls}
+        >
+          <MousePointerClick size={11} aria-hidden="true" />
+          <span>{t("settings.interface.heroInteractiveControlsChip")}</span>
+        </button>
+
+        {(gridMode || onGridConvert) && (
+          <>
+            <span className="studio-hero-editor__divider" aria-hidden="true" />
+            {gridMode ? (
+              <>
                 <button
                   type="button"
-                  className="studio-hero-editor__chip"
-                  title={t("settings.interface.heroGridTidy")}
-                  onClick={onGridTidy}
+                  className={`studio-hero-editor__chip${showGuides ? " is-active" : ""}`}
+                  aria-pressed={showGuides}
+                  title={t("settings.interface.heroGridShowGuides")}
+                  onClick={() => setShowGuides((v) => !v)}
                 >
-                  <WandSparkles size={11} aria-hidden="true" />
-                  <span>{t("settings.interface.heroGridTidy")}</span>
+                  <Grid2x2 size={11} aria-hidden="true" />
+                  <span>{t("settings.interface.heroGridShowGuides")}</span>
                 </button>
-              )}
-              {onGridReset && (
-                <button
-                  type="button"
-                  className="studio-hero-editor__chip"
-                  title={t("settings.interface.heroGridReset")}
-                  onClick={onGridReset}
-                >
-                  <RotateCcw size={11} aria-hidden="true" />
-                  <span>{t("settings.interface.heroGridReset")}</span>
-                </button>
-              )}
-            </>
-          ) : (
-            onGridConvert && (
+                {onGridTidy && (
+                  <button
+                    type="button"
+                    className="studio-hero-editor__chip"
+                    title={t("settings.interface.heroGridTidy")}
+                    onClick={onGridTidy}
+                  >
+                    <WandSparkles size={11} aria-hidden="true" />
+                    <span>{t("settings.interface.heroGridTidy")}</span>
+                  </button>
+                )}
+                {onGridReset && (
+                  <button
+                    type="button"
+                    className="studio-hero-editor__chip"
+                    title={t("settings.interface.heroGridReset")}
+                    onClick={onGridReset}
+                  >
+                    <RotateCcw size={11} aria-hidden="true" />
+                    <span>{t("settings.interface.heroGridReset")}</span>
+                  </button>
+                )}
+              </>
+            ) : (
               <button
                 type="button"
                 className="studio-hero-editor__chip"
@@ -860,21 +925,21 @@ function HeroMock({
                 <Grid2x2 size={11} aria-hidden="true" />
                 <span>{t("settings.interface.heroGridConvert")}</span>
               </button>
-            )
-          )}
+            )}
+          </>
+        )}
 
-          {hasOverlap && (
-            <span className="studio-hero-editor__warning" role="status">
-              <TriangleAlert size={11} aria-hidden="true" />
-              {t("settings.interface.heroGridOverlapWarning")}
-            </span>
-          )}
-
-          <span className="studio-sr-only" aria-live="polite">
-            {gridDrag.statusMessage}
+        {hasOverlap && (
+          <span className="studio-hero-editor__warning" role="status">
+            <TriangleAlert size={11} aria-hidden="true" />
+            {t("settings.interface.heroGridOverlapWarning")}
           </span>
-        </div>
-      )}
+        )}
+
+        <span className="studio-sr-only" aria-live="polite">
+          {gridDrag.statusMessage}
+        </span>
+      </div>
 
       <div
         className={mockClassName}
@@ -882,6 +947,45 @@ function HeroMock({
         ref={gridMode ? undefined : drag.containerRef}
         aria-label={t("settings.interface.studioHeroElementsTitle")}
       >
+        {/* Backdrop Controls mockup in top-right */}
+        <div
+          className={`studio-hero-mock__backdrop-ctrls${!showHeroBackdropControls ? " is-off" : ""}`}
+          title={`${t("settings.appearance.heroBackdropControlsTitle")} — ${t(
+            showHeroBackdropControls
+              ? "settings.interface.studioHide"
+              : "settings.interface.studioShow",
+          )}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (inspectMode && onInspect) onInspect("hero-backdrop-controls");
+            else onToggleHeroBackdropControls?.();
+          }}
+        >
+          <span className="studio-hero-mock__ctrl-count" aria-hidden="true">
+            <Wallpaper size={9} />
+            <span>1/3</span>
+          </span>
+          <button
+            type="button"
+            className="studio-hero-mock__ctrl-eye"
+            aria-label={t(
+              showHeroBackdropControls
+                ? "settings.interface.studioHide"
+                : "settings.interface.studioShow",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleHeroBackdropControls?.();
+            }}
+          >
+            {showHeroBackdropControls ? (
+              <Eye size={9} aria-hidden="true" />
+            ) : (
+              <EyeOff size={9} aria-hidden="true" />
+            )}
+          </button>
+        </div>
+
         {backgroundItem && (
           <>
             <span
@@ -1226,6 +1330,12 @@ export interface DetailPagePreviewProps {
   onHeroGridReset?: () => void;
   /** Seed a hero grid from the current flex order. */
   onHeroGridConvert?: () => void;
+  showHeroTilt?: boolean;
+  onToggleHeroTilt?: () => void;
+  showHeroBackdropControls?: boolean;
+  onToggleHeroBackdropControls?: () => void;
+  showHeroInteractiveControls?: boolean;
+  onToggleHeroInteractiveControls?: () => void;
 }
 
 export function DetailPagePreview({
@@ -1250,6 +1360,12 @@ export function DetailPagePreview({
   onHeroGridTidy,
   onHeroGridReset,
   onHeroGridConvert,
+  showHeroTilt = true,
+  onToggleHeroTilt,
+  showHeroBackdropControls = true,
+  onToggleHeroBackdropControls,
+  showHeroInteractiveControls = true,
+  onToggleHeroInteractiveControls,
 }: DetailPagePreviewProps) {
   const { t } = useLanguage();
   const widgetDrag = useOrderDrag(onReorderWidgets);
@@ -1305,6 +1421,12 @@ export function DetailPagePreview({
       onGridTidy={onHeroGridTidy}
       onGridReset={onHeroGridReset}
       onGridConvert={onHeroGridConvert}
+      showHeroTilt={showHeroTilt}
+      onToggleHeroTilt={onToggleHeroTilt}
+      showHeroBackdropControls={showHeroBackdropControls}
+      onToggleHeroBackdropControls={onToggleHeroBackdropControls}
+      showHeroInteractiveControls={showHeroInteractiveControls}
+      onToggleHeroInteractiveControls={onToggleHeroInteractiveControls}
     />
   );
 

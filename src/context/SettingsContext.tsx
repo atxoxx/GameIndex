@@ -138,6 +138,9 @@ const LS_ANIMATED_MEDIA = "gamelib.animated_media_enabled";
 const LS_SHOW_CARD_BADGES = "gamelib.show_card_badges";
 const LS_SHOW_GAME_ART_BACKDROP = "gamelib.show_game_art_backdrop";
 const LS_SHOW_NAVBAR_NOW_PLAYING = "gamelib.show_navbar_now_playing";
+const LS_SHOW_HERO_TILT = "gamelib.show_hero_tilt";
+const LS_SHOW_HERO_BACKDROP_CONTROLS = "gamelib.show_hero_backdrop_controls";
+const LS_SHOW_HERO_INTERACTIVE_CONTROLS = "gamelib.show_hero_interactive_controls";
 // Game & Store detail-page section visibility (Settings → Appearance).
 const LS_DETAIL_SECTIONS_VISIBLE = "gamelib.detail_sections_visible";
 // Per-item UI visibility (Settings → Interface tab). Same overrides-object
@@ -483,6 +486,12 @@ export interface SettingsContextValue {
   setShowGameArtBackdrop: (next: boolean) => void;
   showNavbarNowPlaying: boolean;
   setShowNavbarNowPlaying: (next: boolean) => void;
+  showHeroTilt: boolean;
+  setShowHeroTilt: (next: boolean) => void;
+  showHeroBackdropControls: boolean;
+  setShowHeroBackdropControls: (next: boolean) => void;
+  showHeroInteractiveControls: boolean;
+  setShowHeroInteractiveControls: (next: boolean) => void;
   /** Per-section visibility for the game detail and store pages. */
   detailSectionVisible: DetailSectionVisibility;
   setDetailSectionVisible: (key: DetailSectionKey, visible: boolean) => void;
@@ -1367,6 +1376,30 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_SHOW_NAVBAR_NOW_PLAYING, String(next));
   }, []);
 
+  const [showHeroTilt, setShowHeroTiltState] = useState<boolean>(
+    () => lsGet(LS_SHOW_HERO_TILT) !== "false",
+  );
+  const setShowHeroTilt = useCallback((next: boolean) => {
+    setShowHeroTiltState(next);
+    lsSet(LS_SHOW_HERO_TILT, String(next));
+  }, []);
+
+  const [showHeroBackdropControls, setShowHeroBackdropControlsState] = useState<boolean>(
+    () => lsGet(LS_SHOW_HERO_BACKDROP_CONTROLS) !== "false",
+  );
+  const setShowHeroBackdropControls = useCallback((next: boolean) => {
+    setShowHeroBackdropControlsState(next);
+    lsSet(LS_SHOW_HERO_BACKDROP_CONTROLS, String(next));
+  }, []);
+
+  const [showHeroInteractiveControls, setShowHeroInteractiveControlsState] = useState<boolean>(
+    () => lsGet(LS_SHOW_HERO_INTERACTIVE_CONTROLS) !== "false",
+  );
+  const setShowHeroInteractiveControls = useCallback((next: boolean) => {
+    setShowHeroInteractiveControlsState(next);
+    lsSet(LS_SHOW_HERO_INTERACTIVE_CONTROLS, String(next));
+  }, []);
+
   // Launch splash visibility. Deliberately the same localStorage key the
   // launch path reads directly (SplashContext.isSplashEnabled): GameProvider
   // sits above SettingsProvider, so useLaunch can't consume this hook.
@@ -1773,6 +1806,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowGameArtBackdrop,
       showNavbarNowPlaying,
       setShowNavbarNowPlaying,
+      showHeroTilt,
+      setShowHeroTilt,
+      showHeroBackdropControls,
+      setShowHeroBackdropControls,
+      showHeroInteractiveControls,
+      setShowHeroInteractiveControls,
       launchSplashEnabled,
       setLaunchSplashEnabled,
       startupSplashEnabled,
@@ -1892,6 +1931,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowGameArtBackdrop,
       showNavbarNowPlaying,
       setShowNavbarNowPlaying,
+      showHeroTilt,
+      setShowHeroTilt,
+      showHeroBackdropControls,
+      setShowHeroBackdropControls,
+      showHeroInteractiveControls,
+      setShowHeroInteractiveControls,
       launchSplashEnabled,
       setLaunchSplashEnabled,
       startupSplashEnabled,

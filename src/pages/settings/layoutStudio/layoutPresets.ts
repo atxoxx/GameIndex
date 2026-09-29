@@ -39,6 +39,9 @@ export function getDefaultLayoutSnapshot(): LayoutSnapshot {
     showGameArtBackdrop: true,
     showCardBadges: true,
     showNavbarNowPlaying: true,
+    showHeroTilt: true,
+    showHeroBackdropControls: true,
+    showHeroInteractiveControls: true,
     detailSectionVisible,
     detailTabOrder: {
       game: [...DEFAULT_DETAIL_TAB_ORDER.game],
@@ -304,6 +307,15 @@ export function importLayoutFromJson(jsonStr: string): Partial<LayoutSnapshot> |
     }
     if (typeof layout.showNavbarNowPlaying === "boolean") {
       result.showNavbarNowPlaying = layout.showNavbarNowPlaying;
+    }
+    if (typeof layout.showHeroTilt === "boolean") {
+      result.showHeroTilt = layout.showHeroTilt;
+    }
+    if (typeof layout.showHeroBackdropControls === "boolean") {
+      result.showHeroBackdropControls = layout.showHeroBackdropControls;
+    }
+    if (typeof layout.showHeroInteractiveControls === "boolean") {
+      result.showHeroInteractiveControls = layout.showHeroInteractiveControls;
     }
     if (layout.detailSectionVisible && typeof layout.detailSectionVisible === "object") {
       result.detailSectionVisible = layout.detailSectionVisible;

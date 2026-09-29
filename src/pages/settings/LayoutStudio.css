@@ -3138,6 +3138,103 @@
   background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
 }
 
+.studio-hero-editor__divider {
+  width: 1px;
+  height: 12px;
+  background: var(--color-border);
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+/* Stand-in for the backdrop controls toolbar in top-right of HeroMock */
+.studio-hero-mock__backdrop-ctrls {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-border-light));
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 8.5px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--elevation-1);
+  transition: all var(--transition-fast);
+}
+
+.studio-hero-mock__backdrop-ctrls:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+}
+
+.studio-hero-mock__backdrop-ctrls.is-off {
+  opacity: 0.35;
+  border-style: dashed;
+}
+
+.studio-hero-mock__ctrl-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.studio-hero-mock__ctrl-eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-full);
+  transition: color var(--transition-fast);
+}
+
+.studio-hero-mock__ctrl-eye:hover {
+  color: var(--color-accent);
+}
+
+/* Poster sheen and inspect pill stand-ins in HeroMock */
+.studio-hero-mock__poster-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.16) 50%,
+    transparent 70%
+  );
+  mix-blend-mode: overlay;
+}
+
+.studio-hero-mock__poster-inspect {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 80%, rgba(0, 0, 0, 0.85));
+  color: #fff;
+  pointer-events: none;
+}
+
 .studio-hero-editor__warning {
   display: inline-flex;
   align-items: center;

@@ -56,6 +56,9 @@ export interface LayoutSnapshot {
   showGameArtBackdrop: boolean;
   showCardBadges: boolean;
   showNavbarNowPlaying: boolean;
+  showHeroTilt?: boolean;
+  showHeroBackdropControls?: boolean;
+  showHeroInteractiveControls?: boolean;
   detailSectionVisible: DetailSectionVisibility;
   /** Per-scope order of the detail-page tab bar (game + store). */
   detailTabOrder: DetailTabOrderMap;
