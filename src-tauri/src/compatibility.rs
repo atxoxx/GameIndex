@@ -4978,6 +4978,7 @@ mod tests {
         assert!(!map.contains_key("VKD3D_CONFIG"));
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn steam_launch_prefix_quotes_values_and_keeps_steam_in_charge() {
         let settings = CompatibilitySettings {
@@ -5018,6 +5019,7 @@ mod tests {
         );
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn steam_launch_prefix_uses_defaults_as_the_vanilla_baseline() {
         // Sanity check for the "don't touch Steam config for a vanilla
