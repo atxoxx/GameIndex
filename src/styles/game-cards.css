@@ -846,6 +846,11 @@
   --game-accent-glow: var(--color-accent-glow);
   --game-accent-2: var(--color-accent-2, var(--color-accent-hover));
   --game-accent-deep: var(--color-accent-deep, color-mix(in srgb, var(--game-accent) 62%, black 38%));
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+  --tilt-x: 0;
+  --tilt-y: 0;
+  --hero-hovered: 0;
 }
 
 /* Store detail hero is a touch shorter — it sits above its own
@@ -980,12 +985,23 @@
   pointer-events: auto;
 }
 
-/* Crisp 2:3 poster card. Height tracks the hero so it always fits.
- * An inset top highlight gives the card a "lit edge" so it reads as a
- * physical print sitting on the backdrop rather than a flat image.
- * The highlight uses --color-border-highlight (theme-tuned: bright on
- * dark themes, a crisp near-white edge in light) — the poster sits on
- * the hero's dark scrim in every theme, so the lit edge stays visible. */
+/* Dynamic cursor spotlight glow */
+.game-hero__spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    650px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    color-mix(in srgb, var(--game-accent) 22%, transparent),
+    transparent 65%
+  );
+  opacity: var(--hero-hovered, 0);
+  transition: opacity var(--duration-normal) var(--ease-standard);
+  mix-blend-mode: screen;
+}
+
+/* Crisp 2:3 poster card with 3D tilt, sheen, and click affordance. */
 .game-hero__poster {
   position: relative;
   flex: 0 0 auto;
@@ -999,14 +1015,81 @@
     inset 0 1px 0 var(--color-border-highlight),
     var(--elevation-4),
     var(--shadow-glow);
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.4, 1), box-shadow 0.22s cubic-bezier(0.2, 0.8, 0.4, 1), border-color var(--transition-fast);
+  outline: none;
+}
+.game-hero__poster:focus-visible {
+  border-color: var(--game-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 .game-hero:hover .game-hero__poster {
-  transform: translateY(-2px) scale(1.01) rotate(-0.5deg);
+  transform: perspective(900px) rotateX(calc(var(--tilt-y, 0) * -7deg)) rotateY(calc(var(--tilt-x, 0) * 7deg)) translateY(-4px) scale3d(1.025, 1.025, 1.025);
+  border-color: color-mix(in srgb, var(--game-accent) 65%, var(--color-border-light));
   box-shadow:
     inset 0 1px 0 var(--color-border-highlight),
-    var(--elevation-5),
+    0 16px 36px color-mix(in srgb, var(--game-accent) 26%, rgba(0, 0, 0, 0.65)),
     var(--shadow-glow);
+}
+.game-hero:hover .game-hero__bg {
+  transform: translate(calc(var(--tilt-x, 0) * -10px), calc(var(--tilt-y, 0) * -8px)) scale(1.04);
+}
+
+/* Dynamic specular sheen on the poster */
+.game-hero__poster-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    calc(120deg + calc(var(--tilt-x, 0) * 35deg)),
+    transparent 25%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 70%
+  );
+  opacity: var(--hero-hovered, 0);
+  transition: opacity 0.25s ease;
+  mix-blend-mode: overlay;
+}
+
+/* Hover overlay badge on poster */
+.game-hero__poster-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--space-sm);
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.72) 0%, transparent 50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+.game-hero__poster:hover .game-hero__poster-overlay {
+  opacity: 1;
+}
+.game-hero__poster-inspect-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
+  color: var(--color-accent-contrast, #fff);
+  background: color-mix(in srgb, var(--game-accent) 75%, rgba(0, 0, 0, 0.85));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--game-accent) 50%, rgba(255, 255, 255, 0.3));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  transform: translateY(4px);
+  transition: transform var(--transition-fast);
+}
+.game-hero__poster:hover .game-hero__poster-inspect-pill {
+  transform: translateY(0);
 }
 .game-hero__poster-img {
   width: 100%;
@@ -1225,6 +1308,176 @@
   background: var(--color-text-muted);
   border-radius: 50%;
   flex: 0 0 auto;
+}
+
+/* Backdrop controls toolbar (top right) */
+.game-hero__backdrop-controls {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-xl);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 3px 6px;
+  background: color-mix(in srgb, var(--color-surface) 75%, transparent);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--elevation-2);
+  opacity: 0.85;
+  transition: opacity var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.game-hero:hover .game-hero__backdrop-controls {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--game-accent) 45%, var(--color-border-light));
+}
+
+.game-hero__ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.game-hero__ctrl-btn:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--game-accent) 18%, transparent);
+}
+
+.game-hero__ctrl-btn:active {
+  transform: scale(0.96);
+}
+
+.game-hero__ctrl-btn--icon-only {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}
+
+.game-hero__ctrl-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  padding: 0 4px;
+}
+
+.game-hero__ctrl-icon {
+  color: var(--game-accent);
+}
+
+.game-hero__ctrl-divider {
+  width: 1px;
+  height: 12px;
+  background: var(--color-border-light);
+  margin: 0 2px;
+}
+
+/* Interactive KPI items */
+.game-hero-kpi-interactive {
+  display: flex;
+}
+
+.game-hero-kpi-interactive--active {
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+  outline: none;
+  border-radius: var(--radius-lg);
+}
+
+.game-hero-kpi-interactive--active:hover {
+  transform: translateY(-2px);
+}
+
+.game-hero-kpi-interactive--active:hover .kpi-tile {
+  border-color: color-mix(in srgb, var(--game-accent) 45%, var(--color-border-light));
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--game-accent) 22%, transparent);
+}
+
+.game-hero-kpi-interactive--active:focus-visible {
+  box-shadow: var(--ring-accent);
+}
+
+.game-hero-kpi-interactive--active:active {
+  transform: translateY(0);
+}
+
+/* Interactive genre chips & rating buttons */
+button.game-hero-genre-chip {
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--color-border-subtle);
+}
+
+button.game-hero-genre-chip:hover {
+  border-color: color-mix(in srgb, var(--game-accent, var(--color-accent)) 50%, var(--color-border-light));
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--game-accent, var(--color-accent)) 20%, var(--color-surface));
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--game-accent, var(--color-accent)) 25%, transparent);
+}
+
+button.game-hero-genre-chip:active {
+  transform: translateY(0);
+}
+
+.game-hero-genre-chip-icon {
+  color: var(--game-accent);
+  margin-right: 2px;
+}
+
+button.game-hero-rating-badge {
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+button.game-hero-rating-badge--interactive:hover {
+  transform: scale(1.08);
+  filter: brightness(1.12);
+}
+
+button.game-hero-rating-badge--interactive:active {
+  transform: scale(0.98);
+}
+
+button.game-hero-meta-item--btn {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  padding: 0;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  color: inherit;
+}
+
+button.game-hero-meta-item--btn:hover {
+  color: var(--game-accent);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-hero:hover .game-hero__poster,
+  .game-hero:hover .game-hero__bg {
+    transform: none !important;
+  }
+  .game-hero__spotlight {
+    display: none !important;
+  }
 }
 
 /* Short viewports (720p and below): cap the hero so the content below

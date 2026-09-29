@@ -447,6 +447,8 @@ function GameDetail({ game }: { game: Game }) {
             game={game}
             steamAppId={heroSteamAppId}
             onLaunch={handleLaunch}
+            onTabChange={handleTabChange}
+            screenshots={game.screenshots}
           />
         </div>
       </PageWidget>

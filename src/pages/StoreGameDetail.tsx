@@ -481,6 +481,8 @@ export default function StoreGameDetail() {
         steamAppId={steamAppId ?? null}
         rating={data.igdbRating || data.criticRating || null}
         genres={data.genres}
+        screenshots={data.screenshots}
+        onTabChange={handleTabChange}
         metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(
           (v): v is string => Boolean(v)
         )}
