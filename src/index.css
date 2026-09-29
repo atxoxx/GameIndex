@@ -38,12 +38,14 @@ body,
   app-region: no-drag;
 }
 
-/* Paused animations when window is minimized or hidden */
+/* Paused animations when window is minimized, hidden, or a game is running */
 .animations-paused *,
 .animations-paused *::before,
 .animations-paused *::after {
   animation-play-state: paused !important;
   transition: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 body {

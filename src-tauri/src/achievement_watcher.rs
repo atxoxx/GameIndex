@@ -183,11 +183,18 @@ pub fn start(app: AppHandle) {
         // cheap `game_is_running` flag — no filesystem walk.
         let mut last_scan = std::time::Instant::now();
         loop {
-            tokio::time::sleep(POLL_INTERVAL).await;
             if !is_enabled(&app) {
+                tokio::time::sleep(IDLE_SCAN_INTERVAL).await;
                 continue;
             }
             let running = game_is_running(&app);
+            let sleep_dur = if running {
+                POLL_INTERVAL
+            } else {
+                Duration::from_secs(15)
+            };
+            tokio::time::sleep(sleep_dur).await;
+
             if !running && last_scan.elapsed() < IDLE_SCAN_INTERVAL {
                 continue;
             }

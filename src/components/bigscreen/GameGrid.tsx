@@ -36,7 +36,7 @@ import { scrollElementIntoViewControlled } from "../../hooks/gamepad/gamepadUtil
 import { parseFocusGameKey, recallFocus } from "../../utils/focusMemory";
 import "../../library.css";
 
-const VIRTUALIZE_THRESHOLD = 60;
+const VIRTUALIZE_THRESHOLD = 36;
 
 /** `.bigscreen-library-grid` column floor: `minmax(170px, 1fr)`. */
 const CARD_MIN_WIDTH = 170;

@@ -188,13 +188,34 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
   const spotlightPoster =
     sgdbHeroUrl ?? activeGame?.bannerUrl ?? activeGame?.coverArtUrl ?? null;
 
-  // Auto-advance spotlight every 8 seconds if not paused
+  // Auto-advance spotlight every 8 seconds if not paused and visible
   useEffect(() => {
     if (isPaused || spotlightDeck.length <= 1) return;
-    const timer = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % spotlightDeck.length);
-    }, 8000);
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (document.hidden) return;
+      if (!timer) {
+        timer = setInterval(() => {
+          setActiveIndex((prev) => (prev + 1) % spotlightDeck.length);
+        }, 8000);
+      }
+    };
+    const stop = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+    const handleVisibility = () => {
+      if (document.hidden) stop();
+      else start();
+    };
+    start();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [isPaused, spotlightDeck.length]);
 
   const handlePrev = useCallback(() => {

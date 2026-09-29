@@ -30,5 +30,19 @@ fn main() {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    {
+        // Tune WebView2 / Chromium engine arguments for reduced RAM, VRAM, and background CPU usage:
+        // - IntensiveWakeUpThrottling: aggressively throttles background JS timers
+        // - ThrottleDisplayNoneAndVisibilityHiddenCrossOriginIframes: stops hidden frame paints
+        // - max-old-space-size=256: triggers V8 garbage collection proactively rather than letting heap float
+        if std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_err() {
+            std::env::set_var(
+                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                "--enable-features=IntensiveWakeUpThrottling,ThrottleDisplayNoneAndVisibilityHiddenCrossOriginIframes --js-flags=--max-old-space-size=256",
+            );
+        }
+    }
+
     gameindex_lib::run()
 }

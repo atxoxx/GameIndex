@@ -10,7 +10,7 @@ import ResizeHandles from "./components/ResizeHandles";
 // the desktop initial bundle entirely.
 const BigScreenLayout = lazy(() => import("./components/BigScreenLayout"));
 import { BIGSCREEN_ROUTE_PAIRS, ShellSwitch } from "./bigscreen/registry";
-import { GameProvider } from "./context/GameContext";
+import { GameProvider, useGames } from "./context/GameContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { WishlistProvider } from "./context/WishlistContext";
@@ -117,18 +117,24 @@ function AppShell() {
   useTrayNavigation();
   useTrayStrings();
   const { isBigScreen } = useBigScreen();
+  const { runningGameIds } = useGames();
 
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.hidden) {
+      const shouldPause = document.hidden || runningGameIds.length > 0;
+      if (shouldPause) {
         document.documentElement.classList.add("animations-paused");
+        document.querySelectorAll("video").forEach((v) => {
+          if (!v.paused) v.pause();
+        });
       } else {
         document.documentElement.classList.remove("animations-paused");
       }
     };
+    handleVisibility();
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
+  }, [runningGameIds.length]);
 
   return (
     <GamepadProvider enabled={isBigScreen}>

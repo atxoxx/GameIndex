@@ -91,36 +91,33 @@ impl Db {
     pub fn open(app_data_dir: &Path) -> Result<Self, String> {
         std::fs::create_dir_all(app_data_dir)
             .map_err(|e| format!("create app_data_dir: {e}"))?;
-        let mk = |name: &str| -> Result<SqlitePool, String> {
+        let mk = |name: &str, max: u32, min: u32| -> Result<SqlitePool, String> {
             let db_path = app_data_dir.join(format!("{name}.db"));
             let manager =
                 SqliteConnectionManager::file(&db_path).with_init(init_connection);
             Pool::builder()
-                .max_size(8)
-                // r2d2 eagerly opens `min_idle` (default: max_size)
-                // connections while building, so 13 pools × 8 was 104
-                // SQLite connections + PRAGMA round-trips before the
-                // event loop could start. Open two per pool instead and
-                // let the rest spin up on demand.
-                .min_idle(Some(2))
+                .max_size(max)
+                // Keep 1 idle connection per pool (or more on demand) to minimize
+                // baseline memory and open file descriptors while keeping instant access.
+                .min_idle(Some(min))
                 .build(manager)
                 .map_err(|e| format!("build {name} pool: {e}"))
         };
         Ok(Self {
-            sources: mk("sources")?,
-            games: mk("games")?,
-            sessions: mk("sessions")?,
-            download_history: mk("download_history")?,
-            wishlist: mk("wishlist")?,
-            store_cache: mk("store_cache")?,
-            achievements: mk("achievements")?,
-            kv: mk("kv")?,
-            news: mk("news")?,
-            game_notes: mk("game_notes")?,
-            emulators: mk("emulators")?,
-            mods: mk("mods")?,
-            plugins: mk("plugins")?,
-            compatibility: mk("compatibility")?,
+            sources: mk("sources", 6, 1)?,
+            games: mk("games", 6, 1)?,
+            sessions: mk("sessions", 4, 1)?,
+            download_history: mk("download_history", 4, 1)?,
+            wishlist: mk("wishlist", 4, 1)?,
+            store_cache: mk("store_cache", 4, 1)?,
+            achievements: mk("achievements", 4, 1)?,
+            kv: mk("kv", 4, 1)?,
+            news: mk("news", 4, 1)?,
+            game_notes: mk("game_notes", 4, 1)?,
+            emulators: mk("emulators", 4, 1)?,
+            mods: mk("mods", 4, 1)?,
+            plugins: mk("plugins", 4, 1)?,
+            compatibility: mk("compatibility", 4, 1)?,
         })
     }
 
@@ -228,7 +225,8 @@ fn init_connection(conn: &mut Connection) -> rusqlite::Result<()> {
          PRAGMA synchronous = NORMAL;\n\
          PRAGMA foreign_keys = ON;\n\
          PRAGMA busy_timeout = 5000;\n\
-         PRAGMA wal_autocheckpoint = 1000;\n",
+         PRAGMA wal_autocheckpoint = 1000;\n\
+         PRAGMA cache_size = -512;\n",
     )
 }
 

@@ -1992,6 +1992,63 @@ impl MemoryScanFilter {
     }
 }
 
+#[cfg(windows)]
+fn is_ignorable_system_exe(raw_name: &[u16]) -> bool {
+    let len = raw_name.iter().position(|&c| c == 0).unwrap_or(raw_name.len());
+    let mut name = [0u8; 40];
+    if len == 0 || len >= name.len() {
+        return false;
+    }
+    for (i, &c) in raw_name[..len].iter().enumerate() {
+        let ch = c as u32;
+        if ch > 127 {
+            return false;
+        }
+        name[i] = (ch as u8).to_ascii_lowercase();
+    }
+    let s = match std::str::from_utf8(&name[..len]) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    matches!(
+        s,
+        "svchost.exe"
+            | "conhost.exe"
+            | "runtimebroker.exe"
+            | "dllhost.exe"
+            | "dwm.exe"
+            | "csrss.exe"
+            | "smss.exe"
+            | "lsass.exe"
+            | "services.exe"
+            | "wininit.exe"
+            | "winlogon.exe"
+            | "spoolsv.exe"
+            | "fontdrvhost.exe"
+            | "sihost.exe"
+            | "taskhostw.exe"
+            | "ctfmon.exe"
+            | "audiodg.exe"
+            | "smartscreen.exe"
+            | "securityhealthservice.exe"
+            | "securityhealthsystray.exe"
+            | "searchhost.exe"
+            | "searchindexer.exe"
+            | "searchfilterhost.exe"
+            | "searchprotocolhost.exe"
+            | "wmiprvse.exe"
+            | "backgroundtaskhost.exe"
+            | "applicationframehost.exe"
+            | "shellexperiencehost.exe"
+            | "startmenuexperiencehost.exe"
+            | "textinputhost.exe"
+            | "explorer.exe"
+            | "system"
+            | "registry"
+            | "memory compression"
+    )
+}
+
 /// Query running processes natively using Toolhelp32 snapshot.
 /// This is 1000x faster than WMI, handles UAC elevated processes via
 /// PROCESS_QUERY_LIMITED_INFORMATION, and does not depend on COM or WMI service availability.
@@ -2005,7 +2062,7 @@ fn query_running_processes(mem_scan: &MemoryScanFilter) -> Vec<ProcessInfo> {
     use windows::Win32::Foundation::CloseHandle;
     use std::os::windows::ffi::OsStringExt;
 
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(128);
 
     unsafe {
         let snapshot = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
@@ -2022,6 +2079,13 @@ fn query_running_processes(mem_scan: &MemoryScanFilter) -> Vec<ProcessInfo> {
             loop {
                 let pid = entry.th32ProcessID;
                 if pid != 0 {
+                    if is_ignorable_system_exe(&entry.szExeFile) {
+                        if Process32NextW(snapshot, &mut entry).is_err() {
+                            break;
+                        }
+                        continue;
+                    }
+
                     if let Ok(handle) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) {
                         let mut buffer = [0u16; 1024];
                         let mut size = buffer.len() as u32;
