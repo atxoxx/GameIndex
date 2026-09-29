@@ -132,6 +132,12 @@ export interface TorrentDownload {
   queuePosition?: number;
   /** Original or reconstructed magnet URI. */
   magnetUri?: string;
+  /**
+   * Unix seconds before which the scheduler must not start this
+   * download. `undefined` means "no explicit schedule" (start as soon
+   * as the engine and any active window allow).
+   */
+  scheduledStartAt?: number;
 }
 
 /**
@@ -166,6 +172,191 @@ export interface DownloadHistory {
   completedAt: number | null;
   /** Highest observed download speed in bytes/sec. */
   peakSpeed: number;
+}
+
+// ─── Scheduling ─────────────────────────────────────────────────────────────
+
+/**
+ * Day-of-week flags, Monday-first (index 0 = Monday … 6 = Sunday).
+ * Mirrors the Rust `[bool; 7]` arrays on `SchedulerConfig`/`BandwidthRule`.
+ */
+export type ScheduleDays = [boolean, boolean, boolean, boolean, boolean, boolean, boolean];
+
+/** A time-of-day speed-limit override. */
+export interface BandwidthRule {
+  id: string;
+  /** User-facing name, e.g. "Off-peak". */
+  label: string;
+  days: ScheduleDays;
+  /** "HH:MM" local time, inclusive. */
+  start: string;
+  /** "HH:MM" local time, exclusive. Windows may wrap past midnight. */
+  end: string;
+  downloadKbps: number;
+  uploadKbps: number;
+  disableUpload: boolean;
+}
+
+/**
+ * Global scheduler configuration, owned by the Rust engine (persisted in
+ * the `kv` store under `download_scheduler`) and mirrored into the context
+ * for instant UI. Controls the start window, concurrency cap, and the
+ * time-of-day bandwidth rules.
+ */
+export interface SchedulerConfig {
+  enabled: boolean;
+  windowEnabled: boolean;
+  /** "HH:MM" — window opens. */
+  windowStart: string;
+  /** "HH:MM" — window closes. */
+  windowEnd: string;
+  days: ScheduleDays;
+  /** Maximum simultaneous transfers; `0` means unlimited. */
+  maxConcurrent: number;
+  /** Whether the scheduler auto-starts paused/queued downloads. */
+  autoStartQueued: boolean;
+  bandwidthRules: BandwidthRule[];
+}
+
+export const DEFAULT_SCHEDULER_DAYS: ScheduleDays = [
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+];
+
+export const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
+  enabled: false,
+  windowEnabled: false,
+  windowStart: "00:00",
+  windowEnd: "06:00",
+  days: [...DEFAULT_SCHEDULER_DAYS] as ScheduleDays,
+  maxConcurrent: 0,
+  autoStartQueued: true,
+  bandwidthRules: [],
+};
+
+/** Short weekday labels in Monday-first order (for day chips). */
+export const SCHEDULE_WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+/** True when the download is held back by an explicit start time. */
+export function isScheduleHeld(download: TorrentDownload, now = Date.now() / 1000): boolean {
+  return (
+    typeof download.scheduledStartAt === "number" && download.scheduledStartAt > now
+  );
+}
+
+/**
+ * Parse "HH:MM" into minutes since midnight. Returns `null` for malformed
+ * input so callers can fall back safely.
+ */
+export function parseHhMm(value: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+/**
+ * True when the given moment falls inside the scheduler's start window.
+ * Mirrors the backend's `scheduler::in_window`: windows may wrap past
+ * midnight, and the `days` flags gate the window's opening day.
+ */
+export function isWithinScheduleWindow(config: SchedulerConfig, at: Date = new Date()): boolean {
+  if (!config.enabled || !config.windowEnabled) return true;
+  const minutes = at.getHours() * 60 + at.getMinutes();
+  const weekday = (at.getDay() + 6) % 7; // Monday-first
+  const start = parseHhMm(config.windowStart);
+  const end = parseHhMm(config.windowEnd);
+  if (start == null || end == null || start === end) return true;
+  if (start < end) return config.days[weekday] && minutes >= start && minutes < end;
+  if (minutes >= start) return config.days[weekday];
+  const previous = (weekday + 6) % 7;
+  return config.days[previous] && minutes < end;
+}
+
+/** Format a Unix-seconds timestamp as a local "YYYY-MM-DD HH:MM" string. */
+export function formatScheduleTimestamp(seconds: number): string {
+  const date = new Date(seconds * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
+}
+
+// ─── Diagnostics ────────────────────────────────────────────────────────────
+
+export interface EngineHealth {
+  total: number;
+  active: number;
+  paused: number;
+  completed: number;
+  errored: number;
+  seeding: number;
+  maxConcurrent: number;
+  schedulerEnabled: boolean;
+  windowOpen: boolean;
+}
+
+export interface DownloadHealth {
+  id: string;
+  name: string;
+  kind: DownloadKind;
+  status: DownloadStatus;
+  peers: number;
+  seeds: number;
+  downloadSpeed: number;
+  uploadSpeed: number;
+  live: number;
+  liveTcp: number;
+  liveUtp: number;
+  queued: number;
+  connecting: number;
+  dead: number;
+  seen: number;
+  etaSecs: number | null;
+  averagePieceMs: number | null;
+  error: string | null;
+}
+
+export interface HttpCounters {
+  retries: number;
+  stalls: number;
+  transientErrors: number;
+  mirrorSwitches: number;
+  segmentReconnects: number;
+}
+
+export interface DiagnosticsDiskUsage {
+  path: string;
+  mountPoint: string;
+  total: number;
+  free: number;
+  available: number;
+  tempBytes: number;
+  queueBytes: number;
+}
+
+export interface DiagnosticError {
+  at: number;
+  source: string;
+  downloadId: string | null;
+  name: string | null;
+  message: string;
+}
+
+export interface DownloadDiagnostics {
+  generatedAt: number;
+  engine: EngineHealth;
+  downloads: DownloadHealth[];
+  http: HttpCounters;
+  disk: DiagnosticsDiskUsage[];
+  errors: DiagnosticError[];
 }
 
 /**

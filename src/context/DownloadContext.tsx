@@ -35,12 +35,15 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useToast } from "./ToastContext";
 import { useLanguage } from "./LanguageContext";
 import {
+  DEFAULT_SCHEDULER_CONFIG,
   getStatusError,
   isActiveStatus,
   isCompletedStatus,
   type TorrentDownload,
   type DownloadStatus,
   type DownloadHistory,
+  type SchedulerConfig,
+  type DownloadDiagnostics,
 } from "../types/download";
 
 /** Bandwidth-limit configuration. Values in kbps; 0 = unlimited. */
@@ -166,6 +169,20 @@ interface DownloadContextValue {
   setDebridProvider: (next: string) => void;
   debridApiKey: string;
   setDebridApiKey: (next: string) => void;
+  /** Global scheduler configuration (window, concurrency cap, bandwidth rules). */
+  schedulerConfig: SchedulerConfig;
+  /** Persist a scheduler configuration to state + backend. */
+  setSchedulerConfig: (next: SchedulerConfig) => Promise<void>;
+  /**
+   * Pin a download's start time (Unix seconds), or clear it with `null`.
+   * Setting a time in the future leaves the download queued until the
+   * scheduler reaches it.
+   */
+  scheduleDownload: (id: string, startAt: number | null) => Promise<void>;
+  /** Fetch a read-only diagnostics snapshot from the engine. */
+  fetchDiagnostics: () => Promise<DownloadDiagnostics>;
+  /** Reset the engine's cumulative HTTP counters. */
+  resetDiagnostics: () => Promise<void>;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -329,6 +346,15 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   const [debridApiKey, setDebridApiKeyState] = useState<string>(
     () => localStorage.getItem("gamelib-debrid-apikey") || "",
   );
+  const [schedulerConfig, setSchedulerConfigState] = useState<SchedulerConfig>(() => {
+    const raw = localStorage.getItem("gamelib-download-scheduler");
+    if (!raw) return DEFAULT_SCHEDULER_CONFIG;
+    try {
+      return { ...DEFAULT_SCHEDULER_CONFIG, ...(JSON.parse(raw) as Partial<SchedulerConfig>) };
+    } catch {
+      return DEFAULT_SCHEDULER_CONFIG;
+    }
+  });
   const { showToast } = useToast();
   const { t } = useLanguage();
   // Keep a stable ref to the latest list so the `download-progress`
@@ -466,6 +492,20 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           }
         } catch (e) {
           console.error("Failed to apply initial debrid config:", e);
+        }
+
+        // Adopt the engine's persisted scheduler configuration. The
+        // backend is the source of truth; localStorage is only the
+        // instant-hydration mirror for the first paint.
+        try {
+          const remote = await invoke<SchedulerConfig>("scheduler_get_config");
+          if (remote && typeof remote === "object") {
+            const merged = { ...DEFAULT_SCHEDULER_CONFIG, ...remote };
+            setSchedulerConfigState(merged);
+            localStorage.setItem("gamelib-download-scheduler", JSON.stringify(merged));
+          }
+        } catch (e) {
+          console.debug("[DownloadContext] scheduler config unavailable:", e);
         }
 
         // 1. Subscribe to the background-polling event FIRST so we
@@ -913,6 +953,24 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     await invoke("download_set_seeding", { id, seed });
   }, []);
 
+  const setSchedulerConfig = useCallback(async (next: SchedulerConfig) => {
+    setSchedulerConfigState(next);
+    localStorage.setItem("gamelib-download-scheduler", JSON.stringify(next));
+    await invoke("scheduler_set_config", { config: next });
+  }, []);
+
+  const scheduleDownload = useCallback(async (id: string, startAt: number | null) => {
+    await invoke("download_set_schedule", { id, startAt });
+  }, []);
+
+  const fetchDiagnostics = useCallback(async () => {
+    return invoke<DownloadDiagnostics>("download_diagnostics");
+  }, []);
+
+  const resetDiagnostics = useCallback(async () => {
+    await invoke("download_diagnostics_reset");
+  }, []);
+
   // ── Derived state ──────────────────────────────────────────────────
   const sorted = useMemo(() => [...downloads].sort(sortDownloads), [downloads]);
   const activeDownloads = useMemo(
@@ -965,6 +1023,11 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       setDebridProvider,
       debridApiKey,
       setDebridApiKey,
+      schedulerConfig,
+      setSchedulerConfig,
+      scheduleDownload,
+      fetchDiagnostics,
+      resetDiagnostics,
     }),
     [
       sorted,
@@ -1005,6 +1068,11 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       setDebridProvider,
       debridApiKey,
       setDebridApiKey,
+      schedulerConfig,
+      setSchedulerConfig,
+      scheduleDownload,
+      fetchDiagnostics,
+      resetDiagnostics,
     ],
   );
 

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  CalendarClock,
   Download,
   Gauge,
   Pause,
@@ -108,7 +109,22 @@ export function DownloadsPagePreview({
         )}
       </div>
 
-      {/* 2. Bandwidth Hero Cockpit */}
+      {/* 2. Section Tabs */}
+      <div className="studio-page-full">
+        {renderCard(
+          "downloadsTabs",
+          "slot",
+          <div className="studio-dl-tabs-mock">
+            {["Active (1)", "Scheduled (2)", "History (14)", "Diagnostics"].map((tab, i) => (
+              <span key={tab} className={`studio-dl-tab${i === 0 ? " is-active" : ""}`}>
+                {tab}
+              </span>
+            ))}
+          </div>,
+        )}
+      </div>
+
+      {/* 3. Bandwidth Hero Cockpit */}
       <div className="studio-page-full">
         {renderCard(
           "downloadsHero",
@@ -151,7 +167,7 @@ export function DownloadsPagePreview({
         )}
       </div>
 
-      {/* 3. Live Bandwidth Sparkline */}
+      {/* 4. Live Bandwidth Sparkline */}
       <div className="studio-page-full">
         {renderCard(
           "downloadsSparkline",
@@ -166,7 +182,7 @@ export function DownloadsPagePreview({
         )}
       </div>
 
-      {/* 4. Filter and View Switcher */}
+      {/* 5. Filter and View Switcher */}
       <div className="studio-page-full">
         {renderCard(
           "downloadsFilter",
@@ -191,7 +207,7 @@ export function DownloadsPagePreview({
         )}
       </div>
 
-      {/* 5. Downloads Queue List */}
+      {/* 6. Downloads Queue List */}
       <div className="studio-page-full">
         {renderCard(
           "downloadsQueue",
@@ -237,6 +253,66 @@ export function DownloadsPagePreview({
                 </div>
               </div>
               <Track value={32} color="var(--color-text-muted)" height={4} />
+            </div>
+          </div>,
+        )}
+      </div>
+
+      {/* 7. Scheduled Queue & Rules */}
+      <div className="studio-page-full">
+        {renderCard(
+          "downloadsScheduled",
+          "slot",
+          <div className="studio-dl-scheduled-mock">
+            <div className="studio-dl-sched-row">
+              <CalendarClock size={11} className="studio-dl-sched-icon" />
+              <Line w={70} h={10} />
+              <span className="studio-dl-sched-pill">02:00</span>
+            </div>
+            <div className="studio-dl-sched-row">
+              <Gauge size={11} className="studio-dl-sched-icon" />
+              <Line w={54} h={10} />
+              <span className="studio-dl-sched-pill">5 MB/s</span>
+            </div>
+          </div>,
+        )}
+      </div>
+
+      {/* 8. Download History */}
+      <div className="studio-page-full">
+        {renderCard(
+          "downloadsHistory",
+          "slot",
+          <div className="studio-dl-history-mock">
+            <div className="studio-dl-history-row">
+              <Line w={58} h={10} />
+              <span className="studio-dl-history-tag">completed</span>
+            </div>
+            <div className="studio-dl-history-row">
+              <Line w={44} h={10} />
+              <span className="studio-dl-history-tag is-removed">removed</span>
+            </div>
+          </div>,
+        )}
+      </div>
+
+      {/* 9. Diagnostics */}
+      <div className="studio-page-full">
+        {renderCard(
+          "downloadsDiagnostics",
+          "slot",
+          <div className="studio-dl-diag-mock">
+            <div className="studio-dl-diag-tile">
+              <span className="studio-dl-diag-val">18</span>
+              <span className="studio-dl-diag-lbl">Peers</span>
+            </div>
+            <div className="studio-dl-diag-tile">
+              <span className="studio-dl-diag-val">0</span>
+              <span className="studio-dl-diag-lbl">Stalls</span>
+            </div>
+            <div className="studio-dl-diag-tile">
+              <span className="studio-dl-diag-val">OK</span>
+              <span className="studio-dl-diag-lbl">Disk</span>
             </div>
           </div>,
         )}

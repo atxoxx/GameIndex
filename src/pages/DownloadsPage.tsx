@@ -6,6 +6,7 @@ import {
   compareDownloads,
   formatBytesShort,
   isActiveStatus,
+  isWithinScheduleWindow,
   matchesSearchQuery,
   matchesStatusFilter,
   type DownloadSort,
@@ -20,6 +21,10 @@ import DownloadsFilterBar, { type DownloadViewMode } from "../components/downloa
 import DownloadRow from "../components/downloads/DownloadRow";
 import { DownloadGridCard } from "../components/downloads/DownloadGridCard";
 import DownloadStatsModal from "../components/downloads/DownloadStatsModal";
+import DownloadsTabs, { type DownloadsTabKey } from "../components/downloads/DownloadsTabs";
+import DownloadsScheduledTab from "../components/downloads/DownloadsScheduledTab";
+import DownloadsHistoryTab from "../components/downloads/DownloadsHistoryTab";
+import DownloadsDiagnosticsTab from "../components/downloads/DownloadsDiagnosticsTab";
 import PageWidget from "../components/PageWidget";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
@@ -37,6 +42,7 @@ export default function DownloadsPage() {
     resumeDownload,
     removeDownload,
     loading,
+    schedulerConfig,
   } = useDownloads();
   const { showToast } = useToast();
   const { unit } = useSizeUnit();
@@ -46,6 +52,7 @@ export default function DownloadsPage() {
   const [statusFilter, setStatusFilter] = useState<DownloadStatusFilter>("all");
   const [sort, setSort] = useState<DownloadSort>("added-desc");
   const [viewMode, setViewMode] = useState<DownloadViewMode>("detailed");
+  const [activeTab, setActiveTab] = useState<DownloadsTabKey>("active");
 
   // ── Multi-select state ───────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -94,6 +101,18 @@ export default function DownloadsPage() {
       .filter((d) => matchesSearchQuery(d, query) && matchesStatusFilter(d, statusFilter))
       .sort(comparator);
   }, [downloads, query, statusFilter, comparator]);
+
+  const scheduledCount = useMemo(
+    () => downloads.filter((d) => d.status.kind === "queued" || d.status.kind === "paused").length,
+    [downloads],
+  );
+  const windowOpen = useMemo(
+    () =>
+      schedulerConfig.enabled &&
+      schedulerConfig.windowEnabled &&
+      isWithinScheduleWindow(schedulerConfig),
+    [schedulerConfig],
+  );
 
   // ── Confirmation modals state ────────────────────────────────────
   const [deletingContext, setDeletingContext] = useState<TorrentDownload | null>(null);
@@ -314,36 +333,56 @@ export default function DownloadsPage() {
       </div>
       </PageWidget>
 
-      {/* Hero Control Center & Network Sparkline */}
+      {/* Hero Control Center (persistent across tabs) */}
       <PageWidget page="downloads" widget="downloadsHero">
       <div className="ui-item-downloadsHero">
         <BandwidthHero onOpenStats={() => setStatsModalOpen(true)} />
       </div>
       </PageWidget>
-      <PageWidget page="downloads" widget="dashboard">
-      <PageWidget page="downloads" widget="downloadsSparkline">
-      <div className="ui-complete-only ui-item-dashboard ui-item-downloadsSparkline">
-        <BandwidthSparkline />
-      </div>
-      </PageWidget>
-      </PageWidget>
 
-      {/* Filter and View Mode Switcher */}
-      <PageWidget page="downloads" widget="downloadsFilter">
-      <div className="ui-item-downloadsFilter">
-        <DownloadsFilterBar
-          query={query}
-          onQueryChange={setQuery}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          sort={sort}
-          onSortChange={setSort}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          counts={counts}
+      {/* Section switcher */}
+      <PageWidget page="downloads" widget="downloadsTabs">
+      <div className="ui-item-downloadsTabs">
+        <DownloadsTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          counts={{
+            active: activeDownloads.length,
+            scheduled: scheduledCount,
+            history: history.length,
+          }}
+          windowOpen={windowOpen}
         />
       </div>
       </PageWidget>
+
+      {activeTab === "active" && (
+        <>
+          {/* Network sparkline */}
+          <PageWidget page="downloads" widget="dashboard">
+          <PageWidget page="downloads" widget="downloadsSparkline">
+          <div className="ui-complete-only ui-item-dashboard ui-item-downloadsSparkline">
+            <BandwidthSparkline />
+          </div>
+          </PageWidget>
+          </PageWidget>
+
+          {/* Filter and View Mode Switcher */}
+          <PageWidget page="downloads" widget="downloadsFilter">
+          <div className="ui-item-downloadsFilter">
+            <DownloadsFilterBar
+              query={query}
+              onQueryChange={setQuery}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              sort={sort}
+              onSortChange={setSort}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              counts={counts}
+            />
+          </div>
+          </PageWidget>
 
       {/* Main Downloads List / Grid / Table Section */}
       <PageWidget page="downloads" widget="downloadsQueue">
@@ -458,6 +497,32 @@ export default function DownloadsPage() {
         )}
       </section>
       </PageWidget>
+        </>
+      )}
+
+      {activeTab === "scheduled" && (
+        <PageWidget page="downloads" widget="downloadsScheduled">
+        <div className="ui-item-downloadsScheduled">
+          <DownloadsScheduledTab />
+        </div>
+        </PageWidget>
+      )}
+
+      {activeTab === "history" && (
+        <PageWidget page="downloads" widget="downloadsHistory">
+        <div className="ui-item-downloadsHistory">
+          <DownloadsHistoryTab />
+        </div>
+        </PageWidget>
+      )}
+
+      {activeTab === "diagnostics" && (
+        <PageWidget page="downloads" widget="downloadsDiagnostics">
+        <div className="ui-item-downloadsDiagnostics">
+          <DownloadsDiagnosticsTab />
+        </div>
+        </PageWidget>
+      )}
 
       {/* Delete Single from disk confirmation */}
       <ConfirmModal

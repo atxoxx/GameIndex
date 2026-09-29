@@ -801,9 +801,13 @@ html[data-ui-page-hide~="storageList"] .ui-item-storageList,
 /* Downloads */
 html[data-ui-page-hide~="downloadsHeader"] .ui-item-downloadsHeader,
 html[data-ui-page-hide~="downloadsHero"] .ui-item-downloadsHero,
+html[data-ui-page-hide~="downloadsTabs"] .ui-item-downloadsTabs,
 html[data-ui-page-hide~="downloadsSparkline"] .ui-item-downloadsSparkline,
 html[data-ui-page-hide~="downloadsFilter"] .ui-item-downloadsFilter,
 html[data-ui-page-hide~="downloadsQueue"] .ui-item-downloadsQueue,
+html[data-ui-page-hide~="downloadsScheduled"] .ui-item-downloadsScheduled,
+html[data-ui-page-hide~="downloadsHistory"] .ui-item-downloadsHistory,
+html[data-ui-page-hide~="downloadsDiagnostics"] .ui-item-downloadsDiagnostics,
 /* Achievements */
 html[data-ui-page-hide~="achievementsHeader"] .ui-item-achievementsHeader,
 html[data-ui-page-hide~="achievementsHero"] .ui-item-achievementsHero,
@@ -911,9 +915,13 @@ html[data-ui-page-order="true"] .ui-item-storageList { order: var(--ui-ord-stora
 /* Downloads */
 html[data-ui-page-order="true"] .ui-item-downloadsHeader { order: var(--ui-ord-downloadsHeader, 0); }
 html[data-ui-page-order="true"] .ui-item-downloadsHero { order: var(--ui-ord-downloadsHero, 0); }
+html[data-ui-page-order="true"] .ui-item-downloadsTabs { order: var(--ui-ord-downloadsTabs, 0); }
 html[data-ui-page-order="true"] .ui-item-downloadsSparkline { order: var(--ui-ord-downloadsSparkline, 0); }
 html[data-ui-page-order="true"] .ui-item-downloadsFilter { order: var(--ui-ord-downloadsFilter, 0); }
 html[data-ui-page-order="true"] .ui-item-downloadsQueue { order: var(--ui-ord-downloadsQueue, 0); }
+html[data-ui-page-order="true"] .ui-item-downloadsScheduled { order: var(--ui-ord-downloadsScheduled, 0); }
+html[data-ui-page-order="true"] .ui-item-downloadsHistory { order: var(--ui-ord-downloadsHistory, 0); }
+html[data-ui-page-order="true"] .ui-item-downloadsDiagnostics { order: var(--ui-ord-downloadsDiagnostics, 0); }
 /* Achievements */
 html[data-ui-page-order="true"] .ui-item-achievementsHeader { order: var(--ui-ord-achievementsHeader, 0); }
 html[data-ui-page-order="true"] .ui-item-achievementsHero { order: var(--ui-ord-achievementsHero, 0); }

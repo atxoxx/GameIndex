@@ -100,9 +100,13 @@ export type PageWidgetKey =
   // Downloads
   | "downloadsHeader"
   | "downloadsHero"
+  | "downloadsTabs"
   | "downloadsSparkline"
   | "downloadsFilter"
   | "downloadsQueue"
+  | "downloadsScheduled"
+  | "downloadsHistory"
+  | "downloadsDiagnostics"
   // Achievements
   | "achievementsHeader"
   | "achievementsHero"
@@ -208,9 +212,13 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   // Downloads
   "downloadsHeader",
   "downloadsHero",
+  "downloadsTabs",
   "downloadsSparkline",
   "downloadsFilter",
   "downloadsQueue",
+  "downloadsScheduled",
+  "downloadsHistory",
+  "downloadsDiagnostics",
   // Achievements
   "achievementsHeader",
   "achievementsHero",
@@ -318,9 +326,13 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   // Downloads
   downloadsHeader: "ui-item-downloadsHeader",
   downloadsHero: "ui-item-downloadsHero",
+  downloadsTabs: "ui-item-downloadsTabs",
   downloadsSparkline: "ui-item-downloadsSparkline",
   downloadsFilter: "ui-item-downloadsFilter",
   downloadsQueue: "ui-item-downloadsQueue",
+  downloadsScheduled: "ui-item-downloadsScheduled",
+  downloadsHistory: "ui-item-downloadsHistory",
+  downloadsDiagnostics: "ui-item-downloadsDiagnostics",
   // Achievements
   achievementsHeader: "ui-item-achievementsHeader",
   achievementsHero: "ui-item-achievementsHero",
@@ -428,9 +440,13 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   // Downloads
   downloadsHeader: "settings.interface.widgetDownloadsHeader",
   downloadsHero: "settings.interface.widgetDownloadsHero",
+  downloadsTabs: "settings.interface.widgetDownloadsTabs",
   downloadsSparkline: "settings.interface.widgetDownloadsSparkline",
   downloadsFilter: "settings.interface.widgetDownloadsFilter",
   downloadsQueue: "settings.interface.widgetDownloadsQueue",
+  downloadsScheduled: "settings.interface.widgetDownloadsScheduled",
+  downloadsHistory: "settings.interface.widgetDownloadsHistory",
+  downloadsDiagnostics: "settings.interface.widgetDownloadsDiagnostics",
   // Achievements
   achievementsHeader: "settings.interface.widgetAchievementsHeader",
   achievementsHero: "settings.interface.widgetAchievementsHero",
@@ -660,9 +676,13 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     items: [
       "downloadsHeader",
       "downloadsHero",
+      "downloadsTabs",
       "downloadsSparkline",
       "downloadsFilter",
       "downloadsQueue",
+      "downloadsScheduled",
+      "downloadsHistory",
+      "downloadsDiagnostics",
     ],
   },
   {
