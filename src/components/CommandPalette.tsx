@@ -178,6 +178,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   // Handle query change and prefix triggers
   const handleQueryChange = (val: string) => {
     if (val.startsWith("@") && scope !== "games") setScope("games");
+    else if (val.startsWith("%") && scope !== "mods") setScope("mods");
     else if (val.startsWith(">") && scope !== "actions") setScope("actions");
     else if (val.startsWith("/") && scope !== "navigation") setScope("navigation");
     else if (val.startsWith("#") && scope !== "themes") setScope("themes");
@@ -407,6 +408,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               t={t}
               listId={listId}
               activeDescendantId={activeDescendantId}
+              itemCount={items.length}
             />
 
             {/* Scope Filter Ribbon */}
@@ -563,6 +565,9 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                     onClose();
                     launchGame(game);
                   }}
+                  navigate={navigate}
+                  onClose={onClose}
+                  libraryStats={libraryStats}
                 />
               </div>
             )}

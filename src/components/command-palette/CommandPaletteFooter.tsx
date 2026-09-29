@@ -36,6 +36,13 @@ export default function CommandPaletteFooter({
           </span>
         )}
 
+        {isGame && selectedItem?.gameData?.path && (
+          <span className="command-palette-hint">
+            <kbd className="command-palette-key-pill">Ctrl+O</kbd>
+            <span>{t("commandPalette.openFolder")}</span>
+          </span>
+        )}
+
         {hasDrawerActions && (
           <span className="command-palette-hint">
             <kbd className="command-palette-key-pill">Ctrl+K</kbd>

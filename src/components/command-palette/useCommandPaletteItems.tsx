@@ -14,6 +14,7 @@ import {
   Square,
   Store,
   X,
+  Puzzle,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { gameDisplayName, type AchievementSummary, type Game, type StoreGameSummary } from "../../types/game";
@@ -94,6 +95,13 @@ function applyGameFilters(
   }
   if (filters.isRunning) list = list.filter((g) => ctx.runningGameIds.includes(g.id));
   if (filters.isUntracked) list = list.filter((g) => ctx.isGameUntracked(g.id));
+  if (filters.isModded) {
+    list = list.filter((g) => g.mo2LaunchEnabled || !!g.mo2Profile || !!g.mo2InstancePath);
+  }
+  if (filters.platform) {
+    const pf = filters.platform.toLowerCase();
+    list = list.filter((g) => g.platform?.toLowerCase().includes(pf));
+  }
   if (filters.isWishlisted) {
     list = list.filter((g) => ctx.wishlistNames.has(g.name.toLowerCase()));
   }
@@ -485,17 +493,29 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       }
     }
 
-    // 3. Library Games
-    if (scope === "all" || scope === "games") {
+    // 3. Library Games & Modded Games
+    if (scope === "all" || scope === "games" || scope === "mods") {
+      let candidateGames = games.filter((g) => g.id !== runningGame?.id);
+      if (scope === "mods") {
+        candidateGames = candidateGames.filter(
+          (g) => g.mo2LaunchEnabled || !!g.mo2Profile || !!g.mo2InstancePath
+        );
+      }
       const filteredGames = applyGameFilters(
-        games.filter((g) => g.id !== runningGame?.id),
+        candidateGames,
         parsedFilters,
         { isGameUntracked, runningGameIds, wishlistNames }
       );
 
       const matchedGames = rankGames(filteredGames, q, isBlank, parsedFilters.sort).slice(
         0,
-        isBlank ? (scope === "games" ? 40 : 8) : scope === "games" ? 50 : 15
+        isBlank
+          ? scope === "games" || scope === "mods"
+            ? 40
+            : 8
+          : scope === "games" || scope === "mods"
+            ? 50
+            : 15
       );
 
       matchedGames.forEach((game) => {
@@ -509,15 +529,24 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
               }
             : undefined;
 
+        const isMo2Configured = game.mo2LaunchEnabled || !!game.mo2Profile;
+        const subParts = [
+          isMo2Configured && game.mo2Profile ? `MO2: ${game.mo2Profile}` : null,
+          game.platform || "PC",
+          game.playTime || "0h",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
         result.push({
           id: `game-${game.id}`,
-          category: "games",
+          category: scope === "mods" ? "mods" : "games",
           title: gameDisplayName(game),
-          subtitle: `${game.platform || "PC"} · ${game.playTime || "0h"}`,
+          subtitle: subParts,
           thumb: game.coverArtUrl,
           badge: game.installed ? t("commandPalette.badgeInstalled") : undefined,
           badgeType: "neutral",
-          icon: <Gamepad2 size={14} />,
+          icon: isMo2Configured ? <Puzzle size={14} /> : <Gamepad2 size={14} />,
           actionText: game.installed ? t("commandPalette.launch") : t("commandPalette.open"),
           shortcut: "↵",
           secondaryActionText: t("commandPalette.open"),
@@ -536,6 +565,21 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
                       saveRecentItem(game.id, gameDisplayName(game), "games");
                       onClose();
                       launchGame(game);
+                    },
+                  },
+                ]
+              : []),
+            ...(isMo2Configured
+              ? [
+                  {
+                    id: "mods",
+                    icon: <Puzzle size={12} />,
+                    title: t("commandPalette.manageMods"),
+                    onClick: (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      playActionSound();
+                      onClose();
+                      navigate(`/library/${game.id}?tab=mods`);
                     },
                   },
                 ]
@@ -912,6 +956,13 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
         ? allRecents.length
         : allRecents.filter((r) => scoreMatch(q, r.title) > 0).length,
       games: (runningGame ? 1 : 0) + gameMatches,
+      mods: countMatches(
+        games.filter((g) => g.mo2LaunchEnabled || !!g.mo2Profile || !!g.mo2InstancePath),
+        q,
+        isBlank,
+        (g) => g.name,
+        (g) => [g.mo2Profile, g.platform]
+      ),
       wishlist: countMatches(wishlistItems, q, isBlank, (w) => w.name, (w) => [
         w.genres?.join(" "),
         w.summary || undefined,
@@ -938,6 +989,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     counts.all =
       counts.utility +
       counts.games +
+      counts.mods +
       counts.recent +
       counts.wishlist +
       counts.actions +

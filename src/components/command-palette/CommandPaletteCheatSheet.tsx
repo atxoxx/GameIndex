@@ -13,6 +13,7 @@ import {
   X,
   Keyboard,
   Filter,
+  Puzzle,
 } from "lucide-react";
 
 interface CommandPaletteCheatSheetProps {
@@ -24,6 +25,7 @@ interface CommandPaletteCheatSheetProps {
 
 const PREFIXES = [
   { prefix: "@", nameKey: "commandPalette.scopeGames", descKey: "commandPalette.cheatSheetPrefixGames", icon: Gamepad2, example: "@witcher" },
+  { prefix: "%", nameKey: "commandPalette.scopeMods", descKey: "commandPalette.cheatSheetPrefixMods", icon: Puzzle, example: "%skyrim" },
   { prefix: ">", nameKey: "commandPalette.scopeActions", descKey: "commandPalette.cheatSheetPrefixActions", icon: Sparkles, example: ">big screen" },
   { prefix: "/", nameKey: "commandPalette.scopeNavigation", descKey: "commandPalette.cheatSheetPrefixNav", icon: Compass, example: "/settings" },
   { prefix: "#", nameKey: "commandPalette.scopeThemes", descKey: "commandPalette.cheatSheetPrefixThemes", icon: Palette, example: "#cyberpunk" },
@@ -35,6 +37,7 @@ const PREFIXES = [
 
 const POWER_FILTERS = [
   { token: "is:installed", descKey: "commandPalette.filterInstalled", example: "is:installed cyberpunk" },
+  { token: "is:modded", descKey: "commandPalette.filterModded", example: "is:modded" },
   { token: "is:cloud", descKey: "commandPalette.filterCloud", example: "is:cloud rpg" },
   { token: "is:fav", descKey: "commandPalette.filterFavorite", example: "is:fav" },
   { token: "is:unplayed", descKey: "commandPalette.filterUnplayed", example: "is:unplayed is:installed" },
@@ -43,6 +46,7 @@ const POWER_FILTERS = [
   { token: "tag:action", descKey: "commandPalette.filterTag", example: "tag:co-op" },
   { token: "dev:valve", descKey: "commandPalette.filterDev", example: "dev:valve" },
   { token: "source:steam", descKey: "commandPalette.filterSource", example: "source:steam is:installed" },
+  { token: "platform:steam", descKey: "commandPalette.filterPlatform", example: "platform:steam" },
   { token: "year:>2020", descKey: "commandPalette.filterYear", example: "year:>2022 rating:>80" },
   { token: "rating:>80", descKey: "commandPalette.filterRating", example: "rating:>85 is:installed" },
   { token: "playtime:>10h", descKey: "commandPalette.filterPlaytime", example: "playtime:>20h" },
@@ -58,6 +62,7 @@ const HOTKEYS = [
   { keys: ["Ctrl", "P"], descKey: "commandPalette.toggleInspector" },
   { keys: ["Ctrl", "O"], descKey: "commandPalette.openFolder" },
   { keys: ["Ctrl", "C"], descKey: "commandPalette.copy" },
+  { keys: ["Ctrl", "Shift", "C"], descKey: "commandPalette.copyTitle" },
   { keys: ["Tab"], descKey: "commandPalette.hintScope" },
   { keys: ["Shift", "Del"], descKey: "commandPalette.removeRecent" },
   { keys: ["Esc"], descKey: "commandPalette.hintClose" },

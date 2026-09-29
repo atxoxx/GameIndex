@@ -18,6 +18,7 @@ interface CommandPaletteHeaderProps {
   t: (key: string, vars?: Record<string, unknown>) => string;
   listId?: string;
   activeDescendantId?: string;
+  itemCount?: number;
 }
 
 export default function CommandPaletteHeader({
@@ -37,6 +38,7 @@ export default function CommandPaletteHeader({
   t,
   listId,
   activeDescendantId,
+  itemCount,
 }: CommandPaletteHeaderProps) {
   return (
     <div className="command-palette-header">
@@ -78,6 +80,12 @@ export default function CommandPaletteHeader({
       />
 
       <div className="cmd-header-tools">
+        {itemCount !== undefined && (rawQuery.length > 0 || scope !== "all") && (
+          <span className="cmd-header-count-badge" title={`${itemCount} items`}>
+            {itemCount}
+          </span>
+        )}
+
         {rawQuery.length > 0 && (
           <button
             type="button"

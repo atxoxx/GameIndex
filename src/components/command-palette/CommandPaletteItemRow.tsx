@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from "react";
+import { Puzzle } from "lucide-react";
 import type { PaletteItem } from "./commandPaletteTypes";
 import { getMatchRanges } from "./commandPaletteUtils";
 
@@ -111,6 +112,19 @@ export default function CommandPaletteItemRow({
             >
               {item.badgeType === "success" && <span className="cmd-pulse-dot" />}
               {item.badge}
+            </span>
+          )}
+          {item.gameData && (item.gameData.mo2LaunchEnabled || item.gameData.mo2Profile) && (
+            <span
+              className="command-palette-badge badge--mo2"
+              title={
+                item.gameData.mo2Profile
+                  ? `MO2 Profile: ${item.gameData.mo2Profile}`
+                  : "Mod Organizer 2 Enabled"
+              }
+            >
+              <Puzzle size={9} />
+              {item.gameData.mo2Profile ? item.gameData.mo2Profile : "MO2"}
             </span>
           )}
         </div>

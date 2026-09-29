@@ -127,10 +127,10 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
   let text = raw.trim();
   const filters: ParsedQueryFilters = { cleanQuery: "" };
 
-  // Remove leading scope trigger characters if any (@, >, /, #, $, ?, !, ~, =)
+  // Remove leading scope trigger characters if any (@, >, /, #, $, ?, !, ~, =, %)
   // but preserve negation filters like !installed or !fav
-  if (!/^!(?:installed|fav|unplayed|running)\b/i.test(text) && /^[@>/#$?!~=]\s*/.test(text)) {
-    text = text.replace(/^[@>/#$?!~=]\s*/, "");
+  if (!/^!(?:installed|fav|unplayed|running)\b/i.test(text) && /^[@>/#$?!~=%]\s*/.test(text)) {
+    text = text.replace(/^[@>/#$?!~=%]\s*/, "");
   }
 
   // Tokenize by whitespace while respecting quotes
@@ -152,6 +152,17 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
       filters.isCloud = true;
     } else if (lower === "is:running" || lower === "running:true") {
       filters.isRunning = true;
+    } else if (
+      lower === "is:modded" ||
+      lower === "is:mo2" ||
+      lower === "mod:true" ||
+      lower === "mo2:true" ||
+      lower === "+mod" ||
+      lower === "+mo2"
+    ) {
+      filters.isModded = true;
+    } else if (lower === "is:vr" || lower === "vr:true") {
+      filters.isVR = true;
     } else if (lower === "is:wishlist" || lower === "is:wishlisted" || lower === "wishlist:true") {
       filters.isWishlisted = true;
     } else if (
@@ -170,6 +181,8 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
       filters.isUntracked = true;
     } else if (lower === "is:hidden" || lower === "hidden:true") {
       filters.isHidden = true;
+    } else if (lower.startsWith("platform:")) {
+      filters.platform = lower.split(":")[1]?.replace(/"/g, "");
     } else if (lower.startsWith("source:") || lower.startsWith("from:") || lower.startsWith("store:")) {
       filters.source = lower.split(":")[1]?.replace(/"/g, "");
     } else if (lower.startsWith("genre:") || lower.startsWith("g:")) {

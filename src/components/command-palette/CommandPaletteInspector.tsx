@@ -23,9 +23,11 @@ import {
   Building2,
   FolderOpen,
   FileText,
+  Puzzle,
+  Layers,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import type { PaletteItem } from "./commandPaletteTypes";
+import type { LibraryStatsData, PaletteItem } from "./commandPaletteTypes";
 import { formatBytes, formatRelativeTime, formatSummaryParagraphs } from "./commandPaletteUtils";
 import { useSettings } from "../../context/SettingsContext";
 import { gameDisplayName } from "../../types/game";
@@ -39,6 +41,9 @@ interface CommandPaletteInspectorProps {
   isWishlisted?: (slug: string) => boolean;
   toggleWishlist?: (game: any) => void;
   onLaunchGame?: (game: any) => void;
+  navigate?: (path: string) => void;
+  onClose?: () => void;
+  libraryStats?: LibraryStatsData;
 }
 
 export default function CommandPaletteInspector({
@@ -50,17 +55,120 @@ export default function CommandPaletteInspector({
   isWishlisted,
   toggleWishlist,
   onLaunchGame,
+  navigate,
+  onClose,
+  libraryStats,
 }: CommandPaletteInspectorProps) {
   const [copied, setCopied] = useState(false);
   const { showDeckVerified } = useSettings();
 
   if (!item) {
     return (
-      <div className="cmd-inspector cmd-inspector--empty">
-        <div className="cmd-inspector-empty-inner">
-          <Sparkles className="cmd-inspector-empty-icon" />
-          <p className="cmd-inspector-empty-text">{t("commandPalette.inspectorEmpty")}</p>
-          <span className="cmd-inspector-empty-hint">{t("commandPalette.inspectorEmptyHint")}</span>
+      <div className="cmd-inspector cmd-inspector--dashboard">
+        <div className="cmd-inspector-dashboard-hero">
+          <div className="cmd-inspector-dashboard-icon-wrap">
+            <Sparkles className="cmd-inspector-dashboard-spark" size={24} />
+          </div>
+          <h3 className="cmd-inspector-title">{t("commandPalette.hudOverview")}</h3>
+          <span className="cmd-inspector-desc">{t("commandPalette.hudOverviewDesc")}</span>
+        </div>
+
+        <div className="cmd-inspector-body">
+          {libraryStats && (
+            <div className="cmd-inspector-grid">
+              <div className="cmd-inspector-stat">
+                <span className="cmd-inspector-stat-label">
+                  <Gamepad2 size={12} />
+                  {t("commandPalette.scopeGames")}
+                </span>
+                <span className="cmd-inspector-stat-val">{libraryStats.totalGames}</span>
+              </div>
+              <div className="cmd-inspector-stat">
+                <span className="cmd-inspector-stat-label">
+                  <HardDrive size={12} />
+                  {t("commandPalette.badgeInstalled")}
+                </span>
+                <span className="cmd-inspector-stat-val">{libraryStats.installedGames}</span>
+              </div>
+              <div className="cmd-inspector-stat">
+                <span className="cmd-inspector-stat-label">
+                  <Clock size={12} />
+                  {t("commandPalette.totalPlaytime")}
+                </span>
+                <span className="cmd-inspector-stat-val">{libraryStats.totalPlaytimeHours}h</span>
+              </div>
+              <div className="cmd-inspector-stat">
+                <span className="cmd-inspector-stat-label">
+                  <Heart size={12} />
+                  {t("commandPalette.promptFavorites")}
+                </span>
+                <span className="cmd-inspector-stat-val">{libraryStats.favoriteCount}</span>
+              </div>
+            </div>
+          )}
+
+          {libraryStats?.topPlayedGame && (
+            <div className="cmd-inspector-section" style={{ marginTop: "12px" }}>
+              <span className="cmd-inspector-label">{t("commandPalette.mostPlayedTitle")}</span>
+              <div className="cmd-stats-highlight-card">
+                {libraryStats.topPlayedGame.coverArtUrl && (
+                  <img
+                    src={libraryStats.topPlayedGame.coverArtUrl}
+                    alt=""
+                    className="cmd-stats-highlight-thumb"
+                  />
+                )}
+                <div>
+                  <div className="cmd-stats-highlight-name">{libraryStats.topPlayedGame.name}</div>
+                  <div className="cmd-stats-highlight-time">{libraryStats.topPlayedGame.playTime}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="cmd-inspector-section" style={{ marginTop: "14px" }}>
+            <span className="cmd-inspector-label">
+              <Sparkles size={11} className="cmd-inspector-label-icon" />
+              {t("commandPalette.quickShortcutsTitle")}
+            </span>
+            <div className="cmd-dashboard-shortcuts">
+              <div className="cmd-dashboard-shortcut-row">
+                <span className="cmd-dashboard-shortcut-desc">{t("commandPalette.shortcutDescGames")}</span>
+                <kbd className="cmd-key">@</kbd>
+              </div>
+              <div className="cmd-dashboard-shortcut-row">
+                <span className="cmd-dashboard-shortcut-desc">{t("commandPalette.shortcutDescMods")}</span>
+                <kbd className="cmd-key">%</kbd>
+              </div>
+              <div className="cmd-dashboard-shortcut-row">
+                <span className="cmd-dashboard-shortcut-desc">{t("commandPalette.shortcutDescActions")}</span>
+                <kbd className="cmd-key">&gt;</kbd>
+              </div>
+              <div className="cmd-dashboard-shortcut-row">
+                <span className="cmd-dashboard-shortcut-desc">{t("commandPalette.shortcutDescCalc")}</span>
+                <kbd className="cmd-key">~</kbd>
+              </div>
+              <div className="cmd-dashboard-shortcut-row">
+                <span className="cmd-dashboard-shortcut-desc">{t("commandPalette.actionsMenu")}</span>
+                <kbd className="cmd-key">Ctrl+K</kbd>
+              </div>
+              <div className="cmd-dashboard-shortcut-row">
+                <span className="cmd-dashboard-shortcut-desc">{t("commandPalette.cheatSheet")}</span>
+                <kbd className="cmd-key">Ctrl+H</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="cmd-inspector-footer">
+          <div className="cmd-shortcut-hint">
+            <kbd className="cmd-key">↑↓</kbd>
+            <span>{t("commandPalette.hintNavigate")}</span>
+          </div>
+          <div className="cmd-shortcut-hint">
+            <kbd className="cmd-key">Esc</kbd>
+            <span>{t("commandPalette.hintClose")}</span>
+          </div>
         </div>
       </div>
     );
@@ -364,11 +472,66 @@ export default function CommandPaletteInspector({
                   ★ {gameData.rating}/5
                 </span>
               )}
+              {(gameData.mo2LaunchEnabled || gameData.mo2Profile) && (
+                <span
+                  className="cmd-badge cmd-badge--accent"
+                  title={gameData.mo2Profile ? `MO2: ${gameData.mo2Profile}` : "MO2 Enabled"}
+                >
+                  <Puzzle size={9} />
+                  {gameData.mo2Profile ? `MO2: ${gameData.mo2Profile}` : "MO2"}
+                </span>
+              )}
             </div>
             <h3 className="cmd-inspector-title" title={gameDisplayName(gameData)}>
               {gameDisplayName(gameData)}
             </h3>
           </div>
+        </div>
+
+        {/* Primary Action Ribbon */}
+        <div className="cmd-inspector-primary-action-bar">
+          <button
+            type="button"
+            className="cmd-inspector-hero-launch-btn"
+            onClick={() => {
+              if (gameData.installed && onLaunchGame) {
+                onLaunchGame(gameData);
+              } else {
+                item.onSelect();
+              }
+            }}
+          >
+            <Play size={14} fill="currentColor" />
+            <span>{gameData.installed ? t("commandPalette.launch") : t("commandPalette.open")}</span>
+            <kbd className="cmd-key-hint">↵</kbd>
+          </button>
+          {navigate && (
+            <button
+              type="button"
+              className="cmd-inspector-action-icon-btn"
+              title={`${t("commandPalette.open")} (Ctrl+↵)`}
+              onClick={() => {
+                onClose?.();
+                navigate(`/library/${gameData.id}`);
+              }}
+            >
+              <Layers size={13} />
+              <span>{t("commandPalette.hintDetails")}</span>
+            </button>
+          )}
+          {gameData.path && (
+            <button
+              type="button"
+              className="cmd-inspector-action-icon-btn"
+              title={`${t("commandPalette.openFolder")} (Ctrl+O)`}
+              onClick={() => {
+                invoke("open_folder", { path: gameData.path });
+              }}
+            >
+              <FolderOpen size={13} />
+              <span>{t("commandPalette.openFolder")}</span>
+            </button>
+          )}
         </div>
 
         {/* Info Grid */}
@@ -435,6 +598,49 @@ export default function CommandPaletteInspector({
               </div>
             )}
           </div>
+
+          {/* Mod Organizer 2 Configuration Card */}
+          {(gameData.mo2LaunchEnabled || gameData.mo2Profile || gameData.mo2InstancePath) && (
+            <div className="cmd-inspector-section cmd-inspector-mo2-card">
+              <div className="cmd-inspector-mo2-header">
+                <span className="cmd-inspector-label">
+                  <Puzzle size={12} className="cmd-inspector-label-icon" />
+                  <span>Mod Organizer 2</span>
+                </span>
+                <span className="cmd-badge cmd-badge--accent">
+                  {gameData.mo2LaunchEnabled ? t("commandPalette.mo2Active") : t("commandPalette.mo2Configured")}
+                </span>
+              </div>
+              <div className="cmd-inspector-mo2-details">
+                {gameData.mo2Profile && (
+                  <div className="cmd-inspector-mo2-row">
+                    <span className="cmd-inspector-mo2-key">{t("commandPalette.mo2Profile")}:</span>
+                    <span className="cmd-inspector-mo2-val">{gameData.mo2Profile}</span>
+                  </div>
+                )}
+                {gameData.mo2Executable && (
+                  <div className="cmd-inspector-mo2-row">
+                    <span className="cmd-inspector-mo2-key">{t("commandPalette.mo2Executable")}:</span>
+                    <span className="cmd-inspector-mo2-val">{gameData.mo2Executable}</span>
+                  </div>
+                )}
+                {navigate && (
+                  <button
+                    type="button"
+                    className="cmd-inspector-btn cmd-inspector-btn--accent"
+                    style={{ marginTop: "8px", width: "100%" }}
+                    onClick={() => {
+                      onClose?.();
+                      navigate(`/library/${gameData.id}?tab=mods`);
+                    }}
+                  >
+                    <Puzzle size={12} />
+                    <span>{t("commandPalette.manageMods")}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Developer / Publisher */}
           {(gameData.developer || gameData.publisher) && (

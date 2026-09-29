@@ -6,6 +6,7 @@ export type PaletteCategory =
   | "all"
   | "recent"
   | "games"
+  | "mods"
   | "wishlist"
   | "actions"
   | "navigation"
@@ -125,7 +126,10 @@ export interface ParsedQueryFilters {
   isUnplayed?: boolean;
   isUntracked?: boolean;
   isHidden?: boolean;
+  isModded?: boolean;
+  isVR?: boolean;
   source?: string;
+  platform?: string;
   genre?: string;
   tag?: string;
   developer?: string;

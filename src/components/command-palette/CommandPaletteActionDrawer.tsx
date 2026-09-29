@@ -14,6 +14,7 @@ import {
   Search,
   Download,
   Clock,
+  Puzzle,
 } from "lucide-react";
 import type { PaletteItem, PaletteSecondaryAction } from "./commandPaletteTypes";
 import { invoke } from "@tauri-apps/api/core";
@@ -136,6 +137,52 @@ export default function CommandPaletteActionDrawer({
           showToast(t("commandPalette.copiedToClipboard"), "info");
         },
       });
+
+      // 5b. MO2 Actions
+      if (game.mo2LaunchEnabled || game.mo2Profile || game.mo2InstancePath) {
+        if (game.installed && launchGame && game.mo2LaunchEnabled) {
+          acts.push({
+            id: "act-mo2-launch",
+            title: t("commandPalette.launchMo2"),
+            description: game.mo2Profile
+              ? `Launch with profile: ${game.mo2Profile}`
+              : "Launch through Mod Organizer 2",
+            icon: <Puzzle size={15} />,
+            badge: "MO2",
+            onExecute: () => {
+              onClose();
+              launchGame(game);
+            },
+          });
+        }
+
+        acts.push({
+          id: "act-manage-mods",
+          title: t("commandPalette.manageMods"),
+          description: t("commandPalette.manageModsDesc"),
+          icon: <Puzzle size={15} />,
+          badge: "MO2",
+          onExecute: () => {
+            onClose();
+            navigate(`/library/${game.id}?tab=mods`);
+          },
+        });
+      }
+
+      // 5c. Copy Steam App ID
+      if (game.steamAppId) {
+        acts.push({
+          id: "act-copy-steamid",
+          title: t("commandPalette.copySteamAppId"),
+          description: String(game.steamAppId),
+          icon: <Copy size={15} />,
+          badge: "Steam",
+          onExecute: () => {
+            navigator.clipboard.writeText(String(game.steamAppId));
+            showToast(t("commandPalette.copiedToClipboard"), "info");
+          },
+        });
+      }
 
       // 6. Toggle Favorite
       if (toggleFavorite) {

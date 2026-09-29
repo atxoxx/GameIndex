@@ -86,6 +86,7 @@ export function useCommandPaletteKeyboard(params: UseCommandPaletteKeyboardParam
         "all",
         "recent",
         "games",
+        "mods",
         "wishlist",
         "actions",
         "navigation",

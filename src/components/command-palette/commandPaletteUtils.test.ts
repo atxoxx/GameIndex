@@ -45,6 +45,14 @@ describe("commandPaletteUtils", () => {
       expect(parseQueryFilters(">settings").cleanQuery).toBe("settings");
       expect(parseQueryFilters("!hades").cleanQuery).toBe("hades");
       expect(parseQueryFilters("~1440 * 2560").cleanQuery).toBe("1440 * 2560");
+      expect(parseQueryFilters("%skyrim").cleanQuery).toBe("skyrim");
+    });
+
+    it("parses modded and platform tokens", () => {
+      const parsed = parseQueryFilters("is:modded platform:steam skyrim");
+      expect(parsed.isModded).toBe(true);
+      expect(parsed.platform).toBe("steam");
+      expect(parsed.cleanQuery).toBe("skyrim");
     });
 
     it("parses source tokens", () => {

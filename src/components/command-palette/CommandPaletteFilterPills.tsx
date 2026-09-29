@@ -18,6 +18,7 @@ import {
   HardDrive,
   ArrowUpDown,
   EyeOff,
+  Puzzle,
 } from "lucide-react";
 import type { ParsedQueryFilters } from "./commandPaletteTypes";
 
@@ -88,6 +89,15 @@ export default function CommandPaletteFilterPills({
         >
           <Gamepad2 size={12} className="cmd-prompt-chip-icon" />
           <span>{t("commandPalette.promptInstalled")}</span>
+        </button>
+
+        <button
+          type="button"
+          className="cmd-prompt-chip"
+          onClick={() => onSetRawQuery("is:modded ")}
+        >
+          <Puzzle size={12} className="cmd-prompt-chip-icon" />
+          <span>{t("commandPalette.promptModded")}</span>
         </button>
 
         <button
@@ -174,6 +184,24 @@ export default function CommandPaletteFilterPills({
       label: t("commandPalette.filterUntracked"),
       icon: <EyeOff size={11} />,
       onRemove: () => removeByPattern(/(?:\s|^)(?:is:untracked|untracked:true)(?=\s|$)/gi),
+    });
+  }
+  if (parsedFilters.isModded) {
+    chips.push({
+      key: "modded",
+      label: t("commandPalette.promptModded"),
+      icon: <Puzzle size={11} />,
+      onRemove: () =>
+        removeByPattern(/(?:\s|^)(?:is:modded|is:mo2|mod:true|mo2:true|\+mod|\+mo2)(?=\s|$)/gi),
+    });
+  }
+  if (parsedFilters.platform) {
+    chips.push({
+      key: "platform",
+      label: `platform:${parsedFilters.platform}`,
+      icon: <Gamepad2 size={11} />,
+      onRemove: () =>
+        removeByPattern(new RegExp(`(?:\\s|^)platform:${parsedFilters.platform}(?=\\s|$)`, "gi")),
     });
   }
   if (parsedFilters.isWishlisted) {
@@ -333,9 +361,19 @@ export default function CommandPaletteFilterPills({
         {parsedFilters.isRunning && <X size={10} className="cmd-filter-remove-icon" />}
       </button>
 
+      <button
+        type="button"
+        className={`cmd-filter-toggle-pill${parsedFilters.isModded ? " is-active" : ""}`}
+        onClick={() => toggleFilterToken("is:modded", !!parsedFilters.isModded)}
+      >
+        <Puzzle size={11} />
+        <span>{t("commandPalette.promptModded")}</span>
+        {parsedFilters.isModded && <X size={10} className="cmd-filter-remove-icon" />}
+      </button>
+
       {/* Active power-filter chips (removable) */}
       {chips
-        .filter((c) => !["installed", "favorite", "unplayed", "running"].includes(c.key))
+        .filter((c) => !["installed", "favorite", "unplayed", "running", "modded"].includes(c.key))
         .map((chip) => (
           <button
             key={chip.key}
