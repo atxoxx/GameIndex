@@ -134,7 +134,8 @@ const Mo2ModRow = memo(function Mo2ModRow({
 export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2ManagerProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { updateGame } = useGames();
+  const { updateGame, runningGameIds } = useGames();
+  const isRunning = runningGameIds.includes(game.id);
   const {
     instances,
     selectedInstance,
@@ -188,8 +189,18 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
   const handleToggleMo2Launch = () => {
     const nextVal = !mo2LaunchEnabled;
     setMo2LaunchEnabled(nextVal);
-    saveGameMo2Config(game.id, { enabled: nextVal });
-    updateGame(game.id, { mo2LaunchEnabled: nextVal });
+    const instPath = selectedInstance?.instancePath || savedConfig?.instancePath;
+    const prof = selectedProfile || selectedInstance?.selectedProfile || "Default";
+    const exe = selectedExecutable || selectedInstance?.customExecutables[0]?.title || "";
+
+    saveGameMo2Config(game.id, {
+      enabled: nextVal,
+      ...(nextVal ? { instancePath: instPath, profile: prof, executable: exe } : {}),
+    });
+    updateGame(game.id, {
+      mo2LaunchEnabled: nextVal,
+      ...(nextVal ? { mo2InstancePath: instPath, mo2Profile: prof, mo2Executable: exe } : {}),
+    });
     showToast(
       nextVal
         ? t("mods.mo2.launchDefaultEnabled")
@@ -200,14 +211,16 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
 
   const handleExecutableChange = (exe: string) => {
     setSelectedExecutable(exe);
-    saveGameMo2Config(game.id, { executable: exe });
-    updateGame(game.id, { mo2Executable: exe });
+    const instPath = selectedInstance?.instancePath;
+    saveGameMo2Config(game.id, { executable: exe, ...(instPath ? { instancePath: instPath } : {}) });
+    updateGame(game.id, { mo2Executable: exe, ...(instPath ? { mo2InstancePath: instPath } : {}) });
   };
 
   const handleProfileSwitch = async (profileName: string) => {
     await switchProfile(profileName);
-    saveGameMo2Config(game.id, { profile: profileName });
-    updateGame(game.id, { mo2Profile: profileName });
+    const instPath = selectedInstance?.instancePath;
+    saveGameMo2Config(game.id, { profile: profileName, ...(instPath ? { instancePath: instPath } : {}) });
+    updateGame(game.id, { mo2Profile: profileName, ...(instPath ? { mo2InstancePath: instPath } : {}) });
   };
 
   const mods = details?.mods ?? [];
@@ -397,6 +410,10 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
 
   const handleLaunch = async () => {
     if (!selectedInstance) return;
+    if (isRunning) {
+      showToast(t("gameContext.alreadyRunning", { name: game.name }), "info");
+      return;
+    }
     const exe =
       selectedExecutable ||
       selectedInstance.customExecutables[0]?.title ||
@@ -539,13 +556,13 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
               variant="primary"
               className="mo2-launch-btn"
               onClick={handleLaunch}
-              disabled={launching}
-              title={t("mods.mo2.launchTooltip")}
+              disabled={launching || isRunning}
+              title={isRunning ? t("game.running") : t("mods.mo2.launchTooltip")}
             >
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
-              {launching ? "..." : t("mods.mo2.launchMo2")}
+              {launching ? "..." : isRunning ? t("game.running") : t("mods.mo2.launchMo2")}
             </Button>
 
             {selectedInstance && (
@@ -614,7 +631,20 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
                   const target = instances.find((i) => i.id === e.target.value);
                   if (target) {
                     setSelectedInstance(target);
-                    void switchProfile(target.selectedProfile || target.profiles[0] || "Default");
+                    const prof = target.selectedProfile || target.profiles[0] || "Default";
+                    const exe = target.customExecutables[0]?.title || "";
+                    setSelectedExecutable(exe);
+                    void switchProfile(prof);
+                    saveGameMo2Config(game.id, {
+                      instancePath: target.instancePath,
+                      profile: prof,
+                      executable: exe,
+                    });
+                    updateGame(game.id, {
+                      mo2InstancePath: target.instancePath,
+                      mo2Profile: prof,
+                      mo2Executable: exe,
+                    });
                   }
                 }}
                 className="mo2-instance-switch"

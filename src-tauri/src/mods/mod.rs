@@ -860,7 +860,16 @@ pub fn mo2_launch_game(
     instance_path: String,
     profile_name: String,
     executable: String,
+    run_as_admin: Option<bool>,
 ) -> Result<String, String> {
-    mo2::launch_with_mo2(&app, &game_id, &game_name, &instance_path, &profile_name, &executable)
+    mo2::launch_with_mo2(
+        &app,
+        &game_id,
+        &game_name,
+        &instance_path,
+        &profile_name,
+        &executable,
+        run_as_admin.unwrap_or(false),
+    )
 }
 

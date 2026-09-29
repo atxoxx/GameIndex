@@ -199,22 +199,34 @@ export function useLaunch(options: {
         let profileName = mo2Profile;
         let executable = mo2Executable;
 
-        if (!instancePath) {
-          try {
-            const list = await invoke<Mo2Instance[]>("mo2_detect_instances", {
-              gamePath: game.path ?? "",
-              gameName: gameDisplayName(game),
-            });
-            if (list && list.length > 0) {
-              instancePath = list[0].instancePath;
-              if (!profileName) profileName = list[0].selectedProfile || list[0].profiles[0] || "Default";
-              if (!executable && list[0].customExecutables && list[0].customExecutables.length > 0) {
-                executable = list[0].customExecutables[0].title;
-              }
+        try {
+          const list = await invoke<Mo2Instance[]>("mo2_detect_instances", {
+            gamePath: instancePath || game.path || "",
+            gameName: gameDisplayName(game),
+          });
+          if (list && list.length > 0) {
+            const matchedInst = instancePath
+              ? list.find((i) => i.instancePath.toLowerCase() === instancePath?.toLowerCase()) || list[0]
+              : list[0];
+
+            if (!instancePath) {
+              instancePath = matchedInst.instancePath;
             }
-          } catch (e) {
-            console.warn("Failed to auto-detect MO2 instance during launch:", e);
+            if (!profileName) {
+              profileName = matchedInst.selectedProfile || matchedInst.profiles[0] || "Default";
+            }
+            if (!executable && matchedInst.customExecutables && matchedInst.customExecutables.length > 0) {
+              const gPathLower = (game.path ?? "").toLowerCase();
+              const gFileName = gPathLower.split(/[/\\]/).pop() || "";
+              const matchByPath = matchedInst.customExecutables.find((e) => {
+                const eLower = e.path.toLowerCase();
+                return eLower === gPathLower || (gFileName.length > 0 && eLower.endsWith(gFileName));
+              });
+              executable = matchByPath ? matchByPath.title : matchedInst.customExecutables[0].title;
+            }
           }
+        } catch (e) {
+          console.warn("Failed to auto-detect MO2 instance during launch:", e);
         }
 
         if (instancePath) {
@@ -224,6 +236,7 @@ export function useLaunch(options: {
             instancePath,
             profileName: profileName || "Default",
             executable: executable || game.path || "",
+            runAsAdmin: IS_WINDOWS_HOST ? (game.runAsAdmin || null) : null,
           });
           if (splashOn) armSplashFallback(game.id);
           showToast(

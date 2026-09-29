@@ -36,26 +36,48 @@ export function useMo2(game: Game | null) {
         gameName: gameDisplayName(game),
       });
 
+      const savedCfg = getGameMo2Config(game.id);
+      const preferredPath = game.mo2InstancePath || savedCfg?.instancePath;
+
+      let fullList = [...list];
+      if (preferredPath && !list.some((i) => i.instancePath.toLowerCase() === preferredPath.toLowerCase())) {
+        try {
+          const extra = await invoke<Mo2Instance[]>("mo2_detect_instances", {
+            gamePath: preferredPath,
+            gameName: gameDisplayName(game),
+          });
+          if (extra && extra.length > 0) {
+            fullList = [...extra, ...fullList];
+          }
+        } catch {
+          // Non-blocking
+        }
+      }
+
       if (gameIdRef.current === game.id) {
-        setInstances(list);
-        if (list.length > 0) {
+        setInstances(fullList);
+        if (fullList.length > 0) {
           setSelectedInstance((prev) => {
             if (prev) {
-              const matched = list.find((i) => i.instancePath.toLowerCase() === prev.instancePath.toLowerCase());
+              const matched = fullList.find((i) => i.instancePath.toLowerCase() === prev.instancePath.toLowerCase());
               if (matched) return matched;
             }
-            return list[0];
+            if (preferredPath) {
+              const preferred = fullList.find((i) => i.instancePath.toLowerCase() === preferredPath.toLowerCase());
+              if (preferred) return preferred;
+            }
+            return fullList[0];
           });
-          const savedCfg = getGameMo2Config(game.id);
           setSelectedProfile((prev) => {
-            if (prev && list.some((i) => i.profiles.some((p) => p.toLowerCase() === prev.toLowerCase()))) {
+            if (prev && fullList.some((i) => i.profiles.some((p) => p.toLowerCase() === prev.toLowerCase()))) {
               return prev;
             }
+            const activeInst = (preferredPath ? fullList.find((i) => i.instancePath.toLowerCase() === preferredPath.toLowerCase()) : null) || fullList[0];
             return (
               game.mo2Profile ||
               savedCfg?.profile ||
-              list[0].selectedProfile ||
-              list[0].profiles[0] ||
+              activeInst.selectedProfile ||
+              activeInst.profiles[0] ||
               "Default"
             );
           });
@@ -346,6 +368,7 @@ export function useMo2(game: Game | null) {
           instancePath: selectedInstance.instancePath,
           profileName: selectedProfile,
           executable: executableTitleOrPath,
+          runAsAdmin: game.runAsAdmin || false,
         });
         return msg;
       } finally {
@@ -376,7 +399,15 @@ export function useMo2(game: Game | null) {
           });
           const picked = list[0];
           setSelectedInstance(picked);
-          setSelectedProfile(picked.selectedProfile || picked.profiles[0] || "Default");
+          const prof = picked.selectedProfile || picked.profiles[0] || "Default";
+          setSelectedProfile(prof);
+          if (game) {
+            saveGameMo2Config(game.id, {
+              instancePath: picked.instancePath,
+              profile: prof,
+              executable: picked.customExecutables[0]?.title || "",
+            });
+          }
         }
       }
     } catch {

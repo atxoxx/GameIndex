@@ -2197,6 +2197,9 @@ fn query_running_processes(_mem_scan: &MemoryScanFilter) -> Vec<ProcessInfo> {
 /// walking up out of common binary or helper subfolders to prevent
 /// launcher vs. game process sibling directory path mismatches.
 fn get_game_root_dir(exe_path: &Path) -> Option<PathBuf> {
+    if exe_path.is_dir() {
+        return Some(exe_path.to_path_buf());
+    }
     let mut current = exe_path.parent()?;
     const COMMON_SUBDIRS: &[&str] = &[
         "bin", "binaries", "win64", "win32", "x64", "x86", "release", "debug",

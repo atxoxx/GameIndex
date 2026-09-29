@@ -222,7 +222,7 @@ const ERROR_ELEVATION_REQUIRED: i32 = 740;
 ///
 /// This triggers a UAC prompt. If the user cancels, an error is returned.
 #[cfg(windows)]
-fn launch_elevated(path: &std::path::Path, cwd: &std::path::Path, args: Option<&str>) -> Result<Option<u32>, String> {
+pub(crate) fn launch_elevated(path: &std::path::Path, cwd: &std::path::Path, args: Option<&str>) -> Result<Option<u32>, String> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use std::ptr;

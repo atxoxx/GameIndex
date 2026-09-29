@@ -233,19 +233,35 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
 
   useEffect(() => {
     let cancelled = false;
+    const preferred = editMo2InstancePath.trim();
     invoke<Mo2Instance[]>("mo2_detect_instances", {
-      gamePath: game.path ?? "",
+      gamePath: preferred || game.path || "",
       gameName: gameDisplayName(game),
     })
-      .then((instances) => {
+      .then(async (instances) => {
         if (cancelled) return;
-        setMo2Instances(instances || []);
-        if (instances && instances.length > 0) {
-          const first = instances[0];
-          setEditMo2InstancePath((prev) => prev || first.instancePath);
-          setEditMo2Profile((prev) => prev || first.selectedProfile || first.profiles[0] || "Default");
-          if (first.customExecutables && first.customExecutables.length > 0) {
-            setEditMo2Executable((prev) => prev || first.customExecutables[0].title);
+        let list = instances || [];
+        if (preferred && !list.some((i) => i.instancePath.toLowerCase() === preferred.toLowerCase())) {
+          try {
+            const extra = await invoke<Mo2Instance[]>("mo2_detect_instances", {
+              gamePath: preferred,
+              gameName: gameDisplayName(game),
+            });
+            if (!cancelled && extra && extra.length > 0) {
+              list = [...extra, ...list];
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (cancelled) return;
+        setMo2Instances(list);
+        if (list.length > 0) {
+          const matched = (preferred ? list.find((i) => i.instancePath.toLowerCase() === preferred.toLowerCase()) : null) || list[0];
+          setEditMo2InstancePath((prev) => prev || matched.instancePath);
+          setEditMo2Profile((prev) => prev || matched.selectedProfile || matched.profiles[0] || "Default");
+          if (matched.customExecutables && matched.customExecutables.length > 0) {
+            setEditMo2Executable((prev) => prev || matched.customExecutables[0].title);
           }
         }
       })

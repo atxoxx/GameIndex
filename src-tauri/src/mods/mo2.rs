@@ -270,11 +270,28 @@ pub fn parse_instance_at(ini_path: &Path, mo_exe_hint: Option<PathBuf>) -> Optio
             let custom_key = format!("{i}\\custom");
             let args_key = format!("{i}\\arguments");
             let exe_path = execs.get(&binary_key).or_else(|| execs.get(&custom_key));
-            if let (Some(title), Some(path)) = (execs.get(&title_key), exe_path) {
-                if !title.is_empty() && !path.is_empty() {
+            if let (Some(title), Some(raw_path)) = (execs.get(&title_key), exe_path) {
+                if !title.is_empty() && !raw_path.is_empty() {
+                    let mut path = raw_path.clone();
+                    if path.contains("%BASE_DIR%") {
+                        path = path.replace("%BASE_DIR%", &base_dir.to_string_lossy());
+                    }
+                    if let Some(ref gp) = game_path {
+                        if path.contains("%GAME_PATH%") {
+                            path = path.replace("%GAME_PATH%", gp);
+                        }
+                    }
+                    if !Path::new(&path).is_absolute() {
+                        if let Some(ref gp) = game_path {
+                            let candidate = Path::new(gp).join(&path);
+                            if candidate.exists() {
+                                path = candidate.to_string_lossy().to_string();
+                            }
+                        }
+                    }
                     custom_executables.push(Mo2Executable {
                         title: title.clone(),
-                        path: path.clone(),
+                        path,
                         arguments: execs.get(&args_key).cloned().filter(|s| !s.is_empty()),
                     });
                 }
@@ -314,33 +331,74 @@ pub fn detect_mo2_instances(game_path: &str, game_name: &str) -> Vec<Mo2Instance
     let norm_game_path = normalize_path_str(game_path);
     let norm_game_name = game_name.to_lowercase();
 
-    // 1. Portable checks near game directory
+    // 1. Portable checks: scan direct path and ascend parent directories (up to 4 levels)
     if !game_path.is_empty() {
         let gpath = Path::new(game_path);
-        let game_dir = if gpath.is_file() {
+
+        // If the path itself points to an MO2 directory or ModOrganizer.ini directly
+        let direct_ini = if gpath.is_file() && gpath.file_name().map(|n| n.to_string_lossy().eq_ignore_ascii_case("ModOrganizer.ini")).unwrap_or(false) {
+            Some(gpath.to_path_buf())
+        } else if gpath.join("ModOrganizer.ini").is_file() {
+            Some(gpath.join("ModOrganizer.ini"))
+        } else {
+            None
+        };
+        if let Some(ini) = direct_ini {
+            if let Some(inst) = parse_instance_at(&ini, ini.parent().map(|p| p.join("ModOrganizer.exe"))) {
+                instances.push(inst);
+            }
+        }
+
+        let start_dir = if gpath.is_file() {
             gpath.parent()
         } else {
             Some(gpath)
         };
 
-        if let Some(dir) = game_dir {
-            let direct_ini = dir.join("ModOrganizer.ini");
-            if let Some(inst) = parse_instance_at(&direct_ini, Some(dir.join("ModOrganizer.exe"))) {
-                instances.push(inst);
-            }
-            let sub_mo2 = dir.join("ModOrganizer");
-            if let Some(inst) = parse_instance_at(&sub_mo2.join("ModOrganizer.ini"), Some(sub_mo2.join("ModOrganizer.exe"))) {
-                instances.push(inst);
-            }
-            let sub_mo2_lower = dir.join("mo2");
-            if let Some(inst) = parse_instance_at(&sub_mo2_lower.join("ModOrganizer.ini"), Some(sub_mo2_lower.join("ModOrganizer.exe"))) {
-                instances.push(inst);
-            }
-            if let Some(parent) = dir.parent() {
-                let parent_mo2 = parent.join("ModOrganizer");
-                if let Some(inst) = parse_instance_at(&parent_mo2.join("ModOrganizer.ini"), Some(parent_mo2.join("ModOrganizer.exe"))) {
-                    instances.push(inst);
+        if let Some(base) = start_dir {
+            let mut curr = Some(base);
+            let mut depth = 0;
+
+            while let Some(dir) = curr {
+                if depth > 4 {
+                    break;
                 }
+                // Check current directory directly
+                let direct = dir.join("ModOrganizer.ini");
+                if direct.is_file() {
+                    let exe = dir.join("ModOrganizer.exe");
+                    if let Some(inst) = parse_instance_at(&direct, Some(exe)) {
+                        instances.push(inst);
+                    }
+                }
+
+                // Check immediate subdirectories for MO2 folders
+                if let Ok(entries) = fs::read_dir(dir) {
+                    for entry in entries.flatten() {
+                        if entry.path().is_dir() {
+                            let name_lower = entry.file_name().to_string_lossy().to_lowercase();
+                            let is_mo2_name = matches!(
+                                name_lower.as_str(),
+                                "modorganizer"
+                                    | "mod organizer"
+                                    | "mod organizer 2"
+                                    | "modorganizer2"
+                                    | "mo2"
+                            );
+                            if is_mo2_name {
+                                let ini = entry.path().join("ModOrganizer.ini");
+                                if ini.is_file() {
+                                    let exe = entry.path().join("ModOrganizer.exe");
+                                    if let Some(inst) = parse_instance_at(&ini, Some(exe)) {
+                                        instances.push(inst);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                curr = dir.parent();
+                depth += 1;
             }
         }
     }
@@ -365,38 +423,79 @@ pub fn detect_mo2_instances(game_path: &str, game_name: &str) -> Vec<Mo2Instance
     let mut seen = std::collections::HashSet::new();
     instances.retain(|inst| seen.insert(normalize_path_str(&inst.instance_path)));
 
-    // Filter or score match to the target game
+    // Filter and score match to the target game
     if !norm_game_path.is_empty() || !norm_game_name.is_empty() {
-        let mut matched = Vec::new();
-        let mut others = Vec::new();
+        let mut scored: Vec<(i32, Mo2Instance)> = Vec::new();
 
         for inst in instances {
             let inst_game_path = inst.game_path.as_deref().map(normalize_path_str).unwrap_or_default();
             let inst_game_name = inst.game_name.as_deref().map(|s| s.to_lowercase()).unwrap_or_default();
+            let inst_path_norm = normalize_path_str(&inst.instance_path);
 
-            let path_matches = !norm_game_path.is_empty() && (
-                norm_game_path.contains(&inst_game_path) ||
-                inst_game_path.contains(&norm_game_path) ||
-                norm_game_path.starts_with(&inst_game_path) ||
-                inst_game_path.starts_with(&norm_game_path)
-            );
+            let mut score = 0;
 
-            let name_matches = !norm_game_name.is_empty() && (
-                norm_game_name.contains(&inst_game_name) ||
-                inst_game_name.contains(&norm_game_name)
-            );
+            // Direct path matching
+            if !norm_game_path.is_empty() {
+                // If instance directory is ancestor of game or vice-versa
+                if !inst_path_norm.is_empty() {
+                    if norm_game_path.starts_with(&inst_path_norm) || inst_path_norm.starts_with(&norm_game_path) {
+                        score += 80;
+                    }
+                }
 
-            if path_matches || name_matches {
-                matched.push(inst);
-            } else {
-                others.push(inst);
+                // If instance's configured game_path matches
+                if !inst_game_path.is_empty() {
+                    if norm_game_path == inst_game_path {
+                        score += 100;
+                    } else if norm_game_path.starts_with(&inst_game_path) || inst_game_path.starts_with(&norm_game_path) {
+                        score += 75;
+                    } else if norm_game_path.contains(&inst_game_path) || inst_game_path.contains(&norm_game_path) {
+                        score += 50;
+                    }
+                }
+
+                // Check custom executables inside instance
+                for exec in &inst.custom_executables {
+                    let exec_norm = normalize_path_str(&exec.path);
+                    if !exec_norm.is_empty() {
+                        let exec_file = Path::new(&exec.path)
+                            .file_name()
+                            .map(|f| f.to_string_lossy().to_lowercase())
+                            .unwrap_or_default();
+                        if exec_norm == norm_game_path || norm_game_path.ends_with(&exec_norm) || exec_norm.ends_with(&norm_game_path) {
+                            score += 90;
+                            break;
+                        } else if !exec_file.is_empty() && norm_game_path.ends_with(&exec_file) {
+                            score += 65;
+                            break;
+                        }
+                    }
+                }
             }
+
+            // Game name matching
+            if !norm_game_name.is_empty() && !inst_game_name.is_empty() {
+                if norm_game_name == inst_game_name {
+                    score += 60;
+                } else if norm_game_name.contains(&inst_game_name) || inst_game_name.contains(&norm_game_name) {
+                    score += 40;
+                }
+            }
+
+            if inst.is_portable {
+                score += 15;
+            }
+
+            scored.push((score, inst));
         }
 
-        if !matched.is_empty() {
-            return matched;
+        scored.sort_by(|a, b| b.0.cmp(&a.0));
+
+        let positive: Vec<Mo2Instance> = scored.iter().filter(|(s, _)| *s > 0).map(|(_, i)| i.clone()).collect();
+        if !positive.is_empty() {
+            return positive;
         }
-        return others;
+        return scored.into_iter().map(|(_, i)| i).collect();
     }
 
     instances
@@ -1021,12 +1120,24 @@ pub fn launch_with_mo2(
     instance_path: &str,
     profile_name: &str,
     executable_path_or_title: &str,
+    run_as_admin: bool,
 ) -> Result<String, String> {
     #[derive(Debug, Clone, serde::Serialize)]
     #[serde(rename_all = "camelCase")]
     struct LaunchProgressPayload {
         game_id: String,
         step: String,
+    }
+
+    let launcher_state: Option<tauri::State<'_, std::sync::Arc<std::sync::Mutex<crate::launcher::LauncherSettings>>>> = app.try_state();
+    if let Some(launcher) = launcher_state {
+        let settings = launcher.lock().map(|s| s.clone()).unwrap_or_default();
+        if settings.disable_elevation_prompts && run_as_admin {
+            return Err(
+                "Launch with admin elevation is blocked by Settings → Disable UAC elevation prompts. Enable the setting or unset \"Run as administrator\" on the game to launch."
+                    .to_string(),
+            );
+        }
     }
 
     let _ = app.emit(
@@ -1058,23 +1169,97 @@ pub fn launch_with_mo2(
         },
     );
 
-    // Build the launch command
-    // ModOrganizer.exe supports:
-    // 1. "moshortcut://<InstanceOrGame>:<ExecutableTitle>"
-    // 2. -p "<profile>" "<executable_path>"
-    let mut cmd = std::process::Command::new(mo_exe);
-    cmd.current_dir(mo_dir);
+    // If an executable path was passed, check if it matches any custom executable title configured in MO2
+    let matched_title = if executable_path_or_title.contains('\\') || executable_path_or_title.contains('/') {
+        let norm_target = normalize_path_str(executable_path_or_title);
+        let target_file_name = Path::new(executable_path_or_title)
+            .file_name()
+            .map(|f| f.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
 
-    if executable_path_or_title.contains('\\') || executable_path_or_title.contains('/') {
-        cmd.arg("-p").arg(&clean_profile).arg(executable_path_or_title);
+        instance.custom_executables.iter().find(|e| {
+            let norm_e = normalize_path_str(&e.path);
+            norm_e == norm_target
+                || norm_target.ends_with(&norm_e)
+                || norm_e.ends_with(&norm_target)
+                || (!target_file_name.is_empty() && norm_e.ends_with(&target_file_name))
+        }).map(|e| e.title.clone())
     } else {
-        // Treat as executable title configured in MO2
-        let shortcut = format!("moshortcut://{}:{}", instance.name, executable_path_or_title);
-        cmd.arg(shortcut);
-    }
+        Some(executable_path_or_title.to_string())
+    };
 
-    let child = cmd.spawn().map_err(|e| format!("Failed to spawn ModOrganizer.exe: {e}"))?;
-    let pid = child.id();
+    let (is_shortcut, shortcut_arg) = if let Some(title) = matched_title {
+        let instance_spec = if instance.is_portable {
+            "".to_string()
+        } else {
+            instance.name.clone()
+        };
+        (true, format!("moshortcut://{instance_spec}:{title}"))
+    } else {
+        (false, executable_path_or_title.to_string())
+    };
+
+    let (pid, _child) = if run_as_admin {
+        #[cfg(windows)]
+        {
+            let _ = app.emit(
+                "launch-progress",
+                LaunchProgressPayload {
+                    game_id: game_id.to_string(),
+                    step: "elevating".to_string(),
+                },
+            );
+
+            let elevated_args = if is_shortcut {
+                format!("\"{shortcut_arg}\"")
+            } else {
+                format!("-p \"{clean_profile}\" \"{shortcut_arg}\"")
+            };
+
+            let elevated_pid = crate::launcher::launch_elevated(
+                Path::new(mo_exe),
+                mo_dir,
+                Some(&elevated_args),
+            )?.unwrap_or(0);
+
+            (elevated_pid, None)
+        }
+        #[cfg(not(windows))]
+        {
+            return Err("Running as administrator is only supported on Windows".to_string());
+        }
+    } else {
+        let mut cmd = std::process::Command::new(mo_exe);
+        cmd.current_dir(mo_dir);
+        if is_shortcut {
+            cmd.arg(shortcut_arg);
+        } else {
+            cmd.arg("-p").arg(&clean_profile).arg(shortcut_arg);
+        }
+        let child = cmd.spawn().map_err(|e| format!("Failed to spawn ModOrganizer.exe: {e}"))?;
+        let child_pid = child.id();
+        (child_pid, Some(child))
+    };
+
+    // Resolve the actual game executable path on disk for GameWatcher tracking
+    let real_exe_path: Option<String> = if executable_path_or_title.contains('\\') || executable_path_or_title.contains('/') {
+        Some(executable_path_or_title.to_string())
+    } else if let Some(exec) = instance.custom_executables.iter().find(|e| {
+        e.title.eq_ignore_ascii_case(executable_path_or_title)
+            || normalize_path_str(&e.title) == normalize_path_str(executable_path_or_title)
+            || normalize_path_str(&e.path) == normalize_path_str(executable_path_or_title)
+    }) {
+        Some(exec.path.clone())
+    } else if let Some(g_path) = {
+        let db = app.state::<crate::db::Db>();
+        crate::db::games::get(&db, game_id).ok().flatten().map(|g| g.path)
+    } {
+        Some(g_path)
+    } else if let Some(first) = instance.custom_executables.first() {
+        Some(first.path.clone())
+    } else {
+        instance.game_path.clone()
+    };
 
     let _ = app.emit(
         "launch-progress",
@@ -1084,7 +1269,20 @@ pub fn launch_with_mo2(
         },
     );
 
-    // Register session in GameWatcher so GameIndex tracks playtime, overlay, and exit
+    // Immediately notify frontend that game is now running
+    let _ = app.emit(
+        "game-started",
+        crate::game_watcher::GameStartedPayload {
+            game_id: game_id.to_string(),
+            game_name: game_name.to_string(),
+            detected_exe: real_exe_path.clone(),
+        },
+    );
+
+    // Register session in GameWatcher so GameIndex tracks playtime, overlay, and exit.
+    // ModOrganizer.exe is a launcher wrapper, so we register with initial_pid 0 (pending launch).
+    // GameWatcher's poll loop will detect the real game process (using real_exe_path and its install_dir),
+    // attach to its PID, collect telemetry/metrics, and properly detect when the game process exits.
     let watcher: tauri::State<'_, std::sync::Arc<std::sync::Mutex<crate::game_watcher::GameWatcher>>> = app.state();
     if let Ok(mut w) = watcher.lock() {
         let (dummy_stop_tx, _) = std::sync::mpsc::channel();
@@ -1095,8 +1293,8 @@ pub fn launch_with_mo2(
             game_name,
             "MO2",
             None,
-            Some(executable_path_or_title),
-            pid,
+            real_exe_path.as_deref(),
+            0,
             dummy_stop_tx,
             dummy_metrics_rx,
             None,
@@ -1250,6 +1448,66 @@ size=1
         assert!(details.mods[3].is_separator);
         assert_eq!(details.mods[4].name, "Gun Mod");
         assert_eq!(details.mods[4].category, Some("Weapons".to_string()));
+    }
+
+    #[test]
+    fn test_detect_mo2_instances_hierarchy_and_scoring() {
+        let dir = tempfile::tempdir().unwrap();
+        // Setup folder tree:
+        // root/
+        //   MO2/
+        //     ModOrganizer.ini
+        //   Stalker/
+        //     bin/
+        //       AnomalyDX11AVX.exe
+        let mo2_dir = dir.path().join("MO2");
+        let bin_dir = dir.path().join("Stalker").join("bin");
+        fs::create_dir_all(&mo2_dir).unwrap();
+        fs::create_dir_all(&bin_dir).unwrap();
+
+        let ini_content = format!(
+            "[General]\r\ngameName=STALKER Anomaly\r\ngamePath={}\r\n[customExecutables]\r\nsize=1\r\n1\\title=Anomaly (DX11-AVX)\r\n1\\binary={}\r\n",
+            dir.path().join("Stalker").to_str().unwrap().replace('\\', "/"),
+            bin_dir.join("AnomalyDX11AVX.exe").to_str().unwrap().replace('\\', "/")
+        );
+        fs::write(mo2_dir.join("ModOrganizer.ini"), ini_content).unwrap();
+
+        let game_exe = bin_dir.join("AnomalyDX11AVX.exe");
+        fs::write(&game_exe, b"").unwrap();
+
+        let detected = detect_mo2_instances(game_exe.to_str().unwrap(), "STALKER Anomaly");
+        assert!(!detected.is_empty(), "Should detect MO2 in parent hierarchy");
+        assert_eq!(normalize_path_str(&detected[0].instance_path), normalize_path_str(mo2_dir.to_str().unwrap()));
+        assert_eq!(detected[0].custom_executables[0].title, "Anomaly (DX11-AVX)");
+    }
+
+    #[test]
+    fn test_custom_executable_path_expansion_and_resolution() {
+        let dir = tempfile::tempdir().unwrap();
+        let mo2_dir = dir.path().join("MO2");
+        let game_dir = dir.path().join("Anomaly");
+        let bin_dir = game_dir.join("bin");
+        fs::create_dir_all(&mo2_dir).unwrap();
+        fs::create_dir_all(&bin_dir).unwrap();
+
+        let exe_file = bin_dir.join("AnomalyDX11AVX.exe");
+        fs::write(&exe_file, b"").unwrap();
+
+        let ini_content = format!(
+            "[General]\r\ngameName=STALKER Anomaly\r\ngamePath={}\r\n[customExecutables]\r\nsize=1\r\n1\\title=Anomaly (DX11-AVX)\r\n1\\binary=%GAME_PATH%/bin/AnomalyDX11AVX.exe\r\n",
+            game_dir.to_str().unwrap().replace('\\', "/")
+        );
+        let ini_file = mo2_dir.join("ModOrganizer.ini");
+        fs::write(&ini_file, ini_content).unwrap();
+
+        let inst = parse_instance_at(&ini_file, None).unwrap();
+        assert_eq!(inst.custom_executables.len(), 1);
+        assert_eq!(inst.custom_executables[0].title, "Anomaly (DX11-AVX)");
+        let expected_path = game_dir.join("bin").join("AnomalyDX11AVX.exe");
+        assert_eq!(
+            normalize_path_str(&inst.custom_executables[0].path),
+            normalize_path_str(expected_path.to_str().unwrap())
+        );
     }
 }
 
