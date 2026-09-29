@@ -146,6 +146,7 @@ export function PerformanceTimeline({
                 label={t("activityPerf.cpuUsage")}
                 unit="%"
                 color={TIMELINE_COLORS.cpu}
+                sparklineColor={TIMELINE_COLORS.cpu}
                 icon={<Icons.Cpu size={12} />}
                 data={bundle.sparklines.cpu}
                 value={bundle.raw.avgCpuUsage}
@@ -156,6 +157,7 @@ export function PerformanceTimeline({
                 label={t("activityPerf.gpuUsage")}
                 unit="%"
                 color={TIMELINE_COLORS.gpu}
+                sparklineColor={TIMELINE_COLORS.gpu}
                 icon={<Icons.Activity size={12} />}
                 data={bundle.sparklines.gpu}
                 value={bundle.raw.avgGpuUsage}
@@ -322,6 +324,7 @@ function StatCard({
   label,
   unit,
   color,
+  sparklineColor,
   icon,
   data,
   value,
@@ -332,6 +335,7 @@ function StatCard({
   label: string;
   unit: string;
   color: string;
+  sparklineColor?: string;
   icon: ReactNode;
   data: { x: number; y: number }[];
   value: number;
@@ -357,6 +361,7 @@ function StatCard({
           max={max}
           min={min}
           thresholds={thresholds}
+          color={sparklineColor}
         />
       </div>
     </div>

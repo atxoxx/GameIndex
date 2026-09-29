@@ -125,7 +125,7 @@ export function GameSessionDetail({
           <LineChart
             series={[
               { data: cpu, color: "var(--color-brand-blue)", label: t("activityPerf.cpuUsage") },
-              { data: gpu, color: "var(--color-accent)", label: t("activityPerf.gpuUsage") },
+              { data: gpu, color: "var(--color-success)", label: t("activityPerf.gpuUsage") },
             ]}
             labels={labels}
             height={140}

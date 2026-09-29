@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { PerfSample } from "../../types/game";
 
@@ -10,6 +10,7 @@ export interface ActivitySparklineProps {
   max?: number;
   min?: number;
   thresholds?: { warn: number; danger: number };
+  color?: string;
   inverted?: boolean;
   /** Render a smooth spline instead of straight segments. */
   smooth?: boolean;
@@ -45,11 +46,13 @@ export function ActivitySparkline({
   max,
   min,
   thresholds,
+  color: colorOverride,
   inverted,
   smooth = true,
   showTrend = true,
 }: Readonly<ActivitySparklineProps>) {
   const { t } = useLanguage();
+  const gradientId = `activity-sparkline-fill-${useId().replace(/:/g, "")}`;
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -71,7 +74,7 @@ export function ActivitySparkline({
     warn: "var(--color-warning)",
     danger: "var(--color-danger)",
   };
-  const color = statusColors[status];
+  const color = colorOverride ?? statusColors[status];
 
   // Calculate trend from first quarter to last quarter of data
   const trend = useMemo(() => {
@@ -205,6 +208,18 @@ export function ActivitySparkline({
           onMouseMove={hoverHandle}
           onMouseLeave={() => setHoverIdx(null)}
         >
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          <path
+            d={`${linePath} L ${width},${height} L 0,${height} Z`}
+            fill={`url(#${gradientId})`}
+          />
+
           {/* Threshold guide line */}
           {thresholdY !== null && (
             <line
@@ -219,7 +234,7 @@ export function ActivitySparkline({
             />
           )}
 
-          {/* Crisp line without blurry shadow or muddy gradient area */}
+          {/* Keep the graph line crisp above its gradient fill. */}
           <path
             d={linePath}
             fill="none"

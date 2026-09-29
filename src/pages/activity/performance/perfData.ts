@@ -383,7 +383,7 @@ export interface TimelineI18n {
 
 export const TIMELINE_COLORS = {
   cpu: "var(--color-brand-blue)",
-  gpu: "var(--color-accent)",
+  gpu: "var(--color-success)",
   cpuTemp: "var(--color-danger)",
   gpuTemp: "var(--color-warning)",
   ram: "var(--color-success)",

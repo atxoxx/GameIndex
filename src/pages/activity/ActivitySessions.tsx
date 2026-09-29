@@ -28,7 +28,7 @@ import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import ContextMenu, { type ContextMenuItem } from "../../components/ui/ContextMenu";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { copyTextToClipboard } from "../../utils/clipboard";
-import { generateEstimatedTimeline } from "./performance/perfData";
+import { generateEstimatedTimeline, TIMELINE_COLORS } from "./performance/perfData";
 import { EmptyState, ManualSessionModal, SessionComparisonModal, LinkGameModal, AddActivityGameModal } from "../../components/activity";
 import * as Icons from "./Icons";
 
@@ -719,8 +719,8 @@ function ActivitySessionItem({
     if (!chartProps) return [];
     if (activeChartTab === "usage") {
       return [
-        { data: chartProps.cpu, color: "var(--color-brand-blue)", label: t("activity.sessions.cpuLoad") },
-        { data: chartProps.gpu, color: "var(--color-accent)", label: t("activity.sessions.gpuLoad") },
+        { data: chartProps.cpu, color: TIMELINE_COLORS.cpu, label: t("activity.sessions.cpuLoad") },
+        { data: chartProps.gpu, color: TIMELINE_COLORS.gpu, label: t("activity.sessions.gpuLoad") },
       ];
     } else if (activeChartTab === "temps") {
       return [
@@ -995,12 +995,14 @@ function ActivitySessionItem({
                   label={t("activity.sessions.cpuLoad")}
                   unit="%"
                   value={session.metrics.avgCpuUsage}
+                  color={TIMELINE_COLORS.cpu}
                 />
                 <ActivitySparkline
                   data={sparklineData.gpu}
                   label={t("activity.sessions.gpuLoad")}
                   unit="%"
                   value={session.metrics.avgGpuUsage}
+                  color={TIMELINE_COLORS.gpu}
                 />
                 <ActivitySparkline
                   data={sparklineData.ram}

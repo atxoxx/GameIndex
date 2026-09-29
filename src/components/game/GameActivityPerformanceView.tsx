@@ -275,7 +275,7 @@ export function GameActivityPerformanceView({
                 <LineChart
                   series={[
                     { data: perfTimelineData.cpu, color: "var(--color-brand-blue)", label: t("activityPerf.cpuUsage") },
-                    { data: perfTimelineData.gpu, color: "var(--color-accent)", label: t("activityPerf.gpuUsage") },
+                    { data: perfTimelineData.gpu, color: "var(--color-success)", label: t("activityPerf.gpuUsage") },
                   ]}
                   labels={perfTimelineData.labels}
                   height={190}

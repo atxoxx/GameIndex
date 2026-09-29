@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
+import { useMemo, useState, useCallback, useRef, useLayoutEffect, useId } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 
 export interface Series {
@@ -108,7 +108,7 @@ export default function LineChart({
   formatTooltipValue,
   legend = true,
   interactiveLegend = true,
-  fillOpacity = 0,
+  fillOpacity = 0.18,
   minY,
   maxY,
   smooth = false,
@@ -121,6 +121,7 @@ export default function LineChart({
   onPointClick,
 }: LineChartProps) {
   const { t } = useLanguage();
+  const gradientId = `line-chart-fill-${useId().replace(/:/g, "")}`;
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -387,6 +388,21 @@ export default function LineChart({
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
       >
+        <defs>
+          {series.map((s, idx) => (
+            <linearGradient
+              key={`series-gradient-${idx}`}
+              id={`${gradientId}-${idx}`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor={s.color} stopOpacity={fillOpacity} />
+              <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+            </linearGradient>
+          ))}
+        </defs>
 
         {/* Shaded bands */}
         {bands?.map((band, bi) => {
@@ -446,8 +462,7 @@ export default function LineChart({
             {fillOpacity > 0 && (
               <path
                 d={seriesAreaPath(s.originalIndex)}
-                fill={s.color}
-                fillOpacity={fillOpacity}
+                fill={`url(#${gradientId}-${s.originalIndex})`}
                 style={{ transition: "d 200ms ease" }}
               />
             )}
