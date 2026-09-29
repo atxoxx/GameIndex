@@ -137,7 +137,7 @@ function AppShell() {
   }, [runningGameIds.length]);
 
   return (
-    <GamepadProvider enabled={isBigScreen}>
+    <GamepadProvider enabled={isBigScreen && runningGameIds.length === 0}>
       <PageLayoutBridge />
       <ResizeHandles />
       {!isBigScreen && <AppContextMenu />}

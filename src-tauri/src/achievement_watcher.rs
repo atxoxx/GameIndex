@@ -191,7 +191,7 @@ pub fn start(app: AppHandle) {
             let sleep_dur = if running {
                 POLL_INTERVAL
             } else {
-                Duration::from_secs(15)
+                IDLE_SCAN_INTERVAL
             };
             tokio::time::sleep(sleep_dur).await;
 

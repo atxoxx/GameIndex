@@ -535,6 +535,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         idleTimer = 0;
       }
       cancelAnimationFrame(rafId);
+      if (typeof document !== "undefined" && document.hidden) return;
       rafId = requestAnimationFrame(poll);
     }
 
@@ -557,6 +558,9 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     }
 
     function poll(timestamp: number) {
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
       const gamepads = navigator.getGamepads?.() ?? [];
       const gp = gamepads[0];
 
@@ -937,12 +941,27 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     }
     window.addEventListener("gamepadconnected", onGamepadConnected);
 
+    function handleVisibility(): void {
+      if (typeof document !== "undefined" && !document.hidden) {
+        lastFrameTimeRef.current = 0;
+        startLoop();
+      } else {
+        cancelAnimationFrame(rafId);
+        if (idleTimer) {
+          window.clearTimeout(idleTimer);
+          idleTimer = 0;
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
     startLoop();
     return () => {
       cancelAnimationFrame(rafId);
       if (idleTimer) window.clearTimeout(idleTimer);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("gamepadconnected", onGamepadConnected);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [enabled]);
 

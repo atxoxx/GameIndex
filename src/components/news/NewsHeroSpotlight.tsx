@@ -95,7 +95,27 @@ export default function NewsHeroSpotlight({
 
     let raf = 0;
     let last = performance.now();
+
+    const start = () => {
+      if (document.hidden || document.documentElement.classList.contains("animations-paused")) return;
+      if (!raf) {
+        last = performance.now();
+        raf = requestAnimationFrame(tick);
+      }
+    };
+
+    const stop = () => {
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    };
+
     const tick = (now: number) => {
+      if (document.hidden || document.documentElement.classList.contains("animations-paused")) {
+        raf = 0;
+        return;
+      }
       elapsedRef.current += now - last;
       last = now;
       const pct = Math.min(1, elapsedRef.current / ROTATION_INTERVAL_MS);
@@ -109,9 +129,22 @@ export default function NewsHeroSpotlight({
       }
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
 
-    return () => cancelAnimationFrame(raf);
+    const handleVisibility = () => {
+      if (document.hidden || document.documentElement.classList.contains("animations-paused")) {
+        stop();
+      } else {
+        start();
+      }
+    };
+
+    start();
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [spotlightArticles.length, activeIndex, isPaused]);
 
   const activeArticle = spotlightArticles[activeIndex] ?? spotlightArticles[0];

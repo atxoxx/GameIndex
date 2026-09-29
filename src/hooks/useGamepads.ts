@@ -47,6 +47,7 @@ export function useGamepads(): GamepadInfo[] {
       return;
     }
     const read = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       const all = navigator.getGamepads();
       const connected: GamepadInfo[] = [];
       for (const gp of all) {
@@ -71,14 +72,19 @@ export function useGamepads(): GamepadInfo[] {
       });
     };
     read();
-    const timer = window.setInterval(read, 500);
+    const timer = window.setInterval(read, 2000);
     const onConnect = () => read();
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && !document.hidden) read();
+    };
     window.addEventListener("gamepadconnected", onConnect);
     window.addEventListener("gamepaddisconnected", onConnect);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("gamepadconnected", onConnect);
       window.removeEventListener("gamepaddisconnected", onConnect);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

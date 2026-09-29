@@ -101,13 +101,12 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
       const el = cursorRef.current;
 
       // ── Hide the cursor when not visible ───────────────────
-      if (!cur.visible) {
+      if (!cur.visible || document.hidden) {
         if (el && lastVisible !== false) {
           el.style.display = "none";
           el.style.opacity = "0";
           lastVisible = false;
         }
-        rafId = requestAnimationFrame(tick);
         return;
       }
 

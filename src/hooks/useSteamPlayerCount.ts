@@ -50,6 +50,7 @@ function ensureFocusListener() {
 }
 
 async function fetchCount(appId: number) {
+  if (typeof document !== "undefined" && document.hidden) return;
   const entry = entries.get(appId);
   if (!entry || entry.inFlight) return;
 

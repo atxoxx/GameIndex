@@ -339,18 +339,47 @@ function CycleBackground({
   useEffect(() => {
     if (reducedMotion || shots.length < 2) return;
     if (paused) return;
-    // Tick is `cycleMs` (per-slide budget). The first `fadeMs` are
-    // the cross-fade — once that's done, we advance `current` by
-    // 1 so the now-visible slide becomes the new "current".
-    const id = window.setInterval(() => {
-      setFading(true);
-      window.setTimeout(() => {
-        setCurrent((i) => (i + 1) % shots.length);
-        setFading(false);
-      }, fadeMs);
-    }, cycleMs);
+    let timer: number | null = null;
+    let fadeTimer: number | null = null;
+
+    const start = () => {
+      if (document.hidden || document.documentElement.classList.contains("animations-paused")) return;
+      if (!timer) {
+        timer = window.setInterval(() => {
+          setFading(true);
+          fadeTimer = window.setTimeout(() => {
+            setCurrent((i) => (i + 1) % shots.length);
+            setFading(false);
+          }, fadeMs);
+        }, cycleMs);
+      }
+    };
+
+    const stop = () => {
+      if (timer) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+      if (fadeTimer) {
+        window.clearTimeout(fadeTimer);
+        fadeTimer = null;
+      }
+      setFading(false);
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden || document.documentElement.classList.contains("animations-paused")) {
+        stop();
+      } else {
+        start();
+      }
+    };
+
+    start();
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
-      window.clearInterval(id);
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [shots.length, cycleMs, fadeMs, paused, reducedMotion]);
   // `reducedMotion` is intentionally omitted from the deps array:
@@ -368,7 +397,7 @@ function CycleBackground({
     return (
       <div className="bigscreen-gamepage-hero-bg-cycle" aria-hidden>
         <div className="bigscreen-gamepage-hero-bg-slide bigscreen-gamepage-hero-bg-slide--even bigscreen-gamepage-hero-bg-slide--visible">
-          <img src={shots[0]} alt="" />
+          <img src={shots[0]} alt="" decoding="async" />
         </div>
       </div>
     );
@@ -392,7 +421,7 @@ function CycleBackground({
             : "bigscreen-gamepage-hero-bg-slide--visible")
         }
       >
-        <img src={shots[current]} alt="" />
+        <img src={shots[current]} alt="" decoding="async" />
       </div>
       <div
         className={
@@ -406,7 +435,7 @@ function CycleBackground({
             : "bigscreen-gamepage-hero-bg-slide--fading")
         }
       >
-        <img src={shots[nextIndex]} alt="" />
+        <img src={shots[nextIndex]} alt="" decoding="async" />
       </div>
     </div>
   );

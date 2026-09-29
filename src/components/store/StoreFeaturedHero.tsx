@@ -268,7 +268,10 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     observer.observe(el);
 
     const handleVisibility = () => {
-      if (document.hidden) {
+      const shouldPause =
+        document.hidden ||
+        document.documentElement.classList.contains("animations-paused");
+      if (shouldPause) {
         setIsInView(false);
       } else {
         const rect = el.getBoundingClientRect();

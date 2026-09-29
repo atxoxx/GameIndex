@@ -35,11 +35,15 @@ fn main() {
         // Tune WebView2 / Chromium engine arguments for reduced RAM, VRAM, and background CPU usage:
         // - IntensiveWakeUpThrottling: aggressively throttles background JS timers
         // - ThrottleDisplayNoneAndVisibilityHiddenCrossOriginIframes: stops hidden frame paints
+        // - CalculateNativeWinOcclusion: uses Windows DWM occlusion to drop GPU surfaces and throttle when obscured
+        // - disable-features=Translate,OptimizationHints,MediaRouter: eliminates unused background service allocations
+        // - renderer-process-limit=2: prevents unbounded renderer process proliferation
+        // - disk-cache-size / media-cache-size: bounds browser media/disk caching
         // - max-old-space-size=256: triggers V8 garbage collection proactively rather than letting heap float
         if std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_err() {
             std::env::set_var(
                 "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-                "--enable-features=IntensiveWakeUpThrottling,ThrottleDisplayNoneAndVisibilityHiddenCrossOriginIframes --js-flags=--max-old-space-size=256",
+                "--enable-features=IntensiveWakeUpThrottling,ThrottleDisplayNoneAndVisibilityHiddenCrossOriginIframes,CalculateNativeWinOcclusion --disable-features=Translate,OptimizationHints,MediaRouter --renderer-process-limit=2 --disk-cache-size=33554432 --media-cache-size=16777216 --js-flags=--max-old-space-size=256",
             );
         }
     }

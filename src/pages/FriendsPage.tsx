@@ -1103,6 +1103,7 @@ export default function FriendsPage() {
   // Background polling interval (15s)
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       performSync(false);
     }, 15000);
     return () => clearInterval(interval);
@@ -1113,6 +1114,7 @@ export default function FriendsPage() {
   useEffect(() => {
     if (!friendsNotifications) return;
     const check = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       const now = Date.now();
       const windowMs = 15 * 60 * 1000;
       sessions.forEach((s) => {

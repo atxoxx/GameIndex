@@ -338,6 +338,7 @@ const SidebarHoverPreviewCard = forwardRef<HTMLDivElement, SidebarHoverPreviewCa
               src={displayUrl}
               alt={gameDisplayName(game)}
               draggable={false}
+              decoding="async"
               onError={handleError}
             />
           ) : (

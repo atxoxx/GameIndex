@@ -681,6 +681,7 @@ export function useFriendsData(): UseFriendsDataResult {
   // updates keep landing while the bigscreen hub is open.
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       void performSync(false);
     }, 15000);
     return () => clearInterval(interval);
