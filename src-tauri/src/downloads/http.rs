@@ -15,6 +15,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use serde::Serialize;
+
 use reqwest::header::{CONTENT_ENCODING, CONTENT_RANGE, CONTENT_TYPE, RANGE};
 use reqwest::StatusCode;
 use tokio::fs::OpenOptions;
@@ -80,6 +82,47 @@ static DIRECT_LIMIT_BPS: AtomicU64 = AtomicU64::new(0);
 
 pub fn set_direct_speed_limit(bps: u64) {
     DIRECT_LIMIT_BPS.store(bps, Ordering::Relaxed);
+}
+
+// ─── Diagnostics counters ───────────────────────────────────────────────────
+//
+// Process-lifetime tallies of the HTTP worker's failure/fallback events.
+// They are best-effort observability only (never read on a hot path) and
+// reset on demand from the diagnostics view.
+
+static RETRY_COUNT: AtomicU64 = AtomicU64::new(0);
+static STALL_COUNT: AtomicU64 = AtomicU64::new(0);
+static TRANSIENT_ERROR_COUNT: AtomicU64 = AtomicU64::new(0);
+static MIRROR_SWITCH_COUNT: AtomicU64 = AtomicU64::new(0);
+static SEGMENT_RECONNECT_COUNT: AtomicU64 = AtomicU64::new(0);
+
+/// Snapshot of the HTTP worker's lifetime counters.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HttpCounters {
+    pub retries: u64,
+    pub stalls: u64,
+    pub transient_errors: u64,
+    pub mirror_switches: u64,
+    pub segment_reconnects: u64,
+}
+
+pub fn http_counters() -> HttpCounters {
+    HttpCounters {
+        retries: RETRY_COUNT.load(Ordering::Relaxed),
+        stalls: STALL_COUNT.load(Ordering::Relaxed),
+        transient_errors: TRANSIENT_ERROR_COUNT.load(Ordering::Relaxed),
+        mirror_switches: MIRROR_SWITCH_COUNT.load(Ordering::Relaxed),
+        segment_reconnects: SEGMENT_RECONNECT_COUNT.load(Ordering::Relaxed),
+    }
+}
+
+pub fn reset_http_counters() {
+    RETRY_COUNT.store(0, Ordering::Relaxed);
+    STALL_COUNT.store(0, Ordering::Relaxed);
+    TRANSIENT_ERROR_COUNT.store(0, Ordering::Relaxed);
+    MIRROR_SWITCH_COUNT.store(0, Ordering::Relaxed);
+    SEGMENT_RECONNECT_COUNT.store(0, Ordering::Relaxed);
 }
 
 enum AttemptResult {
@@ -228,6 +271,7 @@ pub async fn run_direct_download(
                 }
                 AttemptResult::Retryable(msg, retry_after) => {
                     attempt += 1;
+                    RETRY_COUNT.fetch_add(1, Ordering::Relaxed);
                     if attempt > MAX_RETRY_ATTEMPTS {
                         let final_msg =
                             format!("Exhausted {} retries: {}", MAX_RETRY_ATTEMPTS, msg);
@@ -389,6 +433,7 @@ pub async fn run_debrid_files_download(
                 }
                 AttemptResult::Retryable(msg, retry_after) => {
                     attempt += 1;
+                    RETRY_COUNT.fetch_add(1, Ordering::Relaxed);
                     if attempt > MAX_RETRY_ATTEMPTS {
                         let final_msg =
                             format!("Exhausted {} retries: {}", MAX_RETRY_ATTEMPTS, msg);
@@ -486,6 +531,7 @@ async fn next_mirror(
         next_idx + 1,
         next_url
     );
+    MIRROR_SWITCH_COUNT.fetch_add(1, Ordering::Relaxed);
     item.source_uri = next_url.clone();
     guard.mark_dirty();
     guard.emit_progress_force();
@@ -761,6 +807,7 @@ async fn attempt_download(
         let code = status.as_u16();
         if RETRYABLE_STATUSES.contains(&code) {
             let retry_after = parse_retry_after(&resp);
+            TRANSIENT_ERROR_COUNT.fetch_add(1, Ordering::Relaxed);
             return AttemptResult::Retryable(
                 format!("HTTP {} (transient)", code),
                 retry_after,
@@ -924,6 +971,7 @@ async fn attempt_download(
             },
             Err(_) => {
                 drop(file);
+                STALL_COUNT.fetch_add(1, Ordering::Relaxed);
                 return AttemptResult::Retryable(
                     "Download stalled (no data received for 30s)".to_string(),
                     None,
@@ -1088,6 +1136,7 @@ async fn stream_segment(
     if status != StatusCode::PARTIAL_CONTENT {
         let code = status.as_u16();
         if RETRYABLE_STATUSES.contains(&code) {
+            TRANSIENT_ERROR_COUNT.fetch_add(1, Ordering::Relaxed);
             return SegmentResult::Transient(format!("HTTP {} (transient)", code));
         }
         if let Some(content_type) = resp.headers().get(CONTENT_TYPE) {
@@ -1172,6 +1221,7 @@ async fn stream_segment(
             Err(_) => {
                 let _ = file.flush().await;
                 drop(file);
+                STALL_COUNT.fetch_add(1, Ordering::Relaxed);
                 return SegmentResult::Transient(format!(
                     "Segment download stalled (no data received for {}s)",
                     SEGMENT_STALL_TIMEOUT_SECS
@@ -1296,6 +1346,7 @@ async fn attempt_segmented_download(
         if status != StatusCode::OK && status != StatusCode::PARTIAL_CONTENT {
             let code = status.as_u16();
             if RETRYABLE_STATUSES.contains(&code) {
+                TRANSIENT_ERROR_COUNT.fetch_add(1, Ordering::Relaxed);
                 return AttemptResult::Retryable(
                     format!("HTTP {} (transient)", code),
                     parse_retry_after(&resp),
@@ -1473,6 +1524,8 @@ async fn attempt_segmented_download(
                 match res {
                     SegmentResult::Transient(e) => {
                         attempt += 1;
+                        RETRY_COUNT.fetch_add(1, Ordering::Relaxed);
+                        SEGMENT_RECONNECT_COUNT.fetch_add(1, Ordering::Relaxed);
                         if attempt >= SEGMENT_RECONNECTS {
                             return SegmentResult::Transient(e);
                         }

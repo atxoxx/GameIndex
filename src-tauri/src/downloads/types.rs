@@ -145,6 +145,10 @@ pub struct Download {
     /// instead of downloading only the first file.
     #[serde(default)]
     pub magnet_uri: Option<String>,
+    /// Unix seconds when the scheduler should start this download. `None`
+    /// means "no scheduled start" (start as soon as the scheduler allows).
+    #[serde(default)]
+    pub scheduled_start_at: Option<u64>,
 }
 
 impl Download {
@@ -192,6 +196,7 @@ impl Download {
             peak_speed: None,
             completed_at: None,
             magnet_uri: None,
+            scheduled_start_at: None,
         }
     }
 }

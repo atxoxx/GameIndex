@@ -18,6 +18,7 @@ use crate::db::pool::Db;
 use super::extract;
 use super::http;
 use super::persistence;
+use super::scheduler;
 use super::torrent;
 use super::types::{
     gate_completion, unix_now, Download, DownloadKind, DownloadStatus,
@@ -81,6 +82,20 @@ pub struct DownloadManager {
     /// async and may not land before exit) is dropped again instead of
     /// resurrected as a "Discovered" record.
     pub removed_torrents: HashMap<String, bool>,
+    /// Scheduler configuration (window, concurrency cap, bandwidth rules).
+    pub scheduler: scheduler::SchedulerConfig,
+    /// User-configured base download limit (kbps; `None`/0 = unlimited).
+    /// The scheduler treats the effective limit as a rule override on top
+    /// of these.
+    pub base_download_kbps: Option<u32>,
+    /// User-configured base upload limit (kbps; `None`/0 = unlimited).
+    pub base_upload_kbps: Option<u32>,
+    /// User preference to disable uploads entirely.
+    pub base_disable_upload: bool,
+    /// The `(download_kbps, upload_kbps, disable_upload)` triple last
+    /// pushed to librqbit/HTTP. Used by the scheduler to avoid re-applying
+    /// identical limits every tick.
+    pub last_applied_limits: Option<(Option<u32>, Option<u32>, bool)>,
 }
 
 impl DownloadManager {
@@ -104,6 +119,11 @@ impl DownloadManager {
             direct_reset_partial: std::collections::HashSet::new(),
             history_db: None,
             removed_torrents: HashMap::new(),
+            scheduler: scheduler::SchedulerConfig::default(),
+            base_download_kbps: None,
+            base_upload_kbps: None,
+            base_disable_upload: false,
+            last_applied_limits: None,
         }
     }
 
@@ -791,20 +811,84 @@ impl DownloadManager {
 
 // ─── Start orchestration (needs the shared Arc, so free functions) ──────────
 
+/// Push download/upload speed limits to the torrent session and the direct
+/// HTTP worker. This is the single choke point used by the user-facing
+/// `torrent_set_speed_limits` command and the background scheduler; it does
+/// NOT touch the manager's stored `base_*` limits. Passing 0 kbps means
+/// unlimited for that direction.
+pub async fn apply_speed_limits(
+    manager: &SharedManager,
+    download_kbps: Option<u32>,
+    upload_kbps: Option<u32>,
+    disable_upload: bool,
+) {
+    // Convert the frontend's KB/s values to bytes/s without letting large
+    // custom values overflow u32 (which would silently disable the limit).
+    let kbps_to_bps = |v: u32| -> Option<std::num::NonZeroU32> {
+        let bps = (v as u64).saturating_mul(1024).min(u32::MAX as u64);
+        std::num::NonZeroU32::new(bps as u32)
+    };
+
+    let download_bps = download_kbps.filter(|&v| v > 0).and_then(kbps_to_bps);
+
+    let upload_bps = if disable_upload {
+        std::num::NonZeroU32::new(1) // effectively disabled
+    } else {
+        upload_kbps.filter(|&v| v > 0).and_then(kbps_to_bps)
+    };
+
+    let session = { manager.read().await.session().cloned() };
+    if let Some(session) = session {
+        session.ratelimits.set_download_bps(download_bps);
+        session.ratelimits.set_upload_bps(upload_bps);
+    }
+
+    // Apply the same download cap to direct HTTP downloads.
+    http::set_direct_speed_limit(download_bps.map(|v| v.get() as u64).unwrap_or(0));
+
+    let mut guard = manager.write().await;
+    guard.last_applied_limits = Some((download_kbps, upload_kbps, disable_upload));
+}
+
 /// Mark `id` as actively running (unless it already is) and emit the
 /// updated record. Concurrent downloads are allowed — every download
 /// starts immediately and no longer waits for a single active slot.
+///
+/// The only exception is the scheduler's optional `max_concurrent` cap:
+/// once that many records are active, a new start is left in `Queued` (and
+/// the scheduler loop retries it).
 async fn begin_download(
     manager: &SharedManager,
     id: &str,
     in_flight_status: DownloadStatus,
 ) -> bool {
     let mut guard = manager.write().await;
+    let max = guard.scheduler.max_concurrent;
+    // Count active records BEFORE taking the mutable borrow below (the
+    // borrow checker won't let us mix `downloads_map()` and
+    // `downloads_mut()` across the same guard).
+    let active_count = if max > 0 {
+        guard
+            .downloads_map()
+            .values()
+            .filter(|x| x.status.is_active())
+            .count()
+    } else {
+        0
+    };
     let Some(d) = guard.downloads_mut().get_mut(id) else {
         return false;
     };
     if d.status.is_active() {
         return true;
+    }
+    if max > 0 && active_count >= max as usize {
+        // Over the cap — hold the record in Queued. The scheduler loop
+        // picks it back up once an active slot frees.
+        d.status = DownloadStatus::Queued;
+        guard.mark_dirty();
+        guard.emit_progress_force();
+        return false;
     }
     d.status = in_flight_status;
     guard.mark_dirty();

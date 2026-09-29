@@ -460,6 +460,57 @@ pub fn extract_live_stats(stats: &librqbit::TorrentStats) -> (u64, u64, u32, u32
     (download_speed, upload_speed, seeds, peers)
 }
 
+/// Per-state peer counts plus ETA / average piece time for the diagnostics
+/// view. Best-effort: when librqbit reports no `live` stats (paused, still
+/// resolving metadata, ...) everything comes back zeroed.
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PeerBreakdown {
+    pub live: u64,
+    pub live_tcp: u64,
+    pub live_utp: u64,
+    pub queued: u64,
+    pub connecting: u64,
+    pub dead: u64,
+    pub seen: u64,
+    /// Seconds until completion, when librqbit can estimate it.
+    pub eta_secs: Option<u64>,
+    /// Average time to fetch one piece, in milliseconds.
+    pub average_piece_ms: Option<u64>,
+}
+
+/// Expand a stats snapshot into the per-peer-state breakdown. `live` is
+/// `None` for a paused / metadata-less torrent, so callers get a zeroed
+/// breakdown instead of an error.
+pub fn peer_breakdown(stats: &librqbit::TorrentStats) -> PeerBreakdown {
+    let Some(live) = stats.live.as_ref() else {
+        return PeerBreakdown::default();
+    };
+    let peers = &live.snapshot.peer_stats;
+    // `DurationWithHumanReadable` keeps its inner `Duration` private; its
+    // serde shape (`{ duration: { secs, nanos }, humanReadable }`) is the
+    // only stable way to read the seconds back out.
+    let eta_secs = live.time_remaining.as_ref().and_then(|remaining| {
+        serde_json::to_value(remaining)
+            .ok()
+            .and_then(|v| v.get("duration")?.get("secs")?.as_u64())
+    });
+    let average_piece_ms = live
+        .average_piece_download_time
+        .map(|d| d.as_millis() as u64);
+    PeerBreakdown {
+        live: peers.live as u64,
+        live_tcp: peers.live_tcp as u64,
+        live_utp: peers.live_utp as u64,
+        queued: peers.queued as u64,
+        connecting: peers.connecting as u64,
+        dead: peers.dead as u64,
+        seen: peers.seen as u64,
+        eta_secs,
+        average_piece_ms,
+    }
+}
+
 /// Build a `DownloadFile` list from a live handle. `None` when the
 /// metadata isn't parsed yet — callers must PRESERVE their cached list
 /// in that case (a transient miss must not wipe the user's selection).

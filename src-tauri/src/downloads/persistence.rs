@@ -162,6 +162,7 @@ pub fn load(state_dir: &Path) -> LoadedState {
             peak_speed: None,
             completed_at: None,
             magnet_uri: None,
+            scheduled_start_at: None,
         };
         normalise_on_load(&mut d);
         map.insert(id, d);

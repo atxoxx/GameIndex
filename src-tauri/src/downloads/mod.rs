@@ -9,11 +9,13 @@
 
 pub mod browser_resolver;
 pub mod debrid;
+pub mod diagnostics;
 pub mod extract;
 pub mod hosters;
 pub mod http;
 pub mod manager;
 pub mod persistence;
+pub mod scheduler;
 pub mod torrent;
 pub mod types;
 
@@ -68,6 +70,13 @@ pub async fn initialize_engine(
     let state_dir = app_data_dir.join("torrent-engine");
     let mut mgr = DownloadManager::new(state_dir);
     mgr.set_app(app.clone());
+    // Restore the persisted scheduler config before the manager is shared
+    // (the kv store is opaque here; a parse failure just keeps the default).
+    if let Ok(Some(raw)) = crate::db::kv::get(&db, "download_scheduler") {
+        if let Ok(cfg) = serde_json::from_str::<scheduler::SchedulerConfig>(&raw) {
+            mgr.scheduler = cfg;
+        }
+    }
     mgr.set_history_db(db);
     mgr.initialize().await?;
     let shared = Arc::new(tokio::sync::RwLock::new(mgr));
@@ -81,6 +90,77 @@ pub async fn initialize_engine(
     // Restart whatever was mid-flight at last exit (no queue, so every
     // in-progress record resumes immediately).
     resume_in_progress(&shared).await;
+
+    // Dedicated scheduler loop: every 30 s it re-applies the active
+    // bandwidth rule and starts any queued/scheduled download whose window
+    // is open. It follows the same discipline as the 1 s loop — collect a
+    // snapshot under the manager lock, then act with the lock released.
+    {
+        let sched_handle = shared.clone();
+        tokio::spawn(async move {
+            let mut tick = interval(Duration::from_secs(30));
+            tick.tick().await; // skip the immediate first tick
+            loop {
+                tick.tick().await;
+
+                // Snapshot config + candidates + base limits under one read.
+                let (cfg, candidates, base_d, base_u, base_dis, last) = {
+                    let guard = sched_handle.read().await;
+                    let cfg = guard.scheduler.clone();
+                    let candidates: Vec<(String, DownloadStatus, Option<u64>)> = guard
+                        .downloads_map()
+                        .values()
+                        .filter(|d| {
+                            matches!(d.status, DownloadStatus::Queued)
+                                || (matches!(d.status, DownloadStatus::Paused)
+                                    && d.scheduled_start_at.is_some())
+                        })
+                        .map(|d| (d.id.clone(), d.status.clone(), d.scheduled_start_at))
+                        .collect();
+                    (
+                        cfg,
+                        candidates,
+                        guard.base_download_kbps,
+                        guard.base_upload_kbps,
+                        guard.base_disable_upload,
+                        guard.last_applied_limits,
+                    )
+                };
+
+                let (now, now_min, weekday) = current_time_parts();
+
+                // Re-apply limits only when the effective values changed.
+                let effective =
+                    effective_limits(&cfg, base_d, base_u, base_dis, now_min, weekday);
+                if last != Some(effective) {
+                    manager::apply_speed_limits(&sched_handle, effective.0, effective.1, effective.2)
+                        .await;
+                }
+
+                for (id, status, scheduled) in candidates {
+                    if !scheduler::config_allows_start(&cfg, scheduled, now, now_min, weekday) {
+                        continue;
+                    }
+                    let is_queued = matches!(status, DownloadStatus::Queued);
+                    // A purely-queued record (no schedule) is only started
+                    // when the config allows auto-starting the queue.
+                    if is_queued && scheduled.is_none() && cfg.enabled && !cfg.auto_start_queued {
+                        continue;
+                    }
+                    if !is_queued && scheduled.is_some() {
+                        // The one-shot schedule fired; clear it so a later
+                        // manual pause is not immediately undone.
+                        let mut guard = sched_handle.write().await;
+                        if let Some(d) = guard.downloads_mut().get_mut(&id) {
+                            d.scheduled_start_at = None;
+                        }
+                        guard.mark_dirty();
+                    }
+                    manager::start_download(&sched_handle, &id).await;
+                }
+            }
+        });
+    }
 
     let loop_handle = shared.clone();
     tokio::spawn(async move {
@@ -216,12 +296,45 @@ fn normalize_path(p: &str) -> String {
     normalized
 }
 
+/// Current `(unix_secs, minutes_since_midnight, weekday)` — UTC based, so it
+/// matches `scheduler::weekday_from_unix` and the pure window helpers.
+fn current_time_parts() -> (u64, u32, usize) {
+    let now = unix_now();
+    (now, ((now % 86_400) / 60) as u32, scheduler::weekday_from_unix(now))
+}
+
+/// The limits the scheduler wants applied right now: a matching bandwidth
+/// rule wins, otherwise the user's base limits apply.
+fn effective_limits(
+    cfg: &scheduler::SchedulerConfig,
+    base_download_kbps: Option<u32>,
+    base_upload_kbps: Option<u32>,
+    base_disable_upload: bool,
+    now_min: u32,
+    weekday: usize,
+) -> (Option<u32>, Option<u32>, bool) {
+    if cfg.enabled {
+        if let Some(rule) = scheduler::active_bandwidth_rule(cfg, now_min, weekday) {
+            return (
+                Some(rule.download_kbps),
+                Some(rule.upload_kbps),
+                rule.disable_upload,
+            );
+        }
+    }
+    (base_download_kbps, base_upload_kbps, base_disable_upload)
+}
+
 /// Start every record that was mid-flight when the app last exited.
 /// Legacy `Queued` records (the old "waiting for the active slot" state)
-/// are resumed the same way so they aren't stranded.
+/// are resumed the same way so they aren't stranded. Records the scheduler
+/// doesn't allow to start right now (future schedule, or a closed window)
+/// are left alone for the scheduler loop to pick up later.
 async fn resume_in_progress(shared: &SharedManager) {
+    let (now, now_min, weekday) = current_time_parts();
     let ids: Vec<String> = {
         let guard = shared.read().await;
+        let cfg = guard.scheduler.clone();
         guard
             .downloads_map()
             .values()
@@ -232,6 +345,9 @@ async fn resume_in_progress(shared: &SharedManager) {
                         | DownloadStatus::Downloading
                         | DownloadStatus::FetchingMetadata
                 )
+            })
+            .filter(|d| {
+                scheduler::config_allows_start(&cfg, d.scheduled_start_at, now, now_min, weekday)
             })
             .map(|d| d.id.clone())
             .collect()
@@ -998,37 +1114,92 @@ pub async fn torrent_set_speed_limits(
     disable_upload: bool,
 ) -> Result<(), String> {
     let mgr = wait_for_manager().await?;
-    let session = {
+
+    // Remember the user's base limits so the scheduler can restore them
+    // when no bandwidth rule is active.
+    {
+        let mut guard = mgr.write().await;
+        guard.base_download_kbps = download_limit_kbps;
+        guard.base_upload_kbps = upload_limit_kbps;
+        guard.base_disable_upload = disable_upload;
+    }
+
+    manager::apply_speed_limits(&mgr, download_limit_kbps, upload_limit_kbps, disable_upload)
+        .await;
+    Ok(())
+}
+
+/// Return the persisted scheduler configuration.
+#[tauri::command]
+pub async fn scheduler_get_config() -> Result<scheduler::SchedulerConfig, String> {
+    let mgr = wait_for_manager().await?;
+    let guard = mgr.read().await;
+    Ok(guard.scheduler.clone())
+}
+
+/// Replace the scheduler configuration, persist it to the kv store, and
+/// immediately re-evaluate the effective speed limits.
+#[tauri::command]
+pub async fn scheduler_set_config(
+    config: scheduler::SchedulerConfig,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let mgr = wait_for_manager().await?;
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+
+    {
+        let mut guard = mgr.write().await;
+        guard.scheduler = config.clone();
+        guard.mark_dirty();
+        guard.emit_progress_force();
+    }
+
+    let encoded = serde_json::to_string(&config)
+        .map_err(|e| format!("Failed to encode scheduler config: {}", e))?;
+    crate::db::kv::set(&db, "download_scheduler", &encoded)?;
+
+    // Apply any rule that is active right now (or fall back to the base).
+    let (cfg, base_d, base_u, base_dis) = {
         let guard = mgr.read().await;
-        guard
-            .session()
-            .cloned()
-            .ok_or_else(|| "Download engine not initialized".to_string())?
+        (
+            guard.scheduler.clone(),
+            guard.base_download_kbps,
+            guard.base_upload_kbps,
+            guard.base_disable_upload,
+        )
+    };
+    let (_, now_min, weekday) = current_time_parts();
+    let effective = effective_limits(&cfg, base_d, base_u, base_dis, now_min, weekday);
+    manager::apply_speed_limits(&mgr, effective.0, effective.1, effective.2).await;
+
+    let mut guard = mgr.write().await;
+    guard.emit_progress_force();
+    Ok(())
+}
+
+/// Set (or clear) a download's one-shot scheduled start time. When the
+/// time is already due and the record is Paused/Queued it is started at
+/// once.
+#[tauri::command]
+pub async fn download_set_schedule(id: String, start_at: Option<u64>) -> Result<(), String> {
+    let mgr = wait_for_manager().await?;
+    let should_start = {
+        let mut guard = mgr.write().await;
+        let now = unix_now();
+        let Some(d) = guard.downloads_mut().get_mut(&id) else {
+            return Err(format!("Download not found: {}", id));
+        };
+        d.scheduled_start_at = start_at;
+        let due = start_at.map(|t| t <= now).unwrap_or(true);
+        let startable = matches!(d.status, DownloadStatus::Paused | DownloadStatus::Queued);
+        guard.mark_dirty();
+        guard.emit_progress_force();
+        due && startable
     };
 
-    // Convert the frontend's KB/s values to bytes/s without letting large
-    // custom values overflow u32 (which would silently disable the limit).
-    let kbps_to_bps = |v: u32| -> Option<std::num::NonZeroU32> {
-        let bps = (v as u64).saturating_mul(1024).min(u32::MAX as u64);
-        std::num::NonZeroU32::new(bps as u32)
-    };
-
-    let download_bps = download_limit_kbps.filter(|&v| v > 0).and_then(kbps_to_bps);
-
-    let upload_bps = if disable_upload {
-        std::num::NonZeroU32::new(1) // effectively disabled
-    } else {
-        upload_limit_kbps.filter(|&v| v > 0).and_then(kbps_to_bps)
-    };
-
-    session.ratelimits.set_download_bps(download_bps);
-    session.ratelimits.set_upload_bps(upload_bps);
-
-    // Apply the same download cap to direct HTTP downloads.
-    http::set_direct_speed_limit(
-        download_bps.map(|v| v.get() as u64).unwrap_or(0),
-    );
-
+    if should_start {
+        manager::start_download(&mgr, &id).await;
+    }
     Ok(())
 }
 
