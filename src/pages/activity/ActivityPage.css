@@ -1235,6 +1235,64 @@
   overflow: hidden;
 }
 
+/* ══ Gantt KPI Hero Strip ══ */
+.activity-gantt__kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.activity-gantt__kpi-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-md);
+  box-sizing: border-box;
+  transition: all var(--transition-fast);
+}
+
+.activity-gantt__kpi-card:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-hover, var(--color-border));
+}
+
+.activity-gantt__kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.activity-gantt__kpi-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.activity-gantt__kpi-val {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-extrabold, 800);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-gantt__kpi-label {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
 /* Toolbar & Summary Controls */
 .activity-gantt__toolbar {
   display: flex;
@@ -1242,6 +1300,98 @@
   justify-content: space-between;
   gap: var(--space-md);
   flex-wrap: wrap;
+}
+
+.activity-gantt__tools-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.activity-gantt__search-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+  min-width: 170px;
+  max-width: 240px;
+}
+
+.activity-gantt__search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.activity-gantt__search-input {
+  height: 32px;
+  width: 100%;
+  padding: 0 28px 0 30px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.activity-gantt__search-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-subtle, rgba(0, 0, 0, 0.1));
+}
+
+.activity-gantt__search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+
+.activity-gantt__search-clear:hover {
+  color: var(--color-text-primary);
+}
+
+.activity-gantt__density-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+
+.activity-gantt__density-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.activity-gantt__density-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.activity-gantt__density-btn.is-active {
+  background: var(--color-bg-surface);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .activity-gantt__summary {
@@ -1325,7 +1475,7 @@
   border-color: var(--color-border-hover, var(--color-border));
 }
 
-/* Hourly Intensity Heatmap Strip */
+/* Hourly Intensity Visualizer Histogram Strip */
 .activity-gantt__heatmap-strip {
   display: flex;
   flex-direction: column;
@@ -1353,66 +1503,74 @@
   letter-spacing: 0.6px;
 }
 
-.activity-gantt__heatmap-grid {
+.activity-gantt__heatmap-peak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+}
+
+.activity-gantt__visualizer-grid {
   display: grid;
   grid-template-columns: repeat(24, 1fr);
-  gap: 2px;
-  height: 32px;
+  gap: 3px;
+  height: 48px;
   width: 100%;
   max-width: 1100px;
   margin-inline: auto;
+  align-items: end;
 }
 
-.activity-gantt__heatmap-cell {
+.activity-gantt__visualizer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+  justify-content: flex-end;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.activity-gantt__visualizer-col:hover {
+  transform: translateY(-2px);
+}
+
+.activity-gantt__visualizer-track {
+  width: 100%;
+  height: 32px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-xs);
   display: flex;
   align-items: flex-end;
-  justify-content: center;
-  border-radius: 2px;
-  height: 100%;
-  padding-bottom: 2px;
-  box-sizing: border-box;
-  transition: transform var(--transition-fast), filter var(--transition-fast);
-  cursor: pointer;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
 }
 
-.activity-gantt__heatmap-cell:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.2);
-  z-index: 2;
+.activity-gantt__visualizer-fill {
+  width: 100%;
+  background: linear-gradient(180deg, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 50%, var(--color-bg-primary)) 100%);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  transition: height 200ms ease;
 }
 
-.activity-gantt__heatmap-hour {
-  font-size: 9px;
+.activity-gantt__visualizer-col.is-peak .activity-gantt__visualizer-fill {
+  background: linear-gradient(180deg, #f59e0b 0%, var(--color-accent) 100%);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.activity-gantt__visualizer-hour {
+  font-size: 8.5px;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   user-select: none;
-}
-
-.activity-gantt__heatmap-cell--empty {
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-}
-
-.activity-gantt__heatmap-cell--low {
-  background: color-mix(in srgb, var(--color-accent) 25%, var(--color-bg-tertiary));
-  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
-}
-
-.activity-gantt__heatmap-cell--medium {
-  background: color-mix(in srgb, var(--color-accent) 50%, var(--color-bg-tertiary));
-  border: 1px solid color-mix(in srgb, var(--color-accent) 65%, transparent);
-}
-
-.activity-gantt__heatmap-cell--high {
-  background: color-mix(in srgb, var(--color-accent) 75%, var(--color-bg-tertiary));
-  border: 1px solid var(--color-accent);
-}
-
-.activity-gantt__heatmap-cell--peak {
-  background: var(--color-accent);
-  border: 1px solid var(--color-accent);
-  box-shadow: 0 0 6px var(--color-accent-glow);
 }
 
 /* Legend: Interactive Game Chips */
@@ -1519,6 +1677,14 @@
   padding-right: 4px;
 }
 
+.activity-gantt--compact .activity-gantt__row-label {
+  width: 120px;
+}
+
+.activity-gantt--compact .activity-gantt__row-date {
+  font-size: var(--font-size-2xs);
+}
+
 .activity-gantt__row {
   display: flex;
   align-items: stretch;
@@ -1534,8 +1700,12 @@
 }
 
 .activity-gantt__row--today {
-  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
-  border-left: 2px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  border-left: 3px solid var(--color-accent);
+}
+
+.activity-gantt__row--peak {
+  border-left: 3px solid var(--color-warning);
 }
 
 .activity-gantt__row-label {
@@ -1577,32 +1747,64 @@
   transition: height var(--transition-fast);
 }
 
+.activity-gantt__hour-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 .activity-gantt__now-line {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 2px;
   background: var(--color-danger);
-  z-index: 3;
+  z-index: 4;
   pointer-events: none;
-  box-shadow: 0 0 6px color-mix(in srgb, var(--color-danger) 70%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-danger) 80%, transparent);
+}
+
+.activity-gantt__now-head {
+  position: absolute;
+  top: -2px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  box-shadow: 0 0 6px var(--color-danger);
 }
 
 .activity-gantt__bar {
   position: absolute;
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
   box-sizing: border-box;
   transition: transform var(--transition-fast), filter var(--transition-fast), opacity var(--transition-fast);
   z-index: 2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }
 
 .activity-gantt__bar:hover {
-  transform: scaleY(1.15);
+  transform: scaleY(1.2) translateY(-1px);
   filter: brightness(1.25);
   z-index: 5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.activity-gantt__bar-gloss {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 35%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
 }
 
 .activity-gantt__bar--dim {
@@ -1623,11 +1825,11 @@
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  background: #ffffff;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
 }
 
 /* Floating Hover Tooltip */
@@ -1635,23 +1837,40 @@
   position: fixed;
   z-index: 1000;
   transform: translate(-50%, -100%);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface-raised, var(--color-surface)) 94%, transparent);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-sm) var(--space-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 180px;
-  backdrop-filter: blur(8px);
+  gap: 5px;
+  min-width: 200px;
+  max-width: 280px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .activity-gantt__tooltip-header {
   display: flex;
   align-items: center;
+  gap: var(--space-xs);
+}
+
+.activity-gantt__tooltip-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.activity-gantt__tooltip-title-wrap {
+  display: flex;
+  align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .activity-gantt__tooltip-dot {
@@ -1665,30 +1884,61 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .activity-gantt__tooltip-time {
   font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+}
+
+.activity-gantt__tooltip-duration {
+  margin-left: 4px;
+  color: var(--color-text-primary);
 }
 
 .activity-gantt__tooltip-chips {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
   margin-top: 2px;
 }
 
 .activity-gantt__tooltip-chip {
-  font-size: var(--font-size-2xs);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
   font-weight: var(--font-weight-bold);
   color: var(--color-text-secondary);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  padding: 1px 6px;
+  padding: 1px 7px;
   font-variant-numeric: tabular-nums;
+}
+
+.activity-gantt__tooltip-chip--fps {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.activity-gantt__tooltip-footer {
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
+}
+
+.activity-gantt__tooltip-prompt {
+  font-size: 9.5px;
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 /* Session detail modal. */

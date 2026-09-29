@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { PerfSample } from "../../types/game";
 
@@ -13,6 +13,8 @@ export interface ActivitySparklineProps {
   inverted?: boolean;
   /** Render a smooth spline instead of straight segments. */
   smooth?: boolean;
+  /** Show trend pill badge */
+  showTrend?: boolean;
 }
 
 function buildSmoothPath(pts: { x: number; y: number }[]): string {
@@ -45,9 +47,9 @@ export function ActivitySparkline({
   thresholds,
   inverted,
   smooth = true,
+  showTrend = true,
 }: Readonly<ActivitySparklineProps>) {
   const { t } = useLanguage();
-  const gradientId = useId().replace(/[:]/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -71,15 +73,32 @@ export function ActivitySparkline({
   };
   const color = statusColors[status];
 
+  // Calculate trend from first quarter to last quarter of data
+  const trend = useMemo(() => {
+    if (!showTrend || !data || data.length < 4) return null;
+    const qLen = Math.max(1, Math.floor(data.length / 4));
+    const firstQ = data.slice(0, qLen).reduce((acc, p) => acc + p.y, 0) / qLen;
+    const lastQ = data.slice(-qLen).reduce((acc, p) => acc + p.y, 0) / qLen;
+    if (firstQ <= 0) return null;
+    const diffPct = Math.round(((lastQ - firstQ) / firstQ) * 100);
+    return diffPct;
+  }, [showTrend, data]);
+
+  const activeValue = hoverIdx !== null
+    ? (unit === "GB" ? Number(data[hoverIdx].y.toFixed(1)) : Math.round(data[hoverIdx].y))
+    : value;
+
   const renderValueGroup = () => (
     <div className="activity-sparkline__value-group">
       <div className="activity-sparkline__value-item">
-        <span className="activity-sparkline__value-item-label">{t("activitySpark.avg")}</span>
+        <span className="activity-sparkline__value-item-label">
+          {hoverIdx !== null ? "CURRENT" : t("activitySpark.avg")}
+        </span>
         <span
           className={`activity-sparkline__value activity-sparkline__value--${status}`}
           style={{ color }}
         >
-          {Number.isFinite(value) ? value : "—"}
+          {Number.isFinite(activeValue) ? activeValue : "—"}
           {unit}
         </span>
       </div>
@@ -113,11 +132,9 @@ export function ActivitySparkline({
     );
   }
 
-  // Draw a responsive SVG sparkline with a gradient area fill, a smooth
-  // line, min/max markers, an optional threshold guide, and a hover readout.
   const width = 240;
-  const height = 44;
-  const padding = 3;
+  const height = 46;
+  const padding = 4;
   const yValues = data.map((d) => d.y);
   const minVal = Math.min(...yValues);
   const maxVal = Math.max(...yValues);
@@ -132,18 +149,16 @@ export function ActivitySparkline({
 
   const points = data.map(toXY);
 
-  const linePath = smooth ? buildSmoothPath(points) : points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  const areaPath = smooth
-    ? `${linePath} L ${width},${height} L 0,${height} Z`
-    : `${linePath} L ${width},${height} L 0,${height} Z`;
+  const linePath = smooth
+    ? buildSmoothPath(points)
+    : points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
 
-  // Threshold guide line (warn level), if provided.
   const thresholdY = useMemo(() => {
     if (!thresholds) return null;
-    const t = inverted ? thresholds.warn : thresholds.warn;
-    if (t < minVal || t > maxVal) return null;
-    return height - padding - ((t - minVal) / dataRange) * (height - padding * 2);
-  }, [thresholds, minVal, maxVal, height, padding, dataRange, inverted]);
+    const tVal = thresholds.warn;
+    if (tVal < minVal || tVal > maxVal) return null;
+    return height - padding - ((tVal - minVal) / dataRange) * (height - padding * 2);
+  }, [thresholds, minVal, maxVal, height, padding, dataRange]);
 
   const hoverHandle = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
@@ -159,7 +174,26 @@ export function ActivitySparkline({
 
   return (
     <div className="activity-sparkline">
-      {label && <span className="activity-sparkline__label">{label}</span>}
+      <div className="activity-sparkline__header">
+        {label && <span className="activity-sparkline__label">{label}</span>}
+        {hoverIdx !== null ? (
+          <span
+            className="activity-sparkline__trend-pill activity-sparkline__hover-badge"
+            style={{ color, borderColor: color }}
+          >
+            {activeValue}{unit}
+          </span>
+        ) : trend !== null ? (
+          <span
+            className={`activity-sparkline__trend-pill ${
+              trend > 3 ? "is-up" : trend < -3 ? "is-down" : "is-stable"
+            }`}
+          >
+            {trend > 0 ? `+${trend}% ▲` : trend < 0 ? `${trend}% ▼` : "—"}
+          </span>
+        ) : null}
+      </div>
+
       <div className="activity-sparkline__chart">
         <svg
           ref={svgRef}
@@ -171,14 +205,7 @@ export function ActivitySparkline({
           onMouseMove={hoverHandle}
           onMouseLeave={() => setHoverIdx(null)}
         >
-          <defs>
-            <linearGradient id={`spark-${gradientId}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.28} />
-              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
-
-          {/* Threshold guide */}
+          {/* Threshold guide line */}
           {thresholdY !== null && (
             <line
               x1={0}
@@ -192,38 +219,53 @@ export function ActivitySparkline({
             />
           )}
 
-          <path d={areaPath} fill={`url(#spark-${gradientId})`} />
-          <path d={linePath} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+          {/* Crisp line without blurry shadow or muddy gradient area */}
+          <path
+            d={linePath}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
 
-          {/* Min / Max markers */}
+          {/* Min / Max glowing markers */}
           {(() => {
             const minI = yValues.indexOf(minVal);
             const maxI = yValues.indexOf(maxVal);
             return (
               <>
-                <circle cx={points[minI].x} cy={points[minI].y} r={2.4} fill={color} opacity={0.6} />
-                <circle cx={points[maxI].x} cy={points[maxI].y} r={2.4} fill={color} opacity={0.85} />
+                <circle cx={points[minI].x} cy={points[minI].y} r={2.5} fill={color} opacity={0.6} />
+                <circle cx={points[maxI].x} cy={points[maxI].y} r={3} fill={color} opacity={0.9} />
               </>
             );
           })()}
 
-          {/* Hover crosshair + readout */}
+          {/* Hover crosshair guide + readout marker */}
           {hoverPoint && (
             <>
-              <line x1={hoverPoint.x} y1={0} x2={hoverPoint.x} y2={height} stroke="var(--color-text-muted)" strokeWidth={1} strokeDasharray="2 2" opacity={0.5} />
-              <circle cx={hoverPoint.x} cy={hoverPoint.y} r={3.5} fill={color} stroke="var(--color-bg-primary)" strokeWidth={1.5} />
+              <line
+                x1={hoverPoint.x}
+                y1={0}
+                x2={hoverPoint.x}
+                y2={height}
+                stroke="var(--color-accent)"
+                strokeWidth={1.2}
+                strokeDasharray="2 2"
+                opacity={0.7}
+              />
+              <circle
+                cx={hoverPoint.x}
+                cy={hoverPoint.y}
+                r={4}
+                fill={color}
+                stroke="var(--color-bg-primary)"
+                strokeWidth={1.5}
+              />
             </>
           )}
         </svg>
       </div>
-
-      {/* Hover value bubble */}
-      {hoverIdx !== null && (
-        <div className="activity-sparkline__hover-value" style={{ color }}>
-          {unit === "GB" ? data[hoverIdx].y.toFixed(1) : Math.round(data[hoverIdx].y)}
-          {unit}
-        </div>
-      )}
 
       {renderValueGroup()}
     </div>

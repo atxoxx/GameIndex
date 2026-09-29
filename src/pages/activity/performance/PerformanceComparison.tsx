@@ -17,19 +17,18 @@ interface BarRow {
   label: string;
 }
 
-/**
- * Rank a bar row: 0 = best, then 1/2 for the podium, null beyond. Sorting is
- * descending by value so rank 0 is always the top performer.
- */
 function rankOf(index: number): number | null {
   return index < 3 ? index : null;
 }
 
-/** Shared palette for the per-metric fill colors (CSS vars — theme-aware). */
-function barColorFor(metric: ComparisonMetric): string {
-  if (metric === "fps") return "var(--color-brand-teal)";
-  if (metric === "temps") return "var(--color-danger)";
-  return "var(--color-brand-blue)";
+function barGradientFor(metric: ComparisonMetric): string {
+  if (metric === "fps") {
+    return "linear-gradient(90deg, var(--color-brand-teal) 0%, color-mix(in srgb, var(--color-brand-teal) 70%, #5eead4) 100%)";
+  }
+  if (metric === "temps") {
+    return "linear-gradient(90deg, var(--color-warning) 0%, var(--color-danger) 100%)";
+  }
+  return "linear-gradient(90deg, var(--color-brand-blue) 0%, color-mix(in srgb, var(--color-brand-blue) 75%, #93c5fd) 100%)";
 }
 
 export function PerformanceComparison({
@@ -57,14 +56,8 @@ export function PerformanceComparison({
         };
       }
       if (metricTab === "temps") {
-        // The hottest of CPU/GPU drives the bar length; both are shown in the
-        // label and always honour the user's temperature unit.
         const cpu = toDisplayTemp(g.avgCpuTemp, tempUnit);
         const gpu = toDisplayTemp(g.avgGpuTemp, tempUnit);
-        // Scale the bar by the *displayed* temperature so the relative bar
-        // lengths match what the user sees; keep the no-data case (both 0) as
-        // 0 so it still filters out of the list (0°C → 32°F would otherwise
-        // sneak a phantom 32-value row in Fahrenheit mode).
         const value = g.avgCpuTemp > 0 || g.avgGpuTemp > 0 ? Math.max(cpu, gpu) : 0;
         const unit = tempUnitLabel(tempUnit);
         const cpuLabel = g.avgCpuTemp > 0 ? `${Math.round(cpu)}${unit}` : "—";
@@ -83,7 +76,6 @@ export function PerformanceComparison({
         label: g.avgRamUsage > 0 ? `${gb.toFixed(1)} GB (${g.avgRamUsage}%)` : "—",
       };
     });
-    // Games without a reading sink to the bottom; never fabricate a value.
     return list
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value)
@@ -96,33 +88,42 @@ export function PerformanceComparison({
     return max;
   }, [rows]);
 
-  const barColor = barColorFor(metricTab);
+  const avgVal = useMemo(() => {
+    if (rows.length === 0) return 0;
+    return Math.round(rows.reduce((sum, r) => sum + r.value, 0) / rows.length);
+  }, [rows]);
+
+  const barBackground = barGradientFor(metricTab);
 
   return (
     <SectionPanel
       icon={<Icons.BarChart3 size={14} />}
       title={t("activityPerf.gameComparisons")}
       tools={
-        <Segmented<ComparisonMetric>
-          size="sm"
-          ariaLabel={t("activityPerf.gameComparisons")}
-          value={metricTab}
-          onChange={onMetricTabChange}
-          options={[
-            { value: "fps", label: <><Icons.BarChart3 size={12} /> {t("activityPerf.avgFps")}</> },
-            {
-              value: "temps",
-              label: <><Icons.Flame size={12} /> {t("activityPerf.tempsUnit", { unit: tempUnitLabel(tempUnit).replace("°", "") })}</>,
-            },
-            { value: "ram", label: <><Icons.Cpu size={12} /> {t("activityPerf.ramGb")}</> },
-          ]}
-        />
+        <div className="performance-compare-tools">
+          <Segmented<ComparisonMetric>
+            size="sm"
+            ariaLabel={t("activityPerf.gameComparisons")}
+            value={metricTab}
+            onChange={onMetricTabChange}
+            options={[
+              { value: "fps", label: <><Icons.BarChart3 size={12} /> {t("activityPerf.avgFps")}</> },
+              {
+                value: "temps",
+                label: <><Icons.Flame size={12} /> {t("activityPerf.tempsUnit", { unit: tempUnitLabel(tempUnit).replace("°", "") })}</>,
+              },
+              { value: "ram", label: <><Icons.Cpu size={12} /> {t("activityPerf.ramGb")}</> },
+            ]}
+          />
+        </div>
       }
     >
       <div className="performance-compare-bar">
         {rows.map((row, index) => {
-          const pct = Math.max(5, Math.min(100, (row.value / maxVal) * 100));
+          const pct = Math.max(6, Math.min(100, (row.value / maxVal) * 100));
           const rank = rankOf(index);
+          const diffVsAvg = avgVal > 0 ? Math.round(((row.value - avgVal) / avgVal) * 100) : 0;
+
           return (
             <div key={row.game.gameId} className="performance-compare-bar__row">
               <div className="performance-compare-bar__identity">
@@ -140,7 +141,11 @@ export function PerformanceComparison({
               <div className="performance-compare-bar__track">
                 <div
                   className="performance-compare-bar__fill"
-                  style={{ width: `${pct}%`, backgroundColor: barColor }}
+                  style={{
+                    width: `${pct}%`,
+                    background: barBackground,
+                    boxShadow: "0 1px 4px rgba(0, 0, 0, 0.2)",
+                  }}
                 />
               </div>
               <div className="performance-compare-bar__meta">
@@ -149,11 +154,22 @@ export function PerformanceComparison({
                     className={`performance-compare-bar__rank performance-compare-bar__rank--${rank}`}
                     title={t("activityPerf.rankTitle")}
                   >
-                    {rank === 0 && <Icons.Trophy size={10} />}
+                    {rank === 0 && <Icons.Trophy size={11} />}
                     {rank + 1}
                   </span>
                 )}
                 <span className="performance-compare-bar__value">{row.label}</span>
+                {diffVsAvg !== 0 && (
+                  <span
+                    className={`performance-compare-bar__diff ${
+                      (metricTab === "fps" ? diffVsAvg > 0 : diffVsAvg < 0)
+                        ? "is-good"
+                        : "is-bad"
+                    }`}
+                  >
+                    {diffVsAvg > 0 ? `+${diffVsAvg}%` : `${diffVsAvg}%`}
+                  </span>
+                )}
               </div>
             </div>
           );

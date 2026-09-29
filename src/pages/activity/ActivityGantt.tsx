@@ -8,6 +8,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import type { Game, GameSession, SessionMetrics } from "../../types/game";
 import { formatPlayTime, gameDisplayName } from "../../types/game";
 import { SessionInspectorModal } from "../../components/activity/SessionInspectorModal";
+import { GameThumbnail } from "./GameThumbnail";
 import * as Icons from "./Icons";
 
 export interface ActivityGanttProps {
@@ -52,11 +53,6 @@ const MINUTE = 60_000;
 const DAY_MS = 24 * 60 * MINUTE;
 const MAX_CONTINUOUS_DAYS = 120;
 const SAMPLED_CAP = 60;
-
-// Lane geometry (px)
-const ROW_PAD = 4;
-const LANE_STEP = 16;
-const BAR_H = 14;
 const MIN_BAR_W_PCT = 0.4;
 
 const TINT = (c: string) => `color-mix(in srgb, ${c} 45%, var(--color-bg-primary))`;
@@ -127,14 +123,6 @@ function getHourBuckets(
   return counts.map((mins, hour) => ({ hour, mins: Math.round(mins) }));
 }
 
-function getHeatmapIntensity(mins: number): string {
-  if (mins <= 0) return "activity-gantt__heatmap-cell--empty";
-  if (mins < 15) return "activity-gantt__heatmap-cell--low";
-  if (mins < 45) return "activity-gantt__heatmap-cell--medium";
-  if (mins < 90) return "activity-gantt__heatmap-cell--high";
-  return "activity-gantt__heatmap-cell--peak";
-}
-
 function prepareGanttClone(clonedDoc: Document): void {
   prepareClonedDocumentForCanvasCapture(clonedDoc);
   const rows = clonedDoc.querySelector<HTMLElement>(".activity-gantt__rows");
@@ -163,6 +151,9 @@ export function ActivityGantt({
 
   const [highlightGame, setHighlightGame] = useState<string | null>(null);
   const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [minDurationFilter, setMinDurationFilter] = useState<number>(0);
+  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
   const [inspectedSessionId, setInspectedSessionId] = useState<string | null>(null);
   const [hover, setHover] = useState<{
     seg: Segment;
@@ -172,7 +163,13 @@ export function ActivityGantt({
     clientY: number;
   } | null>(null);
 
-  // 1. Build id→Game lookup
+  // Density dimensions (px)
+  const isCompact = density === "compact";
+  const rowPad = isCompact ? 3 : 5;
+  const laneStep = isCompact ? 13 : 18;
+  const barH = isCompact ? 10 : 15;
+
+  // 1. Build id → Game lookup
   const gameById = useMemo(() => {
     const m = new Map<string, Game>();
     games.forEach((g) => m.set(g.id, g));
@@ -181,10 +178,11 @@ export function ActivityGantt({
 
   const hoverGame = hover ? gameById.get(hover.seg.gameId) : undefined;
 
-  // 2. Filter sessions by range + source/platform + game filter
+  // 2. Filter sessions by range, source, game filter, search query & min duration
   const filtered = useMemo(() => {
     const rangeStart = new Date(startDate + "T00:00:00").getTime();
     const rangeEnd = new Date(endDate + "T23:59:59.999").getTime();
+    const query = searchQuery.trim().toLowerCase();
 
     return sessions.filter((s) => {
       const endTime = new Date(s.date).getTime();
@@ -197,9 +195,17 @@ export function ActivityGantt({
       if (selectedGameFilter !== "all" && s.gameId !== selectedGameFilter) {
         return false;
       }
+      if (minDurationFilter > 0 && s.durationMin < minDurationFilter) {
+        return false;
+      }
+      if (query) {
+        const g = gameById.get(s.gameId);
+        const gName = (g ? gameDisplayName(g) : s.gameName || "").toLowerCase();
+        if (!gName.includes(query)) return false;
+      }
       return true;
     });
-  }, [sessions, startDate, endDate, sourceFilter, selectedGameFilter, gameById]);
+  }, [sessions, startDate, endDate, sourceFilter, selectedGameFilter, minDurationFilter, searchQuery, gameById]);
 
   // 3. Split into per-day segments
   const { buckets } = useMemo(() => {
@@ -317,6 +323,41 @@ export function ActivityGantt({
     [filtered, startDate, endDate],
   );
 
+  const maxHourMinutes = useMemo(() => {
+    return Math.max(1, ...hourBuckets.map((b) => b.mins));
+  }, [hourBuckets]);
+
+  // Peak gaming hours calculation (best 3-hour window)
+  const peakWindow = useMemo(() => {
+    let bestSum = 0;
+    let bestStart = 20;
+    for (let h = 0; h < 24; h++) {
+      const sum =
+        (hourBuckets[h]?.mins ?? 0) +
+        (hourBuckets[(h + 1) % 24]?.mins ?? 0) +
+        (hourBuckets[(h + 2) % 24]?.mins ?? 0);
+      if (sum > bestSum) {
+        bestSum = sum;
+        bestStart = h;
+      }
+    }
+    if (bestSum === 0) return null;
+    const endH = (bestStart + 3) % 24;
+    return `${String(bestStart).padStart(2, "0")}:00 – ${String(endH).padStart(2, "0")}:00`;
+  }, [hourBuckets]);
+
+  // Longest single session
+  const longestSession = useMemo(() => {
+    if (filtered.length === 0) return null;
+    return filtered.reduce((max, s) => (s.durationMin > max.durationMin ? s : max), filtered[0]);
+  }, [filtered]);
+
+  // Peak day bucket
+  const peakBucket = useMemo(() => {
+    if (buckets.length === 0) return null;
+    return buckets.reduce((max, b) => (b.totalMin > max.totalMin ? b : max), buckets[0]);
+  }, [buckets]);
+
   // 4. Color map
   const { colorMap, topGames } = useMemo(() => {
     const totals = new Map<string, number>();
@@ -334,7 +375,7 @@ export function ActivityGantt({
     });
     return {
       colorMap: map,
-      topGames: ranked.slice(0, 8),
+      topGames: ranked.slice(0, 10),
     };
   }, [buckets]);
 
@@ -368,6 +409,14 @@ export function ActivityGantt({
       todayEl.scrollIntoView({ behavior: "smooth", block: "center" });
     } else {
       rowsRef.current.scrollTop = rowsRef.current.scrollHeight;
+    }
+  };
+
+  const handleScrollToPeak = () => {
+    if (!rowsRef.current || !peakBucket) return;
+    const el = rowsRef.current.querySelector(`[data-day="${peakBucket.key}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
@@ -412,7 +461,7 @@ export function ActivityGantt({
     return n.getHours() * 60 + n.getMinutes() + n.getSeconds() / 60;
   }, []);
 
-  const tickHours = [0, 6, 12, 18, 24];
+  const tickHours = [0, 4, 8, 12, 16, 20, 24];
 
   const inspectedSession = useMemo(() => {
     if (!inspectedSessionId) return null;
@@ -424,7 +473,7 @@ export function ActivityGantt({
     return gameById.get(inspectedSession.gameId);
   }, [inspectedSession, gameById]);
 
-  if (totalPlayedMinutes === 0) {
+  if (totalPlayedMinutes === 0 && !searchQuery) {
     return (
       <div className="section-panel">
         <div className="activity-empty">
@@ -439,28 +488,80 @@ export function ActivityGantt({
   }
 
   return (
-    <div className="activity-gantt" ref={ganttRef}>
-      {/* ── Toolbar / Controls ───────────────────────────────────── */}
-      <div className="activity-gantt__toolbar">
-        <div className="activity-gantt__summary">
-          <span className="activity-gantt__stat">
-            <strong className="activity-gantt__stat-val">
-              {formatPlayTime(totalPlayedMinutes)}
-            </strong>
-            <span className="activity-gantt__stat-lbl">
-              {t("activityGantt.totalInRange")}
-            </span>
-          </span>
-          <span className="activity-gantt__stat-sep">•</span>
-          <span className="activity-gantt__stat">
-            <strong className="activity-gantt__stat-val">{filtered.length}</strong>
-            <span className="activity-gantt__stat-lbl">
-              {filtered.length === 1 ? t("activity.sessionOne") : t("activity.sessionsMany")}
-            </span>
-          </span>
+    <div className={`activity-gantt ${isCompact ? "activity-gantt--compact" : ""}`} ref={ganttRef}>
+      {/* ── KPI Hero Strip ────────────────────────────────────────── */}
+      <div className="activity-gantt__kpi-strip">
+        <div className="activity-gantt__kpi-card">
+          <span className="activity-gantt__kpi-icon"><Icons.Clock size={16} /></span>
+          <div className="activity-gantt__kpi-body">
+            <span className="activity-gantt__kpi-val">{formatPlayTime(totalPlayedMinutes)}</span>
+            <span className="activity-gantt__kpi-label">{t("activityGantt.totalInRange")}</span>
+          </div>
         </div>
 
-        <div className="activity-gantt__tools">
+        <div className="activity-gantt__kpi-card">
+          <span className="activity-gantt__kpi-icon"><Icons.Calendar size={16} /></span>
+          <div className="activity-gantt__kpi-body">
+            <span className="activity-gantt__kpi-val">{filtered.length}</span>
+            <span className="activity-gantt__kpi-label">
+              {filtered.length === 1 ? t("activity.sessionOne") : t("activity.sessionsMany")}
+            </span>
+          </div>
+        </div>
+
+        {peakWindow && (
+          <div className="activity-gantt__kpi-card">
+            <span className="activity-gantt__kpi-icon" style={{ color: "var(--color-warning)" }}>
+              <Icons.Flame size={16} />
+            </span>
+            <div className="activity-gantt__kpi-body">
+              <span className="activity-gantt__kpi-val">{peakWindow}</span>
+              <span className="activity-gantt__kpi-label">{t("activityGantt.peakWindow")}</span>
+            </div>
+          </div>
+        )}
+
+        {longestSession && (
+          <div className="activity-gantt__kpi-card">
+            <span className="activity-gantt__kpi-icon" style={{ color: "var(--color-accent)" }}>
+              <Icons.Trophy size={16} />
+            </span>
+            <div className="activity-gantt__kpi-body">
+              <span className="activity-gantt__kpi-val">{formatPlayTime(longestSession.durationMin)}</span>
+              <span className="activity-gantt__kpi-label">
+                {longestSession.gameName ? `${longestSession.gameName.slice(0, 16)}…` : t("activityGantt.longestSession")}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Toolbar / Controls ───────────────────────────────────── */}
+      <div className="activity-gantt__toolbar">
+        <div className="activity-gantt__tools-left">
+          {/* Real-time search box */}
+          <div className="activity-gantt__search-wrap">
+            <Icons.Search size={13} className="activity-gantt__search-icon" />
+            <input
+              type="text"
+              className="activity-gantt__search-input"
+              placeholder={t("activityGantt.searchGame")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="activity-gantt__search-clear"
+                onClick={() => setSearchQuery("")}
+                title={t("activityGantt.clearFilter")}
+              >
+                <Icons.X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Game selector */}
           <select
             className="act-toolbar__select"
             value={selectedGameFilter}
@@ -475,6 +576,41 @@ export function ActivityGantt({
             ))}
           </select>
 
+          {/* Min duration filter */}
+          <select
+            className="act-toolbar__select"
+            value={minDurationFilter}
+            onChange={(e) => setMinDurationFilter(Number(e.target.value))}
+            aria-label={t("activityGantt.filterDuration")}
+          >
+            <option value={0}>{t("activityGantt.allDurations")}</option>
+            <option value={15}>≥ 15 min</option>
+            <option value={30}>≥ 30 min</option>
+            <option value={60}>≥ 1 hour</option>
+          </select>
+        </div>
+
+        <div className="activity-gantt__tools">
+          {/* Density toggle */}
+          <div className="activity-gantt__density-toggle" role="group" aria-label={t("activityGantt.density")}>
+            <button
+              type="button"
+              className={`activity-gantt__density-btn ${density === "comfortable" ? "is-active" : ""}`}
+              onClick={() => setDensity("comfortable")}
+              title={t("activityGantt.comfortable")}
+            >
+              <Icons.Menu size={12} />
+            </button>
+            <button
+              type="button"
+              className={`activity-gantt__density-btn ${density === "compact" ? "is-active" : ""}`}
+              onClick={() => setDensity("compact")}
+              title={t("activityGantt.compact")}
+            >
+              <Icons.Grid size={12} />
+            </button>
+          </div>
+
           <button
             type="button"
             className="activity-gantt__tool-btn"
@@ -484,6 +620,18 @@ export function ActivityGantt({
             <Icons.Calendar size={13} />
             <span>{t("activityGantt.jumpToToday")}</span>
           </button>
+
+          {peakBucket && peakBucket.totalMin > 0 && (
+            <button
+              type="button"
+              className="activity-gantt__tool-btn"
+              onClick={handleScrollToPeak}
+              title={t("activityGantt.jumpToPeak")}
+            >
+              <Icons.Zap size={13} />
+              <span>{t("activityGantt.jumpToPeak")}</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -497,23 +645,41 @@ export function ActivityGantt({
         </div>
       </div>
 
-      {/* ── Hourly Intensity Heatmap Strip ───────────────────────── */}
+      {/* ── 24h Visualizer Intensity Strip ───────────────────────── */}
       <div className="activity-gantt__heatmap-strip">
         <div className="activity-gantt__heatmap-header">
           <span className="activity-gantt__heatmap-title">
-            <Icons.Clock size={12} /> {t("activityGantt.hourlyIntensity")}
+            <Icons.Clock size={13} /> {t("activityGantt.hourlyIntensity")}
           </span>
+          {peakWindow && (
+            <span className="activity-gantt__heatmap-peak-badge">
+              <Icons.Flame size={11} /> {t("activityGantt.peakWindow")}: {peakWindow}
+            </span>
+          )}
         </div>
-        <div className="activity-gantt__heatmap-grid">
-          {hourBuckets.map((b) => (
-            <div
-              key={b.hour}
-              className={`activity-gantt__heatmap-cell ${getHeatmapIntensity(b.mins)}`}
-              title={`${String(b.hour).padStart(2, "0")}:00 — ${formatPlayTime(b.mins)}`}
-            >
-              <span className="activity-gantt__heatmap-hour">{b.hour}</span>
-            </div>
-          ))}
+        <div className="activity-gantt__visualizer-grid">
+          {hourBuckets.map((b) => {
+            const heightPct = Math.max(12, Math.round((b.mins / maxHourMinutes) * 100));
+            const isPeak = b.mins >= maxHourMinutes * 0.8 && b.mins > 0;
+            return (
+              <div
+                key={b.hour}
+                className={`activity-gantt__visualizer-col ${isPeak ? "is-peak" : ""}`}
+                title={`${String(b.hour).padStart(2, "0")}:00 – ${String((b.hour + 1) % 24).padStart(2, "0")}:00: ${formatPlayTime(b.mins)}`}
+              >
+                <div className="activity-gantt__visualizer-track">
+                  <div
+                    className="activity-gantt__visualizer-fill"
+                    style={{
+                      height: `${b.mins > 0 ? heightPct : 6}%`,
+                      opacity: b.mins > 0 ? 1 : 0.25,
+                    }}
+                  />
+                </div>
+                <span className="activity-gantt__visualizer-hour">{b.hour}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -523,6 +689,8 @@ export function ActivityGantt({
           const game = gameById.get(id);
           const name = game ? gameDisplayName(game) : sessions.find((s) => s.gameId === id)?.gameName || id;
           const isDim = highlightGame !== null && highlightGame !== id;
+          const gameColor = colorForGame(id);
+
           return (
             <button
               key={id}
@@ -532,7 +700,10 @@ export function ActivityGantt({
             >
               <span
                 className="activity-gantt__legend-dot"
-                style={{ background: colorForGame(id) }}
+                style={{
+                  background: gameColor,
+                  boxShadow: isDim ? "none" : `0 0 6px ${gameColor}`,
+                }}
               />
               <span className="activity-gantt__legend-name">{name}</span>
               <span className="activity-gantt__legend-mins">{formatPlayTime(mins)}</span>
@@ -562,12 +733,16 @@ export function ActivityGantt({
       {/* ── Day Rows ─────────────────────────────────────────────── */}
       <div className="activity-gantt__rows" ref={rowsRef}>
         {buckets.map((bucket) => {
-          const rowHeight = ROW_PAD * 2 + bucket.maxLane * LANE_STEP;
+          const rowHeight = rowPad * 2 + bucket.maxLane * laneStep;
+          const isPeakDay = peakBucket?.key === bucket.key && bucket.totalMin > 0;
 
           return (
             <div
               key={bucket.key}
-              className={`activity-gantt__row${bucket.isToday ? " activity-gantt__row--today" : ""}`}
+              data-day={bucket.key}
+              className={`activity-gantt__row${bucket.isToday ? " activity-gantt__row--today" : ""}${
+                isPeakDay ? " activity-gantt__row--peak" : ""
+              }`}
               style={{ minHeight: `${rowHeight}px` }}
             >
               <div className="activity-gantt__row-label">
@@ -583,12 +758,19 @@ export function ActivityGantt({
                 className="activity-gantt__row-track"
                 style={{ height: `${rowHeight}px` }}
               >
+                {/* 6-hour vertical grid guides */}
+                <div className="activity-gantt__hour-guide" style={{ left: "25%" }} />
+                <div className="activity-gantt__hour-guide" style={{ left: "50%" }} />
+                <div className="activity-gantt__hour-guide" style={{ left: "75%" }} />
+
                 {bucket.isToday && (
                   <div
                     className="activity-gantt__now-line"
                     style={{ left: `${(nowMin / 1440) * 100}%` }}
                     title={t("activityGantt.currentTime")}
-                  />
+                  >
+                    <span className="activity-gantt__now-head" />
+                  </div>
                 )}
 
                 {bucket.segments.map((seg) => {
@@ -597,11 +779,12 @@ export function ActivityGantt({
                     MIN_BAR_W_PCT,
                     ((seg.endMin - seg.startMin) / 1440) * 100,
                   );
-                  const topPx = ROW_PAD + seg.lane * LANE_STEP;
+                  const topPx = rowPad + seg.lane * laneStep;
                   const isDimmed = highlightGame !== null && highlightGame !== seg.gameId;
                   const note = getNote(seg.sessionId);
                   const hasNote = Boolean(note.note || note.tags.length > 0);
                   const segGame = gameById.get(seg.gameId);
+                  const gameColor = colorForGame(seg.gameId);
 
                   const barClasses = [
                     "activity-gantt__bar",
@@ -621,8 +804,9 @@ export function ActivityGantt({
                         left: `${leftPct}%`,
                         width: `${widthPct}%`,
                         top: `${topPx}px`,
-                        height: `${BAR_H}px`,
-                        backgroundColor: colorForGame(seg.gameId),
+                        height: `${barH}px`,
+                        background: gameColor,
+                        boxShadow: `0 1px 3px rgba(0, 0, 0, 0.25)`,
                       }}
                       onClick={() => setInspectedSessionId(seg.sessionId)}
                       onMouseEnter={(e) => {
@@ -656,17 +840,32 @@ export function ActivityGantt({
           className="activity-gantt__tooltip"
           style={{
             left: `${hover.clientX}px`,
-            top: `${hover.clientY - 8}px`,
+            top: `${hover.clientY - 10}px`,
           }}
         >
           <div className="activity-gantt__tooltip-header">
-            <span
-              className="activity-gantt__tooltip-dot"
-              style={{ background: colorForGame(hover.seg.gameId) }}
-            />
-            <span className="activity-gantt__tooltip-name">{hoverGame ? gameDisplayName(hoverGame) : hover.seg.gameName}</span>
+            {hoverGame && (
+              <GameThumbnail
+                iconUrl={hoverGame.iconUrl}
+                coverArtUrl={hoverGame.coverArtUrl}
+                steamAppId={hoverGame.steamAppId}
+                name={gameDisplayName(hoverGame)}
+                className="activity-gantt__tooltip-thumb"
+              />
+            )}
+            <div className="activity-gantt__tooltip-title-wrap">
+              <span
+                className="activity-gantt__tooltip-dot"
+                style={{ background: colorForGame(hover.seg.gameId) }}
+              />
+              <span className="activity-gantt__tooltip-name">
+                {hoverGame ? gameDisplayName(hoverGame) : hover.seg.gameName}
+              </span>
+            </div>
           </div>
+
           <div className="activity-gantt__tooltip-time">
+            <Icons.Clock size={11} style={{ display: "inline-block", marginRight: "4px", verticalAlign: "middle" }} />
             {hover.seg.absoluteStart.toLocaleTimeString(language, {
               hour: "2-digit",
               minute: "2-digit",
@@ -676,27 +875,34 @@ export function ActivityGantt({
               hour: "2-digit",
               minute: "2-digit",
             })}{" "}
-            ({formatPlayTime(hover.seg.durationMin)})
+            <strong className="activity-gantt__tooltip-duration">
+              ({formatPlayTime(hover.seg.durationMin)})
+            </strong>
           </div>
+
           {hover.seg.metrics && (
             <div className="activity-gantt__tooltip-chips">
               {hover.seg.metrics.avgFps ? (
-                <span className="activity-gantt__tooltip-chip">
-                  {hover.seg.metrics.avgFps} FPS
+                <span className="activity-gantt__tooltip-chip activity-gantt__tooltip-chip--fps">
+                  <Icons.Gauge size={10} /> {hover.seg.metrics.avgFps} FPS
                 </span>
               ) : null}
               {hover.seg.metrics.avgCpuUsage ? (
                 <span className="activity-gantt__tooltip-chip">
-                  CPU {Math.round(hover.seg.metrics.avgCpuUsage)}%
+                  <Icons.Cpu size={10} /> {Math.round(hover.seg.metrics.avgCpuUsage)}%
                 </span>
               ) : null}
               {hover.seg.metrics.avgGpuUsage ? (
                 <span className="activity-gantt__tooltip-chip">
-                  GPU {Math.round(hover.seg.metrics.avgGpuUsage)}%
+                  <Icons.Activity size={10} /> {Math.round(hover.seg.metrics.avgGpuUsage)}%
                 </span>
               ) : null}
             </div>
           )}
+
+          <div className="activity-gantt__tooltip-footer">
+            <span className="activity-gantt__tooltip-prompt">{t("activityGantt.inspectPrompt")}</span>
+          </div>
         </div>
       )}
 

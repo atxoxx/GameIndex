@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { formatPlayTime } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { type TimeOfDayDistribution as TimeOfDayDistType } from "./insights";
@@ -12,6 +12,7 @@ export function TimeOfDayDistribution({
   compact?: boolean;
 }) {
   const { t } = useLanguage();
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   const maxSlotMinutes = useMemo(() => {
     let max = 1;
@@ -24,13 +25,13 @@ export function TimeOfDayDistribution({
   const renderIcon = (icon: "sunrise" | "sun" | "sunset" | "moon") => {
     switch (icon) {
       case "sunrise":
-        return <Icons.Sunrise size={14} />;
+        return <Icons.Sunrise size={15} />;
       case "sun":
-        return <Icons.Sun size={14} />;
+        return <Icons.Sun size={15} />;
       case "sunset":
-        return <Icons.Sunset size={14} />;
+        return <Icons.Sunset size={15} />;
       case "moon":
-        return <Icons.Moon size={14} />;
+        return <Icons.Moon size={15} />;
     }
   };
 
@@ -40,18 +41,26 @@ export function TimeOfDayDistribution({
         {distribution.slots.map((slot) => {
           const fillPct = Math.max(3, (slot.minutes / maxSlotMinutes) * 100);
           const isPeak = distribution.peakSlot?.key === slot.key && slot.minutes > 0;
+          const isHovered = hoveredKey === slot.key;
 
           return (
             <div
               key={slot.key}
-              className={`act-tod__slot${isPeak ? " act-tod__slot--peak" : ""}`}
+              className={`act-tod__slot act-tod__slot--${slot.key}${isPeak ? " act-tod__slot--peak" : ""}${isHovered ? " is-hovered" : ""}`}
+              title={`${t(slot.labelKey)} (${slot.hoursLabel}): ${formatPlayTime(slot.minutes)}`}
+              onMouseEnter={() => setHoveredKey(slot.key)}
+              onMouseLeave={() => setHoveredKey(null)}
             >
               <div className="act-tod__slot-header">
                 <span className="act-tod__slot-icon" aria-hidden="true">
                   {renderIcon(slot.icon)}
                 </span>
                 <span className="act-tod__slot-title">{t(slot.labelKey)}</span>
-                <span className="act-tod__slot-time">{slot.hoursLabel}</span>
+                {isPeak && (
+                  <span className="act-tod__peak-pill">
+                    <Icons.Flame size={10} /> {t("charts.peak")}
+                  </span>
+                )}
               </div>
 
               <div className="act-tod__slot-bar-wrap">
@@ -73,7 +82,10 @@ export function TimeOfDayDistribution({
       {!compact && distribution.totalMinutes > 0 && (
         <div className="act-tod__split">
           <div className="act-tod__split-header">
-            <span className="act-tod__split-title">{t("activityInsights.routineSplit")}</span>
+            <span className="act-tod__split-title">
+              <Icons.Clock size={13} style={{ display: "inline-block", marginRight: "4px", verticalAlign: "middle" }} />
+              {t("activityInsights.routineSplit")}
+            </span>
             <span className="act-tod__split-ratio">
               {distribution.weekendRatioPct}% {t("activityInsights.weekends")}
             </span>
@@ -96,13 +108,13 @@ export function TimeOfDayDistribution({
             <div className="act-tod__split-legend-item">
               <span className="act-tod__split-dot act-tod__split-dot--weekday" />
               <span>
-                {t("activityInsights.weekdays")}: <strong>{formatPlayTime(distribution.weekdayMinutes)}</strong>
+                {t("activityInsights.weekdays")}: <strong>{formatPlayTime(distribution.weekdayMinutes)}</strong> ({100 - distribution.weekendRatioPct}%)
               </span>
             </div>
             <div className="act-tod__split-legend-item">
               <span className="act-tod__split-dot act-tod__split-dot--weekend" />
               <span>
-                {t("activityInsights.weekends")}: <strong>{formatPlayTime(distribution.weekendMinutes)}</strong>
+                {t("activityInsights.weekends")}: <strong>{formatPlayTime(distribution.weekendMinutes)}</strong> ({distribution.weekendRatioPct}%)
               </span>
             </div>
           </div>

@@ -1,6 +1,7 @@
-import { useMemo, useState, useCallback, useLayoutEffect, useRef } from "react";
+import { useMemo, useState, useCallback, useLayoutEffect, useRef, useId } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
-interface BarChartProps {
+export interface BarChartProps {
   data: number[];
   labels: string[];
   width?: number;
@@ -8,6 +9,16 @@ interface BarChartProps {
   color?: string;
   formatValue?: (v: number) => string;
   tooltip?: boolean;
+  /** Whether to show a dashed horizontal benchmark line for the average value */
+  showAverage?: boolean;
+  /** Highlight the highest peak bar with a visual badge */
+  showExtremes?: boolean;
+  /** Use rich vertical depth gradients on bars instead of flat fills */
+  gradient?: boolean;
+  /** Optional click handler for drilling into a specific bar/day */
+  onBarClick?: (index: number, label: string, value: number) => void;
+  /** Optional summary strip above the chart */
+  showSummary?: boolean;
 }
 
 export default function BarChart({
@@ -18,13 +29,21 @@ export default function BarChart({
   color = "var(--color-accent)",
   formatValue = (v) => String(v),
   tooltip = true,
+  showAverage = true,
+  showExtremes = true,
+  gradient = true,
+  onBarClick,
+  showSummary = false,
 }: BarChartProps) {
+  const { t } = useLanguage();
+  const rawId = useId();
+  const chartId = useMemo(() => `bc-${rawId.replace(/[:]/g, "")}`, [rawId]);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // Measure the rendered width so the viewBox tracks the container instead of
-  // letterboxing at a fixed size (see LineChart for the same contract).
+
   const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
   const effectiveWidth = measuredWidth && measuredWidth > 0 ? measuredWidth : width;
+
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -35,26 +54,28 @@ export default function BarChart({
     return () => ro.disconnect();
   }, []);
 
-  const chart = useMemo(() => {
-    const padding = { top: 20, right: 16, bottom: 30, left: 40 };
-    const chartW = effectiveWidth - padding.left - padding.right;
-    const chartH = height - padding.top - padding.bottom;
-    const maxVal = Math.max(...data, 1);
-    const barGap = Math.max(4, chartW / (data.length * 3));
-    const barW = (chartW - barGap * (data.length - 1)) / data.length;
+  const totalSum = useMemo(() => data.reduce((a, b) => a + b, 0), [data]);
+  const averageVal = useMemo(
+    () => (data.length > 0 ? totalSum / data.length : 0),
+    [data, totalSum]
+  );
+  const maxValRaw = useMemo(() => Math.max(...data, 1), [data]);
+  const peakIndex = useMemo(() => {
+    if (data.length === 0 || maxValRaw <= 0) return -1;
+    return data.indexOf(maxValRaw);
+  }, [data, maxValRaw]);
 
-    // Adaptive x-axis label density. With 30+ days, 90+ days, or "all time"
-    // the chart fans out to dozens or hundreds of bars; rendering a label
-    // for every one produces illegible, overlapping text. We stride the
-    // ticks so only ~ floor(chartW / labelBudgetPx) labels show, and we
-    // always pin the first and last tick so the time boundaries are clear.
+  const chart = useMemo(() => {
+    const padding = { top: 24, right: 20, bottom: 32, left: 44 };
+    const chartW = Math.max(10, effectiveWidth - padding.left - padding.right);
+    const chartH = Math.max(10, height - padding.top - padding.bottom);
+    const maxVal = maxValRaw;
+    const barGap = Math.max(3, chartW / (data.length * 3.2));
+    const barW = Math.max(2, (chartW - barGap * (data.length - 1)) / (data.length || 1));
+
     const labelBudgetPx = 42;
     const maxLabels = Math.max(2, Math.floor(chartW / labelBudgetPx));
     const labelStride = Math.max(1, Math.ceil(data.length / maxLabels));
-    // Suppress the "1h / 0h" label printed above each bar when the bar is
-    // too narrow to hold any text legibly. In dense views this becomes a
-    // wall of repeated "0h" glyphs; the hover tooltip remains the channel
-    // for exact values.
     const showValuesOnTop = barW >= 24;
 
     return {
@@ -67,7 +88,7 @@ export default function BarChart({
       labelStride,
       showValuesOnTop,
     };
-  }, [data, effectiveWidth, height]);
+  }, [data, effectiveWidth, height, maxValRaw]);
 
   const {
     padding,
@@ -81,13 +102,14 @@ export default function BarChart({
   } = chart;
 
   const gridLines = 5;
-  // Build y-axis tick values, then deduplicate. With tiny maxVal (e.g. 1
-  // hour) naive rounding produces "0,0,0,0,1,1" — duplicated labels stack
-  // at the top of the chart and visually saturate the y-axis. Drop dupes
-  // while keeping every gridline (so the dashed lines still draw).
   const gridValues = Array.from({ length: gridLines + 1 }, (_, i) =>
     Math.round((maxVal / gridLines) * i)
   );
+
+  const avgY = useMemo(() => {
+    if (!showAverage || averageVal <= 0 || averageVal > maxVal) return null;
+    return padding.top + chartH - (averageVal / maxVal) * chartH;
+  }, [showAverage, averageVal, maxVal, padding.top, chartH]);
 
   const handleMouseEnter = useCallback((i: number) => {
     setHoverIndex(i);
@@ -97,21 +119,100 @@ export default function BarChart({
     setHoverIndex(null);
   }, []);
 
+  const handleBarClick = useCallback(
+    (i: number) => {
+      if (onBarClick && labels[i] !== undefined && data[i] !== undefined) {
+        onBarClick(i, labels[i], data[i]);
+      }
+    },
+    [onBarClick, labels, data]
+  );
+
+  // Stats for hover tooltip diff vs avg
+  const hoveredDiffVsAvg = useMemo(() => {
+    if (hoverIndex === null || averageVal <= 0) return null;
+    const val = data[hoverIndex] ?? 0;
+    const diffPct = Math.round(((val - averageVal) / averageVal) * 100);
+    return diffPct;
+  }, [hoverIndex, data, averageVal]);
+
+  const hoveredPctOfTotal = useMemo(() => {
+    if (hoverIndex === null || totalSum <= 0) return null;
+    const val = data[hoverIndex] ?? 0;
+    return Math.round((val / totalSum) * 100);
+  }, [hoverIndex, data, totalSum]);
+
   return (
-    <div ref={containerRef} style={{ position: "relative" }}>
+    <div
+      ref={containerRef}
+      className="chart-bar-wrapper"
+      style={{ position: "relative", width: "100%" }}
+    >
+      {/* Optional quick KPI summary */}
+      {showSummary && (
+        <div className="chart-summary-strip">
+          <div className="chart-summary-item">
+            <span className="chart-summary-label">{t("charts.total")}</span>
+            <span className="chart-summary-val">{formatValue(Math.round(totalSum))}</span>
+          </div>
+          <div className="chart-summary-item">
+            <span className="chart-summary-label">{t("charts.average")}</span>
+            <span className="chart-summary-val">{formatValue(Math.round(averageVal))}</span>
+          </div>
+          <div className="chart-summary-item chart-summary-item--peak">
+            <span className="chart-summary-label">{t("charts.peak")}</span>
+            <span className="chart-summary-val">{formatValue(maxValRaw)}</span>
+          </div>
+        </div>
+      )}
+
       <svg
         viewBox={`0 0 ${effectiveWidth} ${height}`}
         width="100%"
         height={height}
-        style={{ fontFamily: "inherit" }}
+        style={{
+          fontFamily: "inherit",
+          display: "block",
+          overflow: "visible",
+        }}
       >
-        {/* Grid lines */}
+        <defs>
+          {/* Depth vertical gradient */}
+          <linearGradient
+            id={`${chartId}-grad`}
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop offset="0%" stopColor={color} stopOpacity="1" />
+            <stop
+              offset="100%"
+              stopColor={`color-mix(in srgb, ${color} 45%, var(--color-bg-primary))` }
+              stopOpacity="0.85"
+            />
+          </linearGradient>
+
+          {/* Hover bar glow filter */}
+          <filter
+            id={`${chartId}-bar-glow`}
+            x="-20%"
+            y="-20%"
+            width="140%"
+            height="140%"
+          >
+            <feDropShadow
+              dx="0"
+              dy="2"
+              stdDeviation="3"
+              floodColor={color}
+              floodOpacity="0.5"
+            />
+          </filter>
+        </defs>
+
+        {/* Grid lines with deduplicated labels */}
         {(() => {
-          // Dedup adjacent same-valued labels so the axis never reads
-          // "0 \u00B7 0 \u00B7 0 \u00B7 0 \u00B7 1 \u00B7 1". We track which
-          // labels have been emitted in logical Y-order (top of chart \u2192
-          // bottom), so the first occurrence wins and lower duplicates are
-          // suppressed. The dashed gridlines still render at every position.
           const seen = new Set<number>();
           return gridValues.map((v, i) => {
             const y = padding.top + chartH - (v / maxVal) * chartH;
@@ -127,23 +228,63 @@ export default function BarChart({
                   stroke="var(--color-border)"
                   strokeWidth="1"
                   strokeDasharray="4 4"
-                  opacity={0.5}
+                  opacity={0.4}
                 />
                 {!isDup && (
                   <text
                     x={padding.left - 8}
-                    y={y + 4}
+                    y={y + 3.5}
                     textAnchor="end"
                     fill="var(--color-text-muted)"
-                    fontSize="11"
+                    fontSize="10"
+                    fontWeight="500"
                   >
-                    {v}
+                    {formatValue(v)}
                   </text>
                 )}
               </g>
             );
           });
         })()}
+
+        {/* Average Benchmark Dashed Line */}
+        {avgY !== null && (
+          <g className="chart-average-line">
+            <line
+              x1={padding.left}
+              y1={avgY}
+              x2={padding.left + chartW}
+              y2={avgY}
+              stroke="var(--color-text-muted)"
+              strokeWidth="1.2"
+              strokeDasharray="4 3"
+              opacity={0.65}
+            />
+            <g transform={`translate(${padding.left + chartW}, ${avgY - 3})`}>
+              <rect
+                x="-52"
+                y="-10"
+                width="52"
+                height="13"
+                rx="3"
+                fill="var(--color-bg-surface)"
+                opacity="0.9"
+                stroke="var(--color-border)"
+                strokeWidth="0.8"
+              />
+              <text
+                x="-4"
+                y="-1"
+                textAnchor="end"
+                fill="var(--color-text-secondary)"
+                fontSize="8"
+                fontWeight="700"
+              >
+                {t("charts.average")}: {formatValue(Math.round(averageVal))}
+              </text>
+            </g>
+          </g>
+        )}
 
         {/* Bars */}
         {data.map((value, i) => {
@@ -152,89 +293,80 @@ export default function BarChart({
           const y = padding.top + chartH - barH;
           const isHovered = hoverIndex === i;
           const isDimmed = hoverIndex !== null && hoverIndex !== i;
+          const isPeak = showExtremes && i === peakIndex && value > 0;
 
-          // Tick-stride logic for x-axis labels. Only render a label if this
-          // bar is on the stride, OR it's the last tick (so the right
-          // boundary is always visible), OR the user is hovering this bar
-          // (which "summons" the otherwise-culled label).
           const isStrideTick = i % labelStride === 0;
           const isLastTick = i === data.length - 1;
-          // If a stride tick sits within ~60% of a stride of the final tick,
-          // drop it — the final tick is always shown, and the two would
-          // visually crowd each other (e.g. when stride=8, ticks at 80
-          // and 88 with last at 89 are too close to bother rendering both).
           const collapsesWithLast =
             !isLastTick &&
             data.length - 1 - i < Math.ceil(labelStride * 0.6);
           const showXLabel =
-            ((isStrideTick && !collapsesWithLast) || isLastTick) || isHovered;
-          // Value-on-top is gated by bar width to prevent a wall of "0h"
-          // labels in dense views; we also suppress literal "0" labels for
-          // even cleaner rendering when the bar is empty.
-          const showTopValue =
-            (showValuesOnTop || isHovered) && value > 0;
+            (isStrideTick && !collapsesWithLast) || isLastTick || isHovered;
+          const showTopValue = (showValuesOnTop || isHovered) && value > 0;
 
           return (
             <g
               key={`bar-${i}`}
               className="chart-bar-group"
-              style={{ cursor: "pointer" }}
+              style={{ cursor: onBarClick ? "pointer" : "default" }}
               onMouseEnter={() => handleMouseEnter(i)}
               onMouseLeave={handleMouseLeave}
+              onClick={() => handleBarClick(i)}
             >
-              {/* Hit area (invisible, larger for easier hover) */}
+              {/* Hit area */}
               <rect
                 x={x - barGap / 2}
                 y={padding.top}
                 width={barW + barGap}
-                height={chartH}
+                height={chartH + padding.bottom}
                 fill="transparent"
                 style={{ pointerEvents: "all" }}
               />
-              {/* Bar */}
+
+              {/* Bar pillar */}
               <rect
                 x={x}
                 y={y}
                 width={Math.max(barW, 2)}
                 height={Math.max(barH, 1)}
-                rx="4"
-                fill={color}
-                opacity={isDimmed ? 0.35 : 0.85}
+                rx={Math.min(5, barW / 2)}
+                fill={gradient ? `url(#${chartId}-grad)` : color}
+                opacity={isDimmed ? 0.3 : 1}
+                filter={isHovered ? `url(#${chartId}-bar-glow)` : "none"}
                 style={{
-                  transition: "opacity 200ms, filter 200ms",
-                  filter: isHovered ? "brightness(1.25)" : "none",
+                  transition: "opacity 160ms, filter 160ms, transform 160ms",
+                  transformOrigin: `${x + barW / 2}px ${padding.top + chartH}px`,
+                  transform: isHovered ? "scaleY(1.02)" : "none",
                 }}
               >
                 {tooltip && <title>{labels[i]}: {formatValue(value)}</title>}
               </rect>
-              {/*
-                Phase 2.9 PR 4 ("data viz touches") — focus ring.
-                A 2-px outset rect with stroke={color} that is only
-                drawn when this bar is the hovered one. Paints AFTER
-                the bar so SVG painter order puts the ring on top of
-                the bar's body, not behind the next bar over. Pointer
-                events disabled so the ring never intercepts the
-                cursor that the bar group is listening for.
-                strokeWidth + opacity both transition so the ring
-                eases in and out cross-fade-friendly (matches the
-                sibling-bar opacity ramp already in place). */}
+
+              {/* Focus border ring on hovered bar */}
               <rect
-                x={x - 2}
+                x={x - 1.5}
                 y={(value / maxVal) * chartH === 0 ? padding.top + chartH - 4 : y - 2}
-                width={barW + 4}
-                height={Math.max((value / maxVal) * chartH, 1) + (value === 0 ? 4 : 4)}
-                rx="5"
+                width={barW + 3}
+                height={Math.max((value / maxVal) * chartH, 1) + 4}
+                rx={Math.min(6, barW / 2 + 1)}
                 fill="none"
                 stroke={color}
                 strokeWidth={isHovered ? 2 : 0}
-                opacity={isHovered ? 0.6 : 0}
+                opacity={isHovered ? 0.9 : 0}
                 style={{
-                  transition: "opacity 180ms, stroke-width 180ms",
+                  transition: "opacity 160ms",
                   pointerEvents: "none",
                 }}
               />
-              {/* X-axis label only on stride ticks (and the last tick) so
-                  the date axis stays legible on 30d/90d/all-time views. */}
+
+              {/* Peak indicator crown / star */}
+              {isPeak && !isHovered && barW >= 12 && (
+                <g transform={`translate(${x + barW / 2}, ${y - 8})`}>
+                  <circle r="3" fill="var(--color-warning)" opacity="0.9" />
+                </g>
+              )}
+
+              {/* X-axis label */}
               {showXLabel && (
                 <text
                   x={x + barW / 2}
@@ -242,16 +374,14 @@ export default function BarChart({
                   textAnchor="middle"
                   fill={isHovered ? "var(--color-text-primary)" : "var(--color-text-muted)"}
                   fontSize={isHovered ? "11" : "10"}
-                  fontWeight={isHovered ? "600" : "400"}
+                  fontWeight={isHovered ? "700" : "500"}
                   style={{ transition: "all 150ms" }}
                 >
                   {labels[i]}
                 </text>
               )}
-              {/* Value-on-top label only when bars are wide enough to hold
-                  readable text and the value is non-zero. The hover tooltip
-                  remains the source-of-truth for exact values on dense
-                  charts. */}
+
+              {/* Top value label */}
               {showTopValue && (
                 <text
                   x={x + barW / 2}
@@ -260,7 +390,7 @@ export default function BarChart({
                   fill={isHovered ? "var(--color-text-primary)" : "var(--color-text-secondary)"}
                   fontSize={isHovered ? "11" : "10"}
                   fontWeight={isHovered ? "700" : "600"}
-                  opacity={isDimmed ? 0.4 : 1}
+                  opacity={isDimmed ? 0.35 : 1}
                   style={{ transition: "all 150ms" }}
                 >
                   {formatValue(value)}
@@ -271,23 +401,63 @@ export default function BarChart({
         })}
       </svg>
 
-      {/* Hover tooltip card */}
-      {hoverIndex !== null && (
+      {/* Modern Glassmorphic Tooltip */}
+      {hoverIndex !== null && data[hoverIndex] !== undefined && (
         <div
           className="chart-bar-tooltip"
           style={{
             position: "absolute",
-            top: "4px",
-            left: `${((hoverIndex + 0.5) / data.length) * 100}%`,
+            top: "6px",
+            left: `${clampTooltipPosition(
+              ((hoverIndex + 0.5) / (data.length || 1)) * 100,
+              12,
+              88
+            )}%`,
             transform: "translateX(-50%)",
             pointerEvents: "none",
-            zIndex: 20,
+            zIndex: 30,
           }}
         >
-          <div className="bar-tooltip-label">{labels[hoverIndex]}</div>
-          <div className="bar-tooltip-value">{formatValue(data[hoverIndex])}</div>
+          <div className="bar-tooltip-label">
+            <svg
+              viewBox="0 0 24 24"
+              width="10"
+              height="10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              style={{ display: "inline-block", marginRight: "4px", verticalAlign: "middle" }}
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            {labels[hoverIndex]}
+          </div>
+          <div className="bar-tooltip-value">
+            {formatValue(data[hoverIndex])}
+          </div>
+          <div className="bar-tooltip-meta">
+            {hoveredPctOfTotal !== null && (
+              <span className="bar-tooltip-share">{hoveredPctOfTotal}% {t("charts.total").toLowerCase()}</span>
+            )}
+            {hoveredDiffVsAvg !== null && (
+              <span
+                className={`bar-tooltip-diff ${
+                  hoveredDiffVsAvg >= 0 ? "is-positive" : "is-negative"
+                }`}
+              >
+                {hoveredDiffVsAvg >= 0 ? `+${hoveredDiffVsAvg}%` : `${hoveredDiffVsAvg}%`} {t("activity.avg").toLowerCase()}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+function clampTooltipPosition(pct: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, pct));
 }

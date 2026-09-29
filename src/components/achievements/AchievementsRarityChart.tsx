@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { type AchievementRarity, RARITY_COLORS } from "../../types/game";
 
@@ -27,6 +28,7 @@ export default function AchievementsRarityChart({
   totalAchievements,
 }: AchievementsRarityChartProps) {
   const { t } = useLanguage();
+  const [hoveredTier, setHoveredTier] = useState<AchievementRarity | null>(null);
 
   if (totalAchievements === 0) return null;
 
@@ -44,22 +46,33 @@ export default function AchievementsRarityChart({
         </span>
       </div>
 
-      {/* Segmented Stacked Bar */}
+      {/* Segmented Stacked Luxury Bar */}
       <div className="achievements-rarity-bar-wrap">
         <div className="achievements-rarity-bar achievements-rarity-bar-lg">
           {TIERS.map((tier) => {
             const count = rarityTotal[tier];
             if (count === 0) return null;
             const pct = (count / totalAchievements) * 100;
+            const isHovered = hoveredTier === tier;
+            const isDimmed = hoveredTier !== null && !isHovered;
+            const tierColor = RARITY_COLORS[tier];
+
             return (
               <div
                 key={tier}
-                className="achievements-rarity-segment"
+                className={`achievements-rarity-segment ${isHovered ? "is-hovered" : ""} ${isDimmed ? "is-dimmed" : ""}`}
                 data-tier={tier}
                 style={{
                   width: `${pct}%`,
-                  backgroundColor: RARITY_COLORS[tier],
+                  backgroundColor: tierColor,
+                  boxShadow: isHovered ? `0 0 12px ${tierColor}` : "none",
+                  transform: isHovered ? "scaleY(1.15)" : "none",
+                  transition: "transform 160ms, opacity 160ms, box-shadow 160ms",
+                  opacity: isDimmed ? 0.35 : 1,
+                  cursor: "pointer",
                 }}
+                onMouseEnter={() => setHoveredTier(tier)}
+                onMouseLeave={() => setHoveredTier(null)}
                 title={`${t(`achievementsPage.rarity.${tier}`)}: ${count} (${Math.round(pct)}%)`}
               />
             );
@@ -67,22 +80,32 @@ export default function AchievementsRarityChart({
         </div>
       </div>
 
-      {/* Tier Cards Grid */}
+      {/* Tier Cards Grid with interactive linking */}
       <div className="ach-rarity-cards-grid">
         {TIERS.map((tier) => {
           const total = rarityTotal[tier] || 0;
           const unlocked = rarityUnlocked[tier] || 0;
           const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0;
           const tierColor = RARITY_COLORS[tier];
+          const isHovered = hoveredTier === tier;
+          const isDimmed = hoveredTier !== null && !isHovered;
 
           return (
             <div
               key={tier}
-              className="ach-rarity-card"
+              className={`ach-rarity-card ${isHovered ? "is-hovered" : ""} ${isDimmed ? "is-dimmed" : ""}`}
               data-tier={tier}
               style={{
-                borderColor: `color-mix(in srgb, ${tierColor} 30%, var(--color-border))`,
+                borderColor: isHovered
+                  ? tierColor
+                  : `color-mix(in srgb, ${tierColor} 30%, var(--color-border))`,
+                boxShadow: isHovered ? `0 4px 16px color-mix(in srgb, ${tierColor} 25%, transparent)` : undefined,
+                opacity: isDimmed ? 0.5 : 1,
+                transition: "all 180ms ease",
+                cursor: "pointer",
               }}
+              onMouseEnter={() => setHoveredTier(tier)}
+              onMouseLeave={() => setHoveredTier(null)}
             >
               <div className="ach-rarity-card-top">
                 <span className="ach-rarity-card-icon">{TIER_ICONS[tier]}</span>
@@ -97,12 +120,13 @@ export default function AchievementsRarityChart({
                   style={{
                     width: `${pct}%`,
                     backgroundColor: tierColor,
+                    boxShadow: isHovered ? `0 0 8px ${tierColor}` : "none",
                   }}
                 />
               </div>
               <div className="ach-rarity-card-counts">
                 <span className="ach-rarity-card-unlocked">
-                  {unlocked} <span className="ach-rarity-card-of">{t("common.of")}</span> {total}
+                  <strong>{unlocked}</strong> <span className="ach-rarity-card-of">{t("common.of")}</span> {total}
                 </span>
               </div>
             </div>

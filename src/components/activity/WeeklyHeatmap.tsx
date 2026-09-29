@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { GameSession } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
+import * as Icons from "./Icons";
 
 export interface WeeklyHeatmapProps {
   sessions: GameSession[];
@@ -17,8 +18,16 @@ export function WeeklyHeatmap({
   selectedDate,
 }: WeeklyHeatmapProps) {
   const { t, language } = useLanguage();
+  const [hoveredCell, setHoveredCell] = useState<{
+    date: string;
+    minutes: number;
+    games: string[];
+    sessionsCount: number;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
 
-  const { cells, activeDaysCount, totalMinutes } = useMemo(() => {
+  const { cells, activeDaysCount, totalMinutes, currentStreak, bestStreak } = useMemo(() => {
     const dayMap = new Map<string, number>();
     const dayGames = new Map<string, Set<string>>();
     const daySessCount = new Map<string, number>();
@@ -49,12 +58,38 @@ export function WeeklyHeatmap({
       start.setDate(start.getDate() + 1);
     }
 
+    // Calculate streaks across chronological days
+    let curStreak = 0;
+    let bStreak = 0;
+    let tempStreak = 0;
+
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].minutes > 0) {
+        tempStreak++;
+        if (tempStreak > bStreak) bStreak = tempStreak;
+      } else {
+        tempStreak = 0;
+      }
+    }
+
+    // Current streak ending today or yesterday
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].minutes > 0) {
+        curStreak++;
+      } else if (i === list.length - 1) {
+        // Today hasn't had sessions yet, check yesterday
+        continue;
+      } else {
+        break;
+      }
+    }
+
     return {
       cells: list,
       activeDaysCount: activeDays,
       totalMinutes: totalMins,
-      dayGamesMap: dayGames,
-      daySessionsCountMap: daySessCount,
+      currentStreak: curStreak,
+      bestStreak: bStreak,
     };
   }, [sessions, timeframeDays]);
 
@@ -114,6 +149,18 @@ export function WeeklyHeatmap({
           <span className="act-heatmap__stat-badge">
             <strong>{formatPlayTime(totalMinutes)}</strong> {t("activity.totalPlaytime")}
           </span>
+          {currentStreak > 0 && (
+            <span className="act-heatmap__stat-badge act-heatmap__stat-badge--streak">
+              <Icons.Zap size={12} style={{ color: "var(--color-warning)" }} />
+              <strong>{currentStreak}d</strong> {t("activity.currentStreak").toLowerCase()}
+            </span>
+          )}
+          {bestStreak > 0 && (
+            <span className="act-heatmap__stat-badge">
+              <Icons.Trophy size={12} style={{ color: "var(--color-accent)" }} />
+              <strong>{bestStreak}d</strong> {t("gameActivity.bestStreakSub", { days: bestStreak })}
+            </span>
+          )}
         </div>
       </div>
 
@@ -139,28 +186,23 @@ export function WeeklyHeatmap({
                 }
 
                 const isSelected = selectedDate === cell.date;
-                const formattedDate = new Date(cell.date + "T00:00:00").toLocaleDateString(language, {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                });
-                const gamesInfo = cell.games.length > 0 ? `\n${t("activityDash.games")}: ${cell.games.join(", ")}` : "";
-                const sessionsInfo =
-                  cell.sessionsCount > 0
-                    ? `\n${t("activity.sessions")}: ${cell.sessionsCount}`
-                    : "";
-                const title = `${formattedDate} — ${cell.minutes > 0 ? formatPlayTime(cell.minutes) : t("activity.noPlaytimeData")}${sessionsInfo}${gamesInfo}`;
 
                 return (
                   <button
                     type="button"
                     key={cell.date}
                     className={`act-heatmap__cell ${intensity(cell.minutes)}${isSelected ? " act-heatmap__cell--selected" : ""}`}
-                    title={title}
-                    aria-label={title}
                     onClick={() => onSelectDate?.(cell.date)}
                     tabIndex={onSelectDate ? 0 : -1}
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoveredCell({
+                        ...cell,
+                        clientX: rect.left + rect.width / 2,
+                        clientY: rect.top,
+                      });
+                    }}
+                    onMouseLeave={() => setHoveredCell(null)}
                   />
                 );
               })}
@@ -168,6 +210,50 @@ export function WeeklyHeatmap({
           </div>
         </div>
       </div>
+
+      {/* Floating rich tooltip on hover */}
+      {hoveredCell && (
+        <div
+          className="act-heatmap__popover"
+          style={{
+            position: "fixed",
+            left: `${hoveredCell.clientX}px`,
+            top: `${hoveredCell.clientY - 10}px`,
+            transform: "translate(-50%, -100%)",
+            pointerEvents: "none",
+            zIndex: 1000,
+          }}
+        >
+          <div className="act-heatmap__popover-date">
+            {new Date(hoveredCell.date + "T00:00:00").toLocaleDateString(language, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </div>
+          <div className="act-heatmap__popover-time">
+            <strong>
+              {hoveredCell.minutes > 0 ? formatPlayTime(hoveredCell.minutes) : t("activity.noPlaytimeData")}
+            </strong>
+            {hoveredCell.sessionsCount > 0 && (
+              <span className="act-heatmap__popover-count">
+                ({hoveredCell.sessionsCount} {hoveredCell.sessionsCount === 1 ? t("activity.sessionOne") : t("activity.sessionsMany")})
+              </span>
+            )}
+          </div>
+          {hoveredCell.games.length > 0 && (
+            <div className="act-heatmap__popover-games">
+              {hoveredCell.games.map((g) => (
+                <span key={g} className="act-heatmap__popover-game-tag">
+                  {g}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="act-heatmap__footer">
         <span>{t("activityDash.less")}</span>
         <span className="act-heatmap__cell act-heatmap__cell--empty" />

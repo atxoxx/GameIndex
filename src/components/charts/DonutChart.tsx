@@ -1,18 +1,20 @@
 import { useMemo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 
-interface DonutSlice {
+export interface DonutSlice {
   value: number;
   color: string;
   label: string;
 }
 
-interface DonutChartProps {
+export interface DonutChartProps {
   slices: DonutSlice[];
   size?: number;
   innerRadius?: number;
   showLegend?: boolean;
   formatValue?: (v: number) => string;
+  centerLabel?: string;
+  onSliceClick?: (slice: DonutSlice, index: number) => void;
 }
 
 const DONUT_COLORS = [
@@ -30,22 +32,18 @@ const DONUT_COLORS = [
 
 export default function DonutChart({
   slices,
-  size = 200,
-  innerRadius = 55,
+  size = 210,
+  innerRadius = 58,
   showLegend = true,
   formatValue = (v) => String(v),
+  centerLabel,
+  onSliceClick,
 }: DonutChartProps) {
   const { t } = useLanguage();
-  // Hover state: brighten the focused segment (opacity + filter only —
-  // no scale or bounce, per the design contract). A single local
-  // `hoveredIndex` keeps the gesture cheap; resetting to null on
-  // mouseLeave returns every segment to rest.
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const total = useMemo(() => {
     const raw = slices.reduce((s, sl) => s + sl.value, 0) || 1;
-    // Round to strip floating-point summation artifacts (e.g. 0.1 + 0.2 = 0.300...004)
-    // while preserving up to 2 decimals of legitimate precision.
     return Math.round(raw * 100) / 100;
   }, [slices]);
 
@@ -61,7 +59,7 @@ export default function DonutChart({
 
         const cx = size / 2;
         const cy = size / 2;
-        const outerR = size / 2 - 4;
+        const outerR = size / 2 - 6;
         const innerR = innerRadius;
 
         const startRad = (startAngle * Math.PI) / 180;
@@ -87,88 +85,208 @@ export default function DonutChart({
           "Z",
         ].join(" ");
 
-        const result = { d, color, label: slice.label, value: slice.value, pct, startAngle, endAngle };
+        const midAngle = startAngle + angle / 2;
+        const midRad = (midAngle * Math.PI) / 180;
+        // Direction vector for slight outward hover expansion
+        const popX = Math.cos(midRad) * 4;
+        const popY = Math.sin(midRad) * 4;
+
+        const result = {
+          d,
+          color,
+          label: slice.label,
+          value: slice.value,
+          pct,
+          startAngle,
+          endAngle,
+          popX,
+          popY,
+          slice,
+        };
         startAngle = endAngle;
         return result;
       });
   }, [slices, total, size, innerRadius]);
 
+  const activeArc = hoveredIndex !== null ? arcs[hoveredIndex] : null;
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-xl)", flexWrap: "wrap" }}>
-      <svg
-        viewBox={`0 0 ${size} ${size}`}
-        width="100%"
-        height="auto"
-        style={{ width: "100%", maxWidth: size, height: "auto", flexShrink: 0 }}
-      >
-        {arcs.map((arc, i) => {
-          const isHovered = hoveredIndex === i;
-          return (
-            <g key={`arc-${i}`}>
-              <path
-                d={arc.d}
-                fill={arc.color}
-                opacity={isHovered ? 1 : 0.9}
-                stroke="var(--color-bg-primary)"
-                strokeWidth="2"
+    <div className="donut-chart-container">
+      <div className="donut-chart-svg-wrap" style={{ width: size, height: size }}>
+        <svg
+          viewBox={`0 0 ${size} ${size}`}
+          width="100%"
+          height="100%"
+          style={{ overflow: "visible" }}
+        >
+          <defs>
+            {arcs.map((arc, i) => (
+              <filter
+                key={`donut-glow-${i}`}
+                id={`donut-glow-${i}`}
+                x="-20%"
+                y="-20%"
+                width="140%"
+                height="140%"
+              >
+                <feDropShadow
+                  dx="0"
+                  dy="0"
+                  stdDeviation="4"
+                  floodColor={arc.color}
+                  floodOpacity="0.6"
+                />
+              </filter>
+            ))}
+          </defs>
+
+          {arcs.map((arc, i) => {
+            const isHovered = hoveredIndex === i;
+            const isDimmed = hoveredIndex !== null && !isHovered;
+
+            return (
+              <g
+                key={`arc-${i}`}
+                transform={isHovered ? `translate(${arc.popX}, ${arc.popY})` : undefined}
                 style={{
-                  transition: "opacity 150ms, filter 150ms",
-                  filter: isHovered ? "brightness(1.12)" : "none",
+                  transition: "transform 180ms cubic-bezier(0.16, 1, 0.3, 1)",
                   cursor: "pointer",
                 }}
                 onMouseEnter={() => setHoveredIndex(i)}
                 onMouseLeave={() => setHoveredIndex(null)}
+                onClick={() => onSliceClick?.(arc.slice, i)}
               >
-                <title>
-                  {arc.label}: {formatValue(arc.value)} ({Math.round(arc.pct * 100)}%)
-                </title>
-              </path>
-            </g>
-          );
-        })}
-        {/* Center text */}
-        <text
-          x={size / 2}
-          y={size / 2 - 6}
-          textAnchor="middle"
-          fill="var(--color-text-primary)"
-          fontSize="18"
-          fontWeight="700"
-        >
-          {formatValue(total)}
-        </text>
-        <text
-          x={size / 2}
-          y={size / 2 + 14}
-          textAnchor="middle"
-          fill="var(--color-text-muted)"
-          fontSize="11"
-        >
-          {t("achievements.total")}
-        </text>
-      </svg>
+                <path
+                  d={arc.d}
+                  fill={arc.color}
+                  opacity={isDimmed ? 0.35 : 1}
+                  stroke="var(--color-bg-primary)"
+                  strokeWidth="2.5"
+                  filter={isHovered ? `url(#donut-glow-${i})` : "none"}
+                  style={{
+                    transition: "opacity 160ms, filter 160ms",
+                  }}
+                >
+                  <title>
+                    {arc.label}: {formatValue(arc.value)} ({Math.round(arc.pct * 100)}%)
+                  </title>
+                </path>
+              </g>
+            );
+          })}
 
+          {/* Dynamic Center content */}
+          {activeArc ? (
+            <>
+              <text
+                x={size / 2}
+                y={size / 2 - 8}
+                textAnchor="middle"
+                fill="var(--color-text-primary)"
+                fontSize="18"
+                fontWeight="800"
+              >
+                {Math.round(activeArc.pct * 100)}%
+              </text>
+              <text
+                x={size / 2}
+                y={size / 2 + 10}
+                textAnchor="middle"
+                fill="var(--color-text-secondary)"
+                fontSize="10.5"
+                fontWeight="600"
+                style={{ textTransform: "capitalize" }}
+              >
+                {activeArc.label.length > 14
+                  ? `${activeArc.label.slice(0, 12)}…`
+                  : activeArc.label}
+              </text>
+              <text
+                x={size / 2}
+                y={size / 2 + 24}
+                textAnchor="middle"
+                fill="var(--color-text-muted)"
+                fontSize="9.5"
+                fontWeight="500"
+              >
+                {formatValue(activeArc.value)}
+              </text>
+            </>
+          ) : (
+            <>
+              <text
+                x={size / 2}
+                y={size / 2 - 2}
+                textAnchor="middle"
+                fill="var(--color-text-primary)"
+                fontSize="18"
+                fontWeight="800"
+              >
+                {formatValue(total)}
+              </text>
+              <text
+                x={size / 2}
+                y={size / 2 + 16}
+                textAnchor="middle"
+                fill="var(--color-text-muted)"
+                fontSize="11"
+                fontWeight="600"
+              >
+                {centerLabel || t("charts.total")}
+              </text>
+            </>
+          )}
+        </svg>
+      </div>
+
+      {/* Interactive Legend with Progress Mini-Bars */}
       {showLegend && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
-          {arcs.map((arc, i) => (
-            <div key={`leg-${i}`} style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
-              <div
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "3px",
-                  background: arc.color,
-                  flexShrink: 0,
-                }}
-              />
-              <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>
-                {arc.label}
-              </span>
-              <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-primary)", fontWeight: 600, marginLeft: "auto" }}>
-                {Math.round(arc.pct * 100)}%
-              </span>
-            </div>
-          ))}
+        <div className="donut-chart-legend">
+          {arcs.map((arc, i) => {
+            const isHovered = hoveredIndex === i;
+            const isDimmed = hoveredIndex !== null && !isHovered;
+
+            return (
+              <button
+                key={`leg-${i}`}
+                type="button"
+                className={`donut-legend-item ${isHovered ? "is-hovered" : ""} ${
+                  isDimmed ? "is-dimmed" : ""
+                }`}
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                onClick={() => onSliceClick?.(arc.slice, i)}
+              >
+                <div
+                  className="donut-legend-dot"
+                  style={{
+                    background: arc.color,
+                    boxShadow: isHovered ? `0 0 8px ${arc.color}` : "none",
+                  }}
+                />
+                <span className="donut-legend-label" title={arc.label}>
+                  {arc.label}
+                </span>
+
+                <div className="donut-legend-bar-wrap">
+                  <div
+                    className="donut-legend-bar-fill"
+                    style={{
+                      width: `${Math.round(arc.pct * 100)}%`,
+                      backgroundColor: arc.color,
+                    }}
+                  />
+                </div>
+
+                <span className="donut-legend-pct">
+                  {Math.round(arc.pct * 100)}%
+                </span>
+                <span className="donut-legend-val">
+                  {formatValue(arc.value)}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

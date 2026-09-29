@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
-interface Series {
+export interface Series {
   data: number[];
   color: string;
   label: string;
@@ -19,7 +20,7 @@ export interface ChartBand {
   opacity?: number;
 }
 
-interface LineChartProps {
+export interface LineChartProps {
   series: Series[];
   labels: string[];
   width?: number;
@@ -33,6 +34,7 @@ interface LineChartProps {
    */
   formatTooltipValue?: (v: number) => React.ReactNode;
   legend?: boolean;
+  interactiveLegend?: boolean;
   fillOpacity?: number;
   minY?: number;
   maxY?: number;
@@ -49,12 +51,15 @@ interface LineChartProps {
   bands?: ChartBand[];
   /** Control data point circles: 'hover-only' (default, clean line), 'always', or 'never'. */
   showDots?: "hover-only" | "always" | "never";
+  /** Highlight highest peak and lowest dip with visual callout badges */
+  showExtremes?: boolean;
+  /** Display a quick KPI strip (Min, Avg, Max, Current) above the chart */
+  showSummary?: boolean;
+  /** Callback when user clicks on a data point / column */
+  onPointClick?: (index: number, label: string) => void;
 }
 
-/** Round a value up to the nearest "nice" number (1/2/2.5/5/10 × 10ⁿ).
- *  Exported so callers can pass a `maxY` consistent with the internal
- *  `niceMax` logic (e.g. to extend the axis to a true peak that lies
- *  above a downsampled series). */
+/** Round a value up to the nearest "nice" number (1/2/2.5/5/10 × 10ⁿ). */
 export function niceCeil(v: number): number {
   if (!Number.isFinite(v) || v <= 0) return 1;
   const exp = Math.floor(Math.log10(v));
@@ -102,7 +107,8 @@ export default function LineChart({
   formatValue = (v) => String(v),
   formatTooltipValue,
   legend = true,
-  fillOpacity = 0.08,
+  interactiveLegend = true,
+  fillOpacity = 0,
   minY,
   maxY,
   smooth = false,
@@ -110,16 +116,20 @@ export default function LineChart({
   thresholds,
   bands,
   showDots = "hover-only",
+  showExtremes = false,
+  showSummary = false,
+  onPointClick,
 }: LineChartProps) {
+  const { t } = useLanguage();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  // Measure the real rendered width so the SVG viewBox matches the element
-  // exactly. A fixed 640-wide viewBox inside a wider/narrower container is
-  // letterboxed by the default `preserveAspectRatio="xMidYMid meet"`, which
-  // is what makes the hover crosshair / tooltip drift away from the cursor.
+  const [hiddenSeriesIndices, setHiddenSeriesIndices] = useState<Set<number>>(new Set());
+
+  // Measure container width for responsive SVG viewBox
   const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
   const effectiveWidth = measuredWidth && measuredWidth > 0 ? measuredWidth : width;
+
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -130,20 +140,27 @@ export default function LineChart({
     return () => ro.disconnect();
   }, []);
 
+  // Filter visible series for rendering
+  const activeSeries = useMemo(() => {
+    return series.map((s, idx) => ({
+      ...s,
+      originalIndex: idx,
+      visible: !hiddenSeriesIndices.has(idx),
+    }));
+  }, [series, hiddenSeriesIndices]);
+
+  const visibleSeries = useMemo(() => {
+    const active = activeSeries.filter((s) => s.visible);
+    return active.length > 0 ? active : activeSeries;
+  }, [activeSeries]);
+
   const chart = useMemo(() => {
-    // Padding tuned for the new default height (280px): a touch more room at
-    // the top/bottom gives the area-fill and X-axis labels breathing space,
-    // and a slightly wider left gutter keeps 4-digit Y-axis labels (e.g.
-    // "100 %") from clipping. Right gutter stays slim — the floating
-    // tooltip can render past the chart bounds when it would otherwise
-    // overflow the right edge.
-    const padding = { top: 20, right: 20, bottom: 32, left: 54 };
-    const chartW = effectiveWidth - padding.left - padding.right;
-    const chartH = height - padding.top - padding.bottom;
+    const padding = { top: 24, right: 24, bottom: 36, left: 56 };
+    const chartW = Math.max(10, effectiveWidth - padding.left - padding.right);
+    const chartH = Math.max(10, height - padding.top - padding.bottom);
 
-    const allValues = series.flatMap((s) => s.data);
+    const allValues = visibleSeries.flatMap((s) => s.data);
 
-    // Use explicit bounds if provided, otherwise fallback to dynamic calculation
     const rawMax = Math.max(...allValues, 0);
     const computedMax = niceMax ? niceCeil(rawMax) : rawMax;
     const maxVal = maxY !== undefined ? maxY : computedMax;
@@ -151,16 +168,14 @@ export default function LineChart({
     const range = maxVal - minVal || 1;
 
     return { padding, chartW, chartH, maxVal, minVal, range };
-  }, [series, effectiveWidth, height, minY, maxY, niceMax]);
+  }, [visibleSeries, effectiveWidth, height, minY, maxY, niceMax]);
 
   const { padding, chartW, chartH, minVal, maxVal, range } = chart;
 
-  // Label stepping: compute exact evenly-spaced indices based on available chart width (chartW)
-  // so dates never collide, even on narrow popover charts or dense date series.
+  // Evenly spaced X-axis labels based on container width
   const visibleLabelIndices = useMemo(() => {
     if (labels.length === 0) return new Set<number>();
     if (labels.length === 1) return new Set<number>([0]);
-    // Allocate at least 70px per date label to guarantee zero overlap
     const targetCount = Math.max(2, Math.min(labels.length, Math.floor(chartW / 70)));
     const indices = new Set<number>();
     for (let k = 0; k < targetCount; k++) {
@@ -191,14 +206,6 @@ export default function LineChart({
       .join(" ");
   }
 
-  function buildArea(data: number[]): string {
-    if (data.length === 0) return "";
-    const path = buildPath(data);
-    const lastX = padding.left + chartW;
-    const bottomY = padding.top + chartH;
-    return `${path} L${lastX},${bottomY} L${padding.left},${bottomY} Z`;
-  }
-
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       const svg = svgRef.current;
@@ -207,9 +214,6 @@ export default function LineChart({
       const scaleX = effectiveWidth / rect.width;
       const mouseX = (e.clientX - rect.left) * scaleX;
 
-      // Find nearest data point based on X position. Hovering anywhere
-      // in the chart (including the axis gutters) snaps to the nearest
-      // endpoint, so the first/last points aren't dead zones.
       const dataLen = series[0]?.data.length ?? 0;
       if (dataLen === 0) return;
       let idx: number;
@@ -220,84 +224,171 @@ export default function LineChart({
 
       setHoverIndex(clampedIdx);
     },
-    [effectiveWidth, height, padding.left, chartW, chartH, padding.top, series]
+    [effectiveWidth, padding.left, chartW, series]
   );
 
   const handleMouseLeave = useCallback(() => {
     setHoverIndex(null);
   }, []);
 
-  // Compute data point positions for all series
+  const handleClick = useCallback(() => {
+    if (hoverIndex !== null && onPointClick && labels[hoverIndex]) {
+      onPointClick(hoverIndex, labels[hoverIndex]);
+    }
+  }, [hoverIndex, onPointClick, labels]);
+
+  // Compute point positions for each series
   const pointPositions = useMemo(() => {
     return series.map((s) =>
       s.data.map((v, i) => {
         const x = padding.left + (i / Math.max(s.data.length - 1, 1)) * chartW;
         const y = padding.top + chartH - ((v - minVal) / range) * chartH;
-        return { x, y };
+        return { x, y, value: v };
       })
     );
   }, [series, padding.left, chartW, chartH, minVal, range]);
 
-  // Tooltip values for hovered index
-  const tooltipValues =
-    hoverIndex !== null
-      ? series.map((s, si) => ({
-          label: s.label,
-          value: s.data[hoverIndex] ?? 0,
-          color: s.color,
-          y: pointPositions[si]?.[hoverIndex]?.y ?? 0,
-        }))
-      : null;
+  // Tooltip values for hovered point
+  const tooltipValues = useMemo(() => {
+    if (hoverIndex === null) return null;
+    return visibleSeries.map((s) => ({
+      label: s.label,
+      value: s.data[hoverIndex] ?? 0,
+      color: s.color,
+      y: pointPositions[s.originalIndex]?.[hoverIndex]?.y ?? 0,
+    }));
+  }, [hoverIndex, visibleSeries, pointPositions]);
 
   const crosshairX =
     hoverIndex !== null && pointPositions[0]?.[hoverIndex]
       ? pointPositions[0][hoverIndex].x
       : null;
 
-  const seriesLinePath = (si: number): string =>
-    smooth ? buildSmoothPath(pointPositions[si] ?? []) : buildPath(series[si].data);
+  const seriesLinePath = (originalIdx: number): string =>
+    smooth
+      ? buildSmoothPath(pointPositions[originalIdx] ?? [])
+      : buildPath(series[originalIdx].data);
 
-  const seriesAreaPath = (si: number): string => {
-    if (smooth) {
-      const p = pointPositions[si];
-      if (!p || p.length === 0) return "";
-      const bottomY = padding.top + chartH;
-      const line = buildSmoothPath(p);
-      const lastX = p[p.length - 1].x;
-      const firstX = p[0].x;
-      return `${line} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
+  const seriesAreaPath = (originalIdx: number): string => {
+    const p = pointPositions[originalIdx];
+    if (!p || p.length === 0) return "";
+    const bottomY = padding.top + chartH;
+    const line = smooth ? buildSmoothPath(p) : buildPath(series[originalIdx].data);
+    const lastX = p[p.length - 1].x;
+    const firstX = p[0].x;
+    return `${line} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
+  };
+
+  // Find overall peak and valley for visual callouts
+  const extremes = useMemo(() => {
+    if (!showExtremes || visibleSeries.length === 0) return null;
+    let peak = { val: -Infinity, si: 0, idx: 0, x: 0, y: 0 };
+    let valley = { val: Infinity, si: 0, idx: 0, x: 0, y: 0 };
+
+    visibleSeries.forEach((s) => {
+      const pts = pointPositions[s.originalIndex];
+      if (!pts) return;
+      pts.forEach((pt, i) => {
+        if (pt.value > peak.val) {
+          peak = { val: pt.value, si: s.originalIndex, idx: i, x: pt.x, y: pt.y };
+        }
+        if (pt.value < valley.val && pt.value >= 0) {
+          valley = { val: pt.value, si: s.originalIndex, idx: i, x: pt.x, y: pt.y };
+        }
+      });
+    });
+
+    return { peak, valley };
+  }, [showExtremes, visibleSeries, pointPositions]);
+
+  // Overall quick stats for optional summary
+  const summaryStats = useMemo(() => {
+    if (!showSummary || visibleSeries.length === 0) return null;
+    const vals = visibleSeries.flatMap((s) => s.data);
+    if (vals.length === 0) return null;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    const current = visibleSeries[0]?.data[visibleSeries[0].data.length - 1] ?? 0;
+    return { min, max, avg, current };
+  }, [showSummary, visibleSeries]);
+
+  // Interactive legend handlers
+  const handleToggleSeries = (idx: number, e: React.MouseEvent) => {
+    if (!interactiveLegend || series.length <= 1) return;
+    if (e.altKey) {
+      // Solo this series: hide all others, or if already soloed, restore all
+      if (hiddenSeriesIndices.size === series.length - 1 && !hiddenSeriesIndices.has(idx)) {
+        setHiddenSeriesIndices(new Set());
+      } else {
+        const next = new Set<number>();
+        series.forEach((_, i) => {
+          if (i !== idx) next.add(i);
+        });
+        setHiddenSeriesIndices(next);
+      }
+      return;
     }
-    return buildArea(series[si].data);
+
+    setHiddenSeriesIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        // Prevent hiding the very last series
+        if (next.size < series.length - 1) {
+          next.add(idx);
+        }
+      }
+      return next;
+    });
   };
 
   return (
-    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
+    <div
+      ref={containerRef}
+      className="chart-line-wrapper"
+      style={{ position: "relative", width: "100%" }}
+    >
+      {/* Quick summary stats strip */}
+      {summaryStats && (
+        <div className="chart-summary-strip">
+          <div className="chart-summary-item">
+            <span className="chart-summary-label">{t("charts.min")}</span>
+            <span className="chart-summary-val">{formatValue(summaryStats.min)}</span>
+          </div>
+          <div className="chart-summary-item">
+            <span className="chart-summary-label">{t("charts.average")}</span>
+            <span className="chart-summary-val">{formatValue(summaryStats.avg)}</span>
+          </div>
+          <div className="chart-summary-item chart-summary-item--peak">
+            <span className="chart-summary-label">{t("charts.peak")}</span>
+            <span className="chart-summary-val">{formatValue(summaryStats.max)}</span>
+          </div>
+          <div className="chart-summary-item">
+            <span className="chart-summary-label">{t("activitySpark.avg")}</span>
+            <span className="chart-summary-val">{formatValue(summaryStats.current)}</span>
+          </div>
+        </div>
+      )}
+
       <svg
         ref={svgRef}
         viewBox={`0 0 ${effectiveWidth} ${height}`}
         width="100%"
         height={height}
-        style={{ fontFamily: "inherit", cursor: "crosshair" }}
+        style={{
+          fontFamily: "inherit",
+          cursor: onPointClick ? "pointer" : "crosshair",
+          display: "block",
+          overflow: "visible",
+        }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onClick={handleClick}
       >
-        <defs>
-          {series.map((s, si) => (
-            <linearGradient
-              key={`grad-${si}`}
-              id={`line-chart-grad-${si}`}
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="1"
-            >
-              <stop offset="0%" stopColor={s.color} stopOpacity={fillOpacity * 2.2} />
-              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
-            </linearGradient>
-          ))}
-        </defs>
 
-        {/* Shaded bands (drawn under grid + series) */}
+        {/* Shaded bands */}
         {bands?.map((band, bi) => {
           const lo = Math.min(band.from, band.to);
           const hi = Math.max(band.from, band.to);
@@ -314,11 +405,12 @@ export default function LineChart({
               height={Math.max(0, yLo - yHi)}
               fill={color}
               opacity={band.opacity ?? 0.08}
+              rx="4"
             />
           );
         })}
 
-        {/* Grid lines */}
+        {/* Grid lines with soft tick labels */}
         {gridValues.map((v, i) => {
           const y = padding.top + chartH - ((v - minVal) / range) * chartH;
           return (
@@ -331,14 +423,15 @@ export default function LineChart({
                 stroke="var(--color-border)"
                 strokeWidth="1"
                 strokeDasharray="4 4"
-                opacity={0.5}
+                opacity={0.4}
               />
               <text
-                x={padding.left - 8}
-                y={y + 4}
+                x={padding.left - 10}
+                y={y + 3.5}
                 textAnchor="end"
                 fill="var(--color-text-muted)"
                 fontSize="10"
+                fontWeight="500"
               >
                 {formatValue(v)}
               </text>
@@ -346,29 +439,36 @@ export default function LineChart({
           );
         })}
 
-        {/* Series areas and lines */}
-        {series.map((s, si) => (
-          <g key={`series-${si}`}>
+        {/* Visible Series lines */}
+        {visibleSeries.map((s) => (
+          <g key={`series-${s.originalIndex}`}>
+            {/* Area Fill only if fillOpacity is explicitly requested */}
+            {fillOpacity > 0 && (
+              <path
+                d={seriesAreaPath(s.originalIndex)}
+                fill={s.color}
+                fillOpacity={fillOpacity}
+                style={{ transition: "d 200ms ease" }}
+              />
+            )}
+            {/* Clean crisp line without blurry glow filter */}
             <path
-              d={seriesAreaPath(si)}
-              fill={`url(#line-chart-grad-${si})`}
-            />
-            <path
-              d={seriesLinePath(si)}
+              d={seriesLinePath(s.originalIndex)}
               fill="none"
               stroke={s.color}
               strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              style={{ transition: "d 200ms ease" }}
             />
           </g>
         ))}
 
-        {/* Threshold reference lines (drawn over the series so they stay visible) */}
-        {thresholds?.map((t, ti) => {
-          if (t.value < minVal || t.value > maxVal) return null;
-          const y = yForValue(t.value);
-          const color = t.color ?? "var(--color-text-muted)";
+        {/* Threshold reference lines */}
+        {thresholds?.map((tRef, ti) => {
+          if (tRef.value < minVal || tRef.value > maxVal) return null;
+          const y = yForValue(tRef.value);
+          const color = tRef.color ?? "var(--color-text-muted)";
           return (
             <g key={`thresh-${ti}`}>
               <line
@@ -377,84 +477,106 @@ export default function LineChart({
                 x2={padding.left + chartW}
                 y2={y}
                 stroke={color}
-                strokeWidth="1"
+                strokeWidth="1.2"
                 strokeDasharray="5 4"
-                opacity={0.7}
+                opacity={0.75}
               />
-              {t.label && (
-                <text
-                  x={padding.left + chartW - 4}
-                  y={y - 4}
-                  textAnchor="end"
-                  fill={color}
-                  fontSize="9"
-                  fontWeight={600}
-                  style={{ textTransform: "uppercase", letterSpacing: "0.4px" }}
-                >
-                  {t.label}
-                </text>
+              {tRef.label && (
+                <g transform={`translate(${padding.left + chartW - 6}, ${y - 4})`}>
+                  <rect
+                    x="-65"
+                    y="-11"
+                    width="65"
+                    height="14"
+                    rx="3"
+                    fill="var(--color-bg-surface)"
+                    opacity="0.9"
+                    stroke={color}
+                    strokeWidth="0.8"
+                  />
+                  <text
+                    x="-4"
+                    y="-1"
+                    textAnchor="end"
+                    fill={color}
+                    fontSize="8.5"
+                    fontWeight={700}
+                    letterSpacing="0.4px"
+                  >
+                    {tRef.label}
+                  </text>
+                </g>
               )}
             </g>
           );
         })}
 
-        {/* Data dots (drawn only when enabled or for small datasets) */}
+        {/* Peak & Valley callout pins */}
+        {extremes?.peak && extremes.peak.val > 0 && (
+          <g transform={`translate(${extremes.peak.x}, ${extremes.peak.y})`} className="chart-peak-pin">
+            <circle r="5" fill="var(--color-warning)" opacity="0.25" />
+            <circle r="2.5" fill="var(--color-warning)" stroke="var(--color-bg-primary)" strokeWidth="1.5" />
+          </g>
+        )}
+
+        {/* Data point dots (always / small series) */}
         {(showDots === "always" || (showDots === "hover-only" && (series[0]?.data.length ?? 0) <= 12)) &&
-          pointPositions.map((points, si) =>
-            points.map(({ x, y }, i) => {
+          visibleSeries.map((s) => {
+            const points = pointPositions[s.originalIndex] ?? [];
+            return points.map(({ x, y }, i) => {
               const isActive = hoverIndex === i;
               const isDimmed = hoverIndex !== null && hoverIndex !== i;
               return (
                 <circle
-                  key={`dot-${si}-${i}`}
+                  key={`dot-${s.originalIndex}-${i}`}
                   cx={x}
                   cy={y}
-                  r={isActive ? 5 : 2.5}
-                  fill={series[si].color}
+                  r={isActive ? 4.5 : 2.5}
+                  fill={s.color}
                   stroke="var(--color-bg-primary)"
                   strokeWidth={isActive ? 2 : 1}
-                  opacity={isDimmed ? 0.2 : 0.8}
+                  opacity={isDimmed ? 0.25 : 0.85}
                   style={{
                     transition: "opacity 150ms, r 150ms",
                   }}
                 />
               );
-            })
-          )}
+            });
+          })}
 
         {/* Crosshair vertical guide line */}
-        {crosshairX !== null && (
+        {crosshairX !== null && hoverIndex !== null && (
           <line
             x1={crosshairX}
             y1={padding.top}
             x2={crosshairX}
             y2={padding.top + chartH}
             stroke="var(--color-accent)"
-            strokeWidth="1.5"
-            strokeDasharray="4 3"
-            opacity={0.65}
+            strokeWidth="1.2"
+            strokeDasharray="3 3"
+            opacity={0.8}
           />
         )}
 
-        {/* Active hover point highlight (pulsing multi-ring target dot) */}
+        {/* Active hover multi-ring target dot on each series intersection */}
         {hoverIndex !== null &&
-          pointPositions.map((points, si) => {
-            const pt = points[hoverIndex];
+          visibleSeries.map((s) => {
+            const pt = pointPositions[s.originalIndex]?.[hoverIndex];
             if (!pt) return null;
             return (
-              <g key={`cross-${si}`}>
+              <g key={`cross-${s.originalIndex}`}>
                 <circle
                   cx={pt.x}
                   cy={pt.y}
-                  r="7"
-                  fill={series[si].color}
-                  opacity={0.25}
+                  r="8"
+                  fill={s.color}
+                  opacity={0.3}
                 />
                 <circle
                   cx={pt.x}
                   cy={pt.y}
-                  r="4"
-                  fill={series[si].color}
+                  r="4.5"
+                  fill={s.color}
                   stroke="var(--color-bg-primary)"
                   strokeWidth="2"
                 />
@@ -478,43 +600,13 @@ export default function LineChart({
               textAnchor={anchor}
               fill={isActive ? "var(--color-text-primary)" : "var(--color-text-muted)"}
               fontSize={isActive ? "10" : "9"}
-              fontWeight={isActive ? "600" : "500"}
+              fontWeight={isActive ? "700" : "500"}
               style={{ transition: "all 150ms" }}
             >
               {label}
             </text>
           );
         })}
-
-        {/* Legend */}
-        {legend && (
-          <g transform={`translate(${padding.left}, ${height - 4})`}>
-            {series.map((s, i) => {
-              const legendX = i * 140;
-              return (
-                <g key={`leg-${i}`} transform={`translate(${legendX}, 0)`}>
-                  <line
-                    x1="0"
-                    y1="0"
-                    x2="16"
-                    y2="0"
-                    stroke={s.color}
-                    strokeWidth="2.5"
-                  />
-                  <circle cx="8" cy="0" r="3" fill={s.color} />
-                  <text
-                    x="22"
-                    y="4"
-                    fill="var(--color-text-secondary)"
-                    fontSize="11"
-                  >
-                    {s.label}
-                  </text>
-                </g>
-              );
-            })}
-          </g>
-        )}
       </svg>
 
       {/* Floating tooltip card */}
@@ -523,30 +615,45 @@ export default function LineChart({
           className="chart-tooltip-card"
           style={{
             position: "absolute",
-            // Clamp horizontally so the card never spills past the
-            // chart edges (the first point's tooltip used to get
-            // pushed off-screen on the left).
             left:
               crosshairX !== null
-                ? `clamp(4px, ${
-                    ((crosshairX +
-                      (crosshairX > effectiveWidth * 0.6 ? -176 : 8)) /
+                ? `clamp(8px, ${
+                    ((crosshairX + (crosshairX > effectiveWidth * 0.6 ? -184 : 12)) /
                       effectiveWidth) *
                     100
-                  }%, calc(100% - 180px))`
+                  }%, calc(100% - 190px))`
                 : "0%",
-            top: "8px",
+            top: "10px",
             pointerEvents: "none",
-            zIndex: 20,
+            zIndex: 30,
           }}
         >
-          <div className="chart-tooltip-label">{labels[hoverIndex]}</div>
+          <div className="chart-tooltip-label">
+            <svg
+              viewBox="0 0 24 24"
+              width="10"
+              height="10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              style={{ display: "inline-block", marginRight: "4px", verticalAlign: "middle" }}
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            {labels[hoverIndex]}
+          </div>
           <div className="chart-tooltip-values">
             {tooltipValues.map((tv, i) => (
               <div key={i} className="chart-tooltip-row">
                 <span
                   className="chart-tooltip-dot"
-                  style={{ background: tv.color }}
+                  style={{
+                    background: tv.color,
+                    boxShadow: `0 0 6px ${tv.color}`,
+                  }}
                 />
                 <span className="chart-tooltip-name">{tv.label}</span>
                 <span className="chart-tooltip-val">
@@ -557,6 +664,38 @@ export default function LineChart({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Interactive Legend Bar */}
+      {legend && series.length > 0 && (
+        <div className="chart-interactive-legend" role="toolbar" aria-label="Chart Series Legend">
+          {series.map((s, i) => {
+            const isHidden = hiddenSeriesIndices.has(i);
+            const latestVal = s.data.length > 0 ? s.data[s.data.length - 1] : null;
+
+            return (
+              <button
+                key={`leg-btn-${i}`}
+                type="button"
+                className={`chart-legend-pill ${isHidden ? "is-hidden" : ""}`}
+                title={interactiveLegend && series.length > 1 ? t("charts.clickToSolo") : s.label}
+                onClick={(e) => handleToggleSeries(i, e)}
+              >
+                <span
+                  className="chart-legend-dot"
+                  style={{
+                    backgroundColor: s.color,
+                    boxShadow: isHidden ? "none" : `0 0 8px ${s.color}`,
+                  }}
+                />
+                <span className="chart-legend-name">{s.label}</span>
+                {latestVal !== null && !isHidden && (
+                  <span className="chart-legend-badge">{formatValue(latestVal)}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
