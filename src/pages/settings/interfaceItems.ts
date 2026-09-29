@@ -57,6 +57,7 @@ export const NAV_TAB_ITEMS: InterfaceItemDef[] = [
   { key: "navMods", labelKey: "nav.mods", icon: Puzzle },
   { key: "navAchievements", labelKey: "nav.achievements", icon: Trophy },
   { key: "navStorage", labelKey: "nav.storage", icon: HardDrive },
+  { key: "navDownloads", labelKey: "nav.downloads", icon: Download },
   { key: "navCommunity", labelKey: "nav.community", icon: ChartColumn },
   { key: "navFriends", labelKey: "nav.friends", icon: Users },
 ];

@@ -257,6 +257,7 @@ export type InterfaceItemKey =
   | "navActivity"
   | "navAchievements"
   | "navStorage"
+  | "navDownloads"
   | "navCommunity"
   | "navFriends"
   // Right-cluster navbar buttons
@@ -280,7 +281,8 @@ export type InterfaceItemKey =
 
 export type InterfaceVisibility = Record<InterfaceItemKey, boolean>;
 
-/** All interface items default to visible so existing users see no change. */
+/** All interface items default to visible so existing users see no change,
+ *  except navDownloads which defaults to off (btnDownloads provides the default access). */
 export const DEFAULT_INTERFACE_VISIBILITY: InterfaceVisibility = {
   navHome: true,
   navStore: true,
@@ -293,6 +295,7 @@ export const DEFAULT_INTERFACE_VISIBILITY: InterfaceVisibility = {
   navActivity: true,
   navAchievements: true,
   navStorage: true,
+  navDownloads: false,
   navCommunity: true,
   navFriends: true,
   btnDownloads: true,
@@ -334,6 +337,7 @@ export const DEFAULT_NAVBAR_TAB_ORDER: InterfaceItemKey[] = [
   "navMods",
   "navAchievements",
   "navStorage",
+  "navDownloads",
   "navCommunity",
   "navFriends",
 ];

@@ -32,6 +32,10 @@ import {
 } from "../interfaceItems";
 import { useOrderDrag } from "../useOrderDrag";
 import { DetailPagePreview } from "./DetailPagePreview";
+import { HomePagePreview } from "./HomePagePreview";
+import { LibraryPagePreview } from "./LibraryPagePreview";
+import { StorePagePreview } from "./StorePagePreview";
+import { WishlistPagePreview } from "./WishlistPagePreview";
 import { WIDGET_ICON, WIDGET_KEY_BY_ITEM } from "./widgetIcons";
 import type { OrderListItem, ViewportPreset } from "./types";
 
@@ -707,6 +711,50 @@ export function StudioPreview({
                     onHeroGridTidy={onHeroGridTidy}
                     onHeroGridReset={onHeroGridReset}
                     onHeroGridConvert={onHeroGridConvert}
+                  />
+                </div>
+              ) : page === "home" ? (
+                <div className="studio-detail-scroll">
+                  <HomePagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "library" ? (
+                <div className="studio-detail-scroll">
+                  <LibraryPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "store" ? (
+                <div className="studio-detail-scroll">
+                  <StorePagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "wishlist" ? (
+                <div className="studio-detail-scroll">
+                  <WishlistPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
                   />
                 </div>
               ) : (

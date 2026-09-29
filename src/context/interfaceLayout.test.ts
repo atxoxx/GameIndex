@@ -36,6 +36,7 @@ import {
 } from "./interfaceLayout";
 import { moveKey, sortByOrder, NAV_TAB_ITEMS } from "../pages/settings/interfaceItems";
 import {
+  DEFAULT_INTERFACE_VISIBILITY,
   DEFAULT_NAVBAR_TAB_ORDER,
   normalizeNavbarButtonOrder,
 } from "./SettingsContext";
@@ -160,6 +161,12 @@ describe("header item helpers", () => {
     const result = normalizeNavbarButtonOrder(["btnBigScreen"]);
     expect(result[0]).toBe("btnBigScreen");
     expect(result).toHaveLength(4);
+  });
+
+  it("includes navDownloads in navbar tabs and defaults to disabled", () => {
+    expect(NAV_TAB_ITEMS.some((item) => item.key === "navDownloads")).toBe(true);
+    expect(DEFAULT_NAVBAR_TAB_ORDER).toContain("navDownloads");
+    expect(DEFAULT_INTERFACE_VISIBILITY.navDownloads).toBe(false);
   });
 });
 

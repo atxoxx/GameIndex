@@ -92,6 +92,7 @@ const TAB_VISIBILITY_KEY: Record<string, InterfaceItemKey> = {
   "/activity": "navActivity",
   "/achievements": "navAchievements",
   "/storage": "navStorage",
+  "/downloads": "navDownloads",
   "/community": "navCommunity",
   "/friends": "navFriends",
 };
@@ -110,6 +111,7 @@ const allNavTabs: Tab[] = [
   { path: "/activity", labelKey: "nav.activity", icon: Activity },
   { path: "/achievements", labelKey: "nav.achievements", icon: Trophy },
   { path: "/storage", labelKey: "nav.storage", icon: HardDrive },
+  { path: "/downloads", labelKey: "nav.downloads", icon: Download },
   { path: "/community", labelKey: "nav.community", icon: ChartColumn },
   { path: "/friends", labelKey: "nav.friends", icon: Users },
 ];
@@ -313,7 +315,13 @@ export default function TopNav() {
             {displayedTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = location.pathname.startsWith(tab.path);
-              const showBadge = tab.path === "/friends" && unseenCommunity > 0;
+              const isFriends = tab.path === "/friends";
+              const isDownloads = tab.path === "/downloads";
+              const showBadge = (isFriends && unseenCommunity > 0) || (isDownloads && activeDownloads > 0);
+              const badgeCount = isFriends ? unseenCommunity : activeDownloads;
+              const badgeLabel = isFriends
+                ? t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })
+                : t("topnav.activeDownloads", { count: activeDownloads });
               return (
                 <NavLink
                   key={tab.path}
@@ -324,7 +332,7 @@ export default function TopNav() {
                   onFocus={() => preloadRoute(tab.path)}
                   onClick={() => {
                     playTabSound();
-                    if (tab.path === "/friends") clearUnseenCommunityItems();
+                    if (isFriends) clearUnseenCommunityItems();
                   }}
                 >
                   <Icon className="topnav-tab-icon" strokeWidth={2} aria-hidden="true" />
@@ -333,9 +341,9 @@ export default function TopNav() {
                     <span
                       className="topnav-tab-badge"
                       role="status"
-                      aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}
+                      aria-label={badgeLabel}
                     >
-                      {unseenCommunity > 99 ? "99+" : unseenCommunity}
+                      {badgeCount > 99 ? "99+" : badgeCount}
                     </span>
                   )}
                 </NavLink>
