@@ -3882,6 +3882,12 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-surface-hover) 35%, transparent);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dl-history-row:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-surface-hover) 60%, transparent);
 }
 
 .dl-history-row-main {

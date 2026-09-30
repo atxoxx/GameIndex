@@ -119,7 +119,7 @@ export default function DownloadsHistoryTab() {
                 <span className="dl-history-name" title={row.name}>
                   {row.name}
                 </span>
-                <span className={`dl-status-badge dl-status-badge--${getStatusClassSuffix(row.status)}`}>
+                <span className={`dl-row-status dl-row-status--${getStatusClassSuffix(row.status)}`}>
                   {getStatusLabel(row.status, t)}
                 </span>
                 <span className="dl-history-source">{row.sourceName}</span>

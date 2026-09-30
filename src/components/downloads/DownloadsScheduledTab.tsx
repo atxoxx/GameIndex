@@ -407,7 +407,7 @@ export default function DownloadsScheduledTab() {
                     <span className="dl-sched-queue-name" title={download.name}>
                       {download.name}
                     </span>
-                    <span className={`dl-status-badge dl-status-badge--${getStatusClassSuffix(download.status)}`}>
+                    <span className={`dl-row-status dl-row-status--${getStatusClassSuffix(download.status)}`}>
                       {getStatusLabel(download.status, t)}
                     </span>
                     <span className="dl-sched-queue-size">

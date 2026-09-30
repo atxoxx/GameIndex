@@ -342,7 +342,7 @@ export default function DownloadsDiagnosticsTab() {
                         </td>
                         <td>
                           <span
-                            className={`dl-status-badge dl-status-badge--${getStatusClassSuffix(dl.status)}`}
+                            className={`dl-row-status dl-row-status--${getStatusClassSuffix(dl.status)}`}
                           >
                             {getStatusLabel(dl.status, t)}
                           </span>

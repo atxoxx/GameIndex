@@ -5454,6 +5454,11 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   color: var(--color-danger);
 }
 
+.dl-row-status--removed {
+  background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
+  color: var(--color-text-muted);
+}
+
 .dl-row-main {
   min-width: 0;
   display: flex;
