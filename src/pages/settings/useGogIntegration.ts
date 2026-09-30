@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "../../context/ToastContext";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { formatPlayTime, type Game } from "../../types/game";
+import { formatPlayTime, formatSyncedPlayTime, type Game } from "../../types/game";
 import type { GogAuthState, GogSyncResult } from "../../types/gog";
 
 /**
@@ -127,6 +127,20 @@ export function useGogIntegration() {
             (!game.lastPlayed || syncedLastPlayed > game.lastPlayed)
           ) {
             patch.lastPlayed = syncedLastPlayed;
+          }
+          // Store playtime is authoritative: overwrite whatever value the
+          // game was imported with. A store reporting no playtime leaves
+          // the existing value alone rather than blanking it to "0h".
+          const syncedPlayTime = formatSyncedPlayTime(entry.playtimeMinutes);
+          if (syncedPlayTime && game.playTime !== syncedPlayTime) {
+            patch.playTime = syncedPlayTime;
+          }
+          if (
+            entry.playtimeMinutes !== undefined &&
+            entry.playtimeMinutes > 0 &&
+            game.gogPlaytime !== entry.playtimeMinutes
+          ) {
+            patch.gogPlaytime = entry.playtimeMinutes;
           }
           if (Object.keys(patch).length > 0) updateGame(game.id, patch);
         }

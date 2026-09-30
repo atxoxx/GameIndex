@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "../../context/ToastContext";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { formatPlayTime, type Game } from "../../types/game";
+import { formatPlayTime, formatSyncedPlayTime, type Game } from "../../types/game";
 import type { EpicAuthState, EpicSyncResult } from "../../types/epic";
 
 /**
@@ -169,6 +169,13 @@ export function useEpicIntegration() {
           const syncedLastPlayed = entry.lastPlayed ? entry.lastPlayed * 1000 : undefined;
           if (syncedLastPlayed && (!game.lastPlayed || syncedLastPlayed > game.lastPlayed)) {
             patch.lastPlayed = syncedLastPlayed;
+          }
+          // Store playtime is authoritative: overwrite whatever value the
+          // game was imported with. A store reporting no playtime leaves
+          // the existing value alone rather than blanking it to "0h".
+          const syncedPlayTime = formatSyncedPlayTime(entry.playtimeMinutes);
+          if (syncedPlayTime && game.playTime !== syncedPlayTime) {
+            patch.playTime = syncedPlayTime;
           }
           if (Object.keys(patch).length > 0) updateGame(game.id, patch);
         }

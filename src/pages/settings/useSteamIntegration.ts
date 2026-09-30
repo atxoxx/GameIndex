@@ -5,7 +5,7 @@ import { useToast } from "../../context/ToastContext";
 import { useGames } from "../../context/GameContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { formatPlayTime, type Game } from "../../types/game";
+import { formatPlayTime, formatSyncedPlayTime, type Game } from "../../types/game";
 import type { SteamAuthState, SteamFamilyGroup, SteamSession, SteamSettings, SteamSyncResult } from "../../types/steam";
 import { STEAM_SETTINGS_KEY } from "../../types/steam";
 
@@ -282,6 +282,16 @@ export function useSteamIntegration() {
           }
           if (entry.familySharedBy !== undefined && entry.familySharedBy !== game.familySharedBy) {
             patch.familySharedBy = entry.familySharedBy;
+          }
+          // Store playtime is authoritative: overwrite whatever value the
+          // game was imported with. A store reporting no playtime leaves
+          // the existing value alone rather than blanking it to "0h".
+          if (steamSettings.syncPlaytime) {
+            const syncedPlayTime = formatSyncedPlayTime(entry.playtimeForever);
+            if (syncedPlayTime && game.playTime !== syncedPlayTime) patch.playTime = syncedPlayTime;
+            if (entry.playtimeForever > 0 && game.steamPlaytime !== entry.playtimeForever) {
+              patch.steamPlaytime = entry.playtimeForever;
+            }
           }
           if (Object.keys(patch).length > 0) updateGame(game.id, patch);
           if (!game.genres || game.genres.length === 0) {

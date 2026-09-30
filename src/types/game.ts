@@ -1748,6 +1748,19 @@ export function formatPlayTime(totalMinutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
+/**
+ * Render a store-reported playtime (total minutes) for overwriting a game's
+ * imported playtime during a sync. Returns `null` when the store has no
+ * playtime to report, so callers leave the existing value untouched instead
+ * of wiping it with `0h`.
+ */
+export function formatSyncedPlayTime(
+  totalMinutes: number | null | undefined
+): string | null {
+  if (totalMinutes == null || totalMinutes <= 0) return null;
+  return formatPlayTime(totalMinutes);
+}
+
 /** Add session seconds to a play-time string and return the updated string. */
 export function addSessionTime(playTime: string, elapsedSeconds: number): string {
   const currentMinutes = parsePlayTime(playTime);
