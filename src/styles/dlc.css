@@ -59,6 +59,11 @@
 
 /* ── Family Share Banner (Card & Tab) ─────────────────────────────────── */
 
+/* Top-of-page banner on the game detail page (owner of a shared copy). */
+.game-family-banner {
+  margin-top: var(--space-md);
+}
+
 .family-share-banner {
   display: flex;
   align-items: center;

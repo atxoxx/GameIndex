@@ -49,6 +49,7 @@ import {
   SteamFeaturesCard,
   GameDlcCard,
   GameDlcTab,
+  GameFamilyShareBanner,
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
@@ -445,6 +446,9 @@ function GameDetail({ game }: { game: Game }) {
     <div className="game-page">
       {/* Top Bar with Return Link and Edit / Remove actions */}
       <div className="game-top-bar">{renderTopBar()}</div>
+
+      {/* Steam Family Sharing: which family member owns this copy */}
+      <GameFamilyShareBanner game={game} />
 
       {/* Hero Banner */}
       <PageWidget page="game" widget="gameHero">
