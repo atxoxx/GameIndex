@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { KpiTile } from "../ui";
 import PageWidget from "../PageWidget";
 import { gameDisplayName, type Game } from "../../types/game";
@@ -382,15 +381,6 @@ export default function GameHero({
     [displayName, showToast, t]
   );
 
-  const handleOpenSteamCommunity = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (steamAppId != null) {
-        openUrl(`https://steamcommunity.com/app/${steamAppId}`).catch(() => undefined);
-      }
-    },
-    [steamAppId]
-  );
 
   const handleGenreClick = useCallback(
     (g: string) => {
@@ -519,40 +509,16 @@ export default function GameHero({
   // ── KPI strip ────────────────────────────────────────────────
   const kpis = (
     <>
-      {steamAppId != null &&
-        (showHeroInteractiveControls ? (
-          <div
-            className="game-hero-kpi-interactive game-hero-kpi-interactive--active"
-            onClick={handleOpenSteamCommunity}
-            title={t("hero.viewCommunityHub")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleOpenSteamCommunity(e as unknown as React.MouseEvent);
-              }
-            }}
-          >
-            <KpiTile
-              glass
-              size="sm"
-              label={t("hero.playersNow")}
-              icon={<IconUsers size={12} />}
-              value={<PlayerCountBadge appId={steamAppId} />}
-              intent="accent"
-            />
-          </div>
-        ) : (
-          <KpiTile
-            glass
-            size="sm"
-            label={t("hero.playersNow")}
-            icon={<IconUsers size={12} />}
-            value={<PlayerCountBadge appId={steamAppId} />}
-            intent="accent"
-          />
-        ))}
+      {steamAppId != null && (
+        <KpiTile
+          glass
+          size="sm"
+          label={t("hero.playersNow")}
+          icon={<IconUsers size={12} />}
+          value={<PlayerCountBadge appId={steamAppId} />}
+          intent="accent"
+        />
+      )}
       {isGame &&
         (showHeroInteractiveControls && onTabChange ? (
           <div

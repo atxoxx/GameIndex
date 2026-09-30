@@ -75,10 +75,14 @@ export default function PlayerCountBadge({
         })}
         aria-haspopup="dialog"
         aria-expanded={popoverOpen}
-        onClick={() => setPopoverOpen((o) => !o)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setPopoverOpen((o) => !o);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
+            e.stopPropagation();
             setPopoverOpen((o) => !o);
           }
         }}
