@@ -3,6 +3,7 @@ import { Webview } from "@tauri-apps/api/webview";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
+import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { OpenExternalIcon, SteamIcon } from "./WebLinksIcons";
 import type { SourceDef, SteamSectionDef } from "./types";
 import type { Game } from "../../types/game";
@@ -67,6 +68,7 @@ export default function WebLinksWebview({
   menuOpen = false,
 }: WebLinksWebviewProps) {
   const { t } = useLanguage();
+  const contentFilterEnabled = useWebviewContentFilterEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
   const [webviewReady, setWebviewReady] = useState(false);
   const [webviewInst, setWebviewInst] = useState<Webview | null>(null);
@@ -220,6 +222,7 @@ export default function WebLinksWebview({
           y: rect.top,
           width: rect.width,
           height: rect.height,
+          contentFilter: contentFilterEnabled,
         });
         const webview = await Webview.getByLabel(uniqueLabel);
         if (!webview) throw new Error("preview webview was not created");
@@ -270,7 +273,7 @@ export default function WebLinksWebview({
         closeAllPreviewWebviews();
       }
     };
-  }, [url, steamSubDisabled, reloadNonce]);
+  }, [url, steamSubDisabled, reloadNonce, contentFilterEnabled]);
 
   return (
     <div className="wl-preview wl-preview-standard">

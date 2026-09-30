@@ -78,6 +78,12 @@ const WEBLINKS_PREVIEW_INIT_SCRIPT: &str = r#"(function () {
   }, true);
 })();"#;
 
+/// Cosmetic content filter injected into the preview webviews: hides common
+/// ad slots and dismisses/hides cookie-consent banners. Runs on every
+/// document load. Whether it is attached is decided per webview at creation
+/// time, so toggling the setting takes effect on the next preview.
+const WEBVIEW_CONTENT_FILTER_SCRIPT: &str = include_str!("weblinks_content_filter.js");
+
 // Create the WebLinks preview child webview from Rust so we can attach an
 // initialization script (popup handling) and a new-window handler —
 // neither exists on the JS `new Webview()` API. The frontend then grabs a
@@ -108,6 +114,7 @@ pub async fn create_preview_webview(
     y: f64,
     width: f64,
     height: f64,
+    content_filter: Option<bool>,
 ) -> Result<(), String> {
     use tauri::webview::{NewWindowResponse, WebviewBuilder};
     use tauri::{LogicalPosition, LogicalSize, Position, Size, WebviewUrl};
@@ -120,6 +127,13 @@ pub async fn create_preview_webview(
     let builder = WebviewBuilder::new(&label, WebviewUrl::External(parsed))
         .initialization_script(WEBLINKS_PREVIEW_INIT_SCRIPT)
         .on_new_window(|_url, _features| NewWindowResponse::Deny);
+
+    // Absent flag (older frontend) keeps the filter on.
+    let builder = if content_filter.unwrap_or(true) {
+        builder.initialization_script(WEBVIEW_CONTENT_FILTER_SCRIPT)
+    } else {
+        builder
+    };
 
     #[cfg(not(target_os = "linux"))]
     {
@@ -317,6 +331,26 @@ pub fn webview_eval(app: tauri::AppHandle, label: String, js: String) -> Result<
         .get_webview(&label)
         .ok_or_else(|| format!("webview not found: {label}"))?;
     webview.eval(&js).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn content_filter_script_targets_ads_and_consent() {
+        assert!(WEBVIEW_CONTENT_FILTER_SCRIPT.contains("__gameindexContentFilter"));
+        assert!(WEBVIEW_CONTENT_FILTER_SCRIPT.contains("adsbygoogle"));
+        assert!(WEBVIEW_CONTENT_FILTER_SCRIPT.contains("onetrust"));
+        assert!(WEBVIEW_CONTENT_FILTER_SCRIPT.contains("CybotCookiebotDialog"));
+    }
+
+    #[test]
+    fn content_filter_script_hides_and_watches_for_late_banners() {
+        assert!(WEBVIEW_CONTENT_FILTER_SCRIPT.contains("createElement(\"style\")"));
+        assert!(WEBVIEW_CONTENT_FILTER_SCRIPT.contains("MutationObserver"));
+        assert!(!WEBVIEW_CONTENT_FILTER_SCRIPT.trim().is_empty());
+    }
 }
 
 

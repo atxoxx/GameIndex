@@ -7,6 +7,7 @@ import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
 import { formatArticleDate, estimateReadingTime } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
+import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 
 interface NewsArticlePreviewProps {
   article: NewsArticle | null;
@@ -35,6 +36,7 @@ export default function NewsArticlePreview({
   hasNext = false,
 }: NewsArticlePreviewProps) {
   const { t } = useLanguage();
+  const contentFilterEnabled = useWebviewContentFilterEnabled();
   const placeholderRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [webviewReady, setWebviewReady] = useState(false);
@@ -229,6 +231,7 @@ export default function NewsArticlePreview({
             y: rect.top,
             width: rect.width,
             height: rect.height,
+            contentFilter: contentFilterEnabled,
           });
 
           const webview = await Webview.getByLabel(uniqueLabel);
@@ -279,7 +282,7 @@ export default function NewsArticlePreview({
         }).catch(() => {});
       }
     };
-  }, [article, handleKeyDown, previewMode]);
+  }, [article, handleKeyDown, previewMode, contentFilterEnabled]);
 
   // Geometry sync
   useEffect(() => {

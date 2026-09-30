@@ -379,6 +379,12 @@ export function buildSettingsCatalog(
           icon: <BellIcon />,
         },
         {
+          id: "privacy-browsing",
+          labelKey: "settings.section.browsing",
+          keywords: "adblock ads ad blocker cookie consent banner gdpr trackers webview preview weblinks news filter privacy",
+          icon: <ShieldIcon />,
+        },
+        {
           id: "privacy-storage",
           labelKey: "settings.section.wipeData",
           keywords: "local storage wipe clear delete reset data cache items",

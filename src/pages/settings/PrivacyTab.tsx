@@ -5,7 +5,7 @@ import { useToast } from "../../context/ToastContext";
 import { useSettings } from "../../context/SettingsContext";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
-import { BellIcon, TrashIcon } from "./settingsIcons";
+import { BellIcon, ShieldIcon, TrashIcon } from "./settingsIcons";
 
 function formatStorageBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -27,7 +27,7 @@ function formatStorageBytes(bytes: number): string {
 export default function PrivacyTab() {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { friendsNotifications, setFriendsNotifications, dmReadReceipts, setDmReadReceipts } = useSettings();
+  const { friendsNotifications, setFriendsNotifications, dmReadReceipts, setDmReadReceipts, webviewContentFilter, setWebviewContentFilter } = useSettings();
   const [items, setItems] = useState<{ key: string; value: string; size: number }[]>([]);
   const [searchFilter, setSearchFilter] = useState("");
   const [wipeAllOpen, setWipeAllOpen] = useState(false);
@@ -108,6 +108,20 @@ export default function PrivacyTab() {
           onChange={setDmReadReceipts}
         />
       </div>
+    </SettingsSection>
+
+    <SettingsSection
+      id="privacy-browsing"
+      icon={<ShieldIcon />}
+      title={t("settings.section.browsing")}
+      desc={t("settings.webviewFilter.desc")}
+    >
+      <SettingsToggleCard
+        title={t("settings.webviewFilter.title")}
+        desc={t("settings.webviewFilter.toggleDesc")}
+        checked={webviewContentFilter}
+        onChange={setWebviewContentFilter}
+      />
     </SettingsSection>
 
     <SettingsSection

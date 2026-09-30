@@ -107,6 +107,9 @@ export const LS_DISCORD_SHOW_WEBSITE_BUTTON = "gamelib.discord_show_website_butt
 export const LS_DISCORD_SHOW_BROWSING = "gamelib.discord_show_browsing";
 const LS_HISTORY_CAP_DAYS = "gamelib.player_count_history_cap_days";
 const LS_BLOCKED_DOMAINS = "gamelib.blocked_source_domains";
+// WebLinks / News preview content filter (cosmetic ad hiding + cookie
+// consent dismissal). Defaults ON; only an explicit "false" disables it.
+const LS_WEBVIEW_CONTENT_FILTER = "gamelib.webview_content_filter";
 
 // Friends (Settings → Privacy → Friends)
 const LS_FRIENDS_NOTIFICATIONS = "gamelib.friends.notifications_enabled";
@@ -440,6 +443,10 @@ export interface SettingsContextValue {
   setHistoryCapDays: (next: 1 | 7 | 30) => void;
   blockedSourceDomains: string[];
   setBlockedSourceDomains: (next: string[]) => void;
+  /** Cosmetic ad/cookie-banner filter for the WebLinks and News preview
+   *  webviews. On by default; takes effect on the next preview webview. */
+  webviewContentFilter: boolean;
+  setWebviewContentFilter: (next: boolean) => void;
 
   // ── Friends (Settings → Privacy → Friends) ─────────────────────
   friendsNotifications: boolean;
@@ -1161,6 +1168,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSetJSON(LS_BLOCKED_DOMAINS, cleaned);
   }, []);
 
+  const [webviewContentFilter, setWebviewContentFilterState] = useState<boolean>(
+    () => lsGet(LS_WEBVIEW_CONTENT_FILTER) !== "false",
+  );
+  const setWebviewContentFilter = useCallback((next: boolean) => {
+    setWebviewContentFilterState(next);
+    lsSet(LS_WEBVIEW_CONTENT_FILTER, String(next));
+  }, []);
+
   // ── Hardware monitoring ────────────────────────────────────────────────
   const [hardwareMonitoringEnabled, setHardwareMonitoringEnabledState] =
     useState<boolean>(() => lsGet(LS_HW_MONITORING) !== "false");
@@ -1771,6 +1786,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setHistoryCapDays,
       blockedSourceDomains,
       setBlockedSourceDomains,
+      webviewContentFilter,
+      setWebviewContentFilter,
       friendsNotifications,
       setFriendsNotifications,
       dmReadReceipts,
@@ -1896,6 +1913,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setHistoryCapDays,
       blockedSourceDomains,
       setBlockedSourceDomains,
+      webviewContentFilter,
+      setWebviewContentFilter,
       friendsNotifications,
       setFriendsNotifications,
       dmReadReceipts,
@@ -2039,6 +2058,16 @@ export function useCardDisplaySettings(): CardDisplaySettings {
 export function useAnimatedMediaEnabled(): boolean {
   const ctx = useContext(SettingsContext);
   return ctx ? ctx.animatedMediaEnabled : true;
+}
+
+/**
+ * Whether the preview webviews should run the cosmetic ad/cookie-banner
+ * filter. Null-safe: outside a SettingsProvider (isolated tests, static
+ * renders) the filter is considered enabled, matching the shipped default.
+ */
+export function useWebviewContentFilterEnabled(): boolean {
+  const ctx = useContext(SettingsContext);
+  return ctx ? ctx.webviewContentFilter : true;
 }
 
 // ── Visibility helpers (Settings → Interface / Layout Studio) ───────────────
