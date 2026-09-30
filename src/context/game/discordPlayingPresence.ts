@@ -51,6 +51,8 @@ export interface PlayingPresencePayload {
   largeText?: string;
   smallImage?: string;
   smallText?: string;
+  largeUrl?: string;
+  smallUrl?: string;
   buttonLabel?: string;
   buttonUrl?: string;
   button2Label?: string;
@@ -65,7 +67,22 @@ export interface PlayingPresenceOptions {
   showPlaytime: boolean;
   showWebsiteButton: boolean;
   showStoreButton: boolean;
+  /** Adds developer/year to the art hover and the version to the icon hover,
+   *  and makes the art clickable. */
+  showExtraDetails: boolean;
+  /** Appends achievement progress to the status line. */
+  showAchievements: boolean;
   statusDisplay: DiscordStatusDisplay;
+  /** Transient "achievement unlocked" line that temporarily replaces the
+   *  status line (already localized). */
+  unlockText?: string;
+  /** Unlocked/total achievement counts for the running game. */
+  achievement?: { unlocked: number; total: number };
+}
+
+/** Best-effort release year from a stored release date ("2017-02-24" → "2017"). */
+function releaseYear(releaseDate: string | undefined): string | undefined {
+  return releaseDate?.match(/\b(19|20)\d{2}\b/)?.[0];
 }
 
 /**
@@ -95,6 +112,26 @@ export function buildPlayingPresence(
     opts.showPlaytime && playTime
       ? t("discordPresence.playtimeTotal", { time: playTime })
       : "";
+  const achievement =
+    opts.showAchievements && opts.achievement && opts.achievement.total > 0
+      ? t("discordPresence.achievementsProgress", {
+          unlocked: opts.achievement.unlocked,
+          total: opts.achievement.total,
+          percent: Math.round((opts.achievement.unlocked / opts.achievement.total) * 100),
+        })
+      : "";
+
+  const stateText = opts.unlockText
+    ? opts.unlockText
+    : [stateLine, achievement, timeTotal].filter(Boolean).join(" • ");
+
+  const credits = [game?.developer, releaseYear(game?.releaseDate)]
+    .filter(Boolean)
+    .join(", ");
+  const largeText =
+    opts.showExtraDetails && credits ? `${gameName} · ${credits}` : gameName;
+  const smallText =
+    opts.showExtraDetails && game?.version ? game.version : t("discordPresence.smallText");
 
   return {
     state: "playing",
@@ -102,14 +139,16 @@ export function buildPlayingPresence(
     gameName,
     startedAt: opts.showPlaytime ? opts.startedAt : 0,
     details: gameName,
-    stateText: [stateLine, timeTotal].filter(Boolean).join(" • "),
+    stateText,
     detailsUrl: showWebsite ? website : undefined,
     largeImage: opts.showArt
       ? discordAsset(game?.coverSourceUrl ?? game?.coverArtUrl)
       : undefined,
-    largeText: gameName,
+    largeText,
     smallImage: opts.showArt ? discordAsset(game?.iconUrl) : undefined,
-    smallText: t("discordPresence.smallText"),
+    smallText,
+    largeUrl: opts.showExtraDetails ? website : undefined,
+    smallUrl: opts.showExtraDetails ? store : undefined,
     buttonLabel: showWebsite ? t("discordPresence.viewWebsite") : undefined,
     buttonUrl: showWebsite ? website : undefined,
     button2Label: showStore ? t("discordPresence.viewStore") : undefined,

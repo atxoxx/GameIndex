@@ -108,6 +108,8 @@ export const LS_DISCORD_SHOW_BROWSING = "gamelib.discord_show_browsing";
 export const LS_DISCORD_SHOW_STORE_BUTTON = "gamelib.discord_show_store_button";
 export const LS_DISCORD_SHOW_DOWNLOADS = "gamelib.discord_show_downloads";
 export const LS_DISCORD_STATUS_DISPLAY = "gamelib.discord_status_display";
+export const LS_DISCORD_SHOW_ACHIEVEMENTS = "gamelib.discord_show_achievements";
+export const LS_DISCORD_SHOW_EXTRA_DETAILS = "gamelib.discord_show_extra_details";
 const LS_HISTORY_CAP_DAYS = "gamelib.player_count_history_cap_days";
 const LS_BLOCKED_DOMAINS = "gamelib.blocked_source_domains";
 // WebLinks / News preview content filter (cosmetic ad hiding + cookie
@@ -456,6 +458,12 @@ export interface SettingsContextValue {
   /** Which line Discord shows in the member list (app name / state / details). */
   discordStatusDisplay: DiscordStatusDisplay;
   setDiscordStatusDisplay: (next: DiscordStatusDisplay) => void;
+  /** Whether achievement progress + unlock flashes appear while playing. */
+  discordShowAchievements: boolean;
+  setDiscordShowAchievements: (next: boolean) => void;
+  /** Whether developer/version details and clickable art are included. */
+  discordShowExtraDetails: boolean;
+  setDiscordShowExtraDetails: (next: boolean) => void;
   historyCapDays: 1 | 7 | 30;
   setHistoryCapDays: (next: 1 | 7 | 30) => void;
   blockedSourceDomains: string[];
@@ -1132,6 +1140,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setDiscordStatusDisplay = useCallback((next: DiscordStatusDisplay) => {
     setDiscordStatusDisplayState(next);
     lsSet(LS_DISCORD_STATUS_DISPLAY, next);
+  }, []);
+
+  const [discordShowAchievements, setDiscordShowAchievementsState] = useState<boolean>(
+    () => lsGet(LS_DISCORD_SHOW_ACHIEVEMENTS) !== "false",
+  );
+  const setDiscordShowAchievements = useCallback((next: boolean) => {
+    setDiscordShowAchievementsState(next);
+    lsSet(LS_DISCORD_SHOW_ACHIEVEMENTS, String(next));
+  }, []);
+
+  const [discordShowExtraDetails, setDiscordShowExtraDetailsState] = useState<boolean>(
+    () => lsGet(LS_DISCORD_SHOW_EXTRA_DETAILS) !== "false",
+  );
+  const setDiscordShowExtraDetails = useCallback((next: boolean) => {
+    setDiscordShowExtraDetailsState(next);
+    lsSet(LS_DISCORD_SHOW_EXTRA_DETAILS, String(next));
   }, []);
 
   // Apply the persisted Discord Rich Presence choice on mount so the
@@ -1831,6 +1855,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setDiscordShowDownloads,
       discordStatusDisplay,
       setDiscordStatusDisplay,
+      discordShowAchievements,
+      setDiscordShowAchievements,
+      discordShowExtraDetails,
+      setDiscordShowExtraDetails,
       historyCapDays,
       setHistoryCapDays,
       blockedSourceDomains,
@@ -1964,6 +1992,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setDiscordShowDownloads,
       discordStatusDisplay,
       setDiscordStatusDisplay,
+      discordShowAchievements,
+      setDiscordShowAchievements,
+      discordShowExtraDetails,
+      setDiscordShowExtraDetails,
       historyCapDays,
       setHistoryCapDays,
       blockedSourceDomains,

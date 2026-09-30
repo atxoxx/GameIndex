@@ -36,6 +36,10 @@ export default function DiscordTab() {
     setDiscordShowWebsiteButton,
     discordShowStoreButton,
     setDiscordShowStoreButton,
+    discordShowAchievements,
+    setDiscordShowAchievements,
+    discordShowExtraDetails,
+    setDiscordShowExtraDetails,
     discordShowBrowsing,
     setDiscordShowBrowsing,
     discordShowDownloads,
@@ -146,6 +150,24 @@ export default function DiscordTab() {
           checked={discordShowStoreButton}
           disabled={!discordRichPresence}
           onChange={(v) => setDiscordShowStoreButton(v)}
+        />
+
+        {/* Show achievement progress + unlock flashes */}
+        <SettingsToggleCard
+          title={t("settings.discord.showAchievementsTitle")}
+          desc={t("settings.discord.showAchievementsDesc")}
+          checked={discordShowAchievements}
+          disabled={!discordRichPresence}
+          onChange={(v) => setDiscordShowAchievements(v)}
+        />
+
+        {/* Show extra game details (developer/year, version, clickable art) */}
+        <SettingsToggleCard
+          title={t("settings.discord.showExtraDetailsTitle")}
+          desc={t("settings.discord.showExtraDetailsDesc")}
+          checked={discordShowExtraDetails}
+          disabled={!discordRichPresence}
+          onChange={(v) => setDiscordShowExtraDetails(v)}
         />
 
         {/* ── While browsing / idle ────────────────────────────── */}

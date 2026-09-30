@@ -27,15 +27,19 @@ export const PRESENCE_DOWNLOAD_KINDS = new Set([
 export interface PresencePayload {
   state: "browsing" | "downloading";
   details: string;
-  /** Optional second line. Omitted for browsing, where an "GameIndex" value
+  /** Optional second line. Omitted for browsing, where a "GameIndex" value
    *  would just duplicate Discord's app-name header. */
   stateText?: string;
   startedAt?: number;
+  /** Unix milliseconds. `endsAt` makes Discord render a live countdown. */
+  endsAt?: number;
   detailsUrl?: string;
   largeImage?: string;
   largeText?: string;
   smallImage?: string;
   smallText?: string;
+  largeUrl?: string;
+  smallUrl?: string;
   statusDisplay: DiscordStatusDisplay;
   partyId?: string;
   partyCurrent?: number;
@@ -53,14 +57,18 @@ export function primaryDownload(downloads: TorrentDownload[]): TorrentDownload |
   );
 }
 
-/** Build the "downloading X" activity: title, progress/speed line, poster and
- *  a party so Discord renders the queue position ("2 of 5"). */
+/**
+ * Build the "downloading X" activity: title, progress/speed line, poster and
+ * a party so Discord renders the queue position ("2 of 5"). When an ETA (or a
+ * scheduled start) is known, `endsAt` drives Discord's native countdown.
+ */
 export function buildDownloadPresence(
   download: TorrentDownload,
   queuePosition: number,
   queueTotal: number,
   t: TranslateFn,
   statusDisplay: DiscordStatusDisplay,
+  now: number = Date.now(),
 ): PresencePayload {
   const kind = download.status.kind;
   const queued = kind === "queued" || kind === "fetchingMetadata";
@@ -72,6 +80,23 @@ export function buildDownloadPresence(
     !queued && download.downloadSpeed > 0 ? formatSpeed(download.downloadSpeed) : "";
   const progressLine = [percent, speed].filter(Boolean).join(" • ");
 
+  let endsAt: number | undefined;
+  if (
+    !queued &&
+    download.downloadSpeed > 0 &&
+    download.totalSize != null &&
+    download.totalSize > download.downloaded
+  ) {
+    endsAt =
+      now + Math.ceil((download.totalSize - download.downloaded) / download.downloadSpeed) * 1000;
+  } else if (
+    kind === "queued" &&
+    download.scheduledStartAt &&
+    download.scheduledStartAt * 1000 > now
+  ) {
+    endsAt = download.scheduledStartAt * 1000;
+  }
+
   return {
     state: "downloading",
     details: queued
@@ -80,6 +105,7 @@ export function buildDownloadPresence(
     stateText: queued
       ? t("discordPresence.downloadQueuedState")
       : progressLine || t("discordPresence.downloadStarting"),
+    endsAt,
     largeImage: discordAsset(download.gamePoster),
     largeText: download.name,
     smallText: t("discordPresence.smallText"),
@@ -95,62 +121,92 @@ export interface BrowsingHint {
   detailsUrl?: string;
   largeImage?: string;
   largeText?: string;
+  largeUrl?: string;
+}
+
+/** Everything the browsing builder needs, gathered by the hook. */
+export interface BrowsingContext {
+  pathname: string;
+  games: Game[];
+  wishlistCount: number;
+  installedCount: number;
+  storePlatforms: string[];
+  modsGameName: string | null;
+  /** Real title of the store detail page, when available. */
+  storeGameName: string | null;
+  /** True while the 10-foot Big Screen shell is active. */
+  bigScreen: boolean;
 }
 
 /** Map the current route (+ page-local hints) to the browsing activity text. */
-export function browsingHint(
-  pathname: string,
-  games: Game[],
-  wishlistCount: number,
-  storePlatforms: string[],
-  modsGameName: string | null,
-  t: TranslateFn,
-): BrowsingHint {
+export function browsingHint(ctx: BrowsingContext, t: TranslateFn): BrowsingHint {
+  const { pathname } = ctx;
+
+  if (ctx.bigScreen) {
+    return { details: t("discordPresence.bigScreen") };
+  }
   if (pathname === "/" || pathname === "/home") {
-    return { details: t("discordPresence.browsingApp") };
+    return {
+      details:
+        ctx.games.length > 0
+          ? t("discordPresence.browsingAppCount", {
+              count: ctx.games.length.toLocaleString(),
+            })
+          : t("discordPresence.browsingApp"),
+    };
   }
   if (pathname === "/library") {
     return {
-      details: t("discordPresence.browsingLibrary", {
-        count: games.length.toLocaleString(),
-      }),
+      details:
+        ctx.installedCount > 0
+          ? t("discordPresence.browsingLibraryInstalled", {
+              count: ctx.games.length.toLocaleString(),
+              installed: ctx.installedCount.toLocaleString(),
+            })
+          : t("discordPresence.browsingLibrary", {
+              count: ctx.games.length.toLocaleString(),
+            }),
     };
   }
   if (pathname.startsWith("/library/")) {
     // HashRouter pathname has no hash prefix; segment [2] is the game id.
-    const game = games.find((g) => g.id === pathname.split("/")[2]);
+    const game = ctx.games.find((g) => g.id === pathname.split("/")[2]);
+    const website = discordWebsiteUrl(game);
     return {
       details: t("discordPresence.browsingGamePage", { game: game?.name ?? "" }),
-      detailsUrl: discordWebsiteUrl(game),
+      detailsUrl: website,
       largeImage: discordAsset(game?.coverSourceUrl ?? game?.coverArtUrl),
       largeText: game?.name,
+      largeUrl: website,
     };
   }
   if (pathname === "/mods") {
     return {
-      details: modsGameName
-        ? t("discordPresence.configuringMods", { game: modsGameName })
+      details: ctx.modsGameName
+        ? t("discordPresence.configuringMods", { game: ctx.modsGameName })
         : t("discordPresence.browsingApp"),
     };
   }
   if (pathname === "/store") {
     return {
       details:
-        storePlatforms.length === 1
-          ? t("discordPresence.shoppingStorePlatform", { platform: storePlatforms[0] })
+        ctx.storePlatforms.length === 1
+          ? t("discordPresence.shoppingStorePlatform", { platform: ctx.storePlatforms[0] })
           : t("discordPresence.shoppingStore"),
     };
   }
   if (pathname.startsWith("/store/")) {
     const slug = pathname.split("/")[2] ?? "";
     return {
-      details: t("discordPresence.storeGamePage", { game: slug.replace(/-/g, " ") }),
+      details: t("discordPresence.storeGamePage", {
+        game: ctx.storeGameName ?? slug.replace(/-/g, " "),
+      }),
     };
   }
   if (pathname === "/wishlist") {
     return {
       details: t("discordPresence.browsingWishlist", {
-        count: wishlistCount.toLocaleString(),
+        count: ctx.wishlistCount.toLocaleString(),
       }),
     };
   }

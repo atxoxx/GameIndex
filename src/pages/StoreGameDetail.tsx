@@ -6,6 +6,7 @@ import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../types/game";
 import { useWishlistContext } from "../context/WishlistContext";
+import { usePresence } from "../context/PresenceContext";
 import { useSettings, useDetailTabOrder, useDetailTopBarLayout, type DetailSectionKey } from "../context/SettingsContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { setActiveGameArtwork } from "../utils/activeGameArtwork";
@@ -122,6 +123,7 @@ export default function StoreGameDetail() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { games, addStoreGame } = useGames();
+  const { setStoreGameName } = usePresence();
   const { isWishlisted, toggle: toggleWishlist } = useWishlistContext();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -270,6 +272,13 @@ export default function StoreGameDetail() {
       setActiveGameArtwork(art);
     }
   }, [data]);
+
+  // Publish the resolved title so Discord presence shows the real name instead
+  // of the lowercased URL slug while this page is open.
+  useEffect(() => {
+    setStoreGameName(data?.title ?? null);
+    return () => setStoreGameName(null);
+  }, [data?.title, setStoreGameName]);
 
   // Enrich title via IGDB if needed
   useEffect(() => {

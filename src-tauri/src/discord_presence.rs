@@ -72,6 +72,11 @@ pub struct PresenceData {
     pub small_image: Option<String>,
     #[serde(default)]
     pub small_text: Option<String>,
+    /// Optional links that make the large/small art clickable.
+    #[serde(default)]
+    pub large_url: Option<String>,
+    #[serde(default)]
+    pub small_url: Option<String>,
     #[serde(default)]
     pub button_label: Option<String>,
     #[serde(default)]
@@ -305,6 +310,12 @@ fn build_activity(data: &PresenceData) -> Activity<'static> {
     if let Some(text) = data.small_text.clone() {
         assets = assets.small_text(text);
     }
+    if let Some(url) = data.large_url.clone() {
+        assets = assets.large_url(url);
+    }
+    if let Some(url) = data.small_url.clone() {
+        assets = assets.small_url(url);
+    }
     if has_asset {
         activity = activity.assets(assets);
     }
@@ -415,6 +426,8 @@ mod tests {
             large_text: None,
             small_image: None,
             small_text: None,
+            large_url: None,
+            small_url: None,
             button_label: None,
             button_url: None,
             button2_label: None,
@@ -540,11 +553,14 @@ mod tests {
         data.state_text = Some("Downloading".into());
         data.started_at = 1_700_000_000_000;
         data.ends_at = 1_700_000_300_000;
+        data.large_image = Some("https://cdn.example/cover.jpg".into());
         data.button_label = Some("View Website".into());
         data.button_url = Some("https://example.com".into());
         data.button2_label = Some("View in Store".into());
         data.button2_url = Some("https://store.steampowered.com/app/1".into());
         data.details_url = Some("https://example.com/game".into());
+        data.large_url = Some("https://example.com/game".into());
+        data.small_url = Some("https://example.com/game".into());
         data.party_id = Some("queue".into());
         data.party_current = Some(2);
         data.party_max = Some(5);
@@ -558,6 +574,8 @@ mod tests {
         assert_eq!(value["timestamps"]["start"], 1_700_000_000_i64);
         assert_eq!(value["timestamps"]["end"], 1_700_000_300_i64);
         assert_eq!(value["details_url"], "https://example.com/game");
+        assert_eq!(value["assets"]["large_url"], "https://example.com/game");
+        assert_eq!(value["assets"]["small_url"], "https://example.com/game");
     }
 
     #[test]

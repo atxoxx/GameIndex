@@ -36,6 +36,8 @@ const ALL_ON = {
   showPlaytime: true,
   showWebsiteButton: true,
   showStoreButton: true,
+  showExtraDetails: true,
+  showAchievements: true,
   statusDisplay: "details" as const,
 };
 
@@ -60,7 +62,59 @@ describe("buildPlayingPresence", () => {
     expect(payload.stateText).toContain("discordPresence.playtimeTotal(time=12h 30m)");
     expect(payload.buttonUrl).toBe("https://hollowknight.com");
     expect(payload.button2Url).toBe("https://store.steampowered.com/app/367520");
+    expect(payload.largeUrl).toBe("https://hollowknight.com");
+    expect(payload.smallUrl).toBe("https://store.steampowered.com/app/367520");
     expect(payload.statusDisplay).toBe("details");
+  });
+
+  it("adds achievement progress and rich credits when those options are on", () => {
+    const game = makeGame({
+      developer: "Team Cherry",
+      releaseDate: "2017-02-24",
+      version: "1.5.78.11833",
+    });
+
+    const payload = buildPlayingPresence(
+      game,
+      game.id,
+      game.name,
+      { ...ALL_ON, achievement: { unlocked: 18, total: 25 } },
+      t,
+    );
+
+    expect(payload.stateText).toContain(
+      "discordPresence.achievementsProgress(unlocked=18,total=25,percent=72)",
+    );
+    expect(payload.largeText).toBe("Hollow Knight · Team Cherry, 2017");
+    expect(payload.smallText).toBe("1.5.78.11833");
+  });
+
+  it("lets a fresh unlock flash replace the whole status line", () => {
+    const game = makeGame({ developer: "Team Cherry" });
+    const payload = buildPlayingPresence(
+      game,
+      game.id,
+      game.name,
+      {
+        ...ALL_ON,
+        unlockText: "🏆 Achievement unlocked: Pure Vessel",
+        achievement: { unlocked: 18, total: 25 },
+      },
+      t,
+    );
+
+    expect(payload.stateText).toBe("🏆 Achievement unlocked: Pure Vessel");
+  });
+
+  it("omits achievement progress when no summary is available", () => {
+    const payload = buildPlayingPresence(
+      makeGame(),
+      "game-a",
+      "Hollow Knight",
+      ALL_ON,
+      t,
+    );
+    expect(payload.stateText).not.toContain("achievementsProgress");
   });
 
   it("drops data-URI artwork and buttons when the game has no public URLs", () => {

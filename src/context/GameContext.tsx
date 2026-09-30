@@ -284,9 +284,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // ── Sessions: running / closing / liveElapsed / untracked ───────
   const sessions = useSessions({
-    gamesRef,
     setGames,
-    t,
     scheduleWatcherIndexRebuild,
     untrackedGameIdsRef,
   });

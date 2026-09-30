@@ -1,20 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { emit, listen } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import {
   addSessionTime,
   LS_UNTRACKED_GAMES,
   type Game,
 } from "../../types/game";
-import {
-  LS_DISCORD_SHOW_ART,
-  LS_DISCORD_SHOW_PLAYTIME,
-  LS_DISCORD_SHOW_STORE_BUTTON,
-  LS_DISCORD_SHOW_WEBSITE_BUTTON,
-  LS_DISCORD_STATUS_DISPLAY,
-  type DiscordStatusDisplay,
-} from "../SettingsContext";
-import { buildPlayingPresence } from "./discordPlayingPresence";
 
 interface GameExitEvent {
   gameId: string;
@@ -25,9 +16,6 @@ interface GameExitEvent {
    *  active titles. `0` is treated as "unknown" and skipped (an unset
    *  system clock shouldn't burn the field with a poisoned value). */
   finishedAt?: number;
-  /** Name of the next game still running (if any) after this one exits,
-   *  sent by the Rust watcher so Rich Presence can switch to it. */
-  remainingGameName?: string;
 }
 
 /** Payload for the "game-started" event emitted by the watcher
@@ -52,52 +40,12 @@ interface GameProgressEvent {
   elapsedSeconds: number;
 }
 
-/** Read a Discord presence visibility flag from localStorage at emit time.
- *  Defaults to ON so unset keys keep the classic behaviour; the Settings
- *  → Discord tab writes these keys synchronously, and this hook lives above
- *  the SettingsProvider so it reads storage directly instead of the hook. */
-function lsFlag(key: string): boolean {
-  try {
-    return localStorage.getItem(key) !== "false";
-  } catch {
-    return true;
-  }
-}
-
-/** Read a string-valued presence setting, falling back when unset/invalid.
- *  Same rationale as `lsFlag` — the emitters live above SettingsProvider. */
-function lsValue<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw && (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-/** Shape of the per-option Discord flags read at emit time. */
-function discordPresenceOptions() {
-  return {
-    showArt: lsFlag(LS_DISCORD_SHOW_ART),
-    showPlaytime: lsFlag(LS_DISCORD_SHOW_PLAYTIME),
-    showWebsiteButton: lsFlag(LS_DISCORD_SHOW_WEBSITE_BUTTON),
-    showStoreButton: lsFlag(LS_DISCORD_SHOW_STORE_BUTTON),
-    statusDisplay: lsValue<DiscordStatusDisplay>(
-      LS_DISCORD_STATUS_DISPLAY,
-      "details",
-      ["name", "state", "details"],
-    ),
-  };
-}
-
 export function useSessions(options: {
-  gamesRef: React.MutableRefObject<Game[]>;
   setGames: React.Dispatch<React.SetStateAction<Game[]>>;
-  t: (key: string, params?: Record<string, unknown>) => string;
   scheduleWatcherIndexRebuild: () => void;
   untrackedGameIdsRef: React.MutableRefObject<Set<string>>;
 }) {
-  const { gamesRef, setGames, t, scheduleWatcherIndexRebuild, untrackedGameIdsRef } = options;
+  const { setGames, scheduleWatcherIndexRebuild, untrackedGameIdsRef } = options;
 
   const [runningGameIds, setRunningGameIds] = useState<string[]>([]);
   const [closingGameIds, setClosingGameIds] = useState<string[]>([]);
@@ -146,11 +94,6 @@ export function useSessions(options: {
     [scheduleWatcherIndexRebuild]
   );
 
-  // Tracks which games are currently running (name + start time) so the
-  // game-exited handler can hand Rich Presence the next still-running game
-  // when the watcher reports a `remainingGameName`.
-  const runningSessionsRef = useRef<Map<string, { name: string; startedAt: number }>>(new Map());
-
   // Listen for game-exited events from the Rust backend
   useEffect(() => {
     const unlisten = listen<GameExitEvent>("game-exited", (event) => {
@@ -171,7 +114,6 @@ export function useSessions(options: {
 
       // If this game is marked as untracked, do not record playtime or update lastPlayed
       if (untrackedGameIdsRef.current.has(gameId)) {
-        runningSessionsRef.current.delete(gameId);
         return;
       }
 
@@ -203,41 +145,11 @@ export function useSessions(options: {
           () => undefined
         );
       }
-
-      // ── Discord Rich Presence ──────────────────────────────────────
-      // Drop the finished session, then either hand the presence thread
-      // the next still-running game (watcher sends `remainingGameName`)
-      // or tell it the session stopped entirely.
-      runningSessionsRef.current.delete(gameId);
-      const remainingName = event.payload.remainingGameName;
-      if (remainingName) {
-        const remaining = gamesRef.current.find((g) => g.name === remainingName);
-        const cached = [...runningSessionsRef.current.values()].find((s) => s.name === remainingName);
-        const startedAt = cached?.startedAt ?? Date.now();
-        if (remaining) runningSessionsRef.current.set(remaining.id, { name: remainingName, startedAt });
-        void emit(
-          "discord-presence-update",
-          buildPlayingPresence(
-            remaining,
-            remaining?.id ?? "",
-            remainingName,
-            {
-              ...discordPresenceOptions(),
-              startedAt,
-            },
-            t,
-          ),
-        );
-      } else {
-        // No game left running: the useDiscordPresence hook emits a
-        // "browsing" presence (library/page) so the Discord activity stays
-        // continuous instead of clearing.
-      }
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [t, gamesRef, setGames, untrackedGameIdsRef]);
+  }, [setGames, untrackedGameIdsRef]);
 
   // Listen for game-started events (passive detection by the watcher)
   useEffect(() => {
@@ -260,32 +172,11 @@ export function useSessions(options: {
             : g
         )
       );
-
-      // ── Discord Rich Presence ──────────────────────────────────────
-      // Record the session start and emit a rich payload (localized text
-      // + public https assets + website/store buttons) for the presence
-      // thread.
-      const startedAt = Date.now();
-      runningSessionsRef.current.set(event.payload.gameId, { name: event.payload.gameName, startedAt });
-      const game = gamesRef.current.find((g) => g.id === event.payload.gameId);
-      void emit(
-        "discord-presence-update",
-        buildPlayingPresence(
-          game,
-          event.payload.gameId,
-          event.payload.gameName,
-          {
-            ...discordPresenceOptions(),
-            startedAt,
-          },
-          t,
-        ),
-      );
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [t, gamesRef, setGames]);
+  }, [setGames]);
 
   // Listen for the watcher's grace-period transitions so the UI can show a
   // "closing" state during launcher hand-offs instead of flipping straight
@@ -331,6 +222,5 @@ export function useSessions(options: {
     setUntrackedGameIds,
     isGameUntracked,
     toggleGameTracking,
-    runningSessionsRef,
   };
 }

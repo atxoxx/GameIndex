@@ -20,6 +20,10 @@ export interface PresenceContextValue {
   /** Name of the game whose mods page is open, or null. */
   modsGameName: string | null;
   setModsGameName: (name: string | null) => void;
+  /** Real title of the store detail page currently open, or null. Lets
+   *  Discord presence show the proper name instead of the URL slug. */
+  storeGameName: string | null;
+  setStoreGameName: (name: string | null) => void;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -34,6 +38,7 @@ const PresenceContext =
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const [storePlatforms, setStorePlatforms] = useState<string[]>([]);
   const [modsGameName, setModsGameName] = useState<string | null>(null);
+  const [storeGameName, setStoreGameName] = useState<string | null>(null);
 
   const handleSetStorePlatforms = useCallback((platforms: string[]) => {
     setStorePlatforms(platforms);
@@ -43,12 +48,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setModsGameName(name);
   }, []);
 
+  const handleSetStoreGameName = useCallback((name: string | null) => {
+    setStoreGameName(name);
+  }, []);
+
   const contextValue = useMemo(() => ({
     storePlatforms,
     setStorePlatforms: handleSetStorePlatforms,
     modsGameName,
     setModsGameName: handleSetModsGameName,
-  }), [storePlatforms, handleSetStorePlatforms, modsGameName, handleSetModsGameName]);
+    storeGameName,
+    setStoreGameName: handleSetStoreGameName,
+  }), [storePlatforms, handleSetStorePlatforms, modsGameName, handleSetModsGameName, storeGameName, handleSetStoreGameName]);
 
   return (
     <PresenceContext.Provider value={contextValue}>

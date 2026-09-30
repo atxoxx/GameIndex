@@ -1,12 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { emit } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { useGames } from "../context/GameContext";
 import { usePresence } from "../context/PresenceContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { useDownloads } from "../context/DownloadContext";
 import { useWishlistContext } from "../context/WishlistContext";
+import { useAchievements } from "../context/AchievementContext";
+import { useBigScreen } from "../context/BigScreenContext";
+import { buildPlayingPresence } from "../context/game/discordPlayingPresence";
 import {
   browsingHint,
   buildDownloadPresence,
@@ -15,32 +18,59 @@ import {
   type PresencePayload,
 } from "./discordPresenceBuild";
 
+interface GameStartedEvent {
+  gameId: string;
+  gameName: string;
+}
+
+interface GameExitEvent {
+  gameId: string;
+}
+
+interface AchievementUnlockedEvent {
+  gameId: string;
+  achievements?: { displayName?: string }[];
+}
+
+/** How long a fresh achievement stays pinned to the status line. */
+const UNLOCK_FLASH_MS = 25_000;
+
 /**
  * useDiscordPresence
  * ──────────────────
- * Single emitter for the Discord Rich Presence "idle" states. Watches the
- * route, page-local hints and the download queue, then emits a
- * `discord-presence-update` event with `state: "downloading"` (active
- * transfers take priority) or `state: "browsing"` so the backend presence
- * thread reflects what the user is doing.
+ * The single owner of Discord Rich Presence. Mounted once at the shell root
+ * (below every provider), it decides what the backend should show and emits a
+ * `discord-presence-update` event, in priority order:
  *
- * While any game is running (`runningGameIds.length > 0`) this hook stays
- * silent — GameContext owns the presence thread during a play session.
+ *   1. a running game ("playing", with optional achievement progress/art),
+ *   2. an active download ("downloading", with an ETA countdown),
+ *   3. the current page ("browsing"),
+ *   4. nothing ("stopped") when browsing broadcast is off.
+ *
+ * Owning all states in one effect is what lets the playing card read
+ * achievement and Big Screen state — those providers sit above the session
+ * hook that used to emit playing presence.
  */
 export function useDiscordPresence() {
   const { pathname } = useLocation();
   const { games, runningGameIds } = useGames();
-  const { storePlatforms, modsGameName } = usePresence();
+  const { storePlatforms, modsGameName, storeGameName } = usePresence();
+  const { isBigScreen } = useBigScreen();
+  const { getAchievementSummary } = useAchievements();
   const { t } = useLanguage();
+  const { activeDownloads } = useDownloads();
+  const { count: wishlistCount } = useWishlistContext();
   const {
     discordShowBrowsing,
     discordShowDownloads,
     discordShowArt,
     discordShowPlaytime,
+    discordShowWebsiteButton,
+    discordShowStoreButton,
+    discordShowAchievements,
+    discordShowExtraDetails,
     discordStatusDisplay,
   } = useSettings();
-  const { activeDownloads } = useDownloads();
-  const { count: wishlistCount } = useWishlistContext();
 
   // Payload signature of the last event we emitted, so identical states
   // (e.g. re-renders on unrelated context changes) don't spam the IPC.
@@ -51,15 +81,114 @@ export function useDiscordPresence() {
   // True while a play session owns presence; used to restart the browsing
   // timer when the user drops back to idle.
   const wasPlaying = useRef(false);
+  // Session start times keyed by game id (the watcher only tells us ids).
+  const sessionStarts = useRef<Map<string, number>>(new Map());
+  // Watcher-provided game names, so a running game that isn't in the library
+  // still gets a title.
+  const gameNames = useRef<Map<string, string>>(new Map());
   // Throttle live download updates: Discord rate-limits SET_ACTIVITY, so we
   // emit immediately when the download/status changes and otherwise at most
   // once every 15s.
   const downloadEmit = useRef<{ key: string; at: number }>({ key: "", at: 0 });
+  // Transient "🏆 achievement unlocked" line shown for a running game.
+  const [unlockFlash, setUnlockFlash] = useState<{
+    gameId: string;
+    text: string;
+    until: number;
+  } | null>(null);
+
+  // Learn game names from the watcher (covers games not yet in the library).
+  useEffect(() => {
+    const started = listen<GameStartedEvent>("game-started", (event) => {
+      gameNames.current.set(event.payload.gameId, event.payload.gameName);
+    });
+    const exited = listen<GameExitEvent>("game-exited", (event) => {
+      gameNames.current.delete(event.payload.gameId);
+    });
+    return () => {
+      void started.then((fn) => fn());
+      void exited.then((fn) => fn());
+    };
+  }, []);
+
+  // Pin a freshly unlocked achievement to the status line for a short while.
+  useEffect(() => {
+    const unlisten = listen<AchievementUnlockedEvent>("achievement-unlocked", (event) => {
+      const name = event.payload.achievements?.[0]?.displayName;
+      if (!name) return;
+      setUnlockFlash({
+        gameId: event.payload.gameId,
+        text: t("discordPresence.achievementUnlocked", { name }),
+        until: Date.now() + UNLOCK_FLASH_MS,
+      });
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, [t]);
 
   useEffect(() => {
-    // While a game runs, GameContext owns presence — never emit browsing.
+    if (!unlockFlash) return;
+    const remaining = unlockFlash.until - Date.now();
+    if (remaining <= 0) {
+      setUnlockFlash(null);
+      return;
+    }
+    const id = setTimeout(() => setUnlockFlash(null), remaining);
+    return () => clearTimeout(id);
+  }, [unlockFlash]);
+
+  useEffect(() => {
+    const now = Date.now();
+    const running = new Set(runningGameIds);
+    for (const id of running) {
+      if (!sessionStarts.current.has(id)) sessionStarts.current.set(id, now);
+    }
+    for (const id of [...sessionStarts.current.keys()]) {
+      if (!running.has(id)) sessionStarts.current.delete(id);
+    }
+
+    const send = (payload: unknown) => {
+      const sig = JSON.stringify(payload);
+      if (sig === lastSent.current) return;
+      lastSent.current = sig;
+      void emit("discord-presence-update", payload);
+    };
+
+    // 1) A running game owns presence. `runningGameIds` is append-ordered, so
+    // the last entry is the most recently started title.
     if (runningGameIds.length > 0) {
       wasPlaying.current = true;
+      const activeId = runningGameIds[runningGameIds.length - 1];
+      const game = games.find((g) => g.id === activeId);
+      const summary = getAchievementSummary(activeId);
+      const flash =
+        unlockFlash && unlockFlash.gameId === activeId && now < unlockFlash.until
+          ? unlockFlash
+          : null;
+
+      send(
+        buildPlayingPresence(
+          game,
+          activeId,
+          game?.name ?? gameNames.current.get(activeId) ?? "",
+          {
+            startedAt: sessionStarts.current.get(activeId) ?? now,
+            showArt: discordShowArt,
+            showPlaytime: discordShowPlaytime,
+            showWebsiteButton: discordShowWebsiteButton,
+            showStoreButton: discordShowStoreButton,
+            showExtraDetails: discordShowExtraDetails,
+            showAchievements: discordShowAchievements,
+            statusDisplay: discordStatusDisplay,
+            unlockText: flash?.text,
+            achievement: summary
+              ? { unlocked: summary.unlocked, total: summary.total }
+              : undefined,
+          },
+          t,
+        ),
+      );
       return;
     }
     if (wasPlaying.current) {
@@ -67,7 +196,7 @@ export function useDiscordPresence() {
       browsingStart.current = 0;
     }
 
-    // 1) Active downloads outrank browsing, when the user opted in.
+    // 2) Active downloads outrank browsing, when the user opted in.
     if (discordShowDownloads) {
       const download = primaryDownload(activeDownloads);
       if (download) {
@@ -81,12 +210,12 @@ export function useDiscordPresence() {
           candidates.length,
           t,
           discordStatusDisplay,
+          now,
         );
         const sig = JSON.stringify(payload);
         if (sig === lastSent.current) return;
 
         const key = `${download.id}:${download.status.kind}`;
-        const now = Date.now();
         const isNewDownload = downloadEmit.current.key !== key;
         if (isNewDownload || now - downloadEmit.current.at >= 15_000) {
           downloadEmit.current = { key, at: now };
@@ -97,27 +226,28 @@ export function useDiscordPresence() {
       }
     }
 
-    // 2) Browsing broadcast is off: clear any lingering activity (e.g. after
-    // a play session ends) instead of advertising where the user is.
+    // 3) Browsing broadcast is off: clear any lingering activity instead of
+    // advertising where the user is.
     if (!discordShowBrowsing) {
-      const payload = { state: "stopped" };
-      const sig = JSON.stringify(payload);
-      if (sig === lastSent.current) return;
-      lastSent.current = sig;
-      void emit("discord-presence-update", payload);
+      send({ state: "stopped" });
       return;
     }
 
-    // 3) Browsing presence for the current route.
+    // 4) Browsing presence for the current route.
     const hint = browsingHint(
-      pathname,
-      games,
-      wishlistCount,
-      storePlatforms,
-      modsGameName,
+      {
+        pathname,
+        games,
+        wishlistCount,
+        installedCount: games.filter((g) => g.installed).length,
+        storePlatforms,
+        modsGameName,
+        storeGameName,
+        bigScreen: isBigScreen,
+      },
       t,
     );
-    if (browsingStart.current === 0) browsingStart.current = Date.now();
+    if (browsingStart.current === 0) browsingStart.current = now;
 
     const payload: PresencePayload = {
       state: "browsing",
@@ -126,27 +256,31 @@ export function useDiscordPresence() {
       detailsUrl: hint.detailsUrl,
       largeImage: discordShowArt ? hint.largeImage : undefined,
       largeText: discordShowArt ? hint.largeText : undefined,
+      largeUrl: discordShowArt ? hint.largeUrl : undefined,
       statusDisplay: discordStatusDisplay,
     };
-
-    // Dedupe: only emit when the payload actually changed.
-    const sig = JSON.stringify(payload);
-    if (sig === lastSent.current) return;
-    lastSent.current = sig;
-    void emit("discord-presence-update", payload);
+    send(payload);
   }, [
     pathname,
     runningGameIds.join(","),
-    games.length,
+    games,
     storePlatforms.join(","),
     modsGameName,
+    storeGameName,
+    isBigScreen,
     discordShowBrowsing,
     discordShowDownloads,
     discordShowArt,
     discordShowPlaytime,
+    discordShowWebsiteButton,
+    discordShowStoreButton,
+    discordShowAchievements,
+    discordShowExtraDetails,
     discordStatusDisplay,
     activeDownloads,
     wishlistCount,
+    unlockFlash,
+    getAchievementSummary,
     t,
   ]);
 }
