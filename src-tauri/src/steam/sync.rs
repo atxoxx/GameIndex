@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -6,6 +6,10 @@ use reqwest::Client;
 use serde::Deserialize;
 use tauri::Manager;
 
+use super::family::{
+    account_id_to_steam_id64, find_localconfig_path, parse_family_group_block,
+    parse_friends_owned_games, parse_owned_apptickets,
+};
 use super::types::{SteamSession, SteamSyncResult, SyncedGameEntry};
 use crate::game_watcher;
 use crate::size;
@@ -52,6 +56,9 @@ pub async fn steam_sync_games(
     session: SteamSession,
     include_playtime: bool,
     include_achievements: bool,
+    // Import titles only available through Steam Family Sharing.
+    // `None` (older callers) is treated as enabled.
+    include_family_sharing: Option<bool>,
 ) -> Result<SteamSyncResult, String> {
     // Steam ID validation guard.
     if !session.steam_id.chars().all(|c| c.is_ascii_digit())
@@ -151,7 +158,42 @@ pub async fn steam_sync_games(
         v
     };
 
-    let synced = owned_games.len() as u32;
+    // ── Family-shared library ───────────────────────────────────────
+    // Steam's owned-games API only returns titles this account owns, so the
+    // family's shared copies are read from `localconfig.vdf` instead. Their
+    // names are not stored locally, so resolve each with a best-effort store
+    // lookup; an unresolved name falls back to a placeholder the library can
+    // still display. Gated so turning the setting off skips the extra calls.
+    let owned_appids: HashSet<u32> = owned_games.iter().map(|game| game.appid).collect();
+    let family_shared: BTreeMap<u32, String> = if include_family_sharing.unwrap_or(true) {
+        collect_family_shared_appids(&session.steam_id, &owned_appids, &manifest_states)
+    } else {
+        BTreeMap::new()
+    };
+    let mut shared_names: HashMap<u32, String> = HashMap::new();
+    if !family_shared.is_empty() {
+        let name_sem = std::sync::Arc::new(tokio::sync::Semaphore::new(6));
+        let mut name_handles = Vec::with_capacity(family_shared.len());
+        for appid in family_shared.keys().copied() {
+            let permit = name_sem
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|e| format!("family name semaphore: {e}"))?;
+            let client = client.clone();
+            name_handles.push(tokio::spawn(async move {
+                let _permit = permit;
+                (appid, fetch_steam_app_name(&client, appid).await)
+            }));
+        }
+        for handle in name_handles {
+            if let Ok((appid, Some(name))) = handle.await {
+                shared_names.insert(appid, name);
+            }
+        }
+    }
+
+    let synced = (owned_games.len() + family_shared.len()) as u32;
     let mut playtime_updated: u32 = 0;
 
     // ── Disk work (exe resolution + folder size) ─────────────────────
@@ -163,12 +205,23 @@ pub async fn steam_sync_games(
     let mut disk_handles: Vec<
         tokio::task::JoinHandle<(u32, Option<String>, Option<u64>, Option<String>)>,
     > = Vec::new();
-    for game in &owned_games {
-        if !installed_set.contains(&game.appid) {
+    // Owned installed games plus any family-shared copies installed on disk —
+    // both get their exe resolved and folder measured the same way.
+    let mut disk_targets: Vec<(u32, String)> = owned_games
+        .iter()
+        .map(|game| (game.appid, game.name.clone()))
+        .collect();
+    for appid in family_shared.keys() {
+        if !installed_set.contains(appid) {
             continue;
         }
-        let appid = game.appid;
-        let name = game.name.clone();
+        let name = shared_names.get(appid).cloned().unwrap_or_default();
+        disk_targets.push((*appid, name));
+    }
+    for (appid, name) in disk_targets {
+        if !installed_set.contains(&appid) {
+            continue;
+        }
         let permit = disk_sem
             .clone()
             .acquire_owned()
@@ -247,6 +300,29 @@ pub async fn steam_sync_games(
                 None
             },
             family_shared_by,
+        });
+    }
+
+    // Family-shared titles: no playtime (the account doesn't own them) and
+    // no last-played, but they still carry their owner and any local install.
+    for (appid, owner) in &family_shared {
+        let (exe_path, size_bytes, size_root_path) = disk_map
+            .get(appid)
+            .map(|(e, b, r)| (e.clone(), *b, r.clone()))
+            .unwrap_or((None, None, None));
+        let name = shared_names
+            .get(appid)
+            .cloned()
+            .unwrap_or_else(|| format!("Steam App {appid}"));
+        synced_games.push(SyncedGameEntry {
+            appid: *appid,
+            name,
+            playtime_forever: 0,
+            exe_path,
+            size_bytes,
+            size_root_path,
+            rtime_last_played: None,
+            family_shared_by: Some(owner.clone()),
         });
     }
 
@@ -355,6 +431,118 @@ pub async fn steam_sync_games(
         manifest_appids,
         error: None,
     })
+}
+
+/// Merge the family-shared app IDs the current account can play into a map of
+/// `appid -> owner SteamID64`. Two local sources feed it:
+///
+///   • installed shared copies, whose `appmanifest` `LastOwner` is another
+///     account (the manifest scan already resolved these);
+///   • the family group's per-member owned-games cache in `localconfig.vdf`
+///     (`FriendsOwnedGames_storage_<accountid>`), which also covers titles the
+///     user has not installed yet.
+///
+/// Apps the current account owns (from the Steam API or local app tickets) are
+/// never reported as shared, so a title the user later buys stops showing as
+/// shared. When both sources name an app, the manifest's `LastOwner` wins.
+pub fn merge_family_shared_appids(
+    current_steam_id: &str,
+    owned_appids: &HashSet<u32>,
+    manifest_last_owners: &HashMap<u32, String>,
+    owned_tickets: &HashSet<u32>,
+    friends_owned_games: &HashMap<u32, Vec<u32>>,
+    family_member_account_ids: &HashSet<u32>,
+) -> BTreeMap<u32, String> {
+    let mut shared: BTreeMap<u32, String> = BTreeMap::new();
+
+    for (appid, owner) in manifest_last_owners {
+        if owned_appids.contains(appid) || owned_tickets.contains(appid) {
+            continue;
+        }
+        if !owner.is_empty() && owner != "0" && owner != current_steam_id {
+            shared.insert(*appid, owner.clone());
+        }
+    }
+
+    for (account_id, appids) in friends_owned_games {
+        if !family_member_account_ids.contains(account_id) {
+            continue;
+        }
+        let owner = account_id_to_steam_id64(*account_id).to_string();
+        for appid in appids {
+            if owned_appids.contains(appid) || owned_tickets.contains(appid) {
+                continue;
+            }
+            shared.entry(*appid).or_insert_with(|| owner.clone());
+        }
+    }
+
+    shared
+}
+
+/// Read the local Steam config and build the family-shared app map for the
+/// signed-in account. Best-effort: a missing `localconfig.vdf` still yields
+/// the manifest-derived entries (installed shared copies).
+fn collect_family_shared_appids(
+    current_steam_id: &str,
+    owned_appids: &HashSet<u32>,
+    manifest_states: &HashMap<u32, SteamManifestState>,
+) -> BTreeMap<u32, String> {
+    let manifest_last_owners: HashMap<u32, String> = manifest_states
+        .iter()
+        .filter_map(|(appid, state)| state.last_owner.clone().map(|owner| (*appid, owner)))
+        .collect();
+
+    let mut owned_tickets: HashSet<u32> = HashSet::new();
+    let mut friends_owned_games: HashMap<u32, Vec<u32>> = HashMap::new();
+    let mut family_member_account_ids: HashSet<u32> = HashSet::new();
+
+    if let Some(content) =
+        find_localconfig_path(Some(current_steam_id)).and_then(|path| fs::read_to_string(path).ok())
+    {
+        owned_tickets = parse_owned_apptickets(&content);
+        friends_owned_games = parse_friends_owned_games(&content);
+        family_member_account_ids = parse_family_group_block(&content)
+            .map(|(_, _, _, members)| {
+                members
+                    .into_iter()
+                    .map(|(account_id, _)| account_id)
+                    .collect()
+            })
+            .unwrap_or_default();
+    }
+
+    merge_family_shared_appids(
+        current_steam_id,
+        owned_appids,
+        &manifest_last_owners,
+        &owned_tickets,
+        &friends_owned_games,
+        &family_member_account_ids,
+    )
+}
+
+/// Best-effort Steam Store lookup for an app's display name. `None` when the
+/// store is unreachable or the app has no page (soundtracks, tools).
+async fn fetch_steam_app_name(client: &Client, app_id: u32) -> Option<String> {
+    let url = format!(
+        "https://store.steampowered.com/api/appdetails?appids={app_id}&cc=us&l=en"
+    );
+    let response = client
+        .get(&url)
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let json: serde_json::Value = response.json().await.ok()?;
+    json.get(app_id.to_string())?
+        .get("data")?
+        .get("name")?
+        .as_str()
+        .map(str::to_string)
 }
 
 // ── installed-game detection ────────────────────────────────────────
@@ -635,6 +823,73 @@ mod tests {
         naive.dedup();
 
         assert_eq!(naive, smart_steamapps);
+    }
+
+    fn appid_set(ids: &[u32]) -> HashSet<u32> {
+        ids.iter().copied().collect()
+    }
+
+    fn owner_map(pairs: &[(u32, &str)]) -> HashMap<u32, String> {
+        pairs
+            .iter()
+            .map(|(appid, owner)| (*appid, owner.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn family_shared_merge_excludes_owned_and_non_members() {
+        let owned = appid_set(&[1]);
+        let tickets = appid_set(&[9]);
+        let manifest = owner_map(&[(2, "76561190000000002")]);
+        let mut friends: HashMap<u32, Vec<u32>> = HashMap::new();
+        friends.insert(42, vec![2, 3, 9]);
+        friends.insert(99, vec![4]); // a friend, not a family member
+        let members = appid_set(&[42]);
+
+        let shared = merge_family_shared_appids(
+            "76561190000000001",
+            &owned,
+            &manifest,
+            &tickets,
+            &friends,
+            &members,
+        );
+
+        assert!(!shared.contains_key(&1), "owned app must not be shared");
+        assert!(!shared.contains_key(&9), "owned ticket must not be shared");
+        assert!(!shared.contains_key(&4), "non-member friend must not be shared");
+        // The manifest owner wins over the friends cache for appid 2.
+        assert_eq!(shared.get(&2).map(String::as_str), Some("76561190000000002"));
+        // appid 3 comes only from the family member's cache.
+        let expected_owner = account_id_to_steam_id64(42).to_string();
+        assert_eq!(
+            shared.get(&3).map(String::as_str),
+            Some(expected_owner.as_str())
+        );
+    }
+
+    #[test]
+    fn family_shared_merge_ignores_current_user_and_zero_owner() {
+        let owned = appid_set(&[]);
+        let tickets = appid_set(&[]);
+        let manifest = owner_map(&[
+            (1, "76561190000000001"), // current user
+            (2, "0"),                 // unset
+            (3, ""),                  // empty
+            (4, "76561190000000002"), // a real lender
+        ]);
+
+        let shared = merge_family_shared_appids(
+            "76561190000000001",
+            &owned,
+            &manifest,
+            &tickets,
+            &HashMap::new(),
+            &HashSet::new(),
+        );
+
+        assert_eq!(shared.len(), 1);
+        assert_eq!(shared.get(&4).map(String::as_str), Some("76561190000000002"));
     }
 }
 

@@ -418,6 +418,21 @@ export default function IntegrationsTab({
                   <span className="settings-checkbox-desc">{t("settingsPage.syncAchievementsHint")}</span>
                 </div>
               </label>
+              <label className="settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={steam.steamSettings.syncFamilySharing}
+                  onChange={(e) => {
+                    const u = { ...steam.steamSettings, syncFamilySharing: e.target.checked };
+                    steam.setSteamSettings(u);
+                    localStorage.setItem("gamelib-steam-settings", JSON.stringify(u));
+                  }}
+                />
+                <div className="settings-checkbox-text">
+                  <span className="settings-checkbox-title">{t("settingsPage.syncFamilySharing")}</span>
+                  <span className="settings-checkbox-desc">{t("settingsPage.syncFamilySharingHint")}</span>
+                </div>
+              </label>
               <label className="settings-checkbox-label settings-checkbox-label--disabled">
                 <input type="checkbox" checked disabled />
                 <span>{t("settingsPage.igdbAutoLoad")}</span>

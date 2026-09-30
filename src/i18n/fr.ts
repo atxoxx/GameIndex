@@ -4391,6 +4391,8 @@ export const fr: TranslationDict = {
   "settingsPage.syncAchievements": "Synchroniser les succès",
   "settingsPage.syncAchievementsHint": "Votre profil Steam et le détail des jeux doivent être publics pour que les succès soient synchronisés correctement.",
   "settingsPage.syncBehaviour": "Comportement de synchronisation",
+  "settingsPage.syncFamilySharing": "Synchroniser les jeux partagés en famille",
+  "settingsPage.syncFamilySharingHint": "Importez les jeux partagés par votre famille Steam et affichez leur propriétaire sur la page du jeu.",
   "settingsPage.syncPlaytime": "Synchroniser le temps de jeu",
   "settingsPage.syncSettingsDesc": "Paramètres applicables aux importations de bibliothèques Steam, Epic et GOG.",
   "settingsPage.testConnection": "Tester la connexion",

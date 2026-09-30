@@ -4396,6 +4396,8 @@ export const ru: TranslationDict = {
   "settingsPage.syncAchievements": "Синхронизировать достижения",
   "settingsPage.syncAchievementsHint": "Ваш профиль Steam и детали игр должны быть открытыми, иначе достижения не будут синхронизироваться должным образом.",
   "settingsPage.syncBehaviour": "Поведение синхронизации",
+  "settingsPage.syncFamilySharing": "Синхронизировать игры семейного доступа",
+  "settingsPage.syncFamilySharingHint": "Импортировать игры, открытые вашей семьёй Steam, и показывать их владельца на странице игры.",
   "settingsPage.syncPlaytime": "Синхронизировать время игры",
   "settingsPage.syncSettingsDesc": "Настройки, применяемые к импорту библиотек Steam, Epic и GOG.",
   "settingsPage.testConnection": "Проверить подключение",

@@ -4404,6 +4404,8 @@ export const en: TranslationDict = {
   "settingsPage.syncAchievements": "Sync achievements",
   "settingsPage.syncAchievementsHint": "Your Steam profile and Game Details must be set to public for achievements to sync properly.",
   "settingsPage.syncBehaviour": "Sync behaviour",
+  "settingsPage.syncFamilySharing": "Sync family-shared games",
+  "settingsPage.syncFamilySharingHint": "Import games shared by your Steam family and show who owns them on the game page.",
   "settingsPage.syncPlaytime": "Sync playtime",
   "settingsPage.syncSettingsDesc": "Settings that apply across Steam, Epic, and GOG library imports.",
   "settingsPage.testConnection": "Test Connection",

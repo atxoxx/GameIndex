@@ -89,6 +89,10 @@ export interface SteamSettings {
   autoSyncOnLaunch: boolean;
   syncPlaytime: boolean;
   syncAchievements: boolean;
+  /** Import games that are only accessible through Steam Family Sharing.
+   *  When off, family-shared entries are skipped by the sync; when on they
+   *  are imported like owned titles and labelled with their owner. */
+  syncFamilySharing: boolean;
   /**
    * DEPRECATED (kept for backward-compat reads of older localStorage blobs).
    */

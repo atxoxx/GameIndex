@@ -7,6 +7,7 @@ import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime, type Game } from "../../types/game";
 import type { SteamAuthState, SteamFamilyGroup, SteamSession, SteamSettings, SteamSyncResult } from "../../types/steam";
+import { STEAM_SETTINGS_KEY } from "../../types/steam";
 
 /**
  * useSteamIntegration — owns every piece of Steam state on the Settings
@@ -31,6 +32,18 @@ export function shouldRemoveSteamLibraryEntry(
   return gameInstalled && !isInstalledOnDisk && !manifestPresent;
 }
 
+/**
+ * Whether a synced Steam entry should be skipped because it is only available
+ * through Family Sharing and the user turned family-share syncing off. Entries
+ * the user actually owns (`familySharedBy` unset) are never skipped.
+ */
+export function shouldSkipFamilySharedEntry(
+  syncFamilySharing: boolean,
+  familySharedBy: string | undefined,
+): boolean {
+  return !syncFamilySharing && Boolean(familySharedBy);
+}
+
 export function useSteamIntegration() {
   const { showToast } = useToast();
   const { games, addGames, updateGame, removeGames, enqueueEnrichBatch } = useGames();
@@ -52,6 +65,7 @@ export function useSteamIntegration() {
     autoSyncOnLaunch: true,
     syncPlaytime: true,
     syncAchievements: false,
+    syncFamilySharing: true,
   });
 
   const refreshFamilyGroup = async () => {
@@ -85,11 +99,16 @@ export function useSteamIntegration() {
     }
   }, []);
 
-  // Load persisted Steam sync-behaviour toggles.
+  // Load persisted Steam sync-behaviour toggles. Merge over the defaults so
+  // settings added after a blob was written (e.g. `syncFamilySharing`) keep
+  // their default instead of reading back as `undefined`.
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("gamelib-steam-settings");
-      if (saved) setSteamSettings(JSON.parse(saved));
+      const saved = localStorage.getItem(STEAM_SETTINGS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<SteamSettings>;
+        setSteamSettings((prev) => ({ ...prev, ...parsed }));
+      }
     } catch { /* keep defaults */ }
   }, []);
 
@@ -177,14 +196,18 @@ export function useSteamIntegration() {
         session: s,
         includePlaytime: steamSettings.syncPlaytime,
         includeAchievements: steamSettings.syncAchievements,
+        includeFamilySharing: steamSettings.syncFamilySharing,
       });
       setSyncResult(result);
       if (result.success) {
         // Push the freshly-synced ownership list into the backend
         // `StoreChecker` so DownloadModal's "you own this" pills have
         // real data (the name-based fallback alone can't confirm
-        // Steam ownership).
-        const ownedAppIds = (result.syncedGames ?? []).map((g) => g.appid);
+        // Steam ownership). Family-shared titles are excluded — the user
+        // does not own them, they are only borrowing them.
+        const ownedAppIds = (result.syncedGames ?? [])
+          .filter((g) => !g.familySharedBy)
+          .map((g) => g.appid);
         invoke("set_steam_owned", { appids: ownedAppIds }).catch(() => undefined);
         const g = result.gamesSynced ?? 0;
         const p = result.playtimeUpdated ?? 0;
@@ -199,6 +222,7 @@ export function useSteamIntegration() {
         const manifestSet = new Set(result.manifestAppids ?? []);
         const newGames: Game[] = [];
         for (const entry of result.syncedGames ?? []) {
+          if (shouldSkipFamilySharedEntry(steamSettings.syncFamilySharing, entry.familySharedBy)) continue;
           if (existingAppIds.has(entry.appid)) continue;
           const steamCdnCover = `https://cdn.akamai.steamstatic.com/steam/apps/${entry.appid}/library_600x900_2x.jpg`;
           const steamCdnHero  = `https://cdn.akamai.steamstatic.com/steam/apps/${entry.appid}/library_hero.jpg`;
@@ -235,6 +259,7 @@ export function useSteamIntegration() {
         const removedAppIds: number[] = [];
         const missingGenreGames: { id: string; name: string; steamAppId?: number }[] = [];
         for (const entry of result.syncedGames ?? []) {
+          if (shouldSkipFamilySharedEntry(steamSettings.syncFamilySharing, entry.familySharedBy)) continue;
           if (!existingAppIds.has(entry.appid)) continue;
           const game = games.find((g) => g.steamAppId === entry.appid);
           if (!game) continue;

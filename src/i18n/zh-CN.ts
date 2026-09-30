@@ -4396,6 +4396,8 @@ export const zhCN: TranslationDict = {
   "settingsPage.syncAchievements": "同步成就",
   "settingsPage.syncAchievementsHint": "您的 Steam 个人资料和游戏细节必须设为公开，成就才能正常同步。",
   "settingsPage.syncBehaviour": "同步行为",
+  "settingsPage.syncFamilySharing": "同步家庭共享游戏",
+  "settingsPage.syncFamilySharingHint": "导入 Steam 家庭共享的游戏，并在游戏页面显示其拥有者。",
   "settingsPage.syncPlaytime": "同步游戏时长",
   "settingsPage.syncSettingsDesc": "适用于 Steam、Epic 和 GOG 游戏库导入的设置。",
   "settingsPage.testConnection": "测试连接",

@@ -1,5 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { shouldRemoveSteamLibraryEntry } from "./useSteamIntegration";
+import { shouldRemoveSteamLibraryEntry, shouldSkipFamilySharedEntry } from "./useSteamIntegration";
+
+describe("shouldSkipFamilySharedEntry", () => {
+  it("skips family-shared games when family-share syncing is off", () => {
+    expect(shouldSkipFamilySharedEntry(false, "76561198000000000")).toBe(true);
+  });
+
+  it("keeps family-shared games when family-share syncing is on", () => {
+    expect(shouldSkipFamilySharedEntry(true, "76561198000000000")).toBe(false);
+  });
+
+  it("never skips games the user owns", () => {
+    expect(shouldSkipFamilySharedEntry(false, undefined)).toBe(false);
+    expect(shouldSkipFamilySharedEntry(true, undefined)).toBe(false);
+  });
+});
 
 describe("shouldRemoveSteamLibraryEntry", () => {
   it("removes a library entry whose game was uninstalled via Steam", () => {
