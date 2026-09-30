@@ -17,6 +17,35 @@ use super::types::{SteamDlcItem, SteamGameDlcsResult};
 
 const DLC_CACHE_TTL_SECS: u64 = 24 * 60 * 60; // 24 hours
 
+/// Steam storefront `l=` code for each UI locale the app ships. Mirrors
+/// `UI_LANGUAGES` in `src/i18n/languages.ts`; unknown locales fall back to
+/// English. Kept here so the command localizes correctly even when a caller
+/// omits `lang` (older frontends, direct IPC).
+const STEAM_LANG_BY_UI_CODE: &[(&str, &str)] = &[
+    ("en", "english"),
+    ("fr", "french"),
+    ("es", "spanish"),
+    ("de", "german"),
+    ("ru", "russian"),
+    ("zh-CN", "schinese"),
+];
+
+/// Resolve the UI language stored in the kv table into its Steam `l=` code.
+fn resolve_steam_lang(app: &AppHandle) -> String {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let ui_code = db::kv::get(db_state.inner(), "language")
+        .ok()
+        .flatten()
+        .map(|s| s.trim_matches('"').to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "en".to_string());
+    STEAM_LANG_BY_UI_CODE
+        .iter()
+        .find(|(code, _)| *code == ui_code)
+        .map(|(_, steam)| steam.to_string())
+        .unwrap_or_else(|| "english".to_string())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedDlcBlob {
     timestamp: u64,
@@ -39,7 +68,9 @@ pub async fn steam_get_game_dlcs(
     lang: Option<String>,
     force_refresh: Option<bool>,
 ) -> Result<SteamGameDlcsResult, String> {
-    let target_lang = lang.unwrap_or_else(|| "english".to_string());
+    // Prefer the caller's language; otherwise localize to the user's saved UI
+    // language so the DLC names/descriptions/price strings match the app.
+    let target_lang = lang.unwrap_or_else(|| resolve_steam_lang(&app));
     let db = app.state::<db::Db>().inner().clone();
 
     // 1. Check family share status for this game

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../../types/game";
 import type { SteamGameDlcsResult } from "../../types/steam";
 import { useLanguage } from "../../context/LanguageContext";
+import { steamCodeForUi } from "../../i18n/languages";
 import { IconDlc, IconFamily } from "./icons";
 import { Button } from "../ui";
 
@@ -19,7 +20,7 @@ export default function GameDlcCard({
   gameName: _gameName,
   onViewAllDlcs,
 }: GameDlcCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const appId = game?.steamAppId ?? storeAppId ?? null;
   const [data, setData] = useState<SteamGameDlcsResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,10 +33,11 @@ export default function GameDlcCard({
       return;
     }
 
+    const lang = steamCodeForUi(language);
     activeAppIdRef.current = appId;
     setLoading(true);
 
-    invoke<SteamGameDlcsResult>("steam_get_game_dlcs", { appId })
+    invoke<SteamGameDlcsResult>("steam_get_game_dlcs", { appId, lang })
       .then((res) => {
         if (activeAppIdRef.current === appId) {
           setData(res);
@@ -49,7 +51,7 @@ export default function GameDlcCard({
           setLoading(false);
         }
       });
-  }, [appId]);
+  }, [appId, language]);
 
   if (!appId) {
     return null;

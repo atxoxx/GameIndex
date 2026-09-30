@@ -6,6 +6,7 @@ import type { Game } from "../../types/game";
 import type { SteamGameDlcsResult, SteamDlcItem } from "../../types/steam";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { steamCodeForUi } from "../../i18n/languages";
 import { IconDlc, IconFamily, IconSteam } from "./icons";
 import { Button } from "../ui";
 
@@ -38,7 +39,7 @@ export default function GameDlcTab({
   storeAppId,
   gameName: _gameName,
 }: GameDlcTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const appId = game?.steamAppId ?? storeAppId ?? null;
 
@@ -72,11 +73,12 @@ export default function GameDlcTab({
       return;
     }
 
+    const lang = steamCodeForUi(language);
     activeAppIdRef.current = appId;
     setLoading(true);
     setError(null);
 
-    invoke<SteamGameDlcsResult>("steam_get_game_dlcs", { appId })
+    invoke<SteamGameDlcsResult>("steam_get_game_dlcs", { appId, lang })
       .then((res) => {
         if (activeAppIdRef.current === appId) {
           setData(res);
@@ -90,7 +92,7 @@ export default function GameDlcTab({
           setLoading(false);
         }
       });
-  }, [appId]);
+  }, [appId, language]);
 
   useEffect(() => {
     fetchDlcs();
