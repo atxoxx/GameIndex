@@ -2800,6 +2800,15 @@
   gap: 5px;
 }
 
+/* DLC card: the family-share strip above its preview rows. */
+.studio-detail-dlc-strip {
+  display: block;
+  height: 22px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
 .studio-detail-feature {
   display: flex;
   align-items: center;

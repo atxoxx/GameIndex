@@ -59,10 +59,10 @@ function noopGridChange() {}
  *
  *   Full   gameHero · gameTabs · gameQuickStats
  *   Main   gameAbout · gameStoryline · gameMedia · gameSysReq · gameRelations
- *   Side   gamePulse (library only), then the nine sidebar cards:
- *          gameInfoKpi · gameSteamFeatures · gameRatings · gameTimeToBeat ·
- *          gameSpecsCard · gameProtonDb · gameCrackwatch · gameReleases ·
- *          gameLanguages
+ *   Side   gamePulse (library only), then the ten sidebar cards:
+ *          gameInfoKpi · gameDlcCard · gameSteamFeatures · gameRatings ·
+ *          gameTimeToBeat · gameSpecsCard · gameProtonDb · gameCrackwatch ·
+ *          gameReleases · gameLanguages
  *
  *   `game` (library detail) is fully widget-addressable. `storeGame` (store
  *   detail) shares the side cards as real `PageWidgetSlot page="storeGame"`
@@ -86,12 +86,13 @@ const GAME_MAIN_WIDGETS: PageWidgetKey[] = [
   "gameRelations",
 ];
 /**
- * The nine individual sidebar cards, in the order both detail pages ship them.
+ * The ten individual sidebar cards, in the order both detail pages ship them.
  * Each is a real `PageWidget` now (the old `gameSidebarKpis` / `gameSpecs`
  * group widgets are gone), so each becomes its own draggable / hideable card.
  */
 const SIDE_CARD_WIDGETS: PageWidgetKey[] = [
   "gameInfoKpi",
+  "gameDlcCard",
   "gameSteamFeatures",
   "gameRatings",
   "gameTimeToBeat",
@@ -282,6 +283,23 @@ function SteamFeaturesBody() {
   );
 }
 
+/** DLC card: the family-share strip over the DLC preview rows. */
+function DlcBody() {
+  return (
+    <span className="studio-detail-mini-body">
+      <span className="studio-detail-dlc-strip" aria-hidden="true" />
+      <span className="studio-detail-feature-list">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="studio-detail-feature">
+            <span className="studio-detail-feature__icon" aria-hidden="true" />
+            <Line w={60} />
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
 /** Ratings: score tiles over the four-row score breakdown. */
 function RatingsBody() {
   const breakdown = [72, 56, 24, 9];
@@ -387,9 +405,11 @@ function WidgetBody({ widget }: { widget: PageWidgetKey }) {
       return <PostersBody />;
     case "gamePulse":
       return <PulseBody />;
-    // The nine individual sidebar cards, each its own widget slot now.
+    // The ten individual sidebar cards, each its own widget slot now.
     case "gameInfoKpi":
       return <InfoKpiBody />;
+    case "gameDlcCard":
+      return <DlcBody />;
     case "gameSteamFeatures":
       return <SteamFeaturesBody />;
     case "gameRatings":

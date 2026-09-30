@@ -178,6 +178,7 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "gameCrackwatch",
   "gameReleases",
   "gameLanguages",
+  "gameDlcCard",
   // Store
   "storeHeader",
   "storeFilters",
@@ -559,6 +560,7 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "gameRelations",
       "gamePulse",
       "gameInfoKpi",
+      "gameDlcCard",
       "gameSteamFeatures",
       "gameRatings",
       "gameTimeToBeat",
@@ -595,6 +597,7 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "gameSysReq",
       "gameRelations",
       "gameInfoKpi",
+      "gameDlcCard",
       "gameSteamFeatures",
       "gameRatings",
       "gameTimeToBeat",
@@ -603,7 +606,6 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "gameCrackwatch",
       "gameReleases",
       "gameLanguages",
-      "gameDlcCard",
     ],
   },
   {
@@ -792,6 +794,20 @@ const RETIRED_PAGE_WIDGET_EXPANSION: Partial<
   },
 };
 
+/**
+ * Where a newly-added widget belongs when a page already has a stored order.
+ * The normalizer appends unknown keys to the tail; for a card that ships next
+ * to a sibling (the DLC card sits under the Info card), that would strand it at
+ * the bottom of every saved layout. These anchors insert it after the given key
+ * instead. Only consulted for keys missing from the raw order.
+ */
+const NEW_PAGE_WIDGET_ANCHORS: Partial<
+  Record<InterfacePageKey, Record<string, PageWidgetKey>>
+> = {
+  game: { gameDlcCard: "gameInfoKpi" },
+  storeGame: { gameDlcCard: "gameInfoKpi" },
+};
+
 /** Normalize a persisted per-page order: drop unknown/duplicates, migrate
  *  retired grouped keys to the individual cards that replaced them, and append
  *  the page's remaining widgets so an upgrade never hides a newly added block.
@@ -829,7 +845,15 @@ export function normalizePageItemOrder(
     ordered.push(key);
   }
   for (const key of known) {
-    if (!seen.has(key)) ordered.push(key);
+    if (seen.has(key)) continue;
+    const anchor = NEW_PAGE_WIDGET_ANCHORS[page]?.[key];
+    const anchorIndex = anchor ? ordered.indexOf(anchor) : -1;
+    if (anchorIndex >= 0) {
+      ordered.splice(anchorIndex + 1, 0, key);
+    } else {
+      ordered.push(key);
+    }
+    seen.add(key);
   }
   return ordered;
 }
