@@ -133,7 +133,6 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   downloadsQueue: List,
   downloadsScheduled: CalendarClock,
   downloadsHistory: History,
-  downloadsDiagnostics: Activity,
   // Achievements
   achievementsHeader: Trophy,
   achievementsHero: Award,

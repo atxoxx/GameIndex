@@ -43,7 +43,6 @@ import {
   type DownloadStatus,
   type DownloadHistory,
   type SchedulerConfig,
-  type DownloadDiagnostics,
 } from "../types/download";
 
 /** Bandwidth-limit configuration. Values in kbps; 0 = unlimited. */
@@ -179,10 +178,6 @@ interface DownloadContextValue {
    * scheduler reaches it.
    */
   scheduleDownload: (id: string, startAt: number | null) => Promise<void>;
-  /** Fetch a read-only diagnostics snapshot from the engine. */
-  fetchDiagnostics: () => Promise<DownloadDiagnostics>;
-  /** Reset the engine's cumulative HTTP counters. */
-  resetDiagnostics: () => Promise<void>;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -963,14 +958,6 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     await invoke("download_set_schedule", { id, startAt });
   }, []);
 
-  const fetchDiagnostics = useCallback(async () => {
-    return invoke<DownloadDiagnostics>("download_diagnostics");
-  }, []);
-
-  const resetDiagnostics = useCallback(async () => {
-    await invoke("download_diagnostics_reset");
-  }, []);
-
   // ── Derived state ──────────────────────────────────────────────────
   const sorted = useMemo(() => [...downloads].sort(sortDownloads), [downloads]);
   const activeDownloads = useMemo(
@@ -1026,8 +1013,6 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       schedulerConfig,
       setSchedulerConfig,
       scheduleDownload,
-      fetchDiagnostics,
-      resetDiagnostics,
     }),
     [
       sorted,
@@ -1071,8 +1056,6 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       schedulerConfig,
       setSchedulerConfig,
       scheduleDownload,
-      fetchDiagnostics,
-      resetDiagnostics,
     ],
   );
 

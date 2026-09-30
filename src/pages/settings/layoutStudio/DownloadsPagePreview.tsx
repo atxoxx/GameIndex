@@ -115,7 +115,7 @@ export function DownloadsPagePreview({
           "downloadsTabs",
           "slot",
           <div className="studio-dl-tabs-mock">
-            {["Active (1)", "Scheduled (2)", "History (14)", "Diagnostics"].map((tab, i) => (
+            {["Active (1)", "Scheduled (2)", "History (14)"].map((tab, i) => (
               <span key={tab} className={`studio-dl-tab${i === 0 ? " is-active" : ""}`}>
                 {tab}
               </span>
@@ -296,27 +296,6 @@ export function DownloadsPagePreview({
         )}
       </div>
 
-      {/* 9. Diagnostics */}
-      <div className="studio-page-full">
-        {renderCard(
-          "downloadsDiagnostics",
-          "slot",
-          <div className="studio-dl-diag-mock">
-            <div className="studio-dl-diag-tile">
-              <span className="studio-dl-diag-val">18</span>
-              <span className="studio-dl-diag-lbl">Peers</span>
-            </div>
-            <div className="studio-dl-diag-tile">
-              <span className="studio-dl-diag-val">0</span>
-              <span className="studio-dl-diag-lbl">Stalls</span>
-            </div>
-            <div className="studio-dl-diag-tile">
-              <span className="studio-dl-diag-val">OK</span>
-              <span className="studio-dl-diag-lbl">Disk</span>
-            </div>
-          </div>,
-        )}
-      </div>
     </div>
   );
 }

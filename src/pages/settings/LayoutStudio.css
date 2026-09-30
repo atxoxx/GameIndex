@@ -7060,33 +7060,6 @@
   color: var(--color-danger);
 }
 
-.studio-dl-diag-mock {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.studio-dl-diag-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-hover);
-}
-
-.studio-dl-diag-val {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.studio-dl-diag-lbl {
-  font-size: 7px;
-  color: var(--color-text-muted);
-}
-
 
 
 

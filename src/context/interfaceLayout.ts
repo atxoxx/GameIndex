@@ -106,7 +106,6 @@ export type PageWidgetKey =
   | "downloadsQueue"
   | "downloadsScheduled"
   | "downloadsHistory"
-  | "downloadsDiagnostics"
   // Achievements
   | "achievementsHeader"
   | "achievementsHero"
@@ -218,7 +217,6 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "downloadsQueue",
   "downloadsScheduled",
   "downloadsHistory",
-  "downloadsDiagnostics",
   // Achievements
   "achievementsHeader",
   "achievementsHero",
@@ -332,7 +330,6 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   downloadsQueue: "ui-item-downloadsQueue",
   downloadsScheduled: "ui-item-downloadsScheduled",
   downloadsHistory: "ui-item-downloadsHistory",
-  downloadsDiagnostics: "ui-item-downloadsDiagnostics",
   // Achievements
   achievementsHeader: "ui-item-achievementsHeader",
   achievementsHero: "ui-item-achievementsHero",
@@ -446,7 +443,6 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   downloadsQueue: "settings.interface.widgetDownloadsQueue",
   downloadsScheduled: "settings.interface.widgetDownloadsScheduled",
   downloadsHistory: "settings.interface.widgetDownloadsHistory",
-  downloadsDiagnostics: "settings.interface.widgetDownloadsDiagnostics",
   // Achievements
   achievementsHeader: "settings.interface.widgetAchievementsHeader",
   achievementsHero: "settings.interface.widgetAchievementsHero",
@@ -682,7 +678,6 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "downloadsQueue",
       "downloadsScheduled",
       "downloadsHistory",
-      "downloadsDiagnostics",
     ],
   },
   {

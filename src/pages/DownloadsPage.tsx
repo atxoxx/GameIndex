@@ -24,7 +24,6 @@ import DownloadStatsModal from "../components/downloads/DownloadStatsModal";
 import DownloadsTabs, { type DownloadsTabKey } from "../components/downloads/DownloadsTabs";
 import DownloadsScheduledTab from "../components/downloads/DownloadsScheduledTab";
 import DownloadsHistoryTab from "../components/downloads/DownloadsHistoryTab";
-import DownloadsDiagnosticsTab from "../components/downloads/DownloadsDiagnosticsTab";
 import PageWidget from "../components/PageWidget";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
@@ -512,14 +511,6 @@ export default function DownloadsPage() {
         <PageWidget page="downloads" widget="downloadsHistory">
         <div className="ui-item-downloadsHistory">
           <DownloadsHistoryTab />
-        </div>
-        </PageWidget>
-      )}
-
-      {activeTab === "diagnostics" && (
-        <PageWidget page="downloads" widget="downloadsDiagnostics">
-        <div className="ui-item-downloadsDiagnostics">
-          <DownloadsDiagnosticsTab />
         </div>
         </PageWidget>
       )}

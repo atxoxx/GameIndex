@@ -1,8 +1,8 @@
-import { Activity, CalendarClock, History, LayoutList } from "lucide-react";
+import { CalendarClock, History, LayoutList } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 
-export type DownloadsTabKey = "active" | "scheduled" | "history" | "diagnostics";
+export type DownloadsTabKey = "active" | "scheduled" | "history";
 
 interface DownloadsTabsProps {
   activeTab: DownloadsTabKey;
@@ -16,7 +16,6 @@ const TABS: { key: DownloadsTabKey; labelKey: string; icon: LucideIcon }[] = [
   { key: "active", labelKey: "downloads.tabActive", icon: LayoutList },
   { key: "scheduled", labelKey: "downloads.tabScheduled", icon: CalendarClock },
   { key: "history", labelKey: "downloads.tabHistory", icon: History },
-  { key: "diagnostics", labelKey: "downloads.tabDiagnostics", icon: Activity },
 ];
 
 /**
@@ -38,6 +37,7 @@ export default function DownloadsTabs({
     if (key === "history") return counts.history;
     return undefined;
   };
+
 
   return (
     <div className="dl-tabs-bar" role="tablist" aria-label={t("downloads.title")}>
