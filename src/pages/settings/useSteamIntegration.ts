@@ -6,7 +6,7 @@ import { useGames } from "../../context/GameContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime, type Game } from "../../types/game";
-import type { SteamAuthState, SteamSession, SteamSettings, SteamSyncResult } from "../../types/steam";
+import type { SteamAuthState, SteamFamilyGroup, SteamSession, SteamSettings, SteamSyncResult } from "../../types/steam";
 
 /**
  * useSteamIntegration — owns every piece of Steam state on the Settings
@@ -43,6 +43,8 @@ export function useSteamIntegration() {
   // confirms they're actually still connected via Connect Steam.
   const [steamAuthReady, setSteamAuthReady] = useState(false);
   const [steamAuth, setSteamAuth] = useState<SteamAuthState>({ isAuthenticated: false });
+  const [familyGroup, setFamilyGroup] = useState<SteamFamilyGroup | null>(null);
+  const [isLoadingFamily, setIsLoadingFamily] = useState(false);
   const [isSteamLoggingIn, setIsSteamLoggingIn] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<SteamSyncResult | null>(null);
@@ -51,6 +53,19 @@ export function useSteamIntegration() {
     syncPlaytime: true,
     syncAchievements: false,
   });
+
+  const refreshFamilyGroup = async () => {
+    setIsLoadingFamily(true);
+    try {
+      const group: SteamFamilyGroup | null = await invoke("steam_get_family_group");
+      setFamilyGroup(group);
+    } catch (err) {
+      console.warn("Failed to fetch steam family group:", err);
+      setFamilyGroup(null);
+    } finally {
+      setIsLoadingFamily(false);
+    }
+  };
   // The user gets their API key from
   // https://steamcommunity.com/dev/apikey and their SteamID64 from
   // https://steamid.pro/ (both linked from the inputs in the tab).
@@ -87,6 +102,7 @@ export function useSteamIntegration() {
         if (cancelled) return;
         if (session) {
           setSteamAuth({ isAuthenticated: true, session });
+          void refreshFamilyGroup();
           const saved = localStorage.getItem("gamelib-steam-sync-info");
           if (saved) {
             try {
@@ -134,6 +150,7 @@ export function useSteamIntegration() {
       });
 
       setSteamAuth({ isAuthenticated: true, session });
+      void refreshFamilyGroup();
 
       localStorage.setItem("gamelib-steam-sync-info", JSON.stringify({
         displayName: session.displayName,
@@ -202,6 +219,7 @@ export function useSteamIntegration() {
             sizeRootPath: entry.sizeRootPath,
             sizeDetectedAt: entry.sizeBytes !== undefined ? new Date().toISOString() : undefined,
             lastPlayed: entry.rtimeLastPlayed ? entry.rtimeLastPlayed * 1000 : undefined,
+            familySharedBy: entry.familySharedBy,
           });
         }
 
@@ -236,6 +254,9 @@ export function useSteamIntegration() {
           const syncedLastPlayed = entry.rtimeLastPlayed ? entry.rtimeLastPlayed * 1000 : undefined;
           if (syncedLastPlayed && (!game.lastPlayed || syncedLastPlayed > game.lastPlayed)) {
             patch.lastPlayed = syncedLastPlayed;
+          }
+          if (entry.familySharedBy !== undefined && entry.familySharedBy !== game.familySharedBy) {
+            patch.familySharedBy = entry.familySharedBy;
           }
           if (Object.keys(patch).length > 0) updateGame(game.id, patch);
           if (!game.genres || game.genres.length === 0) {
@@ -275,6 +296,7 @@ export function useSteamIntegration() {
       // counting as owned after the account is disconnected.
       invoke("set_steam_owned", { appids: [] }).catch(() => undefined);
       setSteamAuth({ isAuthenticated: false });
+      setFamilyGroup(null);
       setSyncResult(null);
       localStorage.removeItem("gamelib-steam-sync-info");
       // Intentionally NOT clearing `gamelib-steam-apikey` /
@@ -290,6 +312,9 @@ export function useSteamIntegration() {
   return {
     steamAuthReady,
     steamAuth,
+    familyGroup,
+    isLoadingFamily,
+    refreshFamilyGroup,
     isSteamLoggingIn,
     isSyncing,
     syncResult,

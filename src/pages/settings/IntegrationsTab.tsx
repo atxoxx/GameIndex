@@ -11,6 +11,7 @@ import type { useIntegrations } from "./useIntegrations";
 import { HumbleToggle, UplayToggle } from "./IntegrationToggles";
 import { useSectionScroll } from "./useSectionScroll";
 import { EpicIcon, GogIcon, HumbleIcon, IntegrationsIcon, RockstarIcon, SteamIcon, UplayIcon } from "./settingsIcons";
+import { IconFamily } from "../../components/game/icons";
 
 type Integrations = ReturnType<typeof useIntegrations>;
 
@@ -431,6 +432,56 @@ export default function IntegrationsTab({
                 />
                 <span>{t("settingsPage.detectNewSteam")}</span>
               </label>
+
+              {steam.familyGroup && (
+                <div className="steam-family-group-section">
+                  <div className="steam-family-group-header">
+                    <div className="steam-family-group-title">
+                      <span className="steam-family-group-title__icon">
+                        <IconFamily size={16} />
+                      </span>
+                      <span>
+                        {t("dlc.familyGroupName", { name: steam.familyGroup.name })}
+                      </span>
+                    </div>
+                    <span className="dlc-badge dlc-badge--owned">
+                      {t("dlc.familyMembersCount", { count: steam.familyGroup.members.length })}
+                    </span>
+                  </div>
+                  <div className="steam-family-members-grid">
+                    {steam.familyGroup.members.map((member) => (
+                      <div
+                        key={member.steamId}
+                        className={`steam-family-member-card ${
+                          member.isCurrentUser ? "steam-family-member-card--current" : ""
+                        }`}
+                      >
+                        {member.avatarUrl ? (
+                          <img
+                            src={member.avatarUrl}
+                            alt={member.personaName || member.steamId}
+                            className="steam-family-member-card__avatar"
+                          />
+                        ) : (
+                          <div className="steam-family-member-card__avatar" style={{ background: "#4f46e5" }} />
+                        )}
+                        <div className="steam-family-member-card__info">
+                          <span className="steam-family-member-card__name">
+                            {member.personaName || `Steam ID: ${member.accountId}`}
+                          </span>
+                          <span className="steam-family-member-card__badge">
+                            {member.isCurrentUser
+                              ? t("dlc.you")
+                              : member.role === 1
+                              ? t("dlc.familyAdult")
+                              : t("dlc.familyChild")}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </IntegrationTile>

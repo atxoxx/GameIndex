@@ -33,6 +33,8 @@ export { default as ScreenshotsSection } from "./ScreenshotsSection";
 export { default as VideosSection } from "./VideosSection";
 export { default as SystemRequirementsCard } from "./SystemRequirementsCard";
 export { default as GameNewsTab } from "./GameNewsTab";
+export { default as GameDlcCard } from "./GameDlcCard";
+export { default as GameDlcTab } from "./GameDlcTab";
 export { default as DetailSectionsHiddenNote } from "./DetailSectionsHiddenNote";
 
 export { SectionTitle, StatusDot, formatPlayTimeCompact } from "./shared";

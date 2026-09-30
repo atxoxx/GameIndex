@@ -3,3 +3,5 @@ pub mod auth;
 pub mod sync;
 pub mod launch_options;
 pub mod launch_config;
+pub mod family;
+pub mod dlc;

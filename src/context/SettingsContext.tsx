@@ -237,7 +237,8 @@ export type DetailSectionKey =
   | "mods"
   | "weblinks"
   | "news"
-  | "steamFeatures";
+  | "steamFeatures"
+  | "dlc";
 
 export type DetailSectionVisibility = Record<DetailSectionKey, boolean>;
 
@@ -717,6 +718,7 @@ const DEFAULT_DETAIL_SECTION_VISIBILITY: DetailSectionVisibility = {
   weblinks: true,
   news: true,
   steamFeatures: true,
+  dlc: true,
 };
 
 /** Detect initial platform from user agent before Tauri bridge resolves. */

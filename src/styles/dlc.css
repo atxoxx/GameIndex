@@ -1,0 +1,869 @@
+/* ==========================================================================
+   DLC & Steam Family Sharing Stylesheet
+   Modern design system with theme tokens, glassmorphism, rich typography,
+   micro-interactions, and responsive layout.
+   ========================================================================== */
+
+/* ── Overview DLC Card ────────────────────────────────────────────────── */
+
+.game-dlc-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.game-dlc-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+.game-dlc-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.game-dlc-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.game-dlc-card__title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.game-dlc-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* ── Family Share Banner (Card & Tab) ─────────────────────────────────── */
+
+.family-share-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #6366f1 18%, var(--color-surface)) 0%,
+    color-mix(in srgb, #8b5cf6 10%, var(--color-surface)) 100%
+  );
+  border: 1px solid color-mix(in srgb, #818cf8 35%, transparent);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+}
+
+.family-share-banner--compact {
+  padding: 8px 12px;
+  font-size: var(--font-size-xs);
+}
+
+.family-share-banner__avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.family-share-banner__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  border: 2px solid #818cf8;
+}
+
+.family-share-banner__badge-icon {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: #6366f1;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  border: 1px solid var(--color-surface);
+}
+
+.family-share-banner__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.family-share-banner__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: #a5b4fc;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.family-share-banner__desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.family-share-banner__owner {
+  color: #e0e7ff;
+  font-weight: 700;
+}
+
+/* ── DLC Preview Mini List in Card ────────────────────────────────────── */
+
+.game-dlc-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.game-dlc-preview-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface-hover) 60%, transparent);
+  border: 1px solid var(--color-border);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.game-dlc-preview-item:hover {
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+
+.game-dlc-preview-thumb {
+  width: 58px;
+  height: 27px;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--color-bg-dark, #121212);
+}
+
+.game-dlc-preview-title {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.game-dlc-preview-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.game-dlc-preview-status--owned {
+  color: #10b981;
+}
+
+.game-dlc-preview-status--price {
+  color: var(--color-text-secondary);
+}
+
+.game-dlc-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── DLC Full Tab ─────────────────────────────────────────────────────── */
+
+.dlc-tab-root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+  animation: dlcTabFadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dlcTabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── DLC KPI / Summary Stats Bar ──────────────────────────────────────── */
+
+.dlc-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-md);
+}
+
+.dlc-stat-tile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.dlc-stat-tile__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.dlc-stat-tile--owned .dlc-stat-tile__icon {
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #10b981;
+}
+
+.dlc-stat-tile--missing .dlc-stat-tile__icon {
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  color: #f59e0b;
+}
+
+.dlc-stat-tile--price .dlc-stat-tile__icon {
+  background: color-mix(in srgb, #3b82f6 14%, transparent);
+  color: #3b82f6;
+}
+
+.dlc-stat-tile__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dlc-stat-tile__value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.dlc-stat-tile__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* ── Ownership Progress Bar ───────────────────────────────────────────── */
+
+.dlc-progress-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.dlc-progress-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.dlc-progress-card__label {
+  color: var(--color-text-secondary);
+}
+
+.dlc-progress-card__pct {
+  color: var(--color-accent);
+}
+
+.dlc-progress-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.dlc-progress-bar__fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: width 350ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Filter / Search Bar ──────────────────────────────────────────────── */
+
+.dlc-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.dlc-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dlc-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dlc-filter-chip:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, var(--color-text-secondary) 40%, var(--color-border));
+}
+
+.dlc-filter-chip.active {
+  color: #fff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.dlc-filter-chip__count {
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.dlc-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 220px;
+}
+
+.dlc-search-icon {
+  position: absolute;
+  left: 10px;
+  pointer-events: none;
+  color: var(--color-text-secondary);
+}
+
+.dlc-search-input {
+  width: 100%;
+  padding: 7px 12px 7px 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  transition: border-color var(--transition-fast);
+}
+
+.dlc-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* ── DLC Card Grid ────────────────────────────────────────────────────── */
+
+.dlc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: var(--space-lg);
+}
+
+.dlc-item-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dlc-item-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.dlc-item-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.dlc-item-card--owned {
+  border-color: color-mix(in srgb, #10b981 40%, var(--color-border));
+}
+
+.dlc-item-card__header-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 460 / 215;
+  background: var(--color-bg-dark, #161616);
+  overflow: hidden;
+}
+
+.dlc-item-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms ease;
+}
+
+.dlc-item-card:hover .dlc-item-card__img {
+  transform: scale(1.04);
+}
+
+.dlc-item-card__badge-ribbon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.dlc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: blur(6px);
+}
+
+.dlc-badge--owned {
+  background: rgba(16, 185, 129, 0.88);
+  color: #fff;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.dlc-badge--free {
+  background: rgba(59, 130, 246, 0.88);
+  color: #fff;
+}
+
+.dlc-badge--discount {
+  background: #a855f7;
+  color: #fff;
+}
+
+.dlc-item-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  flex: 1;
+}
+
+.dlc-item-card__title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dlc-item-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.dlc-item-card__price-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.dlc-item-card__price-orig {
+  font-size: var(--font-size-xs);
+  text-decoration: line-through;
+  color: var(--color-text-secondary);
+}
+
+.dlc-item-card__price-current {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.dlc-item-card__price-current--free {
+  color: #10b981;
+}
+
+.dlc-item-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--color-surface-hover) 35%, transparent);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Steam Family Group in Settings ───────────────────────────────────── */
+
+.steam-family-group-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, #6366f1 6%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, #818cf8 25%, var(--color-border));
+}
+
+.steam-family-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.steam-family-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.steam-family-group-title__icon {
+  color: #818cf8;
+}
+
+.steam-family-members-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.steam-family-member-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.steam-family-member-card--current {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+}
+
+.steam-family-member-card__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1.5px solid #818cf8;
+}
+
+.steam-family-member-card__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.steam-family-member-card__name {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.steam-family-member-card__badge {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+}
+
+/* ── Empty State in Tab ───────────────────────────────────────────────── */
+
+.dlc-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  gap: var(--space-sm);
+}
+
+.dlc-empty-state__icon {
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+
+.dlc-empty-state__title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.dlc-empty-state__desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  max-width: 420px;
+}
+
+/* ── DLC Detail Modal ─────────────────────────────────────────────────── */
+
+.dlc-modal {
+  width: 100%;
+  max-width: 640px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  animation: dlcModalFadeIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dlcModalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.dlc-modal__banner-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 460 / 215;
+  background: var(--color-bg-dark, #121212);
+  overflow: hidden;
+}
+
+.dlc-modal__banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dlc-modal__banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.2) 0%,
+    rgba(0, 0, 0, 0.05) 50%,
+    rgba(0, 0, 0, 0.85) 100%
+  );
+  pointer-events: none;
+}
+
+.dlc-modal__close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 2;
+}
+
+.dlc-modal__close-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.05);
+}
+
+.dlc-modal__banner-badges {
+  position: absolute;
+  bottom: 14px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+}
+
+.dlc-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  max-height: calc(82vh - 260px);
+  overflow-y: auto;
+}
+
+.dlc-modal__header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dlc-modal__title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.25;
+}
+
+.dlc-modal__app-id {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-family: monospace;
+}
+
+.dlc-modal__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.dlc-modal__meta-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface-hover) 50%, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.dlc-modal__meta-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.dlc-modal__meta-value {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.dlc-modal__desc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dlc-modal__desc-heading {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.dlc-modal__desc-content {
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+}
+
+.dlc-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 14px 20px;
+  background: color-mix(in srgb, var(--color-surface-hover) 30%, var(--color-surface));
+  border-top: 1px solid var(--color-border);
+}
+
+.dlc-modal__footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

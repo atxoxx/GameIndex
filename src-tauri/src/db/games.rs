@@ -1134,7 +1134,7 @@ mod tests {
             "excludedGlobalDlls": []
         });
 
-        let mut row = sample_row();
+        let row = sample_row();
         let mut value = serde_json::to_value(&row).unwrap();
         value["compatibility"] = compat.clone();
 

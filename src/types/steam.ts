@@ -70,6 +70,8 @@ export interface SyncedGameEntry {
   /** Unix timestamp (seconds) of the last Steam play session. The
    *  frontend converts this to milliseconds for `Game.lastPlayed`. */
   rtimeLastPlayed?: number;
+  /** SteamID64 or account info of owner if shared via Steam Family Sharing */
+  familySharedBy?: string;
 }
 
 /** A single launch action/executable Steam offers for a game (from the
@@ -95,3 +97,52 @@ export interface SteamSettings {
 
 /** localStorage key for Steam settings */
 export const STEAM_SETTINGS_KEY = "gamelib-steam-settings";
+
+export interface SteamFamilyMember {
+  steamId: string;
+  accountId: number;
+  role: number;
+  personaName?: string;
+  avatarUrl?: string;
+  profileUrl?: string;
+  isCurrentUser: boolean;
+}
+
+export interface SteamFamilyGroup {
+  groupId: string;
+  name: string;
+  role: number;
+  members: SteamFamilyMember[];
+}
+
+export interface SteamFamilyShareInfo {
+  isShared: boolean;
+  ownerSteamId?: string;
+  ownerName?: string;
+  ownerAvatarUrl?: string;
+  familyGroupName?: string;
+}
+
+export interface SteamDlcItem {
+  appId: number;
+  name: string;
+  headerImage?: string;
+  priceFormatted?: string;
+  initialPriceFormatted?: string;
+  discountPercent?: number;
+  isFree: boolean;
+  releaseDate?: string;
+  shortDescription?: string;
+  isOwned: boolean;
+  isInstalled: boolean;
+}
+
+export interface SteamGameDlcsResult {
+  appId: number;
+  totalDlcs: number;
+  ownedCount: number;
+  installedCount: number;
+  dlcs: SteamDlcItem[];
+  familyShare?: SteamFamilyShareInfo;
+}
+

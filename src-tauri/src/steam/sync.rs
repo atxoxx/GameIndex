@@ -225,6 +225,15 @@ pub async fn steam_sync_games(
             .get(&game.appid)
             .map(|(e, b, r)| (e.clone(), *b, r.clone()))
             .unwrap_or((None, None, None));
+        let family_shared_by = manifest_states.get(&game.appid).and_then(|m| {
+            m.last_owner.as_deref().and_then(|o| {
+                if !o.is_empty() && o != "0" && o != session.steam_id {
+                    Some(o.to_string())
+                } else {
+                    None
+                }
+            })
+        });
         synced_games.push(SyncedGameEntry {
             appid: game.appid,
             name: game.name.clone(),
@@ -237,6 +246,7 @@ pub async fn steam_sync_games(
             } else {
                 None
             },
+            family_shared_by,
         });
     }
 
@@ -362,6 +372,10 @@ pub struct SteamManifestState {
     /// `None` when the manifest was unreadable/unparseable (the AppID is
     /// still counted as present so uninstall detection stays conservative).
     pub install_dir: Option<PathBuf>,
+    /// SteamID64 of the owner that installed/authorized the game (from LastOwner in the manifest).
+    pub last_owner: Option<String>,
+    /// Installed DLC AppIDs from InstalledDepots and optionaldlc
+    pub installed_dlcs: Vec<u32>,
 }
 
 /// Scan every `appmanifest_<appid>.acf` under the Steam library folders
@@ -394,23 +408,27 @@ pub fn scan_steam_manifests() -> std::collections::HashMap<u32, SteamManifestSta
                         // `folder` is the library's `steamapps` dir, so
                         // the install root composes identically to
                         // `game_install_path` without a second manifest read.
-                        let (fully_installed, install_dir) =
+                        let (fully_installed, install_dir, last_owner, installed_dlcs) =
                             match fs::read_to_string(&manifest_path) {
                                 Ok(raw) => match steam_game_watcher::parse_appmanifest(&raw, appid)
                                 {
                                     Some(parsed) => (
                                         parsed.is_fully_installed(),
                                         Some(folder.join("common").join(&parsed.install_dir)),
+                                        parsed.last_owner,
+                                        parsed.installed_dlcs,
                                     ),
-                                    None => (true, None), // unparseable → assume installed
+                                    None => (true, None, None, Vec::new()), // unparseable → assume installed
                                 },
-                                Err(_) => (true, None), // unreadable → assume installed
+                                Err(_) => (true, None, None, Vec::new()), // unreadable → assume installed
                             };
                         states.insert(
                             appid,
                             SteamManifestState {
                                 fully_installed,
                                 install_dir,
+                                last_owner,
+                                installed_dlcs,
                             },
                         );
                     }

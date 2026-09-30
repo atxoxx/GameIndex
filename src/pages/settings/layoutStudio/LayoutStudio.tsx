@@ -144,6 +144,7 @@ const DETAIL_TAB_ICON: Record<DetailTabKey, LucideIcon> = {
   mods: Wrench,
   weblinks: Globe,
   news: Newspaper,
+  dlc: Puzzle,
 };
 
 const HERO_ELEMENT_ICON: Record<HeroElementKey, LucideIcon> = {

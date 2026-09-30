@@ -66,6 +66,8 @@ use uplay::{
 };
 use steam::auth::{steam_connect, steam_logout, steam_get_session};
 use steam::sync::steam_sync_games;
+use steam::family::{steam_get_family_group, steam_get_family_share_info};
+use steam::dlc::{steam_get_game_dlcs, steam_toggle_dlc_owned};
 use size::{detect_game_size, check_paths_exist, open_folder, disk_usage, resolve_mounts, move_game_install, uninstall_game, measure_path_size};
 use system_screenshots::detect_system_screenshot_folders;
 
@@ -124,6 +126,8 @@ pub fn run() {
             get_language, set_language, get_theme, set_theme, get_accent_color, set_accent_color, get_adaptive_palette, set_adaptive_palette, get_about_bundle,             save_wishlist, load_wishlist, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url, deals::fetch_playtester_games, deals::fetch_playtester_game_detail,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,
+            steam_get_family_group, steam_get_family_share_info,
+            steam_get_game_dlcs, steam_toggle_dlc_owned,
             epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_sync_library, epic_is_authenticated, epic_logout,
             epic::achievements::epic_fetch_achievements,
             gog_start_login, gog_sync_library, gog_is_authenticated, gog_logout,

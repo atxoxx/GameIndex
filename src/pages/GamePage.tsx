@@ -47,6 +47,8 @@ import {
   DetailSectionsHiddenNote,
   WineLogsModal,
   SteamFeaturesCard,
+  GameDlcCard,
+  GameDlcTab,
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
@@ -69,6 +71,7 @@ import {
   IconGlobe,
   IconNewspaper,
   IconFileText,
+  IconDlc,
 } from "../components/game/icons";
 
 type GamePageTab =
@@ -79,7 +82,8 @@ type GamePageTab =
   | "achievements"
   | "mods"
   | "weblinks"
-  | "news";
+  | "news"
+  | "dlc";
 
 const VALID_TABS = new Set<GamePageTab>([
   "overview",
@@ -90,6 +94,7 @@ const VALID_TABS = new Set<GamePageTab>([
   "mods",
   "weblinks",
   "news",
+  "dlc",
 ]);
 
 /**
@@ -320,6 +325,7 @@ function GameDetail({ game }: { game: Game }) {
         count: game.websites?.length ?? null,
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
+      { id: "dlc" as const, label: t("game.tab.dlc"), icon: IconDlc },
     ];
     return allTabs
       .sort((a, b) => gameTabOrder.indexOf(a.id) - gameTabOrder.indexOf(b.id))
@@ -482,6 +488,7 @@ function GameDetail({ game }: { game: Game }) {
             <div className="game-main-col">
               <DetailSectionsHiddenNote
                 sections={[
+                  "dlc",
                   "steamFeatures",
                   "systemRequirements",
                   "gameRelations",
@@ -568,6 +575,18 @@ function GameDetail({ game }: { game: Game }) {
                   onEditSize={() => setEditTab("details")}
                 />
               </PageWidgetSlot>
+              {detailSectionVisible.dlc && (
+                <PageWidgetSlot
+                  page="game"
+                  widget="gameDlcCard"
+                  className="ui-item-gameDlcCard"
+                >
+                  <GameDlcCard
+                    game={game}
+                    onViewAllDlcs={() => handleTabChange("dlc")}
+                  />
+                </PageWidgetSlot>
+              )}
               {detailSectionVisible.steamFeatures && (
                 <PageWidgetSlot
                   page="game"
@@ -680,6 +699,8 @@ function GameDetail({ game }: { game: Game }) {
       )}
 
       {effectiveTab === "news" && <GameNewsTab game={game} />}
+
+      {effectiveTab === "dlc" && <GameDlcTab game={game} />}
 
       {/* Edit Game Modal */}
       {editTab && (

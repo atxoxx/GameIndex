@@ -26,6 +26,7 @@ import {
   IconTrophy,
   IconGlobe,
   IconNewspaper,
+  IconDlc,
 } from "../components/game/icons";
 import {
   GameHero,
@@ -45,6 +46,8 @@ import {
   SystemRequirementsCard,
   DetailSectionsHiddenNote,
   SteamFeaturesCard,
+  GameDlcCard,
+  GameDlcTab,
 } from "../components/game";
 import "../styles/page-store.css";
 import "../styles/achievements.css";
@@ -103,7 +106,7 @@ function StoreGameNotFound() {
 /*  Main Store Game Detail Component                                  */
 /* ------------------------------------------------------------------ */
 
-type StoreTab = "overview" | "reviews" | "achievements" | "weblinks" | "news";
+type StoreTab = "overview" | "reviews" | "achievements" | "weblinks" | "news" | "dlc";
 
 const VALID_STORE_TABS = new Set<StoreTab>([
   "overview",
@@ -111,6 +114,7 @@ const VALID_STORE_TABS = new Set<StoreTab>([
   "achievements",
   "weblinks",
   "news",
+  "dlc",
 ]);
 
 export default function StoreGameDetail() {
@@ -390,6 +394,7 @@ export default function StoreGameDetail() {
         count: data?.websites?.length ?? null,
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
+      { id: "dlc" as const, label: t("game.tab.dlc"), icon: IconDlc },
     ];
     return allTabs
       .sort((a, b) => storeTabOrder.indexOf(a.id) - storeTabOrder.indexOf(b.id))
@@ -546,6 +551,7 @@ export default function StoreGameDetail() {
             <div className="game-main-col">
               <DetailSectionsHiddenNote
                 sections={[
+                  "dlc",
                   "steamFeatures",
                   "systemRequirements",
                   "gameRelations",
@@ -604,6 +610,20 @@ export default function StoreGameDetail() {
               >
                 <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />
               </PageWidgetSlot>
+              {detailSectionVisible.dlc && (
+                <PageWidgetSlot
+                  page="storeGame"
+                  widget="gameDlcCard"
+                  className="ui-item-gameDlcCard"
+                >
+                  <GameDlcCard
+                    game={effectiveGame}
+                    storeAppId={steamAppId}
+                    gameName={data.title}
+                    onViewAllDlcs={() => handleTabChange("dlc")}
+                  />
+                </PageWidgetSlot>
+              )}
               {detailSectionVisible.steamFeatures && (
                 <PageWidgetSlot
                   page="storeGame"
@@ -690,6 +710,14 @@ export default function StoreGameDetail() {
 
       {effectiveTab === "news" && (
         <GameNewsTab game={mockGame} />
+      )}
+
+      {effectiveTab === "dlc" && (
+        <GameDlcTab
+          game={effectiveGame}
+          storeAppId={steamAppId}
+          gameName={data.title}
+        />
       )}
 
       {/* Unified Image Lightbox */}

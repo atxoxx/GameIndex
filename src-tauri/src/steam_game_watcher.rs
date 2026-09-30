@@ -25,6 +25,8 @@ pub struct AppManifest {
     /// Library root where this app lives (e.g. `D:\SteamLibrary`).
     pub library_root: PathBuf,
     pub build_id: Option<String>,
+    pub last_owner: Option<String>,
+    pub installed_dlcs: Vec<u32>,
 }
 
 /// Normalize a raw `SteamPath` registry string into a candidate install
@@ -253,6 +255,8 @@ pub fn find_app_install_dir(app_id: u32) -> Option<AppManifest> {
                     install_dir: parsed.install_dir,
                     library_root: lib_root,
                     build_id: parsed.build_id,
+                    last_owner: parsed.last_owner,
+                    installed_dlcs: parsed.installed_dlcs,
                 });
             }
         }
@@ -286,6 +290,8 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
     let mut installdir: Option<String> = None;
     let mut state_flags: Option<u32> = None;
     let mut build_id: Option<String> = None;
+    let mut last_owner: Option<String> = None;
+    let mut installed_dlcs: Vec<u32> = Vec::new();
 
     // Walk odd indices (1, 3, 5, …) and look two slots ahead for the
     // value. `split('"')` on `"appid" "440"` yields `["", "appid",
@@ -303,10 +309,26 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
             "installdir" => installdir = Some(value.to_string()),
             "StateFlags" => state_flags = value.trim().parse::<u32>().ok(),
             "buildid" => build_id = Some(value.trim().to_string()),
+            "LastOwner" => last_owner = Some(value.trim().to_string()),
+            "dlcappid" => {
+                if let Ok(id) = value.trim().parse::<u32>() {
+                    installed_dlcs.push(id);
+                }
+            }
+            "optionaldlc" => {
+                for token in value.split(',') {
+                    if let Ok(id) = token.trim().parse::<u32>() {
+                        installed_dlcs.push(id);
+                    }
+                }
+            }
             _ => {}
         }
         i += 2;
     }
+
+    installed_dlcs.sort_unstable();
+    installed_dlcs.dedup();
 
     Some(AppManifestFields {
         // If the manifest omitted appid (extremely rare) fall back to
@@ -317,6 +339,8 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
         install_dir: installdir?,
         state_flags,
         build_id,
+        last_owner,
+        installed_dlcs,
     })
 }
 
@@ -327,6 +351,8 @@ pub struct AppManifestFields {
     pub install_dir: String,
     pub state_flags: Option<u32>,
     pub build_id: Option<String>,
+    pub last_owner: Option<String>,
+    pub installed_dlcs: Vec<u32>,
 }
 
 impl AppManifestFields {
@@ -438,6 +464,31 @@ mod tests {
 "#;
         let m = parse_appmanifest(raw, 7777).unwrap();
         assert_eq!(m.app_id, 7777);
+    }
+
+    #[test]
+    fn parse_appmanifest_with_dlcs() {
+        let raw = r#""AppState"
+{
+    "appid"  "553850"
+    "name"  "HELLDIVERS 2"
+    "installdir"  "Helldivers 2"
+    "StateFlags"  "4"
+    "InstalledDepots"
+    {
+        "2506250"
+        {
+            "dlcappid"  "2506250"
+        }
+    }
+    "UserConfig"
+    {
+        "optionaldlc"  "2506250,1123920"
+    }
+}
+"#;
+        let m = parse_appmanifest(raw, 553850).unwrap();
+        assert_eq!(m.installed_dlcs, vec![1123920, 2506250]);
     }
 
     // ── libraryfolders.vdf parsing ──────────────────────────────────

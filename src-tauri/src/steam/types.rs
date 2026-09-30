@@ -100,4 +100,78 @@ pub struct SyncedGameEntry {
     /// page's "Continue Playing" rail can surface recently-active titles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rtime_last_played: Option<u64>,
+    /// Family sharing details if this installed game belongs to another family member.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family_shared_by: Option<String>,
 }
+
+/// A member of a Steam Family group.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamFamilyMember {
+    pub steam_id: String,
+    pub account_id: u32,
+    pub role: u32,
+    pub persona_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub profile_url: Option<String>,
+    pub is_current_user: bool,
+}
+
+/// Steam Family group configuration detected locally or via API.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamFamilyGroup {
+    pub group_id: String,
+    pub name: String,
+    pub role: u32,
+    pub members: Vec<SteamFamilyMember>,
+}
+
+/// Information about a game's family sharing ownership.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamFamilyShareInfo {
+    pub is_shared: bool,
+    pub owner_steam_id: Option<String>,
+    pub owner_name: Option<String>,
+    pub owner_avatar_url: Option<String>,
+    pub family_group_name: Option<String>,
+}
+
+/// Details for an individual DLC item.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamDlcItem {
+    pub app_id: u32,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub header_image: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub price_formatted: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_price_formatted: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discount_percent: Option<u32>,
+    pub is_free: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_date: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub short_description: Option<String>,
+    pub is_owned: bool,
+    pub is_installed: bool,
+}
+
+/// Full DLCs result for a game, including family sharing status.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamGameDlcsResult {
+    pub app_id: u32,
+    pub total_dlcs: u32,
+    pub owned_count: u32,
+    pub installed_count: u32,
+    pub dlcs: Vec<SteamDlcItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family_share: Option<SteamFamilyShareInfo>,
+}
+

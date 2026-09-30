@@ -126,6 +126,8 @@ export interface Game {
   uplayIsConnect?: boolean;
   /** Achievement completion data synced from Steam */
   steamAchievements?: SteamAchievement[];
+  /** Steam Family Sharing owner info if shared by another family member */
+  familySharedBy?: string;
   /**
    * Unix-millisecond timestamp of the most recent session exit for this
    * game. Stamped by the Rust `GameWatcher.finish_session` hook when a

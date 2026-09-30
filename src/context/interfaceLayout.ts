@@ -66,6 +66,7 @@ export type PageWidgetKey =
   | "gameCrackwatch"
   | "gameReleases"
   | "gameLanguages"
+  | "gameDlcCard"
   // Store
   | "storeHeader"
   | "storeFilters"
@@ -290,6 +291,7 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   gameCrackwatch: "ui-item-gameCrackwatch",
   gameReleases: "ui-item-gameReleases",
   gameLanguages: "ui-item-gameLanguages",
+  gameDlcCard: "ui-item-gameDlcCard",
   // Store
   storeHeader: "ui-item-storeHeader",
   storeFilters: "ui-item-storeFilters",
@@ -403,6 +405,7 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   gameCrackwatch: "settings.interface.widgetGameCrackwatch",
   gameReleases: "settings.interface.widgetGameReleases",
   gameLanguages: "settings.interface.widgetGameLanguages",
+  gameDlcCard: "settings.interface.widgetGameDlcCard",
   // Store
   storeHeader: "settings.interface.widgetStoreHeader",
   storeFilters: "settings.interface.widgetStoreFilters",
@@ -600,6 +603,7 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "gameCrackwatch",
       "gameReleases",
       "gameLanguages",
+      "gameDlcCard",
     ],
   },
   {
@@ -926,12 +930,12 @@ export function normalizeSidebarSectionVisibility(raw: unknown): SidebarSectionV
 // ── Detail-page tabs (game + store detail) ─────────────────────────────
 export type DetailTabScope = "game" | "store";
 export type DetailTabKey =
-  | "overview" | "reviews" | "activity" | "notes"
+  | "overview" | "dlc" | "reviews" | "activity" | "notes"
   | "achievements" | "mods" | "weblinks" | "news";
 
 export const DETAIL_TABS: Record<DetailTabScope, DetailTabKey[]> = {
-  game: ["overview", "reviews", "activity", "notes", "achievements", "mods", "weblinks", "news"],
-  store: ["overview", "reviews", "achievements", "weblinks", "news"],
+  game: ["overview", "dlc", "reviews", "activity", "notes", "achievements", "mods", "weblinks", "news"],
+  store: ["overview", "dlc", "reviews", "achievements", "weblinks", "news"],
 };
 export const DEFAULT_DETAIL_TAB_ORDER = DETAIL_TABS; // shipped order
 
@@ -940,6 +944,7 @@ const DETAIL_TAB_SCOPES = Object.keys(DETAIL_TABS) as DetailTabScope[];
 // Tab label i18n keys (reuse existing keys — do NOT invent new ones here).
 export const DETAIL_TAB_LABEL_KEY: Record<DetailTabKey, string> = {
   overview: "game.tab.overview",
+  dlc: "game.tab.dlc",
   reviews: "game.tab.reviews",
   activity: "game.tab.activity",
   notes: "notes.title",

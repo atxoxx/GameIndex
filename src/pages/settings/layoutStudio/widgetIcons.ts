@@ -30,6 +30,7 @@ import {
   PanelLeft,
   PieChart,
   PlayCircle,
+  Puzzle,
   Search,
   ShieldCheck,
   ShoppingBag,
@@ -85,6 +86,7 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   gamePulse: Activity,
   // Game Detail — the individual sidebar cards the detail pages render.
   gameInfoKpi: Info,
+  gameDlcCard: Puzzle,
   gameSteamFeatures: Gamepad2,
   gameRatings: Star,
   gameTimeToBeat: Clock,

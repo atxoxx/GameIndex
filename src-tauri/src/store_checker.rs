@@ -83,6 +83,17 @@ impl StoreChecker {
         self.steam_appids = appids.into_iter().collect();
     }
 
+    /// Check if a specific Steam AppID is owned.
+    #[allow(dead_code)]
+    pub fn is_steam_owned(&self, appid: u32) -> bool {
+        self.steam_appids.contains(&appid)
+    }
+
+    /// Access the set of owned Steam AppIDs.
+    pub fn get_steam_appids(&self) -> &HashSet<u32> {
+        &self.steam_appids
+    }
+
     /// Replace the Epic-owned id set. Each id is the composite
     /// `"{namespace}:{catalogItemId}"` so the frontend doesn't have to
     /// send two parallel arrays.
