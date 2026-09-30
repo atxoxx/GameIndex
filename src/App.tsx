@@ -120,20 +120,39 @@ function AppShell() {
   const { runningGameIds } = useGames();
 
   useEffect(() => {
-    const handleVisibility = () => {
-      const shouldPause = document.hidden || runningGameIds.length > 0;
+    // The main window is created hidden and revealed once the library has
+    // hydrated. Tauri's WebView2 does not reliably emit `visibilitychange` for
+    // that reveal, so a pause taken from the initial (hidden) reading can
+    // stick — and because a paused animation holds its first keyframe, every
+    // page's `opacity: 0` entrance would stay frozen and blank the route while
+    // the shell (no entrance animations) keeps painting.
+    //
+    // So only trust `document.hidden` after the window has actually been seen
+    // visible: a stale hidden reading can then never pause the UI, while a real
+    // hide/restore (where visibility events do fire) still does.
+    let sawVisible = !document.hidden;
+
+    const applyPauseState = () => {
+      if (!document.hidden) sawVisible = true;
+      const shouldPause =
+        runningGameIds.length > 0 || (sawVisible && document.hidden);
+      document.documentElement.classList.toggle("animations-paused", shouldPause);
       if (shouldPause) {
-        document.documentElement.classList.add("animations-paused");
         document.querySelectorAll("video").forEach((v) => {
           if (!v.paused) v.pause();
         });
-      } else {
-        document.documentElement.classList.remove("animations-paused");
       }
     };
-    handleVisibility();
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+
+    applyPauseState();
+    document.addEventListener("visibilitychange", applyPauseState);
+    // Focus is the one signal that reliably accompanies the reveal (Tauri
+    // calls `set_focus()` when it shows the main window).
+    window.addEventListener("focus", applyPauseState);
+    return () => {
+      document.removeEventListener("visibilitychange", applyPauseState);
+      window.removeEventListener("focus", applyPauseState);
+    };
   }, [runningGameIds.length]);
 
   return (
