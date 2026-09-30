@@ -5,14 +5,24 @@ import { useGames } from "../context/GameContext";
 import { usePresence } from "../context/PresenceContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
+import { useDownloads } from "../context/DownloadContext";
+import { useWishlistContext } from "../context/WishlistContext";
+import {
+  browsingHint,
+  buildDownloadPresence,
+  primaryDownload,
+  PRESENCE_DOWNLOAD_KINDS,
+  type PresencePayload,
+} from "./discordPresenceBuild";
 
 /**
  * useDiscordPresence
  * ──────────────────
- * Single emitter for the Discord Rich Presence "browsing" (idle /
- * navigating) activity. Watches the route and page-local presence hints
- * and emits a `discord-presence-update` event with `state: "browsing"`
- * so the backend presence thread reflects where the user is in the app.
+ * Single emitter for the Discord Rich Presence "idle" states. Watches the
+ * route, page-local hints and the download queue, then emits a
+ * `discord-presence-update` event with `state: "downloading"` (active
+ * transfers take priority) or `state: "browsing"` so the backend presence
+ * thread reflects what the user is doing.
  *
  * While any game is running (`runningGameIds.length > 0`) this hook stays
  * silent — GameContext owns the presence thread during a play session.
@@ -22,17 +32,72 @@ export function useDiscordPresence() {
   const { games, runningGameIds } = useGames();
   const { storePlatforms, modsGameName } = usePresence();
   const { t } = useLanguage();
-  const { discordShowBrowsing } = useSettings();
+  const {
+    discordShowBrowsing,
+    discordShowDownloads,
+    discordShowArt,
+    discordShowPlaytime,
+    discordStatusDisplay,
+  } = useSettings();
+  const { activeDownloads } = useDownloads();
+  const { count: wishlistCount } = useWishlistContext();
 
   // Payload signature of the last event we emitted, so identical states
   // (e.g. re-renders on unrelated context changes) don't spam the IPC.
   const lastSent = useRef<string>("");
+  // Stable browsing-session start so the elapsed timer survives navigation
+  // instead of resetting on every route change.
+  const browsingStart = useRef(0);
+  // True while a play session owns presence; used to restart the browsing
+  // timer when the user drops back to idle.
+  const wasPlaying = useRef(false);
+  // Throttle live download updates: Discord rate-limits SET_ACTIVITY, so we
+  // emit immediately when the download/status changes and otherwise at most
+  // once every 15s.
+  const downloadEmit = useRef<{ key: string; at: number }>({ key: "", at: 0 });
 
   useEffect(() => {
     // While a game runs, GameContext owns presence — never emit browsing.
-    if (runningGameIds.length > 0) return;
+    if (runningGameIds.length > 0) {
+      wasPlaying.current = true;
+      return;
+    }
+    if (wasPlaying.current) {
+      wasPlaying.current = false;
+      browsingStart.current = 0;
+    }
 
-    // Browsing broadcast is off: clear any lingering activity (e.g. after
+    // 1) Active downloads outrank browsing, when the user opted in.
+    if (discordShowDownloads) {
+      const download = primaryDownload(activeDownloads);
+      if (download) {
+        const candidates = activeDownloads.filter((d) =>
+          PRESENCE_DOWNLOAD_KINDS.has(d.status.kind),
+        );
+        const position = Math.max(1, candidates.indexOf(download) + 1);
+        const payload = buildDownloadPresence(
+          download,
+          position,
+          candidates.length,
+          t,
+          discordStatusDisplay,
+        );
+        const sig = JSON.stringify(payload);
+        if (sig === lastSent.current) return;
+
+        const key = `${download.id}:${download.status.kind}`;
+        const now = Date.now();
+        const isNewDownload = downloadEmit.current.key !== key;
+        if (isNewDownload || now - downloadEmit.current.at >= 15_000) {
+          downloadEmit.current = { key, at: now };
+          lastSent.current = sig;
+          void emit("discord-presence-update", payload);
+        }
+        return;
+      }
+    }
+
+    // 2) Browsing broadcast is off: clear any lingering activity (e.g. after
     // a play session ends) instead of advertising where the user is.
     if (!discordShowBrowsing) {
       const payload = { state: "stopped" };
@@ -43,42 +108,25 @@ export function useDiscordPresence() {
       return;
     }
 
-    let details: string;
-    if (pathname === "/" || pathname === "/home") {
-      details = t("discordPresence.browsingApp");
-    } else if (pathname === "/library") {
-      details = t("discordPresence.browsingLibrary", {
-        count: games.length.toLocaleString(),
-      });
-    } else if (pathname.startsWith("/library/")) {
-      // HashRouter pathname has no hash prefix; segment [2] is the game id.
-      const game = games.find((g) => g.id === pathname.split("/")[2]);
-      details = t("discordPresence.browsingGamePage", {
-        game: game?.name ?? "",
-      });
-    } else if (pathname === "/mods") {
-      details = modsGameName
-        ? t("discordPresence.configuringMods", { game: modsGameName })
-        : t("discordPresence.browsingApp");
-    } else if (pathname === "/store" || pathname.startsWith("/store/")) {
-      details =
-        storePlatforms.length === 1
-          ? t("discordPresence.shoppingStorePlatform", {
-              platform: storePlatforms[0],
-            })
-          : t("discordPresence.shoppingStore");
-    } else if (pathname === "/activity") {
-      details = t("discordPresence.browsingActivity");
-    } else if (pathname === "/settings") {
-      details = t("discordPresence.browsingSettings");
-    } else {
-      details = t("discordPresence.browsingApp");
-    }
+    // 3) Browsing presence for the current route.
+    const hint = browsingHint(
+      pathname,
+      games,
+      wishlistCount,
+      storePlatforms,
+      modsGameName,
+      t,
+    );
+    if (browsingStart.current === 0) browsingStart.current = Date.now();
 
-    const payload = {
+    const payload: PresencePayload = {
       state: "browsing",
-      details,
-      stateText: t("discordPresence.smallText"),
+      details: hint.details,
+      startedAt: discordShowPlaytime ? browsingStart.current : 0,
+      detailsUrl: hint.detailsUrl,
+      largeImage: discordShowArt ? hint.largeImage : undefined,
+      largeText: discordShowArt ? hint.largeText : undefined,
+      statusDisplay: discordStatusDisplay,
     };
 
     // Dedupe: only emit when the payload actually changed.
@@ -93,6 +141,12 @@ export function useDiscordPresence() {
     storePlatforms.join(","),
     modsGameName,
     discordShowBrowsing,
+    discordShowDownloads,
+    discordShowArt,
+    discordShowPlaytime,
+    discordStatusDisplay,
+    activeDownloads,
+    wishlistCount,
     t,
   ]);
 }

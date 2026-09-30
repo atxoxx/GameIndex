@@ -71,7 +71,7 @@ This file gives contributors and AI coding agents context about the project: goa
   4. Background poller (`game_watcher::start_background_poll`, every 5s) detects exit via WMI on Windows (process-tree tracking for Wine/Proton on Linux) and writes one row to the `sessions` table before emitting the `game-exited` event. `steam_game_watcher` handles Steam-only games.
 - **Session record per exit:** last_played bump + activity dashboard roll-up. Use `update_game_last_played` IPC, not `save_games`, for the hot path.
 - **Steam `open` flow:** when a Steam title has no local exe (e.g., synced only), Rust opens `steam://run/<appid>` via the opener plugin and registers a pending session that the poller activates when the matching process appears.
-- **Discord Rich Presence:** `discord_presence.rs` owns a background IPC thread (reconnect w/ retry); frontend emits `discord-presence-update` events ("playing"/"browsing"/"stopped") via `useDiscordPresence`; per-option toggles in the Discord settings tab.
+- **Discord Rich Presence:** `discord_presence.rs` owns a background IPC thread (reconnect w/ retry) and maps `PresenceData` onto the full activity shape (activity type, member-list `statusDisplay`, clickable details/state URLs, party size, two buttons, start/end timestamps). Frontend emits `discord-presence-update` events ("playing"/"browsing"/"downloading"/"stopped"); the pure payload builders live in `context/game/discordPlayingPresence.ts` (playing card) and `hooks/discordPresenceBuild.ts` (browsing routes + download queue), driven by `useSessions` and `useDiscordPresence`; per-option toggles (art, playtime, website/store buttons, browsing, downloads, member-list line) live in the Discord settings tab.
 
 ## Storage (SQLite)
 

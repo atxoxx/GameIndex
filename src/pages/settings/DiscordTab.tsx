@@ -1,4 +1,7 @@
-import { useSettings } from "../../context/SettingsContext";
+import {
+  useSettings,
+  type DiscordStatusDisplay,
+} from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -10,9 +13,10 @@ import { DiscordIcon } from "./settingsIcons";
  * a master switch plus per-option checkboxes so users can pick exactly
  * what gets broadcast to their Discord profile:
  *
- *  - General: the master enable toggle + Discord connection status
- *  - While playing: cover art, playtime, "View Website" button
- *  - While browsing: the page-activity presence
+ *  - General: the master enable toggle, connection status, and which line
+ *    Discord shows in the member list
+ *  - While playing: cover art, playtime, website + store buttons
+ *  - While browsing / idle: page-activity presence and download status
  *
  * The per-option flags are read at emit time by the presence emitters
  * (useSessions / useDiscordPresence), so changes apply to the next game
@@ -30,8 +34,14 @@ export default function DiscordTab() {
     setDiscordShowPlaytime,
     discordShowWebsiteButton,
     setDiscordShowWebsiteButton,
+    discordShowStoreButton,
+    setDiscordShowStoreButton,
     discordShowBrowsing,
     setDiscordShowBrowsing,
+    discordShowDownloads,
+    setDiscordShowDownloads,
+    discordStatusDisplay,
+    setDiscordStatusDisplay,
   } = useSettings();
 
   return (
@@ -62,6 +72,37 @@ export default function DiscordTab() {
             {t("settings.discord.notRunning")}
           </p>
         )}
+
+        {/* Member-list line: which field Discord shows next to your name */}
+        <div className="settings-limit-row">
+          <label
+            className="settings-checkbox-label settings-checkbox-label--fixed"
+            htmlFor="discord-status-display"
+          >
+            <span>{t("settings.discord.statusDisplayTitle")}</span>
+          </label>
+          <div className="settings-limit-value" style={{ minWidth: "220px" }}>
+            <select
+              id="discord-status-display"
+              className="settings-select"
+              value={discordStatusDisplay}
+              disabled={!discordRichPresence}
+              onChange={(e) =>
+                setDiscordStatusDisplay(e.target.value as DiscordStatusDisplay)
+              }
+              aria-label={t("settings.discord.statusDisplayTitle")}
+            >
+              <option value="name">{t("settings.discord.statusDisplayName")}</option>
+              <option value="state">{t("settings.discord.statusDisplayState")}</option>
+              <option value="details">
+                {t("settings.discord.statusDisplayDetails")}
+              </option>
+            </select>
+          </div>
+        </div>
+        <p className="settings-launcher-group-note">
+          {t("settings.discord.statusDisplayDesc")}
+        </p>
 
         {/* ── While playing ────────────────────────────────────── */}
         <p
@@ -98,7 +139,16 @@ export default function DiscordTab() {
           onChange={(v) => setDiscordShowWebsiteButton(v)}
         />
 
-        {/* ── While browsing ───────────────────────────────────── */}
+        {/* Show store button (second button, e.g. Steam) */}
+        <SettingsToggleCard
+          title={t("settings.discord.showStoreButtonTitle")}
+          desc={t("settings.discord.showStoreButtonDesc")}
+          checked={discordShowStoreButton}
+          disabled={!discordRichPresence}
+          onChange={(v) => setDiscordShowStoreButton(v)}
+        />
+
+        {/* ── While browsing / idle ────────────────────────────── */}
         <p
           className="settings-toggles-title settings-launcher-group-title"
           id="discord-browsing"
@@ -113,6 +163,15 @@ export default function DiscordTab() {
           checked={discordShowBrowsing}
           disabled={!discordRichPresence}
           onChange={(v) => setDiscordShowBrowsing(v)}
+        />
+
+        {/* Show active downloads when not playing */}
+        <SettingsToggleCard
+          title={t("settings.discord.showDownloadsTitle")}
+          desc={t("settings.discord.showDownloadsDesc")}
+          checked={discordShowDownloads}
+          disabled={!discordRichPresence}
+          onChange={(v) => setDiscordShowDownloads(v)}
         />
       </div>
     </SettingsSection>

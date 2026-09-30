@@ -105,6 +105,9 @@ export const LS_DISCORD_SHOW_ART = "gamelib.discord_show_art";
 export const LS_DISCORD_SHOW_PLAYTIME = "gamelib.discord_show_playtime";
 export const LS_DISCORD_SHOW_WEBSITE_BUTTON = "gamelib.discord_show_website_button";
 export const LS_DISCORD_SHOW_BROWSING = "gamelib.discord_show_browsing";
+export const LS_DISCORD_SHOW_STORE_BUTTON = "gamelib.discord_show_store_button";
+export const LS_DISCORD_SHOW_DOWNLOADS = "gamelib.discord_show_downloads";
+export const LS_DISCORD_STATUS_DISPLAY = "gamelib.discord_status_display";
 const LS_HISTORY_CAP_DAYS = "gamelib.player_count_history_cap_days";
 const LS_BLOCKED_DOMAINS = "gamelib.blocked_source_domains";
 // WebLinks / News preview content filter (cosmetic ad hiding + cookie
@@ -200,6 +203,10 @@ export type SyncIntervalMinutes = 0 | 15 | 30 | 60 | 360 | 720 | 1440;
  *  `discord-presence-status` events so Settings can show "Discord is
  *  not running" when the desktop app is closed. */
 export type DiscordStatus = "idle" | "connected" | "notRunning";
+
+/** Which activity line Discord shows under the user's name in the member
+ *  list: the app name, the `state` line, or the `details` line. */
+export type DiscordStatusDisplay = "name" | "state" | "details";
 
 /** Which individual telemetry streams to record during a session. */
 export interface MetricCapture {
@@ -440,6 +447,15 @@ export interface SettingsContextValue {
   /** Whether the "browsing" activity (which page you're on) is broadcast. */
   discordShowBrowsing: boolean;
   setDiscordShowBrowsing: (next: boolean) => void;
+  /** Whether a secondary "store" button is attached while playing. */
+  discordShowStoreButton: boolean;
+  setDiscordShowStoreButton: (next: boolean) => void;
+  /** Whether active downloads are broadcast while no game is running. */
+  discordShowDownloads: boolean;
+  setDiscordShowDownloads: (next: boolean) => void;
+  /** Which line Discord shows in the member list (app name / state / details). */
+  discordStatusDisplay: DiscordStatusDisplay;
+  setDiscordStatusDisplay: (next: DiscordStatusDisplay) => void;
   historyCapDays: 1 | 7 | 30;
   setHistoryCapDays: (next: 1 | 7 | 30) => void;
   blockedSourceDomains: string[];
@@ -1091,6 +1107,31 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setDiscordShowBrowsing = useCallback((next: boolean) => {
     setDiscordShowBrowsingState(next);
     lsSet(LS_DISCORD_SHOW_BROWSING, String(next));
+  }, []);
+
+  const [discordShowStoreButton, setDiscordShowStoreButtonState] =
+    useState<boolean>(() => lsGet(LS_DISCORD_SHOW_STORE_BUTTON) !== "false");
+  const setDiscordShowStoreButton = useCallback((next: boolean) => {
+    setDiscordShowStoreButtonState(next);
+    lsSet(LS_DISCORD_SHOW_STORE_BUTTON, String(next));
+  }, []);
+
+  const [discordShowDownloads, setDiscordShowDownloadsState] = useState<boolean>(
+    () => lsGet(LS_DISCORD_SHOW_DOWNLOADS) !== "false",
+  );
+  const setDiscordShowDownloads = useCallback((next: boolean) => {
+    setDiscordShowDownloadsState(next);
+    lsSet(LS_DISCORD_SHOW_DOWNLOADS, String(next));
+  }, []);
+
+  const [discordStatusDisplay, setDiscordStatusDisplayState] =
+    useState<DiscordStatusDisplay>(() => {
+      const raw = lsGet(LS_DISCORD_STATUS_DISPLAY);
+      return raw === "name" || raw === "state" || raw === "details" ? raw : "details";
+    });
+  const setDiscordStatusDisplay = useCallback((next: DiscordStatusDisplay) => {
+    setDiscordStatusDisplayState(next);
+    lsSet(LS_DISCORD_STATUS_DISPLAY, next);
   }, []);
 
   // Apply the persisted Discord Rich Presence choice on mount so the
@@ -1784,6 +1825,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setDiscordShowWebsiteButton,
       discordShowBrowsing,
       setDiscordShowBrowsing,
+      discordShowStoreButton,
+      setDiscordShowStoreButton,
+      discordShowDownloads,
+      setDiscordShowDownloads,
+      discordStatusDisplay,
+      setDiscordStatusDisplay,
       historyCapDays,
       setHistoryCapDays,
       blockedSourceDomains,
@@ -1911,6 +1958,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setDiscordShowWebsiteButton,
       discordShowBrowsing,
       setDiscordShowBrowsing,
+      discordShowStoreButton,
+      setDiscordShowStoreButton,
+      discordShowDownloads,
+      setDiscordShowDownloads,
+      discordStatusDisplay,
+      setDiscordStatusDisplay,
       historyCapDays,
       setHistoryCapDays,
       blockedSourceDomains,

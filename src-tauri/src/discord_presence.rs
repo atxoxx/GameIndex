@@ -25,7 +25,9 @@
 //! (loaded from `.env` in dev, or baked in at build time). It is never
 //! hardcoded here.
 
-use discord_rich_presence::activity::{Activity, Assets, Button, Timestamps};
+use discord_rich_presence::activity::{
+    Activity, ActivityType, Assets, Button, Party, StatusDisplayType, Timestamps,
+};
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
@@ -44,7 +46,9 @@ use tauri::Emitter;
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceData {
-    /// `"playing"` | `"stopped"`.
+    /// `"playing"`, `"browsing"`, `"downloading"` or `"stopped"`; the
+    /// listener in `lib.rs` treats `"stopped"` as the clear sentinel and
+    /// every other value as an activity payload.
     pub state: String,
     #[serde(default)]
     /// Sent by the frontend as part of the IPC payload contract; not
@@ -72,6 +76,61 @@ pub struct PresenceData {
     pub button_label: Option<String>,
     #[serde(default)]
     pub button_url: Option<String>,
+    /// Second button (Discord renders at most two). Frontend uses it for a
+    /// platform store link alongside the primary website button.
+    #[serde(default)]
+    pub button2_label: Option<String>,
+    #[serde(default)]
+    pub button2_url: Option<String>,
+    /// `"playing"` (default) | `"listening"` | `"watching"` | `"competing"`.
+    #[serde(default)]
+    pub activity_type: Option<String>,
+    /// `"name"` | `"state"` | `"details"` — which line Discord shows under
+    /// the user's name in the member list. Defaults to `"details"` so
+    /// friends see the game/page name instead of the app name.
+    #[serde(default)]
+    pub status_display: Option<String>,
+    /// Makes the `details` line a clickable link when set.
+    #[serde(default)]
+    pub details_url: Option<String>,
+    /// Makes the `state` line a clickable link when set.
+    #[serde(default)]
+    pub state_url: Option<String>,
+    /// Party id + size drive Discord's "(2 of 4)" line. Used for download
+    /// queue position. Ignored unless `party_max > 0`.
+    #[serde(default)]
+    pub party_id: Option<String>,
+    #[serde(default)]
+    pub party_current: Option<i32>,
+    #[serde(default)]
+    pub party_max: Option<i32>,
+    /// Unix timestamp in milliseconds for a "remaining" countdown. When set
+    /// alongside `started_at` Discord shows a progress bar (Listening /
+    /// Watching); otherwise it renders "in X".
+    #[serde(default)]
+    pub ends_at: u64,
+}
+
+/// Map the frontend's activity-type string onto the crate enum. Unknown or
+/// missing values fall back to `Playing`, the only type a launcher should
+/// use by default.
+fn activity_type(value: Option<&str>) -> ActivityType {
+    match value {
+        Some("listening") => ActivityType::Listening,
+        Some("watching") => ActivityType::Watching,
+        Some("competing") => ActivityType::Competing,
+        _ => ActivityType::Playing,
+    }
+}
+
+/// Map the frontend's member-list preference onto the crate enum. Missing or
+/// unknown values default to `Details` (the most informative line).
+fn status_display_type(value: Option<&str>) -> StatusDisplayType {
+    match value {
+        Some("name") => StatusDisplayType::Name,
+        Some("state") => StatusDisplayType::State,
+        _ => StatusDisplayType::Details,
+    }
 }
 
 /// Commands forwarded to the presence thread.
@@ -185,21 +244,49 @@ fn connect_with_retry(client: &mut SendClient) -> bool {
 /// Build a Discord `Activity` from a frontend payload.
 ///
 /// `details` falls back to the game name; `state` is the free-form status
-/// line. Timestamps are only attached when `started_at > 0` (Discord wants
-/// unix seconds, the payload carries milliseconds). Assets are only
-/// attached when at least one of `large_image` / `small_image` is present.
-/// A button is attached only when both label and URL are present.
+/// line. Timestamps are attached when `started_at` and/or `ends_at` are set
+/// (Discord wants unix seconds, the payload carries milliseconds). Assets are
+/// only attached when at least one of `large_image` / `small_image` is
+/// present. Up to two buttons are attached (primary + secondary), and a party
+/// is attached only when `party_id` and a positive `party_max` are present.
 fn build_activity(data: &PresenceData) -> Activity<'static> {
     let details = data
         .details
         .clone()
         .unwrap_or_else(|| data.game_name.clone().unwrap_or_default());
-    let state = data.state_text.clone().unwrap_or_default();
+    // Only attach a state line when there is one. Browsing has no meaningful
+    // second line, and an empty `state` would otherwise render as a duplicate
+    // of Discord's own app-name header.
+    let state = data
+        .state_text
+        .clone()
+        .filter(|line| !line.trim().is_empty());
 
-    let mut activity = Activity::new().details(details).state(state);
+    let mut activity = Activity::new()
+        .details(details)
+        .activity_type(activity_type(data.activity_type.as_deref()))
+        .status_display_type(status_display_type(data.status_display.as_deref()));
 
-    if data.started_at > 0 {
-        activity = activity.timestamps(Timestamps::new().start((data.started_at / 1000) as i64));
+    if let Some(state) = state {
+        activity = activity.state(state);
+    }
+
+    if let Some(url) = data.details_url.clone() {
+        activity = activity.details_url(url);
+    }
+    if let Some(url) = data.state_url.clone() {
+        activity = activity.state_url(url);
+    }
+
+    if data.started_at > 0 || data.ends_at > 0 {
+        let mut timestamps = Timestamps::new();
+        if data.started_at > 0 {
+            timestamps = timestamps.start((data.started_at / 1000) as i64);
+        }
+        if data.ends_at > 0 {
+            timestamps = timestamps.end((data.ends_at / 1000) as i64);
+        }
+        activity = activity.timestamps(timestamps);
     }
 
     let mut assets = Assets::new();
@@ -222,8 +309,22 @@ fn build_activity(data: &PresenceData) -> Activity<'static> {
         activity = activity.assets(assets);
     }
 
+    let mut buttons: Vec<Button> = Vec::new();
     if let (Some(label), Some(url)) = (data.button_label.clone(), data.button_url.clone()) {
-        activity = activity.buttons(vec![Button::new(label, url)]);
+        buttons.push(Button::new(label, url));
+    }
+    if let (Some(label), Some(url)) = (data.button2_label.clone(), data.button2_url.clone()) {
+        buttons.push(Button::new(label, url));
+    }
+    if !buttons.is_empty() {
+        activity = activity.buttons(buttons);
+    }
+
+    if let (Some(id), Some(max)) = (data.party_id.clone(), data.party_max) {
+        if max > 0 {
+            let current = data.party_current.unwrap_or(1).clamp(0, max);
+            activity = activity.party(Party::new().id(id).size([current, max]));
+        }
     }
 
     activity
@@ -296,4 +397,186 @@ pub fn start(client_id: String, app: tauri::AppHandle) -> Option<Sender<Presence
         }
     });
     Some(tx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn base() -> PresenceData {
+        PresenceData {
+            state: "playing".into(),
+            game_id: None,
+            game_name: Some("Hollow Knight".into()),
+            started_at: 0,
+            details: None,
+            state_text: None,
+            large_image: None,
+            large_text: None,
+            small_image: None,
+            small_text: None,
+            button_label: None,
+            button_url: None,
+            button2_label: None,
+            button2_url: None,
+            activity_type: None,
+            status_display: None,
+            details_url: None,
+            state_url: None,
+            party_id: None,
+            party_current: None,
+            party_max: None,
+            ends_at: 0,
+        }
+    }
+
+    #[test]
+    fn deserializes_full_camel_case_payload() {
+        let data: PresenceData = serde_json::from_str(
+            r#"{
+                "state": "downloading",
+                "gameId": "abc",
+                "gameName": "Hollow Knight",
+                "startedAt": 1700000000000,
+                "stateText": "Downloading",
+                "largeImage": "https://cdn.example/cover.jpg",
+                "button2Label": "View in Store",
+                "button2Url": "https://store.steampowered.com/app/367520",
+                "activityType": "watching",
+                "statusDisplay": "state",
+                "detailsUrl": "https://example.com/game",
+                "partyId": "queue",
+                "partyCurrent": 2,
+                "partyMax": 5,
+                "endsAt": 1700000300000
+            }"#,
+        )
+        .expect("full payload should deserialize");
+
+        assert_eq!(data.state, "downloading");
+        assert_eq!(data.game_id.as_deref(), Some("abc"));
+        assert_eq!(data.party_current, Some(2));
+        assert_eq!(data.party_max, Some(5));
+        assert_eq!(data.button2_label.as_deref(), Some("View in Store"));
+        assert_eq!(data.status_display.as_deref(), Some("state"));
+        assert_eq!(data.ends_at, 1700000300000);
+    }
+
+    #[test]
+    fn deserializes_minimal_payload_with_defaults() {
+        // Old / minimal payloads must keep working: every new field defaults.
+        let data: PresenceData =
+            serde_json::from_str(r#"{"state":"stopped"}"#).expect("minimal payload");
+
+        assert_eq!(data.state, "stopped");
+        assert_eq!(data.started_at, 0);
+        assert_eq!(data.ends_at, 0);
+        assert!(data.party_max.is_none());
+        assert!(data.activity_type.is_none());
+        assert!(data.button2_url.is_none());
+    }
+
+    #[test]
+    fn rejects_payload_without_state() {
+        // `state` is the one required field; a payload missing it is an error.
+        assert!(serde_json::from_str::<PresenceData>(r#"{"gameName":"x"}"#).is_err());
+    }
+
+    #[test]
+    fn activity_type_defaults_to_playing_for_unknown_values() {
+        assert!(matches!(activity_type(None), ActivityType::Playing));
+        assert!(matches!(activity_type(Some("nonsense")), ActivityType::Playing));
+        assert!(matches!(
+            activity_type(Some("listening")),
+            ActivityType::Listening
+        ));
+        assert!(matches!(
+            activity_type(Some("watching")),
+            ActivityType::Watching
+        ));
+        assert!(matches!(
+            activity_type(Some("competing")),
+            ActivityType::Competing
+        ));
+    }
+
+    #[test]
+    fn status_display_defaults_to_details() {
+        assert!(matches!(
+            status_display_type(None),
+            StatusDisplayType::Details
+        ));
+        assert!(matches!(
+            status_display_type(Some("unknown")),
+            StatusDisplayType::Details
+        ));
+        assert!(matches!(
+            status_display_type(Some("name")),
+            StatusDisplayType::Name
+        ));
+        assert!(matches!(
+            status_display_type(Some("state")),
+            StatusDisplayType::State
+        ));
+    }
+
+    #[test]
+    fn minimal_activity_omits_optional_objects() {
+        let value = serde_json::to_value(build_activity(&base())).unwrap();
+
+        assert_eq!(value["details"], "Hollow Knight");
+        assert_eq!(value["type"], 0);
+        assert_eq!(value["status_display_type"], 2);
+        assert!(value.get("state").is_none());
+        assert!(value.get("party").is_none());
+        assert!(value.get("buttons").is_none());
+        assert!(value.get("timestamps").is_none());
+        assert!(value.get("assets").is_none());
+    }
+
+    #[test]
+    fn rich_activity_maps_buttons_party_and_countdown() {
+        let mut data = base();
+        data.state_text = Some("Downloading".into());
+        data.started_at = 1_700_000_000_000;
+        data.ends_at = 1_700_000_300_000;
+        data.button_label = Some("View Website".into());
+        data.button_url = Some("https://example.com".into());
+        data.button2_label = Some("View in Store".into());
+        data.button2_url = Some("https://store.steampowered.com/app/1".into());
+        data.details_url = Some("https://example.com/game".into());
+        data.party_id = Some("queue".into());
+        data.party_current = Some(2);
+        data.party_max = Some(5);
+
+        let value = serde_json::to_value(build_activity(&data)).unwrap();
+
+        assert_eq!(value["buttons"].as_array().unwrap().len(), 2);
+        assert_eq!(value["party"]["id"], "queue");
+        assert_eq!(value["party"]["size"], serde_json::json!([2, 5]));
+        // Seconds, matching Discord's RPC protocol (see module docs).
+        assert_eq!(value["timestamps"]["start"], 1_700_000_000_i64);
+        assert_eq!(value["timestamps"]["end"], 1_700_000_300_i64);
+        assert_eq!(value["details_url"], "https://example.com/game");
+    }
+
+    #[test]
+    fn party_is_skipped_when_max_is_not_positive() {
+        let mut data = base();
+        data.party_id = Some("queue".into());
+        data.party_current = Some(1);
+        data.party_max = Some(0);
+
+        let value = serde_json::to_value(build_activity(&data)).unwrap();
+        assert!(value.get("party").is_none());
+    }
+
+    #[test]
+    fn second_button_requires_both_label_and_url() {
+        let mut data = base();
+        data.button2_label = Some("dangling".into());
+        // No URL -> the button must be dropped, not sent half-formed.
+        let value = serde_json::to_value(build_activity(&data)).unwrap();
+        assert!(value.get("buttons").is_none());
+    }
 }
