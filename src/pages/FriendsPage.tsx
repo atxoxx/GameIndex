@@ -520,7 +520,7 @@ export default function FriendsPage() {
       suggestions: currSuggestions || [],
       dms: outDms,
     };
-    publishToNostr(db, currSharedGames, currStats);
+    await publishToNostr(db, currSharedGames, currStats);
     lastPushedSignatureRef.current = signature;
     return res;
   };
@@ -1064,14 +1064,19 @@ export default function FriendsPage() {
       const newInvites: FriendInvitation[] = [];
 
       for (const peerId of peers) {
-        if (currentFriends.some((f) => f.syncId === peerId)) continue;
         if (peerId === mySyncId) continue;
         if (deniedIds.includes(peerId)) continue;
 
         const remoteOutbox = await fetchFriendOutbox(peerId);
-        if (remoteOutbox && remoteOutbox.friends && remoteOutbox.friends.includes(mySyncId)) {
+        if (!remoteOutbox) continue;
+        const friendSyncId = remoteOutbox.syncId || (remoteOutbox.profile as any)?.syncId || peerId;
+        if (friendSyncId === mySyncId) continue;
+        if (deniedIds.includes(friendSyncId)) continue;
+        if (currentFriends.some((f) => f.syncId === friendSyncId || f.syncId === peerId)) continue;
+
+        if (remoteFriendsInclude(remoteOutbox.friends, mySyncId)) {
           newInvites.push({
-            syncId: peerId,
+            syncId: friendSyncId,
             name: remoteOutbox.profile.name,
             avatar: remoteOutbox.profile.avatar,
             status: remoteOutbox.profile.status,

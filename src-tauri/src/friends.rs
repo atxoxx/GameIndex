@@ -119,11 +119,34 @@ pub fn read_sync_file(app: tauri::AppHandle, peer_id: String) -> Result<Option<S
     let root = friends_sync_root(&app)?;
     let folder = root.join(sanitize_segment(&peer_id));
     let file_path = folder.join(FRIENDS_SYNC_FILE_NAME);
-    if !file_path.exists() {
-        return Ok(None);
+    if file_path.exists() {
+        let content = std::fs::read_to_string(file_path).map_err(|e| e.to_string())?;
+        return Ok(Some(content));
     }
-    let content = std::fs::read_to_string(file_path).map_err(|e| e.to_string())?;
-    Ok(Some(content))
+
+    // Fallback: search subfolders if peer_id was a syncId (e.g. Nostr pubkey) but
+    // the outbox was saved under a device_id directory.
+    if root.exists() {
+        if let Ok(entries) = std::fs::read_dir(&root) {
+            for entry in entries.flatten() {
+                let candidate = entry.path().join(FRIENDS_SYNC_FILE_NAME);
+                if candidate.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&candidate) {
+                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                            let match_id = val.get("syncId")
+                                .or_else(|| val.get("profile").and_then(|p| p.get("syncId")))
+                                .and_then(|s| s.as_str());
+                            if match_id == Some(&peer_id) {
+                                return Ok(Some(content));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 // ── P2P Friends Sync Commands ────────────────────────────────────────
@@ -334,19 +357,21 @@ async fn fetch_address_from_kv(sync_id: &str) -> Option<String> {
 
 #[derive(serde::Deserialize)]
 struct ProfilePayloadShort {
-    #[serde(rename = "syncId")]
+    #[serde(rename = "syncId", default)]
     sync_id: String,
 }
 
 #[derive(serde::Deserialize)]
 struct FriendPayloadShort {
-    #[serde(rename = "syncId")]
+    #[serde(rename = "syncId", default)]
     sync_id: String,
 }
 
 #[derive(serde::Deserialize)]
 struct DbPayloadShort {
+    #[serde(default)]
     profile: Option<ProfilePayloadShort>,
+    #[serde(default)]
     friends: Option<Vec<FriendPayloadShort>>,
 }
 
