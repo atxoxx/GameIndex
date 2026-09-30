@@ -235,7 +235,9 @@ export default function GameDlcTab({
             <IconDlc size={42} />
           </span>
           <h3 className="dlc-empty-state__title">{t("dlc.loadFailed")}</h3>
-          <p className="dlc-empty-state__desc">{error}</p>
+          <p className="dlc-empty-state__desc" title={error}>
+            {t("dlc.loadFailedDesc")}
+          </p>
           <Button variant="ghost" size="sm" onClick={fetchDlcs}>
             {t("common.retry")}
           </Button>

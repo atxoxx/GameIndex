@@ -59,6 +59,98 @@ fn unix_now() -> u64 {
         .unwrap_or(0)
 }
 
+/// GET a single app's `appdetails` payload and return its `data` object.
+///
+/// The body is read as text and parsed manually so a non-JSON reply (Steam
+/// intermittently answers localized requests with an HTML error or age-gate
+/// page) is logged with a snippet instead of surfacing a bare
+/// `error decoding response body`. Transport, 429/5xx and decode failures
+/// are retried up to `attempts` times.
+async fn fetch_appdetails(
+    client: &Client,
+    app_id: u32,
+    lang: &str,
+    attempts: u32,
+) -> Result<Option<serde_json::Value>, String> {
+    let url =
+        format!("https://store.steampowered.com/api/appdetails?appids={app_id}&l={lang}");
+
+    let mut last_err = String::from("no response");
+    for attempt in 0..attempts.max(1) {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+
+        let resp = match client.get(&url).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                last_err = format!("request failed: {e}");
+                continue;
+            }
+        };
+
+        let status = resp.status();
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error() {
+            last_err = format!("Steam store returned HTTP {status}");
+            continue;
+        }
+        if !status.is_success() {
+            return Err(format!("Steam store returned HTTP {status}"));
+        }
+
+        let body = match resp.text().await {
+            Ok(b) => b,
+            Err(e) => {
+                last_err = format!("reading response body failed: {e}");
+                continue;
+            }
+        };
+
+        let json: serde_json::Value = match serde_json::from_str(&body) {
+            Ok(v) => v,
+            Err(e) => {
+                let snippet: String = body.chars().take(300).collect();
+                last_err = format!("invalid JSON ({e}); body starts with: {snippet}");
+                continue;
+            }
+        };
+
+        return Ok(appdetails_data(&json, app_id));
+    }
+
+    Err(last_err)
+}
+
+/// Pick the `data` object out of a parsed appdetails response. `None` when the
+/// store reported `success: false`, answered with a non-object payload, or
+/// keyed the response under a different app id.
+fn appdetails_data(json: &serde_json::Value, app_id: u32) -> Option<serde_json::Value> {
+    json.get(app_id.to_string())
+        .and_then(|v| v.get("data"))
+        .filter(|d| d.is_object())
+        .cloned()
+}
+
+/// Lightweight DLC placeholder used when the store has no page for an app
+/// (delisted/unreleased) or the request failed after retries.
+fn fallback_dlc_item(dlc_id: u32) -> SteamDlcItem {
+    SteamDlcItem {
+        app_id: dlc_id,
+        name: format!("DLC #{dlc_id}"),
+        header_image: Some(format!(
+            "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{dlc_id}/header.jpg"
+        )),
+        price_formatted: None,
+        initial_price_formatted: None,
+        discount_percent: None,
+        is_free: false,
+        release_date: None,
+        short_description: None,
+        is_owned: false,
+        is_installed: false,
+    }
+}
+
 /// Fetch DLCs for a given Steam AppID.
 #[tauri::command]
 pub async fn steam_get_game_dlcs(
@@ -178,25 +270,11 @@ pub async fn steam_get_game_dlcs(
         .build()
         .map_err(|e| format!("HTTP client: {e}"))?;
 
-    let store_url = format!(
-        "https://store.steampowered.com/api/appdetails?appids={app_id}&l={target_lang}"
-    );
-
-    let resp = client
-        .get(&store_url)
-        .send()
-        .await
-        .map_err(|e| format!("Steam store request: {e}"))?;
-
-    let body = resp
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|e| format!("Steam store json: {e}"))?;
-
-    let app_str = app_id.to_string();
-    let app_data = match body.get(&app_str).and_then(|v| v.get("data")) {
-        Some(d) => d,
-        None => {
+    let app_data = match fetch_appdetails(&client, app_id, &target_lang, 2).await {
+        Ok(Some(d)) => d,
+        Ok(None) => {
+            // The store has no data for this app (delisted, unreleased, or
+            // region-locked) — an empty catalog is a valid, cacheable answer.
             return Ok(SteamGameDlcsResult {
                 app_id,
                 total_dlcs: 0,
@@ -205,6 +283,10 @@ pub async fn steam_get_game_dlcs(
                 dlcs: Vec::new(),
                 family_share,
             });
+        }
+        Err(e) => {
+            eprintln!("[steam dlc] base appdetails for {app_id} ({target_lang}) failed: {e}");
+            return Err(format!("Steam store: {e}"));
         }
     };
 
@@ -250,76 +332,61 @@ pub async fn steam_get_game_dlcs(
 
         let handle = tokio::spawn(async move {
             let _permit = permit;
-            let url = format!(
-                "https://store.steampowered.com/api/appdetails?appids={dlc_id}&l={lang}"
-            );
-
-            let res = client.get(&url).send().await;
-            if let Ok(r) = res {
-                if let Ok(json) = r.json::<serde_json::Value>().await {
-                    let dlc_str = dlc_id.to_string();
-                    if let Some(data) = json.get(&dlc_str).and_then(|v| v.get("data")) {
-                        let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("DLC").to_string();
-                        let header_image = data.get("header_image")
-                            .and_then(|v| v.as_str())
-                            .map(str::to_string)
-                            .or_else(|| Some(format!("https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{dlc_id}/header.jpg")));
-
-                        let is_free = data.get("is_free").and_then(|v| v.as_bool()).unwrap_or(false);
-                        let price_overview = data.get("price_overview");
-                        let price_formatted = price_overview
-                            .and_then(|p| p.get("final_formatted"))
-                            .and_then(|v| v.as_str())
-                            .map(str::to_string);
-                        let initial_price_formatted = price_overview
-                            .and_then(|p| p.get("initial_formatted"))
-                            .and_then(|v| v.as_str())
-                            .map(str::to_string);
-                        let discount_percent = price_overview
-                            .and_then(|p| p.get("discount_percent"))
-                            .and_then(|v| v.as_u64())
-                            .map(|n| n as u32);
-
-                        let release_date = data.get("release_date")
-                            .and_then(|r| r.get("date"))
-                            .and_then(|v| v.as_str())
-                            .map(str::to_string);
-
-                        let short_description = data.get("short_description")
-                            .and_then(|v| v.as_str())
-                            .map(str::to_string);
-
-                        return Some(SteamDlcItem {
-                            app_id: dlc_id,
-                            name,
-                            header_image,
-                            price_formatted,
-                            initial_price_formatted,
-                            discount_percent,
-                            is_free,
-                            release_date,
-                            short_description,
-                            is_owned: false,
-                            is_installed: false,
-                        });
-                    }
+            let data = match fetch_appdetails(&client, dlc_id, &lang, 1).await {
+                Ok(Some(data)) => data,
+                Ok(None) => return (fallback_dlc_item(dlc_id), false),
+                Err(e) => {
+                    eprintln!("[steam dlc] appdetails for {dlc_id} ({lang}) failed: {e}");
+                    return (fallback_dlc_item(dlc_id), true);
                 }
-            }
+            };
 
-            // Fallback lightweight item when appdetails fails or is unavailable
-            Some(SteamDlcItem {
-                app_id: dlc_id,
-                name: format!("DLC #{dlc_id}"),
-                header_image: Some(format!("https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{dlc_id}/header.jpg")),
-                price_formatted: None,
-                initial_price_formatted: None,
-                discount_percent: None,
-                is_free: false,
-                release_date: None,
-                short_description: None,
-                is_owned: false,
-                is_installed: false,
-            })
+            let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("DLC").to_string();
+            let header_image = data.get("header_image")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .or_else(|| Some(format!("https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{dlc_id}/header.jpg")));
+
+            let is_free = data.get("is_free").and_then(|v| v.as_bool()).unwrap_or(false);
+            let price_overview = data.get("price_overview");
+            let price_formatted = price_overview
+                .and_then(|p| p.get("final_formatted"))
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
+            let initial_price_formatted = price_overview
+                .and_then(|p| p.get("initial_formatted"))
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
+            let discount_percent = price_overview
+                .and_then(|p| p.get("discount_percent"))
+                .and_then(|v| v.as_u64())
+                .map(|n| n as u32);
+
+            let release_date = data.get("release_date")
+                .and_then(|r| r.get("date"))
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
+
+            let short_description = data.get("short_description")
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
+
+            (
+                SteamDlcItem {
+                    app_id: dlc_id,
+                    name,
+                    header_image,
+                    price_formatted,
+                    initial_price_formatted,
+                    discount_percent,
+                    is_free,
+                    release_date,
+                    short_description,
+                    is_owned: false,
+                    is_installed: false,
+                },
+                false,
+            )
         });
 
         handles.push(handle);
@@ -328,9 +395,11 @@ pub async fn steam_get_game_dlcs(
     let mut dlcs = Vec::with_capacity(handles.len());
     let mut owned_count = 0;
     let mut installed_count = 0;
+    let mut fetch_failed = false;
 
     for h in handles {
-        if let Ok(Some(mut item)) = h.await {
+        if let Ok((mut item, failed)) = h.await {
+            fetch_failed |= failed;
             evaluate_dlc(&mut item);
             if item.is_owned {
                 owned_count += 1;
@@ -343,13 +412,17 @@ pub async fn steam_get_game_dlcs(
         }
     }
 
-    // Save to cache
-    let blob = CachedDlcBlob {
-        timestamp: unix_now(),
-        dlcs: dlcs.clone(),
-    };
-    if let Ok(serialized) = serde_json::to_string(&blob) {
-        let _ = db::kv::set(&db, &cache_key, &serialized);
+    // Only cache a complete catalog. If any appdetails call failed we leave the
+    // cache untouched so the next open retries instead of pinning placeholders
+    // for the full TTL.
+    if !fetch_failed {
+        let blob = CachedDlcBlob {
+            timestamp: unix_now(),
+            dlcs: dlcs.clone(),
+        };
+        if let Ok(serialized) = serde_json::to_string(&blob) {
+            let _ = db::kv::set(&db, &cache_key, &serialized);
+        }
     }
 
     Ok(SteamGameDlcsResult {
@@ -373,4 +446,38 @@ pub fn steam_toggle_dlc_owned(
     let db = app.state::<db::Db>().inner().clone();
     let manual_key = format!("steam_dlc_owned_{dlc_app_id}");
     db::kv::set(&db, &manual_key, if owned { "1" } else { "0" })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn appdetails_data_returns_payload_on_success() {
+        let body = json!({
+            "292030": {
+                "success": true,
+                "data": { "name": "The Witcher 3", "type": "game" }
+            }
+        });
+
+        let data = appdetails_data(&body, 292030).expect("data payload");
+        assert_eq!(data.get("name").and_then(|v| v.as_str()), Some("The Witcher 3"));
+    }
+
+    #[test]
+    fn appdetails_data_is_none_without_a_data_object() {
+        // Explicit failure from the store.
+        let failed = json!({ "292030": { "success": false } });
+        assert!(appdetails_data(&failed, 292030).is_none());
+
+        // Non-object payloads are not a usable catalog entry.
+        let array = json!({ "292030": { "success": true, "data": [] } });
+        assert!(appdetails_data(&array, 292030).is_none());
+
+        // The response is keyed under a different app id.
+        let other = json!({ "1": { "success": true, "data": { "name": "x" } } });
+        assert!(appdetails_data(&other, 292030).is_none());
+    }
 }

@@ -7289,6 +7289,7 @@ export const ru: TranslationDict = {
   "dlc.noSteamLinked": "Нет Steam AppID",
   "dlc.noSteamLinkedDesc": "Отслеживание DLC Steam доступно, когда игра привязана к Steam.",
   "dlc.loadFailed": "Не удалось загрузить каталог DLC",
+  "dlc.loadFailedDesc": "Магазин Steam не вернул пригодный ответ. Проверьте подключение и попробуйте снова.",
   "dlc.noneFoundTitle": "DLC отсутствуют",
   "dlc.noneFoundDesc": "В Steam нет загружаемого контента или дополнений для этой игры.",
   "dlc.familyGroupName": "{name}",

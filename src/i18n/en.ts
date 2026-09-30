@@ -7278,6 +7278,7 @@ export const en: TranslationDict = {
   "dlc.noSteamLinked": "No Steam AppID",
   "dlc.noSteamLinkedDesc": "Steam DLC tracking is available when the game is linked to Steam.",
   "dlc.loadFailed": "Failed to load DLC catalog",
+  "dlc.loadFailedDesc": "Steam's store didn't return a usable response. Check your connection and try again.",
   "dlc.noneFoundTitle": "No DLCs available",
   "dlc.noneFoundDesc": "Steam does not report any downloadable content or add-ons for this title.",
   "dlc.familyGroupName": "{name}",

@@ -7288,6 +7288,7 @@ export const zhCN: TranslationDict = {
   "dlc.noSteamLinked": "未关联 Steam AppID",
   "dlc.noSteamLinkedDesc": "当游戏关联至 Steam 时可进行 DLC 跟踪。",
   "dlc.loadFailed": "加载 DLC 目录失败",
+  "dlc.loadFailedDesc": "Steam 商店未返回可用响应。请检查网络连接后重试。",
   "dlc.noneFoundTitle": "暂无可用 DLC",
   "dlc.noneFoundDesc": "Steam 未报告此游戏的任何可下载内容或附加内容。",
   "dlc.familyGroupName": "{name}",
