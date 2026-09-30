@@ -796,17 +796,14 @@ const RETIRED_PAGE_WIDGET_EXPANSION: Partial<
 
 /**
  * Where a newly-added widget belongs when a page already has a stored order.
- * The normalizer appends unknown keys to the tail; for a card that ships next
- * to a sibling (the DLC card sits under the Info card), that would strand it at
- * the bottom of every saved layout. These anchors insert it after the given key
- * instead. Only consulted for keys missing from the raw order.
+ * The normalizer appends unknown keys to the tail, which strands a card that
+ * ships mid-column at the bottom of every saved layout. These anchors insert it
+ * after the given key instead. Only consulted for keys missing from the raw
+ * order — an explicitly ordered key keeps its place.
  */
 const NEW_PAGE_WIDGET_ANCHORS: Partial<
   Record<InterfacePageKey, Record<string, PageWidgetKey>>
-> = {
-  game: { gameDlcCard: "gameInfoKpi" },
-  storeGame: { gameDlcCard: "gameInfoKpi" },
-};
+> = {};
 
 /** Normalize a persisted per-page order: drop unknown/duplicates, migrate
  *  retired grouped keys to the individual cards that replaced them, and append
@@ -814,7 +811,9 @@ const NEW_PAGE_WIDGET_ANCHORS: Partial<
  *
  *  A retired key expands only when the raw order does not already name any of
  *  its targets (an explicit choice wins); its targets are appended after the
- *  page's explicitly-ordered keys, preserving the user's relative ordering. */
+ *  page's explicitly-ordered keys, preserving the user's relative ordering. A
+ *  key with no anchor is appended at the tail, so an upgrade never hides a
+ *  newly added block. */
 export function normalizePageItemOrder(
   page: InterfacePageKey,
   raw: unknown,

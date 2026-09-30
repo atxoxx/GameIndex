@@ -481,19 +481,17 @@ describe("detail side-card order migration", () => {
     expect(
       result.filter((key) => (SIDE_KPI_KEYS as readonly string[]).includes(key)),
     ).toEqual([...SIDE_KPI_KEYS]);
-    // ...and the DLC card is anchored under the Info card, not the tail.
-    expect(result.indexOf("gameDlcCard")).toBe(result.indexOf("gameInfoKpi") + 1);
     expect(result).toHaveLength(gameItems().length);
     expect(new Set(result)).toEqual(new Set(gameItems()));
     expect((result as string[]).includes("gameSidebarKpis")).toBe(false);
   });
 
-  it("anchors a newly-added card under its sibling in a saved order", () => {
+  it("appends a card missing from a saved order to the tail", () => {
     const saved = (interfacePageDef("game")?.items ?? []).filter(
       (key) => key !== "gameDlcCard",
     );
     const result = normalizePageItemOrder("game", saved);
-    expect(result.indexOf("gameDlcCard")).toBe(result.indexOf("gameInfoKpi") + 1);
+    expect(result[result.length - 1]).toBe("gameDlcCard");
     expect(result).toHaveLength(saved.length + 1);
   });
 
@@ -534,11 +532,11 @@ describe("detail side-card order migration", () => {
     expect(DEFAULT_PAGE_ITEM_ORDER.storeGame).toEqual(items);
   });
 
-  it("ships the DLC card directly under the Info card on both detail pages", () => {
+  it("ships the DLC card between the Info and Steam Features cards", () => {
     for (const page of ["game", "storeGame"] as const) {
       const items = interfacePageDef(page)?.items ?? [];
-      expect(items).toContain("gameDlcCard");
       expect(items.indexOf("gameDlcCard")).toBe(items.indexOf("gameInfoKpi") + 1);
+      expect(items[items.indexOf("gameDlcCard") + 1]).toBe("gameSteamFeatures");
     }
   });
 });
