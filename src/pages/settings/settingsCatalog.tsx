@@ -401,18 +401,23 @@ export function buildSettingsCatalog(
       sections: [
         {
           id: "backup-overview",
-          labelKey: "settings.section.backupOverview",
-          keywords: "overview last backup contents summary what is included size databases",
+          labelKey: "settings.backup.subtab.overview",
+          keywords: "overview last backup contents summary what is included size databases archives snapshots storage",
         },
         {
           id: "backup-create",
-          labelKey: "settings.section.backupCreate",
-          keywords: "create backup export save snapshot archive file gibak",
+          labelKey: "settings.backup.subtab.create",
+          keywords: "create backup export save snapshot archive file gibak presets quick",
         },
         {
           id: "backup-restore",
-          labelKey: "settings.section.backupRestore",
-          keywords: "restore import recover load backup archive gibak replace",
+          labelKey: "settings.backup.subtab.restore",
+          keywords: "restore import recover load backup archive gibak replace merge inspect safety drag drop",
+        },
+        {
+          id: "backup-settings",
+          labelKey: "settings.backup.subtab.settings",
+          keywords: "storage automation backup folder directory auto exit retention schedule prune rules",
         },
       ],
     },

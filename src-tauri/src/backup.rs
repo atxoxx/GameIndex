@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, DatabaseName};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 
 /// Progress update emitted via `backup-progress`.
@@ -50,6 +50,38 @@ const BACKUP_FORMAT_VERSION: u32 = 1;
 /// kv keys recording the last successful backup (for the status header).
 const KV_LAST_AT: &str = "backup.last_at";
 const KV_LAST_BYTES: &str = "backup.last_bytes";
+
+/// kv keys for backup preferences & automation.
+const KV_CONFIG_BACKUP_DIR: &str = "backup.config.dir";
+const KV_CONFIG_AUTO_BACKUP_ON_EXIT: &str = "backup.config.auto_on_exit";
+const KV_CONFIG_RETENTION: &str = "backup.config.retention";
+const KV_CONFIG_SAFETY_BACKUP: &str = "backup.config.safety_backup";
+
+/// Summary metadata for a discovered `.gibak` archive in the backups folder.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupArchiveSummary {
+    pub file_path: String,
+    pub file_name: String,
+    pub size_bytes: u64,
+    pub created_at: u64,
+    pub app_version: String,
+    pub domains: Vec<String>,
+    pub domain_count: usize,
+    pub total_records: u64,
+    pub is_raw: bool,
+    pub counts: std::collections::HashMap<String, u64>,
+}
+
+/// Backup configuration & automation preferences.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupConfig {
+    pub backup_dir: String,
+    pub auto_backup_on_exit: bool,
+    pub retention_count: u32,
+    pub safety_backup_before_restore: bool,
+}
 
 /// Domain database files included in a backup, in display order.
 pub const BACKUP_DOMAINS: &[&str] = &[
@@ -191,10 +223,31 @@ pub async fn backup_restore(
     source_path: String,
     domains: Option<Vec<String>>,
     mode: Option<String>,
+    create_safety_snapshot: Option<bool>,
 ) -> Result<BackupOutcome, String> {
     let db = state_db(&app)?.clone();
     let data_dir = app_data_dir(&app)?;
+    let app_handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        // If safety snapshot requested, create a snapshot before restoring
+        if create_safety_snapshot.unwrap_or(false) {
+            if let Ok(backup_dir) = resolved_backup_dir(&app_handle) {
+                let now = chrono::Local::now();
+                let ts = now.format("%Y%m%d-%H%M%S");
+                let safety_file = backup_dir
+                    .join(format!("safety-pre-restore-{ts}.gibak"))
+                    .to_string_lossy()
+                    .to_string();
+                let _ = crate::backup_raw::create_raw_backup::<fn(BackupProgress)>(
+                    &db,
+                    &data_dir,
+                    &safety_file,
+                    None,
+                    None,
+                );
+            }
+        }
+
         let manifest = load_manifest(&source_path)?;
         let is_raw = manifest["format"].as_str() == Some(crate::backup_raw::BACKUP_RAW_MAGIC);
 
@@ -206,7 +259,7 @@ pub async fn backup_restore(
                 domains.as_deref(),
                 mode.as_deref().unwrap_or("replace"),
                 Some(move |progress: BackupProgress| {
-                    let _ = app.emit("backup-progress", progress);
+                    let _ = app_handle.emit("backup-progress", progress);
                 }),
             )?
         } else {
@@ -219,6 +272,251 @@ pub async fn backup_restore(
     })
     .await
     .map_err(|e| format!("backup_restore task: {e}"))?
+}
+
+/// Read current backup configuration and preferences.
+#[tauri::command]
+pub fn backup_get_config(app: tauri::AppHandle) -> Result<BackupConfig, String> {
+    let db = state_db(&app)?;
+    let backup_dir = resolved_backup_dir(&app)?.to_string_lossy().to_string();
+    let auto_backup_on_exit = kv::get(db, KV_CONFIG_AUTO_BACKUP_ON_EXIT)
+        .ok()
+        .flatten()
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+    let retention_count = kv::get(db, KV_CONFIG_RETENTION)
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<u32>().ok())
+        .unwrap_or(5);
+    let safety_backup_before_restore = kv::get(db, KV_CONFIG_SAFETY_BACKUP)
+        .ok()
+        .flatten()
+        .map(|v| v != "false" && v != "0")
+        .unwrap_or(true);
+
+    Ok(BackupConfig {
+        backup_dir,
+        auto_backup_on_exit,
+        retention_count,
+        safety_backup_before_restore,
+    })
+}
+
+/// Save backup preferences.
+#[tauri::command]
+pub fn backup_save_config(
+    app: tauri::AppHandle,
+    config: BackupConfig,
+) -> Result<BackupConfig, String> {
+    let db = state_db(&app)?;
+    let trimmed_dir = config.backup_dir.trim();
+    if !trimmed_dir.is_empty() {
+        let p = PathBuf::from(trimmed_dir);
+        std::fs::create_dir_all(&p)
+            .map_err(|e| format!("Create backup directory failed: {e}"))?;
+        kv::set(db, KV_CONFIG_BACKUP_DIR, trimmed_dir)?;
+    }
+    kv::set(
+        db,
+        KV_CONFIG_AUTO_BACKUP_ON_EXIT,
+        if config.auto_backup_on_exit { "true" } else { "false" },
+    )?;
+    kv::set(db, KV_CONFIG_RETENTION, &config.retention_count.to_string())?;
+    kv::set(
+        db,
+        KV_CONFIG_SAFETY_BACKUP,
+        if config.safety_backup_before_restore { "true" } else { "false" },
+    )?;
+
+    backup_get_config(app)
+}
+
+/// List all discovered `.gibak` archives in the specified or default backup directory.
+#[tauri::command]
+pub fn backup_list_archives(
+    app: tauri::AppHandle,
+    custom_dir: Option<String>,
+) -> Result<Vec<BackupArchiveSummary>, String> {
+    let dir = match custom_dir {
+        Some(d) if !d.trim().is_empty() => PathBuf::from(d.trim()),
+        _ => resolved_backup_dir(&app)?,
+    };
+
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let read_dir = std::fs::read_dir(&dir)
+        .map_err(|e| format!("Read backup directory {}: {e}", dir.display()))?;
+    let mut summaries = Vec::new();
+
+    for entry in read_dir.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if ext != "gibak" && ext != "zip" {
+            continue;
+        }
+
+        let path_str = path.to_string_lossy().to_string();
+        if let Ok(inspect) = inspect_archive(&path_str) {
+            let metadata = std::fs::metadata(&path).ok();
+            let size_bytes = metadata.map(|m| m.len()).unwrap_or(0);
+            let total_records: u64 = inspect.counts.values().sum();
+            let file_name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("backup.gibak")
+                .to_string();
+
+            summaries.push(BackupArchiveSummary {
+                file_path: path_str,
+                file_name,
+                size_bytes,
+                created_at: inspect.created_at,
+                app_version: inspect.app_version,
+                domain_count: inspect.domains.len(),
+                domains: inspect.domains,
+                total_records,
+                is_raw: inspect.is_raw,
+                counts: inspect.counts,
+            });
+        }
+    }
+
+    summaries.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    Ok(summaries)
+}
+
+/// Delete an individual archive file.
+#[tauri::command]
+pub fn backup_delete_archive(file_path: String) -> Result<bool, String> {
+    let path = Path::new(&file_path);
+    if !path.is_file() {
+        return Err("File not found".into());
+    }
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    if ext != "gibak" && ext != "zip" {
+        return Err("Only .gibak or .zip backup files can be deleted".into());
+    }
+    std::fs::remove_file(path).map_err(|e| format!("Delete backup file {}: {e}", file_path))?;
+    Ok(true)
+}
+
+/// 1-Click quick backup: creates a complete snapshot into the default backup directory.
+#[tauri::command]
+pub async fn backup_quick_create(
+    app: tauri::AppHandle,
+    note: Option<String>,
+) -> Result<BackupOutcome, String> {
+    let db = state_db(&app)?.clone();
+    let data_dir = app_data_dir(&app)?;
+    let backup_dir = resolved_backup_dir(&app)?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let now = chrono::Local::now();
+        let timestamp = now.format("%Y-%m-%d-%H%M%S");
+        let suffix = match note {
+            Some(n) if !n.trim().is_empty() => {
+                let sanitized: String = n
+                    .trim()
+                    .chars()
+                    .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+                    .collect();
+                format!("-{sanitized}")
+            }
+            _ => String::new(),
+        };
+        let file_name = format!("gameindex-backup-{timestamp}{suffix}.gibak");
+        let target_path = backup_dir.join(file_name).to_string_lossy().to_string();
+
+        let app_handle = app.clone();
+        let outcome = crate::backup_raw::create_raw_backup(
+            &db,
+            &data_dir,
+            &target_path,
+            None,
+            Some(move |progress: BackupProgress| {
+                let _ = app_handle.emit("backup-progress", progress);
+            }),
+        )?;
+
+        let _ = kv::set(&db, KV_LAST_AT, &outcome.created_at.to_string());
+        let _ = kv::set(&db, KV_LAST_BYTES, &outcome.size_bytes.to_string());
+
+        if let Ok(Some(retention_str)) = kv::get(&db, KV_CONFIG_RETENTION) {
+            if let Ok(retention) = retention_str.trim().parse::<u32>() {
+                if retention > 0 {
+                    prune_dir(&backup_dir, retention);
+                }
+            }
+        }
+
+        Ok(outcome)
+    })
+    .await
+    .map_err(|e| format!("backup_quick_create task: {e}"))?
+}
+
+/// Resolve the configured or default backup directory.
+pub fn resolved_backup_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let db = state_db(app)?;
+    if let Ok(Some(custom_dir)) = kv::get(db, KV_CONFIG_BACKUP_DIR) {
+        let trimmed = custom_dir.trim();
+        if !trimmed.is_empty() {
+            let p = PathBuf::from(trimmed);
+            let _ = std::fs::create_dir_all(&p);
+            return Ok(p);
+        }
+    }
+    let default_dir = app_data_dir(app)?.join("backups");
+    let _ = std::fs::create_dir_all(&default_dir);
+    Ok(default_dir)
+}
+
+/// Prune older archives in a directory if the total count exceeds max_count.
+pub fn prune_dir(dir: &Path, max_count: u32) {
+    if max_count == 0 {
+        return;
+    }
+    let Ok(read_dir) = std::fs::read_dir(dir) else { return; };
+    let mut files = Vec::new();
+    for entry in read_dir.flatten() {
+        let p = entry.path();
+        if !p.is_file() {
+            continue;
+        }
+        let ext = p
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if ext != "gibak" && ext != "zip" {
+            continue;
+        }
+        if let Ok(meta) = p.metadata() {
+            let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+            files.push((p, mtime));
+        }
+    }
+    // Sort newest first
+    files.sort_by(|a, b| b.1.cmp(&a.1));
+    if files.len() > max_count as usize {
+        for (old_file, _) in files.into_iter().skip(max_count as usize) {
+            let _ = std::fs::remove_file(old_file);
+        }
+    }
 }
 
 // ─── Core logic (command wrappers are thin; tests hit these) ─────────────────

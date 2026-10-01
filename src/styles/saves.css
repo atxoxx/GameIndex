@@ -610,3 +610,420 @@
     gap: 8px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Saves Hub Subtabs & Modern Layout Enhancements
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.saves-subtabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 14px);
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.saves-subtabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.saves-subtab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md, 10px);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.saves-subtab-pill:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-3, rgba(255, 255, 255, 0.05));
+}
+
+.saves-subtab-pill.active {
+  color: var(--color-text-primary);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.2));
+  font-weight: 600;
+}
+
+.saves-subtab-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.saves-subtab-pill.active .saves-subtab-icon {
+  opacity: 1;
+  color: var(--color-accent);
+}
+
+.saves-subtab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--color-surface-3, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-muted);
+}
+
+.saves-subtab-pill.active .saves-subtab-badge {
+  background: var(--color-accent-subtle, rgba(var(--color-accent-rgb, 100, 100, 255), 0.15));
+  color: var(--color-accent);
+}
+
+/* ── Filter Pills & View Toggles ────────────────────────────────────────── */
+
+.saves-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.saves-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.saves-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.saves-filter-pill:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.saves-filter-pill.active {
+  background: var(--color-accent);
+  color: var(--color-accent-text, #ffffff);
+  border-color: var(--color-accent);
+}
+
+.saves-filter-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.saves-view-toggles {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 10px);
+  padding: 2px;
+}
+
+.saves-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border-radius: var(--radius-sm, 6px);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.saves-view-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.saves-view-btn.active {
+  background: var(--color-surface-1);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.saves-sort-select {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ── Compact List View for Games ────────────────────────────────────────── */
+
+.saves-game-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.saves-game-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 10px);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.saves-game-row:hover {
+  border-color: var(--color-border-hover, var(--color-accent));
+  background: var(--color-surface-3, rgba(255, 255, 255, 0.04));
+}
+
+.saves-game-row__main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.saves-game-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.saves-game-row__title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saves-game-row__meta {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+}
+
+.saves-game-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Snapshot Timeline & Enhanced Cards ─────────────────────────────────── */
+
+.saves-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.saves-timeline-summary {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.saves-snapshot-card-rich {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 10px);
+  transition: all 0.18s ease;
+}
+
+.saves-snapshot-card-rich:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.saves-snapshot-card-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.saves-snapshot-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.saves-snapshot-card-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.saves-snapshot-card-game {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.saves-snapshot-card-meta {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.saves-snapshot-card-note {
+  font-size: 0.76rem;
+  color: var(--color-accent);
+  font-style: italic;
+}
+
+.saves-snapshot-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Settings Subtab on Saves Page ─────────────────────────────────────── */
+
+.saves-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.saves-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 12px;
+}
+
+/* ── Per-Game Saves Tab Subtabs & KPIs ─────────────────────────────────── */
+
+.saves-game-subtabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 12px);
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 4px;
+}
+
+.saves-game-subtab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md, 8px);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.saves-game-subtab-pill:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-3, rgba(255, 255, 255, 0.05));
+}
+
+.saves-game-subtab-pill.active {
+  color: var(--color-text-primary);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+
+.saves-game-subtab-pill.active svg {
+  color: var(--color-accent);
+}
+
+.saves-game-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.saves-note-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md, 10px);
+}
+
+.saves-note-drawer__inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.saves-note-drawer__input {
+  flex: 1;
+  min-width: 220px;
+}
+
+
