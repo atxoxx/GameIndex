@@ -9,6 +9,9 @@ import {
   parseReleaseMetadata,
 } from "./helpers";
 import { accentForPlatform } from "../../types/emulator";
+import { highlightSegments, type ParsedQuery } from "./searchQuery";
+import { ReliabilityBadge } from "./ReliabilityBadge";
+import type { SourceReliability } from "./reliability";
 
 export function ResultRow({
   match,
@@ -16,12 +19,28 @@ export function ResultRow({
   onSelect,
   isDownloaded,
   installedVersion,
+  highlightQuery,
+  reliability,
+  recommended = false,
+  batchMode = false,
+  batchChecked = false,
+  onToggleBatch,
+  comparePinned = false,
+  onToggleCompare,
 }: {
   match: DisplayMatch;
   selected: boolean;
   onSelect: (id: string) => void;
   isDownloaded: (title: string) => boolean;
   installedVersion?: string | null;
+  highlightQuery?: ParsedQuery;
+  reliability?: SourceReliability;
+  recommended?: boolean;
+  batchMode?: boolean;
+  batchChecked?: boolean;
+  onToggleBatch?: (id: string) => void;
+  comparePinned?: boolean;
+  onToggleCompare?: (id: string) => void;
 }) {
   const { t, language } = useLanguage();
   const isPlugin = match.provider === "plugin";
@@ -56,6 +75,12 @@ export function ResultRow({
   );
   const mirrorCount = match.uris ? match.uris.length : 0;
 
+  const titleSegments = useMemo(
+    () =>
+      highlightQuery ? highlightSegments(match.title, highlightQuery) : [{ text: match.title, highlight: false }],
+    [match.title, highlightQuery],
+  );
+
   const copyText = async (e: React.MouseEvent, text: string, label: string) => {
     e.stopPropagation();
     if (!text) return;
@@ -79,7 +104,7 @@ export function ResultRow({
     <div
       role="button"
       tabIndex={0}
-      className={`dl-result-card${selected ? " selected" : ""}`}
+      className={`dl-result-card${selected ? " selected" : ""}${batchChecked ? " is-batch-checked" : ""}`}
       onClick={() => onSelect(match.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -91,29 +116,50 @@ export function ResultRow({
     >
       <div className="dl-result-accent-bar" aria-hidden />
 
+      {batchMode && (
+        <label className="dl-result-batch-check" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={batchChecked}
+            onChange={() => onToggleBatch?.(match.id)}
+            aria-label={t("downloadModal.checkboxAria")}
+          />
+          <span className="dl-result-batch-checkmark" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+        </label>
+      )}
+
       {/* Main card body */}
       <div className="dl-result-body">
         {/* Header Badges */}
         <div className="dl-result-header">
           <div className="dl-result-tags">
+            {recommended && (
+              <span className="dl-badge dl-badge--recommended" title={t("downloadModal.recommended")}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                {t("downloadModal.recommended")}
+              </span>
+            )}
+
             <span className={`dl-source-pill-badge${isPlugin ? " dl-source-pill-badge--plugin" : ""}`}>
               {match.sourceName}
             </span>
 
-            {formatBadge && (
-              <span className="dl-badge dl-badge--format">
-                {formatBadge}
-              </span>
-            )}
+            <ReliabilityBadge reliability={reliability} compact />
 
-            {/* Repack / Scene Group Badge */}
+            {formatBadge && <span className="dl-badge dl-badge--format">{formatBadge}</span>}
+
             {meta.group && (
               <span className="dl-badge dl-badge--group" title={`Group: ${meta.group}`}>
                 {meta.group}
               </span>
             )}
 
-            {/* Version Badge with Relative Comparison */}
             {meta.version && (
               <span
                 className={`dl-badge dl-badge--version${
@@ -136,17 +182,7 @@ export function ResultRow({
                 }
               >
                 {meta.versionComparison === "newer" && (
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="10"
-                    height="10"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <line x1="12" y1="19" x2="12" y2="5" />
                     <polyline points="5 12 12 5 19 12" />
                   </svg>
@@ -161,21 +197,18 @@ export function ResultRow({
               </span>
             )}
 
-            {/* Edition Badge */}
             {meta.edition && (
               <span className="dl-badge dl-badge--edition" title={`Edition: ${meta.edition}`}>
                 {meta.edition}
               </span>
             )}
 
-            {/* Multi-part Badge */}
             {meta.isMultiPart && (
               <span className="dl-badge dl-badge--multipart">
                 {meta.partCount ? `${meta.partCount} Parts` : t("downloadModal.multiPartPackage")}
               </span>
             )}
 
-            {/* Mirror Count */}
             {mirrorCount > 1 && (
               <span className="dl-badge dl-badge--mirrors" title={`${mirrorCount} Mirrors`}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -204,16 +237,10 @@ export function ResultRow({
               );
             })()}
 
-            {match.isNew && (
-              <span className="dl-badge dl-badge--new">
-                {t("downloads.newlyAddedSource")}
-              </span>
-            )}
+            {match.isNew && <span className="dl-badge dl-badge--new">{t("downloads.newlyAddedSource")}</span>}
 
             {isDownloaded(match.title) && (
-              <span className="dl-badge dl-badge--downloaded">
-                ✓ {t("downloads.alreadyDownloaded")}
-              </span>
+              <span className="dl-badge dl-badge--downloaded">✓ {t("downloads.alreadyDownloaded")}</span>
             )}
 
             {match.verified && (
@@ -228,6 +255,25 @@ export function ResultRow({
 
           {/* Quick Actions (Right side of header) */}
           <div className="dl-result-actions" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className={`dl-action-chip dl-action-chip--pin${comparePinned ? " active" : ""}`}
+              title={comparePinned ? t("downloadModal.compareUnpin") : t("downloadModal.comparePin")}
+              aria-label={comparePinned ? t("downloadModal.compareUnpin") : t("downloadModal.comparePin")}
+              aria-pressed={comparePinned}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCompare?.(match.id);
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="18" y1="10" x2="6" y2="10" />
+                <line x1="12" y1="2" x2="12" y2="10" />
+                <path d="M12 10l-3 6h6z" />
+                <line x1="9" y1="20" x2="15" y2="20" />
+              </svg>
+            </button>
+
             {match.infohash && (
               <button
                 type="button"
@@ -280,12 +326,19 @@ export function ResultRow({
 
         {/* Release Title */}
         <h4 className="dl-result-title" title={match.title}>
-          {match.title}
+          {titleSegments.map((seg, i) =>
+            seg.highlight ? (
+              <mark key={i} className="dl-result-highlight">
+                {seg.text}
+              </mark>
+            ) : (
+              <span key={i}>{seg.text}</span>
+            ),
+          )}
         </h4>
 
         {/* Metric Badges */}
         <div className="dl-result-meta-row">
-          {/* File Size */}
           <span className="dl-meta-chip dl-meta-chip--size">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -295,7 +348,6 @@ export function ResultRow({
             <strong>{match.fileSize || t("downloadModal.unknownSize")}</strong>
           </span>
 
-          {/* Swarm Health (Seeds & Peers) */}
           {hasSwarm && (
             <span className={`dl-meta-chip dl-meta-chip--swarm ${swarmHealthy ? "healthy" : "low"}`}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -310,7 +362,6 @@ export function ResultRow({
             </span>
           )}
 
-          {/* Upload Date */}
           {match.uploadDate && (
             <span className="dl-meta-chip dl-meta-chip--date">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -321,14 +372,12 @@ export function ResultRow({
             </span>
           )}
 
-          {/* Match Confidence Score */}
           <span className={`dl-meta-chip dl-meta-chip--score ${tier}`} title={t("downloadModal.detailConfidence")}>
             <span className="dl-tier-dot" aria-hidden />
             <span>{tierLabel}</span>
             <span className="dl-tier-percent">{(score * 100).toFixed(0)}%</span>
           </span>
 
-          {/* Provenance if available */}
           {match.provenance && (
             <span className="dl-meta-chip dl-meta-chip--provenance" title={t("downloadModal.provenanceTitle")}>
               {match.provenance}
