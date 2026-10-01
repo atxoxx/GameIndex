@@ -5765,51 +5765,11 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   cursor: pointer;
 }
 
-.dl-card-status {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  z-index: 2;
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.dl-card-source-tag {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  z-index: 2;
-  font-size: var(--font-size-2xs);
-  color: var(--scrim-text);
-  background: var(--scrim-dark);
-  backdrop-filter: blur(4px);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  border: 1px solid var(--scrim-border);
-}
-
-.dl-card-cached-tag {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-success);
-  background: color-mix(in srgb, var(--color-success) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
-  backdrop-filter: blur(4px);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
+/* The media status pill, source tag and debrid-cached tag are owned by
+ * `page-downloads.css`. These rules used to duplicate that file while
+ * pinning the opposite insets (`top`/`bottom` and `left`/`right`), which
+ * made the absolutely-positioned tags stretch across the whole artwork.
+ * Keep the grid-card tag styles in one place only. */
 
 .dl-card-body {
   display: flex;
