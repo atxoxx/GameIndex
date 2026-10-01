@@ -5,7 +5,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useSaves } from "../../context/SavesContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
-import { Button, ConfirmModal } from "../ui";
+import { Badge, Button, ConfirmModal } from "../ui";
 import type { SaveBackup } from "../../types/saves";
 import { formatRelative } from "./SaveBackupTab";
 
@@ -16,17 +16,29 @@ interface GameSaveBackupCardProps {
   onManage?: () => void;
 }
 
+const STATUS_VARIANT: Record<string, "success" | "warning" | "danger"> = {
+  complete: "success",
+  partial: "warning",
+  failed: "danger",
+};
+
+const STATUS_LABEL_KEY: Record<string, string> = {
+  complete: "saves.status.complete",
+  partial: "saves.status.partial",
+  failed: "saves.status.failed",
+};
+
 /**
  * GameSaveBackupCard — the Overview-tab save snapshots summary. Backs up and
- * restores the latest snapshot inline; the Saves tab stays the place for the
- * full history, per-location editor, and snapshot notes.
+ * restores the latest *usable* snapshot inline; the Saves tab stays the place
+ * for the full history, per-location editor, and snapshot notes.
  */
 export default function GameSaveBackupCard({
   gameId,
   gameName,
   onManage,
 }: GameSaveBackupCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const { enabled, restoreBackup } = useSaves();
   const { formatBytes } = useSizeUnit();
@@ -91,7 +103,9 @@ export default function GameSaveBackupCard({
     return null;
   }
 
-  const latest = backups?.[0] ?? null;
+  // The newest snapshot may be an empty pre-restore safety capture; restore
+  // should target the newest one that actually holds files.
+  const latest = backups?.find((b) => b.fileCount > 0) ?? null;
 
   return (
     <section className="game-section game-save-backup-card" aria-label={t("saves.tab.title")}>
@@ -102,10 +116,10 @@ export default function GameSaveBackupCard({
           </span>
           <span>{t("saves.tab.title")}</span>
         </div>
-        {backups !== null && backups.length > 0 && (
-          <span className="game-save-backup-card__badge">
-            {t("saves.backups.count", { count: backups.length })}
-          </span>
+        {onManage && (
+          <button type="button" className="game-save-backup-card__link" onClick={onManage}>
+            {t("saves.action.manage")} →
+          </button>
         )}
       </div>
 
@@ -116,9 +130,17 @@ export default function GameSaveBackupCard({
         </div>
       ) : latest ? (
         <div className="game-save-backup-card__body">
+          <div className="game-save-backup-card__chips">
+            <Badge variant={STATUS_VARIANT[latest.status] ?? "default"} size="sm">
+              {t(STATUS_LABEL_KEY[latest.status] ?? "saves.status.complete")}
+            </Badge>
+            <span className="game-save-backup-card__count">
+              {t("saves.backups.count", { count: backups.length })}
+            </span>
+          </div>
           <div className="game-save-backup-card__meta">
             <Clock size={12} />
-            <span>{t("saves.game.lastBackup", { when: formatRelative(latest.createdAt) })}</span>
+            <span>{t("saves.game.lastBackup", { when: formatRelative(latest.createdAt, language) })}</span>
             <span>·</span>
             <span>
               {t("saves.backups.meta", {
@@ -129,7 +151,7 @@ export default function GameSaveBackupCard({
           </div>
           <div className="game-save-backup-card__actions">
             <Button
-              variant="secondary"
+              variant="primary"
               size="sm"
               onClick={() => void handleBackup()}
               isLoading={busy === "backup"}
@@ -148,7 +170,7 @@ export default function GameSaveBackupCard({
           <p className="game-save-backup-card__empty">{t("saves.backups.emptyText")}</p>
           <div className="game-save-backup-card__actions">
             <Button
-              variant="secondary"
+              variant="primary"
               size="sm"
               onClick={() => void handleBackup()}
               isLoading={busy === "backup"}
@@ -160,20 +182,12 @@ export default function GameSaveBackupCard({
         </div>
       )}
 
-      {onManage && (
-        <div className="game-save-backup-card__footer">
-          <Button variant="ghost" size="sm" onClick={onManage}>
-            {t("saves.action.manage")} →
-          </Button>
-        </div>
-      )}
-
       <ConfirmModal
         open={pendingRestore !== null}
         busy={confirmBusy}
         title={t("saves.confirm.restoreTitle", { name: gameName })}
         message={t("saves.confirm.restoreMessage", {
-          when: formatRelative(pendingRestore?.createdAt ?? 0),
+          when: formatRelative(pendingRestore?.createdAt ?? 0, language),
         })}
         warning={t("saves.confirm.restoreWarning")}
         confirmLabel="saves.action.restore"

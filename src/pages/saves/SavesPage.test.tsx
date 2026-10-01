@@ -14,6 +14,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 vi.mock("../../context/LanguageContext", () => ({
   useLanguage: () => ({
+    language: "en",
     t: (key: string) => {
       const dict: Record<string, string> = {
         "saves.subtab.games": "Tracked Games",

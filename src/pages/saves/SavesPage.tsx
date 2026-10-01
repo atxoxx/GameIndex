@@ -63,7 +63,7 @@ function GameCoverThumb({ game }: { game: Game }) {
 export default function SavesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const { games } = useGames();
   const {
@@ -457,7 +457,7 @@ export default function SavesPage() {
                 label={t("saves.kpi.lastBackup")}
                 value={
                   summary?.lastBackupAt
-                    ? formatRelative(summary.lastBackupAt)
+                    ? formatRelative(summary.lastBackupAt, language)
                     : t("saves.kpi.never")
                 }
                 icon={<Clock size={16} />}
@@ -603,7 +603,7 @@ export default function SavesPage() {
                               {t("saves.game.locations", { count: perGame.counts.get(game.id) ?? 0 })}
                               {" · "}
                               {latest
-                                ? t("saves.game.lastBackup", { when: formatRelative(latest.createdAt) })
+                                ? t("saves.game.lastBackup", { when: formatRelative(latest.createdAt, language) })
                                 : t("saves.game.noBackup")}
                             </span>
                           </span>
@@ -656,7 +656,7 @@ export default function SavesPage() {
                               {t("saves.game.locations", { count: perGame.counts.get(game.id) ?? 0 })}
                               {" · "}
                               {latest
-                                ? t("saves.game.lastBackup", { when: formatRelative(latest.createdAt) })
+                                ? t("saves.game.lastBackup", { when: formatRelative(latest.createdAt, language) })
                                 : t("saves.game.noBackup")}
                             </span>
                           </div>
@@ -812,7 +812,7 @@ export default function SavesPage() {
                           </Badge>
                         </div>
                         <div className="saves-snapshot-card-meta">
-                          <span>{formatRelative(backup.createdAt)}</span>
+                          <span>{formatRelative(backup.createdAt, language)}</span>
                           <span>·</span>
                           <span>
                             {t("saves.backups.meta", {
@@ -1009,7 +1009,7 @@ export default function SavesPage() {
         message={
           pending?.kind === "restore"
             ? t("saves.confirm.restoreMessage", {
-                when: formatRelative(pending?.backup.createdAt ?? 0),
+                when: formatRelative(pending?.backup.createdAt ?? 0, language),
               })
             : t("saves.confirm.deleteMessage")
         }

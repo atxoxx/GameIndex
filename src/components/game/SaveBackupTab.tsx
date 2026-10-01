@@ -28,12 +28,16 @@ import {
   type SaveLocation,
 } from "../../types/saves";
 
-/** Compact relative time, localized via `Intl.RelativeTimeFormat`. */
-export function formatRelative(ms: number): string {
+/**
+ * Compact relative time, localized via `Intl.RelativeTimeFormat`.
+ * `locale` must be the app language: passing `undefined` falls back to the OS
+ * locale, which mixes languages (e.g. "il y a 5 minutes" under an English UI).
+ */
+export function formatRelative(ms: number, locale?: string): string {
   if (!ms) return "";
   const diff = Date.now() - ms;
   const abs = Math.abs(diff);
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const rtf = new Intl.RelativeTimeFormat(locale || undefined, { numeric: "auto" });
   const minute = 60_000;
   const hour = 60 * minute;
   const day = 24 * hour;
@@ -83,7 +87,7 @@ interface SaveBackupTabProps {
  *   3. Game Settings: Per-game automation rules, safety snapshots, and retention configuration.
  */
 export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const {
     enabled,
@@ -444,7 +448,7 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
         <KpiTile
           label={t("saves.kpi.lastBackup")}
           value={
-            latestBackup ? formatRelative(latestBackup.createdAt) : t("saves.kpi.never")
+            latestBackup ? formatRelative(latestBackup.createdAt, language) : t("saves.kpi.never")
           }
           icon={<Clock size={15} />}
           size="sm"
@@ -597,7 +601,7 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
                           {t(SAVE_KIND_LABEL_KEY[backup.kind] ?? "saves.kind.manual")}
                         </Badge>
                         <span className="saves-backup__when">
-                          {formatRelative(backup.createdAt)}
+                          {formatRelative(backup.createdAt, language)}
                         </span>
                         <Badge variant={statusVariant(backup.status)} size="sm">
                           {t(`saves.status.${backup.status}`)}
@@ -862,7 +866,7 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
         message={
           pending?.kind === "restore"
             ? t("saves.confirm.restoreMessage", {
-                when: formatRelative(pending?.backup.createdAt ?? 0),
+                when: formatRelative(pending?.backup.createdAt ?? 0, language),
               })
             : t("saves.confirm.deleteMessage")
         }

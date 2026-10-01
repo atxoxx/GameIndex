@@ -20,6 +20,7 @@ vi.mock("../../hooks/useFocusable", () => ({
 
 vi.mock("../../context/LanguageContext", () => ({
   useLanguage: () => ({
+    language: "en",
     t: (key: string) => {
       const dict: Record<string, string> = {
         "saves.tab.title": "Save Backups",
