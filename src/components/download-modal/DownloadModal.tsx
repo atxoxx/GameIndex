@@ -180,7 +180,13 @@ export default function DownloadModal({
   const [error, setError] = useState<string | null>(null);
 
   const [chooseFiles, setChooseFiles] = useState(false);
-  const [autoExtract, setAutoExtract] = useState(false);
+  const [autoExtract, setAutoExtract] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("gamelib-last-auto-extract") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [compactTab, setCompactTab] = useState<"results" | "details">("results");
   const [useDebrid, setUseDebrid] = useState(false);
   const [cacheStatus, setCacheStatus] = useState<CacheCheckStatus>("idle");
@@ -249,6 +255,14 @@ export default function DownloadModal({
   useEffect(() => {
     saveLastFilters(filters);
   }, [filters]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("gamelib-last-auto-extract", String(autoExtract));
+    } catch {
+      // Storage may be unavailable; the option still applies this session.
+    }
+  }, [autoExtract]);
 
   const handleApplyPreset = useCallback(
     (preset: FilterPreset) => {
