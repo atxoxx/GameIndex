@@ -300,7 +300,7 @@ export function StudioPreview({
     (drag: ReturnType<typeof useOrderDrag>, index: number) =>
     (e: React.PointerEvent) => {
       if (e.button !== 0 || inspectMode) return;
-      drag.startDrag(index);
+      drag.startDrag(index, { x: e.clientX, y: e.clientY });
     };
 
   const toggleTitle = (label: string, hidden: boolean, _id?: string) => {
@@ -350,7 +350,14 @@ export function StudioPreview({
             handleItemInteraction(itemsDrag, item.id, () => onTogglePageItem(item.id))
           }
         >
-          <GripVertical className="studio-preview__grip" size={12} aria-hidden="true" />
+          <span
+            className="studio-preview__grip"
+            title={t("settings.interface.studioDragHandle")}
+            aria-hidden="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical size={12} />
+          </span>
           <item.icon size={13} className="studio-preview__item-icon" aria-hidden="true" />
           <span className="studio-preview__item-label">{item.label}</span>
           {item.hidden && (
@@ -415,7 +422,14 @@ export function StudioPreview({
                     handleItemInteraction(tabsDrag, tab.id, () => onToggleNavTab(tab.id))
                   }
                 >
-                  <GripVertical className="studio-preview__grip" size={10} aria-hidden="true" />
+                  <span
+                    className="studio-preview__grip"
+                    title={t("settings.interface.studioDragHandle")}
+                    aria-hidden="true"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <GripVertical size={11} />
+                  </span>
                   <tab.icon size={11} className="studio-preview__tab-icon" aria-hidden="true" />
                   <span className="studio-preview__tab-label">{tab.label}</span>
                 </button>

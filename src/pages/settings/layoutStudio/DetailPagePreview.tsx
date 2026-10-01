@@ -666,7 +666,7 @@ function HeroMock({
 
   const startDrag = (i: number) => (e: React.PointerEvent) => {
     if (e.button !== 0 || inspectMode) return;
-    drag.startDrag(i);
+    drag.startDrag(i, { x: e.clientX, y: e.clientY });
   };
 
   const interact = (id: string, toggle: () => void) => {
@@ -1134,7 +1134,7 @@ function DetailTabBar({
 
   const startDrag = (i: number) => (e: React.PointerEvent) => {
     if (e.button !== 0 || inspectMode) return;
-    drag.startDrag(i);
+    drag.startDrag(i, { x: e.clientX, y: e.clientY });
   };
 
   return (
@@ -1172,7 +1172,14 @@ function DetailTabBar({
               else if (item.id !== "overview") onToggle(item.id, !item.hidden);
             }}
           >
-            <GripVertical className="studio-preview__grip" size={10} aria-hidden="true" />
+            <span
+              className="studio-preview__grip"
+              title={t("settings.interface.studioDragHandle")}
+              aria-hidden="true"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical size={10} />
+            </span>
             <item.icon size={11} className="studio-preview__tab-icon" aria-hidden="true" />
             <span className="studio-preview__tab-label">{item.label}</span>
           </button>
@@ -1221,7 +1228,7 @@ function DetailTopBar({
 
   const startDrag = (i: number) => (e: React.PointerEvent) => {
     if (e.button !== 0 || inspectMode) return;
-    drag.startDrag(i);
+    drag.startDrag(i, { x: e.clientX, y: e.clientY });
   };
 
   return (
@@ -1260,7 +1267,14 @@ function DetailTopBar({
               else onToggle(item.id, !item.hidden);
             }}
           >
-            <GripVertical className="studio-preview__grip" size={10} aria-hidden="true" />
+            <span
+              className="studio-preview__grip"
+              title={t("settings.interface.studioDragHandle")}
+              aria-hidden="true"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical size={10} />
+            </span>
             <item.icon size={12} className="studio-detail-topbar__icon" aria-hidden="true" />
             <span className="studio-detail-topbar__label">{item.label}</span>
             {item.hidden && (
@@ -1437,7 +1451,7 @@ export function DetailPagePreview({
 
   const startWidgetDrag = (index: number) => (e: React.PointerEvent) => {
     if (e.button !== 0 || inspectMode || index < 0) return;
-    widgetDrag.startDrag(index);
+    widgetDrag.startDrag(index, { x: e.clientX, y: e.clientY });
   };
 
   const interactWidget = (id: string, toggle: () => void) => {

@@ -808,19 +808,36 @@
   white-space: nowrap;
 }
 
+/* Drag handle. A visible, generous target is the whole point: the grip is the
+   affordance that says a row can be rearranged, so it sits brighter than a
+   faint separator and lights up on hover and while dragging. */
 .studio-preview__grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  opacity: 0.25;
-  color: var(--color-text-muted);
-  transition: opacity var(--transition-fast), color var(--transition-fast);
-  cursor: grab;
+  padding: 2px 1px;
   margin-right: 1px;
+  border-radius: var(--radius-xs);
+  opacity: 0.45;
+  color: var(--color-text-muted);
+  cursor: grab;
+  transition: opacity var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .studio-preview__tab:hover .studio-preview__grip,
 .studio-preview__item:hover .studio-preview__grip {
-  opacity: 0.9;
+  opacity: 1;
   color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.studio-preview__tab.is-dragging .studio-preview__grip,
+.studio-preview__item.is-dragging .studio-preview__grip {
+  opacity: 1;
+  color: var(--color-accent);
+  cursor: grabbing;
 }
 
 .studio-preview .studio-preview__now-playing {
@@ -906,18 +923,40 @@
   transform: translateY(-0.5px);
 }
 
-/* Drag feedback */
+/* Drag feedback: the row under the pointer lifts (accent fill + inner ring, no
+   outward shadow so the bar's overflow can't clip it) and the row it would land
+   on grows a leading insertion bar. */
 .studio-preview__tab.is-dragging,
 .studio-preview__action.is-dragging,
 .studio-preview__item.is-dragging {
-  opacity: 0.4;
+  position: relative;
+  z-index: 6;
+  opacity: 1;
+  cursor: grabbing;
+  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface));
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 60%, transparent);
 }
 
 .studio-preview__tab.is-drop-target,
 .studio-preview__action.is-drop-target,
 .studio-preview__item.is-drop-target {
+  position: relative;
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.studio-preview__tab.is-drop-target::before,
+.studio-preview__action.is-drop-target::before {
+  content: "";
+  position: absolute;
+  inset-block: 12%;
+  inset-inline-start: -4px;
+  width: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
+  pointer-events: none;
 }
 
 .studio-preview__tab.is-off,

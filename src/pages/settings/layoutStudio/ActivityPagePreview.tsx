@@ -72,7 +72,7 @@ export function ActivityPagePreview({
         variant={variant}
         onStartDrag={(e) => {
           if (e.button !== 0 || inspectMode) return;
-          widgetDrag.startDrag(index);
+          widgetDrag.startDrag(index, { x: e.clientX, y: e.clientY });
         }}
         onToggle={() => onToggleWidget(item.id)}
         onInspect={onInspectElement}
