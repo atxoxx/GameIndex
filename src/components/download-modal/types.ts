@@ -16,6 +16,7 @@ export type CacheCheckStatus =
 
 /** How the results list is ordered. */
 export type SortKey =
+  | "recommended"
   | "date"
   | "source"
   | "relevance"

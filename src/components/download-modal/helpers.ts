@@ -14,6 +14,7 @@ import {
   compareVersions,
   parseVersionFromTitle,
 } from "../../utils/gameVersions";
+import { matchesQuery, parseQuery } from "./searchQuery";
 
 /**
  * Single source of truth for "which URI does the user actually want to
@@ -574,15 +575,18 @@ export function filterMatches(
   }
 
   if (searchQuery && searchQuery.trim()) {
-    const q = searchQuery.trim().toLowerCase();
-    list = list.filter((m) => {
-      return (
-        m.title.toLowerCase().includes(q) ||
-        (m.platform && m.platform.toLowerCase().includes(q)) ||
-        (m.sourceName && m.sourceName.toLowerCase().includes(q)) ||
-        (m.provenance && m.provenance.toLowerCase().includes(q))
+    const parsed = parseQuery(searchQuery);
+    if (!parsed.isEmpty) {
+      list = list.filter((m) =>
+        matchesQuery(parsed, [
+          m.title,
+          m.platform,
+          m.sourceName,
+          m.provenance,
+          m.detailUrl,
+        ]),
       );
-    });
+    }
   }
 
   return list;
@@ -593,9 +597,15 @@ export function sortMatches<T extends { sourceName: string; matchScore: number; 
   list: T[],
   sortBy: SortKey,
   isFiltered = false,
+  scoreFor?: (item: T) => number,
 ): T[] {
   const comparator = (a: T, b: T): number => {
     switch (sortBy) {
+      case "recommended": {
+        const sa = scoreFor ? scoreFor(a) : a.matchScore;
+        const sb = scoreFor ? scoreFor(b) : b.matchScore;
+        return sb - sa || b.matchScore - a.matchScore;
+      }
       case "source":
         return a.sourceName.localeCompare(b.sourceName) || b.matchScore - a.matchScore;
       case "relevance":

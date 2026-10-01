@@ -42,6 +42,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use unicode_normalization::UnicodeNormalization;
 
 use crate::db::{self, Db};
 
@@ -545,40 +546,57 @@ fn derive_name_from_url(url: &str) -> String {
 /// doesn't get dragged down by a "Shadow of the Erdtree" repack
 /// whose primary name is still "Elden Ring".
 fn normalize_title(title: &str) -> String {
-    let t = title
-        .replace('®', "")
-        .replace('™', "")
-        .replace('©', "")
-        .to_ascii_lowercase();
-
-    // Take the primary name before a `:` or `-` subtitle separator,
-    // but only when the primary part is long enough to be meaningful
-    // (avoids splitting "Half-Life" into "half" + "life").
-    let primary = if let Some(pos) = t.find(|c| c == ':' || c == '-') {
-        let first = t[..pos].trim();
-        if first.chars().count() >= 4 {
-            first.to_string()
-        } else {
-            t.clone()
+    // 1. Insert spaces at camelCase / letter-digit boundaries so
+    //    "Cyberpunk2077", "cyberpunk.2077" and "cyberpunk_2077" all
+    //    tokenise identically.
+    let mut spaced = String::with_capacity(title.len() + 8);
+    let chars: Vec<char> = title.chars().collect();
+    for (i, &c) in chars.iter().enumerate() {
+        if i > 0 {
+            let prev = chars[i - 1];
+            let boundary = (prev.is_lowercase() && c.is_uppercase())
+                || (prev.is_alphabetic() && c.is_ascii_digit())
+                || (prev.is_ascii_digit() && c.is_alphabetic());
+            if boundary {
+                spaced.push(' ');
+            }
         }
-    } else {
-        t.clone()
-    };
+        spaced.push(c);
+    }
 
-    // Drop trailing year (19xx/20xx) and parenthetical tags like
-    // "(PC)", "(GOG)", "(v1.2)".
+    // 2. Drop trademark glyphs, fold diacritics to ASCII, lowercase.
+    let t: String = spaced
+        .replace(['®', '™', '©'], "")
+        .nfd()
+        .filter(|c| !is_combining_mark(*c))
+        .collect::<String>()
+        .to_lowercase();
+
+    // 3. Keep the primary name before a subtitle separator. Only `:` and
+    //    spaced dashes count — bare hyphens stay so "Half-Life" and
+    //    "Spider-Man" don't get sliced into fragments.
+    let primary = split_primary(&t).to_string();
+
+    // 4. Drop the trailing year and expand remaining punctuation.
     let without_year = regex_year(&primary);
     let without_parens = without_year
         .replace(['(', ')', '[', ']', '{', '}'], " ")
-        .replace(['.', ',', '!', '?', '/', '\\', '"', '\''], " ");
+        .replace(
+            [
+                '.', ',', '!', '?', '/', '\\', '"', '\'', '_', '|', '+', '&', '=', '~', '*',
+            ],
+            " ",
+        );
 
-    // Remove well-known edition / collection / platform noise tokens
-    // that inflate catalog titles but are irrelevant to identity.
+    // 5. Remove edition / collection / platform noise that inflates
+    //    catalog titles without changing identity.
     const NOISE_TOKENS: &[&str] = &[
         "edition", "definitive", "game", "of", "the", "year", "goty", "deluxe", "collectors",
         "collector", "complete", "special", "ultimate", "premium", "standard", "gold", "platinum",
         "anniversary", "remastered", "remaster", "enhanced", "directors", "director", "cut",
         "pc", "windows", "linux", "mac", "steam", "gog", "epic", "fitgirl", "repack", "v",
+        "for", "and", "with", "pack", "iso", "setup", "installer", "portable", "build", "update",
+        "patch", "hotfix", "multi", "nintendo", "switch", "playstation", "xbox", "ps4", "ps5",
     ];
     let tokens: Vec<String> = without_parens
         .split_whitespace()
@@ -586,6 +604,33 @@ fn normalize_title(title: &str) -> String {
         .filter(|tok| !tok.is_empty() && !NOISE_TOKENS.contains(&tok.as_str()))
         .collect();
     tokens.join(" ")
+}
+
+/// True for the common Unicode combining-mark ranges produced by NFD.
+fn is_combining_mark(c: char) -> bool {
+    matches!(
+        c as u32,
+        0x0300..=0x036F
+            | 0x1AB0..=0x1AFF
+            | 0x1DC0..=0x1DFF
+            | 0x20D0..=0x20FF
+            | 0xFE20..=0xFE2F
+    )
+}
+
+/// Return the primary title, dropping a subtitle after `:` or a spaced
+/// dash. Bare hyphens are left alone so hyphenated names survive.
+fn split_primary(title: &str) -> &str {
+    let mut cut: Option<usize> = title.find(':');
+    for sep in [" - ", " – ", " — "] {
+        if let Some(i) = title.find(sep) {
+            cut = Some(cut.map_or(i, |c| c.min(i)));
+        }
+    }
+    match cut {
+        Some(pos) if title[..pos].trim().chars().count() >= 3 => title[..pos].trim(),
+        _ => title,
+    }
 }
 
 /// Strip a trailing 4-digit year (1900–2099) from the end of a title,
@@ -614,6 +659,35 @@ fn token_set(s: &str) -> Vec<String> {
     toks
 }
 
+/// Ordered, de-duplicated tokens — order is preserved so
+/// [`title_similarity`] can weight the leading query terms.
+fn token_list(s: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for tok in s.split_whitespace() {
+        let owned = tok.to_string();
+        if !out.contains(&owned) {
+            out.push(owned);
+        }
+    }
+    out
+}
+
+/// Parse a token as a plausible release year (1900–2099).
+fn parse_year(tok: &str) -> Option<u32> {
+    if tok.len() == 4 && tok.chars().all(|c| c.is_ascii_digit()) {
+        tok.parse::<u32>()
+            .ok()
+            .filter(|year| (1900..=2099).contains(year))
+    } else {
+        None
+    }
+}
+
+/// First plausible year token in a token list.
+fn find_year(tokens: &[String]) -> Option<u32> {
+    tokens.iter().find_map(|tok| parse_year(tok))
+}
+
 /// Robust similarity between the (normalised) query and a candidate
 /// title. Combines a token-set Jaccard overlap with a strong bonus
 /// for an exact whole-string match (after normalisation), so a
@@ -634,11 +708,47 @@ pub(crate) fn title_similarity(raw_query: &str, title: &str) -> f32 {
         return 1.0;
     }
 
-    let q_tokens = token_set(&qn);
+    let q_tokens = token_list(&qn);
+    let t_tokens_ordered = token_list(&tn);
     let t_tokens = token_set(&tn);
     if q_tokens.is_empty() {
         return 0.0;
     }
+
+    let count = q_tokens.len() as f32;
+    let mut weighted_match = 0.0_f32;
+    let mut weight_total = 0.0_f32;
+    let mut fully_matched = 0usize;
+    for (idx, qt) in q_tokens.iter().enumerate() {
+        // Leading query terms matter a little more than trailing ones.
+        let position_weight = 1.0 + (count - 1.0 - idx as f32).max(0.0) * 0.04;
+        weight_total += position_weight;
+
+        if t_tokens.contains(qt) {
+            weighted_match += position_weight;
+            fully_matched += 1;
+        } else if qt.chars().count() >= 3
+            && t_tokens_ordered.iter().any(|tt| {
+                tt.starts_with(qt.as_str()) || qt.starts_with(tt.as_str())
+            })
+        {
+            // Bounded credit for prefix / truncation (typo tolerance)
+            // without pretending it is a full match.
+            weighted_match += position_weight * 0.75;
+        }
+    }
+    let recall = if weight_total > 0.0 {
+        (weighted_match / weight_total).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    // Penalise titles that carry many extra tokens beyond the query
+    // (so "elden ring of war" scores lower than "elden ring deluxe"),
+    // but keep the penalty gentle: variable catalog titles routinely
+    // add 2–4 extra tokens and we don't want to crush them.
+    let extra = t_tokens.len().saturating_sub(fully_matched);
+    let noise_penalty = (extra as f32 * 0.05).min(0.35);
 
     // Exact substring containment (either direction) is a strong
     // positive signal but not a perfect match.
@@ -648,23 +758,26 @@ pub(crate) fn title_similarity(raw_query: &str, title: &str) -> f32 {
         0.0
     };
 
-    // Recall: how many of the query tokens are actually present in the
-    // title. This is the dominant, intuitive signal — if every token
-    // the user typed appears in the (normalised) title, it's almost
-    // certainly the right game even when the catalog title carries
-    // extra edition / scene / link-stem ("name.name") noise.
-    let matched = q_tokens.iter().filter(|t| t_tokens.contains(t)).count() as f32;
-    let recall = matched / q_tokens.len() as f32;
+    // A year in the query is a strong identity signal; a conflicting year
+    // in the title is a meaningful negative signal.
+    let year_adj = match (find_year(&q_tokens), find_year(&t_tokens_ordered)) {
+        (Some(query_year), Some(title_year)) if query_year == title_year => 0.08,
+        (Some(_), Some(_)) => -0.12,
+        _ => 0.0,
+    };
 
-    // Penalise titles that contain many extra tokens beyond the query
-    // (so "elden ring of war" scores lower than "elden ring deluxe"),
-    // but keep the penalty gentle: variable catalog titles routinely
-    // add 2–4 extra tokens and we don't want to crush them.
-    let extra = (t_tokens.len() as f32).max(matched) - matched;
-    let noise_penalty = (extra * 0.05).min(0.35);
+    // Every query token present exactly (only reordered) is a very strong
+    // signal — reward it so word-order differences don't look like noise.
+    let all_exact_bonus =
+        if fully_matched == q_tokens.len() && t_tokens.len() == q_tokens.len() {
+            0.1
+        } else {
+            0.0
+        };
 
-    let score = (recall - noise_penalty).max(0.0) * 0.85 + containment;
-    score.min(1.0).max(0.0)
+    let score =
+        (recall - noise_penalty).max(0.0) * 0.85 + containment + year_adj + all_exact_bonus;
+    score.clamp(0.0, 1.0)
 }
 
 /// Count `tr=` parameter occurrences in a magnet URI.
@@ -866,5 +979,74 @@ pub async fn sources_search_game(
     query: String,
 ) -> Result<Vec<crate::source_manager::MatchedDownload>, String> {
     state.search_online(&query, None).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_folds_diacritics_and_case() {
+        assert_eq!(normalize_title("Pokémon"), "pokemon");
+    }
+
+    #[test]
+    fn normalize_expands_link_stems_and_camel_case() {
+        assert_eq!(normalize_title("Cyberpunk.2077"), "cyberpunk 2077");
+        assert_eq!(normalize_title("Cyberpunk2077"), "cyberpunk 2077");
+    }
+
+    #[test]
+    fn normalize_keeps_hyphenated_names() {
+        assert_eq!(normalize_title("Half-Life"), "half life");
+        assert_eq!(normalize_title("Spider-Man"), "spider man");
+    }
+
+    #[test]
+    fn normalize_drops_subtitle_after_colon() {
+        assert_eq!(
+            normalize_title("Elden Ring: Shadow of the Erdtree"),
+            "elden ring"
+        );
+    }
+
+    #[test]
+    fn exact_match_scores_one() {
+        assert_eq!(title_similarity("Elden Ring", "Elden Ring"), 1.0);
+    }
+
+    #[test]
+    fn noisier_repack_still_scores_high() {
+        let score = title_similarity("Elden Ring", "Elden Ring [FitGirl Repack]");
+        assert!(score >= 0.9, "expected a high score, got {score}");
+    }
+
+    #[test]
+    fn diacritics_and_link_stems_match() {
+        assert!(title_similarity("Pokemon", "Pokémon.Arceus-CODEX") > 0.7);
+    }
+
+    #[test]
+    fn unrelated_title_scores_low() {
+        assert!(title_similarity("Elden Ring", "Farming Simulator 22") < 0.2);
+    }
+
+    #[test]
+    fn typo_prefix_is_tolerated() {
+        assert!(title_similarity("cyberpun", "Cyberpunk 2077") > 0.5);
+    }
+
+    #[test]
+    fn conflicting_year_is_penalised() {
+        let matching = title_similarity("FIFA 2023 Update", "FIFA 2023 Update");
+        let conflicting = title_similarity("FIFA 2022 Update", "FIFA 2023 Update");
+        assert!(matching > conflicting);
+        assert!(conflicting < 0.5, "expected a low score, got {conflicting}");
+    }
+
+    #[test]
+    fn word_order_does_not_matter() {
+        assert!(title_similarity("ring elden", "Elden Ring") >= 0.9);
+    }
 }
 
