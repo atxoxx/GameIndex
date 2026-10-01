@@ -163,6 +163,8 @@ pub fn load(state_dir: &Path) -> LoadedState {
             completed_at: None,
             magnet_uri: None,
             scheduled_start_at: None,
+            priority: 0,
+            uploaded: 0,
         };
         normalise_on_load(&mut d);
         map.insert(id, d);

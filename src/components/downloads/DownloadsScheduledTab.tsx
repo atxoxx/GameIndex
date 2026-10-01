@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Gauge, Play, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronUp, Gauge, Play, Plus, Trash2 } from "lucide-react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -109,6 +109,7 @@ export default function DownloadsScheduledTab() {
     setSchedulerConfig,
     scheduleDownload,
     resumeDownload,
+    setPriority,
   } = useDownloads();
 
   const [draft, setDraft] = useState<SchedulerConfig>(schedulerConfig);
@@ -142,12 +143,23 @@ export default function DownloadsScheduledTab() {
     return downloads
       .filter((d) => d.status.kind === "queued" || d.status.kind === "paused")
       .sort((a, b) => {
+        const pa = a.priority ?? 0;
+        const pb = b.priority ?? 0;
+        if (pa !== pb) return pb - pa;
         const aAt = a.scheduledStartAt ?? Number.MAX_SAFE_INTEGER;
         const bAt = b.scheduledStartAt ?? Number.MAX_SAFE_INTEGER;
         if (aAt !== bAt) return aAt - bAt;
         return b.addedAt - a.addedAt;
       });
   }, [downloads]);
+
+  const changePriority = async (download: TorrentDownload, delta: number) => {
+    try {
+      await setPriority(download.id, (download.priority ?? 0) + delta);
+    } catch (err) {
+      showToast(t("scheduler.saveFailed", { error: String(err) }), "error");
+    }
+  };
 
   const addRule = () => {
     const rule: BandwidthRule = {
@@ -272,6 +284,26 @@ export default function DownloadsScheduledTab() {
             />
           </label>
           <p className="dl-sched-hint">{t("scheduler.autoStartHint")}</p>
+
+          <label className={`dl-sched-row${draft.windowEnabled ? "" : " is-dim"}`}>
+            <span className="dl-sched-row-label">{t("scheduler.pauseOutsideWindow")}</span>
+            <Switch
+              checked={draft.pauseOutsideWindow}
+              onChange={(next) => patch({ pauseOutsideWindow: next })}
+              label={t("scheduler.pauseOutsideWindow")}
+            />
+          </label>
+          <p className="dl-sched-hint">{t("scheduler.pauseOutsideWindowHint")}</p>
+
+          <label className="dl-sched-row">
+            <span className="dl-sched-row-label">{t("scheduler.pauseOnGame")}</span>
+            <Switch
+              checked={draft.pauseOnGame}
+              onChange={(next) => patch({ pauseOnGame: next })}
+              label={t("scheduler.pauseOnGame")}
+            />
+          </label>
+          <p className="dl-sched-hint">{t("scheduler.pauseOnGameHint")}</p>
         </div>
 
         {/* Time-of-day bandwidth rules */}
@@ -417,6 +449,27 @@ export default function DownloadsScheduledTab() {
                   </div>
 
                   <div className="dl-sched-queue-controls">
+                    <div className="dl-sched-priority" title={t("scheduler.priorityHint")}>
+                      <button
+                        type="button"
+                        className="dl-sched-icon-btn"
+                        aria-label={t("scheduler.priorityUp")}
+                        title={t("scheduler.priorityUp")}
+                        onClick={() => void changePriority(download, 1)}
+                      >
+                        <ChevronUp size={14} aria-hidden="true" />
+                      </button>
+                      <span className="dl-sched-priority-value">{download.priority ?? 0}</span>
+                      <button
+                        type="button"
+                        className="dl-sched-icon-btn"
+                        aria-label={t("scheduler.priorityDown")}
+                        title={t("scheduler.priorityDown")}
+                        onClick={() => void changePriority(download, -1)}
+                      >
+                        <ChevronDown size={14} aria-hidden="true" />
+                      </button>
+                    </div>
                     <span className={`dl-sched-queue-when${held ? " is-held" : ""}`}>
                       {held && download.scheduledStartAt
                         ? formatScheduleTimestamp(download.scheduledStartAt)

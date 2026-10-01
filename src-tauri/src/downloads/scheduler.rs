@@ -55,6 +55,14 @@ pub struct SchedulerConfig {
     pub max_concurrent: u32,
     #[serde(default = "default_true")]
     pub auto_start_queued: bool,
+    /// Pause active downloads once the start window closes (only
+    /// meaningful together with `enabled` + `window_enabled`).
+    #[serde(default)]
+    pub pause_outside_window: bool,
+    /// Pause active downloads while a game is running, resuming them
+    /// once the last game exits.
+    #[serde(default)]
+    pub pause_on_game: bool,
     #[serde(default)]
     pub bandwidth_rules: Vec<BandwidthRule>,
 }
@@ -69,6 +77,8 @@ impl Default for SchedulerConfig {
             days: [true; 7],
             max_concurrent: 0,
             auto_start_queued: true,
+            pause_outside_window: false,
+            pause_on_game: false,
             bandwidth_rules: Vec::new(),
         }
     }
@@ -176,7 +186,10 @@ pub fn active_bandwidth_rule(
         .find(|r| in_window(&r.start, &r.end, &r.days, now_min, weekday))
 }
 
-/// Weekday for a Unix timestamp, 0 = Monday … 6 = Sunday (UTC).
+/// Weekday for a Unix timestamp, 0 = Monday … 6 = Sunday (UTC). Kept for
+/// the unit tests / any UTC-based caller; the live scheduler now derives
+/// the weekday from local time.
+#[allow(dead_code)]
 pub fn weekday_from_unix(secs: u64) -> usize {
     ((secs / 86_400 + 3) % 7) as usize
 }
@@ -318,5 +331,17 @@ mod tests {
         assert_eq!(weekday_from_unix(4 * 86_400), 0);
         // 1970-01-04 was a Sunday.
         assert_eq!(weekday_from_unix(3 * 86_400), 6);
+    }
+
+    #[test]
+    fn config_pause_flags_default_to_false_and_round_trip() {
+        let cfg: SchedulerConfig = serde_json::from_str("{}").unwrap();
+        assert!(!cfg.pause_outside_window);
+        assert!(!cfg.pause_on_game);
+
+        let cfg: SchedulerConfig =
+            serde_json::from_str(r#"{"pauseOutsideWindow": true, "pauseOnGame": true}"#).unwrap();
+        assert!(cfg.pause_outside_window);
+        assert!(cfg.pause_on_game);
     }
 }

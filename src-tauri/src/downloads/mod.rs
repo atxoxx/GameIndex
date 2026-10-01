@@ -77,6 +77,16 @@ pub async fn initialize_engine(
             mgr.scheduler = cfg;
         }
     }
+    // Seed caps are global (like `seed_after_complete`) and live in the
+    // kv store so a ratio/time target survives a restart.
+    if let Ok(Some(raw)) = crate::db::kv::get(&db, "download_seed_limits") {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            mgr.seed_ratio_limit =
+                v.get("ratio").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32;
+            mgr.seed_time_limit_mins =
+                v.get("minutes").and_then(|x| x.as_u64()).unwrap_or(0) as u32;
+        }
+    }
     mgr.set_history_db(db);
     mgr.initialize().await?;
     let shared = Arc::new(tokio::sync::RwLock::new(mgr));
@@ -91,6 +101,36 @@ pub async fn initialize_engine(
     // in-progress record resumes immediately).
     resume_in_progress(&shared).await;
 
+    // Gate downloads on game sessions when the user enables it. The
+    // watcher emits `game-started` / `game-exited`; the exit payload's
+    // `remainingGameName` is `null` only once the last game has quit.
+    {
+        use tauri::Listener;
+        let handle = app.clone();
+        let start_shared = shared.clone();
+        let _ = handle.listen("game-started", move |_event| {
+            let shared = start_shared.clone();
+            tokio::spawn(async move {
+                on_game_started(&shared).await;
+            });
+        });
+        let handle = app.clone();
+        let exit_shared = shared.clone();
+        let _ = handle.listen("game-exited", move |event| {
+            let last_exit = serde_json::from_str::<serde_json::Value>(event.payload())
+                .ok()
+                .and_then(|v| v.get("remainingGameName").map(|n| n.is_null()))
+                .unwrap_or(false);
+            if !last_exit {
+                return;
+            }
+            let shared = exit_shared.clone();
+            tokio::spawn(async move {
+                on_game_exited(&shared).await;
+            });
+        });
+    }
+
     // Dedicated scheduler loop: every 30 s it re-applies the active
     // bandwidth rule and starts any queued/scheduled download whose window
     // is open. It follows the same discipline as the 1 s loop — collect a
@@ -104,10 +144,10 @@ pub async fn initialize_engine(
                 tick.tick().await;
 
                 // Snapshot config + candidates + base limits under one read.
-                let (cfg, candidates, base_d, base_u, base_dis, last) = {
+                let (cfg, mut candidates, base_d, base_u, base_dis, last) = {
                     let guard = sched_handle.read().await;
                     let cfg = guard.scheduler.clone();
-                    let candidates: Vec<(String, DownloadStatus, Option<u64>)> = guard
+                    let candidates: Vec<(String, DownloadStatus, Option<u64>, i64, u64)> = guard
                         .downloads_map()
                         .values()
                         .filter(|d| {
@@ -115,7 +155,15 @@ pub async fn initialize_engine(
                                 || (matches!(d.status, DownloadStatus::Paused)
                                     && d.scheduled_start_at.is_some())
                         })
-                        .map(|d| (d.id.clone(), d.status.clone(), d.scheduled_start_at))
+                        .map(|d| {
+                            (
+                                d.id.clone(),
+                                d.status.clone(),
+                                d.scheduled_start_at,
+                                d.priority,
+                                d.added_at,
+                            )
+                        })
                         .collect();
                     (
                         cfg,
@@ -127,6 +175,12 @@ pub async fn initialize_engine(
                     )
                 };
 
+                // Deterministic start order: highest priority first, then
+                // oldest. The underlying map is unordered, so without this
+                // the limited concurrency slots would be handed out
+                // arbitrarily.
+                candidates.sort_by(|a, b| b.3.cmp(&a.3).then(a.4.cmp(&b.4)));
+
                 let (now, now_min, weekday) = current_time_parts();
 
                 // Re-apply limits only when the effective values changed.
@@ -137,7 +191,43 @@ pub async fn initialize_engine(
                         .await;
                 }
 
-                for (id, status, scheduled) in candidates {
+                // Window gating: optionally pause active transfers once the
+                // window closes, and bring back exactly those when it reopens.
+                let window_enabled = cfg.enabled && cfg.window_enabled;
+                let window_open = !window_enabled
+                    || scheduler::in_window(
+                        &cfg.window_start,
+                        &cfg.window_end,
+                        &cfg.days,
+                        now_min,
+                        weekday,
+                    );
+                if window_enabled && cfg.pause_outside_window && !window_open {
+                    let (session, handles) = {
+                        let mut guard = sched_handle.write().await;
+                        let session = guard.session().cloned();
+                        let handles = guard.pause_active_for("window");
+                        guard.emit_progress_force();
+                        (session, handles)
+                    };
+                    if let Some(session) = session {
+                        for handle in handles {
+                            torrent::pause_torrent(&session, &handle).await;
+                        }
+                    }
+                } else {
+                    // Window open (or gating off): release anything the
+                    // window trigger held, regardless of when it paused.
+                    let ids = {
+                        let mut guard = sched_handle.write().await;
+                        guard.take_automation_paused("window")
+                    };
+                    for id in ids {
+                        manager::start_download(&sched_handle, &id).await;
+                    }
+                }
+
+                for (id, status, scheduled, _priority, _added) in candidates {
                     if !scheduler::config_allows_start(&cfg, scheduled, now, now_min, weekday) {
                         continue;
                     }
@@ -296,11 +386,20 @@ fn normalize_path(p: &str) -> String {
     normalized
 }
 
-/// Current `(unix_secs, minutes_since_midnight, weekday)` — UTC based, so it
-/// matches `scheduler::weekday_from_unix` and the pure window helpers.
+/// Current `(unix_secs, minutes_since_midnight, weekday)` in the user's
+/// LOCAL timezone. The scheduler UI enters windows and weekday picks as
+/// wall-clock times, so they must be evaluated against local time — using
+/// UTC here made "02:00–06:00" fire at the wrong hours for anyone not on
+/// UTC.
 fn current_time_parts() -> (u64, u32, usize) {
+    use chrono::{Datelike, Local, Timelike};
     let now = unix_now();
-    (now, ((now % 86_400) / 60) as u32, scheduler::weekday_from_unix(now))
+    let local = Local::now();
+    (
+        now,
+        local.hour() * 60 + local.minute(),
+        local.weekday().num_days_from_monday() as usize,
+    )
 }
 
 /// The limits the scheduler wants applied right now: a matching bandwidth
@@ -354,6 +453,71 @@ async fn resume_in_progress(shared: &SharedManager) {
     };
     for id in ids {
         manager::start_download(shared, &id).await;
+    }
+}
+
+/// A game session started. If "pause on game" is enabled, pause every
+/// active transfer and remember them under the `"game"` trigger so the
+/// last exit can bring them back.
+async fn on_game_started(shared: &SharedManager) {
+    let (enabled, session, handles) = {
+        let mut guard = shared.write().await;
+        guard.game_running = true;
+        let enabled = guard.scheduler.pause_on_game;
+        let session = guard.session().cloned();
+        let handles = if enabled {
+            guard.pause_active_for("game")
+        } else {
+            Vec::new()
+        };
+        if enabled {
+            guard.emit_progress_force();
+        }
+        (enabled, session, handles)
+    };
+    if enabled {
+        if let Some(session) = session {
+            for handle in handles {
+                torrent::pause_torrent(&session, &handle).await;
+            }
+        }
+    }
+}
+
+/// The last game exited. Resume whatever the `"game"` trigger paused,
+/// unless the scheduler window is closed — then hand them to the window
+/// trigger so they wait for the window to reopen instead of bypassing it.
+async fn on_game_exited(shared: &SharedManager) {
+    let (ids, allow) = {
+        let mut guard = shared.write().await;
+        guard.game_running = false;
+        if !guard.scheduler.pause_on_game {
+            return;
+        }
+        let ids = guard.take_automation_paused("game");
+        let cfg = guard.scheduler.clone();
+        let (_, now_min, weekday) = current_time_parts();
+        let window_closed = cfg.enabled
+            && cfg.window_enabled
+            && !scheduler::in_window(
+                &cfg.window_start,
+                &cfg.window_end,
+                &cfg.days,
+                now_min,
+                weekday,
+            );
+        if window_closed {
+            for id in &ids {
+                guard.automation_paused.insert(id.clone(), "window".to_string());
+            }
+            guard.mark_dirty();
+        }
+        (ids, !window_closed)
+    };
+    if allow {
+        for id in ids {
+            manager::start_download(shared, &id).await;
+        }
     }
 }
 
@@ -1200,6 +1364,99 @@ pub async fn download_set_schedule(id: String, start_at: Option<u64>) -> Result<
     if should_start {
         manager::start_download(&mgr, &id).await;
     }
+    Ok(())
+}
+
+/// Set (or clear) a download's queue priority. Higher values are started
+/// first when the scheduler's `max_concurrent` cap is reached.
+#[tauri::command]
+pub async fn download_set_priority(id: String, priority: i64) -> Result<(), String> {
+    let mgr = wait_for_manager().await?;
+    let mut guard = mgr.write().await;
+    let Some(d) = guard.downloads_mut().get_mut(&id) else {
+        return Err(format!("Download not found: {}", id));
+    };
+    d.priority = priority;
+    guard.mark_dirty();
+    guard.emit_progress_force();
+    Ok(())
+}
+
+/// Retry a single failed download: clear the error, re-queue it, and let
+/// the normal start path resume it (partial direct/debrid transfers pick
+/// up from their temp files; torrents re-add/reuse the session entry).
+#[tauri::command]
+pub async fn download_retry(id: String) -> Result<(), String> {
+    let mgr = wait_for_manager().await?;
+    {
+        let mut guard = mgr.write().await;
+        let Some(d) = guard.downloads_mut().get_mut(&id) else {
+            return Err(format!("Download not found: {}", id));
+        };
+        if !matches!(d.status, DownloadStatus::Error(_)) {
+            return Ok(());
+        }
+        d.status = DownloadStatus::Queued;
+        d.download_speed = 0;
+        d.upload_speed = 0;
+        guard.mark_dirty();
+        guard.emit_progress_force();
+    }
+    manager::start_download(&mgr, &id).await;
+    Ok(())
+}
+
+/// Retry every failed download. Returns how many were re-queued.
+#[tauri::command]
+pub async fn download_retry_all() -> Result<u32, String> {
+    let mgr = wait_for_manager().await?;
+    let ids: Vec<String> = {
+        let guard = mgr.read().await;
+        guard
+            .downloads_map()
+            .values()
+            .filter(|d| matches!(d.status, DownloadStatus::Error(_)))
+            .map(|d| d.id.clone())
+            .collect()
+    };
+    if !ids.is_empty() {
+        let mut guard = mgr.write().await;
+        for id in &ids {
+            if let Some(d) = guard.downloads_mut().get_mut(id) {
+                d.status = DownloadStatus::Queued;
+                d.download_speed = 0;
+                d.upload_speed = 0;
+            }
+        }
+        guard.mark_dirty();
+        guard.emit_progress_force();
+    }
+    let count = ids.len() as u32;
+    for id in ids {
+        manager::start_download(&mgr, &id).await;
+    }
+    Ok(count)
+}
+
+/// Configure the global seed caps: stop seeding once the upload/download
+/// ratio reaches `ratio`, or once `minutes` have elapsed since the torrent
+/// completed. `0` disables either cap.
+#[tauri::command]
+pub async fn download_set_seed_limits(
+    ratio: f32,
+    minutes: u32,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let mgr = wait_for_manager().await?;
+    let ratio = if ratio.is_finite() && ratio > 0.0 { ratio } else { 0.0 };
+    {
+        let mut guard = mgr.write().await;
+        guard.seed_ratio_limit = ratio;
+        guard.seed_time_limit_mins = minutes;
+    }
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+    let payload = serde_json::json!({ "ratio": ratio, "minutes": minutes });
+    crate::db::kv::set(&db, "download_seed_limits", &payload.to_string())?;
     Ok(())
 }
 

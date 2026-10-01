@@ -1601,6 +1601,16 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
+.dl-row-btn.retry-btn {
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+  color: var(--color-warning);
+}
+
+.dl-row-btn.retry-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border-color: var(--color-warning);
+}
+
 /* ── Direct-Download Mirror Selector ─────────────────────────────── */
 .dl-row-mirror-select-wrapper {
   position: relative;
@@ -3663,6 +3673,30 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   align-items: center;
   gap: var(--space-xs);
   flex-wrap: wrap;
+}
+
+.dl-sched-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dl-sched-priority .dl-sched-icon-btn {
+  width: 22px;
+  height: 22px;
+}
+
+.dl-sched-priority .dl-sched-icon-btn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.dl-sched-priority-value {
+  min-width: 18px;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
 }
 
 .dl-sched-queue-when {

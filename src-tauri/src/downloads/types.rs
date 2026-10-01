@@ -149,6 +149,15 @@ pub struct Download {
     /// means "no scheduled start" (start as soon as the scheduler allows).
     #[serde(default)]
     pub scheduled_start_at: Option<u64>,
+    /// User-assigned queue priority (higher starts sooner when the
+    /// scheduler's concurrency cap is reached). Default 0.
+    #[serde(default)]
+    pub priority: i64,
+    /// Cumulative bytes uploaded (torrents only). Drives the seed-ratio
+    /// limit and the seeding UI; persisted so the target survives a
+    /// restart.
+    #[serde(default)]
+    pub uploaded: u64,
 }
 
 impl Download {
@@ -197,6 +206,8 @@ impl Download {
             completed_at: None,
             magnet_uri: None,
             scheduled_start_at: None,
+            priority: 0,
+            uploaded: 0,
         }
     }
 }

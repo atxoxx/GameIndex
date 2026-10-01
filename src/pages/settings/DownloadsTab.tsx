@@ -22,6 +22,8 @@ export default function DownloadsTab() {
     selectSavePath,
     setSeedConfig,
     seedAfterComplete,
+    seedLimits,
+    setSeedLimits,
     speedLimits,
     setSpeedLimits,
     defaultDownloadPath,
@@ -325,6 +327,54 @@ export default function DownloadsTab() {
               <span>{t("settings.downloads.seedAfterComplete")}</span>
             </label>
             <p className="settings-helper-text">{t("settings.downloads.seedAfterCompleteDesc")}</p>
+
+            <div className="settings-limit-row">
+              <label className="settings-checkbox-label settings-checkbox-label--fixed">
+                <span>{t("settings.downloads.seedRatioLimit")}</span>
+              </label>
+              <div className="settings-limit-value">
+                <input
+                  type="number"
+                  className="settings-limit-input"
+                  min="0"
+                  step="0.1"
+                  value={seedLimits.ratio || ""}
+                  disabled={!seedAfterComplete}
+                  onChange={(e) =>
+                    void setSeedLimits({
+                      ...seedLimits,
+                      ratio: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                  placeholder={t("settings.downloads.seedUnlimited")}
+                />
+                <span className="settings-limit-unit">×</span>
+              </div>
+            </div>
+
+            <div className="settings-limit-row">
+              <label className="settings-checkbox-label settings-checkbox-label--fixed">
+                <span>{t("settings.downloads.seedTimeLimit")}</span>
+              </label>
+              <div className="settings-limit-value">
+                <input
+                  type="number"
+                  className="settings-limit-input"
+                  min="0"
+                  value={seedLimits.minutes || ""}
+                  disabled={!seedAfterComplete}
+                  onChange={(e) =>
+                    void setSeedLimits({
+                      ...seedLimits,
+                      minutes: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                  placeholder={t("settings.downloads.seedUnlimited")}
+                />
+                <span className="settings-limit-unit">{t("settings.downloads.minutes")}</span>
+              </div>
+            </div>
+            <p className="settings-helper-text">{t("settings.downloads.seedLimitsHint")}</p>
           </div>
         </div>
       </SettingsSection>

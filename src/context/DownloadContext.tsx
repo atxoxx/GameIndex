@@ -178,6 +178,24 @@ interface DownloadContextValue {
    * scheduler reaches it.
    */
   scheduleDownload: (id: string, startAt: number | null) => Promise<void>;
+  /** Retry a single failed download (clears the error and re-queues it). */
+  retryDownload: (id: string) => Promise<void>;
+  /** Retry every failed download; resolves with how many were re-queued. */
+  retryAllFailed: () => Promise<number>;
+  /** Set a download's queue priority (higher starts sooner under a cap). */
+  setPriority: (id: string, priority: number) => Promise<void>;
+  /** Global seed caps (ratio / time after completion). */
+  seedLimits: DownloadSeedLimits;
+  /** Persist new global seed caps. */
+  setSeedLimits: (next: DownloadSeedLimits) => Promise<void>;
+}
+
+/** Global seed-stop caps. `0` disables either cap. */
+export interface DownloadSeedLimits {
+  /** Stop seeding once uploaded/downloaded reaches this ratio. */
+  ratio: number;
+  /** Stop seeding this many minutes after completion. */
+  minutes: number;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -350,6 +368,10 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       return DEFAULT_SCHEDULER_CONFIG;
     }
   });
+  const [seedLimits, setSeedLimitsState] = useState<DownloadSeedLimits>(() => ({
+    ratio: parseFloat(localStorage.getItem("gamelib-seed-ratio-limit") || "0") || 0,
+    minutes: parseInt(localStorage.getItem("gamelib-seed-time-limit") || "0", 10) || 0,
+  }));
   const { showToast } = useToast();
   const { t } = useLanguage();
   // Keep a stable ref to the latest list so the `download-progress`
@@ -473,6 +495,16 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           });
         } catch (e) {
           console.error("Failed to apply initial seed config:", e);
+        }
+
+        // Apply the global seed caps on startup.
+        try {
+          await invoke("download_set_seed_limits", {
+            ratio: seedLimits.ratio,
+            minutes: seedLimits.minutes,
+          });
+        } catch (e) {
+          console.error("Failed to apply initial seed limits:", e);
         }
 
         // Apply active debrid provider & API key on startup.
@@ -958,6 +990,53 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     await invoke("download_set_schedule", { id, startAt });
   }, []);
 
+  const retryDownload = useCallback(
+    async (id: string) => {
+      // Optimistic flip so the row leaves the error state immediately.
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.id === id
+            ? { ...d, status: { kind: "queued" }, downloadSpeed: 0, uploadSpeed: 0 }
+            : d,
+        ),
+      );
+      try {
+        await invoke("download_retry", { id });
+      } catch (err) {
+        void refresh();
+        throw err;
+      }
+    },
+    [refresh],
+  );
+
+  const retryAllFailed = useCallback(async (): Promise<number> => {
+    const count = await invoke<number>("download_retry_all");
+    await refresh();
+    return count;
+  }, [refresh]);
+
+  const setPriority = useCallback(async (id: string, priority: number) => {
+    setDownloads((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, priority } : d)),
+    );
+    await invoke("download_set_priority", { id, priority });
+  }, []);
+
+  const setSeedLimits = useCallback(async (next: DownloadSeedLimits) => {
+    setSeedLimitsState(next);
+    localStorage.setItem("gamelib-seed-ratio-limit", String(next.ratio));
+    localStorage.setItem("gamelib-seed-time-limit", String(next.minutes));
+    try {
+      await invoke("download_set_seed_limits", {
+        ratio: next.ratio,
+        minutes: next.minutes,
+      });
+    } catch (e) {
+      console.warn("[DownloadContext] Failed to apply seed limits:", e);
+    }
+  }, []);
+
   // ── Derived state ──────────────────────────────────────────────────
   const sorted = useMemo(() => [...downloads].sort(sortDownloads), [downloads]);
   const activeDownloads = useMemo(
@@ -1013,6 +1092,11 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       schedulerConfig,
       setSchedulerConfig,
       scheduleDownload,
+      retryDownload,
+      retryAllFailed,
+      setPriority,
+      seedLimits,
+      setSeedLimits,
     }),
     [
       sorted,
@@ -1056,6 +1140,11 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       schedulerConfig,
       setSchedulerConfig,
       scheduleDownload,
+      retryDownload,
+      retryAllFailed,
+      setPriority,
+      seedLimits,
+      setSeedLimits,
     ],
   );
 

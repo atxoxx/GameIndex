@@ -96,6 +96,17 @@ pub struct DownloadManager {
     /// pushed to librqbit/HTTP. Used by the scheduler to avoid re-applying
     /// identical limits every tick.
     pub last_applied_limits: Option<(Option<u32>, Option<u32>, bool)>,
+    /// Seed-ratio limit (`uploaded / total`); `0.0` = unlimited.
+    pub seed_ratio_limit: f32,
+    /// Seed-time limit in minutes after completion; `0` = unlimited.
+    pub seed_time_limit_mins: u32,
+    /// True while at least one game session is running. Drives the
+    /// "pause downloads while a game is running" preference.
+    pub game_running: bool,
+    /// Download ids paused by an automation trigger → the trigger name
+    /// ("window" | "game"). Lets the matching resume restore exactly the
+    /// records the trigger paused, never a user-paused one.
+    pub automation_paused: HashMap<String, String>,
 }
 
 impl DownloadManager {
@@ -124,6 +135,10 @@ impl DownloadManager {
             base_upload_kbps: None,
             base_disable_upload: false,
             last_applied_limits: None,
+            seed_ratio_limit: 0.0,
+            seed_time_limit_mins: 0,
+            game_running: false,
+            automation_paused: HashMap::new(),
         }
     }
 
@@ -399,6 +414,7 @@ impl DownloadManager {
             struct StatsEntry {
                 fid: String,
                 downloaded: u64,
+                uploaded: u64,
                 total: Option<u64>,
                 progress: Option<f32>,
                 status: DownloadStatus,
@@ -421,6 +437,7 @@ impl DownloadManager {
                     entries.push(StatsEntry {
                         fid: torrent::frontend_id_from_hash(&mt.shared().info_hash.0),
                         downloaded,
+                        uploaded: stats.uploaded_bytes,
                         total: if total > 0 { Some(total) } else { None },
                         progress: if total > 0 {
                             Some(downloaded as f32 / total as f32)
@@ -448,6 +465,7 @@ impl DownloadManager {
             let mut to_extract: Vec<(String, String, String, Vec<super::types::DownloadFile>)> =
                 Vec::new();
             let mut to_delete: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
+            let mut to_stop_seeding: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
             let mut to_record: Vec<Download> = Vec::new();
             let mut save_needed = false;
             let mut pause_sweep: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
@@ -469,6 +487,10 @@ impl DownloadManager {
                 d.upload_speed = entry.upload_speed;
                 d.seeds = entry.seeds;
                 d.peers = entry.peers;
+                // Cumulative upload for seed-ratio limits. librqbit
+                // counts from session start, so keep the max across a
+                // restart instead of letting it reset to zero.
+                d.uploaded = d.uploaded.max(entry.uploaded);
 
                 // Activity gate: only live speed is trustworthy —
                 // librqbit can fake `progress == total` right after
@@ -553,6 +575,40 @@ impl DownloadManager {
                     }
                 }
 
+                // ---- Seed limits (ratio / time) ----
+                // A seeding record stops once either configured cap is
+                // reached; the session entry is dropped afterwards so the
+                // files are released exactly like a manual stop-seeding.
+                if matches!(d.status, DownloadStatus::Seeding) {
+                    let ratio_hit = self.seed_ratio_limit > 0.0
+                        && d.total_size
+                            .map(|t| {
+                                t > 0
+                                    && (d.uploaded as f64 / t as f64)
+                                        >= self.seed_ratio_limit as f64
+                            })
+                            .unwrap_or(false);
+                    let time_hit = self.seed_time_limit_mins > 0
+                        && d.completed_at
+                            .map(|c| {
+                                unix_now().saturating_sub(c)
+                                    >= u64::from(self.seed_time_limit_mins) * 60
+                            })
+                            .unwrap_or(false);
+                    if ratio_hit || time_hit {
+                        println!(
+                            "[downloads] Seed limit reached for {} (uploaded={} ratio_hit={} time_hit={})",
+                            d.name, d.uploaded, ratio_hit, time_hit
+                        );
+                        d.status = DownloadStatus::Completed;
+                        d.should_seed = Some(false);
+                        d.upload_speed = 0;
+                        save_needed = true;
+                        to_stop_seeding.push(entry.handle.clone());
+                        to_record.push(d.clone());
+                    }
+                }
+
                 // ---- Completion transition ----
                 let now_completed = matches!(d.status, DownloadStatus::Completed);
                 let actually_downloaded = d.downloaded > 0;
@@ -609,6 +665,16 @@ impl DownloadManager {
                     println!(
                         "[downloads] Torrent completed. Deleting from librqbit \
                          session to release file locks."
+                    );
+                    torrent::delete_torrent_keep_files(&session_clone, &handle).await;
+                });
+            }
+            for handle in to_stop_seeding {
+                let session_clone = session.clone();
+                tokio::spawn(async move {
+                    println!(
+                        "[downloads] Seed limit reached. Stopping seeding and \
+                         releasing file locks."
                     );
                     torrent::delete_torrent_keep_files(&session_clone, &handle).await;
                 });
@@ -806,6 +872,75 @@ impl DownloadManager {
             Some(session) => session.with_torrents(|iter| iter.next().is_some()),
             None => false,
         }
+    }
+
+    // ── Automation (scheduler window / game-running gating) ────────────
+
+    /// Pause every actively-transferring record on behalf of an automation
+    /// trigger (`"window"` or `"game"`), remembering the ids so the
+    /// matching resume restores exactly these. Torrent handles that need a
+    /// session-level pause are returned for the caller to await with the
+    /// manager lock released. Records seed/complete/pause untouched.
+    pub fn pause_active_for(
+        &mut self,
+        reason: &str,
+    ) -> Vec<Arc<librqbit::ManagedTorrent>> {
+        let mut handles = Vec::new();
+        let session = self.session.clone();
+        let mut changed = false;
+        let ids: Vec<String> = self.downloads.keys().cloned().collect();
+        for id in ids {
+            let Some(d) = self.downloads.get(&id) else {
+                continue;
+            };
+            if !d.status.is_active() {
+                continue;
+            }
+            let kind = d.kind;
+            if let Some(d) = self.downloads.get_mut(&id) {
+                d.status = DownloadStatus::Paused;
+                d.download_speed = 0;
+                d.upload_speed = 0;
+            }
+            self.automation_paused.insert(id.clone(), reason.to_string());
+            changed = true;
+            if kind == DownloadKind::Torrent {
+                if let Some(session) = &session {
+                    if let Some(handle) = torrent::find_handle(session, &id) {
+                        handles.push(handle);
+                    }
+                }
+            }
+        }
+        if changed {
+            self.mark_dirty();
+        }
+        handles
+    }
+
+    /// Take back the ids paused by `reason` (clearing their marker) so the
+    /// caller can restart them. Returns them in start order (highest
+    /// priority, then oldest first).
+    pub fn take_automation_paused(&mut self, reason: &str) -> Vec<String> {
+        let mut ids: Vec<(i64, u64, String)> = self
+            .automation_paused
+            .iter()
+            .filter(|(id, r)| r.as_str() == reason && self.downloads.contains_key(*id))
+            .map(|(id, _)| {
+                let d = self.downloads.get(id);
+                (
+                    d.map(|d| d.priority).unwrap_or(0),
+                    d.map(|d| d.added_at).unwrap_or(u64::MAX),
+                    id.clone(),
+                )
+            })
+            .collect();
+        ids.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        let ordered: Vec<String> = ids.into_iter().map(|(_, _, id)| id).collect();
+        for id in &ordered {
+            self.automation_paused.remove(id);
+        }
+        ordered
     }
 }
 
@@ -1996,6 +2131,8 @@ fn hash_downloads<'a>(downloads: impl Iterator<Item = &'a Download>) -> u64 {
         d.queue_position.hash(&mut hasher);
         d.had_real_downloads.hash(&mut hasher);
         d.extracted.hash(&mut hasher);
+        d.priority.hash(&mut hasher);
+        d.uploaded.hash(&mut hasher);
         match &d.status {
             DownloadStatus::Queued => 0u8.hash(&mut hasher),
             DownloadStatus::FetchingMetadata => 1u8.hash(&mut hasher),
@@ -2034,5 +2171,58 @@ mod tests {
     fn resolved_total_size_none_when_both_unknown() {
         assert_eq!(resolved_total_size(0, None), None);
         assert_eq!(resolved_total_size(0, Some(0)), None);
+    }
+
+    #[test]
+    fn take_automation_paused_orders_by_priority_then_age() {
+        let mut mgr = DownloadManager::new(std::path::PathBuf::from("."));
+        let make = |id: &str, priority: i64, added_at: u64| {
+            let mut d = Download::new(
+                id.to_string(),
+                DownloadKind::Torrent,
+                id.to_string(),
+                String::new(),
+                String::new(),
+                None,
+                "test".to_string(),
+                false,
+            );
+            d.priority = priority;
+            d.added_at = added_at;
+            d
+        };
+        for d in [make("a", 1, 100), make("b", 5, 200), make("c", 5, 50)] {
+            mgr.automation_paused
+                .insert(d.id.clone(), "window".to_string());
+            mgr.downloads_mut().insert(d.id.clone(), d);
+        }
+
+        let ids = mgr.take_automation_paused("window");
+        assert_eq!(ids, vec!["c".to_string(), "b".to_string(), "a".to_string()]);
+        assert!(mgr.automation_paused.is_empty());
+    }
+
+    #[test]
+    fn take_automation_paused_leaves_other_triggers_alone() {
+        let mut mgr = DownloadManager::new(std::path::PathBuf::from("."));
+        let mut d = Download::new(
+            "g".to_string(),
+            DownloadKind::Direct,
+            "g".to_string(),
+            String::new(),
+            String::new(),
+            None,
+            "test".to_string(),
+            false,
+        );
+        d.priority = 0;
+        mgr.downloads_mut().insert(d.id.clone(), d);
+        mgr.automation_paused.insert("g".to_string(), "game".to_string());
+
+        assert!(mgr.take_automation_paused("window").is_empty());
+        assert_eq!(
+            mgr.automation_paused.get("g").map(String::as_str),
+            Some("game")
+        );
     }
 }

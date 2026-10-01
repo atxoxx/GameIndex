@@ -138,6 +138,13 @@ export interface TorrentDownload {
    * as the engine and any active window allow).
    */
   scheduledStartAt?: number;
+  /**
+   * User-assigned queue priority. Higher starts sooner when the
+   * scheduler's concurrency cap is reached. Default 0.
+   */
+  priority?: number;
+  /** Cumulative bytes uploaded (torrents only), used for the seed-ratio cap. */
+  uploaded?: number;
 }
 
 /**
@@ -215,6 +222,10 @@ export interface SchedulerConfig {
   maxConcurrent: number;
   /** Whether the scheduler auto-starts paused/queued downloads. */
   autoStartQueued: boolean;
+  /** Pause active transfers once the start window closes. */
+  pauseOutsideWindow: boolean;
+  /** Pause active transfers while a game is running. */
+  pauseOnGame: boolean;
   bandwidthRules: BandwidthRule[];
 }
 
@@ -236,6 +247,8 @@ export const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
   days: [...DEFAULT_SCHEDULER_DAYS] as ScheduleDays,
   maxConcurrent: 0,
   autoStartQueued: true,
+  pauseOutsideWindow: false,
+  pauseOnGame: false,
   bandwidthRules: [],
 };
 

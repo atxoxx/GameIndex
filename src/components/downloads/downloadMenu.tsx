@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Copy, FolderOpen, Link2, Pause, Play, Sprout, Trash2, XCircle } from "lucide-react";
+import { Copy, FolderOpen, Link2, Pause, Play, RotateCcw, Sprout, Trash2, XCircle } from "lucide-react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -23,13 +23,14 @@ export function useDownloadMenuItems(
   { matchedGame, onPause, onResume, onRemove, onDeleteFiles }: DownloadMenuOptions
 ): ContextMenuItem[] {
   const { launchGame } = useGames();
-  const { openDownloadFolder, setSeeding } = useDownloads();
+  const { openDownloadFolder, setSeeding, retryDownload } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
 
   const isPaused = download.status.kind === "paused";
   const isSeeding = download.status.kind === "seeding";
   const isCompleted = download.status.kind === "completed";
+  const isError = download.status.kind === "error";
   const isPlayable = isCompleted && Boolean(matchedGame?.installed);
   const canPause = isActiveStatus(download.status) && !isSeeding;
   const sourceLink =
@@ -77,6 +78,17 @@ export function useDownloadMenuItems(
             label: t("downloadRow.pause"),
             icon: <Pause size={15} />,
             onSelect: () => onPause(download.id),
+          }
+        : null,
+      isError
+        ? {
+            id: "retry",
+            label: t("downloadRow.retry"),
+            icon: <RotateCcw size={15} />,
+            onSelect: () =>
+              retryDownload(download.id).catch((err) =>
+                showToast(t("downloadRow.retryFailed", { error: String(err) }), "error")
+              ),
           }
         : null,
       isSeeding
@@ -137,6 +149,7 @@ export function useDownloadMenuItems(
     isPaused,
     isPlayable,
     isSeeding,
+    isError,
     launchGame,
     matchedGame,
     onDeleteFiles,
@@ -144,6 +157,7 @@ export function useDownloadMenuItems(
     onRemove,
     onResume,
     openDownloadFolder,
+    retryDownload,
     setSeeding,
     showToast,
     sourceLink,

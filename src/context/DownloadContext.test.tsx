@@ -280,6 +280,66 @@ describe("DownloadProvider queue state", () => {
     });
   });
 
+  it("sets priority, retries failures, and persists seed limits (happy path)", async () => {
+    installInvoke({
+      torrent_get_all: () => [
+        makeDownload({ id: "d1", status: { kind: "error", message: "boom" } }),
+      ],
+      download_retry_all: () => 1,
+    });
+
+    const { result } = renderDownloadsHook();
+    await waitFor(() => expect(result.current.downloads).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.setPriority("d1", 3);
+    });
+    expect(invokeMock).toHaveBeenCalledWith("download_set_priority", {
+      id: "d1",
+      priority: 3,
+    });
+    expect(result.current.downloads[0].priority).toBe(3);
+
+    await act(async () => {
+      await result.current.retryDownload("d1");
+    });
+    expect(invokeMock).toHaveBeenCalledWith("download_retry", { id: "d1" });
+
+    let retried = 0;
+    await act(async () => {
+      retried = await result.current.retryAllFailed();
+    });
+    expect(retried).toBe(1);
+    expect(invokeMock).toHaveBeenCalledWith("download_retry_all");
+
+    await act(async () => {
+      await result.current.setSeedLimits({ ratio: 2, minutes: 60 });
+    });
+    expect(localStorage.getItem("gamelib-seed-ratio-limit")).toBe("2");
+    expect(invokeMock).toHaveBeenCalledWith("download_set_seed_limits", {
+      ratio: 2,
+      minutes: 60,
+    });
+  });
+
+  it("rejects when a retry fails and reconciles from the engine (error path)", async () => {
+    installInvoke({
+      torrent_get_all: () => [
+        makeDownload({ id: "d1", status: { kind: "error", message: "boom" } }),
+      ],
+      download_retry: () => {
+        throw new Error("retry failed");
+      },
+    });
+
+    const { result } = renderDownloadsHook();
+    await waitFor(() => expect(result.current.downloads).toHaveLength(1));
+
+    await act(async () => {
+      await expect(result.current.retryDownload("d1")).rejects.toThrow("retry failed");
+    });
+  });
+
   it("restores engine truth and rejects when pause fails (error path)", async () => {
     installInvoke({
       torrent_get_all: () => [makeDownload({ id: "d1", status: { kind: "downloading" } })],

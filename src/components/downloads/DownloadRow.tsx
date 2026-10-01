@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { RotateCcw } from "lucide-react";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useDownloadCoverArt } from "../../hooks/useDownloadCoverArt";
@@ -62,6 +63,7 @@ export const DownloadRow = React.memo(
       updateSelectedFiles,
       openDownloadFolder,
       setSeeding,
+      retryDownload,
     } = useDownloads();
     const { showToast } = useToast();
     const { t } = useLanguage();
@@ -214,7 +216,14 @@ export const DownloadRow = React.memo(
                   <span className="dl-row-badge dl-row-badge--cached">{t("downloadRow.badgeCached")}</span>
                 )}
                 {isSeeding && (
-                  <span className="dl-row-badge dl-row-badge--seeding">{t("downloadRow.badgeSeeding")}</span>
+                  <span
+                    className="dl-row-badge dl-row-badge--seeding"
+                    title={t("downloadRow.seedingUploaded", {
+                      size: formatBytesShort(download.uploaded ?? 0, sizeUnit),
+                    })}
+                  >
+                    {t("downloadRow.badgeSeeding")}
+                  </span>
                 )}
               </div>
 
@@ -342,6 +351,24 @@ export const DownloadRow = React.memo(
             )}
 
 
+
+            {/* Retry (errors only) */}
+            {isError && (
+              <button
+                type="button"
+                className="dl-row-btn retry-btn"
+                onClick={async () => {
+                  try {
+                    await retryDownload(download.id);
+                  } catch (err) {
+                    showToast(t("downloadRow.retryFailed", { error: String(err) }), "error");
+                  }
+                }}
+                title={t("downloadRow.retry")}
+              >
+                <RotateCcw size={15} />
+              </button>
+            )}
 
             {/* Open Download Folder */}
             <button

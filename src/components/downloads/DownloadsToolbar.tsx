@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RotateCcw } from "lucide-react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -30,10 +31,27 @@ export default function DownloadsToolbar({
   onRemoveSelected,
   onDeleteSelected,
 }: DownloadsToolbarProps) {
-  const { pauseAll, resumeAll, removeDownload, completedDownloads } = useDownloads();
+  const { pauseAll, resumeAll, removeDownload, completedDownloads, downloads, retryAllFailed } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
-  const [busy, setBusy] = useState<"pause" | "resume" | "clear" | null>(null);
+  const [busy, setBusy] = useState<"pause" | "resume" | "clear" | "retry" | null>(null);
+  const errorCount = downloads.filter((d) => d.status.kind === "error").length;
+
+  async function handleRetryAll() {
+    if (busy) return;
+    setBusy("retry");
+    try {
+      const n = await retryAllFailed();
+      showToast(
+        n > 0 ? t("downloadsToolbar.retrying", { count: n }) : t("downloadsToolbar.nothingToRetry"),
+        "info",
+      );
+    } catch (err) {
+      showToast(t("downloadsToolbar.retryFailed", { error: String(err) }), "error");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function handlePauseAll() {
     if (busy) return;
@@ -165,6 +183,19 @@ export default function DownloadsToolbar({
             title={t("downloadsToolbar.resumeAll")}
           >
             {t("downloadsToolbar.resumeAllBtn")}
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRetryAll}
+            disabled={busy !== null || errorCount === 0}
+            isLoading={busy === "retry"}
+            leftIcon={<RotateCcw size={12} />}
+            title={t("downloadsToolbar.retryAllHint")}
+          >
+            {t("downloadsToolbar.retryAll")}
+            {errorCount > 0 && <span className="dl-toolbar-count">{errorCount}</span>}
           </Button>
 
           {onSelectAll && totalVisibleCount > 0 && (
