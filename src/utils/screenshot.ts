@@ -12,6 +12,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import {
+  installComputedStyleColorGuard,
   prepareClonedDocumentForCanvasCapture,
   resolveColorForCapture,
 } from "./color";
@@ -189,26 +190,35 @@ export async function captureAndSaveScreenshot(
     : element.clientWidth + liveBorderX;
 
   const { default: html2canvas } = await import("html2canvas");
-  const canvas = await withFiniteGradientStops(() =>
-    html2canvas(element, {
-      backgroundColor: resolveColorForCapture(backgroundColor, fallbackBackground),
-      scale: effectiveScale,
-      logging: false,
-      useCORS: true,
-      width,
-      height,
-      windowWidth: viewportWidth,
-      windowHeight: viewportHeight,
-      onclone: (clonedDoc, clonedElement) => {
-        prepareClonedDocumentForCanvasCapture(clonedDoc);
-        prepareClone?.(clonedDoc);
-        if (clonedElement && pinnedWidth > 0) {
-          clonedElement.style.width = `${pinnedWidth}px`;
-          clonedElement.style.maxWidth = `${pinnedWidth}px`;
-        }
-      },
-    })
-  );
+  // Guard `getComputedStyle` for the whole run: html2canvas parses colors
+  // straight off it, so this is the one place that guarantees it never sees a
+  // function its parser rejects (`oklab`, `color(srgb …)`, …).
+  const restoreColorGuard = installComputedStyleColorGuard(element.ownerDocument);
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await withFiniteGradientStops(() =>
+      html2canvas(element, {
+        backgroundColor: resolveColorForCapture(backgroundColor, fallbackBackground),
+        scale: effectiveScale,
+        logging: false,
+        useCORS: true,
+        width,
+        height,
+        windowWidth: viewportWidth,
+        windowHeight: viewportHeight,
+        onclone: (clonedDoc, clonedElement) => {
+          prepareClonedDocumentForCanvasCapture(clonedDoc);
+          prepareClone?.(clonedDoc);
+          if (clonedElement && pinnedWidth > 0) {
+            clonedElement.style.width = `${pinnedWidth}px`;
+            clonedElement.style.maxWidth = `${pinnedWidth}px`;
+          }
+        },
+      })
+    );
+  } finally {
+    restoreColorGuard();
+  }
 
   const suggestedName = `${sanitizeFileName(fileName)}_${dateStamp()}.png`;
   const filePath = await save({

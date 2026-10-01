@@ -16,6 +16,7 @@ import {
   medianCutQuantize,
   selectGamePalette,
   boostSaturation,
+  findUnsupportedColorCalls,
   type WeightedPixel,
 } from "./color";
 
@@ -252,5 +253,45 @@ describe("legibleAccentForLuminance", () => {
     const guarded = legibleAccentForLuminance("#bfe3ff", lightLum);
     const cr = contrastRatio(guarded, "#ffffff");
     expect(cr).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("findUnsupportedColorCalls", () => {
+  it("finds modern color functions html2canvas can't parse", () => {
+    const calls = findUnsupportedColorCalls(
+      "oklab(0.7 0.1 0.05) 1px, oklch(60% 0.2 250 / 0.5)"
+    );
+    expect(calls.map((c) => c.name)).toEqual(["oklab", "oklch"]);
+    expect(
+      "oklab(0.7 0.1 0.05) oklch(60% 0.2 250 / 0.5)".slice(
+        calls[0].start,
+        calls[0].end
+      )
+    ).toBe("oklab(0.7 0.1 0.05)");
+  });
+
+  it("captures nested parentheses up to the matching close", () => {
+    const [call] = findUnsupportedColorCalls(
+      "color(display-p3 1 0 0 / calc(0.5 + 0.1))"
+    );
+    expect(call.name).toBe("color");
+    expect("color(display-p3 1 0 0 / calc(0.5 + 0.1))".slice(call.start, call.end)).toBe(
+      "color(display-p3 1 0 0 / calc(0.5 + 0.1))"
+    );
+  });
+
+  it("ignores identifiers that only end in a color-function name", () => {
+    expect(findUnsupportedColorCalls("-webkit-color(srgb 1 0 0)")).toEqual([]);
+    expect(findUnsupportedColorCalls("var(--color-accent)")).toEqual([]);
+  });
+
+  it("does not treat color-mix as a bare color() call", () => {
+    const calls = findUnsupportedColorCalls("color-mix(in oklab, red, blue)");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].name).toBe("color-mix");
+  });
+
+  it("returns nothing for values with no unsupported functions", () => {
+    expect(findUnsupportedColorCalls("#ff0000 rgba(0, 0, 0, 0.5)")).toEqual([]);
   });
 });

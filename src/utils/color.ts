@@ -6,6 +6,29 @@
  * custom themes don't need to hand-tune every shade.
  */
 
+/**
+ * Native `getComputedStyle`, captured at module load. Internal colour probes
+ * use this rather than the global so they keep working while
+ * `installComputedStyleColorGuard` temporarily wraps the global for the
+ * duration of an html2canvas run (otherwise the guard would recurse into the
+ * resolver it calls).
+ */
+const nativeGetComputedStyle =
+  typeof window !== "undefined" && typeof window.getComputedStyle === "function"
+    ? window.getComputedStyle.bind(window)
+    : null;
+
+function computedStyleOf(
+  el: Element,
+  pseudo?: string | null
+): CSSStyleDeclaration | null {
+  if (nativeGetComputedStyle) return nativeGetComputedStyle(el, pseudo ?? undefined);
+  if (typeof getComputedStyle === "function") {
+    return getComputedStyle(el, pseudo ?? undefined);
+  }
+  return null;
+}
+
 export interface RgbColor {
   r: number;
   g: number;
@@ -705,7 +728,7 @@ function contrastFromLuminance(foreLum: number, bgLum: number): number {
  */
 function resolveSurfaceLuminance(root: HTMLElement): number {
   try {
-    const raw = getComputedStyle(root).getPropertyValue("--color-bg-tertiary");
+    const raw = computedStyleOf(root)?.getPropertyValue("--color-bg-tertiary") ?? "";
     const hex = cssColorStringToHex(raw);
     if (hex) return luminance(hexToRgb(hex));
   } catch {
@@ -1176,7 +1199,7 @@ function rewriteComputedColorValue(value: string, sourceDoc: Document): string {
       }
       const raw = value.slice(idx, j);
       probe.style.color = raw;
-      const parsed = parseColorString(getComputedStyle(probe).color);
+      const parsed = parseColorString(computedStyleOf(probe)?.color ?? "");
       out += parsed
         ? `rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${parsed[3]})`
         : FALLBACK_PLACEHOLDER;
@@ -1194,26 +1217,318 @@ function rewriteComputedColorValue(value: string, sourceDoc: Document): string {
   }
 }
 
+/** The color functions html2canvas 1.4.1 cannot parse, longest name first. */
+const UNSUPPORTED_COLOR_NAMES = [
+  "color-mix",
+  "oklab",
+  "oklch",
+  "lab",
+  "lch",
+  "hwb",
+  "color",
+];
+
+const HAS_UNSUPPORTED_COLOR_RE =
+  /color-mix\s*\(|color\s*\(|oklab\s*\(|oklch\s*\(|\blab\s*\(|\blch\s*\(|\bhwb\s*\(/i;
+
+export interface UnsupportedColorCall {
+  /** Function name, e.g. `oklab`. */
+  name: string;
+  /** Index of the first character of the name. */
+  start: number;
+  /** Index just past the closing parenthesis. */
+  end: number;
+}
+
+/**
+ * Locate every `color-mix()`, `oklab()`, `oklch()`, `lab()`, `lch()`,
+ * `hwb()` or `color()` call in a CSS value, skipping identifiers that merely
+ * end in one of those names (e.g. the tail of `-webkit-color(`). Handles
+ * nested parentheses so a call containing `var()`/functions is captured
+ * whole. Pure and exported so the parsing can be unit-tested without a DOM.
+ */
+export function findUnsupportedColorCalls(value: string): UnsupportedColorCall[] {
+  const calls: UnsupportedColorCall[] = [];
+  let i = 0;
+  while (i < value.length) {
+    // Earliest unsupported call whose name isn't part of a longer identifier.
+    let best = -1;
+    let bestName = "";
+    for (const name of UNSUPPORTED_COLOR_NAMES) {
+      let from = i;
+      for (;;) {
+        const idx = value.indexOf(name, from);
+        if (idx === -1) break;
+        const before = idx === 0 ? "" : value[idx - 1];
+        const isCall = /^\s*\(/.test(value.slice(idx + name.length));
+        if ((idx === 0 || !/[-\w]/.test(before)) && isCall) {
+          if (best === -1 || idx < best) {
+            best = idx;
+            bestName = name;
+          }
+          break;
+        }
+        from = idx + name.length;
+      }
+    }
+    if (best === -1) break;
+
+    const open = value.indexOf("(", best);
+    let depth = 1;
+    let j = open + 1;
+    while (j < value.length && depth > 0) {
+      const c = value[j];
+      if (c === "(") depth++;
+      else if (c === ")") depth--;
+      j++;
+    }
+    if (depth !== 0) break; // unbalanced tail — leave it for the caller
+    calls.push({ name: bestName, start: best, end: j });
+    i = j;
+  }
+  return calls;
+}
+
+/**
+ * Convert any browser-supported CSS color literal to an `rgba(...)` string by
+ * rasterising one pixel on a throwaway canvas — the one conversion path that
+ * works regardless of how Chromium serialises the color (oklab, oklch,
+ * display-p3, …). Returns `null` when the value is not a valid color.
+ */
+function colorToRgbaViaCanvas(raw: string, doc: Document): string | null {
+  const canvas = doc.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+
+  const view = doc.defaultView;
+  if (view?.CSS) {
+    if (!view.CSS.supports("color", raw)) return null;
+  } else {
+    // No CSS.supports — guard with a sentinel fillStyle round-trip: an
+    // invalid value leaves `fillStyle` unchanged.
+    ctx.fillStyle = "rgba(1, 2, 3, 0.004)";
+    ctx.fillStyle = raw;
+    if (ctx.fillStyle === "rgba(1, 2, 3, 0.004)") return null;
+  }
+  ctx.clearRect(0, 0, 1, 1);
+  ctx.fillStyle = raw;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  return `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(3)})`;
+}
+
+/**
+ * html2canvas 1.4.1's color parser only understands a tiny slice of CSS
+ * Color 4. Beyond the `color-mix()` / `color(srgb …)` cases handled above
+ * it also throws on `oklab()`, `oklch()`, `lab()`, `lch()`, `hwb()` and
+ * non-sRGB `color()` literals — which Chromium happily emits as *computed*
+ * values for modern color syntax (e.g. a computed `color-mix` can serialize
+ * to `oklab(...)`). Rasterise each such literal through a 1×1 canvas, which
+ * resolves it to sRGB, and substitute the resulting `rgba()`.
+ */
+function rewriteUnsupportedColorFunctions(
+  value: string,
+  sourceDoc: Document
+): string {
+  if (!HAS_UNSUPPORTED_COLOR_RE.test(value)) return value;
+  const calls = findUnsupportedColorCalls(value);
+  if (calls.length === 0) return value;
+
+  let out = "";
+  let cursor = 0;
+  for (const call of calls) {
+    out += value.slice(cursor, call.start);
+    out +=
+      colorToRgbaViaCanvas(value.slice(call.start, call.end), sourceDoc) ??
+      FALLBACK_PLACEHOLDER;
+    cursor = call.end;
+  }
+  out += value.slice(cursor);
+  return out;
+}
+
 /**
  * Full capture-time rewrite for a single CSS value: first resolve every
  * declared `color-mix(...)` call, then every computed `color(srgb …)`
- * literal the browser may have serialized.
+ * literal the browser may have serialized, then any remaining modern color
+ * function (`oklab`, `oklch`, `lab`, `lch`, `hwb`, non-sRGB `color()`) that
+ * html2canvas's parser can't read.
  */
 function rewriteCaptureColorValue(value: string, sourceDoc: Document): string {
   if (!value) return value;
   let out = rewriteColorMixValue(value, sourceDoc);
   out = rewriteComputedColorValue(out, sourceDoc);
+  out = rewriteUnsupportedColorFunctions(out, sourceDoc);
   return out;
 }
 
 /**
  * True when a CSS value contains anything html2canvas 1.4.1's color
- * parser can't handle: a declared `color-mix(...)` call or a computed
- * `color(srgb …)` literal. `rewriteDeclaration` / the inline-attribute
- * scrub use this to avoid probing values that don't need it.
+ * parser can't handle: a declared `color-mix(...)` call, a `color(...)`
+ * literal, or a modern `oklab`/`oklch`/`lab`/`lch`/`hwb` function.
+ * `rewriteDeclaration` / the inline-attribute scrub use this to avoid
+ * probing values that don't need it. Over-matching only costs a rewrite
+ * pass that finds nothing, so this errs on the permissive side.
  */
 function hasCaptureColorFunction(value: string): boolean {
-  return /color-mix\s*\(|color\(\s*srgb/i.test(value);
+  return /color-mix\s*\(|color\s*\(|oklab\s*\(|oklch\s*\(|\blab\s*\(|\blch\s*\(|\bhwb\s*\(/i.test(
+    value
+  );
+}
+
+/**
+ * Color-bearing properties html2canvas parses out of `getComputedStyle`
+ * (see its `CSSParsedDeclaration`). A computed value can resolve to a
+ * modern color function even when no declaration mentions one — e.g. a
+ * `background-image` gradient whose stops come from `var()` tokens, or a
+ * `box-shadow` built from `color-mix()` — so the declaration scrub above
+ * can miss it. Rewriting the *computed* value on the clone is the only way
+ * to guarantee html2canvas's parser never sees `oklab(...)`.
+ */
+const CAPTURE_COMPUTED_COLOR_PROPERTIES = [
+  "color",
+  "background-color",
+  "background-image",
+  "border-top-color",
+  "border-right-color",
+  "border-bottom-color",
+  "border-left-color",
+  "box-shadow",
+  "text-shadow",
+  "text-decoration-color",
+  "-webkit-text-stroke-color",
+  "list-style-image",
+];
+
+/**
+ * Walk every element in the clone and pin any color-bearing computed value
+ * that html2canvas can't parse down to an inline `rgba()` equivalent.
+ * Covers the gap the stylesheet/inline-attribute scrubs can't reach:
+ * computed values produced by the cascade (`var()` chains, gradients,
+ * shadows, pseudo elements).
+ */
+function normalizeComputedColorsForCapture(
+  clonedDoc: Document,
+  sourceDoc: Document
+): void {
+  const view = clonedDoc.defaultView;
+  const root = clonedDoc.documentElement;
+  if (!view || !root) return;
+
+  const elements: Element[] = [root, ...Array.from(clonedDoc.querySelectorAll("*"))];
+  // Collect first, apply after: writing an inline style invalidates the
+  // cascade, and we don't want to force a recalc in the middle of the scan.
+  const fixes: Array<{ el: HTMLElement | SVGElement; declarations: Array<[string, string]> }> = [];
+  for (const el of elements) {
+    let computed: CSSStyleDeclaration;
+    try {
+      computed = view.getComputedStyle(el);
+    } catch {
+      continue;
+    }
+    const declarations: Array<[string, string]> = [];
+    for (const prop of CAPTURE_COMPUTED_COLOR_PROPERTIES) {
+      const value = computed.getPropertyValue(prop);
+      if (!value || !hasCaptureColorFunction(value)) continue;
+      const fixed = rewriteCaptureColorValue(value, sourceDoc);
+      if (fixed && fixed !== value) declarations.push([prop, fixed]);
+    }
+    const target = el as HTMLElement | SVGElement;
+    if (declarations.length > 0 && target.style) {
+      fixes.push({ el: target, declarations });
+    }
+  }
+
+  for (const { el, declarations } of fixes) {
+    for (const [prop, fixed] of declarations) {
+      try {
+        el.style.setProperty(prop, fixed, "important");
+      } catch {
+        /* property not applicable to this element; skip */
+      }
+    }
+  }
+}
+
+/** Camel-case color properties html2canvas reads straight off the
+ *  `CSSStyleDeclaration` object (see its `CSSParsedDeclaration`). */
+const CAPTURE_STYLE_COLOR_PROPS = new Set([
+  "color",
+  "backgroundColor",
+  "backgroundImage",
+  "borderTopColor",
+  "borderRightColor",
+  "borderBottomColor",
+  "borderLeftColor",
+  "boxShadow",
+  "textShadow",
+  "textDecorationColor",
+  "webkitTextStrokeColor",
+  "listStyleImage",
+  "outlineColor",
+  "caretColor",
+]);
+
+/**
+ * Temporarily wrap `window.getComputedStyle` so every color-bearing value it
+ * returns has unsupported color functions (`oklab`, `color(srgb …)`, …)
+ * rewritten to `rgba()`. html2canvas reads its entire parse tree through
+ * `window.getComputedStyle`, so this is the definitive guard: unlike the
+ * clone-side normalisation it cannot be bypassed by a property or element the
+ * clone scan missed. Returns a function that restores the native method.
+ */
+export function installComputedStyleColorGuard(
+  sourceDoc: Document
+): () => void {
+  if (
+    typeof window === "undefined" ||
+    typeof window.getComputedStyle !== "function"
+  ) {
+    return () => {};
+  }
+
+  const native = window.getComputedStyle;
+  let sanitizing = false;
+  const sanitize = (value: unknown): unknown => {
+    if (
+      sanitizing ||
+      typeof value !== "string" ||
+      !hasCaptureColorFunction(value)
+    ) {
+      return value;
+    }
+    sanitizing = true;
+    try {
+      return rewriteCaptureColorValue(value, sourceDoc);
+    } finally {
+      sanitizing = false;
+    }
+  };
+
+  window.getComputedStyle = ((
+    elt: Element,
+    pseudoElt?: string | null
+  ): CSSStyleDeclaration => {
+    const style = native.call(window, elt, pseudoElt ?? undefined);
+    return new Proxy(style, {
+      get(target, prop) {
+        if (prop === "getPropertyValue") {
+          return (name: string) => sanitize(target.getPropertyValue(name));
+        }
+        const value = Reflect.get(target, prop);
+        if (typeof prop === "string" && CAPTURE_STYLE_COLOR_PROPS.has(prop)) {
+          return sanitize(value);
+        }
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+  }) as typeof window.getComputedStyle;
+
+  return () => {
+    window.getComputedStyle = native;
+  };
 }
 
 /**
@@ -1315,10 +1630,10 @@ function resolveSingleColor(
     if (topComma >= 0) fallback = argContent.slice(topComma + 1).trim();
 
     probe.style.color = `var(${name}${fallback ? ", " + fallback : ""})`;
-    let resolved = parseColorString(getComputedStyle(probe).color);
+    let resolved = parseColorString(computedStyleOf(probe)?.color ?? "");
     if (!resolved && fallback) {
       probe.style.color = fallback;
-      resolved = parseColorString(getComputedStyle(probe).color);
+      resolved = parseColorString(computedStyleOf(probe)?.color ?? "");
     }
     if (!resolved) return null;
     cur =
@@ -1326,7 +1641,7 @@ function resolveSingleColor(
       cur.slice(close + 1);
   }
   probe.style.color = cur;
-  return parseColorString(getComputedStyle(probe).color);
+  return parseColorString(computedStyleOf(probe)?.color ?? "");
 }
 
 /**
@@ -1496,7 +1811,11 @@ export function bridgeSvgsForCanvasCapture(clonedDoc: Document): void {
  *      rewrite every CSS Color Module L4 `color-mix()` call into
  *      an rgba() literal (html2canvas 1.4.1's parser throws on
  *      `color-mix`).
- *   2. `bridgeSvgsForCanvasCapture` — sets explicit pixel
+ *   2. `normalizeComputedColorsForCapture` — inlines an rgba()
+ *      equivalent for any color-bearing *computed* value html2canvas
+ *      still can't parse (`oklab`, `oklch`, `color(srgb …)` inside
+ *      gradients/shadows, etc.).
+ *   3. `bridgeSvgsForCanvasCapture` — sets explicit pixel
  *      width/height on every cloned <svg> so html2canvas's SVG
  *      rasterizer scales the viewBox content correctly (instead of
  *      letting chart geometry spill past the card).
@@ -1513,6 +1832,7 @@ export function prepareClonedDocumentForCanvasCapture(
     typeof window !== "undefined" ? window.document : clonedDoc
 ): void {
   resolveHtml2CanvasColorMix(clonedDoc, _element, sourceDoc);
+  normalizeComputedColorsForCapture(clonedDoc, sourceDoc);
   bridgeSvgsForCanvasCapture(clonedDoc);
 }
 
@@ -1554,7 +1874,7 @@ export function resolveColorForCapture(
   document.body.appendChild(probe);
   try {
     probe.style.backgroundColor = value;
-    const resolved = getComputedStyle(probe).backgroundColor;
+    const resolved = computedStyleOf(probe)?.backgroundColor ?? "";
     // An unresolvable value (undefined var, unsupported color space)
     // collapses to transparent in computed style — fall back.
     if (
@@ -1565,13 +1885,11 @@ export function resolveColorForCapture(
     ) {
       return fallback;
     }
-    // Chromium computes `color-mix(...)` to CSS Color 4's `color(srgb …)`
-    // which html2canvas 1.4.1 can't parse. Convert it to a literal rgba.
-    if (resolved.startsWith("color(")) {
-      const parsed = parseColorString(resolved);
-      return parsed
-        ? `rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${parsed[3]})`
-        : fallback;
+    // Chromium may compute `color-mix(...)` to CSS Color 4's `color(srgb …)`
+    // or a modern space like `oklab(...)`, none of which html2canvas 1.4.1
+    // can parse. Convert them to a literal rgba via the canvas.
+    if (HAS_UNSUPPORTED_COLOR_RE.test(resolved)) {
+      return colorToRgbaViaCanvas(resolved, document) ?? fallback;
     }
     return resolved;
   } finally {
