@@ -52,8 +52,9 @@ export interface PluginBulkToggleResult {
  * One combined search hit from `search_downloads`: either a classic
  * source match (as today) or a plugin-provided result. The backend
  * returns source items first (score-sorted) followed by plugin items
- * pre-sorted newest-first — the frontend must not shuffle plugin items
- * when sorting or rendering.
+ * pre-sorted newest-first. That is the default order; the download
+ * modal re-sorts both blocks — plugins keep their trailing position —
+ * when the user picks an explicit sort.
  */
 export interface DownloadSearchResult extends MatchedDownload {
   /** "source" = enabled source cache match, "plugin" = plugin result. */

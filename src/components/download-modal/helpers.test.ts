@@ -51,4 +51,14 @@ describe("sortMatches recommended", () => {
     const sorted = sortMatches(list, "recommended", false, (m) => scores[m.id] ?? 0);
     expect(sorted.map((m) => m.id)).toEqual(["y", "x"]);
   });
+
+  it("sorts plugin results by the chosen key while keeping them grouped last", () => {
+    const list = [
+      match({ id: "s1", provider: "source", fileSize: "1 GB" }),
+      match({ id: "p1", provider: "plugin", fileSize: "5 GB" }),
+      match({ id: "p2", provider: "plugin", fileSize: "40 GB" }),
+    ];
+    const sorted = sortMatches(list, "size_desc", false);
+    expect(sorted.map((m) => m.id)).toEqual(["s1", "p2", "p1"]);
+  });
 });

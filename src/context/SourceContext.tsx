@@ -51,8 +51,8 @@ interface SourceContextValue {
   /** Fuzzy-match `query` against every enabled source's cache. */
   searchSources: (query: string, steamAppId?: number) => Promise<MatchedDownload[]>;
   /** Combined search: source matches (score-sorted, as `searchSources`) followed by
-   *  plugin-provided results pre-sorted newest-first. Plugin order is authoritative —
-   *  callers must not re-sort the plugin block. */
+   *  plugin-provided results pre-sorted newest-first. This is the default order;
+   *  the download modal re-sorts both blocks when the user picks a sort. */
   searchDownloads: (query: string, steamAppId?: number) => Promise<DownloadSearchResult[]>;
   /** Streaming parallel search: streams matches in real time with progress events per source. */
   searchDownloadsStream: (

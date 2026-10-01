@@ -635,7 +635,12 @@ export function sortMatches<T extends { sourceName: string; matchScore: number; 
     else sources.push(item);
   }
 
+  // Sort each provider block independently. Plugins stay grouped after
+  // source results, but an explicit sort choice still reorders them —
+  // otherwise changing the sort does nothing when every visible result
+  // comes from a plugin.
   sources.sort(comparator);
+  plugins.sort(comparator);
   return [...sources, ...plugins];
 }
 
