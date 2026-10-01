@@ -791,6 +791,14 @@
   gap: var(--space-md);
 }
 
+/* ── Load More ─────────────────────────────────────────────────────── */
+
+.game-news-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
 /* ── Footer ────────────────────────────────────────────────────────── */
 
 .game-news-footer {

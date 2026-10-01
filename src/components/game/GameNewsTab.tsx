@@ -25,7 +25,9 @@ import {
 import {
   classifyArticle,
   loadGameCustomFeeds,
+  parseSteamNewsApi,
   saveGameCustomFeeds,
+  steamNewsApiUrl,
   type CustomGameFeed,
   type GameNewsFilterCategory,
   type GameNewsViewMode,
@@ -40,6 +42,11 @@ import GameNewsListView, {
   GameNewsListSkeleton,
 } from "./news/GameNewsListView";
 import GameNewsCustomFeedsModal from "./news/GameNewsCustomFeedsModal";
+
+/** How many Steam news items to request per "load more" page. */
+const STEAM_PAGE_SIZE = 20;
+/** How many merged articles are revealed per "load more" page. */
+const LIST_PAGE_SIZE = 12;
 
 /** Steam publishes a per-app RSS feed (patch notes, announcements, etc.). */
 function steamFeedUrl(appId: number, langCode: string): string {
@@ -125,6 +132,12 @@ export default function GameNewsTab({ game }: { game: Game }) {
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState(false);
 
+  // ── Older Steam news pulled past the RSS 10-item cap, on demand ─────
+  const [steamApiArticles, setSteamApiArticles] = useState<NewsArticle[]>([]);
+  const [steamNewsCount, setSteamNewsCount] = useState(0);
+  const [steamTotal, setSteamTotal] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // ── Filter, Search, View, Sort states ───────────────────────────────
   const [activeCategory, setActiveCategory] = useState<GameNewsFilterCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,6 +154,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
   });
   const [sortOption, setSortOption] = useState<GameNewsSortOption>("newest");
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
+  const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
   const [savedArticles, setSavedArticles] = useState<SavedArticle[]>(() =>
     loadSavedArticles()
   );
@@ -193,6 +207,51 @@ export default function GameNewsTab({ game }: { game: Game }) {
       active = false;
     };
   }, [steamAppId, game.name, language, t]);
+
+  // Reset the paginated Steam-news window whenever the game changes.
+  useEffect(() => {
+    setSteamApiArticles([]);
+    setSteamTotal(null);
+    setSteamNewsCount(0);
+    setVisibleCount(LIST_PAGE_SIZE);
+  }, [steamAppId]);
+
+  // Fetch older Steam news in pages of STEAM_PAGE_SIZE. Replaces the
+  // previous slice so the list stays de-duplicated (the RSS items and the
+  // first API page overlap and collapse on their shared `/view/<gid>` link).
+  useEffect(() => {
+    if (!steamAppId || steamNewsCount <= 0) return;
+    let active = true;
+    setLoadingMore(true);
+
+    const url = steamNewsApiUrl(steamAppId, steamNewsCount);
+    const sourceName = t("game.news.steamFeed");
+    void (async () => {
+      try {
+        const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
+        let jsonText: string;
+        if (hasTauri) {
+          jsonText = await invoke<string>("fetch_url", { url });
+        } else {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          jsonText = await res.text();
+        }
+        if (!active) return;
+        const { articles, total } = parseSteamNewsApi(jsonText, steamAppId, sourceName);
+        setSteamApiArticles(articles);
+        setSteamTotal(total);
+      } catch (err) {
+        console.warn(`[GameNews] Steam news API failed for ${game.name}:`, err);
+      } finally {
+        if (active) setLoadingMore(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [steamAppId, steamNewsCount, game.name, t]);
 
   // Fetch per-game custom feeds
   const fetchCustomFeeds = useCallback(async () => {
@@ -249,8 +308,10 @@ export default function GameNewsTab({ game }: { game: Game }) {
       if (!byLink.has(key)) byLink.set(key, a);
     };
 
-    // Official Steam posts first, then custom game feeds, then matched general feeds
+    // Official Steam posts first, then older API pages, then custom game
+    // feeds, then matched general feeds.
     for (const a of steamArticles) add(a);
+    for (const a of steamApiArticles) add(a);
     for (const a of customArticles) add(a);
     for (const a of allArticles) {
       if (articleMatchesGame(a, matchKeys)) add(a);
@@ -259,7 +320,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
     return Array.from(byLink.values()).sort(
       (a, b) => articleDateMs(b) - articleDateMs(a)
     );
-  }, [steamArticles, customArticles, allArticles, matchKeys]);
+  }, [steamArticles, steamApiArticles, customArticles, allArticles, matchKeys]);
 
   // Category counts
   const categoryCounts = useMemo(() => {
@@ -343,15 +404,42 @@ export default function GameNewsTab({ game }: { game: Game }) {
     });
   }, [allMergedArticles, activeCategory, searchQuery, sortOption, savedArticles]);
 
+  // ── Pagination: reveal the merged pool in pages, fetching more Steam
+  // news beyond the RSS 10-item cap when the window is exhausted ───────
+  const totalDisplayed = displayedArticles.length;
+  const hasMoreLocal = totalDisplayed > visibleCount;
+  const steamHasMore =
+    steamAppId != null && (steamTotal === null || steamApiArticles.length < steamTotal);
+  const hasMore = hasMoreLocal || steamHasMore;
+
+  const paginatedArticles = useMemo(
+    () => displayedArticles.slice(0, visibleCount),
+    [displayedArticles, visibleCount]
+  );
+
+  // A fresh filter/search/sort starts the list over at the first page.
+  useEffect(() => {
+    setVisibleCount(LIST_PAGE_SIZE);
+  }, [activeCategory, searchQuery, sortOption]);
+
+  const handleLoadMore = useCallback(() => {
+    setVisibleCount((count) => count + LIST_PAGE_SIZE);
+    if (steamHasMore) {
+      setSteamNewsCount((count) =>
+        count <= 0 ? STEAM_PAGE_SIZE : count + STEAM_PAGE_SIZE
+      );
+    }
+  }, [steamHasMore]);
+
   // Spotlight Hero Article (Top article in Grid mode when on All/PatchNotes and not searching)
   const showHero =
     viewMode === "grid" &&
     !searchQuery &&
     (activeCategory === "all" || activeCategory === "patch_notes") &&
-    displayedArticles.length > 0;
+    paginatedArticles.length > 0;
 
-  const heroArticle = showHero ? displayedArticles[0] : null;
-  const gridArticles = showHero ? displayedArticles.slice(1) : displayedArticles;
+  const heroArticle = showHero ? paginatedArticles[0] : null;
+  const gridArticles = showHero ? paginatedArticles.slice(1) : paginatedArticles;
 
   // ── Reader Modal cycling ─────────────────────────────────────────────
   const selectedIndex = useMemo(() => {
@@ -394,6 +482,10 @@ export default function GameNewsTab({ game }: { game: Game }) {
   const handleRefresh = useCallback(() => {
     refreshGlobalFeeds();
     void fetchCustomFeeds();
+    setVisibleCount(LIST_PAGE_SIZE);
+    setSteamApiArticles([]);
+    setSteamTotal(null);
+    setSteamNewsCount(0);
     if (steamAppId) {
       setSteamLoading(true);
       const url = steamFeedUrl(steamAppId, language);
@@ -533,7 +625,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
           {/* Timeline View */}
           {viewMode === "timeline" ? (
             <GameNewsTimeline
-              articles={displayedArticles}
+              articles={paginatedArticles}
               readLinks={readLinks}
               savedArticles={savedArticles}
               onOpenArticle={handleOpenArticle}
@@ -543,7 +635,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
           ) : viewMode === "list" ? (
             /* List View */
             <GameNewsListView
-              articles={displayedArticles}
+              articles={paginatedArticles}
               readLinks={readLinks}
               savedArticles={savedArticles}
               onOpenArticle={handleOpenArticle}
@@ -568,11 +660,38 @@ export default function GameNewsTab({ game }: { game: Game }) {
             </div>
           )}
 
+          {/* Load More */}
+          {hasMore && (
+            <div className="game-news-load-more">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                leftIcon={
+                  <svg
+                    className={loadingMore ? "spin-animation" : ""}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                }
+              >
+                {loadingMore ? t("common.loading") : t("news.loadMore")}
+              </Button>
+            </div>
+          )}
+
           {/* Footer Summary */}
           <div className="game-news-footer">
             <span>
               {t("game.news.footer", {
-                count: displayedArticles.length,
+                count: totalDisplayed,
                 game: gameDisplayName(game),
               })}
             </span>

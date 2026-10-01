@@ -134,3 +134,123 @@ export function saveGameCustomFeeds(
     // ignore
   }
 }
+
+/* ── Steam Web API news ───────────────────────────────────────────────
+ * The per-app RSS feed Steam publishes is hard-capped at 10 items. The
+ * Web API (`ISteamNews/GetNewsForApp`) accepts a `count`, so older posts
+ * can be pulled in on demand behind a "Load more" button. Its `contents`
+ * field is BBCode-flavoured with occasional raw HTML, so both need a
+ * light cleanup pass before they land in a card. */
+
+interface SteamNewsApiItem {
+  gid?: string | number;
+  title?: string;
+  contents?: string;
+  feedlabel?: string;
+  feedname?: string;
+  feed_type?: number | string;
+  date?: number;
+}
+
+interface SteamNewsApiResponse {
+  appnews?: {
+    newsitems?: SteamNewsApiItem[];
+    count?: number;
+  };
+}
+
+/** Build the Steam Web API URL for `count` news items of an app. */
+export function steamNewsApiUrl(appId: number, count: number): string {
+  return `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appId}&count=${count}&maxlength=0&format=json`;
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&nbsp;/g, " ");
+}
+
+/** Flatten a Steam `contents` blob (BBCode + raw HTML) into plain text. */
+export function steamContentsToText(raw: string): string {
+  if (!raw) return "";
+  let text = raw.replace(/\\\[/g, "[").replace(/\\\]/g, "]");
+  text = text.replace(/\[video[^\]]*\][\s\S]*?\[\/video\]/gi, " ");
+  text = text.replace(/\[img[^\]]*\][\s\S]*?\[\/img\]/gi, " ");
+  text = text.replace(/\[url=[^\]]*\]([\s\S]*?)\[\/url\]/gi, "$1");
+  text = text.replace(/\[url\]([\s\S]*?)\[\/url\]/gi, "$1");
+  text = text.replace(/\[\/?\*\]/g, " ");
+  text = text.replace(
+    /\[\/?(?:p|b|i|u|s|strike|spoiler|quote|code|table|tr|td|th|h[1-6]|heading|hr|list|font|color|size|noparse|parsehtml|center|left|right|readmore)\b[^\]]*\]/gi,
+    " "
+  );
+  text = text.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, " ");
+  return decodeHtmlEntities(text).replace(/\s+/g, " ").trim();
+}
+
+/** Pull the first image URL out of a Steam `contents` blob. */
+export function extractSteamImage(raw: string): string | null {
+  if (!raw) return null;
+  const html = /<img[^>]+src=["']([^"']+)["']/i.exec(raw);
+  if (html && html[1] && !/^data:/i.test(html[1])) return html[1];
+  const bb = /\[img[^\]]*\]([^\s\]]+)\[\/img\]/i.exec(raw);
+  if (bb) {
+    const url = bb[1].trim();
+    if (url && !/^data:/i.test(url)) return url;
+  }
+  return null;
+}
+
+/**
+ * Parse a Steam `GetNewsForApp` JSON payload into articles.
+ * `officialSourceName` labels Valve's own announcements; external press
+ * items keep their own `feedlabel` so classification can tell them apart.
+ */
+export function parseSteamNewsApi(
+  jsonText: string,
+  appId: number,
+  officialSourceName: string
+): { articles: NewsArticle[]; total: number } {
+  let data: SteamNewsApiResponse;
+  try {
+    data = JSON.parse(jsonText) as SteamNewsApiResponse;
+  } catch {
+    return { articles: [], total: 0 };
+  }
+
+  const appnews = data.appnews;
+  const items = Array.isArray(appnews?.newsitems) ? appnews.newsitems : [];
+  const articles: NewsArticle[] = [];
+
+  for (const item of items) {
+    const gid = item.gid != null ? String(item.gid) : "";
+    if (!gid) continue;
+
+    const contents = typeof item.contents === "string" ? item.contents : "";
+    const isOfficial =
+      Number(item.feed_type) === 1 ||
+      /steam_community_announcements/i.test(item.feedname ?? "");
+    const sourceName = isOfficial
+      ? officialSourceName
+      : item.feedlabel || officialSourceName;
+
+    articles.push({
+      title: item.title || officialSourceName,
+      link: `https://store.steampowered.com/news/app/${appId}/view/${gid}`,
+      description: steamContentsToText(contents),
+      content: contents,
+      pubDate: item.date ? new Date(item.date * 1000).toUTCString() : "",
+      sourceName,
+      sourceUrl: `https://store.steampowered.com/news/app/${appId}`,
+      imageUrl: extractSteamImage(contents),
+    });
+  }
+
+  const total = Number(appnews?.count) || articles.length;
+  return { articles, total };
+}
