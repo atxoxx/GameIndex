@@ -137,7 +137,7 @@ export function FileSelection({
         <div className="dl-file-weight-card">
           <div className="dl-file-weight-top">
             <span className="dl-file-weight-label">
-              <strong>{selectedFiles.size}</strong> {t("downloadFiles.ofFilesSelected", { count: selectedFiles.size, total: files.length })}
+              {t("downloadFiles.ofFilesSelected", { count: selectedFiles.size, total: files.length })}
             </span>
             <span className="dl-file-weight-percent">{percentage}%</span>
           </div>
@@ -214,7 +214,9 @@ export function FileSelection({
         ) : (
           filtered.map(({ file, idx, category }) => {
             const isChecked = selectedFiles.has(idx);
-            const relativeWidth = Math.max(4, Math.round((file.size / maxFileSize) * 100));
+            const relativeWidth = maxFileSize > 0
+              ? Math.max(2, Math.round((file.size / maxFileSize) * 100))
+              : 0;
             return (
               <label
                 key={idx}
@@ -229,17 +231,21 @@ export function FileSelection({
                 <div className={`dl-file-type-icon dl-file-type-icon--${category}`}>
                   {renderFileIcon(category)}
                 </div>
-                <div className="dl-file-name-wrap">
-                  <span className="dl-file-item-name" title={file.name}>
-                    {file.name}
-                  </span>
-                  <div className="dl-file-size-bar-track">
-                    <div
-                      className="dl-file-size-bar-fill"
+                <span className="dl-file-item-name" title={file.name}>
+                  {file.name}
+                </span>
+                {file.size > 0 && (
+                  <span
+                    className="dl-file-sizebar"
+                    title={`${relativeWidth}%`}
+                    aria-hidden
+                  >
+                    <span
+                      className="dl-file-sizebar-fill"
                       style={{ width: `${relativeWidth}%` }}
                     />
-                  </div>
-                </div>
+                  </span>
+                )}
                 <span className="dl-file-item-size">{formatBytesShort(file.size)}</span>
               </label>
             );
