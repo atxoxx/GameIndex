@@ -110,7 +110,11 @@ pub async fn initialize_engine(
         let start_shared = shared.clone();
         let _ = handle.listen("game-started", move |_event| {
             let shared = start_shared.clone();
-            tokio::spawn(async move {
+            // Listeners run synchronously on the emitting thread — which
+            // here is the GameWatcher's plain OS thread, with no Tokio
+            // reactor in scope. `tokio::spawn` panics there; the Tauri
+            // runtime is reactor-independent, so spawn through it instead.
+            let _ = tauri::async_runtime::spawn(async move {
                 on_game_started(&shared).await;
             });
         });
@@ -125,7 +129,7 @@ pub async fn initialize_engine(
                 return;
             }
             let shared = exit_shared.clone();
-            tokio::spawn(async move {
+            let _ = tauri::async_runtime::spawn(async move {
                 on_game_exited(&shared).await;
             });
         });
