@@ -1,23 +1,27 @@
 //! Save-backup engine.
 //!
-//! Backups are **versioned directories**, one per snapshot:
+//! Snapshots are **single `.gisave` archives** (a Deflated zip), one per
+//! backup:
 //!
 //! ```text
-//! <backup_dir>/<game-id>/<created_at>-<kind>/
+//! <backup_dir>/<game-id>/<created_at>-<kind>.gisave
 //!   manifest.json          # locations + per-file index (forward-slash rel paths)
 //!   files/<location-index>/<relative path…>
 //! ```
 //!
-//! The directory layout (rather than a single archive) keeps restore and
-//! inspection cheap, lets users browse/prune backups outside the app, and
-//! makes partial failures visible per file. `manifest.json` is the source
-//! of truth for restore, so a backup remains self-describing even if the
-//! SQLite index is lost.
+//! `manifest.json` is the source of truth for restore, so a backup remains
+//! self-describing even if the SQLite index is lost. Legacy directory-layout
+//! snapshots (written before archives) are still read, restored and pruned;
+//! only newly created snapshots are archives.
 
+use std::fs::File;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
+
+use zip::{ZipArchive, ZipWriter};
 
 use crate::db::game_notes::unix_now_ms;
 use crate::db::saves::{self, SaveBackup, SaveLocation};
@@ -27,6 +31,74 @@ use super::SaveProgress;
 
 pub const MANIFEST_FORMAT: &str = "gameindex-save-backup";
 pub const MANIFEST_VERSION: u32 = 1;
+
+/// Extension of the single-file snapshot archive (a Deflated zip). Legacy
+/// snapshots are directories and are detected by their lack of this suffix.
+const ARCHIVE_EXT: &str = "gisave";
+
+/// Name of the manifest entry inside the archive / legacy snapshot directory.
+const MANIFEST_JSON: &str = "manifest.json";
+
+/// Deflate options shared by every entry written to a snapshot archive.
+fn zip_opts() -> zip::write::SimpleFileOptions {
+    zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated)
+}
+
+/// True when a snapshot path points at an archive (vs. a legacy directory).
+fn is_archive_path(path: &Path) -> bool {
+    path.extension()
+        .map(|e| e.eq_ignore_ascii_case(ARCHIVE_EXT))
+        .unwrap_or(false)
+}
+
+/// True when the snapshot row describes an archive rather than a directory.
+fn is_archive(backup: &SaveBackup) -> bool {
+    is_archive_path(Path::new(&backup.root_path))
+}
+
+/// Pick a non-colliding archive path for a new snapshot.
+fn unique_archive_path(game_dir: &Path, created_at: u64, kind: &str) -> PathBuf {
+    let kind = safe_component(kind);
+    let mut candidate = game_dir.join(format!("{created_at}-{kind}.{ARCHIVE_EXT}"));
+    let mut n = 0u32;
+    while candidate.exists() {
+        n += 1;
+        candidate = game_dir.join(format!("{created_at}-{kind}-{n}.{ARCHIVE_EXT}"));
+    }
+    candidate
+}
+
+/// Stream one source file into the archive as
+/// `files/<location-index>/<entry-rel>`. Returns bytes written.
+/// `rel` is the source path relative to `src_root` (empty for single-file
+/// locations, where `src_root` is the file itself).
+fn add_file_to_zip(
+    zip: &mut ZipWriter<File>,
+    location_index: u32,
+    rel: &str,
+    entry_rel: &str,
+    src_root: &Path,
+) -> Result<u64, String> {
+    let src_path = if rel.is_empty() {
+        src_root.to_path_buf()
+    } else {
+        src_root.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR))
+    };
+    zip.start_file(format!("files/{location_index}/{entry_rel}"), zip_opts())
+        .map_err(|e| format!("zip entry: {e}"))?;
+    let mut input = File::open(&src_path).map_err(|e| e.to_string())?;
+    std::io::copy(&mut input, zip).map_err(|e| e.to_string())
+}
+
+/// Last-modified timestamp of a path in unix ms (0 when unavailable).
+fn modified_ms_of(path: &Path) -> u64 {
+    std::fs::metadata(path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 /// One location recorded in a snapshot's manifest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -210,7 +282,10 @@ fn walk_files(root: &Path, dir: &Path, patterns: &[String], out: &mut Vec<Collec
     }
 }
 
-fn emit(app: &AppHandle, phase: &str, game_id: &str, game_name: &str, current: u64, total: u64, message: &str) {
+fn emit(app: Option<&AppHandle>, phase: &str, game_id: &str, game_name: &str, current: u64, total: u64, message: &str) {
+    let Some(app) = app else {
+        return;
+    };
     let percent = if total == 0 {
         0
     } else {
@@ -232,8 +307,11 @@ fn emit(app: &AppHandle, phase: &str, game_id: &str, game_name: &str, current: u
 
 /// Create a snapshot of `locations` for a game. `locations` should already
 /// be filtered to the ones the user wants included.
+///
+/// `app` is optional only so unit tests can exercise the file logic without a
+/// live Tauri handle; every production caller passes one.
 pub fn create_backup(
-    app: &AppHandle,
+    app: Option<&AppHandle>,
     db: &Db,
     game_id: &str,
     game_name: &str,
@@ -246,12 +324,10 @@ pub fn create_backup(
     let created_at = unix_now_ms();
     let game_dir = backup_dir.join(safe_component(game_id));
     std::fs::create_dir_all(&game_dir).map_err(|e| format!("create backup dir: {e}"))?;
-    let mut root = game_dir.join(format!("{created_at}-{}", safe_component(kind)));
-    if root.exists() {
-        root = game_dir.join(format!("{created_at}-{}-{}", safe_component(kind), game_id.len()));
-    }
-    let files_dir = root.join("files");
-    std::fs::create_dir_all(&files_dir).map_err(|e| format!("create files dir: {e}"))?;
+    let root = unique_archive_path(&game_dir, created_at, kind);
+
+    let file = File::create(&root).map_err(|e| format!("create snapshot archive: {e}"))?;
+    let mut zip = ZipWriter::new(file);
 
     let mut manifest_locations: Vec<ManifestLocation> = Vec::new();
     let mut manifest_files: Vec<ManifestFile> = Vec::new();
@@ -270,33 +346,23 @@ pub fn create_backup(
             &format!("Backing up {}", loc.label),
         );
         let src = Path::new(&loc.path);
-        let dest = files_dir.join(i.to_string());
         let mut file_count = 0u64;
         let mut total_bytes = 0u64;
 
         if loc.kind == "file" {
             if src.is_file() {
-                let name = src
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("save");
+                let name = src.file_name().and_then(|n| n.to_str()).unwrap_or("save");
                 if !is_ignored(ignore, name, name) {
-                    std::fs::create_dir_all(&dest).ok();
-                    let out = dest.join(name);
-                    match std::fs::copy(src, &out) {
+                    let modified_ms = modified_ms_of(src);
+                    match add_file_to_zip(&mut zip, i as u32, "", name, src) {
                         Ok(bytes) => {
                             file_count += 1;
                             total_bytes += bytes;
-                            let meta = std::fs::metadata(src).ok();
                             manifest_files.push(ManifestFile {
                                 location_index: i as u32,
                                 rel: name.to_string(),
                                 size: bytes,
-                                modified_ms: meta
-                                    .and_then(|m| m.modified().ok())
-                                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                                    .map(|d| d.as_millis() as u64)
-                                    .unwrap_or(0),
+                                modified_ms,
                             });
                         }
                         Err(e) => errors.push(format!("{name}: {e}")),
@@ -307,11 +373,7 @@ pub fn create_backup(
             let mut collected = Vec::new();
             walk_files(src, src, ignore, &mut collected);
             for f in collected {
-                let out = dest.join(f.rel.replace('/', std::path::MAIN_SEPARATOR_STR));
-                if let Some(parent) = out.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                match std::fs::copy(src.join(f.rel.replace('/', std::path::MAIN_SEPARATOR_STR)), &out) {
+                match add_file_to_zip(&mut zip, i as u32, &f.rel, &f.rel, src) {
                     Ok(bytes) => {
                         file_count += 1;
                         total_bytes += bytes;
@@ -362,9 +424,12 @@ pub fn create_backup(
         locations: manifest_locations,
         files: manifest_files,
     };
-    let manifest_path = root.join("manifest.json");
     let json = serde_json::to_vec_pretty(&manifest).map_err(|e| format!("manifest encode: {e}"))?;
-    std::fs::write(&manifest_path, json).map_err(|e| format!("write manifest: {e}"))?;
+    zip.start_file(MANIFEST_JSON, zip_opts())
+        .map_err(|e| format!("zip manifest entry: {e}"))?;
+    zip.write_all(&json)
+        .map_err(|e| format!("write manifest: {e}"))?;
+    zip.finish().map_err(|e| format!("finish snapshot archive: {e}"))?;
 
     let total_bytes: u64 = manifest.files.iter().map(|f| f.size).sum();
     let backup = saves::insert_backup(
@@ -386,7 +451,8 @@ pub fn create_backup(
                 Some(errors.join("; "))
             },
             root_path: root.to_string_lossy().to_string(),
-            manifest_path: manifest_path.to_string_lossy().to_string(),
+            // The manifest lives inside the archive, not at a standalone path.
+            manifest_path: String::new(),
         },
     )?;
 
@@ -406,10 +472,19 @@ pub fn create_backup(
     Ok(backup)
 }
 
-/// Read a manifest from disk (tolerates a missing/invalid file → `None`).
+/// Read a snapshot's manifest. Handles both archive and legacy-directory
+/// snapshots, and tolerates a missing/invalid payload → `None`.
 pub fn read_manifest(backup: &SaveBackup) -> Option<BackupManifest> {
+    if is_archive(backup) {
+        let file = File::open(&backup.root_path).ok()?;
+        let mut archive = ZipArchive::new(file).ok()?;
+        let mut entry = archive.by_name(MANIFEST_JSON).ok()?;
+        let mut bytes = Vec::new();
+        entry.read_to_end(&mut bytes).ok()?;
+        return serde_json::from_slice(&bytes).ok();
+    }
     let path = if backup.manifest_path.is_empty() {
-        Path::new(&backup.root_path).join("manifest.json")
+        Path::new(&backup.root_path).join(MANIFEST_JSON)
     } else {
         PathBuf::from(&backup.manifest_path)
     };
@@ -417,9 +492,20 @@ pub fn read_manifest(backup: &SaveBackup) -> Option<BackupManifest> {
     serde_json::from_slice(&bytes).ok()
 }
 
+/// Destination path for a captured file, honouring single-file locations
+/// (where the location path *is* the file) vs. folder locations.
+fn restore_dest(mloc: &ManifestLocation, rel: &str) -> PathBuf {
+    let dest_root = Path::new(&mloc.path);
+    if mloc.kind == "file" {
+        dest_root.to_path_buf()
+    } else {
+        dest_root.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR))
+    }
+}
+
 /// Restore every location from a snapshot into its original place.
 pub fn restore_backup(
-    app: &AppHandle,
+    app: Option<&AppHandle>,
     db: &Db,
     backup: &SaveBackup,
     safety_snapshot: bool,
@@ -428,7 +514,6 @@ pub fn restore_backup(
 ) -> Result<RestoreResult, String> {
     let manifest = read_manifest(backup)
         .ok_or_else(|| "Backup manifest is missing or unreadable".to_string())?;
-    let files_dir = Path::new(&backup.root_path).join("files");
 
     // Safety snapshot of the *current* saves before we overwrite them.
     let mut safety_backup_id = None;
@@ -458,33 +543,73 @@ pub fn restore_backup(
     let mut total_bytes = 0u64;
     let mut warnings: Vec<String> = Vec::new();
 
-    for mloc in &manifest.locations {
-        let dest_root = Path::new(&mloc.path);
-        for file in manifest.files.iter().filter(|f| f.location_index == mloc.index) {
-            let src = files_dir
-                .join(mloc.index.to_string())
-                .join(file.rel.replace('/', std::path::MAIN_SEPARATOR_STR));
-            if !src.is_file() {
-                warnings.push(format!("Missing backup file: {}", file.rel));
-                continue;
+    if is_archive(backup) {
+        let file = File::open(&backup.root_path)
+            .map_err(|e| format!("open snapshot archive: {e}"))?;
+        let mut archive = ZipArchive::new(file)
+            .map_err(|e| format!("read snapshot archive: {e}"))?;
+        for mloc in &manifest.locations {
+            for f in manifest
+                .files
+                .iter()
+                .filter(|f| f.location_index == mloc.index)
+            {
+                let dest = restore_dest(mloc, &f.rel);
+                let entry_name = format!("files/{}/{}", mloc.index, f.rel);
+                let mut entry = match archive.by_name(&entry_name) {
+                    Ok(entry) => entry,
+                    Err(_) => {
+                        warnings.push(format!("Missing backup file: {}", f.rel));
+                        continue;
+                    }
+                };
+                if let Some(parent) = dest.parent() {
+                    if let Err(e) = std::fs::create_dir_all(parent) {
+                        warnings.push(format!("{}: {e}", dest.display()));
+                        continue;
+                    }
+                }
+                match File::create(&dest) {
+                    Ok(mut out) => match std::io::copy(&mut entry, &mut out) {
+                        Ok(bytes) => {
+                            restored_files += 1;
+                            total_bytes += bytes;
+                        }
+                        Err(e) => warnings.push(format!("{}: {e}", dest.display())),
+                    },
+                    Err(e) => warnings.push(format!("{}: {e}", dest.display())),
+                }
             }
-            let dest = if mloc.kind == "file" {
-                dest_root.to_path_buf()
-            } else {
-                dest_root.join(file.rel.replace('/', std::path::MAIN_SEPARATOR_STR))
-            };
-            if let Some(parent) = dest.parent() {
-                if let Err(e) = std::fs::create_dir_all(parent) {
-                    warnings.push(format!("{}: {e}", dest.display()));
+        }
+    } else {
+        let files_dir = Path::new(&backup.root_path).join("files");
+        for mloc in &manifest.locations {
+            for file in manifest
+                .files
+                .iter()
+                .filter(|f| f.location_index == mloc.index)
+            {
+                let src = files_dir
+                    .join(mloc.index.to_string())
+                    .join(file.rel.replace('/', std::path::MAIN_SEPARATOR_STR));
+                if !src.is_file() {
+                    warnings.push(format!("Missing backup file: {}", file.rel));
                     continue;
                 }
-            }
-            match std::fs::copy(&src, &dest) {
-                Ok(bytes) => {
-                    restored_files += 1;
-                    total_bytes += bytes;
+                let dest = restore_dest(mloc, &file.rel);
+                if let Some(parent) = dest.parent() {
+                    if let Err(e) = std::fs::create_dir_all(parent) {
+                        warnings.push(format!("{}: {e}", dest.display()));
+                        continue;
+                    }
                 }
-                Err(e) => warnings.push(format!("{}: {e}", dest.display())),
+                match std::fs::copy(&src, &dest) {
+                    Ok(bytes) => {
+                        restored_files += 1;
+                        total_bytes += bytes;
+                    }
+                    Err(e) => warnings.push(format!("{}: {e}", dest.display())),
+                }
             }
         }
     }
@@ -504,9 +629,9 @@ pub fn restore_backup(
     })
 }
 
-/// Delete the on-disk snapshot directory (best effort) after its index row
-/// is removed. Refuses to touch paths outside `backup_dir`.
-pub fn delete_snapshot_dir(backup: &SaveBackup, backup_dir: &Path) {
+/// Delete a snapshot from disk (archive file or legacy directory, best
+/// effort). Refuses to touch paths outside `backup_dir`.
+pub fn delete_snapshot(backup: &SaveBackup, backup_dir: &Path) {
     if backup.root_path.is_empty() {
         return;
     }
@@ -518,7 +643,11 @@ pub fn delete_snapshot_dir(backup: &SaveBackup, backup_dir: &Path) {
         return;
     };
     if canon_target.starts_with(&canon_root) {
-        let _ = std::fs::remove_dir_all(canon_target);
+        if is_archive_path(&canon_target) {
+            let _ = std::fs::remove_file(canon_target);
+        } else {
+            let _ = std::fs::remove_dir_all(canon_target);
+        }
     }
 }
 
@@ -540,7 +669,7 @@ pub fn prune_backups(db: &Db, backup_dir: &Path, game_id: &str, retention: u32) 
     // Evict non-manual first, then manual, oldest-first within each group.
     doomed.sort_by_key(|b| (b.kind == "manual", b.created_at));
     for backup in doomed {
-        delete_snapshot_dir(&backup, backup_dir);
+        delete_snapshot(&backup, backup_dir);
         let _ = saves::delete_backup(db, &backup.id);
     }
 }
@@ -573,51 +702,149 @@ mod tests {
         assert_eq!(safe_component(""), "game");
     }
 
-    #[test]
-    fn backup_and_restore_round_trip() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db = Db::open(tmp.path()).unwrap();
-        super::super::super::db::migrate::run_migrations(&db).unwrap();
-
-        // Source save folder with two files.
-        let save_src = tmp.path().join("saves");
-        std::fs::create_dir_all(save_src.join("nested")).unwrap();
-        std::fs::write(save_src.join("slot1.sav"), b"hello").unwrap();
-        std::fs::write(save_src.join("nested/slot2.sav"), b"world!").unwrap();
-        // Ignored file must not be captured.
-        std::fs::write(save_src.join("debug.log"), b"noise").unwrap();
-
-        let loc = SaveLocation {
-            id: "loc-1".into(),
-            game_id: "g1".into(),
-            path: save_src.to_string_lossy().to_string(),
+    fn location(game_id: &str, path: &std::path::Path, kind: &str) -> SaveLocation {
+        SaveLocation {
+            id: format!("loc-{kind}"),
+            game_id: game_id.into(),
+            path: path.to_string_lossy().to_string(),
             label: "Saves".into(),
-            kind: "dir".into(),
+            kind: kind.into(),
             source: "manual".into(),
             include: true,
             created_at: 0,
             updated_at: 0,
             last_backup_at: None,
             last_restore_at: None,
-        };
+        }
+    }
+
+    #[test]
+    fn archive_backup_and_restore_round_trip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::open(tmp.path()).unwrap();
+        super::super::super::db::migrate::run_migrations(&db).unwrap();
+
+        // Source save folder with a nested file plus an ignored file.
+        let save_src = tmp.path().join("saves");
+        std::fs::create_dir_all(save_src.join("nested")).unwrap();
+        std::fs::write(save_src.join("slot1.sav"), b"hello").unwrap();
+        std::fs::write(save_src.join("nested/slot2.sav"), b"world!").unwrap();
+        std::fs::write(save_src.join("debug.log"), b"noise").unwrap();
+
+        let loc = location("g1", &save_src, "dir");
         saves::upsert_location(&db, loc.clone()).unwrap();
 
         let backup_dir = tmp.path().join("backups");
         let ignore = default_ignore_patterns();
-        // Engine emits progress; the test app handle is not available, so
-        // exercise the pure file logic through the public engine pieces.
-        let created = {
-            // Inline the create logic's filesystem steps without an AppHandle:
-            // reuse walk_files + manifest to validate capture/restore.
-            let mut collected = Vec::new();
-            walk_files(&save_src, &save_src, &ignore, &mut collected);
-            assert_eq!(collected.len(), 2, "debug.log should be ignored");
-            collected.iter().map(|f| f.rel.clone()).collect::<Vec<_>>()
-        };
-        assert!(created.iter().any(|r| r == "slot1.sav"));
-        assert!(created.iter().any(|r| r.contains("slot2.sav")));
+        let backup = create_backup(
+            None,
+            &db,
+            "g1",
+            "Game One",
+            &[loc],
+            "manual",
+            "test",
+            &backup_dir,
+            &ignore,
+        )
+        .unwrap();
 
-        // Prune with retention 0 is a no-op.
-        prune_backups(&db, &backup_dir, "g1", 0);
+        // One archive file on disk, not a directory tree.
+        assert!(backup.root_path.ends_with(".gisave"));
+        assert!(Path::new(&backup.root_path).is_file());
+        assert!(backup.manifest_path.is_empty());
+        assert_eq!(backup.status, "complete");
+        assert_eq!(backup.file_count, 2, "debug.log should be ignored");
+
+        let manifest = read_manifest(&backup).expect("manifest lives inside the archive");
+        assert_eq!(manifest.format, MANIFEST_FORMAT);
+        assert_eq!(manifest.files.len(), 2);
+
+        // Wipe the source, then restore straight from the archive.
+        std::fs::remove_dir_all(&save_src).unwrap();
+        let result = restore_backup(None, &db, &backup, false, &backup_dir, &ignore).unwrap();
+        assert_eq!(result.restored_files, 2);
+        assert!(result.warnings.is_empty());
+        assert_eq!(std::fs::read(save_src.join("slot1.sav")).unwrap(), b"hello");
+        assert_eq!(
+            std::fs::read(save_src.join("nested").join("slot2.sav")).unwrap(),
+            b"world!"
+        );
+        assert!(!save_src.join("debug.log").exists());
+
+        // Deleting removes the archive file itself.
+        delete_snapshot(&backup, &backup_dir);
+        assert!(!Path::new(&backup.root_path).exists());
+    }
+
+    #[test]
+    fn backup_with_no_capturable_files_is_failed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::open(tmp.path()).unwrap();
+        super::super::super::db::migrate::run_migrations(&db).unwrap();
+
+        let missing = location("g1", &tmp.path().join("does-not-exist"), "dir");
+        saves::upsert_location(&db, missing.clone()).unwrap();
+
+        let backup_dir = tmp.path().join("backups");
+        let backup = create_backup(
+            None,
+            &db,
+            "g1",
+            "Game One",
+            &[missing],
+            "manual",
+            "",
+            &backup_dir,
+            &default_ignore_patterns(),
+        )
+        .unwrap();
+
+        assert_eq!(backup.status, "failed");
+        assert_eq!(backup.file_count, 0);
+        assert!(backup
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("missing"));
+
+        // The archive stays self-describing even when it captured nothing.
+        assert!(read_manifest(&backup).is_some());
+    }
+
+    #[test]
+    fn restore_rejects_corrupt_archive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::open(tmp.path()).unwrap();
+        super::super::super::db::migrate::run_migrations(&db).unwrap();
+
+        let save_src = tmp.path().join("saves");
+        std::fs::create_dir_all(&save_src).unwrap();
+        std::fs::write(save_src.join("slot1.sav"), b"hello").unwrap();
+        let loc = location("g1", &save_src, "dir");
+        saves::upsert_location(&db, loc.clone()).unwrap();
+
+        let backup_dir = tmp.path().join("backups");
+        let backup = create_backup(
+            None,
+            &db,
+            "g1",
+            "Game One",
+            &[loc],
+            "manual",
+            "",
+            &backup_dir,
+            &default_ignore_patterns(),
+        )
+        .unwrap();
+
+        // Truncate the archive so it is no longer a readable zip.
+        std::fs::write(&backup.root_path, b"not a zip archive").unwrap();
+        assert!(read_manifest(&backup).is_none());
+
+        let err =
+            restore_backup(None, &db, &backup, false, &backup_dir, &default_ignore_patterns())
+                .unwrap_err();
+        assert!(err.contains("manifest"), "unexpected error: {err}");
     }
 }

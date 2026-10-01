@@ -1,8 +1,9 @@
 //! Save Backups — engine + Tauri commands.
 //!
 //! The suite has two persistence layers: this module's SQLite index
-//! (`saves.db`, see [`crate::db::saves`]) and the versioned snapshot
-//! directories written to disk by [`engine`]. Commands are the only
+//! (`saves.db`, see [`crate::db::saves`]) and the versioned `.gisave`
+//! snapshot archives written to disk by [`engine`] (legacy directory
+//! snapshots are still read). Commands are the only
 //! surface the frontend touches; detection lives in [`detect`] and the
 //! curated data in [`registry`].
 //!
@@ -439,7 +440,7 @@ pub fn saves_backup_game(
     let backup_dir = resolved_backup_dir(&app, &settings)?;
     std::fs::create_dir_all(&backup_dir).map_err(|e| format!("create backup dir: {e}"))?;
     let backup = engine::create_backup(
-        &app,
+        Some(&app),
         &db,
         &game.id,
         &game.name,
@@ -468,7 +469,7 @@ pub fn saves_backup_all(app: AppHandle) -> Result<Vec<SaveBackup>, String> {
             continue;
         }
         match engine::create_backup(
-            &app,
+            Some(&app),
             &db,
             &game.id,
             &game.name,
@@ -497,7 +498,7 @@ pub fn saves_restore_backup(app: AppHandle, backup_id: String) -> Result<Restore
         .ok_or_else(|| format!("Backup not found: {backup_id}"))?;
     let backup_dir = resolved_backup_dir(&app, &settings)?;
     let result = engine::restore_backup(
-        &app,
+        Some(&app),
         &db,
         &backup,
         settings.restore_safety_snapshot,
@@ -516,7 +517,7 @@ pub fn saves_delete_backup(app: AppHandle, backup_id: String) -> Result<u64, Str
     let settings = load_settings(&db);
     let backup_dir = resolved_backup_dir(&app, &settings)?;
     if let Some(backup) = saves::get_backup(&db, &backup_id)? {
-        engine::delete_snapshot_dir(&backup, &backup_dir);
+        engine::delete_snapshot(&backup, &backup_dir);
     }
     saves::delete_backup(&db, &backup_id)
 }
@@ -528,7 +529,7 @@ pub fn saves_delete_game_backups(app: AppHandle, game_id: String) -> Result<u64,
     let settings = load_settings(&db);
     let backup_dir = resolved_backup_dir(&app, &settings)?;
     for backup in saves::list_backups(&db, Some(&game_id))? {
-        engine::delete_snapshot_dir(&backup, &backup_dir);
+        engine::delete_snapshot(&backup, &backup_dir);
     }
     saves::delete_backups_for_game(&db, &game_id)
 }
@@ -559,14 +560,23 @@ pub fn saves_open_path(app: AppHandle, path: String) -> Result<(), String> {
         .map_err(|e| format!("open path: {e}"))
 }
 
-/// Reveal a snapshot directory.
+/// Reveal a snapshot in the OS file manager. Archives are revealed by
+/// their containing folder so the file is visible rather than launched.
 #[tauri::command]
 pub fn saves_open_backup(app: AppHandle, backup_id: String) -> Result<(), String> {
     let db = state_db(&app)?;
     let backup = saves::get_backup(&db, &backup_id)?
         .ok_or_else(|| format!("Backup not found: {backup_id}"))?;
+    let root = Path::new(&backup.root_path);
+    let target = if root.is_file() {
+        root.parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| backup.root_path.clone())
+    } else {
+        backup.root_path.clone()
+    };
     app.opener()
-        .open_path(backup.root_path, None::<&str>)
+        .open_path(target, None::<&str>)
         .map_err(|e| format!("open backup: {e}"))
 }
 
