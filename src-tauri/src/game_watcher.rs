@@ -248,10 +248,6 @@ pub struct SteamInstallChangedPayload {
 /// Owned inputs for one Steam-install scan, captured under the watcher
 /// lock so the scan's registry + library-folder I/O can run unlocked.
 struct SteamScanInputs {
-    /// `false` when a local Steam install can't be located. The scan then
-    /// emits nothing: an absent/unmounted Steam produces an empty
-    /// manifest map that must not be read as a wholesale uninstall.
-    steam_available: bool,
     /// AppID → fully-installed state observed at the previous scan,
     /// seeded from the library's declared install state on the first
     /// scan after an index rebuild (see `reconciled_baseline`).
@@ -350,6 +346,46 @@ fn diff_steam_install_transitions(
     (newly_installed, uninstalled)
 }
 
+/// Whether the contents of a present manifest must be read to learn its
+/// fully-installed state.
+///
+/// Only a manifest that wasn't already known fully installed can carry a
+/// *new* `StateFlags` value worth reading: a known-installed app stays
+/// installed while its manifest exists (Steam deleting the manifest is
+/// the uninstall signal, handled by presence), and an update's transient
+/// not-fully-installed state must not be re-announced as an install when
+/// it completes. Everything else — newly appeared manifests, and ones
+/// last seen mid-download — is read. This is what keeps a steady poll in
+/// a large library free of manifest reads.
+fn manifest_state_needs_read(previous: &HashMap<u32, bool>, appid: u32) -> bool {
+    !matches!(previous.get(&appid), Some(true))
+}
+
+/// Resolve the fully-installed state of every present manifest, reading
+/// only the manifests [`manifest_state_needs_read`] flags. Uninstall
+/// detection is purely presence-based, so a warmed-up poll performs one
+/// directory listing per library and no file reads at all.
+fn resolve_manifest_states(
+    paths: &HashMap<u32, PathBuf>,
+    previous: &HashMap<u32, bool>,
+) -> HashMap<u32, bool> {
+    let mut current = HashMap::with_capacity(paths.len());
+    for (appid, manifest_path) in paths {
+        let fully_installed = if manifest_state_needs_read(previous, *appid) {
+            match std::fs::read_to_string(manifest_path) {
+                Ok(raw) => steam_game_watcher::parse_appmanifest(&raw, *appid)
+                    .map(|parsed| parsed.is_fully_installed())
+                    .unwrap_or(true), // unparseable → assume installed
+                Err(_) => true, // unreadable → assume installed
+            }
+        } else {
+            true
+        };
+        current.insert(*appid, fully_installed);
+    }
+    current
+}
+
 /// Run one Steam manifest scan and emit `steam-install-changed` for every
 /// install-state transition. Disk I/O and `resolve_steam_game_exe` are
 /// slow, so this runs with the watcher lock released; the caller applies
@@ -359,15 +395,17 @@ fn run_steam_install_scan(
     inputs: SteamScanInputs,
     app_handle: &AppHandle,
 ) -> (HashMap<u32, bool>, HashSet<u32>) {
-    if !inputs.steam_available {
-        // Steam can't be located (never installed, uninstalled, or its
-        // drive unmounted). The manifest scan would come back empty, but
-        // that is not evidence of uninstall — keep the previous state and
-        // emit nothing.
+    // `None` means a local Steam install can't be located (never
+    // installed, uninstalled, or its drive unmounted). The manifest scan
+    // would come back empty, but that is not evidence of uninstall — keep
+    // the previous state and emit nothing. `Some(empty)` (Steam installed
+    // with zero manifests) is a real, empty observation and is diffed
+    // normally.
+    let Some(paths) = crate::steam::sync::scan_steam_manifest_paths() else {
         return (inputs.previous, inputs.missing_reported);
-    }
+    };
 
-    let current: HashMap<u32, bool> = crate::steam::sync::detect_steam_manifest_state();
+    let current = resolve_manifest_states(&paths, &inputs.previous);
 
     // A game whose manifest reappeared is no longer "missing", so a later
     // uninstall is announced again.
@@ -713,7 +751,6 @@ impl GameWatcher {
         };
 
         Some(SteamScanInputs {
-            steam_available: crate::steam::sync::steam_install_dir_available(),
             previous,
             missing_reported: self.steam_missing_reported.clone(),
             library: self.steam_library.clone(),
@@ -3380,6 +3417,52 @@ mod tests {
 
         assert_eq!(installed, vec![440]);
         assert!(uninstalled.is_empty());
+    }
+
+    #[test]
+    fn manifest_state_needs_read_only_for_unknown_or_incomplete() {
+        let previous = manifest_map(&[(1, true), (2, false)]);
+
+        assert!(
+            !manifest_state_needs_read(&previous, 1),
+            "a known-installed manifest must not be re-read"
+        );
+        assert!(
+            manifest_state_needs_read(&previous, 2),
+            "a mid-download manifest must be re-read to catch completion"
+        );
+        assert!(
+            manifest_state_needs_read(&previous, 3),
+            "a newly appeared manifest must be read"
+        );
+    }
+
+    #[test]
+    fn resolve_manifest_states_skips_reads_for_known_installed_apps() {
+        // The file on disk is mid-download (StateFlags 1026 lacks bit 4).
+        // A known-installed app must ignore it without a read; an app not
+        // seen before must read it and report not-fully-installed.
+        let tmp = tempfile::tempdir().unwrap();
+        let manifest = tmp.path().join("appmanifest_440.acf");
+        std::fs::write(
+            &manifest,
+            r#""AppState"
+{
+    "appid"  "440"
+    "name"  "Team Fortress 2"
+    "installdir"  "tf"
+    "StateFlags"  "1026"
+}
+"#,
+        )
+        .unwrap();
+        let paths: HashMap<u32, PathBuf> = [(440u32, manifest)].into_iter().collect();
+
+        let known = resolve_manifest_states(&paths, &manifest_map(&[(440, true)]));
+        assert_eq!(known.get(&440), Some(&true));
+
+        let unseen = resolve_manifest_states(&paths, &HashMap::new());
+        assert_eq!(unseen.get(&440), Some(&false));
     }
 
     #[test]

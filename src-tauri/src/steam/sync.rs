@@ -567,9 +567,10 @@ pub struct SteamManifestState {
 }
 
 /// Scan every `appmanifest_<appid>.acf` under the Steam library folders
-/// and report each AppID's state. This is the single disk scan behind
-/// both the background watcher's install/uninstall detection and the
-/// sync flow.
+/// and report each AppID's full state, reading every manifest. Backs the
+/// sync flow (which needs install dirs, owners and DLC lists); the
+/// background watcher's install/uninstall detection uses the cheaper
+/// presence-only [`scan_steam_manifest_paths`] instead.
 ///
 /// The *presence* of a manifest is the load-bearing signal: Steam deletes
 /// the file entirely when a game is uninstalled, but keeps it (and merely
@@ -580,52 +581,80 @@ pub struct SteamManifestState {
 /// installed (historic behaviour — better to over-count than to lose a
 /// tracked game).
 pub fn scan_steam_manifests() -> std::collections::HashMap<u32, SteamManifestState> {
-    let library_folders = find_steam_library_folders();
-    let mut states = std::collections::HashMap::new();
+    let Some(paths) = scan_steam_manifest_paths() else {
+        return std::collections::HashMap::new();
+    };
 
+    let mut states = std::collections::HashMap::with_capacity(paths.len());
+    for (appid, manifest_path) in paths {
+        // The library's `steamapps` dir is the manifest's parent, so the
+        // install root composes identically to `game_install_path`
+        // without a second manifest read.
+        let steamapps_dir = manifest_path.parent();
+        let (fully_installed, install_dir, last_owner, installed_dlcs) =
+            match fs::read_to_string(&manifest_path) {
+                Ok(raw) => match steam_game_watcher::parse_appmanifest(&raw, appid) {
+                    Some(parsed) => (
+                        parsed.is_fully_installed(),
+                        steamapps_dir.map(|dir| dir.join("common").join(&parsed.install_dir)),
+                        parsed.last_owner,
+                        parsed.installed_dlcs,
+                    ),
+                    None => (true, None, None, Vec::new()), // unparseable → assume installed
+                },
+                Err(_) => (true, None, None, Vec::new()), // unreadable → assume installed
+            };
+        states.insert(
+            appid,
+            SteamManifestState {
+                fully_installed,
+                install_dir,
+                last_owner,
+                installed_dlcs,
+            },
+        );
+    }
+
+    states
+}
+
+/// Presence-only scan of every `appmanifest_<appid>.acf` under the Steam
+/// library folders. Maps AppID → manifest path and reads **no file
+/// contents**, so it stays cheap on very large libraries.
+///
+/// This is the primitive behind the background watcher's uninstall
+/// detection: Steam deletes the manifest on uninstall, so the *set* of
+/// files on disk is the signal, and re-reading every manifest to learn
+/// `StateFlags` (as [`scan_steam_manifests`] must for sync) is wasted I/O.
+///
+/// Returns `None` when no local Steam install can be located, which the
+/// caller must distinguish from "Steam with zero manifests" — only the
+/// former makes an empty result meaningless rather than a wholesale
+/// uninstall.
+pub fn scan_steam_manifest_paths() -> Option<HashMap<u32, PathBuf>> {
+    let library_folders = find_steam_library_folders();
+    if library_folders.is_empty() {
+        return None;
+    }
+
+    let mut paths = HashMap::new();
     for folder in &library_folders {
-        if let Ok(entries) = fs::read_dir(folder) {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                if name_str.starts_with("appmanifest_") && name_str.ends_with(".acf") {
-                    let id_str =
-                        &name_str["appmanifest_".len()..name_str.len() - ".acf".len()];
-                    if let Ok(appid) = id_str.parse::<u32>() {
-                        let manifest_path = entry.path();
-                        // `folder` is the library's `steamapps` dir, so
-                        // the install root composes identically to
-                        // `game_install_path` without a second manifest read.
-                        let (fully_installed, install_dir, last_owner, installed_dlcs) =
-                            match fs::read_to_string(&manifest_path) {
-                                Ok(raw) => match steam_game_watcher::parse_appmanifest(&raw, appid)
-                                {
-                                    Some(parsed) => (
-                                        parsed.is_fully_installed(),
-                                        Some(folder.join("common").join(&parsed.install_dir)),
-                                        parsed.last_owner,
-                                        parsed.installed_dlcs,
-                                    ),
-                                    None => (true, None, None, Vec::new()), // unparseable → assume installed
-                                },
-                                Err(_) => (true, None, None, Vec::new()), // unreadable → assume installed
-                            };
-                        states.insert(
-                            appid,
-                            SteamManifestState {
-                                fully_installed,
-                                install_dir,
-                                last_owner,
-                                installed_dlcs,
-                            },
-                        );
-                    }
+        let Ok(entries) = fs::read_dir(folder) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with("appmanifest_") && name_str.ends_with(".acf") {
+                let id_str = &name_str["appmanifest_".len()..name_str.len() - ".acf".len()];
+                if let Ok(appid) = id_str.parse::<u32>() {
+                    paths.insert(appid, entry.path());
                 }
             }
         }
     }
 
-    states
+    Some(paths)
 }
 
 /// Install-state-only view of a manifest scan (see [`scan_steam_manifests`]).
@@ -636,23 +665,12 @@ pub fn detect_steam_manifest_state() -> std::collections::HashMap<u32, bool> {
         .collect()
 }
 
-/// Whether a local Steam install — and therefore its library folders —
-/// can be located right now.
-///
-/// This is deliberately distinct from "the scan returned zero
-/// manifests": a Steam install with no games still scans `true`, while
-/// an absent Steam (or an unmounted library drive, which drops out of
-/// `find_steam_library_folders`) scans `false`. The watcher uses it to
-/// avoid treating an unavailable Steam as a wholesale uninstall.
-pub fn steam_install_dir_available() -> bool {
-    steam_game_watcher::find_steam_install_dir().is_some()
-}
-
 /// AppIDs whose games are fully installed (subset of the manifest
 /// state — see `detect_steam_manifest_state`). Kept as a convenience
 /// for callers that only care about the playable set; currently
-/// exercised by the integration tests (the live sync and the watcher
-/// both consume the richer per-appid map directly).
+/// exercised by the integration tests (the live sync consumes the
+/// richer per-appid map directly, and the watcher uses the
+/// presence-only [`scan_steam_manifest_paths`]).
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn detect_installed_steam_appids() -> Vec<u32> {
     let mut installed: Vec<u32> = detect_steam_manifest_state()
