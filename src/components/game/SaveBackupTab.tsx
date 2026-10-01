@@ -24,6 +24,7 @@ import {
   SAVE_KIND_LABEL_KEY,
   SAVE_SOURCE_LABEL_KEY,
   type SaveBackup,
+  type SaveBackupKind,
   type SaveLocation,
 } from "../../types/saves";
 
@@ -66,7 +67,7 @@ function statusVariant(status: string): "success" | "warning" | "danger" {
 }
 
 type GameSubtab = "snapshots" | "locations" | "settings";
-type SnapshotKindFilter = "all" | "manual" | "auto_exit" | "pre_restore";
+type SnapshotKindFilter = "all" | SaveBackupKind;
 
 interface SaveBackupTabProps {
   gameId: string;
@@ -541,15 +542,15 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
               </button>
               <button
                 type="button"
-                className={`saves-filter-pill ${kindFilter === "auto_exit" ? "active" : ""}`}
-                onClick={() => setKindFilter("auto_exit")}
+                className={`saves-filter-pill ${kindFilter === "auto-exit" ? "active" : ""}`}
+                onClick={() => setKindFilter("auto-exit")}
               >
                 <span>{t("saves.kind.autoExit")}</span>
               </button>
               <button
                 type="button"
-                className={`saves-filter-pill ${kindFilter === "pre_restore" ? "active" : ""}`}
-                onClick={() => setKindFilter("pre_restore")}
+                className={`saves-filter-pill ${kindFilter === "pre-restore" ? "active" : ""}`}
+                onClick={() => setKindFilter("pre-restore")}
               >
                 <span>{t("saves.kind.preRestore")}</span>
               </button>
@@ -587,7 +588,7 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
                           variant={
                             backup.kind === "manual"
                               ? "accent"
-                              : backup.kind === "pre_restore"
+                              : backup.kind === "pre-restore"
                                 ? "warning"
                                 : "info"
                           }

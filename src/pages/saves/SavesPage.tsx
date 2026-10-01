@@ -23,7 +23,7 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { Badge, Button, ConfirmModal, KpiTile, PageHeader, Skeleton } from "../../components/ui";
 import PageWidget from "../../components/PageWidget";
 import { formatRelative } from "../../components/game/SaveBackupTab";
-import { SAVE_KIND_LABEL_KEY, type SaveBackup, type SaveLocation } from "../../types/saves";
+import { SAVE_KIND_LABEL_KEY, type SaveBackup, type SaveBackupKind, type SaveLocation } from "../../types/saves";
 import { gameDisplayName, type Game } from "../../types/game";
 import BackupTab from "../settings/BackupTab";
 import SettingsToggleCard from "../settings/SettingsToggleCard";
@@ -118,7 +118,7 @@ export default function SavesPage() {
   // ─── Subtab 2: Snapshot timeline filters ────────────────────────────────────
   const [snapshotSearch, setSnapshotSearch] = useState("");
   const [snapshotGameFilter, setSnapshotGameFilter] = useState<string>("all");
-  const [snapshotKindFilter, setSnapshotKindFilter] = useState<string>("all");
+  const [snapshotKindFilter, setSnapshotKindFilter] = useState<"all" | SaveBackupKind>("all");
   const [snapshotSort, setSnapshotSort] = useState<SnapshotSort>("newest");
 
   const loadLists = useCallback(async () => {
@@ -750,13 +750,13 @@ export default function SavesPage() {
             <select
               className="saves-sort-select"
               value={snapshotKindFilter}
-              onChange={(e) => setSnapshotKindFilter(e.target.value)}
+              onChange={(e) => setSnapshotKindFilter(e.target.value as "all" | SaveBackupKind)}
               aria-label={t("saves.filterByType")}
             >
               <option value="all">{t("saves.snapshots.allKinds")}</option>
               <option value="manual">{t("saves.kind.manual")}</option>
-              <option value="auto_exit">{t("saves.kind.autoExit")}</option>
-              <option value="pre_restore">{t("saves.kind.preRestore")}</option>
+              <option value="auto-exit">{t("saves.kind.autoExit")}</option>
+              <option value="pre-restore">{t("saves.kind.preRestore")}</option>
             </select>
 
             {/* Sort Selector Dropdown */}
@@ -802,7 +802,7 @@ export default function SavesPage() {
                             variant={
                               backup.kind === "manual"
                                 ? "accent"
-                                : backup.kind === "pre_restore"
+                                : backup.kind === "pre-restore"
                                   ? "warning"
                                   : "info"
                             }
