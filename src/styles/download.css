@@ -6707,6 +6707,24 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   flex-shrink: 0;
 }
 
+.dl-compare-clear-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-compare-clear-btn:hover {
+  background: color-mix(in srgb, var(--color-danger) 22%, transparent);
+  border-color: var(--color-danger);
+}
+
 .dl-compare-open-btn {
   padding: 6px 14px;
   border-radius: var(--radius-full);
@@ -6715,6 +6733,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   color: var(--color-accent-contrast);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
+  white-space: nowrap;
   cursor: pointer;
 }
 

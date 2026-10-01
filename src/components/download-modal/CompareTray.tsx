@@ -42,7 +42,7 @@ export function CompareTray({
         ))}
       </div>
       <div className="dl-compare-tray-actions">
-        <button type="button" className="dl-toolbar-reset-btn" onClick={onClear} title={t("common.clear")}>
+        <button type="button" className="dl-compare-clear-btn" onClick={onClear} title={t("common.clear")}>
           {t("common.clear")}
         </button>
         <button type="button" className="dl-compare-open-btn" onClick={onOpen}>
