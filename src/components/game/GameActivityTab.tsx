@@ -10,6 +10,7 @@ import { buildTimelineFromSessions, buildSingleSessionSeries } from "../../utils
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { GameActivityPlaytimeView } from "./GameActivityPlaytimeView";
 import { GameActivityPerformanceView } from "./GameActivityPerformanceView";
 import { GameActivitySessionsView } from "./GameActivitySessionsView";
@@ -45,10 +46,10 @@ export function GameActivityTab({ game }: { game: Game }) {
     void ensureSamplesFor(sessions.map((s) => s.id));
   }, [sessions, ensureSamplesFor]);
 
-  const [viewMode, setViewMode] = useState<ViewMode>("playtime");
+  const [viewMode, setViewMode] = usePersistedState<ViewMode>("gamelib.game_activity.view_mode_v1", "playtime", ["playtime", "performance", "sessions", "habits"]);
   const [timeframe, setTimeframe] = useState<Timeframe>("30d");
-  const [playtimeChartStyle, setPlaytimeChartStyle] = useState<PlaytimeChartStyle>("bar");
-  const [playtimeAgg, setPlaytimeAgg] = useState<PlaytimeAggregation>("AGG_DAY");
+  const [playtimeChartStyle, setPlaytimeChartStyle] = usePersistedState<PlaytimeChartStyle>("gamelib.game_activity.playtime_chart_style_v1", "bar", ["bar", "line"]);
+  const [playtimeAgg, setPlaytimeAgg] = usePersistedState<PlaytimeAggregation>("gamelib.game_activity.playtime_aggregation_v1", "AGG_DAY", ["AGG_DAY", "AGG_WEEK", "AGG_MONTH"]);
   const [isolatedSessionIndex, setIsolatedSessionIndex] = useState<number | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);

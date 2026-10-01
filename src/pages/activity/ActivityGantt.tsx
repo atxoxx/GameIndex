@@ -8,6 +8,7 @@ import { formatPlayTime, gameDisplayName } from "../../types/game";
 import { SessionInspectorModal } from "../../components/activity/SessionInspectorModal";
 import { GameThumbnail } from "./GameThumbnail";
 import * as Icons from "./Icons";
+import { usePersistedState } from "../../hooks/usePersistedState";
 
 export interface ActivityGanttProps {
   sessions: GameSession[];
@@ -140,7 +141,7 @@ export function ActivityGantt({
   const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [minDurationFilter, setMinDurationFilter] = useState<number>(0);
-  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
+  const [density, setDensity] = usePersistedState<"comfortable" | "compact">("gamelib.activity.gantt.density_v1", "comfortable", ["comfortable", "compact"]);
   const [inspectedSessionId, setInspectedSessionId] = useState<string | null>(null);
   const [hover, setHover] = useState<{
     seg: Segment;

@@ -19,6 +19,7 @@ import PageWidget from "../components/PageWidget";
 import { Segmented, ManualSessionModal } from "../components/activity";
 import type { DateRangeKey } from "../components/activity";
 import { useLanguage } from "../context/LanguageContext";
+import { usePersistedState } from "../hooks/usePersistedState";
 import "./activity/ActivityPage.css";
 import "../styles/activity.css";
 
@@ -34,10 +35,10 @@ export default function ActivityPage() {
   const { getAllNotes } = useSessionNotes();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
+  const [activeTab, setActiveTab] = usePersistedState<TabType>("gamelib.activity_page.tab_v1", "dashboard", ["dashboard", "timeline", "sessions", "performance"]);
   const [dateRange, setDateRange] = useState<DateRangeKey>("7d");
-  const [aggregation, setAggregation] = useState<AggregationType>("day");
-  const [chartType, setChartType] = useState<ChartType>("bar");
+  const [aggregation, setAggregation] = usePersistedState<AggregationType>("gamelib.activity_page.aggregation_v1", "day", ["day", "week", "month"]);
+  const [chartType, setChartType] = usePersistedState<ChartType>("gamelib.activity_page.chart_type_v1", "bar", ["bar", "line"]);
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [manualSessionOpen, setManualSessionOpen] = useState(false);
 

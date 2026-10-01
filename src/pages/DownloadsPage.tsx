@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useDownloads } from "../context/DownloadContext";
 import { useToast } from "../context/ToastContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
+import { usePersistedState } from "../hooks/usePersistedState";
 import {
   compareDownloads,
   formatBytesShort,
@@ -50,8 +51,16 @@ export default function DownloadsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<DownloadStatusFilter>("all");
   const [sort, setSort] = useState<DownloadSort>("added-desc");
-  const [viewMode, setViewMode] = useState<DownloadViewMode>("detailed");
-  const [activeTab, setActiveTab] = useState<DownloadsTabKey>("active");
+  const [viewMode, setViewMode] = usePersistedState<DownloadViewMode>(
+    "gamelib.downloads.view_mode_v1",
+    "detailed",
+    ["detailed", "grid", "compact"],
+  );
+  const [activeTab, setActiveTab] = usePersistedState<DownloadsTabKey>(
+    "gamelib.downloads.tab_v1",
+    "active",
+    ["active", "scheduled", "history"],
+  );
 
   // ── Multi-select state ───────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

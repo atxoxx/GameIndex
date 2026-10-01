@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { useToast } from "../../context/ToastContext";
 import type {
   DealItem,
@@ -39,7 +40,11 @@ export default function DealsPage() {
   const { t } = useLanguage();
   const { showToast } = useToast();
 
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>("gamepass");
+  const [activeSubTab, setActiveSubTab] = usePersistedState<SubTab>(
+    "gamelib.deals.sub_tab_v1",
+    "gamepass",
+    ["gamepass", "isthereanydeal", "giveaways", "playtester"],
+  );
 
   const [gpFilters, setGpFilters] = useState<GamePassFiltersState>(DEFAULT_GP_FILTERS);
   const [gpGames, setGpGames] = useState<GamePassGame[]>([]);

@@ -19,6 +19,7 @@ import type {
   RequirementsSpec,
 } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 
 /**
  * SystemRequirementsCard
@@ -186,7 +187,7 @@ export default function SystemRequirementsCard({
   steamAppId,
 }: SystemRequirementsCardProps) {
   const { t } = useLanguage();
-  const [activeTier, setActiveTier] = useState<Tier>("recommended");
+  const [activeTier, setActiveTier] = usePersistedState<Tier>("gamelib.game.system_requirements.tier_v1", "recommended", ["minimum", "recommended"]);
   const [payload, setPayload] = useState<PcRequirementsPayload | null>(null);
   const [loaded, setLoaded] = useState(false);
   // Tracks whether the user has explicitly chosen a tier via the

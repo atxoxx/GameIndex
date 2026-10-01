@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { type GameSession, type Game, formatPlayTime, parsePlayTime } from "../../types/game";
 import BarChart from "../charts/BarChart";
 import LineChart from "../charts/LineChart";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import {
   SectionPanel,
   Segmented,
@@ -57,7 +58,7 @@ export function GameActivityPlaytimeView({
   milestones,
 }: GameActivityPlaytimeViewProps) {
   const { t, language } = useLanguage();
-  const [chartMode, setChartMode] = useState<"periodic" | "cumulative">("periodic");
+  const [chartMode, setChartMode] = usePersistedState<"periodic" | "cumulative">("gamelib.game_activity.playtime.chart_mode_v1", "periodic", ["periodic", "cumulative"]);
 
   const periodicFocus = useFocusProps(() => setChartMode("periodic"));
   const cumulativeFocus = useFocusProps(() => setChartMode("cumulative"));

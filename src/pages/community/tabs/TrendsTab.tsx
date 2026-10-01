@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Card } from "../../../components/ui";
+import { usePersistedState } from "../../../hooks/usePersistedState";
 import BarChart from "../../../components/charts/BarChart";
 import DonutChart from "../../../components/charts/DonutChart";
 import {
@@ -30,7 +31,11 @@ interface TrendsTabProps {
 
 export function TrendsTab({ sessions, games }: TrendsTabProps) {
   const { t } = useLanguage();
-  const [trendHorizon, setTrendHorizon] = useState<"6m" | "12m" | "8w">("6m");
+  const [trendHorizon, setTrendHorizon] = usePersistedState<"6m" | "12m" | "8w">(
+    "gamelib.community.trends.horizon_v1",
+    "6m",
+    ["6m", "12m", "8w"],
+  );
 
   // Trends calculation
   const monthlyTrend6 = useMemo(() => computeMonthlyTrend(sessions, 6), [sessions]);

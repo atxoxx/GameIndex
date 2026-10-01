@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import type { Friend, FriendCircle, FriendInvitation } from "./friendsTypes";
 import FriendCard from "./FriendCard";
 import {
@@ -65,7 +66,11 @@ export default function FriendsListTab({
   const [filterState, setFilterState] = useState<"all" | "online" | "ingame" | "pinned" | "blocked">("all");
   const [sortOption, setSortOption] = useState<"default" | "name" | "recent" | "online">("default");
   const [selectedCircleId, setSelectedCircleId] = useState<string>("all");
-  const [density, setDensity] = useState<"grid" | "list">("grid");
+  const [density, setDensity] = usePersistedState<"grid" | "list">(
+    "gamelib.friends.list.density_v1",
+    "grid",
+    ["grid", "list"],
+  );
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 

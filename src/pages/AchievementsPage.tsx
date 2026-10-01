@@ -6,6 +6,7 @@ import { useAchievements } from "../context/AchievementContext";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
+import { usePersistedState } from "../hooks/usePersistedState";
 import {
   type AchievementSource,
   gameDisplayName,
@@ -58,7 +59,7 @@ export default function AchievementsPage() {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("completion");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = usePersistedState<ViewMode>("gamelib.achievements_page.view_mode_v1", "grid", ["grid", "list"]);
   const [bulkSyncing, setBulkSyncing] = useState(false);
 
   // Aggregate gamerscore points across the library (backend-computed).

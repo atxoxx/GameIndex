@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import type {
   GameSession,
   UserProfile,
@@ -68,8 +69,16 @@ export default function FriendsSessionsTab({
   onTogglePinMessage,
 }: FriendsSessionsTabProps) {
   const { t } = useLanguage();
-  const [viewMode, setViewMode] = useState<"upcoming" | "past" | "agenda">("upcoming");
-  const [agendaMode, setAgendaMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = usePersistedState<"upcoming" | "past" | "agenda">(
+    "gamelib.friends.sessions.view_mode_v1",
+    "upcoming",
+    ["upcoming", "past", "agenda"],
+  );
+  const [agendaMode, setAgendaMode] = usePersistedState<"grid" | "list">(
+    "gamelib.friends.sessions.agenda_mode_v1",
+    "grid",
+    ["grid", "list"],
+  );
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "mine" | "going">("all");
   const [searchQuery, setSearchQuery] = useState("");

@@ -6,8 +6,9 @@
 // interactive element is a dedicated component so useFocusable counts
 // stay stable.
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { usePersistedState } from "../../../hooks/usePersistedState";
 import type { UserProfile } from "../../../pages/friendsStorage";
 import {
   type CompareItem,
@@ -27,7 +28,11 @@ export default function CompareTab({
   selfStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number };
 }) {
   const { t } = useLanguage();
-  const [subTab, setSubTab] = useState<CompareSubTab>("compare");
+  const [subTab, setSubTab] = usePersistedState<CompareSubTab>(
+    "gamelib.bigscreen.friends.compare.tab_v1",
+    "compare",
+    ["compare", "leaderboard", "race"],
+  );
 
   return (
     <div className="bigscreen-compare">
@@ -103,7 +108,11 @@ function CompareBody({
   selfStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number };
 }) {
   const { t } = useLanguage();
-  const [view, setView] = useState<CmpView>("overview");
+  const [view, setView] = usePersistedState<CmpView>(
+    "gamelib.bigscreen.friends.compare.view_v1",
+    "overview",
+    ["overview", "games", "genres", "insights"],
+  );
   const { compareFriend, comparisonData, matchScore, compatibilityScore } = social;
 
   return (

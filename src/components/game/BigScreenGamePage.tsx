@@ -45,6 +45,7 @@ import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -150,7 +151,7 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
   const status = PLAY_STATUS_DETAILS[game.playStatus || "backlog"];
 
   // Tab state + lightbox state.
-  const [activeTab, setActiveTab] = useState<GamePageTab>("overview");
+  const [activeTab, setActiveTab] = usePersistedState<GamePageTab>("gamelib.bigscreen.game_page.tab_v1", "overview", ["overview", "media", "specs", "achievements", "reviews", "activity", "more"]);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);

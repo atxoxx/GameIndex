@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { usePersistedState } from "../../../hooks/usePersistedState";
 import { useFocusable } from "../../../hooks/useFocusable";
 import { useGames } from "../../../context/GameContext";
 import { useWishlistContext } from "../../../context/WishlistContext";
@@ -27,7 +28,11 @@ type SugFilter = "all" | "by_me" | "to_me" | "added" | "unadded";
 
 export default function SocialTab({ social, profileName }: { social: UseFriendsSocialResult; profileName: string }) {
   const { t } = useLanguage();
-  const [subTab, setSubTab] = useState<SocialSubTab>("recs");
+  const [subTab, setSubTab] = usePersistedState<SocialSubTab>(
+    "gamelib.bigscreen.friends.social.tab_v1",
+    "recs",
+    ["recs", "suggestions"],
+  );
   const [recFilter, setRecFilter] = useState<RecFilter>("all");
   const [sugFilter, setSugFilter] = useState<SugFilter>("all");
   const [showRecComposer, setShowRecComposer] = useState(false);

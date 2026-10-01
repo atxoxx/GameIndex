@@ -41,6 +41,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { usePersistedState } from "../../../hooks/usePersistedState";
 import {
   DEFAULT_NAVBAR_BUTTON_ORDER,
   DEFAULT_NAVBAR_TAB_ORDER,
@@ -220,7 +221,11 @@ export default function LayoutStudio() {
 
   const [activePage, setActivePage] = useState<InterfacePageKey>("global");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [viewport, setViewport] = useState<ViewportPreset>("desktop");
+  const [viewport, setViewport] = usePersistedState<ViewportPreset>(
+    "gamelib.settings.layout_studio.viewport_v1",
+    "desktop",
+    ["desktop", "handheld", "ultrawide", "compact"],
+  );
   const [inspectMode, setInspectMode] = useState(false);
   const pagesNavRef = useRef<HTMLElement>(null);
   const [canScrollPagesLeft, setCanScrollPagesLeft] = useState(false);

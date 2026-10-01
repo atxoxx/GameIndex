@@ -4,6 +4,7 @@ import { useAchievements } from "../context/AchievementContext";
 import { useGames } from "../context/GameContext";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useFocusable } from "../hooks/useFocusable";
+import { usePersistedState } from "../hooks/usePersistedState";
 import {
   type Game,
   type AchievementSource,
@@ -97,7 +98,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [rarityFilter, setRarityFilter] = useState<"all" | AchievementRarity>("all");
   const [sort, setSort] = useState<SortKey>("default");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = usePersistedState<ViewMode>("gamelib.achievements_tab.view_mode_v1", "grid", ["grid", "list", "timeline"]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSecretAchievements, setShowSecretAchievements] = useState(false);
   const [syncing, setSyncing] = useState(false);

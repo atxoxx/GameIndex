@@ -33,6 +33,7 @@ import {
 } from "../../../utils/gameNotes";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
+import { usePersistedState } from "../../../hooks/usePersistedState";
 import { TagInput } from "../../ui/TagInput";
 import Markdown from "./markdown";
 
@@ -88,7 +89,7 @@ export default function NoteEditor({
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [tags, setTags] = useState(note.tags);
-  const [mode, setMode] = useState<EditorMode>("write");
+  const [mode, setMode] = usePersistedState<EditorMode>("gamelib.game_notes.editor_mode_v1", "write", ["write", "preview", "split"]);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [copied, setCopied] = useState(false);
 

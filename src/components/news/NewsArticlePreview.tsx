@@ -8,6 +8,7 @@ import type { NewsArticle } from "../../hooks/useNewsFeeds";
 import { formatArticleDate, estimateReadingTime } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 
 interface NewsArticlePreviewProps {
   article: NewsArticle | null;
@@ -45,10 +46,10 @@ export default function NewsArticlePreview({
 
   const [shareCopied, setShareCopied] = useState(false);
   const [markdownCopied, setMarkdownCopied] = useState(false);
-  const [previewMode, setPreviewMode] = useState<PreviewMode>("reader");
-  const [fontSize, setFontSize] = useState<FontSize>("md");
-  const [readerTheme, setReaderTheme] = useState<ReaderTheme>("dark");
-  const [fontFamily, setFontFamily] = useState<FontFamily>("sans");
+  const [previewMode, setPreviewMode] = usePersistedState<PreviewMode>("gamelib.news.preview_mode_v1", "reader", ["reader", "full"]);
+  const [fontSize, setFontSize] = usePersistedState<FontSize>("gamelib.news.reader_font_size_v1", "md", ["sm", "md", "lg", "xl"]);
+  const [readerTheme, setReaderTheme] = usePersistedState<ReaderTheme>("gamelib.news.reader_theme_v1", "dark", ["dark", "oled", "sepia", "slate"]);
+  const [fontFamily, setFontFamily] = usePersistedState<FontFamily>("gamelib.news.reader_font_family_v1", "sans", ["sans", "serif", "mono"]);
   const [readProgress, setReadProgress] = useState(0);
 
   // Text-To-Speech (TTS) states

@@ -7,6 +7,7 @@ import type { Game } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import type { Emulator, DuplicateGroup } from "../../types/emulator";
 import { formatBytesShort } from "../../types/download";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { Button } from "../ui";
 import EmulatorRomBulkBar from "./EmulatorRomBulkBar";
 import EmulatorRomGridView from "./EmulatorRomGridView";
@@ -63,7 +64,11 @@ function EmulatorRomManagerBase({
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<RomSortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [viewMode, setViewMode] = useState<RomViewMode>("grid");
+  const [viewMode, setViewMode] = usePersistedState<RomViewMode>(
+    "gamelib.emulators.rom_view_mode_v1",
+    "grid",
+    ["grid", "table"],
+  );
   const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(new Set());
   const { showToast } = useToast();
 

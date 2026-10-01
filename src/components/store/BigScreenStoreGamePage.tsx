@@ -12,6 +12,7 @@ import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import PlayerCountBadge from "../PlayerCountBadge";
 import DownloadModal from "../DownloadModal";
 import BigScreenHeroBackground from "../game/BigScreenHeroBackground";
@@ -82,7 +83,7 @@ export default function BigScreenStoreGamePage() {
   const [adding, setAdding] = useState(false);
 
   // Tab + Lightbox state
-  const [activeTab, setActiveTab] = useState<StorePageTab>("overview");
+  const [activeTab, setActiveTab] = usePersistedState<StorePageTab>("gamelib.bigscreen.store_game_page.tab_v1", "overview", ["overview", "media", "specs", "achievements", "more"]);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);

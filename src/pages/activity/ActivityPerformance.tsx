@@ -21,6 +21,7 @@ import { PerformanceOverview } from "./performance/PerformanceOverview";
 import { PerformanceComparison, type ComparisonMetric } from "./performance/PerformanceComparison";
 import { PerformanceBoard } from "./performance/PerformanceBoard";
 import { PerformanceTimeline } from "./performance/PerformanceTimeline";
+import { usePersistedState } from "../../hooks/usePersistedState";
 
 export interface ActivityPerformanceProps {
   sessions: GameSession[];
@@ -40,7 +41,7 @@ export function ActivityPerformance({
   const { t } = useLanguage();
   const { totalRamGb, selectedGpu, ensureSamplesFor } = useActivity();
   const { tempUnit } = useSettings();
-  const [metricTab, setMetricTab] = useState<ComparisonMetric>("fps");
+  const [metricTab, setMetricTab] = usePersistedState<ComparisonMetric>("gamelib.activity.performance.metric_tab_v1", "fps", ["fps", "temps", "ram"]);
   const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
   const [compareModalOpen, setCompareModalOpen] = useState(false);
 

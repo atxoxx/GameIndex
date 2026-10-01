@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import type { Friend, UserProfile, SharedGameStat } from "./friendsTypes";
 import {
   displayName,
@@ -49,7 +50,11 @@ export default function FriendsLeaderboardTab({
   onSelectFriend,
 }: FriendsLeaderboardTabProps) {
   const { t } = useLanguage();
-  const [metric, setMetric] = useState<LeaderboardMetric>("achievements");
+  const [metric, setMetric] = usePersistedState<LeaderboardMetric>(
+    "gamelib.friends.leaderboard.metric_v1",
+    "achievements",
+    ["achievements", "playtime", "library", "completion"],
+  );
 
   // Calculate self average completion rate
   const selfCompletionRate = useMemo(() => {

@@ -4,6 +4,7 @@ import { open as tauriOpen } from "@tauri-apps/plugin-dialog";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
+import { usePersistedState } from "../../../hooks/usePersistedState";
 import { Button, Card } from "../../../components/ui";
 import {
   loadFavorites,
@@ -394,7 +395,11 @@ export function CapturesTab({ games }: CapturesTabProps) {
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [showFavOnly, setShowFavOnly] = useState(false);
   const [mediaTypeFilter, setMediaTypeFilter] = useState<"all" | "images" | "videos">("all");
-  const [viewMode, setViewMode] = useState<"grouped" | "grid">("grouped");
+  const [viewMode, setViewMode] = usePersistedState<"grouped" | "grid">(
+    "gamelib.community.captures.view_mode_v1",
+    "grouped",
+    ["grouped", "grid"],
+  );
   const [allExpanded, setAllExpanded] = useState(false);
 
   // Lightbox & Slideshow

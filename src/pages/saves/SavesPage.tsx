@@ -20,6 +20,7 @@ import { useSaves } from "../../context/SavesContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { Badge, Button, ConfirmModal, KpiTile, PageHeader, Skeleton } from "../../components/ui";
 import PageWidget from "../../components/PageWidget";
 import { formatRelative } from "../../components/game/SaveBackupTab";
@@ -113,7 +114,11 @@ export default function SavesPage() {
   const [gameSearch, setGameSearch] = useState("");
   const [gameFilter, setGameFilter] = useState<GameFilter>("all");
   const [gameSort, setGameSort] = useState<GameSort>("name");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = usePersistedState<"grid" | "list">(
+    "gamelib.saves.view_mode_v1",
+    "grid",
+    ["grid", "list"],
+  );
 
   // ─── Subtab 2: Snapshot timeline filters ────────────────────────────────────
   const [snapshotSearch, setSnapshotSearch] = useState("");

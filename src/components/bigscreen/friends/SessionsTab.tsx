@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useFocusable } from "../../../hooks/useFocusable";
+import { usePersistedState } from "../../../hooks/usePersistedState";
 import { useGames } from "../../../context/GameContext";
 import { type GameSession, type SessionParticipant, displayName } from "../../../pages/friendsStorage";
 import type { UseFriendsSocialResult } from "../../../hooks/useFriendsSocial";
@@ -28,7 +29,11 @@ export interface SessionsTabProps {
 
 export default function SessionsTab({ social, profileName, initialInvites, onConsumeInitialInvites }: SessionsTabProps) {
   const { t } = useLanguage();
-  const [view, setView] = useState<SessionView>("upcoming");
+  const [view, setView] = usePersistedState<SessionView>(
+    "gamelib.bigscreen.friends.sessions.view_v1",
+    "upcoming",
+    ["upcoming", "past", "agenda"],
+  );
   const [filter, setFilter] = useState<SessionFilter>("all");
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);

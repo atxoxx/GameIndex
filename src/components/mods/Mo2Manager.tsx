@@ -9,6 +9,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Game } from "../../types/game";
 import type { Mo2Mod, Mo2Plugin } from "../../types/mo2";
 import { useMo2 } from "../../hooks/useMo2";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -154,7 +155,11 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
     browseForMo2,
   } = useMo2(game);
 
-  const [activeTab, setActiveTab] = useState<Mo2Tab>("mods");
+  const [activeTab, setActiveTab] = usePersistedState<Mo2Tab>(
+    "gamelib.mods.mo2.tab_v1",
+    "mods",
+    ["mods", "plugins"],
+  );
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ModFilter>("all");
 

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import type { Friend, SharedGameStat } from "./friendsTypes";
 import {
   displayName,
@@ -29,7 +30,11 @@ export default function FriendsCompareTab({
   onLaunchGame,
 }: FriendsCompareTabProps) {
   const { t } = useLanguage();
-  const [subTab, setSubTab] = useState<"overview" | "games" | "genres" | "insights">("overview");
+  const [subTab, setSubTab] = usePersistedState<"overview" | "games" | "genres" | "insights">(
+    "gamelib.friends.compare.sub_tab_v1",
+    "overview",
+    ["overview", "games", "genres", "insights"],
+  );
   const [ownershipFilter, setOwnershipFilter] = useState<"all" | "shared" | "me_only" | "friend_only" | "unplayed">("all");
   const [sortOption, setSortOption] = useState<"name" | "myPlaytime" | "friendPlaytime" | "gap" | "achievement">("name");
   const [genreFilter, setGenreFilter] = useState<string>("all");

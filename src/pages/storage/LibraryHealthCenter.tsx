@@ -7,6 +7,7 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { Button, ConfirmModal } from "../../components/ui";
 import { useLibraryHealth } from "./useLibraryHealth";
 import { HealthCategoryIcon, type HealthTabId } from "./HealthCategoryIcon";
@@ -43,7 +44,11 @@ export function LibraryHealthCenter() {
   const { showToast } = useToast();
   const health = useLibraryHealth(games, true);
 
-  const [activeTab, setActiveTab] = useState<HealthTabId>("overview");
+  const [activeTab, setActiveTab] = usePersistedState<HealthTabId>(
+    "gamelib.storage.health.tab_v1",
+    "overview",
+    ["overview", "paths", "duplicates", "metadata", "artwork", "sizes", "backlog"],
+  );
 
   const [pendingDuplicates, setPendingDuplicates] = useState<string[] | null>(null);
   const [pendingUninstall, setPendingUninstall] = useState<Game | null>(null);

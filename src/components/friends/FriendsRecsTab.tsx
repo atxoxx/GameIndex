@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import type { GameRecommendation, UserProfile, Friend, ReactionKind } from "./friendsTypes";
 import type { StoreGameSummary } from "../../types/game";
 import RecommendationCard from "./RecommendationCard";
@@ -43,7 +44,11 @@ export default function FriendsRecsTab({
 }: FriendsRecsTabProps) {
   const { t } = useLanguage();
   const [filterMode, setFilterMode] = useState<"all" | "to_me" | "by_me" | "want">("all");
-  const [viewMode, setViewMode] = useState<"feed" | "top">("feed");
+  const [viewMode, setViewMode] = usePersistedState<"feed" | "top">(
+    "gamelib.friends.recs.view_mode_v1",
+    "feed",
+    ["feed", "top"],
+  );
   const [topGameFilter, setTopGameFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);

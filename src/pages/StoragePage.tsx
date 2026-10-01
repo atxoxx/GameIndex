@@ -5,6 +5,7 @@ import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
+import { usePersistedState } from "../hooks/usePersistedState";
 import PageWidget from "../components/PageWidget";
 import { ConfirmModal, PageHeader } from "../components/ui";
 import {
@@ -50,7 +51,11 @@ export default function StoragePage() {
   const { unit } = useSizeUnit();
 
   // Controls state
-  const [viewMode, setViewMode] = useState<StorageViewMode>("list");
+  const [viewMode, setViewMode] = usePersistedState<StorageViewMode>(
+    "gamelib.storage.view_mode_v1",
+    "list",
+    ["list", "grid", "health", "emulators"],
+  );
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StorageFilter>("all");

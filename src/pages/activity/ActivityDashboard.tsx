@@ -36,6 +36,7 @@ import {
 } from "../../components/activity";
 import * as Icons from "./Icons";
 import PageWidget from "../../components/PageWidget";
+import { usePersistedState } from "../../hooks/usePersistedState";
 
 export interface ActivityDashboardProps {
   sessions: GameSession[];
@@ -69,7 +70,7 @@ export function ActivityDashboard({
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarSort, setSidebarSort] = useState<SidebarSort>("playtime");
-  const [chartMode, setChartMode] = useState<ChartMode>("periodic");
+  const [chartMode, setChartMode] = usePersistedState<ChartMode>("gamelib.activity.dashboard.chart_mode_v1", "periodic", ["periodic", "cumulative"]);
   const [pendingDeleteGameId, setPendingDeleteGameId] = useState<string | null>(null);
   const [linkModalTarget, setLinkModalTarget] = useState<{ id: string; title: string } | null>(null);
   const [addModalTarget, setAddModalTarget] = useState<{ id: string; title: string } | null>(null);

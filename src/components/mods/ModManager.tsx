@@ -13,6 +13,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { ConfirmModal } from "../ui";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import ModsHeroStats, { type FilterTab } from "./ModsHeroStats";
@@ -62,7 +63,11 @@ export default function ModManager({
   } = useGameMods(game);
 
   const mo2 = useMo2(game);
-  const [managerMode, setManagerMode] = useState<"standard" | "mo2">("standard");
+  const [managerMode, setManagerMode] = usePersistedState<"standard" | "mo2">(
+    "gamelib.mods.manager_mode_v1",
+    "standard",
+    ["standard", "mo2"],
+  );
 
   const [search, setSearch] = useState("");
   const [filterTab, setFilterTab] = useState<FilterTab>("all");

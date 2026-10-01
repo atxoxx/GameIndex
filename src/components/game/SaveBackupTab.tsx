@@ -18,6 +18,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useSaves } from "../../context/SavesContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { Button, Badge, ConfirmModal, KpiTile, Skeleton } from "../ui";
 import SettingsToggleCard from "../../pages/settings/SettingsToggleCard";
 import {
@@ -101,7 +102,7 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
   } = useSaves();
   const { formatBytes } = useSizeUnit();
 
-  const [subtab, setSubtab] = useState<GameSubtab>("snapshots");
+  const [subtab, setSubtab] = usePersistedState<GameSubtab>("gamelib.game.save_backup.subtab_v1", "snapshots", ["snapshots", "locations", "settings"]);
   const [locations, setLocations] = useState<SaveLocation[] | null>(null);
   const [backups, setBackups] = useState<SaveBackup[] | null>(null);
   const [busy, setBusy] = useState<null | "detect" | "backup">(null);

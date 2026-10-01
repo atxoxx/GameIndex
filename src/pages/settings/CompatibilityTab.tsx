@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import { Card, Button, Badge, ConfirmModal } from "../../components/ui";
@@ -257,7 +258,20 @@ export default function CompatibilityTab() {
   const [searchParams] = useSearchParams();
   const sectionParam = searchParams.get("section");
 
-  const [activeSubtab, setActiveSubtab] = useState<CompatSettingsSubtab>("runners");
+  const [activeSubtab, setActiveSubtab] = usePersistedState<CompatSettingsSubtab>(
+    "gamelib.settings.compatibility.subtab_v1",
+    "runners",
+    [
+      "runners",
+      "prefixes",
+      "graphics",
+      "sync_engine",
+      "gamescope",
+      "tools",
+      "env_dll",
+      "maintenance",
+    ],
+  );
   const [settings, setSettings] = useState<CompatibilitySettings>(DEFAULT_SETTINGS);
   const [runners, setRunners] = useState<CompatibilityRunner[]>([]);
   const [systemStatus, setSystemStatus] = useState<LinuxSystemStatus | null>(null);
@@ -407,7 +421,11 @@ export default function CompatibilityTab() {
   };
 
   // Runner Manager state
-  const [runnerViewMode, setRunnerViewMode] = useState<"installed" | "download" | "settings">("installed");
+  const [runnerViewMode, setRunnerViewMode] = usePersistedState<"installed" | "download" | "settings">(
+    "gamelib.settings.compatibility.runner_view_mode_v1",
+    "installed",
+    ["installed", "download", "settings"],
+  );
   const [runnerSearch, setRunnerSearch] = useState("");
   const [runnerFilter, setRunnerFilter] = useState<"all" | "proton" | "wine">("all");
   const [activeSource, setActiveSource] = useState<"ge-proton" | "cachyos" | "proton-em" | "wine-ge" | "kron4ek" | "soda" | "custom">("ge-proton");
