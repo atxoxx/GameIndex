@@ -1071,6 +1071,12 @@
   gap: var(--space-xl);
 }
 
+/* A side-column widget whose card renders nothing (no DLC, no Steam app id,
+   a save-suite that is off, …) must not leave its flex gap behind. */
+.game-side-col > div:empty {
+  display: none;
+}
+
 
 /* ==============================
    Game Relations Card
