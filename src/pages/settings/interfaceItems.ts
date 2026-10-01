@@ -17,6 +17,7 @@ import {
   Play,
   Puzzle,
   Rss,
+  Save,
   Settings,
   Store,
   Tag,
@@ -58,6 +59,7 @@ export const NAV_TAB_ITEMS: InterfaceItemDef[] = [
   { key: "navAchievements", labelKey: "nav.achievements", icon: Trophy },
   { key: "navStorage", labelKey: "nav.storage", icon: HardDrive },
   { key: "navDownloads", labelKey: "nav.downloads", icon: Download },
+  { key: "navSaves", labelKey: "nav.saves", icon: Save },
   { key: "navCommunity", labelKey: "nav.community", icon: ChartColumn },
   { key: "navFriends", labelKey: "nav.friends", icon: Users },
 ];
@@ -154,6 +156,7 @@ export function buildDetailSectionItems(
     "notes",
     "achievements",
     "mods",
+    "saves",
     "weblinks",
     "news",
   ];

@@ -131,7 +131,12 @@ export type PageWidgetKey =
   // Community
   | "communityHeader"
   | "communityTabs"
-  | "communityContent";
+  | "communityContent"
+  // Saves
+  | "savesHeader"
+  | "savesHero"
+  | "savesControls"
+  | "savesGrid";
 
 export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "hero",
@@ -244,6 +249,11 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "communityHeader",
   "communityTabs",
   "communityContent",
+  // Saves
+  "savesHeader",
+  "savesHero",
+  "savesControls",
+  "savesGrid",
 ];
 
 /** Widget key → the CSS class the pages mark their blocks with. */
@@ -358,6 +368,11 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   communityHeader: "ui-item-communityHeader",
   communityTabs: "ui-item-communityTabs",
   communityContent: "ui-item-communityContent",
+  // Saves
+  savesHeader: "ui-item-savesHeader",
+  savesHero: "ui-item-savesHero",
+  savesControls: "ui-item-savesControls",
+  savesGrid: "ui-item-savesGrid",
 };
 
 /** Widget key → translation key used in the settings UI. */
@@ -472,6 +487,11 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   communityHeader: "settings.interface.widgetCommunityHeader",
   communityTabs: "settings.interface.widgetCommunityTabs",
   communityContent: "settings.interface.widgetCommunityContent",
+  // Saves
+  savesHeader: "settings.interface.widgetSavesHeader",
+  savesHero: "settings.interface.widgetSavesHero",
+  savesControls: "settings.interface.widgetSavesControls",
+  savesGrid: "settings.interface.widgetSavesGrid",
 };
 
 // ── Pages ───────────────────────────────────────────────────────────────────
@@ -493,7 +513,8 @@ export type InterfacePageKey =
   | "community"
   | "friends"
   | "emulators"
-  | "mods";
+  | "mods"
+  | "saves";
 
 export interface InterfacePageDef {
   key: InterfacePageKey;
@@ -739,6 +760,12 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "modsWorkspace",
     ],
   },
+  {
+    key: "saves",
+    labelKey: "nav.saves",
+    routes: ["/saves"],
+    items: ["savesHeader", "savesHero", "savesControls", "savesGrid"],
+  },
 ];
 
 /** Page key → default widget order. Derived from the registry above. */
@@ -954,10 +981,10 @@ export function normalizeSidebarSectionVisibility(raw: unknown): SidebarSectionV
 export type DetailTabScope = "game" | "store";
 export type DetailTabKey =
   | "overview" | "dlc" | "reviews" | "activity" | "notes"
-  | "achievements" | "mods" | "weblinks" | "news";
+  | "achievements" | "mods" | "saves" | "weblinks" | "news";
 
 export const DETAIL_TABS: Record<DetailTabScope, DetailTabKey[]> = {
-  game: ["overview", "dlc", "reviews", "activity", "notes", "achievements", "mods", "weblinks", "news"],
+  game: ["overview", "dlc", "reviews", "activity", "notes", "achievements", "mods", "saves", "weblinks", "news"],
   store: ["overview", "dlc", "reviews", "achievements", "weblinks", "news"],
 };
 export const DEFAULT_DETAIL_TAB_ORDER = DETAIL_TABS; // shipped order
@@ -973,6 +1000,7 @@ export const DETAIL_TAB_LABEL_KEY: Record<DetailTabKey, string> = {
   notes: "notes.title",
   achievements: "game.tab.achievements",
   mods: "game.tab.mods",
+  saves: "saves.tab",
   weblinks: "game.tab.weblinks",
   news: "game.tab.news",
 };

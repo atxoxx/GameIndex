@@ -244,6 +244,7 @@ export type DetailSectionKey =
   | "notes"
   | "achievements"
   | "mods"
+  | "saves"
   | "weblinks"
   | "news"
   | "steamFeatures"
@@ -274,6 +275,7 @@ export type InterfaceItemKey =
   | "navAchievements"
   | "navStorage"
   | "navDownloads"
+  | "navSaves"
   | "navCommunity"
   | "navFriends"
   // Right-cluster navbar buttons
@@ -312,6 +314,7 @@ export const DEFAULT_INTERFACE_VISIBILITY: InterfaceVisibility = {
   navAchievements: true,
   navStorage: true,
   navDownloads: false,
+  navSaves: true,
   navCommunity: true,
   navFriends: true,
   btnDownloads: true,
@@ -353,6 +356,7 @@ export const DEFAULT_NAVBAR_TAB_ORDER: InterfaceItemKey[] = [
   "navMods",
   "navAchievements",
   "navStorage",
+  "navSaves",
   "navDownloads",
   "navCommunity",
   "navFriends",
@@ -396,7 +400,20 @@ function normalizeKeyOrder(
  *  then append every known tab that is missing so tabs added in later
  *  releases still show up at the end of the user's arrangement. */
 export function normalizeNavbarTabOrder(raw: unknown): InterfaceItemKey[] {
-  return normalizeKeyOrder(raw, DEFAULT_NAVBAR_TAB_ORDER);
+  const normalized = normalizeKeyOrder(raw, DEFAULT_NAVBAR_TAB_ORDER);
+  // Orders saved before `navSaves` existed get it appended at the tail by
+  // `normalizeKeyOrder`. Slot it where the shipped default places it (right
+  // after Storage) so existing installs see it "between Storage and
+  // Community" too — but only when the stored order never named it, so an
+  // explicit user placement is always preserved.
+  if (Array.isArray(raw) && !raw.includes("navSaves")) {
+    const without: InterfaceItemKey[] = normalized.filter((key) => key !== "navSaves");
+    const anchor = without.indexOf("navStorage");
+    if (anchor >= 0) without.splice(anchor + 1, 0, "navSaves");
+    else without.push("navSaves");
+    return without;
+  }
+  return normalized;
 }
 
 /** Same normalization for the header button cluster. */
@@ -739,6 +756,7 @@ const DEFAULT_DETAIL_SECTION_VISIBILITY: DetailSectionVisibility = {
   notes: true,
   achievements: true,
   mods: true,
+  saves: true,
   weblinks: true,
   news: true,
   steamFeatures: true,

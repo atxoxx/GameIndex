@@ -422,3 +422,10 @@
 | ⚪ Later | 46 | Performance profiles & user tags | ⏳ Planned |
 
 > Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**, **Tray**, **Discord**, **Docs**, **Updater**, **Linux/Steam Deck compatibility**, **Store Compare**, **Game Versions**, **Interface customization**) are now tracked above.
+
+### 47. Save Backups suite — ✅ Done
+- Opt-in per-game save data management (Settings → Saves master toggle gates the UI).
+- **Discovery:** curated known-game registry + heuristic scan of standard save roots + Steam Cloud `userdata` + emulator saves folders, with manual add/edit/remove per game.
+- **Snapshots:** versioned-directory backups (`manifest.json` + `files/`), manual / back-up-all / automatic on game exit, configurable retention and ignore globs, configurable backup folder (point it at a cloud drive for off-machine copies).
+- **Restore:** whole-game restore with an automatic pre-restore safety snapshot; browse/delete/open snapshots.
+- **Surfaces:** top-nav "Saves" hub page, per-game "Saves" detail tab, and the Settings → Saves configuration tab; the index travels in `.gibak` backups.

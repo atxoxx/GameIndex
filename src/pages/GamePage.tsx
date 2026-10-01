@@ -54,6 +54,7 @@ import {
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
 import NotesTab from "../components/game/notes/NotesTab";
+import SaveBackupTab from "../components/game/SaveBackupTab";
 import { useGameNotes } from "../hooks/useGameNotes";
 import "../styles/activity.css";
 import "../styles/achievements.css";
@@ -62,6 +63,7 @@ import "../styles/game-news.css";
 import "./news/NewsPage.css";
 import "../styles/weblinks.css";
 import { useAchievements } from "../context/AchievementContext";
+import { useSaves } from "../context/SavesContext";
 import { Button, ConfirmModal } from "../components/ui";
 import {
   IconOverview,
@@ -73,6 +75,7 @@ import {
   IconNewspaper,
   IconFileText,
   IconDlc,
+  IconSave,
 } from "../components/game/icons";
 
 type GamePageTab =
@@ -82,6 +85,7 @@ type GamePageTab =
   | "notes"
   | "achievements"
   | "mods"
+  | "saves"
   | "weblinks"
   | "news"
   | "dlc";
@@ -93,6 +97,7 @@ const VALID_TABS = new Set<GamePageTab>([
   "notes",
   "achievements",
   "mods",
+  "saves",
   "weblinks",
   "news",
   "dlc",
@@ -144,6 +149,7 @@ function GameDetail({ game }: { game: Game }) {
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
   const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
+  const { enabled: savesEnabled } = useSaves();
   const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("game");
   const { getAchievementSummary } = useAchievements();
   const {
@@ -186,9 +192,10 @@ function GameDetail({ game }: { game: Game }) {
     (tab: GamePageTab): boolean => {
       if (tab === "overview") return true;
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
+      if (tab === "saves") return savesEnabled && detailSectionVisible.saves;
       return detailSectionVisible[tab as DetailSectionKey];
     },
-    [isSimpleUi, detailSectionVisible],
+    [isSimpleUi, detailSectionVisible, savesEnabled],
   );
 
   const effectiveTab: GamePageTab =
@@ -319,6 +326,7 @@ function GameDetail({ game }: { game: Game }) {
         count: achievementTotal,
       },
       { id: "mods" as const, label: t("game.tab.mods"), icon: IconWrench },
+      { id: "saves" as const, label: t("saves.tab"), icon: IconSave },
       {
         id: "weblinks" as const,
         label: t("game.tab.weblinks"),
@@ -504,6 +512,7 @@ function GameDetail({ game }: { game: Game }) {
                   "notes",
                   "achievements",
                   "mods",
+                  "saves",
                   "weblinks",
                   "news",
                 ]}
@@ -703,6 +712,10 @@ function GameDetail({ game }: { game: Game }) {
       )}
 
       {effectiveTab === "news" && <GameNewsTab game={game} />}
+
+      {effectiveTab === "saves" && (
+        <SaveBackupTab gameId={game.id} gameName={gameDisplayName(game)} />
+      )}
 
       {effectiveTab === "dlc" && <GameDlcTab game={game} />}
 

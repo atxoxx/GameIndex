@@ -541,8 +541,7 @@ export function IconOverview({ size, ...p }: IconProps) {
   );
 }
 
-export function IconActivity({ size, ...p }: IconProps) {
-  return (
+export function IconActivity({ size, ...p }: IconProps) {  return (
     <BaseIcon size={size} {...p}>
       <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
     </BaseIcon>
@@ -628,6 +627,18 @@ export function IconFamily({ size, ...p }: IconProps) {
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </BaseIcon>
+  );
+}
+
+/** Floppy-disk glyph for the Save Backups tab — reads unambiguously as
+ *  "save data" next to the other Feather-style tab icons. */
+export function IconSave({ size, ...p }: IconProps) {
+  return (
+    <BaseIcon size={size} {...p}>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
     </BaseIcon>
   );
 }

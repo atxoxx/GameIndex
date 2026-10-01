@@ -76,6 +76,7 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **Linux & Steam Deck** | First-class Proton/Wine compatibility: runner manager (GE-Proton, CachyOS, Proton-EM, Wine-GE, Soda, Kron4ek…), shared prefixes with per-game overrides, DXVK/VKD3D, esync/fsync/ntsync, MangoHud, GameMode, GameScope, per-game GPU pinning, controller & anti-cheat runtimes, captured logs with a live viewer, Wine tools and system diagnostics. → [Full guide](docs/linux-wine-proton.md) |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
 | **Backup & Restore** | Selectable, cancellable backups with live progress — raw NDJSON export plus merge/replace restore modes from the Settings backup tab, including Proton/Wine compatibility profiles. |
+| **Save Backups** | Per-game save-data manager — auto-detects save folders (curated registry, heuristics, Steam Cloud, emulator saves), snapshots them on demand or automatically on game exit, and restores any snapshot with an automatic pre-restore safety copy. Configurable backup folder, retention and ignore rules. |
 | **Stats, Community & Friends** | Local-first social layer — friend profiles, sync, recommendations, compare, chat and leaderboards — alongside a personal **Stats** dashboard with overview, trends, achievements, a captures gallery and milestones. |
 | **Discord Rich Presence** | Playing, browsing *and* download presence — cover art, playtime, achievement progress with unlock callouts, two buttons, member-list line choice, and a live download ETA countdown. |
 | **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs) — with animated game backdrops, focus memory, and fluid rail wrapping. |
@@ -412,6 +413,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Multi-source Achievements dashboard with analytics
 - ✅ Wishlist tab with release countdowns and notes
 - ✅ Backup & restore with merge/replace NDJSON modes (incl. compatibility profiles)
+- ✅ Save Backups suite (per-game save detection, snapshots, restore, auto-backup on exit)
 - ✅ Command palette, adaptive game-art theming, and now-playing HUD
 - ✅ Linux + Steam Deck support — Proton/Wine runner manager, shared prefixes, DXVK/VKD3D, MangoHud/GameMode/GameScope, GPU pinning, Wine logs, system diagnostics ([full guide](docs/linux-wine-proton.md))
 - ✅ Per-game environment variables & compatibility profiles

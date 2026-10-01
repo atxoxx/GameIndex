@@ -18,6 +18,7 @@ import { DensityProvider } from "./context/DensityContext";
 import { LibraryFilterProvider } from "./context/LibraryFilterContext";
 import { SplashProvider, useSplash } from "./context/SplashContext";
 import { DownloadProvider } from "./context/DownloadContext";
+import { SavesProvider } from "./context/SavesContext";
 import { SourceProvider } from "./context/SourceContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AchievementProvider } from "./context/AchievementContext";
@@ -212,7 +213,8 @@ function App() {
                           <WishlistProvider>
                             <SourceProvider>
                               <DownloadProvider>
-                                <SettingsProvider>
+                                <SavesProvider>
+                                  <SettingsProvider>
                                   <SessionNotesProvider>
                                     <SteamGridDbProvider>
                                       <CrackWatchProvider>
@@ -231,6 +233,7 @@ function App() {
                                     </SteamGridDbProvider>
                                   </SessionNotesProvider>
                                 </SettingsProvider>
+                                </SavesProvider>
                               </DownloadProvider>
                             </SourceProvider>
                           </WishlistProvider>

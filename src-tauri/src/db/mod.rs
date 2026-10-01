@@ -80,6 +80,7 @@ pub mod mods;
 pub mod news;
 pub mod pool;
 pub mod plugins;
+pub mod saves;
 pub mod schema;
 pub mod secrets;
 pub mod sessions;

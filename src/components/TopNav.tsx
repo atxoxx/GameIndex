@@ -16,6 +16,7 @@ import {
   MonitorPlay,
   Puzzle,
   Rss,
+  Save,
   Search,
   Settings,
   Store,
@@ -45,6 +46,7 @@ const CommandPalette = lazy(() => import("./CommandPalette"));
 const DownloadPopover = lazy(() => import("./DownloadPopover"));
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings, type InterfaceItemKey } from "../context/SettingsContext";
+import { useSaves } from "../context/SavesContext";
 import { playTabSound } from "../utils/soundEffects";
 import { preloadRoute } from "../utils/routePreload";
 
@@ -93,6 +95,7 @@ const TAB_VISIBILITY_KEY: Record<string, InterfaceItemKey> = {
   "/achievements": "navAchievements",
   "/storage": "navStorage",
   "/downloads": "navDownloads",
+  "/saves": "navSaves",
   "/community": "navCommunity",
   "/friends": "navFriends",
 };
@@ -112,6 +115,7 @@ const allNavTabs: Tab[] = [
   { path: "/achievements", labelKey: "nav.achievements", icon: Trophy },
   { path: "/storage", labelKey: "nav.storage", icon: HardDrive },
   { path: "/downloads", labelKey: "nav.downloads", icon: Download },
+  { path: "/saves", labelKey: "nav.saves", icon: Save },
   { path: "/community", labelKey: "nav.community", icon: ChartColumn },
   { path: "/friends", labelKey: "nav.friends", icon: Users },
 ];
@@ -124,6 +128,7 @@ export default function TopNav() {
   const activeDownloads = useActiveDownloadCount();
   const version = useAppVersion();
   const { isBigScreen, setBigScreen } = useBigScreen();
+  const { enabled: savesEnabled } = useSaves();
   const {
     navbarMode,
     showNavbarNowPlaying,
@@ -234,7 +239,9 @@ export default function TopNav() {
         (rank.get(TAB_VISIBILITY_KEY[b.path]) ?? Number.MAX_SAFE_INTEGER),
     );
   }, [navbarTabOrder]);
-  const visibleTabs = orderedTabs.filter((tab) => tabVisible(tab.path));
+  const visibleTabs = orderedTabs.filter(
+    (tab) => tabVisible(tab.path) && (tab.path !== "/saves" || savesEnabled),
+  );
   const displayedTabs = isCompactNavbar
     ? visibleTabs.slice(0, COMPACT_INLINE_TAB_COUNT)
     : visibleTabs;

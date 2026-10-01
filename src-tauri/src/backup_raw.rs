@@ -190,6 +190,20 @@ pub fn count_domain_items(db: &Db, domain: &str) -> u64 {
             })
             .unwrap_or(0)
             .max(0) as u64,
+        "saves" => db
+            .saves()
+            .ok()
+            .and_then(|c| {
+                c.query_row(
+                    "SELECT (SELECT count(*) FROM save_locations)
+                          + (SELECT count(*) FROM save_backups)",
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )
+                .ok()
+            })
+            .unwrap_or(0)
+            .max(0) as u64,
         _ => 0,
     }
 }
@@ -476,6 +490,23 @@ where
                 let runners = compatibility::list_runners(db)?;
                 for row in &runners {
                     let line = serde_json::to_string(row).map_err(|e| e.to_string())?;
+                    zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+                    zip.write_all(b"\n").map_err(|e| e.to_string())?;
+                }
+            }
+            "saves" => {
+                zip.start_file("data/save_locations.ndjson", zip_file_opts())
+                    .map_err(|e| format!("zip save_locations entry: {e}"))?;
+                for loc in crate::db::saves::list_all_locations(db)? {
+                    let line = serde_json::to_string(&loc).map_err(|e| e.to_string())?;
+                    zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+                    zip.write_all(b"\n").map_err(|e| e.to_string())?;
+                }
+
+                zip.start_file("data/save_backups.ndjson", zip_file_opts())
+                    .map_err(|e| format!("zip save_backups entry: {e}"))?;
+                for backup in crate::db::saves::list_backups(db, None)? {
+                    let line = serde_json::to_string(&backup).map_err(|e| e.to_string())?;
                     zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
                     zip.write_all(b"\n").map_err(|e| e.to_string())?;
                 }
@@ -898,6 +929,38 @@ where
                         }
                         if let Ok(row) = serde_json::from_str::<CompatibilityRunnerRow>(&l) {
                             let _ = compatibility::upsert_runner(db, &row);
+                        }
+                    }
+                }
+            }
+            "saves" => {
+                if replace_mode {
+                    if let Ok(conn) = db.saves() {
+                        let _ = conn.execute("DELETE FROM save_locations", []);
+                        let _ = conn.execute("DELETE FROM save_backups", []);
+                    }
+                }
+                if let Ok(entry) = archive.by_name("data/save_locations.ndjson") {
+                    let reader = BufReader::new(entry);
+                    for line in reader.lines() {
+                        let l = line.map_err(|e| e.to_string())?;
+                        if l.trim().is_empty() {
+                            continue;
+                        }
+                        if let Ok(row) = serde_json::from_str::<crate::db::saves::SaveLocation>(&l) {
+                            let _ = crate::db::saves::upsert_location(db, row);
+                        }
+                    }
+                }
+                if let Ok(entry) = archive.by_name("data/save_backups.ndjson") {
+                    let reader = BufReader::new(entry);
+                    for line in reader.lines() {
+                        let l = line.map_err(|e| e.to_string())?;
+                        if l.trim().is_empty() {
+                            continue;
+                        }
+                        if let Ok(row) = serde_json::from_str::<crate::db::saves::SaveBackup>(&l) {
+                            let _ = crate::db::saves::insert_backup(db, row);
                         }
                     }
                 }

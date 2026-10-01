@@ -63,6 +63,7 @@ const TAB_ORDER: SettingsTab[] = [
   "launcher",
   "privacy",
   "backup",
+  "saves",
   "compatibility",
 ];
 
@@ -415,6 +416,35 @@ export function buildSettingsCatalog(
         },
       ],
     },
+    saves: {
+      tab: "saves",
+      labelKey: "settings.tab.saves",
+      descKey: "settings.saves.desc",
+      keywords:
+        "save saves backup backups snapshot restore version history autosave steam cloud proton prefix emulator rom retention",
+      icon: <BackupIcon />,
+      sections: [
+        {
+          id: "saves-feature",
+          labelKey: "saves.settings.title",
+          keywords:
+            "enable toggle auto backup on exit game exit safety snapshot before restore emulator saves",
+          icon: <ShieldIcon />,
+        },
+        {
+          id: "saves-storage",
+          labelKey: "saves.settings.storageTitle",
+          keywords: "backup folder directory location retention keep ignore patterns exclude globs",
+          icon: <FolderIcon />,
+        },
+        {
+          id: "saves-maintenance",
+          labelKey: "saves.settings.maintenanceTitle",
+          keywords: "scan library back up all total size count snapshot statistics",
+          icon: <BackupIcon />,
+        },
+      ],
+    },
     compatibility: {
       tab: "compatibility",
       labelKey: "settings.tab.compatibility",
@@ -516,6 +546,7 @@ export function buildSettingsCatalog(
           : []),
         { tab: "privacy", label: t("settings.tab.privacy"), icon: <TrashIcon /> },
         { tab: "backup", label: t("settings.tab.backup"), icon: <BackupIcon /> },
+        { tab: "saves", label: t("settings.tab.saves"), icon: <BackupIcon /> },
       ],
     },
   ];

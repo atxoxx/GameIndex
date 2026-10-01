@@ -160,6 +160,11 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   communityHeader: Users,
   communityTabs: LayoutList,
   communityContent: LayoutTemplate,
+  // Saves
+  savesHeader: LayoutTemplate,
+  savesHero: TrendingUp,
+  savesControls: SlidersHorizontal,
+  savesGrid: History,
 };
 
 export const WIDGET_KEY_BY_ITEM: Record<string, PageWidgetKey> = {

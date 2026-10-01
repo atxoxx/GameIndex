@@ -73,6 +73,7 @@ use system_screenshots::detect_system_screenshot_folders;
 
 mod games;
 mod game_notes;
+mod saves;
 mod emulation;
 mod roms;
 mod system;
@@ -375,7 +376,29 @@ pub fn run() {
             compatibility::open_prefix_directory,
             compatibility::install_winetricks_verb,
             compatibility::register_custom_prefix,
-            compatibility::unregister_custom_prefix])
+            compatibility::unregister_custom_prefix,
+            // Save Backups suite (settings, location detection, snapshots).
+            saves::saves_get_settings,
+            saves::saves_set_settings,
+            saves::saves_summary,
+            saves::saves_list_locations,
+            saves::saves_list_all_locations,
+            saves::saves_detect_locations,
+            saves::saves_detect_all,
+            saves::saves_add_location,
+            saves::saves_update_location,
+            saves::saves_remove_location,
+            saves::saves_clear_locations,
+            saves::saves_list_backups,
+            saves::saves_backup_game,
+            saves::saves_backup_all,
+            saves::saves_restore_backup,
+            saves::saves_delete_backup,
+            saves::saves_delete_game_backups,
+            saves::saves_get_backup_manifest,
+            saves::saves_open_path,
+            saves::saves_open_backup,
+            saves::saves_open_location])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since

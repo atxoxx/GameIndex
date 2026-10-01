@@ -26,6 +26,7 @@ import {
   Puzzle,
   RotateCcw,
   Rss,
+  Save,
   Smartphone,
   Star,
   Store,
@@ -120,6 +121,7 @@ const PAGE_ICONS: Record<InterfacePageKey, LucideIcon> = {
   friends: UserCheck,
   emulators: Monitor,
   mods: Puzzle,
+  saves: Save,
 };
 
 const DETAIL_SCOPES: DetailTabScope[] = ["game", "store"];
@@ -142,6 +144,7 @@ const DETAIL_TAB_ICON: Record<DetailTabKey, LucideIcon> = {
   notes: FileText,
   achievements: Trophy,
   mods: Wrench,
+  saves: Save,
   weblinks: Globe,
   news: Newspaper,
   dlc: Puzzle,

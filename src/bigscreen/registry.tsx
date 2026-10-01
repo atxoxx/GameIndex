@@ -47,6 +47,7 @@ const WishlistPage = lazy(() => import("../pages/WishlistPage"));
 const NewsPage = lazy(() => import("../pages/NewsPage"));
 const DealsPage = lazy(() => import("../pages/deals/DealsPage"));
 const DownloadsPage = lazy(() => import("../pages/DownloadsPage"));
+const SavesPage = lazy(() => import("../pages/saves/SavesPage"));
 const AchievementsPage = lazy(() => import("../pages/AchievementsPage"));
 const EmulatorsPage = lazy(() => import("../pages/EmulatorsPage"));
 const ModsPage = lazy(() => import("../pages/mods/ModsPage"));
@@ -124,6 +125,7 @@ const ICONS = {
   friends: <Icon><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5a3 3 0 0 1 0 6" /><path d="M18 14a5 5 0 0 1 3 6" /></Icon>,
   community: <Icon><path d="M4 19V5" /><path d="M4 19h16" /><path d="m7 15 3-4 3 2 5-7" /></Icon>,
   downloads: <Icon><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></Icon>,
+  saves: <Icon><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8" /><path d="M7 3v5h8" /></Icon>,
   storage: <Icon><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5" /><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" /></Icon>,
   achievements: <Icon><circle cx="12" cy="8" r="5" /><path d="m8.5 12.5-1 8 4.5-2.5 4.5 2.5-1-8" /></Icon>,
   mods: <Icon><path d="M8 5h8l2 4v10H6V9l2-4Z" /><path d="M9 5v4h6V5" /><path d="M9 13h6M9 16h4" /></Icon>,
@@ -150,6 +152,7 @@ export const PRIMARY_SECTIONS: BigScreenSection[] = [
 export const SYSTEM_SECTIONS: BigScreenSection[] = [
   { path: "/downloads", labelKey: "nav.downloads", icon: ICONS.downloads },
   { path: "/storage", labelKey: "nav.storage", icon: ICONS.storage },
+  { path: "/saves", labelKey: "nav.saves", icon: ICONS.saves },
   { path: "/achievements", labelKey: "nav.achievements", icon: ICONS.achievements },
   { path: "/mods", labelKey: "nav.mods", icon: ICONS.mods },
   { path: "/emulators", labelKey: "nav.emulators", icon: ICONS.emulators },
@@ -275,6 +278,7 @@ export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "achievements", desktop: () => <AchievementsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "downloads", desktop: () => <DownloadsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "storage", desktop: () => <StoragePage />, bigscreen: () => <BigScreenSystem /> },
+  { path: "saves", desktop: () => <SavesPage /> },
   { path: "store", desktop: () => <StorePage />, bigscreen: () => <BigScreenStore /> },
   { path: "store/:gameSlug", desktop: () => <StoreGameDetail />, bigscreen: () => <BigScreenStoreGamePage /> },
   { path: "community", desktop: () => <CommunityPage />, bigscreen: () => <BigScreenCommunity /> },
