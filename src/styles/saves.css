@@ -895,6 +895,92 @@
   min-width: 0;
 }
 
+/* ── Game Overview save-backup card ───────────────────────────────── */
+
+.game-save-backup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-save-backup-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.game-save-backup-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.game-save-backup-card__title-icon {
+  display: inline-flex;
+  color: var(--color-accent);
+}
+
+.game-save-backup-card__badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.game-save-backup-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-save-backup-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.game-save-backup-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.game-save-backup-card__empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.game-save-backup-card__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.game-save-backup-card__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.game-save-backup-card__skeleton span {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--color-surface-3, rgba(255, 255, 255, 0.08));
+}
+
+.game-save-backup-card__skeleton span:last-child {
+  width: 60%;
+}
+
 .saves-snapshot-card-details {
   display: flex;
   flex-direction: column;

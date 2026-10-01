@@ -49,6 +49,7 @@ import {
   SteamFeaturesCard,
   GameDlcCard,
   GameDlcTab,
+  GameSaveBackupCard,
   GameFamilyShareBanner,
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
@@ -586,6 +587,17 @@ function GameDetail({ game }: { game: Game }) {
                   game={game}
                   sizeUnit={sizeUnit}
                   onEditSize={() => setEditTab("details")}
+                />
+              </PageWidgetSlot>
+              <PageWidgetSlot
+                page="game"
+                widget="gameSaveBackup"
+                className="ui-item-gameSaveBackup"
+              >
+                <GameSaveBackupCard
+                  gameId={game.id}
+                  gameName={gameDisplayName(game)}
+                  onManage={() => handleTabChange("saves")}
                 />
               </PageWidgetSlot>
               {detailSectionVisible.dlc && (

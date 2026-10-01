@@ -7507,6 +7507,7 @@ export const ru: TranslationDict = {
   "hltb.game": "Игра",
   "game.tab.dlc": "DLC и дополнения",
   "settings.interface.widgetGameDlcCard": "DLC и дополнения",
+  "settings.interface.widgetGameSaveBackup": "Резервные копии сохранений",
   "settings.detailSections.dlc.title": "DLC и дополнения",
   "settings.detailSections.dlc.desc": "Показывать или скрывать раздел DLC и Семейного доступа Steam.",
   "dlc.cardTitle": "DLC и дополнения",

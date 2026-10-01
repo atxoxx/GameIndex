@@ -7506,6 +7506,7 @@ export const de: TranslationDict = {
   "hltb.game": "Spiel",
   "game.tab.dlc": "DLCs & Add-ons",
   "settings.interface.widgetGameDlcCard": "DLCs & Add-ons",
+  "settings.interface.widgetGameSaveBackup": "Spielstand-Backups",
   "settings.detailSections.dlc.title": "DLCs & Add-ons",
   "settings.detailSections.dlc.desc": "DLCs und Steam-Familienbibliothek-Bereich anzeigen oder ausblenden.",
   "dlc.cardTitle": "DLCs & Add-ons",

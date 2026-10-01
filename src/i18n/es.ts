@@ -7507,6 +7507,7 @@ export const es: TranslationDict = {
   "hltb.game": "Juego",
   "game.tab.dlc": "DLC y expansiones",
   "settings.interface.widgetGameDlcCard": "DLC y expansiones",
+  "settings.interface.widgetGameSaveBackup": "Copias de partidas",
   "settings.detailSections.dlc.title": "DLC y expansiones",
   "settings.detailSections.dlc.desc": "Mostrar u ocultar la sección de DLCs y préstamo familiar de Steam.",
   "dlc.cardTitle": "DLC y expansiones",

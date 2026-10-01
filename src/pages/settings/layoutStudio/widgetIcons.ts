@@ -1,5 +1,6 @@
 import {
   Activity,
+  Archive,
   Award,
   BarChart2,
   BarChart3,
@@ -87,6 +88,7 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   // Game Detail — the individual sidebar cards the detail pages render.
   gameInfoKpi: Info,
   gameDlcCard: Puzzle,
+  gameSaveBackup: Archive,
   gameSteamFeatures: Gamepad2,
   gameRatings: Star,
   gameTimeToBeat: Clock,

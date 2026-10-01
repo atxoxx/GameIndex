@@ -35,6 +35,7 @@ export { default as SystemRequirementsCard } from "./SystemRequirementsCard";
 export { default as GameNewsTab } from "./GameNewsTab";
 export { default as GameDlcCard } from "./GameDlcCard";
 export { default as GameDlcTab } from "./GameDlcTab";
+export { default as GameSaveBackupCard } from "./GameSaveBackupCard";
 export { default as GameFamilyShareBanner } from "./GameFamilyShareBanner";
 export { default as DetailSectionsHiddenNote } from "./DetailSectionsHiddenNote";
 

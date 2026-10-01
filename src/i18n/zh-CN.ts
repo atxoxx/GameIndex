@@ -7506,6 +7506,7 @@ export const zhCN: TranslationDict = {
   "hltb.game": "游戏",
   "game.tab.dlc": "DLC 与附加内容",
   "settings.interface.widgetGameDlcCard": "DLC 与附加内容",
+  "settings.interface.widgetGameSaveBackup": "存档备份",
   "settings.detailSections.dlc.title": "DLC 与附加内容",
   "settings.detailSections.dlc.desc": "显示或隐藏 DLC 及 Steam 家庭共享板块。",
   "dlc.cardTitle": "DLC 与附加内容",

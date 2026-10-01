@@ -67,6 +67,7 @@ export type PageWidgetKey =
   | "gameReleases"
   | "gameLanguages"
   | "gameDlcCard"
+  | "gameSaveBackup"
   // Store
   | "storeHeader"
   | "storeFilters"
@@ -184,6 +185,7 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "gameReleases",
   "gameLanguages",
   "gameDlcCard",
+  "gameSaveBackup",
   // Store
   "storeHeader",
   "storeFilters",
@@ -303,6 +305,7 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   gameReleases: "ui-item-gameReleases",
   gameLanguages: "ui-item-gameLanguages",
   gameDlcCard: "ui-item-gameDlcCard",
+  gameSaveBackup: "ui-item-gameSaveBackup",
   // Store
   storeHeader: "ui-item-storeHeader",
   storeFilters: "ui-item-storeFilters",
@@ -422,6 +425,7 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   gameReleases: "settings.interface.widgetGameReleases",
   gameLanguages: "settings.interface.widgetGameLanguages",
   gameDlcCard: "settings.interface.widgetGameDlcCard",
+  gameSaveBackup: "settings.interface.widgetGameSaveBackup",
   // Store
   storeHeader: "settings.interface.widgetStoreHeader",
   storeFilters: "settings.interface.widgetStoreFilters",
@@ -583,6 +587,7 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "gameInfoKpi",
       "gameDlcCard",
       "gameSteamFeatures",
+      "gameSaveBackup",
       "gameRatings",
       "gameTimeToBeat",
       "gameSpecsCard",
@@ -830,7 +835,9 @@ const RETIRED_PAGE_WIDGET_EXPANSION: Partial<
  */
 const NEW_PAGE_WIDGET_ANCHORS: Partial<
   Record<InterfacePageKey, Record<string, PageWidgetKey>>
-> = {};
+> = {
+  game: { gameSaveBackup: "gameSteamFeatures" },
+};
 
 /** Normalize a persisted per-page order: drop unknown/duplicates, migrate
  *  retired grouped keys to the individual cards that replaced them, and append

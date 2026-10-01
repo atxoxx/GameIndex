@@ -7496,6 +7496,7 @@ export const en: TranslationDict = {
   "hltb.game": "Game",
   "game.tab.dlc": "DLC & Add-ons",
   "settings.interface.widgetGameDlcCard": "DLC & Add-ons",
+  "settings.interface.widgetGameSaveBackup": "Save Backups",
   "settings.detailSections.dlc.title": "DLC & Add-ons",
   "settings.detailSections.dlc.desc": "Show or hide the DLC and Steam Family Sharing section.",
   "dlc.cardTitle": "DLC & Add-ons",
