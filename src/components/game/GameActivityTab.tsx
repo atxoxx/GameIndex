@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../../utils/color";
+import { captureAndSaveScreenshot } from "../../utils/screenshot";
 import { useActivity } from "../../context/ActivityContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
@@ -54,35 +54,16 @@ export function GameActivityTab({ game }: { game: Game }) {
   const [showManualModal, setShowManualModal] = useState(false);
 
   const handleCaptureScreenshot = async () => {
+    const container = document.querySelector<HTMLElement>(".game-activity-tab");
+    if (!container) return;
     try {
-      const container = document.querySelector(".game-activity-tab");
-      if (!container) return;
-      const fullHeight = (container as HTMLElement).scrollHeight;
-      const fullWidth = (container as HTMLElement).scrollWidth;
-
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(container as HTMLElement, {
-        backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#0f1117"),
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        width: fullWidth,
-        height: fullHeight,
-        windowWidth: fullWidth,
-        windowHeight: fullHeight,
-        onclone: prepareClonedDocumentForCanvasCapture,
-      });
-
-      const dataUrl = canvas.toDataURL("image/png");
-      const filePath = await save({
+      const filePath = await captureAndSaveScreenshot({
+        element: container,
+        fileName: `${game.name}_activity`,
         title: t("gameActivity.saveScreenshot", { game: gameDisplayName(game) }),
-        defaultPath: `${game.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_activity_screenshot_${new Date().toISOString().slice(0, 10)}.png`,
-        filters: [{ name: t("activity.pngImage"), extensions: ["png"] }],
+        filterLabel: t("activity.pngImage"),
       });
-
-      if (!filePath) return;
-      await invoke("save_screenshot", { filePath, base64Data: dataUrl });
-      showToast(t("activity.screenshotSaved"), "success");
+      if (filePath) showToast(t("activity.screenshotSaved"), "success");
     } catch (error) {
       console.error("Screenshot error:", error);
       showToast(t("activity.screenshotFailed", { error: String(error) }), "error");

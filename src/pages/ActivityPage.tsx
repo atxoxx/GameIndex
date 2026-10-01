@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../utils/color";
+import { captureAndSaveScreenshot } from "../utils/screenshot";
 import { useActivity } from "../context/ActivityContext";
 import { useGames } from "../context/GameContext";
 import { useSettings } from "../context/SettingsContext";
@@ -220,70 +220,47 @@ export default function ActivityPage() {
     }
   };
 
-  const prepareActivityClone = (clonedDoc: Document) => {
-    prepareClonedDocumentForCanvasCapture(clonedDoc);
-    const sidebar = clonedDoc.querySelector<HTMLElement>(".activity-game-sidebar");
-    if (sidebar) {
-      sidebar.style.maxHeight = "none";
-      sidebar.style.position = "static";
-    }
-    const list = clonedDoc.querySelector<HTMLElement>(".activity-game-sidebar__list");
-    if (list) {
-      list.style.maxHeight = "none";
-      list.style.overflow = "visible";
-    }
-  };
-
   const handleCaptureScreenshot = async () => {
+    const container = document.querySelector<HTMLElement>(".activity__container");
+    if (!container) return;
     try {
-      const container = document.querySelector(".activity__container");
-      if (!container) return;
-
-      const fullWidth = (container as HTMLElement).scrollWidth;
-      const sidebar = (container as HTMLElement).querySelector<HTMLElement>(".activity-game-sidebar");
+      // The game sidebar scrolls independently of the page, so its clipped
+      // rows are added back to the captured height to avoid cutting games off.
+      const sidebar = container.querySelector<HTMLElement>(".activity-game-sidebar");
       const sidebarList = sidebar?.querySelector<HTMLElement>(".activity-game-sidebar__list");
       const expandedSidebarHeight =
         sidebar && sidebarList
           ? sidebar.offsetHeight - sidebarList.offsetHeight + sidebarList.scrollHeight
           : null;
-      const fullHeight =
+      const height =
         !sidebar || expandedSidebarHeight === null
-          ? (container as HTMLElement).scrollHeight
-          : (container as HTMLElement).scrollHeight + Math.max(0, expandedSidebarHeight - sidebar.offsetHeight);
+          ? container.scrollHeight
+          : container.scrollHeight + Math.max(0, expandedSidebarHeight - sidebar.offsetHeight);
 
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(container as HTMLElement, {
-        backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#0f1117"),
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        width: fullWidth,
-        height: fullHeight,
-        windowWidth: fullWidth,
-        windowHeight: fullHeight,
-        onclone: prepareActivityClone,
+      const filePath = await captureAndSaveScreenshot({
+        element: container,
+        fileName: "gamelib_activity",
+        title: t("activity.saveScreenshot"),
+        filterLabel: t("activity.pngImage"),
+        height,
+        prepareClone: (clonedDoc) => {
+          const clonedSidebar = clonedDoc.querySelector<HTMLElement>(".activity-game-sidebar");
+          if (clonedSidebar) {
+            clonedSidebar.style.maxHeight = "none";
+            clonedSidebar.style.position = "static";
+          }
+          const clonedList = clonedDoc.querySelector<HTMLElement>(".activity-game-sidebar__list");
+          if (clonedList) {
+            clonedList.style.maxHeight = "none";
+            clonedList.style.overflow = "visible";
+          }
+        },
       });
 
-      const dataUrl = canvas.toDataURL("image/png");
-      const blob = await (await fetch(dataUrl)).blob();
-
-      const suggestedName = `gamelib_activity_${new Date().toISOString().slice(0, 10)}.png`;
-      const filePath = await save({
-        defaultPath: suggestedName,
-        filters: [{ name: "PNG Image", extensions: ["png"] }],
-      });
-
-      if (filePath) {
-        const buffer = await blob.arrayBuffer();
-        await invoke("save_screenshot", {
-          path: filePath,
-          data: Array.from(new Uint8Array(buffer)),
-        });
-        showToast(t("activity.screenshotSaved"), "success");
-      }
+      if (filePath) showToast(t("activity.screenshotSaved"), "success");
     } catch (err) {
       console.error("Screenshot capture failed:", err);
-      showToast(t("activity.screenshotFailed"), "error");
+      showToast(t("activity.screenshotFailed", { error: String(err) }), "error");
     }
   };
 

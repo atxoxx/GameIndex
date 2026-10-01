@@ -1,9 +1,7 @@
 import { useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../../utils/color";
+import { captureAndSaveScreenshot } from "../../utils/screenshot";
 import { formatHours } from "./statsCalculations";
 import type { GamerLevelInfo, GamerPersona, StreakInfo, TimeframePreset } from "./statsTypes";
 
@@ -57,39 +55,16 @@ export function StatsHeader({
 
   // Capture full screenshot of the stats container
   const handleCaptureScreenshot = useCallback(async () => {
+    const container = document.querySelector<HTMLElement>(".stats-page-container");
+    if (!container) return;
     try {
-      const container = document.querySelector(".stats-page-container");
-      if (!container) return;
-
-      const fullWidth = (container as HTMLElement).scrollWidth;
-      const fullHeight = (container as HTMLElement).scrollHeight;
-
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(container as HTMLElement, {
-        backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#0f1117"),
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        width: fullWidth,
-        height: fullHeight,
-        windowWidth: fullWidth,
-        windowHeight: fullHeight,
-        onclone: (clonedDoc) => {
-          prepareClonedDocumentForCanvasCapture(clonedDoc);
-        },
-      });
-
-      const dataUrl = canvas.toDataURL("image/png");
-      const filePath = await save({
+      const filePath = await captureAndSaveScreenshot({
+        element: container,
+        fileName: "gameindex_stats",
         title: t("activity.saveScreenshot"),
-        defaultPath: `gameindex_stats_${new Date().toISOString().slice(0, 10)}.png`,
-        filters: [{ name: t("activity.pngImage"), extensions: ["png"] }],
+        filterLabel: t("activity.pngImage"),
       });
-
-      if (!filePath) return;
-
-      await invoke("save_screenshot", { filePath, base64Data: dataUrl });
-      showToast(t("gameActivity.screenshotSaved"), "success");
+      if (filePath) showToast(t("gameActivity.screenshotSaved"), "success");
     } catch (err) {
       console.error("[Stats] Screenshot failed:", err);
       showToast(t("gameActivity.screenshotFailed", { error: String(err) }), "error");

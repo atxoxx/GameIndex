@@ -1,7 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
-import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../../utils/color";
+import { captureAndSaveScreenshot } from "../../utils/screenshot";
 import { useToast } from "../../context/ToastContext";
 import { useSessionNotes } from "../../context/SessionNotesContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -121,17 +119,6 @@ function getHourBuckets(
     }
   }
   return counts.map((mins, hour) => ({ hour, mins: Math.round(mins) }));
-}
-
-function prepareGanttClone(clonedDoc: Document): void {
-  prepareClonedDocumentForCanvasCapture(clonedDoc);
-  const rows = clonedDoc.querySelector<HTMLElement>(".activity-gantt__rows");
-  if (rows) rows.style.maxHeight = "none";
-  clonedDoc
-    .querySelectorAll<HTMLElement>(".activity-gantt__tooltip, .modal-backdrop, .act-modal-backdrop")
-    .forEach((n) => {
-      n.style.display = "none";
-    });
 }
 
 export function ActivityGantt({
@@ -429,27 +416,25 @@ export function ActivityGantt({
       const fullHeight = rows
         ? el.offsetHeight - rows.offsetHeight + rows.scrollHeight
         : el.scrollHeight;
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(el, {
-        backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#11131a"),
-        scale: 2,
-        logging: false,
-        useCORS: true,
+      const filePath = await captureAndSaveScreenshot({
+        element: el,
+        fileName: "gameindex_timeline",
+        title: t("activityGantt.saveTimeline"),
+        filterLabel: t("activity.pngImage"),
         width: fullWidth,
         height: fullHeight,
-        windowWidth: fullWidth,
-        windowHeight: fullHeight,
-        onclone: prepareGanttClone,
+        fallbackBackground: "#11131a",
+        prepareClone: (clonedDoc) => {
+          const clonedRows = clonedDoc.querySelector<HTMLElement>(".activity-gantt__rows");
+          if (clonedRows) clonedRows.style.maxHeight = "none";
+          clonedDoc
+            .querySelectorAll<HTMLElement>(".activity-gantt__tooltip, .modal-backdrop, .act-modal-backdrop")
+            .forEach((n) => {
+              n.style.display = "none";
+            });
+        },
       });
-      const dataUrl = canvas.toDataURL("image/png");
-      const filePath = await save({
-        title: t("activityGantt.saveTimeline"),
-        defaultPath: `gameindex_timeline_${new Date().toISOString().slice(0, 10)}.png`,
-        filters: [{ name: t("activity.pngImage"), extensions: ["png"] }],
-      });
-      if (!filePath) return;
-      await invoke("save_screenshot", { filePath, base64Data: dataUrl });
-      showToast(t("activityGantt.timelineSaved"), "success");
+      if (filePath) showToast(t("activityGantt.timelineSaved"), "success");
     } catch (error) {
       console.error("Timeline export error:", error);
       showToast(t("activityGantt.timelineFailed", { error: String(error) }), "error");

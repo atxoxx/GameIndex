@@ -403,25 +403,50 @@ fn list_image_files_flat(dir: &std::path::Path) -> Vec<String> {
     paths
 }
 
-/// Save screenshot image base64 data to the specified path.
+/// Persist a base64-encoded image — normally a PNG data URL produced by
+/// html2canvas on the frontend — to `file_path`.
+///
+/// Accepts either a full `data:image/png;base64,…` URL or a bare base64
+/// payload, creates missing parent directories, and returns the written
+/// path so the caller can confirm the save. A zero-byte or undecodable
+/// payload is rejected instead of silently writing an empty file.
 #[tauri::command]
-pub fn save_screenshot(file_path: String, base64_data: String) -> Result<(), String> {
-     use base64::{Engine as _, engine::general_purpose};
+pub fn save_screenshot(file_path: String, base64_data: String) -> Result<String, String> {
+    use base64::{engine::general_purpose, Engine as _};
 
-     let clean_data = if base64_data.contains(",") {
-         base64_data.split(',').nth(1).unwrap_or(&base64_data)
-     } else {
-         &base64_data
-     };
+    // A base64 alphabet never contains a comma, so the first comma is
+    // always the data-URL separator. `split_once` keeps payloads that
+    // themselves contain no comma intact.
+    let payload = match base64_data.split_once(',') {
+        Some((_, rest)) => rest,
+        None => base64_data.as_str(),
+    }
+    .trim();
 
-     let bytes = general_purpose::STANDARD
-         .decode(clean_data)
-         .map_err(|e| format!("Failed to decode base64: {}", e))?;
+    if payload.is_empty() {
+        return Err("Screenshot payload is empty".to_string());
+    }
 
-     std::fs::write(&file_path, bytes)
-         .map_err(|e| format!("Failed to write file: {}", e))?;
+    let bytes = general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|e| format!("Failed to decode screenshot data: {}", e))?;
 
-     Ok(())
+    if bytes.is_empty() {
+        return Err("Screenshot data decoded to zero bytes".to_string());
+    }
+
+    let path = Path::new(&file_path);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() && !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create screenshot folder: {}", e))?;
+        }
+    }
+
+    std::fs::write(path, bytes)
+        .map_err(|e| format!("Failed to write screenshot: {}", e))?;
+
+    Ok(file_path)
 }
 
 /// Write an arbitrary text payload (CSV / JSON export) to the specified
@@ -657,6 +682,71 @@ fn walk_scan_dir(
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod screenshot_tests {
+    use super::save_screenshot;
+
+    #[test]
+    fn writes_data_url_payload_and_creates_missing_dirs() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let target = dir.path().join("nested/deeper/shot.png");
+
+        // base64("hello") == "aGVsbG8="
+        let returned = save_screenshot(
+            target.to_string_lossy().into_owned(),
+            "data:image/png;base64,aGVsbG8=".to_string(),
+        )
+        .expect("save should succeed");
+
+        assert_eq!(returned, target.to_string_lossy());
+        assert_eq!(std::fs::read(&target).expect("written file"), b"hello");
+    }
+
+    #[test]
+    fn accepts_a_bare_base64_payload() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let target = dir.path().join("shot.png");
+
+        save_screenshot(
+            target.to_string_lossy().into_owned(),
+            "aGVsbG8=".to_string(),
+        )
+        .expect("save should succeed");
+
+        assert_eq!(std::fs::read(&target).expect("written file"), b"hello");
+    }
+
+    #[test]
+    fn rejects_empty_payload() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let target = dir.path().join("shot.png");
+
+        let err = save_screenshot(
+            target.to_string_lossy().into_owned(),
+            "data:image/png;base64,".to_string(),
+        )
+        .expect_err("empty payload must fail");
+
+        assert!(err.contains("empty"));
+        assert!(!target.exists());
+    }
+
+    #[test]
+    fn rejects_invalid_base64_without_writing() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let target = dir.path().join("shot.png");
+
+        let err = save_screenshot(
+            target.to_string_lossy().into_owned(),
+            "not base64!!!".to_string(),
+        )
+        .expect_err("invalid base64 must fail");
+
+        assert!(err.to_lowercase().contains("decode"));
+        assert!(!target.exists());
     }
 }
 
