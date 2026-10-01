@@ -169,9 +169,19 @@ function SidebarGameItemBase({
             decoding="async"
             onError={(e) => {
               const img = e.currentTarget;
-              if (!game.coverArtUrl || img.dataset.fallback === "cover") return;
-              img.dataset.fallback = "cover";
-              img.src = game.coverArtUrl;
+              if (game.coverArtUrl && img.dataset.fallback !== "cover") {
+                img.dataset.fallback = "cover";
+                img.src = game.coverArtUrl;
+                return;
+              }
+              // Icon and cover both fail (e.g. an artwork file was removed):
+              // drop the dead URLs so lazy enrichment can refill them instead
+              // of leaving the browser's broken-image glyph behind.
+              updateGame(game.id, {
+                iconUrl: undefined,
+                coverArtUrl: undefined,
+                coverSourceUrl: undefined,
+              });
             }}
           />
         ) : game.coverArtUrl ? (

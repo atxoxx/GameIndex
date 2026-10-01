@@ -21,7 +21,7 @@ interface Props {
   staleCount?: number;
   activeDrive?: string | null;
   onDriveClick?: (label: string) => void;
-  onNavigateToCleanup?: () => void;
+  onOpenHealth?: () => void;
   onSelectGame?: (game: Game) => void;
 }
 
@@ -30,7 +30,7 @@ export function StorageHeroDashboard({
   staleCount = 0,
   activeDrive = null,
   onDriveClick,
-  onNavigateToCleanup,
+  onOpenHealth,
   onSelectGame,
 }: Props) {
   const { t } = useLanguage();
@@ -238,13 +238,13 @@ export function StorageHeroDashboard({
           </div>
         )}
 
-        {/* KPI 4: Storage Health / Cleanup Opportunity */}
+        {/* KPI 4: Storage Health / Maintenance opportunity */}
         {kpisVisible && (
         <div
           className={`storage-kpi-card storage-kpi-card--interactive ui-complete-only ui-item-kpis ${
             staleCount > 0 ? "storage-kpi-card--alert" : ""
           }`}
-          onClick={() => onNavigateToCleanup?.()}
+          onClick={() => onOpenHealth?.()}
           role="button"
           tabIndex={0}
         >

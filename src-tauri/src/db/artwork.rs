@@ -18,7 +18,10 @@ fn artwork_root(app_data_dir: &Path) -> PathBuf {
     app_data_dir.join(ARTWORK_DIR)
 }
 
-fn safe_component(value: &str) -> String {
+/// The on-disk directory name for a game id. Kept `pub(crate)` so the
+/// library health sweep maps a stored artwork URL back to the folder it
+/// was written under without re-implementing the same transform.
+pub(crate) fn safe_component(value: &str) -> String {
     value.chars().map(|c| {
         if c.is_ascii_alphanumeric() || matches!(c, '-' | '_') { c } else { '_' }
     }).collect()

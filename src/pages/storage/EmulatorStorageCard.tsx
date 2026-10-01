@@ -10,6 +10,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { accentForPlatform, KNOWN_EMULATORS } from "../../types/emulator";
 import { Badge, Button } from "../../components/ui";
+import { GameThumbnail } from "../../components/activity/GameThumbnail";
 
 interface Props {
   emulator: Emulator;
@@ -221,22 +222,13 @@ export function EmulatorStorageCard({
                 return (
                   <li key={g.id} className="emu-storage-rom">
                     <div className="emu-storage-rom-left">
-                      {g.coverArtUrl || g.iconUrl ? (
-                        <img
-                          src={g.coverArtUrl || g.iconUrl}
-                          alt=""
-                          className="emu-storage-rom-thumb"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="emu-storage-rom-icon-box">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <rect x="2" y="6" width="20" height="12" rx="2" />
-                            <line x1="6" y1="12" x2="10" y2="12" />
-                            <line x1="8" y1="10" x2="8" y2="14" />
-                          </svg>
-                        </div>
-                      )}
+                      <GameThumbnail
+                        iconUrl={g.iconUrl}
+                        coverArtUrl={g.coverArtUrl}
+                        steamAppId={g.steamAppId}
+                        name={g.name}
+                        className="emu-storage-rom-thumb"
+                      />
                       <span className="emu-storage-rom-name" title={g.name}>
                         {g.name}
                       </span>

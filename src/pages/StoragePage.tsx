@@ -24,7 +24,7 @@ import { StorageControlsBar, type StorageFilter, type StorageViewMode } from "./
 import { StorageRow } from "./storage/StorageRow";
 import { StorageGridCard } from "./storage/StorageGridCard";
 import { StorageGroup } from "./storage/StorageGroup";
-import { StorageCleanupAssistant } from "./storage/StorageCleanupAssistant";
+import { LibraryHealthCenter } from "./storage/LibraryHealthCenter";
 import { StorageBatchBar } from "./storage/StorageBatchBar";
 import { EmulatorStorageCard } from "./storage/EmulatorStorageCard";
 import { MoveGameDialog } from "./storage/MoveGameDialog";
@@ -518,7 +518,7 @@ export default function StoragePage() {
           staleCount={staleCount}
           activeDrive={driveFilter}
           onDriveClick={(label) => setDriveFilter((cur) => (cur === label ? null : label))}
-          onNavigateToCleanup={() => setViewMode("cleanup")}
+          onOpenHealth={() => setViewMode("health")}
           onSelectGame={(g) => {
             setSearch(g.name);
             setViewMode("list");
@@ -692,17 +692,8 @@ export default function StoragePage() {
         </PageWidget>
       )}
 
-      {/* ── View Mode: Storage Cleanup Assistant ───────────────────── */}
-      {viewMode === "cleanup" && (
-        <StorageCleanupAssistant
-          games={installedGames}
-          staleMap={staleMap}
-          onRefreshStale={refreshAll}
-          onOpenFolder={handleOpenFolder}
-          onMoveGame={(g) => openMove([g])}
-          onUninstallGame={(g) => openUninstall([g])}
-        />
-      )}
+      {/* ── View Mode: Library Health & Maintenance Center ─────────── */}
+      {viewMode === "health" && <LibraryHealthCenter />}
 
       {/* ── View Mode: Emulators ───────────────────────────────────── */}
       {viewMode === "emulators" && (

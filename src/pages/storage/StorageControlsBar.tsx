@@ -7,7 +7,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
 
 export type StorageFilter = "all" | "sized" | "missing" | "stale" | "hasMods" | "massive" | "large" | "small";
-export type StorageViewMode = "list" | "grid" | "cleanup" | "emulators";
+export type StorageViewMode = "list" | "grid" | "health" | "emulators";
 
 interface Props {
   // Counts
@@ -169,15 +169,16 @@ export function StorageControlsBar({
           <button
             type="button"
             role="tab"
-            aria-selected={viewMode === "cleanup"}
-            className={`storage-view-btn ${viewMode === "cleanup" ? "storage-view-btn--active" : ""}`}
-            onClick={() => onViewModeChange("cleanup")}
-            title={t("storage.view.cleanup")}
+            aria-selected={viewMode === "health"}
+            className={`storage-view-btn ${viewMode === "health" ? "storage-view-btn--active" : ""}`}
+            onClick={() => onViewModeChange("health")}
+            title={t("storage.view.health")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="m9 12 2 2 4-4" />
             </svg>
-            <span>{t("storage.view.cleanup")}</span>
+            <span>{t("storage.view.health")}</span>
             {staleCount > 0 && (
               <span className="storage-view-badge storage-view-badge--danger">{staleCount}</span>
             )}

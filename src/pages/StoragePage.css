@@ -2425,6 +2425,26 @@
   border: 1px solid var(--color-border);
 }
 
+/* `GameThumbnail` falls back to a lettered placeholder div when both the
+   icon and cover fail to load. Mirror the shared placeholder styling here
+   so the emulator table renders it correctly regardless of which page
+   stylesheets are loaded. */
+.emu-storage-rom-thumb.game-thumbnail__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-bg-tertiary));
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.emu-storage-rom-thumb .game-thumbnail__letter {
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
 .emu-storage-rom-icon-box {
   width: 28px;
   height: 28px;

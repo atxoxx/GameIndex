@@ -1,0 +1,684 @@
+/* ══ Library Health & Maintenance Center ══════════════════════════════════
+   Styles for the Storage page's health subtab. Reuses the shared theme
+   tokens only — every colour resolves through a `--color-*` variable so the
+   light / alternate themes adapt without overrides. */
+
+.health-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+
+.health-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 12%, var(--color-surface)) 0%,
+    var(--color-surface) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+  border-radius: var(--radius-xl);
+}
+
+.health-hero-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.health-hero-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.health-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.health-hero-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.health-hero-desc {
+  margin: 4px 0 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.health-hero-scanned {
+  margin: 4px 0 0 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.health-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+/* ── Subtab rail ──────────────────────────────────────────────────────── */
+
+.health-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.health-subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.health-subtab:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.health-subtab--active {
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  color: var(--color-text-primary);
+}
+
+.health-subtab-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.health-subtab-label {
+  white-space: nowrap;
+}
+
+.health-subtab-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--color-text-primary);
+}
+
+.health-subtab-count--danger {
+  background: color-mix(in srgb, var(--color-danger) 25%, transparent);
+  color: var(--color-danger);
+}
+
+.health-subtab-count--warning {
+  background: color-mix(in srgb, var(--color-warning) 25%, transparent);
+  color: var(--color-warning);
+}
+
+.health-subtab-count--info {
+  background: color-mix(in srgb, var(--color-info) 25%, transparent);
+  color: var(--color-info);
+}
+
+/* ── Panel shell ──────────────────────────────────────────────────────── */
+
+.health-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.health-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.health-tab-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.health-tab-toolbar-text {
+  flex: 1;
+  min-width: 160px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.health-check-all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.health-check-box {
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-surface);
+  background: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.health-check-box--on {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.health-check-box svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* ── Overview ─────────────────────────────────────────────────────────── */
+
+.health-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.health-score-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.health-score-visual {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+}
+
+.health-score-ring {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.health-score-ring-track {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 9;
+}
+
+.health-score-ring-value {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease, stroke 0.2s ease;
+}
+
+.health-score-card--optimal .health-score-ring-value {
+  stroke: var(--color-success);
+}
+
+.health-score-card--good .health-score-ring-value {
+  stroke: var(--color-info);
+}
+
+.health-score-card--attention .health-score-ring-value {
+  stroke: var(--color-warning);
+}
+
+.health-score-card--critical .health-score-ring-value {
+  stroke: var(--color-danger);
+}
+
+.health-score-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.health-score-value {
+  font-size: 26px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  color: var(--color-text-primary);
+}
+
+.health-score-band {
+  margin-top: 2px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.health-score-summary {
+  min-width: 0;
+}
+
+.health-score-heading {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.health-score-desc {
+  margin: 4px 0 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.health-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-sm);
+}
+
+.health-cat-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  text-align: left;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.health-cat-card:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  transform: translateY(-1px);
+}
+
+.health-cat-card--clear {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.health-cat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.health-cat-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.health-cat-icon--danger {
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
+}
+
+.health-cat-icon--warning {
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
+}
+
+.health-cat-icon--info {
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
+}
+
+.health-cat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.health-cat-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.health-cat-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.health-cat-count--danger {
+  background: color-mix(in srgb, var(--color-danger) 20%, transparent);
+  color: var(--color-danger);
+}
+
+.health-cat-count--warning {
+  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  color: var(--color-warning);
+}
+
+.health-cat-count--info {
+  background: color-mix(in srgb, var(--color-info) 20%, transparent);
+  color: var(--color-info);
+}
+
+.health-cat-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────── */
+
+.health-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+  color: var(--color-success);
+}
+
+.health-empty svg {
+  width: 30px;
+  height: 30px;
+}
+
+.health-empty-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.health-empty-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  max-width: 460px;
+}
+
+/* ── Issue lists ──────────────────────────────────────────────────────── */
+
+.health-issue-list,
+.health-duplicate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.health-issue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.health-issue-severity {
+  width: 4px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.health-issue-severity--critical {
+  background: var(--color-danger);
+}
+
+.health-issue-severity--warning {
+  background: var(--color-warning);
+}
+
+.health-issue-severity--info {
+  background: var(--color-info);
+}
+
+.health-issue-check {
+  flex-shrink: 0;
+}
+
+.health-issue-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.health-issue-headline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.health-issue-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.health-issue-path {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.health-issue-size {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.health-issue-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.health-gap-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────── */
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.health-badge--critical {
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  color: var(--color-danger);
+}
+
+.health-badge--warning {
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+}
+
+.health-badge--info {
+  background: color-mix(in srgb, var(--color-info) 18%, transparent);
+  color: var(--color-info);
+}
+
+.health-badge--muted {
+  background: var(--color-bg-tertiary, color-mix(in srgb, var(--color-border) 60%, transparent));
+  color: var(--color-text-muted);
+}
+
+/* ── Duplicates ───────────────────────────────────────────────────────── */
+
+.health-duplicate-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.health-duplicate-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.health-duplicate-count {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.health-duplicate-games {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.health-duplicate-game {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px var(--space-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.health-duplicate-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.health-duplicate-pick-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.health-duplicate-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.health-duplicate-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.health-duplicate-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Bulk progress ────────────────────────────────────────────────────── */
+
+.health-bulk-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.health-bulk-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.health-bulk-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-accent);
+  transition: width 0.2s ease;
+}
