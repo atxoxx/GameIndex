@@ -740,6 +740,7 @@ pub fn launch_game(
 ) -> Result<String, String> {
     let watcher: tauri::State<'_, Arc<std::sync::Mutex<GameWatcher>>> = app.state();
     let launcher: tauri::State<'_, Arc<std::sync::Mutex<LauncherSettings>>> = app.state();
+    crate::crashlog::breadcrumb("launch", &format!("launch_game: {game_name} ({game_id})"));
 
     let launcher_settings = launcher
         .lock()

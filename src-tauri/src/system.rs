@@ -62,6 +62,9 @@ fn cached_system_info() -> SystemInfo {
         ram_gb: metrics_collector::get_system_ram_gb(),
         gpus: gpu_detector::detect_gpus(),
     };
+    // Attach the detected hardware to the crash-log context so a later crash
+    // report names the exact CPU/RAM/GPU instead of leaving those blank.
+    crate::crashlog::set_hardware_context(&info.cpu_name, info.ram_gb, &info.gpus);
     *cache = Some(info.clone());
     info
 }

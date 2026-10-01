@@ -535,3 +535,19 @@ export function UplayIcon() {
     </svg>
   );
 }
+
+export function DiagnosticsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 12h4l2 6 4-14 2 8h6" />
+    </svg>
+  );
+}

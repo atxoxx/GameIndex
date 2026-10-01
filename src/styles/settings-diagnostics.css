@@ -1,0 +1,129 @@
+/* Settings → Diagnostics: crash-log metadata, report list, and previews. */
+
+.diag-meta {
+  display: grid;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.diag-meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.diag-meta-label {
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+}
+
+.diag-meta-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.diag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.diag-reports {
+  display: grid;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.diag-reports-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.diag-report-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.diag-report-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.diag-report-chip {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.diag-report-chip:hover {
+  border-color: var(--color-border-highlight);
+  color: var(--color-text-primary);
+}
+
+.diag-report-chip.active {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+.diag-report-delete {
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.diag-report-delete:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.diag-empty {
+  margin: 0;
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.diag-preview {
+  margin: 0;
+  padding: var(--space-md);
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.diag-preview--system {
+  min-height: 140px;
+}

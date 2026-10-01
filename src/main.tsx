@@ -2,6 +2,11 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { markBootStart } from "./utils/bootPerf";
 import {
+  installCrashReporter,
+  recordBreadcrumb,
+  recordFrontendCrash,
+} from "./utils/crashReporter";
+import {
   BootstrapErrorBoundary,
   BootstrapErrorPanel,
 } from "./components/BootstrapErrorBoundary";
@@ -27,6 +32,12 @@ import "./styles/download.css";
 // bootstrap, and on the rare occasion the user opens the Friends page
 // before it has landed, `getNostrKeys` degrades to the session fallback.
 markBootStart();
+
+// Install global JS error/unhandled-rejection handlers before anything else
+// renders, then leave a boot breadcrumb. Best-effort no-ops in a
+// frontend-only dev build.
+installCrashReporter();
+recordBreadcrumb("app", "frontend boot");
 
 const root = document.getElementById("root") as HTMLElement;
 
@@ -73,9 +84,14 @@ async function bootstrap() {
 void bootstrap().catch((err) => {
   // eslint-disable-next-line no-console
   console.error("[bootstrap] Failed to load the app chunk:", err);
-  const rootEl = document.getElementById("root") as HTMLElement;
   const message =
     err instanceof Error ? err : new Error(String(err));
+  recordFrontendCrash({
+    kind: "bootstrap",
+    message: message.message,
+    stack: message.stack ?? null,
+  });
+  const rootEl = document.getElementById("root") as HTMLElement;
   ReactDOM.createRoot(rootEl).render(
     <BootstrapErrorPanel error={message} />,
   );

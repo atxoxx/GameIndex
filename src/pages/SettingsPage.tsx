@@ -23,6 +23,7 @@ import LauncherTab from "./settings/LauncherTab";
 import PrivacyTab from "./settings/PrivacyTab";
 import BackupTab from "./settings/BackupTab";
 import SavesTab from "./settings/SavesTab";
+import DiagnosticsTab from "./settings/DiagnosticsTab";
 import CompatibilityTab from "./settings/CompatibilityTab";
 import { IntegrationsIcon, SettingsGearIcon } from "./settings/settingsIcons";
 import type { SettingsTab } from "./settings/types";
@@ -141,6 +142,7 @@ export default function SettingsPage() {
         {activeTab === "privacy" && <PrivacyTab />}
         {activeTab === "backup" && <BackupTab />}
         {activeTab === "saves" && <SavesTab />}
+        {activeTab === "diagnostics" && <DiagnosticsTab />}
         {activeTab === "compatibility" && showFullLinuxUi && <CompatibilityTab />}
       </main>
     </div>

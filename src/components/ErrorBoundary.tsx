@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "./ui";
 import { useLanguage } from "../context/LanguageContext";
+import { recordFrontendCrash } from "../utils/crashReporter";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -71,6 +72,13 @@ export class ErrorBoundary extends Component<
       // eslint-disable-next-line no-console
       console.error("[ErrorBoundary] Component stack:", info.componentStack);
     }
+    // Persist to the crash log so a render crash survives a release build.
+    recordFrontendCrash({
+      kind: "react-error",
+      message: error.message,
+      stack: error.stack ?? null,
+      componentStack: info.componentStack ?? null,
+    });
   }
 
   private handleRetry = (): void => {

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import ErrorBoundary from "./ErrorBoundary";
+import { recordBreadcrumb } from "../utils/crashReporter";
 
 /**
  * MainContent — the routed page outlet for the AppLayout shell.
@@ -33,7 +34,9 @@ export default function MainContent() {
   useEffect(() => {
     document.querySelector(".app-main")?.scrollTo({ top: 0 });
     window.scrollTo(0, 0);
-  }, [location.pathname]);
+    // Record where the user navigated so a later crash report shows it.
+    recordBreadcrumb("route", `${location.pathname}${location.search}`);
+  }, [location.pathname, location.search]);
 
   return (
     <main className="main-content">

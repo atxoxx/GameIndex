@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { recordFrontendCrash } from "../utils/crashReporter";
 
 interface BootstrapErrorBoundaryProps {
   children: ReactNode;
@@ -124,6 +125,12 @@ export class BootstrapErrorBoundary extends Component<
         info.componentStack,
       );
     }
+    recordFrontendCrash({
+      kind: "bootstrap-react-error",
+      message: error.message,
+      stack: error.stack ?? null,
+      componentStack: info.componentStack ?? null,
+    });
   }
 
   override render(): ReactNode {

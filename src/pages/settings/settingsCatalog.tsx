@@ -25,6 +25,7 @@ import {
   BackupIcon,
   CompatibilityIcon,
   SettingsGearIcon,
+  DiagnosticsIcon,
 } from "./settingsIcons";
 
 /**
@@ -64,6 +65,7 @@ const TAB_ORDER: SettingsTab[] = [
   "privacy",
   "backup",
   "saves",
+  "diagnostics",
   "compatibility",
 ];
 
@@ -450,6 +452,30 @@ export function buildSettingsCatalog(
         },
       ],
     },
+    diagnostics: {
+      tab: "diagnostics",
+      labelKey: "settings.tab.diagnostics",
+      descKey: "settings.diagnostics.desc",
+      keywords:
+        "diagnostics crash log report error debug troubleshooting system report version copy export open folder support bug",
+      icon: <DiagnosticsIcon />,
+      sections: [
+        {
+          id: "diagnostics-crash",
+          labelKey: "settings.diagnostics.crashTitle",
+          keywords:
+            "crash log report error panic exception backtrace stack trace debug dump txt",
+          icon: <DiagnosticsIcon />,
+        },
+        {
+          id: "diagnostics-system",
+          labelKey: "settings.diagnostics.systemTitle",
+          keywords:
+            "system report version os cpu ram gpu hardware info support copy clipboard",
+          icon: <HardwareIcon />,
+        },
+      ],
+    },
     compatibility: {
       tab: "compatibility",
       labelKey: "settings.tab.compatibility",
@@ -552,6 +578,7 @@ export function buildSettingsCatalog(
         { tab: "privacy", label: t("settings.tab.privacy"), icon: <TrashIcon /> },
         { tab: "backup", label: t("settings.tab.backup"), icon: <BackupIcon /> },
         { tab: "saves", label: t("settings.tab.saves"), icon: <BackupIcon /> },
+        { tab: "diagnostics", label: t("settings.tab.diagnostics"), icon: <DiagnosticsIcon /> },
       ],
     },
   ];

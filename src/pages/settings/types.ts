@@ -14,6 +14,7 @@ export type SettingsTab =
   | "privacy"
   | "backup"
   | "saves"
+  | "diagnostics"
   | "compatibility";
 
 /** One destination in the sidebar (always a whole tab — never an in-tab anchor). */
