@@ -56,3 +56,15 @@ describe("DetailPagePreview — DLC card", () => {
     expect(screen.getByText("gameDlcCard")).toBeInTheDocument();
   });
 });
+
+describe("DetailPagePreview — Save Backups card", () => {
+  it("renders the save backups card in the library game preview", () => {
+    renderPreview("game");
+    expect(screen.getByText("gameSaveBackup")).toBeInTheDocument();
+  });
+
+  it("omits the save backups card from the store game preview", () => {
+    renderPreview("storeGame");
+    expect(screen.queryByText("gameSaveBackup")).toBeNull();
+  });
+});

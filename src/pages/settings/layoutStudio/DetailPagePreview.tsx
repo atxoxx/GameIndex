@@ -59,10 +59,10 @@ function noopGridChange() {}
  *
  *   Full   gameHero · gameTabs · gameQuickStats
  *   Main   gameAbout · gameStoryline · gameMedia · gameSysReq · gameRelations
- *   Side   gamePulse (library only), then the ten sidebar cards:
- *          gameInfoKpi · gameDlcCard · gameSteamFeatures · gameRatings ·
- *          gameTimeToBeat · gameSpecsCard · gameProtonDb · gameCrackwatch ·
- *          gameReleases · gameLanguages
+ *   Side   gamePulse (library only), then the sidebar cards:
+ *          gameInfoKpi · gameDlcCard · gameSteamFeatures · gameSaveBackup
+ *          (library only) · gameRatings · gameTimeToBeat · gameSpecsCard ·
+ *          gameProtonDb · gameCrackwatch · gameReleases · gameLanguages
  *
  *   `game` (library detail) is fully widget-addressable. `storeGame` (store
  *   detail) shares the side cards as real `PageWidgetSlot page="storeGame"`
@@ -86,14 +86,17 @@ const GAME_MAIN_WIDGETS: PageWidgetKey[] = [
   "gameRelations",
 ];
 /**
- * The ten individual sidebar cards, in the order both detail pages ship them.
+ * The individual sidebar cards, in the order the detail pages ship them.
  * Each is a real `PageWidget` now (the old `gameSidebarKpis` / `gameSpecs`
  * group widgets are gone), so each becomes its own draggable / hideable card.
+ * `gameSaveBackup` is library-only — the store detail has no save card, and
+ * the region filter below drops it from the store preview.
  */
 const SIDE_CARD_WIDGETS: PageWidgetKey[] = [
   "gameInfoKpi",
   "gameDlcCard",
   "gameSteamFeatures",
+  "gameSaveBackup",
   "gameRatings",
   "gameTimeToBeat",
   "gameSpecsCard",
@@ -300,6 +303,20 @@ function DlcBody() {
   );
 }
 
+/** Save Backups: snapshot status over the save / restore action row. */
+function SaveBackupBody() {
+  return (
+    <span className="studio-detail-mini-body">
+      <span className="studio-detail-badge studio-detail-badge--status" aria-hidden="true" />
+      <MetaRows count={1} label={48} value={30} />
+      <span className="studio-detail-pills">
+        <span className="studio-detail-tag" aria-hidden="true" />
+        <span className="studio-detail-tag" aria-hidden="true" />
+      </span>
+    </span>
+  );
+}
+
 /** Ratings: score tiles over the four-row score breakdown. */
 function RatingsBody() {
   const breakdown = [72, 56, 24, 9];
@@ -405,13 +422,15 @@ function WidgetBody({ widget }: { widget: PageWidgetKey }) {
       return <PostersBody />;
     case "gamePulse":
       return <PulseBody />;
-    // The ten individual sidebar cards, each its own widget slot now.
+    // The eleven individual sidebar cards, each its own widget slot now.
     case "gameInfoKpi":
       return <InfoKpiBody />;
     case "gameDlcCard":
       return <DlcBody />;
     case "gameSteamFeatures":
       return <SteamFeaturesBody />;
+    case "gameSaveBackup":
+      return <SaveBackupBody />;
     case "gameRatings":
       return <RatingsBody />;
     case "gameTimeToBeat":
