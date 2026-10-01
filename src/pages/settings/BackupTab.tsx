@@ -3,17 +3,24 @@ import { useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
+  AlertTriangle,
+  Check,
   Clock,
+  Cloud,
   Database,
   Download,
   FileArchive,
+  Filter,
   FolderOpen,
+  GitCompare,
   HardDrive,
   Layers,
   RefreshCw,
   Search,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
+  Tag,
   Trash2,
   Upload,
   Zap,
@@ -25,7 +32,11 @@ import { useToast } from "../../context/ToastContext";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import BackupProgressModal from "./BackupProgressModal";
+import BackupVerifyModal from "./BackupVerifyModal";
+import BackupDiffModal from "./BackupDiffModal";
+import BackupHealthModal from "./BackupHealthModal";
 import {
+  calculateBackupHealth,
   formatBackupBytes,
   formatBackupDate,
   formatBackupRelative,
@@ -34,12 +45,20 @@ import {
 import type {
   BackupArchiveSummary,
   BackupConfig,
+  BackupDiffReport,
   BackupInspect,
   BackupOutcome,
   BackupPreset,
   BackupStatus,
   BackupSubtab,
+  BackupVerifyReport,
+  CloudPathOption,
 } from "../../types/backup";
+// The backup markup (subtabs, hero, meter, modals, …) is styled here. It is a
+// page-scoped sheet, and BackupTab is reused outside Settings (embedded in the
+// Saves page), so the import has to travel with the component rather than only
+// living on SettingsPage — otherwise the whole suite renders unstyled there.
+import "../../styles/settings-tabs-b.css";
 
 /** Domain file stem → localized label key. Unknown stems fall back to raw. */
 const BACKUP_DOMAIN_LABEL_KEYS: Record<string, string> = {
@@ -86,14 +105,27 @@ export default function BackupTab() {
   const [status, setStatus] = useState<BackupStatus | null>(null);
   const [config, setConfig] = useState<BackupConfig | null>(null);
   const [archives, setArchives] = useState<BackupArchiveSummary[]>([]);
+  const [cloudPaths, setCloudPaths] = useState<CloudPathOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [quickBusy, setQuickBusy] = useState(false);
+
+  // ─── Modal States ─────────────────────────────────────────────────────
+  const [verifyReport, setVerifyReport] = useState<BackupVerifyReport | null>(null);
+  const [verifyingPath, setVerifyingPath] = useState<string | null>(null);
+  const [diffReport, setDiffReport] = useState<BackupDiffReport | null>(null);
+  const [diffingPath, setDiffingPath] = useState<string | null>(null);
+  const [showHealthModal, setShowHealthModal] = useState(false);
+
+  // ─── Archive List Filter & Sort ───────────────────────────────────────
+  const [archiveSearch, setArchiveSearch] = useState("");
+  const [archiveFormatFilter, setArchiveFormatFilter] = useState<"all" | "raw" | "legacy">("all");
+  const [archiveSort, setArchiveSort] = useState<"newest" | "oldest" | "size">("newest");
 
   // ─── Create subtab state ──────────────────────────────────────────────
   const [preset, setPreset] = useState<BackupPreset>("full");
   const [selectedCreate, setSelectedCreate] = useState<Record<string, boolean>>({});
   const [createFilter, setCreateFilter] = useState("");
-  const [destinationType, setDestinationType] = useState<"default" | "custom">("default");
+  const [destinationType, setDestinationType] = useState<"default" | "custom" | string>("default");
   const [backupNote, setBackupNote] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createTargetPath, setCreateTargetPath] = useState("");
@@ -104,7 +136,6 @@ export default function BackupTab() {
   const [selectedRestore, setSelectedRestore] = useState<Record<string, boolean>>({});
   const [restoreMode, setRestoreMode] = useState<"merge" | "replace">("merge");
   const [safetySnapshot, setSafetySnapshot] = useState(true);
-  const [inspecting, setInspecting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
   const [restartOpen, setRestartOpen] = useState(false);
@@ -113,11 +144,12 @@ export default function BackupTab() {
   // ─── Archive management & deletion ───────────────────────────────────
   const [archiveToDelete, setArchiveToDelete] = useState<BackupArchiveSummary | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [exportingPath, setExportingPath] = useState<string | null>(null);
 
   // ─── Settings subtab state ────────────────────────────────────────────
   const [savingConfig, setSavingConfig] = useState(false);
 
-  // Synchronize section parameter with active subtab
+  // Synchronize section parameter with active subtab without wiping other parameters
   useEffect(() => {
     const section = searchParams.get("section");
     if (section === "backup-create" && subtab !== "create") setSubtab("create");
@@ -136,7 +168,14 @@ export default function BackupTab() {
           : tab === "restore"
             ? "backup-restore"
             : "backup-settings";
-    setSearchParams({ section: sectionId }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("section", sectionId);
+        return next;
+      },
+      { replace: true }
+    );
   };
 
   const isDomainVisible = useCallback(
@@ -146,10 +185,11 @@ export default function BackupTab() {
 
   const refreshAll = useCallback(async () => {
     try {
-      const [newStatus, newConfig, newArchives] = await Promise.all([
+      const [newStatus, newConfig, newArchives, detectedCloud] = await Promise.all([
         invoke<BackupStatus>("backup_get_status"),
         invoke<BackupConfig>("backup_get_config").catch(() => null),
         invoke<BackupArchiveSummary[]>("backup_list_archives").catch(() => []),
+        invoke<CloudPathOption[]>("backup_detect_cloud_paths").catch(() => []),
       ]);
       setStatus(newStatus);
       if (newConfig) {
@@ -157,6 +197,7 @@ export default function BackupTab() {
         setSafetySnapshot(newConfig.safetyBackupBeforeRestore);
       }
       setArchives(newArchives);
+      setCloudPaths(detectedCloud);
     } catch (err) {
       showToast(String(err), "error");
     } finally {
@@ -183,6 +224,34 @@ export default function BackupTab() {
   const totalRecords = useMemo(() => {
     return existingDomains.reduce((acc, d) => acc + (d.itemCount ?? 0), 0);
   }, [existingDomains]);
+
+  // Overall protection health calculation
+  const backupHealth = useMemo(() => {
+    return calculateBackupHealth(status, archives, config);
+  }, [status, archives, config]);
+
+  // ─── Filtered and Sorted Archives ─────────────────────────────────────
+  const filteredArchives = useMemo(() => {
+    const q = archiveSearch.trim().toLowerCase();
+    return archives
+      .filter((arc) => {
+        if (archiveFormatFilter === "raw" && !arc.isRaw) return false;
+        if (archiveFormatFilter === "legacy" && arc.isRaw) return false;
+        if (q) {
+          const matchName = arc.fileName.toLowerCase().includes(q);
+          const matchPath = arc.filePath.toLowerCase().includes(q);
+          const matchVersion = arc.appVersion.toLowerCase().includes(q);
+          if (!matchName && !matchPath && !matchVersion) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (archiveSort === "newest") return b.createdAt - a.createdAt;
+        if (archiveSort === "oldest") return a.createdAt - b.createdAt;
+        if (archiveSort === "size") return b.sizeBytes - a.sizeBytes;
+        return 0;
+      });
+  }, [archives, archiveSearch, archiveFormatFilter, archiveSort]);
 
   // ─── Preset selection handler ─────────────────────────────────────────
   const applyPreset = useCallback(
@@ -259,133 +328,156 @@ export default function BackupTab() {
 
   // ─── Custom Create Backup ─────────────────────────────────────────────
   const handleStartCreate = async () => {
-    const chosen = createChoices.map((d) => d.name);
-    if (chosen.length === 0) return;
+    if (createChoices.length === 0) return;
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2);
+    const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const suffix = backupNote.trim()
+      ? `-${backupNote.trim().replace(/[^a-zA-Z0-9_-]/g, "-")}`
+      : "";
+    const defaultName = `gameindex-backup-${ts}${suffix}.gibak`;
 
+    let target = "";
     if (destinationType === "default") {
-      // Quick execute into default directory with progress modal
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10);
-      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, "");
-      const noteSuffix = backupNote.trim() ? `-${backupNote.trim().replace(/[^a-zA-Z0-9_-]/g, "-")}` : "";
-      const baseDir = config?.backupDir || "backups";
-      const target = `${baseDir}/gameindex-backup-${dateStr}-${timeStr}${noteSuffix}.gibak`;
-      setCreateTargetPath(target);
-      setCreateDomains(chosen);
-      setShowCreateModal(true);
-    } else {
-      // Custom Save As file picker
+      const dir = config?.backupDir || "";
+      target = `${dir}/${defaultName}`.replace(/\\/g, "/");
+    } else if (destinationType === "custom") {
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        const target = await save({
-          title: t("settings.backup.createBtn"),
-          defaultPath: `gameindex-backup-${today}.gibak`,
-          filters: [{ name: "GameIndex Backup (.gibak)", extensions: ["gibak", "zip"] }],
+        const picked = await save({
+          defaultPath: defaultName,
+          filters: [{ name: t("settings.backup.archiveFilterName"), extensions: ["gibak", "zip"] }],
         });
-        if (!target) return;
-        setCreateTargetPath(target);
-        setCreateDomains(chosen);
-        setShowCreateModal(true);
+        if (!picked || typeof picked !== "string") return;
+        target = picked;
       } catch (err) {
-        showToast(t("settings.backup.createFailed", { error: String(err) }), "error");
+        showToast(String(err), "error");
+        return;
       }
+    } else {
+      // Cloud preset path
+      target = `${destinationType}/${defaultName}`.replace(/\\/g, "/");
     }
+
+    setCreateTargetPath(target);
+    setCreateDomains(createChoices.map((d) => d.name));
+    setShowCreateModal(true);
   };
 
-  // ─── Inspect an archive from path ─────────────────────────────────────
-  const inspectPath = async (filePath: string) => {
-    setReadError(null);
-    setInspecting(true);
+  // ─── Archive Verification ─────────────────────────────────────────────
+  const handleVerifyArchive = async (filePath: string) => {
+    setVerifyingPath(filePath);
     try {
-      const info = await invoke<BackupInspect>("backup_inspect", {
-        sourcePath: filePath,
-      });
-      setArchive({
-        path: filePath,
-        createdAt: info.createdAt,
-        appVersion: info.appVersion,
-        domains: info.domains,
-        isRaw: info.isRaw,
-        counts: info.counts,
-      });
-      setSelectedRestore({});
-      setSubtab("restore");
-      setSearchParams({ section: "backup-restore" }, { replace: true });
+      const report = await invoke<BackupVerifyReport>("backup_verify_archive", { filePath });
+      setVerifyReport(report);
     } catch (err) {
-      setReadError(t("settings.backup.readFailed", { error: String(err) }));
-      showToast(t("settings.backup.readFailed", { error: String(err) }), "error");
+      showToast(t("settings.backup.verifyFailed", { error: String(err) }), "error");
     } finally {
-      setInspecting(false);
+      setVerifyingPath(null);
     }
   };
 
-  // ─── Pick archive file dialog ─────────────────────────────────────────
-  const pickRestore = async () => {
+  // ─── Archive Diff ─────────────────────────────────────────────────────
+  const handleDiffArchive = async (filePath: string) => {
+    setDiffingPath(filePath);
+    try {
+      const diff = await invoke<BackupDiffReport>("backup_diff_archive", { filePath });
+      setDiffReport(diff);
+    } catch (err) {
+      showToast(t("settings.backup.diffFailed", { error: String(err) }), "error");
+    } finally {
+      setDiffingPath(null);
+    }
+  };
+
+  // ─── Archive Export ───────────────────────────────────────────────────
+  const handleExportArchive = async (filePath: string) => {
+    setExportingPath(filePath);
     try {
       const picked = await open({
+        directory: true,
         multiple: false,
-        title: t("settings.backup.restoreBtn"),
-        filters: [{ name: "GameIndex Backup (.gibak)", extensions: ["gibak", "zip"] }],
+        title: t("settings.backup.exportSelectFolder"),
       });
-      if (!picked || typeof picked !== "string") return;
-      await inspectPath(picked);
+      if (picked && typeof picked === "string") {
+        const dest = await invoke<string>("backup_export_archive", {
+          sourcePath: filePath,
+          targetDir: picked,
+        });
+        showToast(
+          t("settings.backup.exportSuccess", { path: dest }),
+          "success"
+        );
+      }
+    } catch (err) {
+      showToast(t("settings.backup.exportFailed", { error: String(err) }), "error");
+    } finally {
+      setExportingPath(null);
+    }
+  };
+
+  // ─── Inspect archive for restore ──────────────────────────────────────
+  const inspectPath = async (filePath: string) => {
+    
+    setReadError(null);
+    try {
+      const res = await invoke<BackupInspect>("backup_inspect", { sourcePath: filePath });
+      setArchive({ ...res, path: filePath });
+      const initial: Record<string, boolean> = {};
+      for (const d of res.domains) initial[d] = true;
+      setSelectedRestore(initial);
+      handleSelectSubtab("restore");
+    } catch (err) {
+      setReadError(String(err));
+      showToast(t("settings.backup.inspectFailed", { error: String(err) }), "error");
+    } finally {
+      
+    }
+  };
+
+  const handlePickFile = async () => {
+    try {
+      const picked = await open({
+        directory: false,
+        multiple: false,
+        filters: [{ name: t("settings.backup.archiveFilterName"), extensions: ["gibak", "zip"] }],
+        title: t("settings.backup.selectArchiveTitle"),
+      });
+      if (picked && typeof picked === "string") {
+        await inspectPath(picked);
+      }
     } catch (err) {
       showToast(String(err), "error");
     }
   };
 
-  // ─── Drag & Drop handling ─────────────────────────────────────────────
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
-  };
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      // File.path is available in Tauri webview
-      const path = (file as unknown as { path?: string }).path;
-      if (path && (path.endsWith(".gibak") || path.endsWith(".zip"))) {
-        void inspectPath(path);
-      } else {
-        showToast("Please drop a valid .gibak or .zip backup archive.", "warning");
-      }
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    const f = files[0];
+    if (f) {
+      const p = (f as unknown as { path?: string }).path;
+      if (p) await inspectPath(p);
+      else showToast(t("settings.backup.dragDropWebError"), "warning");
     }
   };
 
-  // ─── Restore choices ──────────────────────────────────────────────────
   const isRestoreChecked = (name: string) => selectedRestore[name] !== false;
-  const archiveDomains = useMemo(() => {
-    return archive?.domains.filter(isDomainVisible) ?? [];
-  }, [archive, isDomainVisible]);
 
-  const restoreChoices = useMemo(() => {
-    return archiveDomains.filter((name) => isRestoreChecked(name));
-  }, [archiveDomains, selectedRestore]);
-
-  const restoreAllSelected =
-    archive !== null &&
-    archiveDomains.length > 0 &&
-    archiveDomains.every((name) => isRestoreChecked(name));
-
-  const toggleRestore = (name: string, checked: boolean) =>
+  const toggleRestore = (name: string, checked: boolean) => {
     setSelectedRestore((prev) => ({ ...prev, [name]: checked }));
+  };
 
   const setAllRestore = (checked: boolean) => {
     if (!archive) return;
-    setSelectedRestore(Object.fromEntries(archiveDomains.map((name) => [name, checked])));
+    setSelectedRestore(Object.fromEntries(archive.domains.map((d) => [d, checked])));
   };
+
+  const restoreChoices = useMemo(() => {
+    if (!archive) return [];
+    return archive.domains.filter((d) => isRestoreChecked(d));
+  }, [archive, selectedRestore]);
 
   const doRestore = async () => {
     if (!archive || restoreChoices.length === 0) return;
@@ -486,14 +578,6 @@ export default function BackupTab() {
     }
   };
 
-  // Health calculation
-  const backupHealth = useMemo(() => {
-    if (!status?.lastBackupAt) return { status: "never", label: t("settings.backup.health.never"), intent: "default" as const };
-    const ageDays = (Date.now() / 1000 - status.lastBackupAt) / 86400;
-    if (ageDays <= 7) return { status: "recent", label: t("settings.backup.health.recent"), intent: "accent" as const };
-    return { status: "stale", label: t("settings.backup.health.stale"), intent: "warning" as const };
-  }, [status, t]);
-
   const canCreate =
     existingDomains.length === 0 ||
     createChoices.length === 0 ||
@@ -504,7 +588,7 @@ export default function BackupTab() {
   return (
     <div className="backup-suite">
       {/* ─── Top Subtabs Strip ───────────────────────────────────────── */}
-      <nav className="backup-subtabs-bar" aria-label="Backup views">
+      <nav className="backup-subtabs-bar" aria-label={t("settings.backup.viewsLabel")}>
         <button
           type="button"
           className={`backup-subtab-pill ${subtab === "overview" ? "active" : ""}`}
@@ -545,7 +629,7 @@ export default function BackupTab() {
       </nav>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SUBTAB 1: OVERVIEW & SNAPSHOTS
+          SUBTAB 1: OVERVIEW & ARCHIVES ("MAIN BACKUP PAGE")
           ═══════════════════════════════════════════════════════════════ */}
       {subtab === "overview" && (
         <SettingsSection
@@ -554,41 +638,86 @@ export default function BackupTab() {
           title={t("settings.section.backupOverview")}
           desc={t("settings.backup.overviewDesc")}
         >
-          {/* Quick Action Toolbar Hero */}
-          <div className="backup-overview-hero-bar">
-            <div className="backup-overview-hero-text">
-              <span className="backup-hero-title">{t("settings.backup.quickBackup")}</span>
-              <span className="backup-hero-desc">{t("settings.backup.quickBackupDesc")}</span>
+          {/* Hero Protection Card */}
+          <div className="backup-hero-protection-card">
+            <div className="backup-hero-protection-top">
+              <div className="backup-hero-badge-wrap">
+                <span
+                  className={`backup-hero-grade-badge backup-hero-grade-badge--${backupHealth.intent}`}
+                >
+                  <ShieldCheck size={18} />
+                  <span>{backupHealth.grade}</span>
+                </span>
+                <div className="backup-hero-text">
+                  <h3 className="backup-hero-title">
+                    {t(backupHealth.labelKey)}
+                  </h3>
+                  <p className="backup-hero-desc">
+                    {status?.lastBackupAt
+                      ? t("settings.backup.lastProtectedTime", {
+                          time: formatBackupRelative(status.lastBackupAt, t),
+                        })
+                      : t("settings.backup.neverBackedUpDesc")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Actions Cluster */}
+              <div className="backup-hero-actions">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleQuickBackup()}
+                  isLoading={quickBusy}
+                  disabled={loading || domainsWithData.length === 0}
+                >
+                  <Zap size={14} />
+                  {t("settings.backup.quickBackup")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowHealthModal(true)}
+                >
+                  <Sparkles size={14} />
+                  {t("settings.backup.runDiagnostics", { grade: backupHealth.grade })}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleOpenFolder()}
+                  disabled={!config?.backupDir}
+                  title={t("settings.backup.openFolder")}
+                >
+                  <FolderOpen size={14} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void refreshAll()}
+                  disabled={loading}
+                  title={t("common.refresh")}
+                >
+                  <RefreshCw size={14} />
+                </Button>
+              </div>
             </div>
-            <div className="backup-overview-hero-actions">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => void handleQuickBackup()}
-                isLoading={quickBusy}
-                disabled={loading || domainsWithData.length === 0}
-              >
-                <Zap size={14} />
-                {t("settings.backup.quickBackup")}
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void handleOpenFolder()}
-                disabled={!config?.backupDir}
-              >
-                <FolderOpen size={14} />
-                {t("settings.backup.openFolder")}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void refreshAll()}
-                disabled={loading}
-              >
-                <RefreshCw size={14} />
-                {t("common.refresh")}
-              </Button>
+
+            {/* Inline tag input for quick backup */}
+            <div className="backup-quick-note-strip">
+              <Tag size={13} className="backup-quick-note-icon" />
+              <input
+                type="text"
+                className="backup-quick-note-input"
+                placeholder={t("settings.backup.quickNotePlaceholder")}
+                value={backupNote}
+                onChange={(e) => setBackupNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !quickBusy && domainsWithData.length > 0) {
+                    void handleQuickBackup();
+                  }
+                }}
+              />
             </div>
           </div>
 
@@ -616,10 +745,8 @@ export default function BackupTab() {
             />
             <KpiTile
               label={t("settings.backup.kpi.backupHealth")}
-              value={backupHealth.label}
-              subtext={
-                status?.lastBackupAt ? formatBackupRelative(status.lastBackupAt) : undefined
-              }
+              value={`${backupHealth.grade} (${backupHealth.score}%)`}
+              subtext={t(backupHealth.labelKey)}
               icon={<ShieldCheck size={16} />}
               size="sm"
               intent={backupHealth.intent}
@@ -646,7 +773,9 @@ export default function BackupTab() {
                       key={d.name}
                       className="backup-meter-segment"
                       style={{ width: `${pct}%`, backgroundColor: color }}
-                      title={`${t(BACKUP_DOMAIN_LABEL_KEYS[d.name] ?? d.name)}: ${formatBackupBytes(d.sizeBytes)} (${((d.sizeBytes / totalBytes) * 100).toFixed(1)}%)`}
+                      title={`${t(BACKUP_DOMAIN_LABEL_KEYS[d.name] ?? d.name)}: ${formatBackupBytes(
+                        d.sizeBytes
+                      )} (${((d.sizeBytes / totalBytes) * 100).toFixed(1)}%)`}
                     />
                   );
                 })}
@@ -677,9 +806,63 @@ export default function BackupTab() {
             <div className="backup-section-header-row">
               <div className="backup-section-title-wrap">
                 <h3 className="backup-card-title">{t("settings.backup.archivesTitle")}</h3>
-                <span className="backup-card-count">{archives.length}</span>
+                <span className="backup-card-count">{filteredArchives.length}</span>
               </div>
-              <span className="backup-section-subtitle">{t("settings.backup.archivesDesc")}</span>
+              <span className="backup-section-subtitle">
+                {t("settings.backup.archivesDesc")}
+              </span>
+            </div>
+
+            {/* Archive Toolbar: Search, Format Filter, Sort */}
+            <div className="backup-archives-toolbar">
+              <div className="backup-search-wrap" style={{ flex: 1, minWidth: 200, maxWidth: 360 }}>
+                <Search size={14} className="backup-search-icon" />
+                <input
+                  type="search"
+                  className="backup-search-input"
+                  placeholder={t("settings.backup.searchArchives")}
+                  value={archiveSearch}
+                  onChange={(e) => setArchiveSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="backup-filter-pills">
+                <button
+                  type="button"
+                  className={`backup-filter-pill ${archiveFormatFilter === "all" ? "active" : ""}`}
+                  onClick={() => setArchiveFormatFilter("all")}
+                >
+                  {t("common.all")}
+                </button>
+                <button
+                  type="button"
+                  className={`backup-filter-pill ${archiveFormatFilter === "raw" ? "active" : ""}`}
+                  onClick={() => setArchiveFormatFilter("raw")}
+                >
+                  Raw (v2)
+                </button>
+                <button
+                  type="button"
+                  className={`backup-filter-pill ${archiveFormatFilter === "legacy" ? "active" : ""}`}
+                  onClick={() => setArchiveFormatFilter("legacy")}
+                >
+                  Binary (v1)
+                </button>
+              </div>
+
+              <div className="backup-sort-select-wrap">
+                <Filter size={13} className="backup-sort-icon" />
+                <select
+                  className="backup-sort-select"
+                  value={archiveSort}
+                  onChange={(e) => setArchiveSort(e.target.value as "newest" | "oldest" | "size")}
+                  aria-label={t("settings.backup.sortArchives")}
+                >
+                  <option value="newest">{t("settings.backup.sortNewest")}</option>
+                  <option value="oldest">{t("settings.backup.sortOldest")}</option>
+                  <option value="size">{t("settings.backup.sortSize")}</option>
+                </select>
+              </div>
             </div>
 
             {archives.length === 0 ? (
@@ -696,9 +879,18 @@ export default function BackupTab() {
                   {t("settings.backup.subtab.create")}
                 </Button>
               </div>
+            ) : filteredArchives.length === 0 ? (
+              <div className="backup-empty-card">
+                <p className="backup-empty-title">
+                  {t("settings.backup.noMatchingArchives")}
+                </p>
+                <Button variant="ghost" size="sm" onClick={() => setArchiveSearch("")}>
+                  {t("common.clear")}
+                </Button>
+              </div>
             ) : (
               <div className="backup-archives-list">
-                {archives.map((arc) => (
+                {filteredArchives.map((arc) => (
                   <article key={arc.filePath} className="backup-archive-card">
                     <div className="backup-archive-icon-wrap">
                       <FileArchive size={20} className="backup-archive-icon" />
@@ -709,20 +901,29 @@ export default function BackupTab() {
                           {arc.fileName}
                         </span>
                         <Badge variant={arc.isRaw ? "accent" : "default"} size="sm">
-                          {arc.isRaw ? t("settings.backup.rawFormat") : t("settings.backup.legacyFormat")}
+                          {arc.isRaw
+                            ? t("settings.backup.rawFormat")
+                            : t("settings.backup.legacyFormat")}
                         </Badge>
                       </div>
                       <div className="backup-archive-meta">
-                        <span className="backup-archive-time" title={formatBackupDate(arc.createdAt)}>
+                        <span
+                          className="backup-archive-time"
+                          title={formatBackupDate(arc.createdAt)}
+                        >
                           <Clock size={12} />
-                          {formatBackupRelative(arc.createdAt)}
+                          {formatBackupRelative(arc.createdAt, t)}
                         </span>
                         <span>·</span>
                         <span>{formatBackupBytes(arc.sizeBytes)}</span>
                         <span>·</span>
                         <span>{t("settings.backup.domainCount", { count: arc.domainCount })}</span>
                         <span>·</span>
-                        <span>{t("settings.backup.recordsCount", { count: arc.totalRecords.toLocaleString() })}</span>
+                        <span>
+                          {t("settings.backup.recordsCount", {
+                            count: arc.totalRecords.toLocaleString(),
+                          })}
+                        </span>
                         {arc.appVersion && (
                           <>
                             <span>·</span>
@@ -732,6 +933,43 @@ export default function BackupTab() {
                       </div>
                     </div>
                     <div className="backup-archive-actions">
+                      {/* Verify Integrity Action */}
+                      <button
+                        type="button"
+                        className="backup-action-icon-btn"
+                        onClick={() => void handleVerifyArchive(arc.filePath)}
+                        title={t("settings.backup.verifyBtn")}
+                        aria-label={t("settings.backup.verifyBtn")}
+                        disabled={verifyingPath === arc.filePath}
+                      >
+                        <ShieldCheck size={16} />
+                      </button>
+
+                      {/* Compare / Diff Action */}
+                      <button
+                        type="button"
+                        className="backup-action-icon-btn"
+                        onClick={() => void handleDiffArchive(arc.filePath)}
+                        title={t("settings.backup.diffBtn")}
+                        aria-label={t("settings.backup.diffBtn")}
+                        disabled={diffingPath === arc.filePath}
+                      >
+                        <GitCompare size={16} />
+                      </button>
+
+                      {/* Export Action */}
+                      <button
+                        type="button"
+                        className="backup-action-icon-btn"
+                        onClick={() => void handleExportArchive(arc.filePath)}
+                        title={t("settings.backup.exportBtn")}
+                        aria-label={t("settings.backup.exportBtn")}
+                        disabled={exportingPath === arc.filePath}
+                      >
+                        <Download size={16} />
+                      </button>
+
+                      {/* Quick Restore Action */}
                       <Button
                         variant="secondary"
                         size="sm"
@@ -740,15 +978,19 @@ export default function BackupTab() {
                         <Upload size={14} />
                         {t("settings.backup.quickRestoreBtn")}
                       </Button>
+
                       <button
                         type="button"
                         className="backup-action-icon-btn"
-                        onClick={() => void handleOpenFolder(arc.filePath.replace(/[\\/][^\\/]*$/, ""))}
+                        onClick={() =>
+                          void handleOpenFolder(arc.filePath.replace(/[\\/][^\\/]*$/, ""))
+                        }
                         title={t("settings.backup.openFolder")}
                         aria-label={t("settings.backup.openFolder")}
                       >
                         <FolderOpen size={16} />
                       </button>
+
                       <button
                         type="button"
                         className="backup-action-icon-btn backup-action-icon-btn--danger"
@@ -767,7 +1009,10 @@ export default function BackupTab() {
 
           {/* Database Registry List */}
           <div className="backup-database-registry-card">
-            <h3 className="backup-card-title">{t("settings.backup.databaseHealth")}</h3>
+            <div className="backup-registry-header">
+              <h3 className="backup-card-title">{t("settings.backup.databaseHealth")}</h3>
+              <span className="backup-card-count">{existingDomains.length}</span>
+            </div>
             <ul className="settings-backup-list">
               {existingDomains.map((d) => (
                 <li key={d.name} className="settings-backup-row">
@@ -926,7 +1171,7 @@ export default function BackupTab() {
             ))}
           </div>
 
-          {/* Destination & Custom Note Option */}
+          {/* Destination & Cloud Presets */}
           <div className="backup-options-card">
             <div className="backup-options-row">
               <span className="backup-control-label">{t("settings.backup.targetOption")}</span>
@@ -948,6 +1193,24 @@ export default function BackupTab() {
                     )}
                   </span>
                 </label>
+
+                {/* Cloud sync provider shortcuts */}
+                {cloudPaths.map((cp) => (
+                  <label key={cp.provider} className="backup-radio-label">
+                    <input
+                      type="radio"
+                      name="destinationType"
+                      value={cp.path}
+                      checked={destinationType === cp.path}
+                      onChange={() => setDestinationType(cp.path)}
+                    />
+                    <span>
+                      <Cloud size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                      {cp.provider} ({cp.path})
+                    </span>
+                  </label>
+                ))}
+
                 <label className="backup-radio-label">
                   <input
                     type="radio"
@@ -961,64 +1224,43 @@ export default function BackupTab() {
               </div>
             </div>
 
+            {/* Custom Tag / Note */}
             <div className="backup-options-row">
               <span className="backup-control-label">{t("settings.backup.noteLabel")}</span>
               <input
                 type="text"
-                className="backup-note-input"
+                className="backup-text-input"
                 placeholder={t("settings.backup.notePlaceholder")}
                 value={backupNote}
                 onChange={(e) => setBackupNote(e.target.value)}
-                maxLength={40}
               />
             </div>
           </div>
 
-          {/* Action Footer & Summary */}
-          <div className="backup-action-footer">
-            <div className="backup-footer-stats">
-              <span className="backup-stat-item">
-                {t("settings.backup.selectedCount", {
-                  count: createChoices.length,
-                  total: existingDomains.length,
-                })}
+          {/* Action Trigger Card */}
+          <div className="backup-create-action-card">
+            <div className="backup-create-summary">
+              <span className="backup-create-summary-main">
+                {t("settings.backup.readyToSnapshot", { count: createChoices.length })}
               </span>
-              <span>·</span>
-              <span className="backup-stat-item">
-                {t("settings.backup.totalSize", {
-                  size: formatBackupBytes(
-                    createChoices.reduce((acc, d) => acc + d.sizeBytes, 0),
-                  ),
-                })}
-              </span>
-              <span>·</span>
-              <span className="backup-stat-item">
-                {t("settings.backup.estimatedSize", {
-                  size: formatBackupBytes(
-                    Math.round(
-                      createChoices.reduce((acc, d) => acc + d.sizeBytes, 0) * 0.35,
-                    ),
-                  ),
+              <span className="backup-create-summary-sub">
+                {t("settings.backup.totalRecordsLabel", {
+                  records: createChoices
+                    .reduce((acc, d) => acc + (d.itemCount ?? 0), 0)
+                    .toLocaleString(),
                 })}
               </span>
             </div>
-
             <Button
               variant="primary"
+              size="lg"
               onClick={() => void handleStartCreate()}
               disabled={canCreate}
             >
               <Download size={16} />
-              {showCreateModal
-                ? t("settings.backup.creating")
-                : t("settings.backup.startBackupBtn")}
+              {t("settings.backup.startCreateBtn")}
             </Button>
           </div>
-
-          <p className="settings-backup-note">
-            <strong>{t("settings.backup.notIncluded")}:</strong>{" "}
-            {t("settings.backup.notIncludedDesc")}
-          </p>
         </SettingsSection>
       )}
 
@@ -1032,159 +1274,212 @@ export default function BackupTab() {
           title={t("settings.section.backupRestore")}
           desc={t("settings.backup.restoreDesc")}
         >
-          {/* Drag & Drop Zone */}
+          {/* File Picker & Drag-and-Drop Dropzone */}
           <div
-            className={`backup-dropzone ${dragOver ? "backup-dropzone--active" : ""}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={pickRestore}
+            className={`backup-dropzone ${dragOver ? "dragover" : ""} ${archive ? "has-file" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => void handleDrop(e)}
+            onClick={() => {
+              if (!archive) void handlePickFile();
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label={t("settings.backup.dropzoneLabel")}
           >
             <div className="backup-dropzone-content">
-              <div className="backup-dropzone-icon-wrap">
-                <Upload size={28} />
-              </div>
-              <p className="backup-dropzone-title">{t("settings.backup.dropzoneTitle")}</p>
-              <p className="backup-dropzone-hint">{t("settings.backup.dropzoneHint")}</p>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void pickRestore();
-                }}
-                disabled={restoring || inspecting}
-              >
-                {inspecting ? t("settings.backup.inspecting") : t("settings.backup.restoreBtn")}
-              </Button>
+              <Upload size={36} className="backup-dropzone-icon" />
+              {archive ? (
+                <div className="backup-dropzone-loaded">
+                  <span className="backup-dropzone-filename">{fileName(archive.path)}</span>
+                  <span className="backup-dropzone-path" title={archive.path}>
+                    {archive.path}
+                  </span>
+                  <div className="backup-dropzone-actions" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="secondary" size="sm" onClick={() => void handlePickFile()}>
+                      {t("settings.backup.chooseDifferentArchive")}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setArchive(null)}>
+                      {t("common.clear")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="backup-dropzone-prompt">
+                  <span className="backup-dropzone-title">
+                    {t("settings.backup.dropzoneTitle")}
+                  </span>
+                  <span className="backup-dropzone-sub">{t("settings.backup.dropzoneSub")}</span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handlePickFile();
+                    }}
+                  >
+                    <FolderOpen size={14} />
+                    {t("settings.backup.browseBtn")}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Quick Select from recent snapshots */}
-          {archives.length > 0 && !archive && (
-            <div className="backup-recent-picker-card">
-              <span className="backup-control-label">{t("settings.backup.archivesTitle")}</span>
-              <div className="backup-recent-chips">
+          {/* Quick-pick Discovered Archives Bar */}
+          {!archive && archives.length > 0 && (
+            <div className="backup-quick-pick-section">
+              <span className="backup-quick-pick-title">
+                {t("settings.backup.quickPickTitle")}
+              </span>
+              <div className="backup-quick-pick-grid">
                 {archives.slice(0, 4).map((arc) => (
                   <button
                     key={arc.filePath}
                     type="button"
-                    className="backup-recent-chip"
+                    className="backup-quick-pick-card"
                     onClick={() => void inspectPath(arc.filePath)}
                   >
-                    <FileArchive size={14} />
-                    <span className="backup-chip-name">{arc.fileName}</span>
-                    <span className="backup-chip-time">{formatBackupRelative(arc.createdAt)}</span>
+                    <FileArchive size={16} className="backup-quick-pick-icon" />
+                    <div className="backup-quick-pick-info">
+                      <span className="backup-quick-pick-name">{arc.fileName}</span>
+                      <span className="backup-quick-pick-meta">
+                        {formatBackupRelative(arc.createdAt, t)} · {formatBackupBytes(arc.sizeBytes)}
+                      </span>
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {readError && <div className="settings-backup-error">{readError}</div>}
+          {readError && (
+            <div className="backup-error-banner">
+              <AlertTriangle size={18} />
+              <span>{readError}</span>
+            </div>
+          )}
 
-          {/* Archive Inspector Gate */}
+          {/* Inspected Archive Contents */}
           {archive && (
-            <div className="settings-backup-gate">
-              <div className="backup-gate-top">
-                <div className="settings-backup-gate-file">
-                  <div className="backup-gate-title-row">
-                    <span className="settings-backup-gate-name">{fileName(archive.path)}</span>
-                    <Badge variant={archive.isRaw ? "accent" : "default"} size="sm">
-                      {archive.isRaw ? t("settings.backup.rawFormat") : t("settings.backup.legacyFormat")}
-                    </Badge>
-                  </div>
-                  {archive.createdAt > 0 && (
-                    <span className="settings-backup-gate-date">
-                      {t("settings.backup.restoreFrom", {
-                        date: formatBackupDate(archive.createdAt),
-                      })}
-                      {archive.appVersion && ` · GameIndex v${archive.appVersion}`}
+            <div className="backup-inspect-container">
+              {/* Metadata Card */}
+              <div className="backup-archive-meta-card">
+                <div className="backup-archive-meta-grid">
+                  <div className="backup-meta-cell">
+                    <span className="backup-meta-label">
+                      {t("settings.backup.archiveCreated")}
                     </span>
-                  )}
+                    <span className="backup-meta-value">
+                      {formatBackupDate(archive.createdAt)}
+                    </span>
+                  </div>
+                  <div className="backup-meta-cell">
+                    <span className="backup-meta-label">
+                      {t("settings.backup.archiveVersion")}
+                    </span>
+                    <span className="backup-meta-value">{archive.appVersion || "—"}</span>
+                  </div>
+                  <div className="backup-meta-cell">
+                    <span className="backup-meta-label">{t("settings.backup.archiveFormat")}</span>
+                    <span className="backup-meta-value">
+                      <Badge variant={archive.isRaw ? "accent" : "default"} size="sm">
+                        {archive.isRaw
+                          ? t("settings.backup.rawFormat")
+                          : t("settings.backup.legacyFormat")}
+                      </Badge>
+                    </span>
+                  </div>
+                  <div className="backup-meta-cell">
+                    <span className="backup-meta-label">
+                      {t("settings.backup.archiveDomains")}
+                    </span>
+                    <span className="backup-meta-value">{archive.domains.length}</span>
+                  </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void pickRestore()}>
-                  {t("settings.backup.changeFile")}
-                </Button>
+
+                <div className="backup-meta-actions-bar">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleVerifyArchive(archive.path)}
+                  >
+                    <ShieldCheck size={14} />
+                    {t("settings.backup.verifyBtn")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleDiffArchive(archive.path)}
+                  >
+                    <GitCompare size={14} />
+                    {t("settings.backup.diffBtn")}
+                  </Button>
+                </div>
               </div>
 
-              {/* Side-by-side contents & comparison table */}
-              <div className="backup-archive-comparison-card">
-                <h4 className="backup-comparison-title">
-                  {t("settings.backup.archiveComparison")}
-                </h4>
-                <div className="settings-backup-picker">
-                  <div className="settings-backup-picker-bar">
-                    <label className="settings-checkbox-label">
+              {/* Restore Domain Selector */}
+              <div className="backup-selection-header-bar">
+                <span className="backup-control-label">
+                  {t("settings.backup.selectDomainsToRestore")}
+                </span>
+                <div className="backup-selection-actions">
+                  <Button variant="ghost" size="sm" onClick={() => setAllRestore(true)}>
+                    {t("settings.backup.selectAll")}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setAllRestore(false)}>
+                    {t("settings.backup.deselectAll")}
+                  </Button>
+                  <span className="backup-selected-badge">
+                    {t("settings.backup.selectedCount", {
+                      count: restoreChoices.length,
+                      total: archive.domains.length,
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="settings-backup-picker">
+                {archive.domains.map((name) => {
+                  const count = archive.counts?.[name];
+                  return (
+                    <label
+                      key={name}
+                      className="settings-checkbox-label settings-backup-check-row"
+                    >
                       <input
                         type="checkbox"
-                        checked={restoreAllSelected}
-                        onChange={(e) => setAllRestore(e.target.checked)}
+                        checked={isRestoreChecked(name)}
+                        onChange={(e) => toggleRestore(name, e.target.checked)}
                       />
-                      {t("settings.backup.selectAll")}
-                    </label>
-                    <span className="settings-backup-picker-count">
-                      {t("settings.backup.selectedCount", {
-                        count: restoreChoices.length,
-                        total: archiveDomains.length,
-                      })}
-                    </span>
-                  </div>
-
-                  {archiveDomains.map((name) => {
-                    const count = archive.counts?.[name];
-                    const liveDomain = existingDomains.find((d) => d.name === name);
-                    const liveCount = liveDomain?.itemCount ?? 0;
-
-                    return (
-                      <label
-                        key={name}
-                        className="settings-checkbox-label settings-backup-check-row"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isRestoreChecked(name)}
-                          onChange={(e) => toggleRestore(name, e.target.checked)}
-                        />
-                        <span
-                          className="backup-row-color-dot"
-                          style={{ backgroundColor: getDomainColor(name) }}
-                        />
-                        <span className="settings-backup-row-name">
-                          {t(BACKUP_DOMAIN_LABEL_KEYS[name] ?? name)}
-                        </span>
+                      <span
+                        className="backup-row-color-dot"
+                        style={{ backgroundColor: getDomainColor(name) }}
+                      />
+                      <span className="settings-backup-row-name">
+                        {t(BACKUP_DOMAIN_LABEL_KEYS[name] ?? name)}
+                      </span>
+                      {count !== undefined && count > 0 && (
                         <span className="settings-backup-row-meta">
-                          {count !== undefined && count > 0 && (
-                            <span
-                              className="settings-backup-row-count"
-                              title={t("settings.backup.archiveRecords")}
-                            >
-                              {t("settings.backup.itemCount", { count })}
-                            </span>
-                          )}
-                          <span
-                            className="backup-live-count"
-                            title={t("settings.backup.liveRecords")}
-                          >
-                            Live: {liveCount}
-                          </span>
+                          {t("settings.backup.itemCount", { count })}
                         </span>
-                      </label>
-                    );
-                  })}
-                </div>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
 
-              {/* Mode Selection */}
-              {archive.isRaw && (
-                <div className="settings-backup-mode-box">
-                  <span className="settings-backup-mode-title">
-                    {t("settings.backup.modeTitle")}
+              {/* Restore Configuration (Mode & Safety) */}
+              <div className="backup-options-card">
+                <div className="backup-options-row">
+                  <span className="backup-control-label">
+                    {t("settings.backup.restoreModeLabel")}
                   </span>
-                  <div className="settings-backup-mode-options">
-                    <label
-                      className={`settings-backup-mode-card ${restoreMode === "merge" ? "active" : ""}`}
-                    >
+                  <div className="backup-destination-radios">
+                    <label className="backup-radio-label">
                       <input
                         type="radio"
                         name="restoreMode"
@@ -1192,19 +1487,15 @@ export default function BackupTab() {
                         checked={restoreMode === "merge"}
                         onChange={() => setRestoreMode("merge")}
                       />
-                      <div className="settings-backup-mode-card-content">
-                        <span className="settings-backup-mode-card-title">
-                          {t("settings.backup.modeMergeTitle")}
+                      <span>
+                        <strong>{t("settings.backup.restoreModeMerge")}</strong>
+                        <span className="backup-radio-desc">
+                          {t("settings.backup.restoreModeMergeDesc")}
                         </span>
-                        <span className="settings-backup-mode-card-desc">
-                          {t("settings.backup.modeMergeDesc")}
-                        </span>
-                      </div>
+                      </span>
                     </label>
 
-                    <label
-                      className={`settings-backup-mode-card ${restoreMode === "replace" ? "active" : ""}`}
-                    >
+                    <label className="backup-radio-label">
                       <input
                         type="radio"
                         name="restoreMode"
@@ -1212,53 +1503,52 @@ export default function BackupTab() {
                         checked={restoreMode === "replace"}
                         onChange={() => setRestoreMode("replace")}
                       />
-                      <div className="settings-backup-mode-card-content">
-                        <span className="settings-backup-mode-card-title">
-                          {t("settings.backup.modeReplaceTitle")}
+                      <span>
+                        <strong>{t("settings.backup.restoreModeReplace")}</strong>
+                        <span className="backup-radio-desc">
+                          {t("settings.backup.restoreModeReplaceDesc")}
                         </span>
-                        <span className="settings-backup-mode-card-desc">
-                          {t("settings.backup.modeReplaceDesc")}
-                        </span>
-                      </div>
+                      </span>
                     </label>
                   </div>
                 </div>
-              )}
 
-              {/* Safety snapshot toggle */}
-              <SettingsToggleCard
-                title={t("settings.backup.safetySnapshot")}
-                desc={t("settings.backup.safetySnapshotDesc")}
-                checked={safetySnapshot}
-                onChange={setSafetySnapshot}
-              />
+                <div className="backup-options-row">
+                  <label className="settings-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={safetySnapshot}
+                      onChange={(e) => setSafetySnapshot(e.target.checked)}
+                    />
+                    <span>
+                      <strong>{t("settings.backup.safetySnapshotLabel")}</strong>
+                      <span className="backup-radio-desc">
+                        {t("settings.backup.safetySnapshotDesc")}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
 
-              <p className="settings-backup-gate-warning">
-                {archive.isRaw && restoreMode === "merge"
-                  ? t("settings.backup.restoreConfirmBodyMerge")
-                  : t("settings.backup.restoreConfirmBody")}
-              </p>
-
-              <div className="settings-backup-gate-actions">
+              {/* Restore Trigger Bar */}
+              <div className="backup-restore-action-bar">
+                <div className="backup-restore-summary-text">
+                  <AlertTriangle size={16} className="backup-warning-icon" />
+                  <span>
+                    {restoreMode === "replace"
+                      ? t("settings.backup.replaceWarningText")
+                      : t("settings.backup.mergeWarningText")}
+                  </span>
+                </div>
                 <Button
-                  variant="ghost"
-                  onClick={() => setArchive(null)}
-                  disabled={restoring}
-                >
-                  {t("common.cancel")}
-                </Button>
-                <Button
-                  variant={archive.isRaw && restoreMode === "merge" ? "primary" : "danger"}
+                  variant="primary"
+                  size="lg"
                   onClick={() => void doRestore()}
+                  disabled={restoreChoices.length === 0 || restoring}
                   isLoading={restoring}
-                  disabled={restoreChoices.length === 0}
-                  title={
-                    restoreChoices.length === 0
-                      ? t("settings.backup.requireSelection")
-                      : undefined
-                  }
                 >
-                  {t("settings.backup.restoreConfirmBtn")}
+                  <Upload size={16} />
+                  {t("settings.backup.confirmRestoreBtn", { count: restoreChoices.length })}
                 </Button>
               </div>
             </div>
@@ -1269,88 +1559,105 @@ export default function BackupTab() {
       {/* ═══════════════════════════════════════════════════════════════
           SUBTAB 4: STORAGE & AUTOMATION
           ═══════════════════════════════════════════════════════════════ */}
-      {subtab === "settings" && (
+      {subtab === "settings" && config && (
         <SettingsSection
           id="backup-settings"
           icon={<SlidersHorizontal size={18} />}
-          title={t("settings.backup.settingsTitle")}
+          title={t("settings.section.backupSettings")}
           desc={t("settings.backup.settingsDesc")}
         >
-          {/* Default Backup Directory */}
-          <div className="backup-folder-card">
-            <div className="backup-folder-info">
-              <FolderOpen size={20} className="backup-folder-icon" />
-              <div className="backup-folder-text">
-                <span className="backup-folder-title">{t("settings.backup.folderTitle")}</span>
-                <span className="backup-folder-path" title={config?.backupDir}>
-                  {config?.backupDir || "—"}
-                </span>
-                <span className="backup-folder-hint">{t("settings.backup.folderDesc")}</span>
-              </div>
+          {/* Automation Toggles */}
+          <div className="interface-defaults-grid">
+            <SettingsToggleCard
+              title={t("settings.backup.autoOnExitTitle")}
+              desc={t("settings.backup.autoOnExitDesc")}
+              checked={config.autoBackupOnExit}
+              onChange={(checked) => void updateConfig({ autoBackupOnExit: checked })}
+            />
+            <SettingsToggleCard
+              title={t("settings.backup.safetyBackupTitle")}
+              desc={t("settings.backup.safetyBackupDesc")}
+              checked={config.safetyBackupBeforeRestore}
+              onChange={(checked) => void updateConfig({ safetyBackupBeforeRestore: checked })}
+            />
+          </div>
+
+          {/* Storage Directory Card */}
+          <div className="backup-storage-config-card">
+            <div className="backup-storage-header">
+              <span className="backup-control-label">{t("settings.backup.directoryLabel")}</span>
+              <span className="backup-storage-current-path" title={config.backupDir}>
+                {config.backupDir}
+              </span>
             </div>
-            <div className="backup-folder-actions">
+
+            <div className="backup-storage-actions-row">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => void handleChangeFolder()}
-                disabled={savingConfig}
+                isLoading={savingConfig}
               >
-                {t("settings.backup.changeFolder")}
+                <FolderOpen size={14} />
+                {t("settings.backup.changeFolderBtn")}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => void handleOpenFolder()}
-                disabled={!config?.backupDir}
+                disabled={!config.backupDir}
               >
-                <FolderOpen size={14} />
                 {t("settings.backup.openFolder")}
               </Button>
             </div>
+
+            {/* Cloud Storage Quick Switch */}
+            {cloudPaths.length > 0 && (
+              <div className="backup-cloud-shortcuts-wrap">
+                <span className="backup-cloud-shortcuts-label">
+                  {t("settings.backup.detectedCloudProviders")}
+                </span>
+                <div className="backup-cloud-chips">
+                  {cloudPaths.map((cp) => (
+                    <button
+                      key={cp.provider}
+                      type="button"
+                      className={`backup-cloud-chip ${
+                        config.backupDir === cp.path ? "active" : ""
+                      }`}
+                      onClick={() => void updateConfig({ backupDir: cp.path })}
+                      title={cp.path}
+                    >
+                      <Cloud size={13} />
+                      <span>{cp.provider}</span>
+                      {config.backupDir === cp.path && <Check size={12} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Automation Toggles */}
-          <div className="backup-toggles-grid">
-            <SettingsToggleCard
-              title={t("settings.backup.autoExitTitle")}
-              desc={t("settings.backup.autoExitDesc")}
-              checked={config?.autoBackupOnExit ?? false}
-              onChange={(checked) => void updateConfig({ autoBackupOnExit: checked })}
-            />
-
-            <SettingsToggleCard
-              title={t("settings.backup.safetyTitle")}
-              desc={t("settings.backup.safetyDesc")}
-              checked={config?.safetyBackupBeforeRestore ?? true}
-              onChange={(checked) => void updateConfig({ safetyBackupBeforeRestore: checked })}
-            />
-          </div>
-
-          {/* Retention Policy */}
+          {/* Retention & Quota Rules */}
           <div className="backup-retention-card">
-            <div className="backup-retention-header">
+            <div className="backup-retention-row">
               <div className="backup-retention-text">
-                <span className="backup-retention-title">
-                  {t("settings.backup.retentionTitle")}
-                </span>
-                <span className="backup-retention-desc">
-                  {t("settings.backup.retentionDesc")}
-                </span>
+                <span className="backup-control-label">{t("settings.backup.retentionLabel")}</span>
+                <span className="backup-retention-hint">{t("settings.backup.retentionHint")}</span>
               </div>
               <div className="backup-retention-input-wrap">
                 <input
                   type="number"
-                  min={0}
+                  min={1}
                   max={100}
                   className="backup-number-input"
-                  value={config?.retentionCount ?? 5}
+                  value={config.retentionCount}
                   onChange={(e) => {
-                    const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                    const val = Math.max(1, Math.min(100, Number(e.target.value) || 1));
                     void updateConfig({ retentionCount: val });
                   }}
-                  aria-label={t("settings.backup.retentionTitle")}
                 />
-                <span className="backup-input-unit">
+                <span className="backup-number-unit">
                   {t("settings.backup.retentionUnit")}
                 </span>
               </div>
@@ -1359,39 +1666,14 @@ export default function BackupTab() {
         </SettingsSection>
       )}
 
-      {/* Restart modal on successful restore */}
-      <ConfirmModal
-        open={restartOpen}
-        title={t("settings.backup.restartTitle")}
-        message={t("settings.backup.restartBody")}
-        confirmLabel={t("settings.backup.restartBtn")}
-        cancelLabel={t("common.cancel")}
-        onConfirm={handleRestart}
-        onCancel={() => setRestartOpen(false)}
-      />
-
-      {/* Archive deletion confirmation modal */}
-      <ConfirmModal
-        open={archiveToDelete !== null}
-        busy={deleteBusy}
-        title={t("settings.backup.deleteArchiveTitle")}
-        message={t("settings.backup.deleteArchiveConfirm", {
-          name: archiveToDelete?.fileName ?? "",
-        })}
-        confirmLabel={t("common.delete")}
-        cancelLabel={t("common.cancel")}
-        onConfirm={() => void handleDeleteArchive()}
-        onCancel={() => setArchiveToDelete(null)}
-      />
-
-      {/* Create Progress Modal */}
+      {/* ─── Create Backup Progress Modal ────────────────────────────── */}
       {showCreateModal && (
         <BackupProgressModal
           open={showCreateModal}
           targetPath={createTargetPath}
           domains={createDomains}
           onComplete={() => {
-            showToast(t("settings.backup.createdToast"), "success");
+            setShowCreateModal(false);
             void refreshAll();
           }}
           onClose={() => {
@@ -1400,6 +1682,62 @@ export default function BackupTab() {
           }}
         />
       )}
+
+      {/* ─── Archive Verification Modal ──────────────────────────────── */}
+      {verifyReport && (
+        <BackupVerifyModal
+          report={verifyReport}
+          onClose={() => setVerifyReport(null)}
+        />
+      )}
+
+      {/* ─── Archive Diff Modal ──────────────────────────────────────── */}
+      {diffReport && (
+        <BackupDiffModal
+          diff={diffReport}
+          onClose={() => setDiffReport(null)}
+          onRestore={() => {
+            const p = diffReport.filePath;
+            setDiffReport(null);
+            void inspectPath(p);
+          }}
+        />
+      )}
+
+      {/* ─── Backup Health Diagnostics Modal ─────────────────────────── */}
+      {showHealthModal && (
+        <BackupHealthModal
+          health={backupHealth}
+          onClose={() => setShowHealthModal(false)}
+          onQuickBackup={() => {
+            void handleQuickBackup();
+          }}
+          quickBusy={quickBusy}
+        />
+      )}
+
+      {/* ─── Delete Archive Confirmation Modal ───────────────────────── */}
+      <ConfirmModal
+        open={archiveToDelete !== null}
+        title={t("settings.backup.deleteConfirmTitle")}
+        message={t("settings.backup.deleteConfirmDesc", {
+          name: archiveToDelete?.fileName ?? "",
+        })}
+        confirmLabel={t("settings.backup.deleteBtn")}
+        busy={deleteBusy}
+        onConfirm={() => void handleDeleteArchive()}
+        onCancel={() => setArchiveToDelete(null)}
+      />
+
+      {/* ─── Relaunch Prompt after Restore ───────────────────────────── */}
+      <ConfirmModal
+        open={restartOpen}
+        title={t("settings.backup.restartTitle")}
+        message={t("settings.backup.restartDesc")}
+        confirmLabel={t("settings.backup.restartBtn")}
+        onConfirm={() => void handleRestart()}
+        onCancel={() => setRestartOpen(false)}
+      />
     </div>
   );
 }

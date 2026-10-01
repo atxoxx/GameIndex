@@ -90,7 +90,14 @@ export default function SavesPage() {
       : "games";
 
   const handleSelectSubtab = (newTab: SavesSubtab) => {
-    setSearchParams({ tab: newTab }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", newTab);
+        return next;
+      },
+      { replace: true }
+    );
   };
 
   const [locations, setLocations] = useState<SaveLocation[] | null>(null);
@@ -352,7 +359,7 @@ export default function SavesPage() {
       </PageWidget>
 
       {/* ─── Top Subtabs Strip ──────────────────────────────────────────── */}
-      <nav className="saves-subtabs-bar" aria-label="Saves views">
+      <nav className="saves-subtabs-bar" aria-label={t("saves.viewsLabel")}>
         <button
           type="button"
           className={`saves-subtab-pill ${subtab === "games" ? "active" : ""}`}
@@ -512,7 +519,7 @@ export default function SavesPage() {
                 className="saves-sort-select"
                 value={gameSort}
                 onChange={(e) => setGameSort(e.target.value as GameSort)}
-                aria-label="Sort games"
+                aria-label={t("saves.sortGames")}
               >
                 <option value="name">{t("saves.sort.title")}</option>
                 <option value="recent">{t("saves.sort.recent")}</option>
@@ -520,7 +527,7 @@ export default function SavesPage() {
               </select>
 
               {/* View mode toggle */}
-              <div className="saves-view-toggles" role="group" aria-label="View mode">
+              <div className="saves-view-toggles" role="group" aria-label={t("saves.viewMode")}>
                 <button
                   type="button"
                   className={`saves-view-btn ${viewMode === "grid" ? "active" : ""}`}
@@ -729,7 +736,7 @@ export default function SavesPage() {
               className="saves-sort-select"
               value={snapshotGameFilter}
               onChange={(e) => setSnapshotGameFilter(e.target.value)}
-              aria-label="Filter by game"
+              aria-label={t("saves.filterByGame")}
             >
               <option value="all">{t("saves.snapshots.allGames")}</option>
               {gamesWithSnapshots.map(([id, title]) => (
@@ -744,7 +751,7 @@ export default function SavesPage() {
               className="saves-sort-select"
               value={snapshotKindFilter}
               onChange={(e) => setSnapshotKindFilter(e.target.value)}
-              aria-label="Filter by type"
+              aria-label={t("saves.filterByType")}
             >
               <option value="all">{t("saves.snapshots.allKinds")}</option>
               <option value="manual">{t("saves.kind.manual")}</option>
@@ -757,7 +764,7 @@ export default function SavesPage() {
               className="saves-sort-select"
               value={snapshotSort}
               onChange={(e) => setSnapshotSort(e.target.value as SnapshotSort)}
-              aria-label="Sort snapshots"
+              aria-label={t("saves.sortSnapshots")}
             >
               <option value="newest">{t("saves.sort.recent")}</option>
               <option value="oldest">{t("saves.sort.title")}</option>

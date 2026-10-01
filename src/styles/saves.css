@@ -1026,4 +1026,24 @@
   min-width: 220px;
 }
 
+/* ── Saves page search wrapper + embedded system-backup wrapper ───────── */
+
+.saves-input-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.saves-input-wrapper .saves-input {
+  width: 100%;
+}
+
+.saves-system-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5, 20px);
+  min-width: 0;
+}
+
 

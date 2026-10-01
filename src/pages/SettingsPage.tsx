@@ -120,7 +120,7 @@ export default function SettingsPage() {
           }
         />
 
-        {meta.sections.length > 1 && activeTab !== "compatibility" && (
+        {meta.sections.length > 1 && activeTab !== "compatibility" && activeTab !== "backup" && (
           <SettingsJumpBar sections={meta.sections} t={t} />
         )}
 

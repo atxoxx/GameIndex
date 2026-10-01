@@ -83,6 +83,63 @@ pub struct BackupConfig {
     pub safety_backup_before_restore: bool,
 }
 
+/// Verification detail for a single domain in an archive.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DomainVerifyDetail {
+    pub domain: String,
+    pub valid: bool,
+    pub records_found: u64,
+    pub error: Option<String>,
+}
+
+/// Comprehensive report on an archive's integrity.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupVerifyReport {
+    pub file_path: String,
+    pub valid: bool,
+    pub is_raw: bool,
+    pub format_version: u32,
+    pub total_domains: usize,
+    pub healthy_domains: usize,
+    pub corrupted_domains: Vec<String>,
+    pub total_records: u64,
+    pub details: Vec<DomainVerifyDetail>,
+    pub message: String,
+}
+
+/// Record comparison detail for a single domain.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DomainDiffDetail {
+    pub domain: String,
+    pub archive_count: u64,
+    pub live_count: u64,
+    pub delta: i64,
+}
+
+/// Comparison report between an archive and the live databases.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupDiffReport {
+    pub file_path: String,
+    pub archive_created_at: u64,
+    pub archive_total_records: u64,
+    pub live_total_records: u64,
+    pub record_delta: i64,
+    pub domains: Vec<DomainDiffDetail>,
+}
+
+/// Detected local cloud sync provider directory.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudPathOption {
+    pub provider: String,
+    pub path: String,
+    pub exists: bool,
+}
+
 /// Domain database files included in a backup, in display order.
 pub const BACKUP_DOMAINS: &[&str] = &[
     "games",
@@ -467,6 +524,215 @@ pub async fn backup_quick_create(
     })
     .await
     .map_err(|e| format!("backup_quick_create task: {e}"))?
+}
+
+/// Verify integrity of an archive by testing zip validity, manifests, and database/json payloads.
+#[tauri::command]
+pub fn backup_verify_archive(file_path: String) -> Result<BackupVerifyReport, String> {
+    let file = std::fs::File::open(&file_path)
+        .map_err(|e| format!("Failed to open archive: {e}"))?;
+    let mut zip = zip::ZipArchive::new(file)
+        .map_err(|e| format!("Invalid zip archive: {e}"))?;
+
+    let manifest: serde_json::Value = {
+        let mut manifest_file = zip
+            .by_name("manifest.json")
+            .map_err(|_| "Archive missing manifest.json".to_string())?;
+        let mut buf = String::new();
+        manifest_file
+            .read_to_string(&mut buf)
+            .map_err(|e| format!("Read manifest: {e}"))?;
+        serde_json::from_str(&buf).map_err(|e| format!("Parse manifest: {e}"))?
+    };
+
+    let is_raw = manifest["format"].as_str() == Some(crate::backup_raw::BACKUP_RAW_MAGIC);
+    let format_version = manifest["version"].as_u64().unwrap_or(1) as u32;
+    let domains = manifest_domains(&manifest);
+    let total_domains = domains.len();
+    let counts = manifest["counts"].as_object();
+
+    let mut details = Vec::new();
+    let mut corrupted = Vec::new();
+    let mut total_records: u64 = 0;
+
+    for domain in &domains {
+        let (valid, records_found, error) = if is_raw {
+            let zip_entry_name = format!("domains/{domain}.json");
+            match zip.by_name(&zip_entry_name) {
+                Ok(mut entry) => {
+                    let mut content = String::new();
+                    if let Err(e) = entry.read_to_string(&mut content) {
+                        (false, 0, Some(format!("Failed to read {domain}.json: {e}")))
+                    } else {
+                        let mut count = 0u64;
+                        let mut parse_ok = true;
+                        for line in content.lines() {
+                            let trimmed = line.trim();
+                            if trimmed.is_empty() {
+                                continue;
+                            }
+                            if serde_json::from_str::<serde_json::Value>(trimmed).is_err() {
+                                parse_ok = false;
+                                break;
+                            }
+                            count += 1;
+                        }
+                        if parse_ok {
+                            total_records += count;
+                            (true, count, None)
+                        } else {
+                            (false, 0, Some("Invalid JSON format in domain data".to_string()))
+                        }
+                    }
+                }
+                Err(_) => (false, 0, Some(format!("Missing {zip_entry_name} in archive"))),
+            }
+        } else {
+            let zip_entry_name = format!("domains/{domain}.db");
+            match zip.by_name(&zip_entry_name) {
+                Ok(mut entry) => {
+                    let mut header = [0u8; 16];
+                    if let Err(e) = entry.read_exact(&mut header) {
+                        (false, 0, Some(format!("Cannot read SQLite header: {e}")))
+                    } else if &header != b"SQLite format 3\0" {
+                        (false, 0, Some("Invalid SQLite database header".to_string()))
+                    } else {
+                        let rec = counts
+                            .and_then(|c| c.get(domain))
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0);
+                        total_records += rec;
+                        (true, rec, None)
+                    }
+                }
+                Err(_) => (false, 0, Some(format!("Missing {zip_entry_name} in archive"))),
+            }
+        };
+
+        if !valid {
+            corrupted.push(domain.clone());
+        }
+        details.push(DomainVerifyDetail {
+            domain: domain.clone(),
+            valid,
+            records_found,
+            error,
+        });
+    }
+
+    let healthy_domains = total_domains - corrupted.len();
+    let valid = corrupted.is_empty();
+    let message = if valid {
+        format!("All {total_domains} databases verified intact.")
+    } else {
+        format!("{}/{} databases healthy. Issues in: {}", healthy_domains, total_domains, corrupted.join(", "))
+    };
+
+    Ok(BackupVerifyReport {
+        file_path,
+        valid,
+        is_raw,
+        format_version,
+        total_domains,
+        healthy_domains,
+        corrupted_domains: corrupted,
+        total_records,
+        details,
+        message,
+    })
+}
+
+/// Compare records in an archive against current live database state.
+#[tauri::command]
+pub fn backup_diff_archive(
+    app: tauri::AppHandle,
+    file_path: String,
+) -> Result<BackupDiffReport, String> {
+    let db = state_db(&app)?;
+    let inspect = inspect_archive(&file_path)?;
+
+    let mut domains = Vec::new();
+    let mut archive_total: u64 = 0;
+    let mut live_total: u64 = 0;
+
+    for name in BACKUP_DOMAINS {
+        let archive_count = inspect.counts.get(*name).copied().unwrap_or(0);
+        let live_count = crate::backup_raw::count_domain_items(db, name);
+        let delta = live_count as i64 - archive_count as i64;
+        archive_total += archive_count;
+        live_total += live_count;
+
+        domains.push(DomainDiffDetail {
+            domain: (*name).to_string(),
+            archive_count,
+            live_count,
+            delta,
+        });
+    }
+
+    Ok(BackupDiffReport {
+        file_path,
+        archive_created_at: inspect.created_at,
+        archive_total_records: archive_total,
+        live_total_records: live_total,
+        record_delta: live_total as i64 - archive_total as i64,
+        domains,
+    })
+}
+
+/// Safely export an archive file to another directory.
+#[tauri::command]
+pub fn backup_export_archive(source_path: String, target_dir: String) -> Result<String, String> {
+    let src = Path::new(&source_path);
+    if !src.is_file() {
+        return Err("Source archive not found".into());
+    }
+    let target = Path::new(&target_dir);
+    if !target.is_dir() {
+        std::fs::create_dir_all(target)
+            .map_err(|e| format!("Failed to create destination folder: {e}"))?;
+    }
+    let file_name = src
+        .file_name()
+        .ok_or_else(|| "Invalid source file name".to_string())?;
+    let dest_path = target.join(file_name);
+    std::fs::copy(src, &dest_path)
+        .map_err(|e| format!("Failed to export archive to {}: {e}", dest_path.display()))?;
+    Ok(dest_path.to_string_lossy().to_string())
+}
+
+/// Detect standard local cloud sync folders (OneDrive, Google Drive, Dropbox, Nextcloud).
+#[tauri::command]
+pub fn backup_detect_cloud_paths() -> Result<Vec<CloudPathOption>, String> {
+    let mut out = Vec::new();
+
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .unwrap_or_default();
+
+    if !home.is_empty() {
+        let home_path = PathBuf::from(&home);
+
+        let candidates = [
+            ("OneDrive", home_path.join("OneDrive")),
+            ("Google Drive", home_path.join("Google Drive")),
+            ("Dropbox", home_path.join("Dropbox")),
+            ("Nextcloud", home_path.join("Nextcloud")),
+            ("Documents", home_path.join("Documents")),
+        ];
+
+        for (provider, path) in candidates {
+            if path.exists() && path.is_dir() {
+                out.push(CloudPathOption {
+                    provider: provider.to_string(),
+                    path: path.to_string_lossy().to_string(),
+                    exists: true,
+                });
+            }
+        }
+    }
+
+    Ok(out)
 }
 
 /// Resolve the configured or default backup directory.

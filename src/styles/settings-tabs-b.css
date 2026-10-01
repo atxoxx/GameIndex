@@ -1948,41 +1948,131 @@
   color: var(--color-text-inverse, #fff);
 }
 
-/* ─── Overview Hero Bar & KPI Grid ───────────────────────────────────── */
-.backup-overview-hero-bar {
+/* ─── Overview Hero Protection Card & KPI Grid ──────────────────────── */
+.backup-hero-protection-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.backup-hero-protection-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
 }
 
-.backup-overview-hero-text {
+.backup-hero-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+  flex: 1;
+}
+
+.backup-hero-grade-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-display, var(--font-sans));
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.backup-hero-grade-badge--accent {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.backup-hero-grade-badge--success {
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+.backup-hero-grade-badge--warning {
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+
+.backup-hero-grade-badge--danger {
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+}
+
+.backup-hero-grade-badge--default {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.backup-hero-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  min-width: 0;
 }
 
 .backup-hero-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  margin: 0;
 }
 
 .backup-hero-desc {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+  margin: 0;
 }
 
-.backup-overview-hero-actions {
+.backup-hero-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   flex-wrap: wrap;
+}
+
+.backup-quick-note-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.backup-quick-note-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.backup-quick-note-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  outline: none;
+}
+
+.backup-quick-note-input::placeholder {
+  color: var(--color-text-muted);
 }
 
 .backup-kpi-grid {
@@ -2492,10 +2582,19 @@
   background: color-mix(in srgb, var(--color-surface) 90%, var(--color-primary));
 }
 
-.backup-dropzone--active {
+.backup-dropzone--active,
+.backup-dropzone.dragover {
   border-color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
   transform: scale(0.995);
+}
+
+/* An archive has been chosen — switch the dashed prompt to a solid loaded
+   card so the "file selected" state reads clearly. */
+.backup-dropzone.has-file {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg-secondary));
 }
 
 .backup-dropzone-content {
@@ -2729,6 +2828,682 @@
 .backup-input-unit {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+}
+
+/* ─── Archive Toolbar ────────────────────────────────────────────────── */
+.backup-archives-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.backup-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg-secondary);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.backup-filter-pill {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.backup-filter-pill:hover {
+  color: var(--color-text-primary);
+}
+
+.backup-filter-pill.active {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.backup-sort-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.backup-sort-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.backup-sort-select {
+  appearance: none;
+  padding: 6px 28px 6px 28px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+/* ─── Quick Pick Recent Archives in Restore ──────────────────────────── */
+.backup-quick-pick-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+
+.backup-quick-pick-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.backup-quick-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-xs);
+}
+
+.backup-quick-pick-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.backup-quick-pick-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-accent));
+}
+
+.backup-quick-pick-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.backup-quick-pick-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.backup-quick-pick-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backup-quick-pick-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ─── Cloud Sync Shortcuts ───────────────────────────────────────────── */
+.backup-cloud-shortcuts-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.backup-cloud-shortcuts-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.backup-cloud-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.backup-cloud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.backup-cloud-chip:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.backup-cloud-chip.active {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ─── Modals: Verify, Diff, Health ───────────────────────────────────── */
+.backup-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 1400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  padding: var(--space-md);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.backup-modal-card {
+  width: 100%;
+  max-width: 580px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow-x: hidden;
+  overflow-y: auto;
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.backup-modal-card--wide {
+  max-width: 720px;
+}
+
+.backup-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.backup-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.backup-modal-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.backup-modal-icon-badge--success {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success);
+}
+
+.backup-modal-icon-badge--warning {
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+}
+
+.backup-modal-icon-badge--danger {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+}
+
+.backup-modal-icon-badge--info {
+  background: color-mix(in srgb, var(--color-info) 16%, transparent);
+  color: var(--color-info);
+}
+
+.backup-modal-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.backup-modal-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.backup-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.backup-modal-close:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.backup-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+/* Verify Modal internals */
+.backup-verify-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.backup-verify-hero--valid {
+  background: color-mix(in srgb, var(--color-success) 8%, transparent);
+  color: var(--color-success);
+}
+
+.backup-verify-hero--invalid {
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  color: var(--color-warning);
+}
+
+.backup-verify-hero-text strong {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.backup-verify-hero-text p {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.backup-verify-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.backup-verify-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.backup-verify-stat-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.backup-verify-stat-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.backup-verify-details-section {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md) var(--space-lg);
+}
+
+.backup-verify-section-title {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.backup-verify-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.backup-verify-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.backup-verify-row-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.backup-verify-row-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+}
+
+.backup-verify-row--ok .backup-verify-row-dot {
+  background: var(--color-success);
+}
+
+.backup-verify-row--err .backup-verify-row-dot {
+  background: var(--color-danger);
+}
+
+.backup-verify-row-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.backup-verify-row-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.backup-verify-row-count {
+  color: var(--color-text-muted);
+}
+
+.backup-verify-row-error {
+  color: var(--color-danger);
+}
+
+.backup-verify-badge {
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.4px;
+}
+
+.backup-verify-badge--ok {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+
+.backup-verify-badge--err {
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
+}
+
+/* Diff Modal internals */
+.backup-diff-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.backup-diff-summary-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+}
+
+.backup-diff-summary-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.backup-diff-summary-val {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.backup-diff-summary-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-muted);
+}
+
+.backup-diff-delta-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+}
+
+.backup-diff-delta-badge--pos {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+
+.backup-diff-delta-badge--neg {
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
+}
+
+.backup-diff-table-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+}
+
+.backup-diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+
+.backup-diff-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.backup-diff-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  color: var(--color-text-secondary);
+}
+
+.backup-diff-domain-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.backup-delta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.backup-delta-pill--added {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+}
+
+.backup-delta-pill--removed {
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+  color: var(--color-danger);
+}
+
+.backup-delta-pill--unchanged {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+/* Health Modal internals */
+.backup-health-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.backup-health-hero-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 100px;
+}
+
+.backup-health-grade {
+  font-size: 32px;
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-display, var(--font-sans));
+  color: var(--color-accent);
+}
+
+.backup-health-score-val {
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.backup-health-hero-right {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.backup-health-status-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.backup-health-status-tip {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.backup-health-checks-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.backup-health-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.backup-health-check-status {
+  padding-top: 2px;
+}
+
+.backup-check-icon--ok {
+  color: var(--color-success);
+}
+
+.backup-check-icon--warn {
+  color: var(--color-warning);
+}
+
+.backup-health-check-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.backup-health-check-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.backup-health-check-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.backup-health-check-score {
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.backup-health-check-desc {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-secondary);
 }
 
 /* ─── Shared Legacy/Base Support ─────────────────────────────────────── */
@@ -3018,6 +3793,320 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   line-height: 1.4;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Backup UI — completion pass
+   Styles for classes referenced by the redesigned Backup tab, the
+   verify/diff/health modals and the progress modal that had no rules yet.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Archive list icon + dropzone states */
+.backup-archive-icon {
+  color: var(--color-primary);
+}
+
+.backup-dropzone-icon {
+  color: var(--color-text-muted);
+}
+
+.backup-dropzone-loaded {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.backup-dropzone-filename {
+  max-width: 100%;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backup-dropzone-path {
+  max-width: min(70ch, 100%);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backup-dropzone-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.backup-dropzone-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.backup-dropzone-sub {
+  max-width: 52ch;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Error banner */
+.backup-error-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+/* Registry header */
+.backup-registry-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+/* Create action card */
+.backup-create-action-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  margin-top: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+}
+
+.backup-create-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.backup-create-summary-main {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.backup-create-summary-sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Text input */
+.backup-text-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+
+.backup-text-input:focus {
+  border-color: var(--color-primary);
+}
+
+/* Radio helper description */
+.backup-radio-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Inspected archive container + metadata */
+.backup-inspect-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.backup-archive-meta-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+}
+
+.backup-archive-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-md);
+}
+
+.backup-meta-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.backup-meta-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+}
+
+.backup-meta-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.backup-meta-actions-bar {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Restore trigger bar */
+.backup-restore-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+}
+
+.backup-restore-summary-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 62ch;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.backup-warning-icon {
+  flex-shrink: 0;
+  color: var(--color-warning);
+}
+
+/* Storage directory card */
+.backup-storage-config-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+}
+
+.backup-storage-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.backup-storage-current-path {
+  max-width: 60ch;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backup-storage-actions-row {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* Retention row */
+.backup-retention-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.backup-retention-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.backup-number-unit {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Verify modal hero icon (hero + text are styled above) */
+.backup-verify-hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Diff table domain cell */
+.backup-diff-domain-cell {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* Health check row state modifiers */
+.backup-health-check-row--pass {
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+}
+
+.backup-health-check-row--fail {
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+}
+
+/* Progress modal footer */
+.backup-progress-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.backup-progress-footer-status {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 
