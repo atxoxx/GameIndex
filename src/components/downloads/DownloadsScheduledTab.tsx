@@ -7,6 +7,7 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import {
   formatBytesShort,
   formatScheduleTimestamp,
+  getDownloadDisplayName,
   getStatusClassSuffix,
   getStatusLabel,
   isScheduleHeld,
@@ -469,8 +470,8 @@ export default function DownloadsScheduledTab() {
               return (
                 <div className={`dl-sched-queue-row${held ? " is-held" : ""}`} key={download.id}>
                   <div className="dl-sched-queue-main">
-                    <span className="dl-sched-queue-name" title={download.name}>
-                      {download.name}
+                    <span className="dl-sched-queue-name" title={getDownloadDisplayName(download, t)}>
+                      {getDownloadDisplayName(download, t)}
                     </span>
                     <span className={`dl-row-status dl-row-status--${getStatusClassSuffix(download.status)}`}>
                       {getStatusLabel(download.status, t)}

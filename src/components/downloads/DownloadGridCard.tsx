@@ -18,6 +18,7 @@ import {
   getStatusLabel,
   getStatusClassSuffix,
   getActivityMessage,
+  getDownloadDisplayName,
   isActiveStatus,
   formatEta,
 } from "../../types/download";
@@ -78,6 +79,7 @@ export const DownloadGridCard = React.memo(
     const isSeeding = status.kind === "seeding";
     const errorMessage = getStatusError(status);
     const activity = getActivityMessage(download, t);
+    const displayName = getDownloadDisplayName(download, t, matchedGame?.name);
 
     const handleLaunch = async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -101,7 +103,7 @@ export const DownloadGridCard = React.memo(
         {/* Artwork Media Header */}
         <div className="dl-card-media">
           {artworkUrl ? (
-            <img src={artworkUrl} alt={download.name} className="dl-card-img" />
+            <img src={artworkUrl} alt={displayName} className="dl-card-img" />
           ) : (
             <div className="dl-card-placeholder">
               <GameFallbackIcon style={{ width: 44, height: 44, opacity: 0.4 }} />
@@ -118,7 +120,7 @@ export const DownloadGridCard = React.memo(
                 className="dl-card-checkbox"
                 checked={selected}
                 onChange={() => onToggleSelect(download.id)}
-                aria-label={`Select ${download.name}`}
+                aria-label={`Select ${displayName}`}
               />
             </div>
           )}
@@ -141,8 +143,8 @@ export const DownloadGridCard = React.memo(
 
         {/* Card Body */}
         <div className="dl-card-body">
-          <h4 className="dl-card-title" title={download.name}>
-            {download.name}
+          <h4 className="dl-card-title" title={displayName}>
+            {displayName}
           </h4>
 
           {/* Progress Bar & Percentage */}
@@ -291,11 +293,11 @@ export const DownloadGridCard = React.memo(
             y={downloadMenu.state.y}
             items={downloadMenuItems}
             onClose={downloadMenu.close}
-            ariaLabel={download.name}
+            ariaLabel={displayName}
             header={
               <>
-                <span className="context-menu-title" title={download.name}>
-                  {download.name}
+                <span className="context-menu-title" title={displayName}>
+                  {displayName}
                 </span>
                 <span className="ctx-badge">{getStatusLabel(download.status, t)}</span>
               </>

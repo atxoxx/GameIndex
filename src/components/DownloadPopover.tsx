@@ -37,6 +37,7 @@ import {
   getStatusLabel,
   getStatusClassSuffix,
   getActivityMessage,
+  getDownloadDisplayName,
   isActiveStatus,
   formatEta,
   type TorrentDownload,
@@ -106,6 +107,7 @@ const DownloadCard = React.memo(({
   const isDirect =
     download.kind === "direct" || download.kind === "debrid";
   const activity = getActivityMessage(download, t);
+  const displayName = getDownloadDisplayName(download, t);
   // Same stalled-detect heuristic as the row — peers connected but
   // zero bytes/sec while status === "downloading". Tints the
   // activity line warning-yellow so a user glancing at the popover
@@ -130,8 +132,8 @@ const DownloadCard = React.memo(({
   return (
     <div className={cardClass}>
       <div className="dl-progress-card-header">
-        <span className="dl-progress-card-name" title={download.name}>
-          {download.name}
+        <span className="dl-progress-card-name" title={displayName}>
+          {displayName}
           {download.kind === "direct" && (
             <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "color-mix(in srgb, var(--color-accent) 15%, transparent)", color: "var(--color-accent)", borderRadius: "3px", fontWeight: "bold" }}>DIRECT</span>
           )}

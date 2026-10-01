@@ -29,6 +29,7 @@ import {
   getStatusLabel,
   getStatusClassSuffix,
   getActivityMessage,
+  getDownloadDisplayName,
   isActiveStatus,
   formatEta,
   type TorrentDownload,
@@ -117,6 +118,7 @@ export const DownloadRow = React.memo(
     const errorMessage = getStatusError(status);
     const isDirect = download.kind === "direct" || download.kind === "debrid";
     const activity = getActivityMessage(download, t);
+    const displayName = getDownloadDisplayName(download, t, matchedGame?.name);
     const isSeeding = status.kind === "seeding";
 
     const isStalledActivity =
@@ -172,16 +174,16 @@ export const DownloadRow = React.memo(
                 className="dl-row-checkbox"
                 checked={selected}
                 onChange={() => onToggleSelect(download.id)}
-                aria-label={`Select ${download.name}`}
+                aria-label={`Select ${displayName}`}
               />
             </div>
           )}
 
           {/* Thumbnail artwork (always rendered in detailed mode to maintain stable grid layout) */}
           {!compact && (
-            <div className="dl-row-thumb" title={matchedGame?.name || download.name}>
+            <div className="dl-row-thumb" title={displayName}>
               {artworkUrl ? (
-                <img src={artworkUrl} alt={download.name} className="dl-row-thumb-img" />
+                <img src={artworkUrl} alt={displayName} className="dl-row-thumb-img" />
               ) : (
                 <div className="dl-row-thumb-placeholder">
                   <GameFallbackIcon style={{ width: 22, height: 22, opacity: 0.4 }} />
@@ -194,8 +196,8 @@ export const DownloadRow = React.memo(
           <div className="dl-row-main">
             <div className="dl-row-name-row">
               <div className="dl-row-name-group">
-                <span className="dl-row-name" title={download.name}>
-                  {download.name}
+                <span className="dl-row-name" title={displayName}>
+                  {displayName}
                 </span>
 
                 {/* Status Pill Badge next to title */}
@@ -519,11 +521,11 @@ export const DownloadRow = React.memo(
             y={downloadMenu.state.y}
             items={downloadMenuItems}
             onClose={downloadMenu.close}
-            ariaLabel={download.name}
+            ariaLabel={displayName}
             header={
               <>
-                <span className="context-menu-title" title={download.name}>
-                  {download.name}
+                <span className="context-menu-title" title={displayName}>
+                  {displayName}
                 </span>
                 <span className="ctx-badge">{getStatusLabel(download.status, t)}</span>
               </>

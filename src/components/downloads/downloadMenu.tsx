@@ -5,7 +5,7 @@ import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { copyTextToClipboard } from "../../utils/clipboard";
-import { isActiveStatus, type TorrentDownload } from "../../types/download";
+import { getDownloadDisplayName, isActiveStatus, type TorrentDownload } from "../../types/download";
 import type { Game } from "../../types/game";
 import type { ContextMenuItem } from "../ui/ContextMenu";
 
@@ -116,7 +116,7 @@ export function useDownloadMenuItems(
         id: "copy-name",
         label: t("gameMenu.copyName"),
         icon: <Copy size={15} />,
-        onSelect: () => copy(download.name),
+        onSelect: () => copy(getDownloadDisplayName(download, t, matchedGame?.name)),
       },
       sourceLink
         ? {

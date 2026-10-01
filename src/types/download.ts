@@ -499,6 +499,31 @@ export function getStatusClassSuffix(status: DownloadStatus): string {
   return status.kind;
 }
 
+/**
+ * Placeholder name the Rust download engine stamps on a record while it
+ * is still resolving a torrent's metadata (see
+ * `src-tauri/src/downloads/mod.rs`). It is an internal marker, not a
+ * user-facing string, so the UI must never render it verbatim.
+ */
+export const PENDING_METADATA_NAME = "Fetching metadata\u2026";
+
+/**
+ * Localized display title for a download.
+ *
+ * The engine has no real name until metadata lands, so a record briefly
+ * carries {@link PENDING_METADATA_NAME} — a hardcoded English string.
+ * Swap that for the matched library game's name when we have one, and
+ * otherwise for the localized "fetching metadata" label.
+ */
+export function getDownloadDisplayName(
+  download: Pick<TorrentDownload, "name" | "status">,
+  t: TranslateFn,
+  fallbackName?: string | null,
+): string {
+  if (download.name !== PENDING_METADATA_NAME) return download.name;
+  return fallbackName || t("download.status.fetchingMetadata");
+}
+
 /** Calculate and format the estimated time until finish (ETA). */
 export function formatEta(
   downloaded: number,

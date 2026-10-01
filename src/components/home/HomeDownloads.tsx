@@ -8,6 +8,7 @@ import {
   formatBytesPerSecond,
   formatProgress,
   formatEta,
+  getDownloadDisplayName,
   type DownloadStatus,
   type TorrentDownload,
 } from "../../types/download";
@@ -82,12 +83,13 @@ function HomeDownloadRow({
   const paused = download.status.kind === "paused";
   const pct = formatProgress(download.progress);
   const eta = formatEta(download.downloaded, download.totalSize, download.downloadSpeed, t);
+  const displayName = getDownloadDisplayName(download, t);
 
   return (
     <div className="home-downloads__row">
       <div className="home-downloads__row-top">
-        <span className="home-downloads__name" title={download.name}>
-          {download.name}
+        <span className="home-downloads__name" title={displayName}>
+          {displayName}
         </span>
         <button
           type="button"
