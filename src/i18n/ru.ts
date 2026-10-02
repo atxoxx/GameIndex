@@ -2747,6 +2747,8 @@ export const ru: TranslationDict = {
   "map.searchPlaceholder": "Поиск другого названия игры…",
   "map.searchAction": "Найти",
   "map.searchReset": "Вернуть название игры",
+  "map.searchOpen": "Найти другую игру",
+  "map.searchClose": "Закрыть поиск",
   "map.searching": "Поиск поставщиков карт для {name}…",
   "map.searchError": "Не удалось найти поставщиков карт. Проверьте подключение и повторите попытку.",
   "map.noResults": "Ни один поставщик карт не имеет карты для {name}.",

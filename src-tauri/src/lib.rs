@@ -227,6 +227,7 @@ pub fn run() {
             price::fetch_game_prices_batch,
             protondb::fetch_protondb_status,
             map_sources::fetch_game_maps,
+            map_sources::search_map_games,
             fetch_url,
             webview_history_navigate,
             webview_current_url,

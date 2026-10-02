@@ -45,7 +45,12 @@ const searchedSource: MapSourceResult = {
   ],
 };
 
+function openSearch() {
+  fireEvent.click(screen.getByLabelText("map.searchOpen"));
+}
+
 function submitSearch(value: string) {
+  openSearch();
   const input = screen.getByLabelText("map.searchPlaceholder");
   fireEvent.change(input, { target: { value } });
   fireEvent.submit(input.closest("form") as HTMLFormElement);
@@ -68,6 +73,7 @@ describe("MapTab lookup search", () => {
 
     render(<MapTab sources={[initialSource]} gameName="Old Name" />);
     expect(screen.getByText("Old Match")).toBeTruthy();
+    expect(screen.queryByLabelText("map.searchPlaceholder")).toBeNull();
 
     submitSearch("STALKER");
 
@@ -76,6 +82,30 @@ describe("MapTab lookup search", () => {
     );
     expect(await screen.findByText("STALKER 2: Heart of Chornobyl")).toBeTruthy();
     expect(screen.queryByText("Old Match")).toBeNull();
+  });
+
+  it("runs a lookup from a suggestion", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "search_map_games") return ["STALKER 2: Heart of Chornobyl"];
+      if (cmd === "fetch_game_maps") return [searchedSource];
+      return undefined;
+    });
+
+    render(<MapTab sources={[initialSource]} gameName="Old Name" />);
+    openSearch();
+    const input = screen.getByLabelText("map.searchPlaceholder");
+    fireEvent.change(input, { target: { value: "stalk" } });
+
+    const option = await screen.findByRole("option", {
+      name: "STALKER 2: Heart of Chornobyl",
+    });
+    fireEvent.click(option);
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("fetch_game_maps", {
+        gameName: "STALKER 2: Heart of Chornobyl",
+      })
+    );
   });
 
   it("shows an error state when the lookup fails", async () => {

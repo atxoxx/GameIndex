@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Webview } from "@tauri-apps/api/webview";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Search, X } from "lucide-react";
+import { RotateCcw, Search, X } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
+import { useMapSuggestions } from "../../hooks/useMapSuggestions";
 import WebviewControls from "../webview/WebviewControls";
 import { IconExternalLink, IconMap } from "./icons";
 import type { MapSourceResult } from "../../types/game";
@@ -66,8 +67,15 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
   const [query, setQuery] = useState(gameName);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const results = manualResults ?? sources;
+  const suggestions = useMapSuggestions(draft, searchOpen);
+  // The native webview composites above the DOM, so hide it while the search
+  // popover is open or the suggestions would render behind the map.
+  const webviewVisible = visible && !searchOpen;
 
   useEffect(() => {
     setManualResults(null);
@@ -75,6 +83,13 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
     setQuery(gameName);
     setSearchError(false);
   }, [gameName]);
+
+  useEffect(() => {
+    if (searchOpen) {
+      searchInputRef.current?.focus();
+      setHighlight(-1);
+    }
+  }, [searchOpen]);
 
   const activeSource =
     results.find((s) => s.id === activeSourceId) ?? results[0] ?? null;
@@ -89,7 +104,7 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
   const { navState, goBack, goForward } = useEmbeddedWebviewNav(
     webviewInst?.label ?? null,
     activeUrl,
-    visible && status === "ready"
+    webviewVisible && status === "ready"
   );
 
   const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
@@ -142,6 +157,38 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
 
   const isSearchDirty = manualResults !== null || draft.trim() !== gameName.trim();
 
+  const chooseSuggestion = useCallback(
+    (title: string) => {
+      setDraft(title);
+      runSearch(title);
+      setSearchOpen(false);
+    },
+    [runSearch]
+  );
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    setHighlight(-1);
+  }, []);
+
+  const handleSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlight((current) => Math.min(current + 1, suggestions.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlight((current) => Math.max(current - 1, 0));
+    } else if (event.key === "Enter") {
+      if (highlight >= 0 && suggestions[highlight]) {
+        event.preventDefault();
+        chooseSuggestion(suggestions[highlight]);
+      }
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeSearch();
+    }
+  };
+
   // Keep the native view glued to the DOM frame as the page scrolls/resizes.
   useEffect(() => {
     const frame = containerRef.current;
@@ -182,10 +229,10 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
     if (!webviewInst) return;
     invoke("set_preview_webview_visible", {
       label: webviewInst.label,
-      visible,
+      visible: webviewVisible,
     }).catch(() => {});
-    (visible ? webviewInst.show() : webviewInst.hide()).catch(() => {});
-  }, [webviewInst, visible]);
+    (webviewVisible ? webviewInst.show() : webviewInst.hide()).catch(() => {});
+  }, [webviewInst, webviewVisible]);
 
   // (Re)create the native webview whenever the selected URL changes.
   useEffect(() => {
@@ -274,43 +321,113 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
           )}
         </div>
 
-        <form
-          className="map-tab__search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            runSearch(draft);
-          }}
-        >
-          <span className="map-tab__search-icon" aria-hidden="true">
-            <Search size={14} />
-          </span>
-          <input
-            type="text"
-            className="map-tab__search-input"
-            value={draft}
-            placeholder={t("map.searchPlaceholder")}
-            aria-label={t("map.searchPlaceholder")}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          {isSearchDirty && (
-            <button
-              type="button"
-              className="map-tab__search-reset"
-              onClick={resetSearch}
-              title={t("map.searchReset")}
-              aria-label={t("map.searchReset")}
-            >
-              <X size={13} />
-            </button>
+        <div className="map-tab__search-box">
+          {!searchOpen ? (
+            <div className="map-tab__search-triggers">
+              {manualResults !== null && (
+                <button
+                  type="button"
+                  className="map-tab__search-reset-standalone"
+                  onClick={resetSearch}
+                  title={t("map.searchReset")}
+                  aria-label={t("map.searchReset")}
+                >
+                  <RotateCcw size={14} />
+                </button>
+              )}
+              <button
+                type="button"
+                className={`map-tab__search-toggle${manualResults !== null ? " is-active" : ""}`}
+                onClick={() => setSearchOpen(true)}
+                title={t("map.searchOpen")}
+                aria-label={t("map.searchOpen")}
+              >
+                <Search size={15} />
+              </button>
+            </div>
+          ) : (
+            <div className="map-tab__search-panel">
+              <form
+                className="map-tab__search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  runSearch(draft);
+                }}
+              >
+                <span className="map-tab__search-icon" aria-hidden="true">
+                  <Search size={14} />
+                </span>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  className="map-tab__search-input"
+                  value={draft}
+                  placeholder={t("map.searchPlaceholder")}
+                  aria-label={t("map.searchPlaceholder")}
+                  autoComplete="off"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={suggestions.length > 0}
+                  aria-controls="map-tab-suggestions"
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    setHighlight(-1);
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                />
+                {isSearchDirty && (
+                  <button
+                    type="button"
+                    className="map-tab__search-reset"
+                    onClick={() => {
+                      resetSearch();
+                      setSearchOpen(false);
+                    }}
+                    title={t("map.searchReset")}
+                    aria-label={t("map.searchReset")}
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="map-tab__search-go"
+                  disabled={searching || !draft.trim()}
+                >
+                  {searching ? <span className="map-tab__search-spinner" /> : t("map.searchAction")}
+                </button>
+                <button
+                  type="button"
+                  className="map-tab__search-close"
+                  onClick={closeSearch}
+                  title={t("map.searchClose")}
+                  aria-label={t("map.searchClose")}
+                >
+                  <X size={13} />
+                </button>
+              </form>
+
+              {suggestions.length > 0 && (
+                <ul className="map-tab__suggestions" id="map-tab-suggestions" role="listbox">
+                  {suggestions.map((title, index) => (
+                    <li key={title}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={index === highlight}
+                        className={`map-tab__suggestion${index === highlight ? " is-active" : ""}`}
+                        onMouseEnter={() => setHighlight(index)}
+                        onClick={() => chooseSuggestion(title)}
+                      >
+                        {title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
-          <button
-            type="submit"
-            className="map-tab__search-go"
-            disabled={searching || !draft.trim()}
-          >
-            {searching ? <span className="map-tab__search-spinner" /> : t("map.searchAction")}
-          </button>
-        </form>
+        </div>
 
         <div className="map-tab__controls">
           <WebviewControls

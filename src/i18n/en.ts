@@ -2755,6 +2755,8 @@ export const en: TranslationDict = {
   "map.searchPlaceholder": "Search another game name…",
   "map.searchAction": "Find",
   "map.searchReset": "Reset to the game name",
+  "map.searchOpen": "Search for another game",
+  "map.searchClose": "Close search",
   "map.searching": "Searching map providers for {name}…",
   "map.searchError": "Could not search map providers. Check your connection and try again.",
   "map.noResults": "No map provider has a map for {name}.",

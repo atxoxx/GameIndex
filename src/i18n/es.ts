@@ -2747,6 +2747,8 @@ export const es: TranslationDict = {
   "map.searchPlaceholder": "Buscar otro nombre de juego…",
   "map.searchAction": "Buscar",
   "map.searchReset": "Volver al nombre del juego",
+  "map.searchOpen": "Buscar otro juego",
+  "map.searchClose": "Cerrar búsqueda",
   "map.searching": "Buscando mapas para {name}…",
   "map.searchError": "No se pudieron buscar los proveedores de mapas. Comprueba la conexión e inténtalo de nuevo.",
   "map.noResults": "Ningún proveedor de mapas tiene un mapa para {name}.",

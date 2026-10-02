@@ -97,9 +97,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 1 1 260px;
-  min-width: 200px;
-  max-width: 460px;
+  width: 340px;
+  max-width: 74vw;
   height: 34px;
   padding: 0 4px 0 32px;
   background: var(--color-bg-secondary);
@@ -194,6 +193,150 @@
   border: 2px solid color-mix(in srgb, var(--color-accent-contrast) 35%, transparent);
   border-top-color: var(--color-accent-contrast);
   animation: mapTabSpin 720ms linear infinite;
+}
+
+/* Collapsed trigger that reveals the lookup search on demand. */
+.map-tab__search-box {
+  position: relative;
+}
+
+.map-tab__search-triggers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.map-tab__search-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.map-tab__search-toggle:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.map-tab__search-toggle:focus-visible,
+.map-tab__search-reset-standalone:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.map-tab__search-toggle.is-active {
+  color: var(--color-accent);
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-soft);
+}
+
+.map-tab__search-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.map-tab__search-reset-standalone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.map-tab__search-reset-standalone:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.map-tab__search-panel {
+  position: relative;
+}
+
+.map-tab__search-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.map-tab__search-close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.map-tab__suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.map-tab__suggestion {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: calc(var(--radius-md) - 4px);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.map-tab__suggestion:hover,
+.map-tab__suggestion.is-active {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
 }
 
 .map-tab__placeholder-icon {

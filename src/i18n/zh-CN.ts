@@ -2747,6 +2747,8 @@ export const zhCN: TranslationDict = {
   "map.searchPlaceholder": "搜索其他游戏名称…",
   "map.searchAction": "查找",
   "map.searchReset": "恢复为游戏名称",
+  "map.searchOpen": "搜索其他游戏",
+  "map.searchClose": "关闭搜索",
   "map.searching": "正在为 {name} 搜索地图提供商…",
   "map.searchError": "无法搜索地图提供商。请检查网络后重试。",
   "map.noResults": "没有地图提供商提供 {name} 的地图。",

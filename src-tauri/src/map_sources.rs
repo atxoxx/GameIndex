@@ -1032,6 +1032,20 @@ async fn cached_index(
     Ok(games)
 }
 
+/// Read a provider's already-built index without touching the network. The
+/// map tab only renders after `fetch_game_maps` warmed these caches, so the
+/// autocomplete stays instant and never blocks on a provider that is down.
+async fn cached_snapshot(
+    cache: &'static OnceLock<Mutex<Option<CachedIndex>>>,
+) -> Option<Arc<Vec<IndexedGame>>> {
+    let cell = cache.get_or_init(|| Mutex::new(None));
+    let guard = cell.lock().await;
+    guard
+        .as_ref()
+        .filter(|entry| entry.fetched_at.elapsed() < CACHE_TTL)
+        .map(|entry| entry.games.clone())
+}
+
 // ── Providers ──────────────────────────────────────────────────────────
 
 static MAPGENIE_CACHE: OnceLock<Mutex<Option<CachedIndex>>> = OnceLock::new();
@@ -1155,6 +1169,68 @@ pub async fn fetch_game_maps(game_name: String) -> Result<Vec<MapSourceResult>, 
     }
 
     Ok(results)
+}
+
+/// Rank distinct catalog titles for the lookup autocomplete: prefix matches
+/// first, then shorter titles, deduped across providers. Pure so it can be
+/// unit-tested without the network.
+fn suggestion_matches<'a, I>(indexes: I, query: &str, limit: usize) -> Vec<String>
+where
+    I: IntoIterator<Item = &'a [IndexedGame]>,
+{
+    let needle = normalize(query);
+    if needle.chars().count() < 2 {
+        return Vec::new();
+    }
+
+    let mut seen = HashSet::new();
+    let mut ranked: Vec<(u8, usize, String)> = Vec::new();
+    for index in indexes {
+        for game in index {
+            if !game.norm.contains(&needle) {
+                continue;
+            }
+            if !seen.insert(game.title.clone()) {
+                continue;
+            }
+            let priority = if game.norm.starts_with(&needle) { 0 } else { 1 };
+            ranked.push((priority, game.norm.len(), game.title.clone()));
+        }
+    }
+
+    ranked.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+    ranked
+        .into_iter()
+        .take(limit)
+        .map(|(_, _, title)| title)
+        .collect()
+}
+
+/// Autocomplete for the map lookup, drawn from the provider catalogs the
+/// initial resolve already built and cached in memory.
+#[tauri::command]
+pub async fn search_map_games(
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<String>, String> {
+    let limit = limit.unwrap_or(8).clamp(1, 25);
+
+    let (mapgenie, gamemaps, gamemappers, wand, gamemapscom) = tokio::join!(
+        cached_snapshot(&MAPGENIE_CACHE),
+        cached_snapshot(&GAMEMAPS_CACHE),
+        cached_snapshot(&GAMEMAPPERS_CACHE),
+        cached_snapshot(&WAND_CACHE),
+        cached_snapshot(&GAMEMAPSCOM_CACHE),
+    );
+
+    let mut indexes: Vec<&[IndexedGame]> = Vec::new();
+    for snapshot in [&mapgenie, &gamemaps, &gamemappers, &wand, &gamemapscom] {
+        if let Some(index) = snapshot {
+            indexes.push(index.as_slice());
+        }
+    }
+
+    Ok(suggestion_matches(indexes, &query, limit))
 }
 
 #[cfg(test)]
@@ -1559,6 +1635,42 @@ mod tests {
             Some("https://wand.com/maps/borderlands"),
             "the exact base title should win over a newer sequel"
         );
+    }
+
+    #[test]
+    fn suggestions_match_across_providers_and_rank_prefixes() {
+        let wand = parse_wand_maps(
+            r#"
+            <a href="/maps/stalker-2-heart-of-chornobyl"><div><h4>STALKER 2: Heart of Chornobyl</h4></div></a>
+            <a href="/maps/stalker-call-of-pripyat"><div><h4>S.T.A.L.K.E.R.: Call of Pripyat</h4></div></a>
+            <a href="/maps/elden-ring"><div><h4>Elden Ring</h4></div></a>
+            "#,
+        );
+        let other = parse_wand_maps(
+            r#"
+            <a href="/maps/stalker-shadow-of-chernobyl"><div><h4>S.T.A.L.K.E.R.: Shadow of Chernobyl</h4></div></a>
+            <a href="/maps/heart-of-chornobyl"><div><h4>Heart of Chornobyl</h4></div></a>
+            "#,
+        );
+
+        let out = suggestion_matches([wand.as_slice(), other.as_slice()], "stalk", 10);
+        assert!(out.iter().any(|t| t.contains("STALKER 2")));
+        assert!(out.iter().any(|t| t.contains("Call of Pripyat")));
+        assert!(
+            out.iter().any(|t| t.contains("Shadow of Chernobyl")),
+            "every provider contributes suggestions"
+        );
+        assert!(!out.iter().any(|t| t.contains("Elden Ring")));
+
+        let merged = suggestion_matches([wand.as_slice(), wand.as_slice()], "stalk", 10);
+        let mut unique = merged.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(merged.len(), unique.len(), "duplicate titles are removed");
+
+        // Suggestions need at least two characters.
+        assert!(suggestion_matches([wand.as_slice()], "s", 10).is_empty());
+        assert!(!suggestion_matches([wand.as_slice()], "el", 10).is_empty());
     }
 }
 
