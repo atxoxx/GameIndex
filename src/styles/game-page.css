@@ -2127,8 +2127,7 @@
 .game-hero__poster-badge {
   position: absolute;
   bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 8px;
   z-index: 3;
   padding: 3px 10px;
   border-radius: var(--radius-full);

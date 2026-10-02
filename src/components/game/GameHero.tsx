@@ -798,7 +798,6 @@ export default function GameHero({
           }
           tabIndex={showHeroInteractiveControls ? 0 : undefined}
           role={showHeroInteractiveControls ? "button" : undefined}
-          title={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
           aria-label={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
         >
           <img
@@ -960,7 +959,6 @@ export default function GameHero({
               }
               tabIndex={showHeroInteractiveControls ? 0 : undefined}
               role={showHeroInteractiveControls ? "button" : undefined}
-              title={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
               aria-label={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
             >
               <img
