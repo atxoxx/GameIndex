@@ -152,6 +152,13 @@ export default function StoreGameDetail() {
   // hook order stays stable. Title is empty until the detail fetch lands,
   // which simply keeps the Map tab hidden until then.
   const mapLookup = useGameMaps(data?.title);
+  const [mapHasResult, setMapHasResult] = useState<boolean | null>(null);
+  const mapAvailable = mapHasResult ?? mapLookup.sources.length > 0;
+  const mapStatusKnown = mapLookup.status !== "loading" || mapHasResult !== null;
+
+  useEffect(() => {
+    setMapHasResult(null);
+  }, [gameSlug, data?.title]);
 
   // Tab synchronization with URL query param
   const urlTab = searchParams.get("tab") as StoreTab | null;
@@ -420,7 +427,20 @@ export default function StoreGameDetail() {
       // Always offered; the tab itself explains when no provider matched and
       // lets the user search. It sorts last since it is not in the
       // reorderable detail-tab set.
-      { id: "map" as const, label: t("game.tab.map"), icon: IconMap },
+      {
+        id: "map" as const,
+        label: t("game.tab.map"),
+        icon: IconMap,
+        badge: mapStatusKnown ? (
+          <span
+            className={`game-tab-status game-tab-status--${
+              mapAvailable ? "found" : "missing"
+            }`}
+            title={mapAvailable ? t("map.statusFound") : t("map.statusMissing")}
+            aria-hidden="true"
+          />
+        ) : undefined,
+      },
     ];
     const order = (id: StoreTab) => {
       const idx = (storeTabOrder as readonly string[]).indexOf(id);
@@ -429,7 +449,7 @@ export default function StoreGameDetail() {
     return allTabs
       .sort((a, b) => order(a.id) - order(b.id))
       .filter((tab) => isTabVisible(tab.id));
-  }, [t, data?.websites, isTabVisible, storeTabOrder]);
+  }, [t, data?.websites, isTabVisible, storeTabOrder, mapAvailable, mapStatusKnown]);
 
   if (loading) return <StoreGameLoadingSkeleton />;
   if (error) return <StoreGameError message={error} onRetry={fetchData} />;
@@ -755,6 +775,7 @@ export default function StoreGameDetail() {
           sources={mapLookup.sources}
           gameName={data?.title}
           searchKey={gameSlug}
+          onResultChange={setMapHasResult}
           visible={!lightboxOpen}
         />
       )}

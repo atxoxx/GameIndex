@@ -65,6 +65,8 @@ interface MapTabProps {
   gameName?: string;
   /** Stable per-game key used to remember a manual lookup. */
   searchKey?: string;
+  /** Notifies the parent whether any provider map is currently available. */
+  onResultChange?: (hasResults: boolean) => void;
   /** Hide the native webview while a DOM modal sits above it. */
   visible?: boolean;
 }
@@ -87,6 +89,7 @@ export default function MapTab({
   sources,
   gameName = "",
   searchKey,
+  onResultChange,
   visible = true,
 }: MapTabProps) {
   const { t } = useLanguage();
@@ -155,9 +158,16 @@ export default function MapTab({
 
   const resultSignature = results.map((s) => s.id).join("|");
   useEffect(() => {
-    setActiveSourceId(null);
+    // Prefer Wand (it exposes per-map sub-maps) when available.
+    setActiveSourceId(results.some((source) => source.id === "wand") ? "wand" : null);
     setActiveMapUrl(null);
-  }, [resultSignature]);
+  }, [resultSignature, results]);
+
+  // Report availability so the parent's Map tab status dot stays in sync,
+  // including after a manual search that found (or lost) a map.
+  useEffect(() => {
+    onResultChange?.(results.length > 0);
+  }, [resultSignature, results, onResultChange]);
 
   const openExternal = useCallback(() => {
     if (!activeUrl) return;

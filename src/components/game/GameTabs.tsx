@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 export interface GameTabItem<T extends string = string> {
   id: T;
   label: string;
   icon?: React.ComponentType<{ size?: number; className?: string }>;
   count?: number | null;
+  /** Optional status indicator rendered after the label. */
+  badge?: ReactNode;
 }
 
 export interface GameTabsProps<T extends string = string> {
@@ -179,6 +181,7 @@ export default function GameTabs<T extends string = string>({
           >
             {Icon && <Icon size={15} className="game-tab-icon" />}
             <span className="game-tab-label">{tab.label}</span>
+            {tab.badge}
             {tab.count !== undefined && tab.count !== null && tab.count > 0 && (
               <span className="game-tab-count">{tab.count}</span>
             )}

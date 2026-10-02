@@ -2737,6 +2737,8 @@ export const zhCN: TranslationDict = {
   "game.tab.overview": "概览",
   "game.tab.map": "地图",
   "map.source": "交互式地图",
+  "map.statusFound": "有可用地图",
+  "map.statusMissing": "未找到地图",
   "map.loading": "正在加载地图…",
   "map.selectMap": "选择地图",
   "map.selectSource": "选择来源",

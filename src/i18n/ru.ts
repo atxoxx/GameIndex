@@ -2737,6 +2737,8 @@ export const ru: TranslationDict = {
   "game.tab.overview": "Обзор",
   "game.tab.map": "Карта",
   "map.source": "Интерактивная карта",
+  "map.statusFound": "Карта найдена",
+  "map.statusMissing": "Карта не найдена",
   "map.loading": "Загрузка карты…",
   "map.selectMap": "Выбрать карту",
   "map.selectSource": "Выбрать источник",

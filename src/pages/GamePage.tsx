@@ -158,6 +158,13 @@ function GameDetail({ game }: { game: Game }) {
   const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
   const { enabled: savesEnabled } = useSaves();
   const mapLookup = useGameMaps(game.name);
+  const [mapHasResult, setMapHasResult] = useState<boolean | null>(null);
+  const mapAvailable = mapHasResult ?? mapLookup.sources.length > 0;
+  const mapStatusKnown = mapLookup.status !== "loading" || mapHasResult !== null;
+
+  useEffect(() => {
+    setMapHasResult(null);
+  }, [game.id]);
   const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("game");
   const { getAchievementSummary } = useAchievements();
   const {
@@ -349,7 +356,20 @@ function GameDetail({ game }: { game: Game }) {
       // Always offered; the tab itself explains when no provider matched
       // and lets the user search. It sits outside the reorderable detail-tab
       // set, so it always sorts last.
-      { id: "map" as const, label: t("game.tab.map"), icon: IconMap },
+      {
+        id: "map" as const,
+        label: t("game.tab.map"),
+        icon: IconMap,
+        badge: mapStatusKnown ? (
+          <span
+            className={`game-tab-status game-tab-status--${
+              mapAvailable ? "found" : "missing"
+            }`}
+            title={mapAvailable ? t("map.statusFound") : t("map.statusMissing")}
+            aria-hidden="true"
+          />
+        ) : undefined,
+      },
     ];
     const order = (id: GamePageTab) => {
       const idx = (gameTabOrder as readonly string[]).indexOf(id);
@@ -358,7 +378,16 @@ function GameDetail({ game }: { game: Game }) {
     return allTabs
       .sort((a, b) => order(a.id) - order(b.id))
       .filter((tab) => isTabVisible(tab.id));
-  }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible, gameTabOrder]);
+  }, [
+    t,
+    achievementTotal,
+    game.websites,
+    gameNotes.length,
+    isTabVisible,
+    gameTabOrder,
+    mapAvailable,
+    mapStatusKnown,
+  ]);
 
   // The top bar renders straight from the persisted order/visibility. Items the
   // platform can't offer (Wine Logs / Compatibility on non-Linux hosts) are
@@ -754,6 +783,7 @@ function GameDetail({ game }: { game: Game }) {
           sources={mapLookup.sources}
           gameName={game.name}
           searchKey={game.id}
+          onResultChange={setMapHasResult}
           visible={!editing && !lightboxOpen && !showRemoveConfirm}
         />
       )}

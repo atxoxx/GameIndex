@@ -2737,6 +2737,8 @@ export const de: TranslationDict = {
   "game.tab.overview": "Übersicht",
   "game.tab.map": "Karte",
   "map.source": "Interaktive Karte",
+  "map.statusFound": "Karte verfügbar",
+  "map.statusMissing": "Keine Karte gefunden",
   "map.loading": "Karte wird geladen…",
   "map.selectMap": "Karte auswählen",
   "map.selectSource": "Quelle auswählen",
