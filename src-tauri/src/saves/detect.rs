@@ -27,7 +27,7 @@ pub struct DetectedLocation {
     pub label: String,
     /// `"dir"` or `"file"`.
     pub kind: String,
-    /// `curated | heuristic | steam | emulator`.
+    /// `curated | heuristic | steam | emulator | pcgamingwiki`.
     pub source: String,
 }
 
@@ -148,7 +148,7 @@ pub fn resolve_template(template: &str, ctx: &TemplateCtx<'_>) -> Option<PathBuf
 }
 
 /// Return the install directory hint for a game (the folder holding its exe).
-fn install_dir(game: &GameRow) -> Option<PathBuf> {
+pub(super) fn install_dir(game: &GameRow) -> Option<PathBuf> {
     if game.path.trim().is_empty() {
         return None;
     }

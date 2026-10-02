@@ -30,7 +30,7 @@ pub struct SaveLocation {
     /// `"dir"` or `"file"`.
     #[serde(default = "default_kind")]
     pub kind: String,
-    /// How the location was found: `curated | heuristic | steam | emulator | manual`.
+    /// How the location was found: `curated | heuristic | steam | emulator | pcgamingwiki | manual`.
     #[serde(default = "default_source")]
     pub source: String,
     /// Whether this location participates in backups.

@@ -89,6 +89,12 @@ export default function SavesTab() {
             checked={settings.includeEmulatorSaves}
             onChange={(checked) => void updateSettings({ includeEmulatorSaves: checked })}
           />
+          <SettingsToggleCard
+            title={t("saves.settings.pcgwTitle")}
+            desc={t("saves.settings.pcgwDesc")}
+            checked={settings.includePcgw}
+            onChange={(checked) => void updateSettings({ includePcgw: checked })}
+          />
         </div>
       </SettingsSection>
 

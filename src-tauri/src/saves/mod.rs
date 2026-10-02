@@ -12,6 +12,7 @@
 
 mod detect;
 mod engine;
+mod pcgw;
 mod registry;
 
 use std::path::{Path, PathBuf};
@@ -58,6 +59,9 @@ pub struct SavesSettings {
     pub auto_backup_on_exit: bool,
     #[serde(default = "default_true")]
     pub include_emulator_saves: bool,
+    /// Also consult PCGamingWiki for save paths the local scan missed.
+    #[serde(default = "default_true")]
+    pub include_pcgw: bool,
     /// Keep at most this many snapshots per game (0 = unlimited).
     #[serde(default = "default_retention")]
     pub retention: u32,
@@ -85,6 +89,7 @@ impl Default for SavesSettings {
             backup_dir: String::new(),
             auto_backup_on_exit: true,
             include_emulator_saves: true,
+            include_pcgw: true,
             retention: default_retention(),
             restore_safety_snapshot: true,
             ignore_patterns: Vec::new(),
@@ -159,8 +164,11 @@ fn store_settings(db: &Db, settings: &SavesSettings) -> Result<(), String> {
 
 /// Merge freshly detected locations into the stored set (case-insensitive
 /// path de-dupe). Returns how many new rows were added.
-fn merge_detected(db: &Db, game: &db::games::GameRow, include_emulator: bool) -> Result<u32, String> {
-    let detected = detect::detect_for_game(db, game, include_emulator);
+fn merge_locations(
+    db: &Db,
+    game: &db::games::GameRow,
+    detected: Vec<detect::DetectedLocation>,
+) -> Result<u32, String> {
     let mut added = 0u32;
     for d in detected {
         if saves::find_location_by_path(db, &game.id, &d.path)?.is_some() {
@@ -185,6 +193,18 @@ fn merge_detected(db: &Db, game: &db::games::GameRow, include_emulator: bool) ->
         added += 1;
     }
     Ok(added)
+}
+
+/// Local detection: curated registry + heuristics + Steam Cloud + emulator.
+fn merge_detected(db: &Db, game: &db::games::GameRow, include_emulator: bool) -> Result<u32, String> {
+    let detected = detect::detect_for_game(db, game, include_emulator);
+    merge_locations(db, game, detected)
+}
+
+/// PCGamingWiki detection (cached, never fatal to a scan).
+async fn merge_pcgw(db: &Db, game: &db::games::GameRow) -> Result<u32, String> {
+    let result = pcgw::detect_for_game(db, game).await;
+    merge_locations(db, game, result.locations)
 }
 
 fn included_locations(db: &Db, game_id: &str) -> Result<Vec<SaveLocation>, String> {
@@ -279,10 +299,16 @@ pub fn saves_list_all_locations(app: AppHandle) -> Result<Vec<SaveLocation>, Str
 }
 
 /// Detect and persist locations for one game, returning the merged set.
+///
+/// The local scanners always run. When `include_pcgw` is requested (the
+/// explicit "Rescan"/"Scan" actions) the suite also performs one cached
+/// PCGamingWiki lookup; the automatic detect-on-mount leaves it off so
+/// opening a game never waits on the network.
 #[tauri::command]
-pub fn saves_detect_locations(
+pub async fn saves_detect_locations(
     app: AppHandle,
     game_id: String,
+    include_pcgw: Option<bool>,
 ) -> Result<Vec<SaveLocation>, String> {
     let db = state_db(&app)?;
     let settings = load_settings(&db);
@@ -290,13 +316,22 @@ pub fn saves_detect_locations(
         return Err(format!("Game not found: {game_id}"));
     };
     merge_detected(&db, &game, settings.include_emulator_saves)?;
+    if include_pcgw.unwrap_or(false) && settings.include_pcgw {
+        let _ = merge_pcgw(&db, &game).await;
+    }
     saves::list_locations(&db, &game_id)
 }
 
 /// Scan the whole library for save locations. Emits `saves-progress` and
 /// returns the number of games scanned.
+///
+/// The library-wide pass is local-only so it stays fast and offline; when
+/// `include_pcgw` is on, a second pass consults PCGamingWiki for the games
+/// the local scan could not place. Wiki answers are cached for a week, so
+/// repeat scans are near-instant. Network lookups are serialized with a
+/// short delay to respect the wiki's 60 requests/minute limit.
 #[tauri::command]
-pub fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
+pub async fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
     let db = state_db(&app)?;
     let mut settings = load_settings(&db);
     let games = db::games::list_all(&db)?;
@@ -317,6 +352,33 @@ pub fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
         );
         added_total += merge_detected(&db, game, settings.include_emulator_saves).unwrap_or(0);
     }
+
+    if settings.include_pcgw {
+        for (i, game) in games.iter().enumerate() {
+            // Only ask the wiki for games local detection couldn't place.
+            if !saves::list_locations(&db, &game.id)?.is_empty() {
+                continue;
+            }
+            let _ = app.emit(
+                "saves-progress",
+                SaveProgress {
+                    phase: "scan".into(),
+                    game_id: game.id.clone(),
+                    game_name: game.name.clone(),
+                    current: i as u64,
+                    total,
+                    percent: if total == 0 { 100 } else { ((i as u64 * 100) / total) as u8 },
+                    message: format!("PCGamingWiki: {}", game.name),
+                },
+            );
+            let result = pcgw::detect_for_game(&db, game).await;
+            added_total += merge_locations(&db, game, result.locations).unwrap_or(0);
+            if result.fetched {
+                tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+            }
+        }
+    }
+
     settings.last_scan_at = unix_now_ms();
     let _ = store_settings(&db, &settings);
     let _ = app.emit(

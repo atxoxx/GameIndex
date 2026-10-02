@@ -5,9 +5,9 @@
 --
 --   save_locations — one row per discovered / user-added folder or file
 --     that holds a game's save data. `source` records how it was found
---     (curated registry, heuristic scan, emulator, or a manual path) so
---     the UI can explain each entry and auto-detected rows can be
---     refreshed without touching the user's own additions.
+--     (curated registry, heuristic scan, emulator, PCGamingWiki lookup,
+--     or a manual path) so the UI can explain each entry and auto-detected
+--     rows can be refreshed without touching the user's own additions.
 --
 --   save_backups — one row per snapshot taken of a game's locations.
 --     The actual files live on disk under the configured backup folder

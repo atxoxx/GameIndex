@@ -56,6 +56,8 @@ function sourceVariant(source: string): "info" | "success" | "accent" | "default
       return "accent";
     case "steam":
       return "info";
+    case "pcgamingwiki":
+      return "info";
     case "emulator":
       return "success";
     case "manual":
@@ -209,7 +211,10 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
     setBusy("detect");
     try {
       const before = locations?.length ?? 0;
-      const list = await invoke<SaveLocation[]>("saves_detect_locations", { gameId });
+      const list = await invoke<SaveLocation[]>("saves_detect_locations", {
+        gameId,
+        includePcgw: true,
+      });
       setLocations(list);
       const added = Math.max(0, list.length - before);
       showToast(t("saves.toast.scanGame", { count: added }), added > 0 ? "success" : "info");

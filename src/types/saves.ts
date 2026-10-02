@@ -10,6 +10,7 @@ export type SaveLocationSource =
   | "heuristic"
   | "steam"
   | "emulator"
+  | "pcgamingwiki"
   | "manual";
 
 /** One folder or file that holds a game's save data. */
@@ -58,6 +59,8 @@ export interface SavesSettings {
   backupDir: string;
   autoBackupOnExit: boolean;
   includeEmulatorSaves: boolean;
+  /** Consult PCGamingWiki for save paths local detection missed. */
+  includePcgw: boolean;
   /** Keep at most this many snapshots per game (0 = unlimited). */
   retention: number;
   restoreSafetySnapshot: boolean;
@@ -139,6 +142,7 @@ export const SAVE_SOURCE_LABEL_KEY: Record<string, string> = {
   heuristic: "saves.source.heuristic",
   steam: "saves.source.steam",
   emulator: "saves.source.emulator",
+  pcgamingwiki: "saves.source.pcgamingwiki",
   manual: "saves.source.manual",
 };
 
