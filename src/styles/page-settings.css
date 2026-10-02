@@ -5,7 +5,7 @@
  * language) with a brand gradient top edge, a header row, a search box with
  * keyboard shortcut and a command-palette results dropdown, and grouped nav
  * rows (one per tab route). The content column renders the active tab beside
- * it with a jump bar ("On this page") listing that tab's sections.
+ * it.
  * ========================================================================== */
 
 .settings-shell {
@@ -940,76 +940,6 @@
  * instead of two (margin + gap) stacked on top of each other. */
 .settings-content .settings-section {
   margin-bottom: 0;
-}
-
-/* ── Jump bar ("On this page") ─────────────────────────────────────── */
-
-.settings-jumpbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-}
-
-.settings-jumpbar-label {
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.settings-jumpbar-chips {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
-}
-
-.settings-jumpbar-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  padding: 3px 12px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
-  font-family: inherit;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.settings-jumpbar-chip:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-light);
-}
-
-.settings-jumpbar-chip.active {
-  color: var(--color-text-primary);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
-}
-
-.settings-jumpbar-chip-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
-}
-
-.settings-jumpbar-chip.active .settings-jumpbar-chip-icon {
-  color: var(--color-accent);
-}
-
-.settings-jumpbar-chip-icon svg {
-  width: 12px;
-  height: 12px;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────── */

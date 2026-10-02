@@ -10,7 +10,6 @@ import { useIntegrations } from "./settings/useIntegrations";
 import { isSettingsTab, useSettingsCatalog } from "./settings/settingsCatalog";
 import { useSectionScroll } from "./settings/useSectionScroll";
 import SettingsTopNav from "./settings/SettingsTopNav";
-import SettingsJumpBar from "./settings/SettingsJumpBar";
 import GeneralTab from "./settings/GeneralTab";
 import AppearanceTab from "./settings/AppearanceTab";
 import InterfaceTab from "./settings/InterfaceTab";
@@ -32,9 +31,8 @@ import type { SettingsTab } from "./settings/types";
  * SettingsPage — the routed settings shell. Each tab lives at its own
  * URL (`/settings/general`, `/settings/appearance`, …) so tabs survive
  * refresh/back/forward and every section can be deep-linked via
- * `?section=<id>`. The sidebar lists every tab; the jump bar
- * below the header lists the sections of the active tab; search runs
- * across the whole catalog and navigates through the same URL.
+ * `?section=<id>`. The sidebar lists every tab; search runs across the
+ * whole catalog and navigates through the same URL.
  */
 export default function SettingsPage() {
   const { t } = useLanguage();
@@ -49,8 +47,8 @@ export default function SettingsPage() {
   const activeTab: SettingsTab = validTab ? tab : "general";
   const meta = catalog.meta[activeTab];
 
-  // Deep links / search / jump-bar: scroll the targeted section into
-  // view with a brief flash on whatever tab is active.
+  // Deep links / search: scroll the targeted section into view with a
+  // brief flash on whatever tab is active.
   useSectionScroll(
     catalog.tabOrder.flatMap((tabId) =>
       catalog.meta[tabId].sections.map((s) => s.id),
@@ -120,10 +118,6 @@ export default function SettingsPage() {
             </span>
           }
         />
-
-        {meta.sections.length > 1 && activeTab !== "compatibility" && activeTab !== "backup" && (
-          <SettingsJumpBar sections={meta.sections} t={t} />
-        )}
 
         {activeTab === "general" && <GeneralTab />}
         {activeTab === "appearance" && <AppearanceTab />}
