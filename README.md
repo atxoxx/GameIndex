@@ -60,7 +60,9 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | Feature | Description |
 |---------|-------------|
 | **Unified Library** | Steam, GOG Galaxy, Epic Games Store, Rockstar, Ubisoft Connect, Humble Bundle, and manual imports in one cohesive grid — with a drag-and-drop executable import wizard that groups dropped folders, picks the primary executable and links IGDB metadata. |
-| **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, HowLongToBeat stats, Crackwatch, ProtonDB, Steam community features, and live player counts — plus a built-in **Web Links** browser with address bar, zoom, pinning and a personal links manager. |
+| **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, HowLongToBeat stats, Crackwatch, ProtonDB, Steam community features, and live player counts — plus a built-in **Web Links** browser with address bar, zoom, pinning, a personal links manager and an embedded preview toolbar (back/forward, reload, home, expand, open external, dismiss cookie banners). |
+| **DLC & Add-ons** | Per-game Steam DLC/Add-ons tab with ownership progress, owned/unowned/free filters, search, cards and a detail modal — resolved from local manifests, app tickets and the store catalog, with manual ownership overrides and Steam Family Sharing attribution. |
+| **Interactive Maps** | Multi-provider map tab on game and store pages — MapGenie, GameMaps, GameMappers, Wand and Game-Maps — matched by name and rendered in an embedded interactive preview, with a manual re-lookup fallback and per-game memory of the chosen name. |
 | **Game Notes** | Per-game Markdown workspace with multiple notes, 7 templates (walkthrough, checklist, boss strategy, build & loadout, quest log, progress journal), search & tag filters, pinning, live preview (write/split), word count, copy/export, and debounced auto-save. |
 | **Game Versions** | Detects installed versions from GOG/Epic/Steam manifests or PE metadata and flags newer releases on game pages and in the download modal. |
 | **Achievements Hub** | Cross-platform achievement tracking and analytics — sync Steam, GOG, Epic, RetroAchievements, and manual lists, with gamerscore totals, rarity & unlock-activity charts, and per-game completion shelves. |
@@ -79,7 +81,7 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **Save Backups** | Per-game save-data manager — auto-detects save folders (curated registry, heuristics, Steam Cloud, PCGamingWiki, emulator saves), snapshots them as compressed `.gisave` archives on demand or automatically on game exit, and restores any snapshot with an automatic pre-restore safety copy. Configurable backup folder, retention and ignore rules, plus a per-game overview card. |
 | **Diagnostics & Crash Reports** | Detailed, dated crash reports for panics, native faults and frontend errors — machine/version context plus a breadcrumb trail, viewable, copyable, exportable and openable from Settings → Diagnostics. |
 | **Stats, Community & Friends** | Local-first social layer — friend profiles, sync, recommendations, compare, chat and leaderboards — alongside a personal **Stats** dashboard with overview, trends, achievements, a captures gallery and milestones. |
-| **Discord Rich Presence** | Playing, browsing *and* download presence — cover art, playtime, achievement progress with unlock callouts, two buttons, member-list line choice, and a live download ETA countdown. |
+| **Discord Rich Presence** | Playing, browsing *and* download presence — cover art with a game-logo badge (poster fallback), playtime, achievement progress with unlock callouts, two buttons, member-list line choice, and a live download ETA countdown. |
 | **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs) — with animated game backdrops, focus memory, and fluid rail wrapping. |
 | **Live Player Counts** | Steam player counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
 | **Command Palette** | Global `Ctrl/Cmd+K` launcher for navigation, search, and system actions — recents, calculator, cheat sheet, random-game picker, and power filters — with synthesized UI sounds and a live now-playing chip. |
@@ -380,6 +382,8 @@ This is a known false-positive pattern affecting many legitimate Tauri and Rust 
     │   ├── saves/            Per-game save detection + `.gisave` snapshot/restore engine
     │   ├── mods/             Steam Workshop & Nexus Mods detection + operations
     │   ├── plugins/          Sandboxed QuickJS plugin runtime
+    │   ├── map_sources.rs    Multi-provider game-map lookup (MapGenie, GameMaps, …)
+    │   ├── webview.rs        Embedded preview webviews + content/consent filters
     │   ├── compatibility.rs  Proton/Wine runners, prefixes, GameScope, GPU pinning
     │   ├── crashlog.rs       Crash capture + dated reports
     │   ├── db/               Per-domain SQLite pools + schema (incl. compatibility.db, saves.db)
@@ -426,6 +430,9 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Store side-by-side compare mode
 - ✅ Game version detection & newer-release badges
 - ✅ Game notes workspace — Markdown notes, templates, tags, search & export
+- ✅ Interactive multi-provider map tab (MapGenie, GameMaps, GameMappers, Wand, Game-Maps) on game & store pages
+- ✅ Steam DLC & Add-ons tab with ownership progress, manual overrides and Family Sharing detection
+- ✅ Shared embedded-preview toolbar + cookie-consent bypass for Web Links, maps and news
 - ✅ Theme creator with live preview, presets and JSON import/export
 - ✅ Release history + per-install update channels (NSIS, AppImage, `.deb`, portable), with notes grouped into collapsible commit sections
 - ✅ Crash diagnostics with dated, exportable reports (Settings → Diagnostics)

@@ -426,12 +426,15 @@
 | 🟢 Normal | 48 | Crash diagnostics & dated reports | ✅ Done |
 | 🟢 Normal | 49 | Library health & maintenance center | ✅ Done |
 | 🟢 Normal | 50 | Persisted UI view toggles | ✅ Done |
+| 🟢 Normal | 51 | Interactive multi-provider map tab (MapGenie, GameMaps, …) | ✅ Done |
+| 🟢 Normal | 52 | Steam DLC & Add-ons tab + Family Sharing detection | ✅ Done |
+| 🟢 Normal | 53 | Shared embedded-preview toolbar & cookie-consent bypass | ✅ Done |
 | ✅ Done | 26 | Linux support (Proton/Wine runners, prefixes, GameScope, GPU pinning, Wine logs) | ✅ Done (Flatpak packaging remains) |
 | ⚪ Later | 27 | Theming system v2 | ⚠️ Partial (accent family + consistency polish done; no theme editor/import-export yet) |
 | ⚪ Later | 28 | Plugin system | ✅ Done (sandboxed search/download plugins); broader hook/marketplace API future |
 | ⚪ Later | 46 | Performance profiles & user tags | ⏳ Planned |
 
-> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**, **Tray**, **Discord**, **Docs**, **Updater**, **Linux/Steam Deck compatibility**, **Store Compare**, **Game Versions**, **Interface customization**, **Save Backups**, **Library Health**, **Crash Diagnostics**) are now tracked above.
+> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**, **Tray**, **Discord**, **Docs**, **Updater**, **Linux/Steam Deck compatibility**, **Store Compare**, **Game Versions**, **Interface customization**, **Save Backups**, **Library Health**, **Crash Diagnostics**, **Interactive Maps**, **DLC & Add-ons**, **Web Previews**) are now tracked above.
 
 ### 47. Save Backups suite — ✅ Done
 - Opt-in per-game save data management (Settings → Saves master toggle gates the UI).
@@ -451,3 +454,15 @@
 
 ### 50. Persisted UI View Toggles — ✅ Done
 - `usePersistedState` (localStorage-backed, value-validated, cross-tab aware) now remembers grid/list/table/timeline, density, preview, sub-view and chart-style toggles across navigation and restarts; filters/search/sort stay ephemeral.
+
+### 51. Interactive Multi-Provider Maps — ✅ Done
+- Game- and store-page **Map** tab backed by `map_sources.rs` (MapGenie, GameMaps, GameMappers, Wand, Game-Maps), with a normalized name index cached 24 h and concurrent provider lookup (`fetch_game_maps`, `search_map_games`).
+- Embedded interactive preview through the shared native webview pipeline, a found/missing availability dot on the tab, a manual lookup search with suggestions, and per-game memory of the chosen provider/name.
+
+### 52. Steam DLC & Add-ons — ✅ Done
+- `steam/dlc.rs` + `steam/family.rs`: per-game DLC/Add-ons tab and overview card with ownership progress, owned/unowned/free filters, search, detail modal and manual ownership overrides (`steam_dlc_owned_<appid>`).
+- Ownership resolved from installed depots/manifests, app tickets, Family Sharing caches and `store_checker`; Steam Families/Family Sharing detection attributes shared titles to the owner. The tab hides when no Steam app id is available.
+
+### 53. Shared Embedded-Preview Toolbar & Cookie-Consent Bypass — ✅ Done
+- `components/webview/WebviewControls.tsx` is one browser-style toolbar (back, forward, reload, home, dismiss cookies, expand, open external) shared by the Map tab, Web Links and the news full-page preview.
+- `weblinks_consent.js` pre-seeds well-known CMP "dismissed/denied" flags (OneTrust, CookieBot, Didomi, …), then hides and dismisses leftover banners (preferring reject/strictly-necessary), and exposes `window.__gameindexDismissConsent` for the toolbar command.

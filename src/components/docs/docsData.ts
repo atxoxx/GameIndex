@@ -781,6 +781,90 @@ Automatically trigger cleanups when the game process terminates:
 
 > **Tip:** hold Ctrl and right-click several tiles to apply the same action to all of them at once.`,
       },
+      {
+        id: "game-maps",
+        categoryId: "game-details",
+        title: "Interactive Game Maps",
+        summary: "Follow community map guides from MapGenie and other providers without leaving the game page.",
+        badge: "guide",
+        icon: Compass,
+        keywords: ["maps", "mapgenie", "game maps", "interactive map", "collectibles", "walkthrough"],
+        relatedIds: ["gamedetails", "reviews-media", "web-previews"],
+        body: `Some games are much easier with a map open next to them. The **Map** tab embeds community maps for the game you are looking at.
+
+## How it works
+- GameIndex matches the game's name against several providers — **MapGenie**, **GameMaps**, **GameMappers**, **Wand** and **Game-Maps** — and shows the map once at least one of them hosts it.
+- The map renders in an embedded preview, so it is fully interactive: pan, zoom, filter markers and open locations just like in a browser.
+- A small dot on the tab turns green when a provider map was found and grey when none matched.
+
+## Finding the right map
+- If the automatic match picks the wrong title, click the heading to open the **lookup search**, type the game or franchise name and choose a suggestion.
+- Your chosen name is remembered per game, so you only correct it once.
+- Use the toolbar to reload, go back and forward, expand the preview or open the map in your browser.
+
+> **Tip:** the Map tab is a normal detail tab, so you can reorder or hide it in **Settings → Interface → Layout Studio**.
+
+## Good to know
+- Maps only appear when a community site actually hosts one for that game; a missing map means none of the providers has it.
+- The preview shares its toolbar and cookie-banner handling with Web Links, so consent walls are dismissed automatically.`,
+      },
+      {
+        id: "dlc-addons",
+        categoryId: "game-details",
+        title: "DLC & Add-ons",
+        summary: "See every expansion a Steam game offers, what you own, and what is still missing.",
+        badge: "guide",
+        icon: Puzzle,
+        keywords: ["dlc", "add-ons", "expansions", "season pass", "steam", "ownership"],
+        relatedIds: ["gamedetails", "steam", "managing"],
+        body: `The **DLC & Add-ons** tab lists every expansion Steam offers for a game and shows what you already own.
+
+## What it shows
+- A stats bar with **total available**, **in your library** and **unowned** counts, plus a collection **progress bar**.
+- One card per DLC with art, price, release date and an owned badge; click a card for the full description and a store link.
+- Filters for **all**, **owned**, **unowned** and **free**, plus a search box for large collections.
+
+## How ownership is worked out
+- GameIndex reads installed depots and manifests, app tickets, your Steam Family library and store ownership, so owned DLC is detected without opening Steam.
+- **Steam Family Sharing** is attributed too: DLC lent by a family member is flagged, and a banner names the owner.
+- If a detection is wrong, toggle a DLC's owned state manually; the override is remembered.
+
+> **Note:** this tab needs a Steam-linked game, so it is hidden for local and other-store titles.
+
+## Planning a purchase
+- Filter to **Unowned** and work through the cards to see what is left in a season pass.
+- Check the collection progress bar before a sale so you do not rebuy something you already have.
+- Free DLC still appears — claim it even if you are not ready to play.`,
+      },
+      {
+        id: "web-previews",
+        categoryId: "game-details",
+        title: "Web Previews & Cookie Banners",
+        summary: "How the embedded browser works across Web Links, maps and news, including the consent-banner bypass.",
+        badge: "proTip",
+        icon: MonitorPlay,
+        keywords: ["web links", "preview", "embedded browser", "cookies", "consent", "browser"],
+        relatedIds: ["reviews-media", "game-maps", "news"],
+        body: `Web Links, the Map tab and full news articles all open inside GameIndex through the same embedded browser, so you never lose your place in the app.
+
+## The preview toolbar
+- **Back / forward / reload / home** navigate the embedded page.
+- **Expand** grows the preview to near-full-window; press it again to return.
+- **Dismiss cookie banner** clears a consent wall that reappears.
+- **Open in browser** hands the current page to your default browser when a site blocks embedding.
+
+## Cookie-consent handling
+- The preview asks sites to treat you as having **rejected optional cookies** where it can, and hides cookie banners automatically.
+- Consent flags for common managers (OneTrust, CookieBot, Didomi and others) are pre-set so banners usually never appear.
+- If a banner does slip through, the toolbar's cookie button dismisses it on demand.
+
+> **Note:** previews are sandboxed and cannot read your files or other apps; a page that refuses to embed simply offers **Open in browser** instead.
+
+## Getting the most out of previews
+- Keep a wiki open in an expanded preview while you play, and collapse it when you need the game page back.
+- Add your own Web Links so the pages you use most are one click away.
+- If a preview looks blank, try **Reload**, then **Open in browser** — some sites block all embedding.`,
+      },
     ],
   },
 
