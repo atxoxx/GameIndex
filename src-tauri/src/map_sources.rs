@@ -1220,11 +1220,11 @@ async fn resolve_wand(
     };
 
     // A Wand game page lists its individual maps as `/maps/{game}/{map}`.
-    // When more than one exists, surface them so the UI offers a picker and
-    // opens the first map directly.
+    // Surface them so the UI offers a picker. Keep `result.url` on the game
+    // page: opening a sub-map URL directly can render blank in the embedded
+    // webview, while the game page is the known-good entry point.
     let submaps = cached_wand_submaps(client, &result.url).await;
     if submaps.len() > 1 {
-        result.url = submaps[0].url.clone();
         result.maps = submaps.as_ref().clone();
     }
 
