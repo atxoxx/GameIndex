@@ -3,16 +3,15 @@ import { createPortal } from "react-dom";
 import { ChevronDown, CloudOff, ExternalLink, History, RefreshCw } from "lucide-react";
 import { Badge } from "./Badge";
 import { Button } from "./Button";
+import { ReleaseNotesView } from "./ReleaseNotesView";
 import { Skeleton } from "./Skeleton";
 import { useLanguage } from "../../context/LanguageContext";
 import { useAppVersion } from "../../hooks/useAppVersion";
 import {
   GITHUB_RELEASES_PAGE,
+  countCommits,
   fetchGithubReleases,
-  isSafeHref,
-  parseInline,
   parseReleaseNotes,
-  type ReleaseBlock,
   type ReleaseEntry,
 } from "../../utils/releaseNotes";
 
@@ -21,65 +20,6 @@ import {
  * from the GitHub Releases API on open and renders the latest notes expanded,
  * older ones collapsed.
  */
-
-function renderInline(text: string, keyPrefix: string): ReactNode[] {
-  return parseInline(text).map((token, index) => {
-    const key = `${keyPrefix}-${index}`;
-    switch (token.type) {
-      case "link":
-        return isSafeHref(token.href) ? (
-          <a key={key} href={token.href} target="_blank" rel="noreferrer">
-            {token.label}
-          </a>
-        ) : (
-          <span key={key}>{token.label}</span>
-        );
-      case "code":
-        return <code key={key}>{token.value}</code>;
-      case "strong":
-        return <strong key={key}>{token.value}</strong>;
-      case "em":
-        return <em key={key}>{token.value}</em>;
-      default:
-        return <span key={key}>{token.value}</span>;
-    }
-  });
-}
-
-function ReleaseNotes({ blocks }: { blocks: ReleaseBlock[] }) {
-  return (
-    <div className="changelog-notes">
-      {blocks.map((block, index) => {
-        const key = `block-${index}`;
-        switch (block.type) {
-          case "heading":
-            return (
-              <div
-                key={key}
-                className={`changelog-heading changelog-heading--${block.level}`}
-              >
-                {renderInline(block.text, key)}
-              </div>
-            );
-          case "list": {
-            const items = block.items.map((item, itemIndex) => (
-              <li key={`${key}-${itemIndex}`}>
-                {renderInline(item, `${key}-${itemIndex}`)}
-              </li>
-            ));
-            return block.ordered ? <ol key={key}>{items}</ol> : <ul key={key}>{items}</ul>;
-          }
-          case "quote":
-            return <blockquote key={key}>{renderInline(block.text, key)}</blockquote>;
-          case "rule":
-            return <hr key={key} />;
-          default:
-            return <p key={key}>{renderInline(block.text, key)}</p>;
-        }
-      })}
-    </div>
-  );
-}
 
 export interface ChangelogModalProps {
   open: boolean;
@@ -136,10 +76,17 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
 
   const grouped = useMemo(
     () =>
-      releases.map((release) => ({
-        release,
-        blocks: release.body.trim() ? parseReleaseNotes(release.body) : [],
-      })),
+      releases.map((release) => {
+        const blocks = release.body.trim() ? parseReleaseNotes(release.body) : [];
+        const commitCount = blocks.reduce(
+          (total, block) =>
+            block.type === "list" && !block.ordered
+              ? total + countCommits(block.items)
+              : total,
+          0,
+        );
+        return { release, blocks, commitCount };
+      }),
     [releases],
   );
 
@@ -196,7 +143,7 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
   } else {
     body = (
       <div className="changelog-list">
-        {grouped.map(({ release, blocks }, index) => {
+        {grouped.map(({ release, blocks, commitCount }, index) => {
           const isOpen = expandedTag === release.tag;
           const isCurrent =
             normalizedVersion !== "" &&
@@ -231,6 +178,11 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
                     <Badge variant="success">{t("updater.changelogCurrent")}</Badge>
                   )}
                   {dateLabel && <span className="changelog-date">{dateLabel}</span>}
+                  {commitCount > 0 && (
+                    <span className="changelog-count">
+                      {t("updater.changelogChanges", { count: commitCount })}
+                    </span>
+                  )}
                   <ChevronDown
                     className="changelog-chevron"
                     size={16}
@@ -239,7 +191,7 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
                 </button>
                 {isOpen &&
                   (blocks.length ? (
-                    <ReleaseNotes blocks={blocks} />
+                    <ReleaseNotesView blocks={blocks} />
                   ) : (
                     <p className="changelog-no-notes">{t("updater.changelogNoNotes")}</p>
                   ))}

@@ -1,31 +1,10 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "./Button";
+import { ReleaseNotesView } from "./ReleaseNotesView";
 import { useUpdate, formatBytes, formatEta, installModeHintKey, installModeLabelKey, isPluginManaged } from "../../context/UpdateContext";
 import { useLanguage } from "../../context/LanguageContext";
-
-/**
- * Renders a GitHub-style release body as plain text with clickable commit
- * links (`[text](url)`), preserving everything else verbatim via pre-wrap.
- */
-function renderChangelog(body: string): ReactNode {
-  const linkRe = /\[([^\]]+)\]\(([^)\s]+)\)/g;
-  const parts: ReactNode[] = [];
-  let last = 0;
-  let key = 0;
-  let m: RegExpExecArray | null;
-  while ((m = linkRe.exec(body)) !== null) {
-    if (m.index > last) parts.push(body.slice(last, m.index));
-    parts.push(
-      <a key={key++} href={m[2]} target="_blank" rel="noreferrer">
-        {m[1]}
-      </a>
-    );
-    last = m.index + m[0].length;
-  }
-  if (last < body.length) parts.push(body.slice(last));
-  return parts;
-}
+import { parseReleaseNotes } from "../../utils/releaseNotes";
 
 /**
  * UpdateModal — the Software Update dialog.
@@ -59,6 +38,11 @@ export function UpdateModal() {
     snoozeUpdate,
   } = useUpdate();
   const { t } = useLanguage();
+
+  const changelogBlocks = useMemo(
+    () => (updateInfo?.body ? parseReleaseNotes(updateInfo.body) : []),
+    [updateInfo?.body],
+  );
 
   const isDownloading = status === "downloading";
   const isReady = status === "ready";
@@ -325,22 +309,9 @@ export function UpdateModal() {
             {releasedOn}
           </div>
         )}
-        {updateInfo?.body && (
-          <div
-            style={{
-              background: "var(--bg-secondary, var(--color-bg-secondary))",
-              borderRadius: "8px",
-              padding: "12px",
-              maxHeight: "180px",
-              overflowY: "auto",
-              fontSize: "13px",
-              whiteSpace: "pre-wrap",
-              color: "var(--text-muted, var(--color-text-muted))",
-              border: "1px solid var(--border-subtle, var(--color-border))",
-              lineHeight: 1.6,
-            }}
-          >
-            {updateInfo.body && renderChangelog(updateInfo.body)}
+        {changelogBlocks.length > 0 && (
+          <div className="update-changelog">
+            <ReleaseNotesView blocks={changelogBlocks} compact />
           </div>
         )}
         <p

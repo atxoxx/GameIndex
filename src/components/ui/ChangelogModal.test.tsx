@@ -62,12 +62,55 @@ describe("ChangelogModal", () => {
     expect(screen.getByText("v1.1.0")).toBeInTheDocument();
     expect(screen.getByText("updater.changelogLatest")).toBeInTheDocument();
     expect(screen.getByText("updater.changelogCurrent")).toBeInTheDocument();
+    expect(screen.getByText("updater.changelogChanges")).toBeInTheDocument();
 
+    fireEvent.click(
+      screen.getByText("updater.changelogGroup.fixes").closest("button") as HTMLButtonElement,
+    );
     const commitLink = screen.getByRole("link", { name: "b158d97" });
     expect(commitLink).toHaveAttribute(
       "href",
       "https://github.com/atxoxx/GameIndex/commit/b158d97",
     );
+  });
+
+  it("groups commits, highlights a leading info note, and collapses sections", async () => {
+    fetchMock.mockResolvedValue([
+      {
+        tag: "v1.3.0",
+        name: "v1.3.0",
+        body: [
+          "info: back up your database before updating ([aaa1111](https://github.com/atxoxx/GameIndex/commit/aaa1111))",
+          "",
+          "## What's Changed",
+          "",
+          "* feat(ui): add a shelf ([bbb2222](https://github.com/atxoxx/GameIndex/commit/bbb2222))",
+          "* fix(db): index sessions ([ccc3333](https://github.com/atxoxx/GameIndex/commit/ccc3333))",
+        ].join("\n"),
+        publishedAt: "2026-09-20T12:00:00Z",
+        url: "https://github.com/atxoxx/GameIndex/releases/tag/v1.3.0",
+        prerelease: false,
+      },
+    ] satisfies ReleaseEntry[]);
+    renderModal();
+
+    expect(await screen.findByText("updater.changelogInfo")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "aaa1111" })).toBeInTheDocument();
+    expect(screen.getByText("updater.changelogGroup.features")).toBeInTheDocument();
+    expect(screen.getByText("updater.changelogGroup.fixes")).toBeInTheDocument();
+
+    // Sections start collapsed.
+    expect(screen.queryByRole("link", { name: "bbb2222" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "ccc3333" })).not.toBeInTheDocument();
+
+    const featuresHead = screen
+      .getByText("updater.changelogGroup.features")
+      .closest("button") as HTMLButtonElement;
+    fireEvent.click(featuresHead);
+
+    expect(screen.getByRole("link", { name: "bbb2222" })).toBeInTheDocument();
+    // The fixes section stayed collapsed.
+    expect(screen.queryByRole("link", { name: "ccc3333" })).not.toBeInTheDocument();
   });
 
   it("expands collapsed releases on demand", async () => {

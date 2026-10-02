@@ -39,6 +39,177 @@ export type InlineToken =
   | { type: "strong"; value: string }
   | { type: "em"; value: string };
 
+/** Conventional-commit buckets the release history groups entries into. */
+export type CommitCategory =
+  | "feat"
+  | "fix"
+  | "perf"
+  | "refactor"
+  | "test"
+  | "build"
+  | "docs"
+  | "chore"
+  | "release"
+  | "other";
+
+export interface ParsedCommit {
+  category: CommitCategory;
+  /** Conventional-commit scope, e.g. `bigscreen` in `feat(bigscreen): ...`. */
+  scope: string | null;
+  description: string;
+  /** Short commit hash, when the note carries one. */
+  hash: string | null;
+  /** Commit URL, when the note links a hash. */
+  href: string | null;
+  /** True for `feat!:` / `BREAKING CHANGE` entries. */
+  breaking: boolean;
+}
+
+export interface CommitGroup {
+  category: CommitCategory;
+  commits: ParsedCommit[];
+}
+
+const CATEGORY_BY_TYPE: Record<string, CommitCategory> = {
+  feat: "feat",
+  feature: "feat",
+  features: "feat",
+  fix: "fix",
+  fixes: "fix",
+  bugfix: "fix",
+  perf: "perf",
+  performance: "perf",
+  refactor: "refactor",
+  refactoring: "refactor",
+  test: "test",
+  tests: "test",
+  testing: "test",
+  build: "build",
+  ci: "build",
+  deps: "build",
+  docs: "docs",
+  doc: "docs",
+  documentation: "docs",
+  chore: "chore",
+  style: "chore",
+  revert: "chore",
+  release: "release",
+  version: "release",
+};
+
+/** Display order for the grouped notes; mirrors how people scan a changelog. */
+export const COMMIT_CATEGORY_ORDER: CommitCategory[] = [
+  "feat",
+  "fix",
+  "perf",
+  "refactor",
+  "build",
+  "docs",
+  "test",
+  "chore",
+  "release",
+  "other",
+];
+
+const TRAILING_LINK_RE = /\(\[([^\]]+)\]\(([^)]+)\)\)\s*$/;
+const TRAILING_PLAIN_LINK_RE = /\[([^\]]+)\]\(([^)]+)\)\s*$/;
+const TRAILING_HASH_RE = /\(([0-9a-f]{6,40})\)\s*$/i;
+const CONVENTIONAL_RE = /^([a-zA-Z]+)(?:\(([^)]*)\))?(!)?\s*:\s*(.+)$/;
+
+/** Peel the trailing `([hash](url))` (or plain `(hash)`) off a note line. */
+function extractTrailingCommit(raw: string): {
+  text: string;
+  hash: string | null;
+  href: string | null;
+} {
+  const text = raw.trim();
+  const linked = TRAILING_LINK_RE.exec(text) ?? TRAILING_PLAIN_LINK_RE.exec(text);
+  if (linked) {
+    return { text: text.slice(0, linked.index).trim(), hash: linked[1].trim(), href: linked[2].trim() };
+  }
+  const plain = TRAILING_HASH_RE.exec(text);
+  if (plain) {
+    return { text: text.slice(0, plain.index).trim(), hash: plain[1].trim(), href: null };
+  }
+  return { text, hash: null, href: null };
+}
+
+/** Unwrap a whole-line `**bold**` / `__bold__` subject. */
+function stripEmphasis(text: string): string {
+  return text.replace(/^\s*(?:\*\*|__)([\s\S]*?)(?:\*\*|__)\s*$/, "$1").trim();
+}
+
+/**
+ * Parse one release-note bullet into a typed commit. Non-conventional lines
+ * (plain prose bullets) fall back to `other` with the raw text as description.
+ */
+export function parseCommit(item: string): ParsedCommit {
+  const { text, hash, href } = extractTrailingCommit(item);
+  const subject = stripEmphasis(text);
+  const match = CONVENTIONAL_RE.exec(subject);
+  if (!match) {
+    return { category: "other", scope: null, description: subject, hash, href, breaking: false };
+  }
+  const category = CATEGORY_BY_TYPE[match[1].toLowerCase()] ?? "other";
+  return {
+    category,
+    scope: match[2]?.trim() || null,
+    description: match[4].trim(),
+    hash,
+    href,
+    breaking: match[3] === "!" || /^breaking change\b/i.test(match[4]),
+  };
+}
+
+export interface InfoNote {
+  text: string;
+  hash: string | null;
+  href: string | null;
+}
+
+const INFO_NOTE_RE = /^\s*(?:\*\*|__)?\s*info\s*(?:\*\*|__)?\s*:\s*(.+)$/i;
+
+/**
+ * Extract a leading `info:` note from a raw line. Returns null when the line
+ * doesn't start with the `info:` prefix.
+ */
+export function parseInfoNote(item: string): InfoNote | null {
+  const { text, hash, href } = extractTrailingCommit(item);
+  const match = INFO_NOTE_RE.exec(stripEmphasis(text));
+  if (!match) return null;
+  const value = match[1]
+    .replace(/^(?:\*\*|__)\s*/, "")
+    .replace(/\s*(?:\*\*|__)$/, "")
+    .trim();
+  return { text: value, hash, href };
+}
+
+/** Bucket note lines by category, preserving within-category order. */
+export function groupCommits(items: string[]): CommitGroup[] {
+  const buckets = new Map<CommitCategory, ParsedCommit[]>();
+  for (const item of items) {
+    const commit = parseCommit(item);
+    const bucket = buckets.get(commit.category);
+    if (bucket) bucket.push(commit);
+    else buckets.set(commit.category, [commit]);
+  }
+  return COMMIT_CATEGORY_ORDER.filter((category) => buckets.has(category)).map(
+    (category) => ({ category, commits: buckets.get(category) as ParsedCommit[] }),
+  );
+}
+
+/**
+ * How many of these note lines are real, user-facing changes. Version-bump
+ * (`release:`) entries and free-form prose are excluded so the count matches
+ * the number of commits actually shown in the grouped sections.
+ */
+export function countCommits(items: string[]): number {
+  return items.reduce((total, item) => {
+    const category = parseCommit(item).category;
+    return category !== "other" && category !== "release" ? total + 1 : total;
+  }, 0);
+}
+
 /** Normalize a raw GitHub `/releases` payload into sorted, draft-free entries. */
 export function parseReleaseList(payload: unknown): ReleaseEntry[] {
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {

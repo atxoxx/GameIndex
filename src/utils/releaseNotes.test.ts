@@ -6,6 +6,10 @@ import {
   parseInline,
   parseReleaseList,
   parseReleaseNotes,
+  parseCommit,
+  groupCommits,
+  countCommits,
+  parseInfoNote,
   GITHUB_RELEASES_API,
 } from "./releaseNotes";
 
@@ -156,6 +160,97 @@ describe("isSafeHref", () => {
     expect(isSafeHref("http://example.com")).toBe(true);
     expect(isSafeHref("javascript:alert(1)")).toBe(false);
     expect(isSafeHref("file:///etc/passwd")).toBe(false);
+  });
+});
+
+describe("parseCommit", () => {
+  it("splits a conventional commit with scope and linked hash", () => {
+    expect(
+      parseCommit(
+        "feat(bigscreen): make the game detail tabs controller-reachable ([c8ed13d](https://github.com/x/y/commit/c8ed13d))",
+      ),
+    ).toEqual({
+      category: "feat",
+      scope: "bigscreen",
+      description: "make the game detail tabs controller-reachable",
+      hash: "c8ed13d",
+      href: "https://github.com/x/y/commit/c8ed13d",
+      breaking: false,
+    });
+  });
+
+  it("maps aliases (perf, build, chore) and unwraps bold subjects", () => {
+    expect(parseCommit("perf(rust): narrow lock scope ([f10ef24](https://x/commit/f10ef24))").category).toBe("perf");
+    expect(parseCommit("build(ts): enable incremental typechecking ([4af65f0](https://x/commit/4af65f0))").category).toBe("build");
+    expect(parseCommit("chore: tidy things").category).toBe("chore");
+    expect(parseCommit("**release: v1.4.0** (2691ad2)")).toMatchObject({
+      category: "release",
+      description: "v1.4.0",
+      hash: "2691ad2",
+      href: null,
+    });
+  });
+
+  it("marks breaking changes and falls back to `other` for prose", () => {
+    expect(parseCommit("feat(api)!: drop legacy endpoint").breaking).toBe(true);
+    expect(parseCommit("Just a note about the release")).toMatchObject({
+      category: "other",
+      scope: null,
+      description: "Just a note about the release",
+    });
+  });
+});
+
+describe("groupCommits", () => {
+  it("orders categories and keeps commits together", () => {
+    const groups = groupCommits([
+      "fix(db): index sessions ([a1](https://x/commit/a1))",
+      "feat(ui): add shelf ([b2](https://x/commit/b2))",
+      "feat(core): speed up scan ([c3](https://x/commit/c3))",
+      "release: v1.0.0 ([d4](https://x/commit/d4))",
+    ]);
+
+    expect(groups.map((g) => g.category)).toEqual(["feat", "fix", "release"]);
+    expect(groups[0].commits.map((c) => c.description)).toEqual(["add shelf", "speed up scan"]);
+    expect(groups[1].commits).toHaveLength(1);
+  });
+
+  it("counts only user-facing commits, ignoring prose and version bumps", () => {
+    expect(
+      countCommits([
+        "feat: one",
+        "docs: two",
+        "some free-form note",
+        "release: v1.0.0 ([d4](https://x/commit/d4))",
+      ]),
+    ).toBe(2);
+  });
+});
+
+describe("parseInfoNote", () => {
+  it("extracts a leading info note and its commit link", () => {
+    expect(
+      parseInfoNote("info: this release migrates the database ([abc1234](https://x/commit/abc1234))"),
+    ).toEqual({
+      text: "this release migrates the database",
+      hash: "abc1234",
+      href: "https://x/commit/abc1234",
+    });
+    expect(parseInfoNote("**info:** heads up, back up first")).toEqual({
+      text: "heads up, back up first",
+      hash: null,
+      href: null,
+    });
+    expect(parseInfoNote("**info: memory usage is lower**")).toEqual({
+      text: "memory usage is lower",
+      hash: null,
+      href: null,
+    });
+  });
+
+  it("returns null when the line is not an info note", () => {
+    expect(parseInfoNote("feat: add a thing")).toBeNull();
+    expect(parseInfoNote("informational text without a prefix")).toBeNull();
   });
 });
 
