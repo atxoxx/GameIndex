@@ -33,6 +33,7 @@ export default function WebLinksTab({
       onGoForward={browser.goForward}
       onReload={browser.reload}
       onHome={browser.home}
+      onDismissCookies={browser.dismissCookies}
       onNavigate={browser.navigate}
       onOpenExternal={browser.openExternal}
       onPinCustomLink={browser.editable ? browser.pinCustomLink : undefined}

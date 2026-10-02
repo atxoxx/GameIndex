@@ -173,6 +173,29 @@
     return String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
   }
 
+  // Whole-word matching: a bare "ok" must not match "Facebook".
+  function matchesPhrase(label, phrase) {
+    if (label === phrase) return true;
+    var idx = 0;
+    while ((idx = label.indexOf(phrase, idx)) !== -1) {
+      var before = idx === 0 ? "" : label.charAt(idx - 1);
+      var after = label.charAt(idx + phrase.length);
+      if (!/[a-z0-9]/.test(before) && !/[a-z0-9]/.test(after)) {
+        return true;
+      }
+      idx += phrase.length;
+    }
+    return false;
+  }
+
+  function isShareOrTrackerLink(el) {
+    var href = el.getAttribute && (el.getAttribute("href") || "");
+    if (!href) return false;
+    return /sharer\.php|share\.php|facebook\.com|twitter\.com|x\.com|reddit\.com|whatsapp\.com|vk\.com|pinterest\.|linkedin\.com/i.test(
+      href
+    );
+  }
+
   function collectConsentContainers() {
     var found = [];
     for (var s = 0; s < CONSENT_SELECTORS.length; s++) {
@@ -198,12 +221,13 @@
     for (var i = 0; i < candidates.length; i++) {
       var el = candidates[i];
       if (el.__gameindexClicked) continue;
+      if (isShareOrTrackerLink(el)) continue;
       var label = normalise(
         el.innerText || el.value || el.getAttribute("aria-label") || el.textContent
       );
       if (!label || label.length > 70) continue;
       for (var p = 0; p < phrases.length; p++) {
-        if (label === phrases[p] || label.indexOf(phrases[p]) !== -1) {
+        if (matchesPhrase(label, phrases[p])) {
           try {
             el.__gameindexClicked = true;
             el.click();

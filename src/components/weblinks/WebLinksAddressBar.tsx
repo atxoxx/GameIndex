@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Cookie } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   BackIcon,
@@ -25,6 +26,7 @@ interface WebLinksAddressBarProps {
   onGoForward: () => void;
   onReload: () => void;
   onHome: () => void;
+  onDismissCookies?: () => void;
   onNavigate: (url: string) => void;
   onOpenExternal: (url?: string) => void;
   onPinCustomLink?: (url: string) => void;
@@ -45,6 +47,7 @@ export default function WebLinksAddressBar({
   onGoForward,
   onReload,
   onHome,
+  onDismissCookies,
   onNavigate,
   onOpenExternal,
   onPinCustomLink,
@@ -162,6 +165,17 @@ export default function WebLinksAddressBar({
         >
           <HomeIcon />
         </button>
+        {onDismissCookies && (
+          <button
+            className="wl-urlbar-btn"
+            onClick={onDismissCookies}
+            type="button"
+            title={t("weblinks.dismissCookies")}
+            aria-label={t("weblinks.dismissCookies")}
+          >
+            <Cookie size={15} />
+          </button>
+        )}
       </div>
 
       {/* Interactive Address Bar / Search Input */}

@@ -1,0 +1,52 @@
+/* ==========================================================================
+   Embedded WebView — shared navigation controls
+   ========================================================================== */
+
+.wv-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.wv-controls__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.wv-controls__btn:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.wv-controls__btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.wv-controls__btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.wv-controls__divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: var(--color-border);
+}

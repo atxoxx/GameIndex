@@ -5305,6 +5305,7 @@ export const es: TranslationDict = {
   "weblinks.copy": "Copiar",
   "weblinks.copied": "¡Copiado!",
   "weblinks.copyLink": "Copiar enlace",
+  "weblinks.dismissCookies": "Cerrar el aviso de cookies",
   "weblinks.editLink": "Editar enlace",
   "weblinks.filterByCategory": "Filtrar por categoría",
   "weblinks.footnote": "Las vistas previas se cargan en un Webview nativo. Las páginas son totalmente interactivas y evitan las restricciones de incrustación de iframes.",

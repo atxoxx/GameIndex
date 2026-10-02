@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
+import { dismissWebviewConsent } from "../../hooks/useEmbeddedWebviewNav";
 import {
   FIXED_SOURCES,
   MY_LINKS_KEY,
@@ -254,6 +255,10 @@ export function useWebLinksBrowser({
 
   const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
 
+  const dismissCookies = useCallback(() => {
+    dismissWebviewConsent(activeWebviewLabel);
+  }, [activeWebviewLabel]);
+
   const home = useCallback(() => {
     setCommandedUrl(null);
     setCurrentNavUrl(computedInitialUrl);
@@ -323,6 +328,7 @@ export function useWebLinksBrowser({
     goBack,
     goForward,
     reload,
+    dismissCookies,
     home,
     navigate,
     zoomIn,

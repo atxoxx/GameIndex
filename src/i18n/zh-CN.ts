@@ -5305,6 +5305,7 @@ export const zhCN: TranslationDict = {
   "weblinks.copy": "复制",
   "weblinks.copied": "已复制！",
   "weblinks.copyLink": "复制链接",
+  "weblinks.dismissCookies": "关闭 Cookie 横幅",
   "weblinks.editLink": "编辑链接",
   "weblinks.filterByCategory": "按类别筛选",
   "weblinks.footnote": "预览在原生 Webview 中加载。页面完全可交互，并绕过 iframe 嵌入限制。",

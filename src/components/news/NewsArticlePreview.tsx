@@ -9,6 +9,8 @@ import { formatArticleDate, estimateReadingTime } from "../../hooks/useNewsFeeds
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
+import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
+import WebviewControls from "../webview/WebviewControls";
 
 interface NewsArticlePreviewProps {
   article: NewsArticle | null;
@@ -51,6 +53,18 @@ export default function NewsArticlePreview({
   const [readerTheme, setReaderTheme] = usePersistedState<ReaderTheme>("gamelib.news.reader_theme_v1", "dark", ["dark", "oled", "sepia", "slate"]);
   const [fontFamily, setFontFamily] = usePersistedState<FontFamily>("gamelib.news.reader_font_family_v1", "sans", ["sans", "serif", "mono"]);
   const [readProgress, setReadProgress] = useState(0);
+  const [webviewLabel, setWebviewLabel] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  const { navState, goBack, goForward } = useEmbeddedWebviewNav(
+    webviewLabel,
+    article?.link ?? "",
+    previewMode === "full"
+  );
+  const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
+  const dismissCookies = useCallback(() => {
+    dismissWebviewConsent(webviewLabel);
+  }, [webviewLabel]);
 
   // Text-To-Speech (TTS) states
   const [ttsState, setTtsState] = useState<"idle" | "playing" | "paused">("idle");
@@ -245,6 +259,7 @@ export default function NewsArticlePreview({
           }
 
           webviewInstRef.current = webview;
+          setWebviewLabel(uniqueLabel);
           setWebviewReady(true);
 
           webview.once("tauri://error", (e) => {
@@ -269,6 +284,7 @@ export default function NewsArticlePreview({
 
       const wv = webviewInstRef.current;
       webviewInstRef.current = null;
+      setWebviewLabel(null);
       if (wv) {
         invoke("close_preview_webview", { label: wv.label }).catch(() => {});
         wv.close().catch(() => {});
@@ -283,7 +299,7 @@ export default function NewsArticlePreview({
         }).catch(() => {});
       }
     };
-  }, [article, handleKeyDown, previewMode, contentFilterEnabled]);
+  }, [article, handleKeyDown, previewMode, contentFilterEnabled, reloadNonce]);
 
   // Geometry sync
   useEffect(() => {
@@ -638,6 +654,15 @@ export default function NewsArticlePreview({
         ) : (
           <div className="news-preview-webview">
             <div className="news-preview-webview-bar">
+              <WebviewControls
+                canGoBack={navState.back}
+                canGoForward={navState.forward}
+                onBack={goBack}
+                onForward={goForward}
+                onReload={reload}
+                onHome={reload}
+                onDismissCookies={dismissCookies}
+              />
               <span className="news-preview-webview-url" title={article.link}>
                 {article.link}
               </span>

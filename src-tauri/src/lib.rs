@@ -235,6 +235,7 @@ pub fn run() {
             set_preview_webview_visible,
             close_preview_webview,
             webview_eval,
+            webview_dismiss_consent,
             rebuild_watcher_index,
             game_versions::get_exe_file_version,
             game_versions::detect_game_version,

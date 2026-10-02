@@ -84,6 +84,13 @@ const WEBLINKS_PREVIEW_INIT_SCRIPT: &str = r#"(function () {
 /// time, so toggling the setting takes effect on the next preview.
 const WEBVIEW_CONTENT_FILTER_SCRIPT: &str = include_str!("weblinks_content_filter.js");
 
+/// Cookie-consent bypass injected alongside the content filter. It pre-seeds
+/// the "banner dismissed" flags known consent managers check, then hides and
+/// clicks any banner that still appears. It also defines
+/// `window.__gameindexDismissConsent`, which `webview_dismiss_consent`
+/// re-evaluates on demand for the toolbar command.
+const WEBVIEW_CONSENT_SCRIPT: &str = include_str!("weblinks_consent.js");
+
 // Create the WebLinks preview child webview from Rust so we can attach an
 // initialization script (popup handling) and a new-window handler —
 // neither exists on the JS `new Webview()` API. The frontend then grabs a
@@ -130,7 +137,9 @@ pub async fn create_preview_webview(
 
     // Absent flag (older frontend) keeps the filter on.
     let builder = if content_filter.unwrap_or(true) {
-        builder.initialization_script(WEBVIEW_CONTENT_FILTER_SCRIPT)
+        builder
+            .initialization_script(WEBVIEW_CONSENT_SCRIPT)
+            .initialization_script(WEBVIEW_CONTENT_FILTER_SCRIPT)
     } else {
         builder
     };
@@ -333,6 +342,19 @@ pub fn webview_eval(app: tauri::AppHandle, label: String, js: String) -> Result<
     webview.eval(&js).map_err(|e| e.to_string())
 }
 
+/// Re-run the cookie-consent bypass inside a child webview on demand. Evaling
+/// the whole script (rather than only the exposed helper) means the toolbar
+/// command also works when the automatic content filter is disabled.
+#[tauri::command]
+pub fn webview_dismiss_consent(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    let webview = app
+        .get_webview(&label)
+        .ok_or_else(|| format!("webview not found: {label}"))?;
+    webview
+        .eval(WEBVIEW_CONSENT_SCRIPT)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -350,6 +372,57 @@ mod tests {
         assert!(WEBVIEW_CONTENT_FILTER_SCRIPT.contains("createElement(\"style\")"));
         assert!(WEBVIEW_CONTENT_FILTER_SCRIPT.contains("MutationObserver"));
         assert!(!WEBVIEW_CONTENT_FILTER_SCRIPT.trim().is_empty());
+    }
+
+    #[test]
+    fn consent_script_presets_flags_and_exposes_dismiss() {
+        assert!(WEBVIEW_CONSENT_SCRIPT.contains("OptanonAlertBoxClosed"));
+        assert!(WEBVIEW_CONSENT_SCRIPT.contains("CookieConsent"));
+        assert!(WEBVIEW_CONSENT_SCRIPT.contains("__gameindexDismissConsent"));
+        assert!(WEBVIEW_CONSENT_SCRIPT.contains("didomi_token"));
+    }
+
+    #[test]
+    fn consent_script_rejects_before_accepting() {
+        let reject = WEBVIEW_CONSENT_SCRIPT
+            .find("REJECT_CONTROLS")
+            .expect("reject controls present");
+        let accept = WEBVIEW_CONSENT_SCRIPT
+            .find("ACCEPT_CONTROLS")
+            .expect("accept controls present");
+        assert!(reject < accept, "reject controls are declared before accept");
+        // The dismissal order must try rejection first.
+        let dismiss = WEBVIEW_CONSENT_SCRIPT
+            .find("function dismissConsent()")
+            .expect("dismissConsent present");
+        let reject_use = WEBVIEW_CONSENT_SCRIPT[dismiss..]
+            .find("REJECT_CONTROLS")
+            .expect("uses reject controls");
+        let accept_use = WEBVIEW_CONSENT_SCRIPT[dismiss..]
+            .find("ACCEPT_CONTROLS")
+            .expect("uses accept controls");
+        assert!(reject_use < accept_use, "rejection is attempted first");
+    }
+
+    #[test]
+    fn consent_scripts_use_whole_word_matching_and_skip_share_links() {
+        // "ok" must not match "Facebook": both scripts use a boundary-aware
+        // matcher and ignore social share/tracker anchors.
+        for script in [WEBVIEW_CONSENT_SCRIPT, WEBVIEW_CONTENT_FILTER_SCRIPT] {
+            assert!(script.contains("function matchesPhrase"));
+            assert!(script.contains("isShareOrTrackerLink"));
+            assert!(
+                !script.contains("label.indexOf(phrases[p]) !== -1"),
+                "substring phrase matching should be gone"
+            );
+        }
+    }
+
+    #[test]
+    fn consent_script_denies_one_trust_groups() {
+        // Dismissing without granting: C0001 necessary only, targeting off.
+        assert!(WEBVIEW_CONSENT_SCRIPT.contains("OptanonConsent"));
+        assert!(WEBVIEW_CONSENT_SCRIPT.contains("groups=C0001:1,C0002:0,C0003:0,C0004:0,C0005:0"));
     }
 }
 

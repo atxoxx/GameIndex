@@ -5305,6 +5305,7 @@ export const ru: TranslationDict = {
   "weblinks.copy": "Копировать",
   "weblinks.copied": "Скопировано!",
   "weblinks.copyLink": "Скопировать ссылку",
+  "weblinks.dismissCookies": "Закрыть баннер cookies",
   "weblinks.editLink": "Редактировать ссылку",
   "weblinks.filterByCategory": "Фильтр по категории",
   "weblinks.footnote": "Предпросмотр загружается в нативном Webview. Страницы полностью интерактивны и обходят ограничения встраивания iframe.",

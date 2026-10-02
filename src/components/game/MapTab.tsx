@@ -5,6 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
+import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
+import WebviewControls from "../webview/WebviewControls";
 import { IconExternalLink } from "./icons";
 import type { MapSourceResult } from "../../types/game";
 
@@ -49,6 +51,7 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
   const [activeMapUrl, setActiveMapUrl] = useState<string | null>(null);
   const [webviewInst, setWebviewInst] = useState<Webview | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   const activeSource =
     sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? null;
@@ -59,6 +62,23 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
     activeMapUrl && activeSource?.maps.some((m) => m.url === activeMapUrl)
       ? activeMapUrl
       : activeSource?.url ?? "";
+
+  const { navState, goBack, goForward } = useEmbeddedWebviewNav(
+    webviewInst?.label ?? null,
+    activeUrl,
+    visible && status === "ready"
+  );
+
+  const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
+
+  const goHome = useCallback(() => {
+    setActiveMapUrl(null);
+    setReloadNonce((n) => n + 1);
+  }, []);
+
+  const dismissCookies = useCallback(() => {
+    dismissWebviewConsent(webviewInst?.label ?? null);
+  }, [webviewInst]);
 
   const sourceSignature = sources.map((s) => s.id).join("|");
   useEffect(() => {
@@ -177,7 +197,7 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
         closeMapWebviews();
       }
     };
-  }, [activeUrl, contentFilterEnabled]);
+  }, [activeUrl, contentFilterEnabled, reloadNonce]);
 
   if (!activeSource) return null;
 
@@ -190,6 +210,16 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
         </div>
 
         <div className="map-tab__controls">
+          <WebviewControls
+            canGoBack={navState.back}
+            canGoForward={navState.forward}
+            onBack={goBack}
+            onForward={goForward}
+            onReload={reload}
+            onHome={goHome}
+            onDismissCookies={dismissCookies}
+          />
+
           {sources.length > 1 && (
             <label className="map-tab__field">
               <span className="map-tab__field-label">{t("map.sourceLabel")}</span>

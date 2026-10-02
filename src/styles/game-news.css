@@ -1666,6 +1666,7 @@
 .news-preview-webview-bar {
   display: flex;
   align-items: center;
+  gap: var(--space-sm);
   padding: var(--space-xs) var(--space-xl);
   background: var(--color-bg-tertiary);
   border-bottom: 1px solid var(--color-border);
@@ -1673,6 +1674,8 @@
 }
 
 .news-preview-webview-url {
+  flex: 1;
+  min-width: 0;
   font-size: 11px;
   color: var(--color-text-muted);
   white-space: nowrap;
