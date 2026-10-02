@@ -754,6 +754,7 @@ function GameDetail({ game }: { game: Game }) {
       {effectiveTab === "map" && mapLookup.sources.length > 0 && (
         <MapTab
           sources={mapLookup.sources}
+          gameName={game.name}
           visible={!editing && !lightboxOpen && !showRemoveConfirm}
         />
       )}

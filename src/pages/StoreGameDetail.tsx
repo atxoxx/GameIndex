@@ -750,7 +750,7 @@ export default function StoreGameDetail() {
       )}
 
       {effectiveTab === "map" && mapLookup.sources.length > 0 && (
-        <MapTab sources={mapLookup.sources} visible={!lightboxOpen} />
+        <MapTab sources={mapLookup.sources} gameName={data?.title} visible={!lightboxOpen} />
       )}
 
       {/* Unified Image Lightbox */}

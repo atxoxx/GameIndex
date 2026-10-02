@@ -3,11 +3,12 @@ import { Webview } from "@tauri-apps/api/webview";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { Search, X } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
 import WebviewControls from "../webview/WebviewControls";
-import { IconExternalLink } from "./icons";
+import { IconExternalLink, IconMap } from "./icons";
 import type { MapSourceResult } from "../../types/game";
 
 const MAP_WEBVIEW_PREFIX = "mapgenie-preview-";
@@ -29,6 +30,8 @@ async function closeMapWebviews() {
 
 interface MapTabProps {
   sources: MapSourceResult[];
+  /** Name used for the automatic lookup; the search field starts here. */
+  gameName?: string;
   /** Hide the native webview while a DOM modal sits above it. */
   visible?: boolean;
 }
@@ -41,8 +44,12 @@ interface MapTabProps {
  * WebLinks preview uses (`create_preview_webview`), so they are fully
  * interactive and sidestep iframe/framing restrictions. The DOM only
  * owns the toolbars and the frame placeholder the native view tracks.
+ *
+ * The heading doubles as a lookup search: the provider matcher is
+ * deliberately conservative, so a wrong or missing auto-match can be
+ * corrected by typing another name and re-running the providers.
  */
-export default function MapTab({ sources, visible = true }: MapTabProps) {
+export default function MapTab({ sources, gameName = "", visible = true }: MapTabProps) {
   const { t } = useLanguage();
   const contentFilterEnabled = useWebviewContentFilterEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,8 +60,24 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [reloadNonce, setReloadNonce] = useState(0);
 
+  // A manual search overrides the automatic lookup until the game changes.
+  const [manualResults, setManualResults] = useState<MapSourceResult[] | null>(null);
+  const [draft, setDraft] = useState(gameName);
+  const [query, setQuery] = useState(gameName);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+
+  const results = manualResults ?? sources;
+
+  useEffect(() => {
+    setManualResults(null);
+    setDraft(gameName);
+    setQuery(gameName);
+    setSearchError(false);
+  }, [gameName]);
+
   const activeSource =
-    sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? null;
+    results.find((s) => s.id === activeSourceId) ?? results[0] ?? null;
 
   // Prefer an explicitly chosen map, but fall back to the provider's
   // preferred URL when the source (and therefore map list) changes.
@@ -80,11 +103,11 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
     dismissWebviewConsent(webviewInst?.label ?? null);
   }, [webviewInst]);
 
-  const sourceSignature = sources.map((s) => s.id).join("|");
+  const resultSignature = results.map((s) => s.id).join("|");
   useEffect(() => {
     setActiveSourceId(null);
     setActiveMapUrl(null);
-  }, [sourceSignature]);
+  }, [resultSignature]);
 
   const openExternal = useCallback(() => {
     if (!activeUrl) return;
@@ -92,6 +115,32 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
       window.open(activeUrl, "_blank", "noopener,noreferrer");
     });
   }, [activeUrl]);
+
+  const runSearch = useCallback(async (raw: string) => {
+    const name = raw.trim();
+    if (!name) return;
+    setSearching(true);
+    setSearchError(false);
+    try {
+      const found = await invoke<MapSourceResult[]>("fetch_game_maps", { gameName: name });
+      setManualResults(found ?? []);
+    } catch {
+      setSearchError(true);
+      setManualResults([]);
+    } finally {
+      setQuery(name);
+      setSearching(false);
+    }
+  }, []);
+
+  const resetSearch = useCallback(() => {
+    setManualResults(null);
+    setDraft(gameName);
+    setQuery(gameName);
+    setSearchError(false);
+  }, [gameName]);
+
+  const isSearchDirty = manualResults !== null || draft.trim() !== gameName.trim();
 
   // Keep the native view glued to the DOM frame as the page scrolls/resizes.
   useEffect(() => {
@@ -199,15 +248,69 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
     };
   }, [activeUrl, contentFilterEnabled, reloadNonce]);
 
-  if (!activeSource) return null;
+  const displayTitle = activeSource
+    ? activeSource.title
+    : searching
+      ? t("map.searching", { name: query })
+      : searchError
+        ? t("map.searchError")
+        : t("map.noResults", { name: query });
 
   return (
     <div className="map-tab">
       <div className="map-tab__toolbar">
         <div className="map-tab__heading">
-          <span className="map-tab__eyebrow">{t("map.source")}</span>
-          <span className="map-tab__game">{activeSource.title}</span>
+          <span className="map-tab__icon" aria-hidden="true">
+            <IconMap size={18} />
+          </span>
+          <div className="map-tab__heading-text">
+            <span className="map-tab__eyebrow">{t("map.source")}</span>
+            <span className="map-tab__game" title={displayTitle}>
+              {displayTitle}
+            </span>
+          </div>
+          {activeSource && (
+            <span className="map-tab__provider-chip">{activeSource.label}</span>
+          )}
         </div>
+
+        <form
+          className="map-tab__search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            runSearch(draft);
+          }}
+        >
+          <span className="map-tab__search-icon" aria-hidden="true">
+            <Search size={14} />
+          </span>
+          <input
+            type="text"
+            className="map-tab__search-input"
+            value={draft}
+            placeholder={t("map.searchPlaceholder")}
+            aria-label={t("map.searchPlaceholder")}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          {isSearchDirty && (
+            <button
+              type="button"
+              className="map-tab__search-reset"
+              onClick={resetSearch}
+              title={t("map.searchReset")}
+              aria-label={t("map.searchReset")}
+            >
+              <X size={13} />
+            </button>
+          )}
+          <button
+            type="submit"
+            className="map-tab__search-go"
+            disabled={searching || !draft.trim()}
+          >
+            {searching ? <span className="map-tab__search-spinner" /> : t("map.searchAction")}
+          </button>
+        </form>
 
         <div className="map-tab__controls">
           <WebviewControls
@@ -220,7 +323,7 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
             onDismissCookies={dismissCookies}
           />
 
-          {sources.length > 1 && (
+          {activeSource && results.length > 1 && (
             <label className="map-tab__field">
               <span className="map-tab__field-label">{t("map.sourceLabel")}</span>
               <select
@@ -232,7 +335,7 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
                   setActiveMapUrl(null);
                 }}
               >
-                {sources.map((source) => (
+                {results.map((source) => (
                   <option key={source.id} value={source.id}>
                     {source.label}
                   </option>
@@ -241,7 +344,7 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
             </label>
           )}
 
-          {activeSource.maps.length > 1 && (
+          {activeSource && activeSource.maps.length > 1 && (
             <label className="map-tab__field">
               <span className="map-tab__field-label">{t("map.mapLabel")}</span>
               <select
@@ -259,20 +362,43 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
             </label>
           )}
 
-          <button
-            type="button"
-            className="map-tab__external"
-            onClick={openExternal}
-            title={t("map.openOnProvider", { provider: activeSource.label })}
-          >
-            <IconExternalLink size={15} />
-            <span>{t("map.openOnProvider", { provider: activeSource.label })}</span>
-          </button>
+          {activeSource && (
+            <button
+              type="button"
+              className="map-tab__external"
+              onClick={openExternal}
+              title={t("map.openOnProvider", { provider: activeSource.label })}
+            >
+              <IconExternalLink size={15} />
+              <span>{t("map.openOnProvider", { provider: activeSource.label })}</span>
+            </button>
+          )}
         </div>
       </div>
 
       <div className="map-tab__frame" ref={containerRef}>
-        {status !== "ready" && (
+        {!activeSource ? (
+          <div className="map-tab__placeholder">
+            {searching ? (
+              <>
+                <div className="map-tab__spinner" />
+                <span>{t("map.searching", { name: query })}</span>
+              </>
+            ) : (
+              <>
+                <span className="map-tab__placeholder-icon">
+                  <IconMap size={22} />
+                </span>
+                <span>{searchError ? t("map.searchError") : t("map.noResults", { name: query })}</span>
+                {isSearchDirty && (
+                  <button type="button" className="map-tab__external" onClick={resetSearch}>
+                    {t("map.searchReset")}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        ) : status !== "ready" ? (
           <div className="map-tab__placeholder">
             {status === "loading" ? (
               <>
@@ -293,7 +419,7 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
               </>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
