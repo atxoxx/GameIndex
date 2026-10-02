@@ -79,6 +79,10 @@ struct IndexedGame {
     /// Highest number in the title (sequel/year), used to prefer the newest
     /// entry when several games share a loosened franchise key.
     sequel: u32,
+    /// Significant tokens of every name this entry was indexed under
+    /// (title plus provider alternatives). Used to reject a loosened match
+    /// when the query names a specific game the candidate does not cover.
+    haystack: String,
 }
 
 struct CachedIndex {
@@ -345,6 +349,19 @@ fn significant_tokens(input: &str) -> String {
         .join("")
 }
 
+/// The meaningful part of a subtitle after ":" or " - ", reduced to
+/// significant tokens. Edition/platform noise ("Enhanced Edition") yields
+/// `None`, so it does not constrain matching.
+fn distinct_subtitle(input: &str) -> Option<String> {
+    let subtitle = after_colon(input).or_else(|| after_dash(input))?;
+    let sig = significant_tokens(&strip_parentheses(&subtitle));
+    if sig.is_empty() {
+        None
+    } else {
+        Some(sig)
+    }
+}
+
 /// Known high-profile acronyms and abbreviations for games that providers
 /// or user libraries commonly refer to by short names.
 fn game_aliases(norm: &str) -> &'static [&'static str] {
@@ -533,6 +550,7 @@ fn push_variants(
 ) {
     let norm = normalize(title);
     let sequel = max_number(title);
+    let haystack: String = names.iter().map(|name| significant_tokens(name)).collect();
     for name in names {
         for key in variants(name) {
             // Keep every game that shares a key; `to_result` ranks them.
@@ -544,6 +562,7 @@ fn push_variants(
                     maps: maps.to_vec(),
                     norm: norm.clone(),
                     sequel,
+                    haystack: haystack.clone(),
                 });
             }
         }
@@ -571,9 +590,17 @@ fn to_result(
     game_name: &str,
 ) -> Option<MapSourceResult> {
     let query = variants(game_name);
+    let subtitle = distinct_subtitle(game_name);
     for q in &query {
         let mut best: Option<&IndexedGame> = None;
         for game in index.iter().filter(|game| &game.key == q) {
+            // A query that names a specific game must not fall back to a
+            // different game just because they share a franchise key.
+            if let Some(ref subtitle) = subtitle {
+                if !game.haystack.contains(subtitle.as_str()) {
+                    continue;
+                }
+            }
             match best {
                 None => best = Some(game),
                 Some(current) if is_better_candidate(game, current, q) => best = Some(game),
@@ -1671,6 +1698,31 @@ mod tests {
         // Suggestions need at least two characters.
         assert!(suggestion_matches([wand.as_slice()], "s", 10).is_empty());
         assert!(!suggestion_matches([wand.as_slice()], "el", 10).is_empty());
+    }
+
+    #[test]
+    fn specific_subtitle_does_not_fall_back_to_a_different_game() {
+        // MapGenie only ships STALKER 2 and indexes the bare "stalker" alias,
+        // so a Call of Pripyat query must not resolve to it.
+        let json = r#"[
+            {"title":"S.T.A.L.K.E.R. 2: Heart of Chornobyl","slug":"stalker-2-heart-of-chornobyl",
+             "search_titles":["stalker 2","stalker"],"maps":[
+                {"title":"The Zone","slug":"the-zone","enabled":true,"available":true}
+             ]}
+        ]"#;
+        let index = parse_mapgenie(json);
+
+        assert!(
+            to_result("mapgenie", "MapGenie", &index, "S.T.A.L.K.E.R.: Call of Pripyat").is_none(),
+            "a specific title must not match a different game through a franchise alias"
+        );
+
+        let bare = to_result("mapgenie", "MapGenie", &index, "STALKER")
+            .expect("a bare franchise query still resolves");
+        assert_eq!(
+            bare.url,
+            "https://mapgenie.io/stalker-2-heart-of-chornobyl/maps/the-zone"
+        );
     }
 }
 
