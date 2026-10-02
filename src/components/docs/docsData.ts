@@ -888,7 +888,12 @@ Automatically trigger cleanups when the game process terminates:
 - Pre-configured with top gaming feeds: PC Gamer, Rock Paper Shotgun, Eurogamer, Steam News Hub, and IGN.
 - Click **Add Feed** to paste any valid RSS or Atom feed URL.
 - **Distraction-Free Article View**: Read articles with formatting, headers, and media intact inside the app.
-- Tracks unread states per feed so you always know what is new since your last session.`,
+- Tracks unread states per feed so you always know what is new since your last session.
+
+## Game and store news
+- Every game page and store page has its own **News** tab that merges official Steam posts with press coverage.
+- Steam's RSS feed only exposes the newest 10 posts, so a **Load more** button pages older articles from the Web API into the same list.
+- Articles are classified as patch notes, hotfixes, major updates, announcements or press, so you can filter down to just patch notes.`,
       },
       {
         id: "store-search",
@@ -1171,13 +1176,22 @@ Automatically trigger cleanups when the game process terminates:
         badge: "core",
         icon: Download,
         keywords: ["downloads", "http", "debrid", "real-debrid", "torbox", "torrents", "librqbit"],
-        relatedIds: ["torrent-controls", "storage"],
-        body: `GameIndex features a high-performance, concurrent download manager that handles multiple transfer protocols in a single unified queue.
+        relatedIds: ["torrent-controls", "download-scheduler", "storage"],
+        body: `GameIndex features a high-performance, concurrent download manager that handles multiple transfer protocols at once, with no single active slot.
 
 ## Supported Protocols
 - **Direct HTTP/HTTPS**: Multi-connection accelerated downloading with pause, resume, and integrity checksum verification.
 - **Debrid Services**: Native integration for **Real-Debrid**, **AllDebrid**, and **TorBox**. Enter your API token in **Settings → Downloads** for high-speed premium link generation and instant torrent cache checks.
 - **Torrents & Magnets**: Built-in native BitTorrent engine powered by \`librqbit\` — no third-party client (like qBittorrent) required!
+- **Browser captures**: links you start in the in-app browser are routed straight into the engine.
+
+## A tabbed downloads page
+- **Active**: live transfers with progress, speed and ETA, plus pause, resume and cancel controls.
+- **Scheduled**: queued jobs, one-shot start times, priorities and the transfer scheduler.
+- **History**: every completed, failed or cancelled transfer, kept even after the live record is removed.
+
+## The download modal
+Picking a release opens a rebuilt source browser with ranked results, a filter popover, saved filter presets, a recommended sort, batch selection, reliability pills and a compare tray — plus an in-modal queue preview and a remembered auto-extract preference.
 
 > [!TIP]
 > The in-app web browser automatically captures download links and routes them straight into the GameIndex downloads engine!`,
@@ -1200,9 +1214,39 @@ Automatically trigger cleanups when the game process terminates:
 
 ## Bandwidth Throttling
 - Set global download and upload speed limits in **Settings → Downloads**.
-- Schedule speed limits during working hours to prevent gaming downloads from saturating your home connection.
+- Create **bandwidth rules** for named windows (overnight, working hours) so the engine retunes itself without you touching anything.
+- Seed caps (ratio or time) and queue priority/retry live alongside the scheduler.
 
 ## Bandwidth scheduling and seeding\n- Time-based limits let downloads saturate the line overnight and stay out of the way during the day.\n- **Seed after complete** obeys the ratio or time you set, then stops automatically to free the disk for the next job.\n- Port forwarding improves inbound peer connections; without it downloads still work but find fewer peers.\n- Added trackers and DHT settings are per-session and do not modify the torrent file on disk.`,
+      },
+      {
+        id: "download-scheduler",
+        categoryId: "downloads-storage",
+        title: "Download Scheduler & Queue",
+        summary: "Time windows, bandwidth rules, concurrency caps and pause-while-gaming automation.",
+        badge: "guide",
+        icon: SlidersHorizontal,
+        keywords: ["scheduler", "schedule", "queue", "priority", "retry", "bandwidth", "window", "pause", "concurrency"],
+        relatedIds: ["downloads", "torrent-controls", "debrid"],
+        body: `The scheduler decides *when* a transfer may start and *how fast* it may run, so downloads fit around your gaming instead of fighting it.
+
+## Time window
+- Enable a **start window** and pick the hours plus the days it applies to.
+- **Auto-start queued** downloads when the window opens, and optionally **pause outside the window** so nothing runs during the day.
+- A single download can also be given its own one-shot start time when you add it.
+
+## Concurrency, priority and retries
+- Cap **max concurrent** transfers so a large batch does not saturate every connection.
+- Queue items carry a **priority**; retries are automatic with backoff for transient host errors.
+
+## Bandwidth rules
+- Create named rules for recurring windows, each with its own download/upload limits or a full **disable upload** switch.
+- The engine retunes active transfers when a rule starts or ends.
+
+## Pause while gaming
+- Toggle **pause on game** and active downloads pause while a game is running, then resume when the session ends.
+
+> **Tip:** a nightly window plus pause-on-game is the classic setup: full speed overnight, silence during play.`,
       },
       {
         id: "storage",
@@ -1212,7 +1256,7 @@ Automatically trigger cleanups when the game process terminates:
         badge: "core",
         icon: HardDrive,
         keywords: ["storage", "drives", "disk space", "mount points", "usage", "cleaner"],
-        relatedIds: ["relocation", "downloads"],
+        relatedIds: ["relocation", "library-health", "downloads"],
         body: `Keep your SSDs and NVMe drives healthy with the dedicated **Storage Manager**.
 
 ## Drive Overview
@@ -1222,7 +1266,37 @@ Automatically trigger cleanups when the game process terminates:
 ## Storage Tools
 - **Sort by Size**: Immediately find the 100GB+ titles taking up the most room.
 - **Stale Install Detector**: Highlights games you have not launched in over 6 months.
-- **Bulk Recalculate**: Re-scans directories on disk to update byte counts after external file modifications.`,
+- **Bulk Recalculate**: Re-scans directories on disk to update byte counts after external file modifications.
+
+## Health & Maintenance
+- The **Library Health & Maintenance** center scans for missing install paths, duplicate entries, missing metadata, orphaned artwork, stale sizes and unplayed backlog.
+- Bulk actions enrich or clean up the findings you select — a scan never deletes anything until you confirm.
+
+> **Tip:** run a health scan after a big import or a drive shuffle to catch broken paths early.`,
+      },
+      {
+        id: "library-health",
+        categoryId: "downloads-storage",
+        title: "Library Health & Maintenance",
+        summary: "Find broken paths, duplicate entries, missing metadata, orphaned artwork and unplayed backlog.",
+        badge: "guide",
+        icon: HardDrive,
+        keywords: ["health", "maintenance", "duplicates", "missing paths", "metadata", "orphaned artwork", "backlog", "cleanup"],
+        relatedIds: ["storage", "disk-cleanup", "metadata-sources"],
+        body: `The Storage page's **Health & Maintenance** center audits your library and points at the cases that quietly rot a collection.
+
+## What it checks
+- **Missing paths**: games whose install folder no longer exists on disk.
+- **Duplicates**: entries that look like the same title installed or imported twice.
+- **Missing metadata**: games without a cover, logo, description, genre or release date.
+- **Orphaned artwork**: cached images no longer referenced by any library entry.
+- **Stale sizes / backlog**: install sizes that no longer match disk and games unplayed for a long time.
+
+## Acting on it
+- Each finding has a category tab with its own list and count, plus bulk actions to enrich metadata, delete orphaned files or remove dead entries.
+- Removing entries, uninstalling, and deleting artwork all ask for confirmation first; the scan itself only reads.
+
+> **Tip:** sort the backlog view by last-played and archive the oldest games to the next drive with **Relocate**.`,
       },
       {
         id: "relocation",
@@ -1293,6 +1367,33 @@ Automatically trigger cleanups when the game process terminates:
 
 > **Tip:** run **Recalculate sizes** after changing files outside GameIndex, otherwise the numbers are stale and cleanup decisions are wrong.`,
       },
+      {
+        id: "save-backups",
+        categoryId: "downloads-storage",
+        title: "Per-Game Save Backups",
+        summary: "Auto-detect save folders, snapshot them as .gisave archives and restore with a safety copy.",
+        badge: "core",
+        icon: ArchiveRestore,
+        keywords: ["saves", "save backup", "save restore", "snapshot", "gisave", "pcgamingwiki", "steam cloud", "auto backup"],
+        relatedIds: ["save-states", "backup", "disk-cleanup"],
+        body: `The **Save Backups** suite protects per-game save data — the progress a store re-download does not replace.
+
+## Detecting save locations
+- GameIndex merges several sources: a curated known-game registry, a name-matched scan of the standard save roots, Steam Cloud \`userdata\`, emulator save folders and **PCGamingWiki** lookups.
+- Locations are listed per game and can be added, edited, excluded or removed by hand.
+
+## Snapshots
+- Take a snapshot on demand, back up the whole library, or enable **auto-backup on game exit**.
+- Snapshots are compressed \`.gisave\` archives (a zip with an embedded manifest). The manifest, not the database index, is what restore reads, so a snapshot survives even if the index is lost.
+- Retention prunes the oldest non-manual snapshots first, and ignore globs keep caches and logs out of the archive.
+
+## Restoring
+- Restore any snapshot for a game; when **safety snapshot before restore** is on, the current saves are captured first.
+- Browse, delete or open snapshots from the per-game Saves tab, and configure the suite in **Settings → Saves**.
+
+> [!NOTE]
+> The suite is opt-in: enable it in **Settings → Saves** before the top-nav Saves hub and the per-game Saves tab appear.`,
+      },
     ],
   },
 
@@ -1351,7 +1452,7 @@ Automatically trigger cleanups when the game process terminates:
         badge: "guide",
         icon: ArchiveRestore,
         keywords: ["saves", "save states", "snapshots", "backup saves", "restore"],
-        relatedIds: ["emulators", "rom-management"],
+        relatedIds: ["emulators", "rom-management", "save-backups"],
         body: `Never lose hours of retro progress to corrupted memory cards or accidental state overwrites.
 
 ## Features
@@ -1649,12 +1750,16 @@ Configure Valve's micro-compositor directly inside GameIndex:
 
 ## Creating a Backup
 1. Go to **Settings → Backup & Restore**.
-2. Select the domains to include: Games, Playtime Sessions, Achievements, Wishlist, Notes, Mods, and Custom Artwork.
+2. Select the domains to include: Games, Playtime Sessions, Achievements, Wishlist, Notes, Mods, Save Backups, and Custom Artwork.
 3. Click **Create Backup**. GameIndex packages your data into a compressed **\`.gibak\`** archive.
 
 ## Restoring a Backup
 - **Merge Mode**: Adds the archive's games and history into your current machine without overwriting existing entries.
 - **Replace Mode**: Performs a clean restoration, clearing local state before restoring the backup.
+
+## Managing archives
+- The backup tab lists every archive in your backup folder with its size, date and record counts, so you can inspect, delete or restore one directly.
+- Point the backup folder at a cloud-synced drive for off-machine copies, and enable **backup on exit** if you want continuous coverage.
 
 > [!NOTE]
 > Backups include your configurations and artwork, but not the multi-gigabyte game install folders themselves.`,
@@ -1744,6 +1849,28 @@ Configure Valve's micro-compositor directly inside GameIndex:
         keywords: ["launcher", "startup", "autostart", "tray", "landing page", "uac", "elevation", "window"],
         relatedIds: ["interface", "downloads", "backup"],
         body: `**Settings → Launcher** controls how the app starts, how the window behaves and when Windows asks for permission.\n\n## Startup\n- **Landing page**: choose which page opens on launch — Home, Library, Store, Wishlist, Deals, Activity, Achievements, Downloads, Storage, News or Community.\n- **Auto-start on boot**: start GameIndex with your session, so a sync or a download can carry on in the background.\n\n## Window and tray\n- **Close to tray**: the close button hides the window instead of quitting, keeping downloads and playtime tracking alive.\n- **Minimize on launch**: the window steps aside when a game starts.\n- **Restore on exit**: bring GameIndex back to the front when the game closes.\n\n## Elevation prompts (Windows)\n- **Disable elevation prompts** suppresses the UAC dialog for elevated launches.\n- Leave it off unless the repeated prompts genuinely get in the way; per-game **Run as Administrator** keeps working either way.\n\n> **Tip:** close-to-tray plus auto-start is the usual combination for a machine that also acts as an always-on download box.\n\n## Choosing the right behaviour\n- Point the landing page at the page you open first every session; the command palette reaches the rest.\n- Turn off close-to-tray if you would rather quit the app cleanly from the close button.\n- Minimize and restore on exit help with a game that fights for focus on a multi-monitor setup.\n- On a laptop, leaving auto-start off is usually the better trade-off for battery life.`,
+      },
+      {
+        id: "app-updates",
+        categoryId: "customization",
+        title: "App Updates & Release History",
+        summary: "Install-aware update checks and a browsable, grouped release history.",
+        badge: "guide",
+        icon: Rocket,
+        keywords: ["updates", "updater", "release history", "changelog", "nsis", "appimage", "deb", "portable"],
+        relatedIds: ["launcher", "diagnostics", "backup"],
+        body: `GameIndex keeps itself current without guessing which download you need.
+
+## Update channels
+- Open **Settings → General → Updates** to check for a new release.
+- Only the artifact matching your install is offered: NSIS installer, AppImage, \`.deb\` or the portable build.
+- AppImage and \`.deb\` updates are applied by the updater plugin; portable builds download, verify a signature and apply through a helper script.
+
+## Release history
+- **Release History** opens a timeline of every published version, badging the latest, pre-releases and the version you are running.
+- Notes are grouped into collapsible sections — features, fixes, performance and more — with per-category counts and a highlighted \`info:\` callout, so a long changelog stays scannable.
+
+> **Tip:** if a bug you hit is listed as fixed in a newer release, updating is usually faster than working around it.`,
       },
     ],
   },
@@ -1837,7 +1964,31 @@ Configure Valve's micro-compositor directly inside GameIndex:
 - **The window disappeared after launching a game**: minimize-on-launch hid it; restore from the tray or enable restore-on-exit.
 - **Hotkeys do nothing in-game**: exclusive fullscreen can swallow global hotkeys — use borderless windowed mode or a controller.
 
-## Collecting diagnostics\n- Export logs from the settings before restarting the app; a restart can clear the evidence you need.\n- Try once with plugins and overlays disabled, then re-enable them one by one to find the culprit.\n- **Reset settings** restores defaults without touching your library, notes or playtime.\n- If the library itself misbehaves, back up first and run a database integrity check before any manual edit.\n- Game-specific hook output and Wine/Proton logs are kept per launch, so export the newest one when reporting a launch problem.`,
+## Collecting diagnostics\n- Crash reports live in **Settings → Diagnostics**; preview or export them before restarting, because a restart can rotate the newest evidence away.\n- Try once with plugins and overlays disabled, then re-enable them one by one to find the culprit.\n- **Reset settings** restores defaults without touching your library, notes or playtime.\n- If the library itself misbehaves, back up first and run a database integrity check before any manual edit.\n- Game-specific hook output and Wine/Proton logs are kept per launch, so export the newest one when reporting a launch problem.`,
+      },
+      {
+        id: "diagnostics",
+        categoryId: "reference",
+        title: "Diagnostics & Crash Reports",
+        summary: "Dated crash reports, breadcrumb trails and a copyable system report from Settings.",
+        badge: "guide",
+        icon: AlertTriangle,
+        keywords: ["diagnostics", "crash", "report", "log", "panic", "backtrace", "system report", "debug", "support"],
+        relatedIds: ["troubleshooting", "report-bugs", "database-internals"],
+        body: `When the app exits unexpectedly, GameIndex writes down what happened instead of leaving you with a silent window close.
+
+## What gets captured
+- Rust **panics**, native crashes on Windows, and **interface errors** from JavaScript and unhandled rejections.
+- Each entry records the app version, operating system, architecture, locale and hardware context, plus a recent **breadcrumb trail** of what the app was doing.
+- Reports are written to a rolling \`crash.log\` and to standalone dated \`crash-<date>.txt\` files next to the database.
+
+## Settings → Diagnostics
+- Lists the dated reports with their size and time; preview or copy one, delete it, or open the log folder.
+- **System report** copies a plain-text summary (OS, version, CPU, RAM, GPUs) for a support post.
+- **Clear log** empties the rolling log once you have exported what you need.
+
+> [!TIP]
+> Open Diagnostics before restarting — the newest report is the most useful evidence, and a restart can rotate it away.`,
       },
       {
         id: "database-internals",
