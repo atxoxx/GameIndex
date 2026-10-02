@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Cookie, ExternalLink, Home, RotateCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Cookie, ExternalLink, Home, Maximize2, Minimize2, RotateCw } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import "../../styles/webview-controls.css";
 
@@ -11,6 +11,9 @@ interface WebviewControlsProps {
   onHome?: () => void;
   /** Re-runs the consent-banner dismissal inside the embedded page. */
   onDismissCookies?: () => void;
+  /** Toggles a near-full-window view of the embedded page. */
+  expanded?: boolean;
+  onToggleExpand?: () => void;
   onOpenExternal?: () => void;
   className?: string;
 }
@@ -28,6 +31,8 @@ export default function WebviewControls({
   onReload,
   onHome,
   onDismissCookies,
+  expanded,
+  onToggleExpand,
   onOpenExternal,
   className,
 }: WebviewControlsProps) {
@@ -94,6 +99,18 @@ export default function WebviewControls({
             <Cookie size={15} />
           </button>
         </>
+      )}
+      {onToggleExpand && (
+        <button
+          type="button"
+          className={`wv-controls__btn${expanded ? " is-active" : ""}`}
+          onClick={onToggleExpand}
+          title={expanded ? t("weblinks.collapseView") : t("weblinks.expandView")}
+          aria-label={expanded ? t("weblinks.collapseView") : t("weblinks.expandView")}
+          aria-pressed={expanded}
+        >
+          {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+        </button>
       )}
       {onOpenExternal && (
         <button

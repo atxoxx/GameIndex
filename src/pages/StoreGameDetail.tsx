@@ -162,11 +162,13 @@ export default function StoreGameDetail() {
   const isTabVisible = useCallback(
     (tab: StoreTab): boolean => {
       if (tab === "overview") return true;
-      if (tab === "map") return mapLookup.sources.length > 0;
+      // The Map tab is always offered; when no provider matches, it still
+      // opens so the user can search for another game name.
+      if (tab === "map") return true;
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       return detailSectionVisible[tab as DetailSectionKey];
     },
-    [isSimpleUi, detailSectionVisible, mapLookup.sources.length],
+    [isSimpleUi, detailSectionVisible],
   );
 
   const handleTabChange = useCallback(
@@ -415,11 +417,10 @@ export default function StoreGameDetail() {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
       { id: "dlc" as const, label: t("game.tab.dlc"), icon: IconDlc },
-      // Conditional map tab; sorts last since it's not in the
+      // Always offered; the tab itself explains when no provider matched and
+      // lets the user search. It sorts last since it is not in the
       // reorderable detail-tab set.
-      ...(mapLookup.sources.length > 0
-        ? [{ id: "map" as const, label: t("game.tab.map"), icon: IconMap }]
-        : []),
+      { id: "map" as const, label: t("game.tab.map"), icon: IconMap },
     ];
     const order = (id: StoreTab) => {
       const idx = (storeTabOrder as readonly string[]).indexOf(id);
@@ -428,7 +429,7 @@ export default function StoreGameDetail() {
     return allTabs
       .sort((a, b) => order(a.id) - order(b.id))
       .filter((tab) => isTabVisible(tab.id));
-  }, [t, data?.websites, isTabVisible, storeTabOrder, mapLookup.sources.length]);
+  }, [t, data?.websites, isTabVisible, storeTabOrder]);
 
   if (loading) return <StoreGameLoadingSkeleton />;
   if (error) return <StoreGameError message={error} onRetry={fetchData} />;
@@ -749,8 +750,13 @@ export default function StoreGameDetail() {
         />
       )}
 
-      {effectiveTab === "map" && mapLookup.sources.length > 0 && (
-        <MapTab sources={mapLookup.sources} gameName={data?.title} visible={!lightboxOpen} />
+      {effectiveTab === "map" && (
+        <MapTab
+          sources={mapLookup.sources}
+          gameName={data?.title}
+          searchKey={gameSlug}
+          visible={!lightboxOpen}
+        />
       )}
 
       {/* Unified Image Lightbox */}

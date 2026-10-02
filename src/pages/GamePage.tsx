@@ -199,14 +199,14 @@ function GameDetail({ game }: { game: Game }) {
   const isTabVisible = useCallback(
     (tab: GamePageTab): boolean => {
       if (tab === "overview") return true;
-      // Map providers only cover a subset of games; the tab exists only
-      // when at least one provider resolved.
-      if (tab === "map") return mapLookup.sources.length > 0;
+      // The Map tab is always offered; when no provider matches, it still
+      // opens so the user can search for another game name.
+      if (tab === "map") return true;
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       if (tab === "saves") return savesEnabled && detailSectionVisible.saves;
       return detailSectionVisible[tab as DetailSectionKey];
     },
-    [isSimpleUi, detailSectionVisible, savesEnabled, mapLookup.sources.length],
+    [isSimpleUi, detailSectionVisible, savesEnabled],
   );
 
   const effectiveTab: GamePageTab =
@@ -346,12 +346,10 @@ function GameDetail({ game }: { game: Game }) {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
       { id: "dlc" as const, label: t("game.tab.dlc"), icon: IconDlc },
-      // Only offer the Map tab when at least one provider hosts a map.
-      // It sits outside the reorderable detail-tab set, so it always
-      // sorts last.
-      ...(mapLookup.sources.length > 0
-        ? [{ id: "map" as const, label: t("game.tab.map"), icon: IconMap }]
-        : []),
+      // Always offered; the tab itself explains when no provider matched
+      // and lets the user search. It sits outside the reorderable detail-tab
+      // set, so it always sorts last.
+      { id: "map" as const, label: t("game.tab.map"), icon: IconMap },
     ];
     const order = (id: GamePageTab) => {
       const idx = (gameTabOrder as readonly string[]).indexOf(id);
@@ -360,7 +358,7 @@ function GameDetail({ game }: { game: Game }) {
     return allTabs
       .sort((a, b) => order(a.id) - order(b.id))
       .filter((tab) => isTabVisible(tab.id));
-  }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible, gameTabOrder, mapLookup.sources.length]);
+  }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible, gameTabOrder]);
 
   // The top bar renders straight from the persisted order/visibility. Items the
   // platform can't offer (Wine Logs / Compatibility on non-Linux hosts) are
@@ -751,10 +749,11 @@ function GameDetail({ game }: { game: Game }) {
 
       {effectiveTab === "dlc" && <GameDlcTab game={game} />}
 
-      {effectiveTab === "map" && mapLookup.sources.length > 0 && (
+      {effectiveTab === "map" && (
         <MapTab
           sources={mapLookup.sources}
           gameName={game.name}
+          searchKey={game.id}
           visible={!editing && !lightboxOpen && !showRemoveConfirm}
         />
       )}

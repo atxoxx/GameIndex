@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { Webview } from "@tauri-apps/api/webview";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
@@ -29,10 +30,41 @@ async function closeMapWebviews() {
   }
 }
 
+const MAP_LOOKUP_STORAGE_PREFIX = "gamelib.map_lookup.";
+
+function readPersistedLookup(key: string | undefined): string | null {
+  if (!key) return null;
+  try {
+    const value = localStorage.getItem(MAP_LOOKUP_STORAGE_PREFIX + key);
+    return value && value.trim() ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedLookup(key: string | undefined, name: string | null) {
+  if (!key) return;
+  try {
+    if (name && name.trim()) {
+      localStorage.setItem(MAP_LOOKUP_STORAGE_PREFIX + key, name.trim());
+    } else {
+      localStorage.removeItem(MAP_LOOKUP_STORAGE_PREFIX + key);
+    }
+  } catch {
+    // Storage unavailable — the lookup simply will not persist.
+  }
+}
+
+function sameLookupName(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
 interface MapTabProps {
   sources: MapSourceResult[];
   /** Name used for the automatic lookup; the search field starts here. */
   gameName?: string;
+  /** Stable per-game key used to remember a manual lookup. */
+  searchKey?: string;
   /** Hide the native webview while a DOM modal sits above it. */
   visible?: boolean;
 }
@@ -48,9 +80,15 @@ interface MapTabProps {
  *
  * The heading doubles as a lookup search: the provider matcher is
  * deliberately conservative, so a wrong or missing auto-match can be
- * corrected by typing another name and re-running the providers.
+ * corrected by typing another name and re-running the providers. The
+ * chosen name is remembered per game.
  */
-export default function MapTab({ sources, gameName = "", visible = true }: MapTabProps) {
+export default function MapTab({
+  sources,
+  gameName = "",
+  searchKey,
+  visible = true,
+}: MapTabProps) {
   const { t } = useLanguage();
   const contentFilterEnabled = useWebviewContentFilterEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,20 +107,15 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
   const [searchError, setSearchError] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const [expanded, setExpanded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const expandedFrameRef = useRef<HTMLDivElement>(null);
 
   const results = manualResults ?? sources;
   const suggestions = useMapSuggestions(draft, searchOpen);
   // The native webview composites above the DOM, so hide it while the search
   // popover is open or the suggestions would render behind the map.
   const webviewVisible = visible && !searchOpen;
-
-  useEffect(() => {
-    setManualResults(null);
-    setDraft(gameName);
-    setQuery(gameName);
-    setSearchError(false);
-  }, [gameName]);
 
   useEffect(() => {
     if (searchOpen) {
@@ -118,6 +151,8 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
     dismissWebviewConsent(webviewInst?.label ?? null);
   }, [webviewInst]);
 
+  const toggleExpand = useCallback(() => setExpanded((v) => !v), []);
+
   const resultSignature = results.map((s) => s.id).join("|");
   useEffect(() => {
     setActiveSourceId(null);
@@ -139,6 +174,7 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
     try {
       const found = await invoke<MapSourceResult[]>("fetch_game_maps", { gameName: name });
       setManualResults(found ?? []);
+      writePersistedLookup(searchKey, name);
     } catch {
       setSearchError(true);
       setManualResults([]);
@@ -146,14 +182,31 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
       setQuery(name);
       setSearching(false);
     }
-  }, []);
+  }, [searchKey]);
+
+  // On mount, and whenever the game changes, restore a previously chosen
+  // lookup for this game instead of the automatic match.
+  useEffect(() => {
+    const stored = readPersistedLookup(searchKey);
+    setManualResults(null);
+    setSearchError(false);
+    if (stored && !sameLookupName(stored, gameName)) {
+      setDraft(stored);
+      setQuery(stored);
+      void runSearch(stored);
+    } else {
+      setDraft(gameName);
+      setQuery(gameName);
+    }
+  }, [searchKey, gameName, runSearch]);
 
   const resetSearch = useCallback(() => {
     setManualResults(null);
     setDraft(gameName);
     setQuery(gameName);
     setSearchError(false);
-  }, [gameName]);
+    writePersistedLookup(searchKey, null);
+  }, [gameName, searchKey]);
 
   const isSearchDirty = manualResults !== null || draft.trim() !== gameName.trim();
 
@@ -191,7 +244,8 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
 
   // Keep the native view glued to the DOM frame as the page scrolls/resizes.
   useEffect(() => {
-    const frame = containerRef.current;
+    const frame =
+      expanded && expandedFrameRef.current ? expandedFrameRef.current : containerRef.current;
     if (!frame || !webviewInst) return;
 
     const sync = () => {
@@ -222,7 +276,21 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
       window.removeEventListener("resize", sync);
       window.removeEventListener("scroll", sync, true);
     };
-  }, [webviewInst]);
+  }, [webviewInst, expanded]);
+
+  // Leave the enlarged view when the tab is hidden or the user presses Escape.
+  useEffect(() => {
+    if (!visible) setExpanded(false);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   // Native webviews composite above the DOM, so hide it while a modal is open.
   useEffect(() => {
@@ -438,6 +506,8 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
             onReload={reload}
             onHome={goHome}
             onDismissCookies={dismissCookies}
+            expanded={expanded}
+            onToggleExpand={activeSource ? toggleExpand : undefined}
           />
 
           {activeSource && results.length > 1 && (
@@ -507,11 +577,22 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
                   <IconMap size={22} />
                 </span>
                 <span>{searchError ? t("map.searchError") : t("map.noResults", { name: query })}</span>
-                {isSearchDirty && (
-                  <button type="button" className="map-tab__external" onClick={resetSearch}>
-                    {t("map.searchReset")}
+                <span className="map-tab__placeholder-hint">{t("map.noResultsHint")}</span>
+                <div className="map-tab__placeholder-actions">
+                  <button
+                    type="button"
+                    className="map-tab__search-go map-tab__search-go--wide"
+                    onClick={() => setSearchOpen(true)}
+                  >
+                    <Search size={14} />
+                    {t("map.searchOpen")}
                   </button>
-                )}
+                  {isSearchDirty && (
+                    <button type="button" className="map-tab__external" onClick={resetSearch}>
+                      {t("map.searchReset")}
+                    </button>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -538,6 +619,60 @@ export default function MapTab({ sources, gameName = "", visible = true }: MapTa
           </div>
         ) : null}
       </div>
+
+      {expanded &&
+        activeSource &&
+        createPortal(
+          <div
+            className="map-tab__expand-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label={activeSource.title}
+          >
+            <div className="map-tab__expand-modal">
+              <div className="map-tab__expand-toolbar">
+                <WebviewControls
+                  canGoBack={navState.back}
+                  canGoForward={navState.forward}
+                  onBack={goBack}
+                  onForward={goForward}
+                  onReload={reload}
+                  onHome={goHome}
+                  onDismissCookies={dismissCookies}
+                  expanded
+                  onToggleExpand={toggleExpand}
+                />
+                <span className="map-tab__expand-title" title={activeSource.title}>
+                  {activeSource.title}
+                </span>
+                <button
+                  type="button"
+                  className="map-tab__expand-close"
+                  onClick={() => setExpanded(false)}
+                  title={t("weblinks.closeExpand")}
+                  aria-label={t("weblinks.closeExpand")}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <div ref={expandedFrameRef} className="map-tab__expand-frame">
+                {status !== "ready" && (
+                  <div className="map-tab__placeholder">
+                    {status === "loading" ? (
+                      <>
+                        <div className="map-tab__spinner" />
+                        <span>{t("map.loading")}</span>
+                      </>
+                    ) : (
+                      <span>{t("map.unavailable")}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

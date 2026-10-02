@@ -59,6 +59,7 @@ function submitSearch(value: string) {
 describe("MapTab lookup search", () => {
   beforeEach(() => {
     invokeMock.mockReset();
+    localStorage.clear();
   });
 
   afterEach(() => {
@@ -106,6 +107,30 @@ describe("MapTab lookup search", () => {
         gameName: "STALKER 2: Heart of Chornobyl",
       })
     );
+  });
+
+  it("remembers the searched game across remounts", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "fetch_game_maps") return [searchedSource];
+      return undefined;
+    });
+
+    const first = render(
+      <MapTab sources={[initialSource]} gameName="Old Name" searchKey="game-1" />
+    );
+    submitSearch("STALKER");
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("fetch_game_maps", { gameName: "STALKER" })
+    );
+    first.unmount();
+
+    invokeMock.mockClear();
+    render(<MapTab sources={[initialSource]} gameName="Old Name" searchKey="game-1" />);
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("fetch_game_maps", { gameName: "STALKER" })
+    );
+    expect(await screen.findByText("STALKER 2: Heart of Chornobyl")).toBeTruthy();
   });
 
   it("shows an error state when the lookup fails", async () => {

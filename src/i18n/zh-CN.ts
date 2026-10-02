@@ -2752,6 +2752,7 @@ export const zhCN: TranslationDict = {
   "map.searching": "正在为 {name} 搜索地图提供商…",
   "map.searchError": "无法搜索地图提供商。请检查网络后重试。",
   "map.noResults": "没有地图提供商提供 {name} 的地图。",
+  "map.noResultsHint": "请尝试搜索其他游戏名称。",
   "game.tab.reviews": "评测",
   "game.tab.specs": "规格",
   "game.tab.weblinks": "网页链接",

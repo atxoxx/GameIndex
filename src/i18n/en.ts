@@ -2760,6 +2760,7 @@ export const en: TranslationDict = {
   "map.searching": "Searching map providers for {name}…",
   "map.searchError": "Could not search map providers. Check your connection and try again.",
   "map.noResults": "No map provider has a map for {name}.",
+  "map.noResultsHint": "Try searching for another game name.",
   "game.tab.reviews": "Reviews",
   "game.tab.specs": "Specs",
   "game.tab.weblinks": "Web Links",

@@ -44,6 +44,11 @@
   cursor: default;
 }
 
+.wv-controls__btn.is-active {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
 .wv-controls__divider {
   width: 1px;
   align-self: stretch;

@@ -2752,6 +2752,7 @@ export const de: TranslationDict = {
   "map.searching": "Kartenanbieter für {name} werden gesucht…",
   "map.searchError": "Kartenanbieter konnten nicht durchsucht werden. Verbindung prüfen und erneut versuchen.",
   "map.noResults": "Kein Kartenanbieter hat eine Karte für {name}.",
+  "map.noResultsHint": "Versuche es mit einem anderen Spielnamen.",
   "game.tab.reviews": "Bewertungen",
   "game.tab.specs": "Spezifikationen",
   "game.tab.weblinks": "Web-Links",
