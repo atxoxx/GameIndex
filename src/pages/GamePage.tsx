@@ -55,6 +55,7 @@ import {
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
 import MapTab from "../components/game/MapTab";
+import { readPersistedLookupFound } from "../components/game/mapLookupStorage";
 import NotesTab from "../components/game/notes/NotesTab";
 import SaveBackupTab from "../components/game/SaveBackupTab";
 import { useGameNotes } from "../hooks/useGameNotes";
@@ -158,12 +159,14 @@ function GameDetail({ game }: { game: Game }) {
   const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
   const { enabled: savesEnabled } = useSaves();
   const mapLookup = useGameMaps(game.name);
-  const [mapHasResult, setMapHasResult] = useState<boolean | null>(null);
+  const [mapHasResult, setMapHasResult] = useState<boolean | null>(() =>
+    readPersistedLookupFound(game.id)
+  );
   const mapAvailable = mapHasResult ?? mapLookup.sources.length > 0;
   const mapStatusKnown = mapLookup.status !== "loading" || mapHasResult !== null;
 
   useEffect(() => {
-    setMapHasResult(null);
+    setMapHasResult(readPersistedLookupFound(game.id));
   }, [game.id]);
   const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("game");
   const { getAchievementSummary } = useAchievements();

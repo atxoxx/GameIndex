@@ -18,6 +18,7 @@ import DownloadButton from "../components/DownloadButton";
 import CrackWatchCard from "../components/CrackWatchCard";
 import GameNewsTab from "../components/game/GameNewsTab";
 import MapTab from "../components/game/MapTab";
+import { readPersistedLookupFound } from "../components/game/mapLookupStorage";
 import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
 import StoreGameLoadingSkeleton from "../components/store/StoreGameLoadingSkeleton";
@@ -152,12 +153,14 @@ export default function StoreGameDetail() {
   // hook order stays stable. Title is empty until the detail fetch lands,
   // which simply keeps the Map tab hidden until then.
   const mapLookup = useGameMaps(data?.title);
-  const [mapHasResult, setMapHasResult] = useState<boolean | null>(null);
+  const [mapHasResult, setMapHasResult] = useState<boolean | null>(() =>
+    readPersistedLookupFound(gameSlug)
+  );
   const mapAvailable = mapHasResult ?? mapLookup.sources.length > 0;
   const mapStatusKnown = mapLookup.status !== "loading" || mapHasResult !== null;
 
   useEffect(() => {
-    setMapHasResult(null);
+    setMapHasResult(readPersistedLookupFound(gameSlug));
   }, [gameSlug, data?.title]);
 
   // Tab synchronization with URL query param

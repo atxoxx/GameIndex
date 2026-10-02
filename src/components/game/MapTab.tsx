@@ -9,6 +9,12 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
 import { useMapSuggestions } from "../../hooks/useMapSuggestions";
+import {
+  readPersistedLookup,
+  sameLookupName,
+  writePersistedLookup,
+  writePersistedLookupFound,
+} from "./mapLookupStorage";
 import WebviewControls from "../webview/WebviewControls";
 import { IconExternalLink, IconMap } from "./icons";
 import type { MapSourceResult } from "../../types/game";
@@ -28,35 +34,6 @@ async function closeMapWebviews() {
   } catch {
     // Not running under Tauri (frontend-only dev) — nothing to close.
   }
-}
-
-const MAP_LOOKUP_STORAGE_PREFIX = "gamelib.map_lookup.";
-
-function readPersistedLookup(key: string | undefined): string | null {
-  if (!key) return null;
-  try {
-    const value = localStorage.getItem(MAP_LOOKUP_STORAGE_PREFIX + key);
-    return value && value.trim() ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function writePersistedLookup(key: string | undefined, name: string | null) {
-  if (!key) return;
-  try {
-    if (name && name.trim()) {
-      localStorage.setItem(MAP_LOOKUP_STORAGE_PREFIX + key, name.trim());
-    } else {
-      localStorage.removeItem(MAP_LOOKUP_STORAGE_PREFIX + key);
-    }
-  } catch {
-    // Storage unavailable — the lookup simply will not persist.
-  }
-}
-
-function sameLookupName(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 interface MapTabProps {
@@ -183,11 +160,15 @@ export default function MapTab({
     setSearchError(false);
     try {
       const found = await invoke<MapSourceResult[]>("fetch_game_maps", { gameName: name });
-      setManualResults(found ?? []);
+      const list = found ?? [];
+      setManualResults(list);
       writePersistedLookup(searchKey, name);
+      writePersistedLookupFound(searchKey, list.length > 0);
     } catch {
       setSearchError(true);
       setManualResults([]);
+      writePersistedLookup(searchKey, name);
+      writePersistedLookupFound(searchKey, false);
     } finally {
       setQuery(name);
       setSearching(false);
@@ -216,6 +197,7 @@ export default function MapTab({
     setQuery(gameName);
     setSearchError(false);
     writePersistedLookup(searchKey, null);
+    writePersistedLookupFound(searchKey, null);
   }, [gameName, searchKey]);
 
   const isSearchDirty = manualResults !== null || draft.trim() !== gameName.trim();
@@ -381,6 +363,50 @@ export default function MapTab({
         ? t("map.searchError")
         : t("map.noResults", { name: query });
 
+  // Shared between the in-tab toolbar and the fullscreen toolbar.
+  const mapSelectors = (
+    <>
+      {activeSource && results.length > 1 && (
+        <label className="map-tab__field">
+          <span className="map-tab__field-label">{t("map.sourceLabel")}</span>
+          <select
+            className="map-tab__select"
+            value={activeSource.id}
+            aria-label={t("map.selectSource")}
+            onChange={(event) => {
+              setActiveSourceId(event.target.value);
+              setActiveMapUrl(null);
+            }}
+          >
+            {results.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {activeSource && activeSource.maps.length > 1 && (
+        <label className="map-tab__field">
+          <span className="map-tab__field-label">{t("map.mapLabel")}</span>
+          <select
+            className="map-tab__select"
+            value={activeUrl}
+            aria-label={t("map.selectMap")}
+            onChange={(event) => setActiveMapUrl(event.target.value)}
+          >
+            {activeSource.maps.map((map) => (
+              <option key={map.url} value={map.url}>
+                {map.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+    </>
+  );
+
   return (
     <div className="map-tab">
       <div className="map-tab__toolbar">
@@ -520,44 +546,7 @@ export default function MapTab({
             onToggleExpand={activeSource ? toggleExpand : undefined}
           />
 
-          {activeSource && results.length > 1 && (
-            <label className="map-tab__field">
-              <span className="map-tab__field-label">{t("map.sourceLabel")}</span>
-              <select
-                className="map-tab__select"
-                value={activeSource.id}
-                aria-label={t("map.selectSource")}
-                onChange={(event) => {
-                  setActiveSourceId(event.target.value);
-                  setActiveMapUrl(null);
-                }}
-              >
-                {results.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {activeSource && activeSource.maps.length > 1 && (
-            <label className="map-tab__field">
-              <span className="map-tab__field-label">{t("map.mapLabel")}</span>
-              <select
-                className="map-tab__select"
-                value={activeUrl}
-                aria-label={t("map.selectMap")}
-                onChange={(event) => setActiveMapUrl(event.target.value)}
-              >
-                {activeSource.maps.map((map) => (
-                  <option key={map.url} value={map.url}>
-                    {map.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          {mapSelectors}
 
           {activeSource && (
             <button
@@ -652,6 +641,7 @@ export default function MapTab({
                   expanded
                   onToggleExpand={toggleExpand}
                 />
+                {mapSelectors}
                 <span className="map-tab__expand-title" title={activeSource.title}>
                   {activeSource.title}
                 </span>
