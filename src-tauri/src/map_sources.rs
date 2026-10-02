@@ -21,7 +21,7 @@
 //! Providers resolve concurrently and independently; a game that matches
 //! none simply has no Map tab.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -869,6 +869,39 @@ fn parse_wand_maps(html: &str) -> Vec<IndexedGame> {
     out
 }
 
+/// Parse the individual maps from a Wand game page. Wand lists each sub-map
+/// as `/maps/{game}/{map}` (optionally locale-prefixed), so a game with
+/// several maps gets a picker in the UI.
+fn parse_wand_submaps(html: &str, base_url: &str) -> Vec<MapSourceMap> {
+    let link_re = Regex::new(
+        r#"<a\b[^>]*href="(?:/[a-z]{2})?/maps/[a-z0-9-]+/([a-z0-9-]+)"[^>]*>([\s\S]*?)</a>"#,
+    )
+    .expect("valid wand submap regex");
+    let tag_re = Regex::new(r"<[^>]+>").expect("valid tag regex");
+
+    let base = base_url.trim_end_matches('/');
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    for cap in link_re.captures_iter(html) {
+        let slug = &cap[1];
+        if !seen.insert(slug.to_string()) {
+            continue;
+        }
+        let text = tag_re.replace_all(&cap[2], " ");
+        let title = decode_entities(&text.split_whitespace().collect::<Vec<_>>().join(" "));
+        let title = if title.trim().is_empty() {
+            slug.replace('-', " ")
+        } else {
+            title
+        };
+        out.push(MapSourceMap {
+            title,
+            url: format!("{base}/{slug}"),
+        });
+    }
+    out
+}
+
 /// Derive a game title from an anchor's visible text or title attribute.
 fn gamemapscom_clean_title(text: &str) -> Option<String> {
     let text = text.trim();
@@ -1080,6 +1113,9 @@ static GAMEMAPS_CACHE: OnceLock<Mutex<Option<CachedIndex>>> = OnceLock::new();
 static GAMEMAPPERS_CACHE: OnceLock<Mutex<Option<CachedIndex>>> = OnceLock::new();
 static WAND_CACHE: OnceLock<Mutex<Option<CachedIndex>>> = OnceLock::new();
 static GAMEMAPSCOM_CACHE: OnceLock<Mutex<Option<CachedIndex>>> = OnceLock::new();
+/// Per-game Wand sub-map lists (`/maps/{game}/{map}`), cached for a day.
+static WAND_SUBMAP_CACHE: OnceLock<Mutex<HashMap<String, (Instant, Arc<Vec<MapSourceMap>>)>>> =
+    OnceLock::new();
 
 async fn resolve_mapgenie(
     client: &reqwest::Client,
@@ -1126,6 +1162,46 @@ async fn resolve_gamemappers(
     Ok(to_result("gamemappers", "GameMappers", &index, game_name))
 }
 
+/// Fetch (and cache) the sub-map list for a Wand game page. Failure is
+/// non-fatal: the caller keeps the single game-level map.
+async fn cached_wand_submaps(
+    client: &reqwest::Client,
+    game_url: &str,
+) -> Arc<Vec<MapSourceMap>> {
+    let cache = WAND_SUBMAP_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+
+    {
+        let guard = cache.lock().await;
+        if let Some((fetched_at, maps)) = guard.get(game_url) {
+            if fetched_at.elapsed() < CACHE_TTL {
+                return maps.clone();
+            }
+        }
+    }
+
+    let maps = match client
+        .get(game_url)
+        .header("Referer", "https://wand.com/")
+        .send()
+        .await
+    {
+        Ok(response) if response.status().is_success() => match response.text().await {
+            Ok(html) => parse_wand_submaps(&html, game_url),
+            Err(_) => Vec::new(),
+        },
+        _ => Vec::new(),
+    };
+
+    let maps = Arc::new(maps);
+    if !maps.is_empty() {
+        cache
+            .lock()
+            .await
+            .insert(game_url.to_string(), (Instant::now(), maps.clone()));
+    }
+    maps
+}
+
 async fn resolve_wand(
     client: &reqwest::Client,
     game_name: &str,
@@ -1138,7 +1214,21 @@ async fn resolve_wand(
         parse_wand_maps,
     )
     .await?;
-    Ok(to_result("wand", "Wand", &index, game_name))
+
+    let Some(mut result) = to_result("wand", "Wand", &index, game_name) else {
+        return Ok(None);
+    };
+
+    // A Wand game page lists its individual maps as `/maps/{game}/{map}`.
+    // When more than one exists, surface them so the UI offers a picker and
+    // opens the first map directly.
+    let submaps = cached_wand_submaps(client, &result.url).await;
+    if submaps.len() > 1 {
+        result.url = submaps[0].url.clone();
+        result.maps = submaps.as_ref().clone();
+    }
+
+    Ok(Some(result))
 }
 
 async fn resolve_gamemapscom(
@@ -1722,6 +1812,28 @@ mod tests {
         assert_eq!(
             bare.url,
             "https://mapgenie.io/stalker-2-heart-of-chornobyl/maps/the-zone"
+        );
+    }
+
+    #[test]
+    fn wand_submaps_parse_game_page_links() {
+        let html = r#"
+            <a href="/maps/stalker-call-of-pripyat/pripyat">Pripyat</a>
+            <a href="/fr/maps/stalker-call-of-pripyat/jupiter">Jupiter</a>
+            <a href="/maps/stalker-call-of-pripyat/pripyat">Pripyat</a>
+            <a href="/maps/stalker-call-of-pripyat">All maps</a>
+        "#;
+        let maps = parse_wand_submaps(html, "https://wand.com/maps/stalker-call-of-pripyat");
+
+        assert_eq!(maps.len(), 2, "duplicate and non-map links are dropped");
+        assert_eq!(maps[0].title, "Pripyat");
+        assert_eq!(
+            maps[0].url,
+            "https://wand.com/maps/stalker-call-of-pripyat/pripyat"
+        );
+        assert_eq!(
+            maps[1].url,
+            "https://wand.com/maps/stalker-call-of-pripyat/jupiter"
         );
     }
 }
