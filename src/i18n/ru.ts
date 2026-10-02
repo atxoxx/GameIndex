@@ -2744,6 +2744,7 @@ export const ru: TranslationDict = {
   "map.selectSource": "Выбрать источник",
   "map.sourceLabel": "Источник",
   "map.mapLabel": "Карта",
+  "map.mapList": "Все карты",
   "map.openOnProvider": "Открыть на {provider}",
   "map.unavailable": "Предпросмотр карты недоступен. Откройте её в браузере.",
   "map.searchPlaceholder": "Поиск другого названия игры…",

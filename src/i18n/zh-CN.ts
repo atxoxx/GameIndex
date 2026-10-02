@@ -2744,6 +2744,7 @@ export const zhCN: TranslationDict = {
   "map.selectSource": "选择来源",
   "map.sourceLabel": "来源",
   "map.mapLabel": "地图",
+  "map.mapList": "所有地图",
   "map.openOnProvider": "在 {provider} 中打开",
   "map.unavailable": "地图预览不可用。请在浏览器中打开。",
   "map.searchPlaceholder": "搜索其他游戏名称…",

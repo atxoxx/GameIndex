@@ -133,6 +133,22 @@ describe("MapTab lookup search", () => {
     expect(await screen.findByText("STALKER 2: Heart of Chornobyl")).toBeTruthy();
   });
 
+  it("restores a saved search even when it matches the game name", async () => {
+    localStorage.setItem("gamelib.map_lookup.game-1", "Old Name");
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "fetch_game_maps") return [searchedSource];
+      return undefined;
+    });
+
+    // No automatic match: only the saved manual lookup can provide a map.
+    render(<MapTab sources={[]} gameName="Old Name" searchKey="game-1" />);
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("fetch_game_maps", { gameName: "Old Name" })
+    );
+    expect(await screen.findByText("STALKER 2: Heart of Chornobyl")).toBeTruthy();
+  });
+
   it("shows an error state when the lookup fails", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "fetch_game_maps") throw new Error("offline");

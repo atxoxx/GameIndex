@@ -11,7 +11,6 @@ import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmb
 import { useMapSuggestions } from "../../hooks/useMapSuggestions";
 import {
   readPersistedLookup,
-  sameLookupName,
   writePersistedLookup,
   writePersistedLookupFound,
 } from "./mapLookupStorage";
@@ -143,8 +142,11 @@ export default function MapTab({
   // Report availability so the parent's Map tab status dot stays in sync,
   // including after a manual search that found (or lost) a map.
   useEffect(() => {
+    // Wait for a persisted manual lookup to be restored first, so the dot
+    // does not flicker to the automatic result and back.
+    if (manualResults === null && readPersistedLookup(searchKey)) return;
     onResultChange?.(results.length > 0);
-  }, [resultSignature, results, onResultChange]);
+  }, [resultSignature, results, manualResults, onResultChange, searchKey]);
 
   const openExternal = useCallback(() => {
     if (!activeUrl) return;
@@ -181,7 +183,7 @@ export default function MapTab({
     const stored = readPersistedLookup(searchKey);
     setManualResults(null);
     setSearchError(false);
-    if (stored && !sameLookupName(stored, gameName)) {
+    if (stored) {
       setDraft(stored);
       setQuery(stored);
       void runSearch(stored);
@@ -396,6 +398,9 @@ export default function MapTab({
             aria-label={t("map.selectMap")}
             onChange={(event) => setActiveMapUrl(event.target.value)}
           >
+            {!activeSource.maps.some((map) => map.url === activeUrl) && (
+              <option value={activeSource.url}>{t("map.mapList")}</option>
+            )}
             {activeSource.maps.map((map) => (
               <option key={map.url} value={map.url}>
                 {map.title}

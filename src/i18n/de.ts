@@ -2744,6 +2744,7 @@ export const de: TranslationDict = {
   "map.selectSource": "Quelle auswählen",
   "map.sourceLabel": "Quelle",
   "map.mapLabel": "Karte",
+  "map.mapList": "Alle Karten",
   "map.openOnProvider": "Auf {provider} öffnen",
   "map.unavailable": "Kartenvorschau nicht verfügbar. Stattdessen im Browser öffnen.",
   "map.searchPlaceholder": "Anderen Spielnamen suchen…",
