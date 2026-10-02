@@ -72,11 +72,12 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **Wishlist** | Dedicated wishlist tab with release-date countdowns, per-game notes, genre/platform filters, and share-with-friends cards. |
 | **News Reader** | Built-in RSS reader on a dedicated News page — curated gaming feeds, regional feeds and feed packs, with article reading that stays in the app. |
 | **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS on Windows (MangoHud / GameScope on Linux), with interactive timeline, Gantt, performance, and sparkline views. |
-| **Downloads** | Unified concurrent download engine with seeding, HTTP direct, debrid (Real-Debrid / AllDebrid / TorBox), browser-resolver captures, and torrents via `librqbit`. |
+| **Downloads** | Unified concurrent download engine with seeding, HTTP direct, debrid (Real-Debrid / AllDebrid / TorBox), browser-resolver captures, and torrents via `librqbit` — plus a transfer scheduler (time windows, bandwidth rules, pause-on-game), queue priority/retry, seed caps, and a rebuilt download modal with ranked results, filters/presets, batch selection, a compare tray and an in-modal queue preview. |
 | **Linux & Steam Deck** | First-class Proton/Wine compatibility: runner manager (GE-Proton, CachyOS, Proton-EM, Wine-GE, Soda, Kron4ek…), shared prefixes with per-game overrides, DXVK/VKD3D, esync/fsync/ntsync, MangoHud, GameMode, GameScope, per-game GPU pinning, controller & anti-cheat runtimes, captured logs with a live viewer, Wine tools and system diagnostics. → [Full guide](docs/linux-wine-proton.md) |
-| **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
+| **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes — with a **Library Health & Maintenance** center for missing install paths, duplicate rows, missing metadata, orphaned artwork, stale sizes and unplayed backlog. |
 | **Backup & Restore** | Selectable, cancellable backups with live progress — raw NDJSON export plus merge/replace restore modes from the Settings backup tab, including Proton/Wine compatibility profiles. |
-| **Save Backups** | Per-game save-data manager — auto-detects save folders (curated registry, heuristics, Steam Cloud, emulator saves), snapshots them on demand or automatically on game exit, and restores any snapshot with an automatic pre-restore safety copy. Configurable backup folder, retention and ignore rules. |
+| **Save Backups** | Per-game save-data manager — auto-detects save folders (curated registry, heuristics, Steam Cloud, PCGamingWiki, emulator saves), snapshots them as compressed `.gisave` archives on demand or automatically on game exit, and restores any snapshot with an automatic pre-restore safety copy. Configurable backup folder, retention and ignore rules, plus a per-game overview card. |
+| **Diagnostics & Crash Reports** | Detailed, dated crash reports for panics, native faults and frontend errors — machine/version context plus a breadcrumb trail, viewable, copyable, exportable and openable from Settings → Diagnostics. |
 | **Stats, Community & Friends** | Local-first social layer — friend profiles, sync, recommendations, compare, chat and leaderboards — alongside a personal **Stats** dashboard with overview, trends, achievements, a captures gallery and milestones. |
 | **Discord Rich Presence** | Playing, browsing *and* download presence — cover art, playtime, achievement progress with unlock callouts, two buttons, member-list line choice, and a live download ETA countdown. |
 | **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across the whole app — Library, Store, Deals, News, Activity, Friends, and Community, plus system pages (Downloads, Storage, Achievements, Mods, Emulators, Settings, Docs) — with animated game backdrops, focus memory, and fluid rail wrapping. |
@@ -86,7 +87,7 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **Layout Studio** | Settings → Interface: a live layout editor for the whole shell — toggle and reorder navbar tabs, header buttons, sidebar dock and sections, per-page widgets, detail-page tabs, the detail top bar and individual side cards, plus a free-form 12-column hero grid. Viewport previews (16:9 / 16:10 / 21:9 / 4:3), inspect mode, built-in presets and JSON import/export. |
 | **Customizable Interface** | Drag-and-drop top-nav ordering with per-item visibility, right-click context menus across library, downloads, store, mods, news, emulators and storage, a resizable sidebar that folds to an icon rail on narrow windows, a settings hub with category navigation and search, and fluid layouts tuned for handhelds and Steam Deck. |
 | **i18n & Privacy** | Six-language support via `LanguageContext` (English, German, French, Spanish, Russian, Chinese) and a Privacy & Data tab to view and wipe local storage. |
-| **App Updates** | In-app update checks per install type (NSIS installer, AppImage, `.deb`, portable) plus a browsable **Release History** fetched from [GitHub Releases](https://github.com/atxoxx/GameIndex/releases) — version timeline, latest/pre-release/installed badges and full release notes without leaving the app. |
+| **App Updates** | In-app update checks per install type (NSIS installer, AppImage, `.deb`, portable) plus a browsable **Release History** fetched from [GitHub Releases](https://github.com/atxoxx/GameIndex/releases) — version timeline, latest/pre-release/installed badges and full release notes, grouped into collapsible conventional-commit sections, without leaving the app. |
 | **Built-in Guide** | Searchable in-app documentation with grouped navigation, covering every major feature — plus a controller-friendly Big Screen variant. |
 | **Plugin System** | Sandboxed QuickJS plugins for custom search and download sources — memory cap, instruction budget, 20-second timeout and SHA-256-verified installs, managed from Settings → Plugins. |
 | **Launcher & Startup** | Configurable landing page, system tray with close-to-tray, run-at-login, minimize-on-launch, UAC-elevation bypass, Simple UI mode and an optional always-on-top launch splash. |
@@ -375,11 +376,13 @@ This is a known false-positive pattern affecting many legitimate Tauri and Rust 
 └── src-tauri/           Rust backend
     ├── src/             Tauri commands, DB DAOs, integrations
     │   ├── steam|gog|epic|rockstar|uplay|humble/   Per-store sync + auth
-    │   ├── downloads/        Concurrent direct, debrid, torrent & browser-resolver downloads
+    │   ├── downloads/        Concurrent direct, debrid, torrent & browser-resolver downloads + scheduler
+    │   ├── saves/            Per-game save detection + `.gisave` snapshot/restore engine
     │   ├── mods/             Steam Workshop & Nexus Mods detection + operations
     │   ├── plugins/          Sandboxed QuickJS plugin runtime
     │   ├── compatibility.rs  Proton/Wine runners, prefixes, GameScope, GPU pinning
-    │   ├── db/               Per-domain SQLite pools + schema (incl. compatibility.db)
+    │   ├── crashlog.rs       Crash capture + dated reports
+    │   ├── db/               Per-domain SQLite pools + schema (incl. compatibility.db, saves.db)
     │   └── ...
     └── tauri.conf.json  Frameless window + bundle config
 ```
@@ -396,7 +399,9 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Steam achievements, HowLongToBeat, Crackwatch, live + historical player counts
 - ✅ Activity dashboard with FPS + frametime charts
 - ✅ Downloads engine rewrite (concurrent downloads, seeding, direct/debrid/torrent sources, browser resolver)
+- ✅ Download scheduler (time windows, bandwidth rules, pause-on-game), queue priority/retry and seed caps, plus a rebuilt download modal
 - ✅ Storage manager + emulator & mod footprint breakdown
+- ✅ Library Health & Maintenance center (missing paths, duplicates, missing metadata, orphaned artwork, stale sizes, backlog)
 - ✅ News page with RSS feeds
 - ✅ IGDB-powered storefront (search, filters, rails, price badges, comparisons)
 - ✅ Community & Friends social layer
@@ -413,7 +418,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Multi-source Achievements dashboard with analytics
 - ✅ Wishlist tab with release countdowns and notes
 - ✅ Backup & restore with merge/replace NDJSON modes (incl. compatibility profiles)
-- ✅ Save Backups suite (per-game save detection, snapshots, restore, auto-backup on exit)
+- ✅ Save Backups suite (per-game save detection incl. PCGamingWiki, compressed `.gisave` snapshots, restore, auto-backup on exit)
 - ✅ Command palette, adaptive game-art theming, and now-playing HUD
 - ✅ Linux + Steam Deck support — Proton/Wine runner manager, shared prefixes, DXVK/VKD3D, MangoHud/GameMode/GameScope, GPU pinning, Wine logs, system diagnostics ([full guide](docs/linux-wine-proton.md))
 - ✅ Per-game environment variables & compatibility profiles
@@ -422,7 +427,9 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Game version detection & newer-release badges
 - ✅ Game notes workspace — Markdown notes, templates, tags, search & export
 - ✅ Theme creator with live preview, presets and JSON import/export
-- ✅ Release history + per-install update channels (NSIS, AppImage, `.deb`, portable)
+- ✅ Release history + per-install update channels (NSIS, AppImage, `.deb`, portable), with notes grouped into collapsible commit sections
+- ✅ Crash diagnostics with dated, exportable reports (Settings → Diagnostics)
+- ✅ Persisted view toggles (grid/list/table, density, previews, sub-views) across navigation and restarts
 - ✅ Right-click context menus across library, downloads, store, mods, news, emulators and storage
 - ✅ Native Linux emulator installs (AppImage/tarball) & Flatpak/Snap discovery
 - ✅ Standalone always-on-top launch splash window that survives minimize-on-launch
@@ -444,7 +451,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 ## 📌 Status
 
 > 🛠️ **Personal project, vibe-coded** — built in my free time as a learning exercise and a love-letter to PC gaming.
-> Latest tagged release: **v1.3.0** ([GitHub Releases](https://github.com/atxoxx/GameIndex/releases)).
+> Latest tagged release: **v1.4.0** ([GitHub Releases](https://github.com/atxoxx/GameIndex/releases)).
 > Expect rough edges, breaking changes, and rapid iteration. Contributions and ideas are welcome.
 
 ---

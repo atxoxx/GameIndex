@@ -185,6 +185,7 @@
   - **Uninstall**: full cleanup including leftover folders, registry entries (Windows), and shortcuts.
   - **Backup**: compress and archive game folder to external drive / NAS.
   - **Batch operations**: select multiple games for move/uninstall/backup.
+  - **Library health & maintenance**: duplicate/missing-path/missing-metadata/orphaned-artwork/stale-size/backlog findings with bulk enrich & cleanup (`LibraryHealthCenter`).
 
 ---
 
@@ -207,6 +208,10 @@
   - Bandwidth limiter (global setting) + seed config (seed-after-complete, disable upload).
   - Download modal supporting direct links, torrents and magnets (`c218dfa`).
   - Cover-art resolution for download rows.
+  - **Tabbed page** — Active / Scheduled / History (`DownloadsTabs`, `usePersistedState`).
+  - **Transfer scheduler** (`downloads/scheduler.rs`): time-of-day window + weekday toggles, per-rule bandwidth overrides, max concurrency, auto-start, pause-outside-window and pause-while-gaming.
+  - Queue priority/retry controls and seed ratio/time caps.
+  - **Rebuilt download modal**: filter popover, recommended sort, saved filter presets, batch selection, match highlighting, reliability pills, a compare tray/drawer and an in-modal queue preview.
 
 ### 22. Statistics Tab — ✅ Done
 - A **Statistics** tab with personal gaming analytics:
@@ -317,6 +322,7 @@
 
 ### 39. Updater — ✅ Done
 - `tauri-plugin-updater` for release-channel updates + portable-mode update download/cancel/apply (`updater.rs`), surfaced via `UpdateModal` / `UpdateNotification`.
+- Release history groups notes into collapsible, conventional-commit sections with per-category icons/counts and an `info:` callout (`ReleaseNotesView.tsx`, shared with the update prompt).
 
 ### 40. Tests — ✅ Done (first pass)
 - Frontend: **vitest** test suite (`npm test`) covering filters, Steam integration, units, color, game utils — expanded with store compare, store card hover, focus memory, gamepad utils, backdrop art, update-check, settings/sidebar contexts.
@@ -392,9 +398,9 @@
 | 🟢 Normal | 16 | Store page — browse & download | ✅ Done |
 | 🟢 Normal | 17 | Multi-store import & sync (Steam/Epic/GOG/Humble/Rockstar/Uplay) | ✅ Done |
 | 🟢 Normal | 18 | Per-game options / context menu | ⚠️ Partial (launch args, admin, pre/post scripts, companion apps, Steam picker, metadata override, hide, env vars + compat profiles done; no perf profiles / user tags) |
-| 🟢 Normal | 19 | Game manager tab | ✅ Done |
+| 🟢 Normal | 19 | Game manager / storage tab (+ Library Health center) | ✅ Done |
 | 🟢 Normal | 20 | Deals tab | ✅ Done |
-| 🟢 Normal | 21 | Downloads tab | ✅ Done |
+| 🟢 Normal | 21 | Downloads tab (+ scheduler, queue controls, rebuilt modal) | ✅ Done |
 | 🟢 Normal | 22 | Statistics tab | ✅ Done |
 | 🟢 Normal | 23 | Watchlist tab | ✅ Done |
 | 🟢 Normal | 24 | Translations / i18n (6 locales) | ✅ Done |
@@ -409,23 +415,39 @@
 | 🟢 Normal | 36 | Command palette & UI sounds | ✅ Done |
 | 🟢 Normal | 37 | Simple UI mode & onboarding | ✅ Done |
 | 🟢 Normal | 38 | Docs page | ✅ Done |
-| 🟢 Normal | 39 | Updater (release + portable) | ✅ Done |
+| 🟢 Normal | 39 | Updater (release + portable; grouped release history) | ✅ Done |
 | 🟢 Normal | 40 | Test suite (vitest + Rust unit tests) | ✅ Done |
 | 🟢 Normal | 41 | Game version detection & update badges | ✅ Done |
 | 🟢 Normal | 42 | Store side-by-side compare mode | ✅ Done |
 | 🟢 Normal | 43 | Interface customization (nav tab order, icon rail) + handheld layouts | ✅ Done |
 | 🟢 Normal | 44 | Backup & restore v2 (raw NDJSON + compatibility domain) | ✅ Done |
 | 🟢 Normal | 45 | Steam metadata enrichment (tags/features/collections) | ✅ Done |
+| 🟢 Normal | 47 | Save backups suite (PCGamingWiki detection, `.gisave` archives) | ✅ Done |
+| 🟢 Normal | 48 | Crash diagnostics & dated reports | ✅ Done |
+| 🟢 Normal | 49 | Library health & maintenance center | ✅ Done |
+| 🟢 Normal | 50 | Persisted UI view toggles | ✅ Done |
 | ✅ Done | 26 | Linux support (Proton/Wine runners, prefixes, GameScope, GPU pinning, Wine logs) | ✅ Done (Flatpak packaging remains) |
 | ⚪ Later | 27 | Theming system v2 | ⚠️ Partial (accent family + consistency polish done; no theme editor/import-export yet) |
 | ⚪ Later | 28 | Plugin system | ✅ Done (sandboxed search/download plugins); broader hook/marketplace API future |
 | ⚪ Later | 46 | Performance profiles & user tags | ⏳ Planned |
 
-> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**, **Tray**, **Discord**, **Docs**, **Updater**, **Linux/Steam Deck compatibility**, **Store Compare**, **Game Versions**, **Interface customization**) are now tracked above.
+> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**, **Tray**, **Discord**, **Docs**, **Updater**, **Linux/Steam Deck compatibility**, **Store Compare**, **Game Versions**, **Interface customization**, **Save Backups**, **Library Health**, **Crash Diagnostics**) are now tracked above.
 
 ### 47. Save Backups suite — ✅ Done
 - Opt-in per-game save data management (Settings → Saves master toggle gates the UI).
-- **Discovery:** curated known-game registry + heuristic scan of standard save roots + Steam Cloud `userdata` + emulator saves folders, with manual add/edit/remove per game.
-- **Snapshots:** versioned-directory backups (`manifest.json` + `files/`), manual / back-up-all / automatic on game exit, configurable retention and ignore globs, configurable backup folder (point it at a cloud drive for off-machine copies).
+- **Discovery:** curated known-game registry + heuristic scan of standard save roots + Steam Cloud `userdata` + PCGamingWiki lookups + emulator saves folders, with manual add/edit/remove per game.
+- **Snapshots:** compressed `.gisave` (Deflated zip) archives, manual / back-up-all / automatic on game exit, configurable retention and ignore globs, configurable backup folder (point it at a cloud drive for off-machine copies); legacy directory snapshots still restore.
 - **Restore:** whole-game restore with an automatic pre-restore safety snapshot; browse/delete/open snapshots.
-- **Surfaces:** top-nav "Saves" hub page, per-game "Saves" detail tab, and the Settings → Saves configuration tab; the index travels in `.gibak` backups.
+- **Surfaces:** top-nav "Saves" hub page, per-game "Saves" detail tab (and overview card), and the Settings → Saves configuration tab; the index travels in `.gibak` backups.
+
+### 48. Crash Diagnostics — ✅ Done
+- `crashlog.rs`: panic hook (all platforms) + Windows vectored exception handler + frontend error capture (`crashlog_record`), machine/version context and a breadcrumb trail.
+- Rolling `crash.log` (rotated, 2 MB cap) plus standalone dated `crash-<date>.txt` reports.
+- Settings → **Diagnostics** tab (`DiagnosticsTab.tsx`) previews/copies/exports/deletes reports, copies a system report and opens the log folder.
+
+### 49. Library Health & Maintenance Center — ✅ Done
+- Storage page center (`src/pages/storage/LibraryHealthCenter.tsx`): missing install paths, duplicate rows, missing metadata, orphaned artwork, stale sizes and unplayed backlog, with bulk enrich/cleanup actions.
+- `library_health.rs` backs the filesystem-only checks (`scan_orphaned_artwork` / `delete_orphaned_artwork`); scans never delete without an explicit confirmed path list.
+
+### 50. Persisted UI View Toggles — ✅ Done
+- `usePersistedState` (localStorage-backed, value-validated, cross-tab aware) now remembers grid/list/table/timeline, density, preview, sub-view and chart-style toggles across navigation and restarts; filters/search/sort stay ephemeral.
