@@ -2145,9 +2145,8 @@
 }
 
 .game-hero__poster-badge--installed {
-  background: color-mix(in srgb, var(--color-success) 80%, black 20%);
-  border-color: color-mix(in srgb, var(--color-success) 90%, white 10%);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-success) 40%, transparent);
+  background: color-mix(in srgb, var(--color-success) 14%, var(--scrim-dark));
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--scrim-border));
 }
 
 /* Info KPI Card Exe & AppID */
