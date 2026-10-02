@@ -2740,6 +2740,8 @@ export const ru: TranslationDict = {
   "map.loading": "Загрузка карты…",
   "map.selectMap": "Выбрать карту",
   "map.selectSource": "Выбрать источник",
+  "map.sourceLabel": "Источник",
+  "map.mapLabel": "Карта",
   "map.openOnProvider": "Открыть на {provider}",
   "map.unavailable": "Предпросмотр карты недоступен. Откройте её в браузере.",
   "game.tab.reviews": "Обзоры",

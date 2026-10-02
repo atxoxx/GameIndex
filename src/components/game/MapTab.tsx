@@ -189,57 +189,57 @@ export default function MapTab({ sources, visible = true }: MapTabProps) {
           <span className="map-tab__game">{activeSource.title}</span>
         </div>
 
-        <button
-          type="button"
-          className="map-tab__external"
-          onClick={openExternal}
-          title={t("map.openOnProvider", { provider: activeSource.label })}
-        >
-          <IconExternalLink size={15} />
-          <span>{t("map.openOnProvider", { provider: activeSource.label })}</span>
-        </button>
+        <div className="map-tab__controls">
+          {sources.length > 1 && (
+            <label className="map-tab__field">
+              <span className="map-tab__field-label">{t("map.sourceLabel")}</span>
+              <select
+                className="map-tab__select"
+                value={activeSource.id}
+                aria-label={t("map.selectSource")}
+                onChange={(event) => {
+                  setActiveSourceId(event.target.value);
+                  setActiveMapUrl(null);
+                }}
+              >
+                {sources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {activeSource.maps.length > 1 && (
+            <label className="map-tab__field">
+              <span className="map-tab__field-label">{t("map.mapLabel")}</span>
+              <select
+                className="map-tab__select"
+                value={activeUrl}
+                aria-label={t("map.selectMap")}
+                onChange={(event) => setActiveMapUrl(event.target.value)}
+              >
+                {activeSource.maps.map((map) => (
+                  <option key={map.url} value={map.url}>
+                    {map.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <button
+            type="button"
+            className="map-tab__external"
+            onClick={openExternal}
+            title={t("map.openOnProvider", { provider: activeSource.label })}
+          >
+            <IconExternalLink size={15} />
+            <span>{t("map.openOnProvider", { provider: activeSource.label })}</span>
+          </button>
+        </div>
       </div>
-
-      {sources.length > 1 && (
-        <div
-          className="map-tab__sources"
-          role="tablist"
-          aria-label={t("map.selectSource")}
-        >
-          {sources.map((source) => (
-            <button
-              key={source.id}
-              type="button"
-              role="tab"
-              aria-selected={source.id === activeSource.id}
-              className={`map-tab__chip${source.id === activeSource.id ? " is-active" : ""}`}
-              onClick={() => {
-                setActiveSourceId(source.id);
-                setActiveMapUrl(null);
-              }}
-            >
-              {source.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {activeSource.maps.length > 1 && (
-        <div className="map-tab__maps" role="tablist" aria-label={t("map.selectMap")}>
-          {activeSource.maps.map((map) => (
-            <button
-              key={map.url}
-              type="button"
-              role="tab"
-              aria-selected={map.url === activeUrl}
-              className={`map-tab__chip${map.url === activeUrl ? " is-active" : ""}`}
-              onClick={() => setActiveMapUrl(map.url)}
-            >
-              {map.title}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="map-tab__frame" ref={containerRef}>
         {status !== "ready" && (

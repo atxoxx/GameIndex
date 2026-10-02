@@ -2748,6 +2748,8 @@ export const en: TranslationDict = {
   "map.loading": "Loading map…",
   "map.selectMap": "Select map",
   "map.selectSource": "Select source",
+  "map.sourceLabel": "Source",
+  "map.mapLabel": "Map",
   "map.openOnProvider": "Open on {provider}",
   "map.unavailable": "Map preview unavailable. Open it in your browser instead.",
   "game.tab.reviews": "Reviews",

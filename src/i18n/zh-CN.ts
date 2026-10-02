@@ -2740,6 +2740,8 @@ export const zhCN: TranslationDict = {
   "map.loading": "正在加载地图…",
   "map.selectMap": "选择地图",
   "map.selectSource": "选择来源",
+  "map.sourceLabel": "来源",
+  "map.mapLabel": "地图",
   "map.openOnProvider": "在 {provider} 中打开",
   "map.unavailable": "地图预览不可用。请在浏览器中打开。",
   "game.tab.reviews": "评测",

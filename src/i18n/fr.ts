@@ -2740,6 +2740,8 @@ export const fr: TranslationDict = {
   "map.loading": "Chargement de la carte…",
   "map.selectMap": "Choisir une carte",
   "map.selectSource": "Choisir une source",
+  "map.sourceLabel": "Source",
+  "map.mapLabel": "Carte",
   "map.openOnProvider": "Ouvrir sur {provider}",
   "map.unavailable": "Aperçu de la carte indisponible. Ouvrez-le dans votre navigateur.",
   "game.tab.reviews": "Critiques",
