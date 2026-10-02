@@ -209,11 +209,14 @@ function GameDetail({ game }: { game: Game }) {
   const isTabVisible = useCallback(
     (tab: GamePageTab): boolean => {
       if (tab === "overview") return true;
+      // DLC & Add-ons are fetched from Steam's store API, so the tab only
+      // exists once a Steam app id can be resolved for this game.
+      if (tab === "dlc") return !!heroSteamAppId && detailSectionVisible.dlc;
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       if (tab === "saves") return savesEnabled && detailSectionVisible.saves;
       return detailSectionVisible[tab as DetailSectionKey];
     },
-    [isSimpleUi, detailSectionVisible, savesEnabled],
+    [isSimpleUi, detailSectionVisible, savesEnabled, heroSteamAppId],
   );
 
   const effectiveTab: GamePageTab =
@@ -647,7 +650,7 @@ function GameDetail({ game }: { game: Game }) {
                   onManage={() => handleTabChange("saves")}
                 />
               </PageWidgetSlot>
-              {detailSectionVisible.dlc && (
+              {detailSectionVisible.dlc && heroSteamAppId && (
                 <PageWidgetSlot
                   page="game"
                   widget="gameDlcCard"
@@ -655,6 +658,7 @@ function GameDetail({ game }: { game: Game }) {
                 >
                   <GameDlcCard
                     game={game}
+                    storeAppId={heroSteamAppId}
                     onViewAllDlcs={() => handleTabChange("dlc")}
                   />
                 </PageWidgetSlot>
@@ -776,7 +780,9 @@ function GameDetail({ game }: { game: Game }) {
         <SaveBackupTab gameId={game.id} gameName={gameDisplayName(game)} />
       )}
 
-      {effectiveTab === "dlc" && <GameDlcTab game={game} />}
+      {effectiveTab === "dlc" && (
+        <GameDlcTab game={game} storeAppId={heroSteamAppId} />
+      )}
 
       {effectiveTab === "map" && (
         <MapTab

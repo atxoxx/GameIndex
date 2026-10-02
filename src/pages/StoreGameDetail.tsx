@@ -163,6 +163,16 @@ export default function StoreGameDetail() {
     setMapHasResult(readPersistedLookupFound(gameSlug));
   }, [gameSlug, data?.title]);
 
+  // Extract Steam app id from websites
+  const steamAppId = useMemo(() => {
+    if (!data?.websites) return undefined;
+    for (const url of data.websites) {
+      const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
+      if (match) return parseInt(match[1], 10);
+    }
+    return undefined;
+  }, [data]);
+
   // Tab synchronization with URL query param
   const urlTab = searchParams.get("tab") as StoreTab | null;
   const activeTab: StoreTab = urlTab && VALID_STORE_TABS.has(urlTab) ? urlTab : "overview";
@@ -172,10 +182,13 @@ export default function StoreGameDetail() {
   const isTabVisible = useCallback(
     (tab: StoreTab): boolean => {
       if (tab === "overview") return true;
+      // DLC & Add-ons are fetched from Steam's store API, so the tab only
+      // exists once we have a Steam app id for this title.
+      if (tab === "dlc") return !!steamAppId && detailSectionVisible.dlc;
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       return detailSectionVisible[tab as DetailSectionKey];
     },
-    [isSimpleUi, detailSectionVisible],
+    [isSimpleUi, detailSectionVisible, steamAppId],
   );
 
   const handleTabChange = useCallback(
@@ -192,16 +205,6 @@ export default function StoreGameDetail() {
     },
     [setSearchParams]
   );
-
-  // Extract Steam app id from websites
-  const steamAppId = useMemo(() => {
-    if (!data?.websites) return undefined;
-    for (const url of data.websites) {
-      const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
-      if (match) return parseInt(match[1], 10);
-    }
-    return undefined;
-  }, [data]);
 
   // Construct mock Game representation for shared components
   const mockGame = useMemo((): Game | null => {
@@ -660,7 +663,7 @@ export default function StoreGameDetail() {
               >
                 <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />
               </PageWidgetSlot>
-              {detailSectionVisible.dlc && (
+              {detailSectionVisible.dlc && steamAppId && (
                 <PageWidgetSlot
                   page="storeGame"
                   widget="gameDlcCard"
