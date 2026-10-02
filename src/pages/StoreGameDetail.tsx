@@ -17,10 +17,12 @@ import AchievementsTab from "../components/AchievementsTab";
 import DownloadButton from "../components/DownloadButton";
 import CrackWatchCard from "../components/CrackWatchCard";
 import GameNewsTab from "../components/game/GameNewsTab";
+import MapTab from "../components/game/MapTab";
 import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
 import StoreGameLoadingSkeleton from "../components/store/StoreGameLoadingSkeleton";
 import { PageWidgetSlot } from "../components/PageWidget";
+import { useMapgenieMap } from "../hooks/useMapgenieMap";
 import {
   IconOverview,
   IconMessageSquare,
@@ -28,6 +30,7 @@ import {
   IconGlobe,
   IconNewspaper,
   IconDlc,
+  IconMap,
 } from "../components/game/icons";
 import {
   GameHero,
@@ -54,6 +57,7 @@ import "../styles/page-store.css";
 import "../styles/achievements.css";
 import "../styles/reviews.css";
 import "../styles/game-news.css";
+import "../styles/mapgenie.css";
 import "../styles/weblinks.css";
 
 /* ------------------------------------------------------------------ */
@@ -107,7 +111,7 @@ function StoreGameNotFound() {
 /*  Main Store Game Detail Component                                  */
 /* ------------------------------------------------------------------ */
 
-type StoreTab = "overview" | "reviews" | "achievements" | "weblinks" | "news" | "dlc";
+type StoreTab = "overview" | "reviews" | "achievements" | "weblinks" | "news" | "dlc" | "map";
 
 const VALID_STORE_TABS = new Set<StoreTab>([
   "overview",
@@ -116,6 +120,7 @@ const VALID_STORE_TABS = new Set<StoreTab>([
   "weblinks",
   "news",
   "dlc",
+  "map",
 ]);
 
 export default function StoreGameDetail() {
@@ -143,6 +148,11 @@ export default function StoreGameDetail() {
   const mountedRef = useRef(true);
   const enrichedSlugRef = useRef<string | null>(null);
 
+  // MapGenie lookup — resolved before the loading/error early returns so
+  // hook order stays stable. Title is empty until the detail fetch lands,
+  // which simply keeps the Map tab hidden until then.
+  const mapLookup = useMapgenieMap(data?.title);
+
   // Tab synchronization with URL query param
   const urlTab = searchParams.get("tab") as StoreTab | null;
   const activeTab: StoreTab = urlTab && VALID_STORE_TABS.has(urlTab) ? urlTab : "overview";
@@ -152,10 +162,11 @@ export default function StoreGameDetail() {
   const isTabVisible = useCallback(
     (tab: StoreTab): boolean => {
       if (tab === "overview") return true;
+      if (tab === "map") return mapLookup.status === "found";
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       return detailSectionVisible[tab as DetailSectionKey];
     },
-    [isSimpleUi, detailSectionVisible],
+    [isSimpleUi, detailSectionVisible, mapLookup.status],
   );
 
   const handleTabChange = useCallback(
@@ -404,11 +415,20 @@ export default function StoreGameDetail() {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
       { id: "dlc" as const, label: t("game.tab.dlc"), icon: IconDlc },
+      // Conditional MapGenie tab; sorts last since it's not in the
+      // reorderable detail-tab set.
+      ...(mapLookup.status === "found"
+        ? [{ id: "map" as const, label: t("game.tab.map"), icon: IconMap }]
+        : []),
     ];
+    const order = (id: StoreTab) => {
+      const idx = (storeTabOrder as readonly string[]).indexOf(id);
+      return idx === -1 ? storeTabOrder.length : idx;
+    };
     return allTabs
-      .sort((a, b) => storeTabOrder.indexOf(a.id) - storeTabOrder.indexOf(b.id))
+      .sort((a, b) => order(a.id) - order(b.id))
       .filter((tab) => isTabVisible(tab.id));
-  }, [t, data?.websites, isTabVisible, storeTabOrder]);
+  }, [t, data?.websites, isTabVisible, storeTabOrder, mapLookup.status]);
 
   if (loading) return <StoreGameLoadingSkeleton />;
   if (error) return <StoreGameError message={error} onRetry={fetchData} />;
@@ -727,6 +747,10 @@ export default function StoreGameDetail() {
           storeAppId={steamAppId}
           gameName={data.title}
         />
+      )}
+
+      {effectiveTab === "map" && mapLookup.data && (
+        <MapTab game={mapLookup.data} visible={!lightboxOpen} />
       )}
 
       {/* Unified Image Lightbox */}

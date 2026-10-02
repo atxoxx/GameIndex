@@ -54,13 +54,16 @@ import {
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
+import MapTab from "../components/game/MapTab";
 import NotesTab from "../components/game/notes/NotesTab";
 import SaveBackupTab from "../components/game/SaveBackupTab";
 import { useGameNotes } from "../hooks/useGameNotes";
+import { useMapgenieMap } from "../hooks/useMapgenieMap";
 import "../styles/activity.css";
 import "../styles/achievements.css";
 import "../styles/reviews.css";
 import "../styles/game-news.css";
+import "../styles/mapgenie.css";
 import "./news/NewsPage.css";
 import "../styles/weblinks.css";
 import { useAchievements } from "../context/AchievementContext";
@@ -77,6 +80,7 @@ import {
   IconFileText,
   IconDlc,
   IconSave,
+  IconMap,
 } from "../components/game/icons";
 
 type GamePageTab =
@@ -89,7 +93,8 @@ type GamePageTab =
   | "saves"
   | "weblinks"
   | "news"
-  | "dlc";
+  | "dlc"
+  | "map";
 
 const VALID_TABS = new Set<GamePageTab>([
   "overview",
@@ -102,6 +107,7 @@ const VALID_TABS = new Set<GamePageTab>([
   "weblinks",
   "news",
   "dlc",
+  "map",
 ]);
 
 /**
@@ -151,6 +157,7 @@ function GameDetail({ game }: { game: Game }) {
   const { appId: heroSteamAppId } = useSteamAppId(game);
   const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
   const { enabled: savesEnabled } = useSaves();
+  const mapLookup = useMapgenieMap(game.name);
   const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("game");
   const { getAchievementSummary } = useAchievements();
   const {
@@ -192,11 +199,14 @@ function GameDetail({ game }: { game: Game }) {
   const isTabVisible = useCallback(
     (tab: GamePageTab): boolean => {
       if (tab === "overview") return true;
+      // MapGenie only lists a few hundred games; the tab exists only when
+      // the backend found a confident match.
+      if (tab === "map") return mapLookup.status === "found";
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       if (tab === "saves") return savesEnabled && detailSectionVisible.saves;
       return detailSectionVisible[tab as DetailSectionKey];
     },
-    [isSimpleUi, detailSectionVisible, savesEnabled],
+    [isSimpleUi, detailSectionVisible, savesEnabled, mapLookup.status],
   );
 
   const effectiveTab: GamePageTab =
@@ -336,11 +346,21 @@ function GameDetail({ game }: { game: Game }) {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
       { id: "dlc" as const, label: t("game.tab.dlc"), icon: IconDlc },
+      // Only offer the Map tab when MapGenie actually hosts a map for this
+      // game. It sits outside the reorderable detail-tab set, so it always
+      // sorts last.
+      ...(mapLookup.status === "found"
+        ? [{ id: "map" as const, label: t("game.tab.map"), icon: IconMap }]
+        : []),
     ];
+    const order = (id: GamePageTab) => {
+      const idx = (gameTabOrder as readonly string[]).indexOf(id);
+      return idx === -1 ? gameTabOrder.length : idx;
+    };
     return allTabs
-      .sort((a, b) => gameTabOrder.indexOf(a.id) - gameTabOrder.indexOf(b.id))
+      .sort((a, b) => order(a.id) - order(b.id))
       .filter((tab) => isTabVisible(tab.id));
-  }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible, gameTabOrder]);
+  }, [t, achievementTotal, game.websites, gameNotes.length, isTabVisible, gameTabOrder, mapLookup.status]);
 
   // The top bar renders straight from the persisted order/visibility. Items the
   // platform can't offer (Wine Logs / Compatibility on non-Linux hosts) are
@@ -730,6 +750,13 @@ function GameDetail({ game }: { game: Game }) {
       )}
 
       {effectiveTab === "dlc" && <GameDlcTab game={game} />}
+
+      {effectiveTab === "map" && mapLookup.data && (
+        <MapTab
+          game={mapLookup.data}
+          visible={!editing && !lightboxOpen && !showRemoveConfirm}
+        />
+      )}
 
       {/* Edit Game Modal */}
       {editTab && (
