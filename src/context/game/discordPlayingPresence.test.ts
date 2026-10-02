@@ -3,6 +3,8 @@ import type { Game } from "../../types/game";
 import {
   buildPlayingPresence,
   discordAsset,
+  discordGameLogo,
+  discordPoster,
   discordStoreUrl,
   discordWebsiteUrl,
   type TranslateFn,
@@ -57,7 +59,9 @@ describe("buildPlayingPresence", () => {
     expect(payload.startedAt).toBe(ALL_ON.startedAt);
     expect(payload.detailsUrl).toBe("https://hollowknight.com");
     expect(payload.largeImage).toBe("https://cdn.example/hk.jpg");
-    expect(payload.smallImage).toBe("https://cdn.example/hk-icon.png");
+    expect(payload.smallImage).toBe(
+      "https://cdn.cloudflare.steamstatic.com/steam/apps/367520/logo.png",
+    );
     expect(payload.stateText).toContain("discordPresence.playingVia(platform=Steam)");
     expect(payload.stateText).toContain("discordPresence.playtimeTotal(time=12h 30m)");
     expect(payload.buttonUrl).toBe("https://hollowknight.com");
@@ -121,6 +125,7 @@ describe("buildPlayingPresence", () => {
     const game = makeGame({
       coverArtUrl: "data:image/png;base64,AAAA",
       iconUrl: "data:image/png;base64,BBBB",
+      logoUrl: "data:image/png;base64,CCCC",
     });
 
     const payload = buildPlayingPresence(game, game.id, game.name, ALL_ON, t);
@@ -130,6 +135,45 @@ describe("buildPlayingPresence", () => {
     expect(payload.detailsUrl).toBeUndefined();
     expect(payload.buttonUrl).toBeUndefined();
     expect(payload.button2Url).toBeUndefined();
+  });
+
+  it("falls back to the poster for the small badge when no logo exists", () => {
+    const game = makeGame({ coverSourceUrl: "https://cdn.example/hk.jpg" });
+
+    const payload = buildPlayingPresence(game, game.id, game.name, ALL_ON, t);
+
+    expect(payload.largeImage).toBe("https://cdn.example/hk.jpg");
+    expect(payload.smallImage).toBe("https://cdn.example/hk.jpg");
+  });
+
+  it("prefers a stored public logo over the Steam CDN", () => {
+    const game = makeGame({
+      logoUrl: "https://cdn.example/hk-logo.png",
+      coverSourceUrl: "https://cdn.example/hk.jpg",
+      steamAppId: 367520,
+    });
+
+    const payload = buildPlayingPresence(game, game.id, game.name, ALL_ON, t);
+
+    expect(payload.smallImage).toBe("https://cdn.example/hk-logo.png");
+  });
+
+  it("omits the small badge when art is disabled", () => {
+    const game = makeGame({
+      coverSourceUrl: "https://cdn.example/hk.jpg",
+      logoUrl: "https://cdn.example/hk-logo.png",
+    });
+
+    const payload = buildPlayingPresence(
+      game,
+      game.id,
+      game.name,
+      { ...ALL_ON, showArt: false },
+      t,
+    );
+
+    expect(payload.largeImage).toBeUndefined();
+    expect(payload.smallImage).toBeUndefined();
   });
 
   it("omits the session timer and website link when those options are off", () => {
@@ -193,5 +237,22 @@ describe("discord URL helpers", () => {
       "https://store.steampowered.com/app/42",
     );
     expect(discordStoreUrl(makeGame({ gogGameId: "1207658925" }))).toBeUndefined();
+  });
+
+  it("derives a Steam CDN logo and prefers a stored public logo", () => {
+    expect(discordGameLogo(makeGame({ steamAppId: 367520 }))).toBe(
+      "https://cdn.cloudflare.steamstatic.com/steam/apps/367520/logo.png",
+    );
+    expect(
+      discordGameLogo(makeGame({ logoUrl: "https://cdn.example/l.png", steamAppId: 1 })),
+    ).toBe("https://cdn.example/l.png");
+    expect(discordGameLogo(makeGame({ logoUrl: "asset://localhost/l.png" }))).toBeUndefined();
+  });
+
+  it("uses the public cover source as the poster", () => {
+    expect(discordPoster(makeGame({ coverSourceUrl: "https://cdn.example/c.jpg" }))).toBe(
+      "https://cdn.example/c.jpg",
+    );
+    expect(discordPoster(makeGame({ coverArtUrl: "asset://localhost/c.jpg" }))).toBeUndefined();
   });
 });

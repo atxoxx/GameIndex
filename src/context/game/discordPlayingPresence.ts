@@ -30,6 +30,31 @@ export function discordWebsiteUrl(game: Game | undefined): string | undefined {
 }
 
 /**
+ * Public poster URL used for the large activity image. Discord fetches
+ * activity art server-side, so only the original https source
+ * (`coverSourceUrl`) is usable — the stored `coverArtUrl` is usually a
+ * data/asset URI that Discord cannot load.
+ */
+export function discordPoster(game: Game | undefined): string | undefined {
+  return discordAsset(game?.coverSourceUrl ?? game?.coverArtUrl);
+}
+
+/**
+ * Public logo URL for the small activity badge. Prefers a logo already stored
+ * as an https URL, then derives the Steam CDN logo from the app id. Falls back
+ * to `undefined` when the game has neither, so callers can show the poster
+ * instead.
+ */
+export function discordGameLogo(game: Game | undefined): string | undefined {
+  const stored = discordAsset(game?.logoUrl);
+  if (stored) return stored;
+  if (game?.steamAppId) {
+    return `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamAppId}/logo.png`;
+  }
+  return undefined;
+}
+
+/**
  * Platform store-page URL used for the secondary button. Only Steam has a
  * reliable app-id → URL mapping, so other stores fall back to no store button
  * rather than guessing a slug that may 404.
@@ -133,6 +158,11 @@ export function buildPlayingPresence(
   const smallText =
     opts.showExtraDetails && game?.version ? game.version : t("discordPresence.smallText");
 
+  const poster = discordPoster(game);
+  // The small badge shows the game logo and falls back to the poster when no
+  // public logo is available.
+  const logo = discordGameLogo(game) ?? poster;
+
   return {
     state: "playing",
     gameId,
@@ -141,11 +171,9 @@ export function buildPlayingPresence(
     details: gameName,
     stateText,
     detailsUrl: showWebsite ? website : undefined,
-    largeImage: opts.showArt
-      ? discordAsset(game?.coverSourceUrl ?? game?.coverArtUrl)
-      : undefined,
+    largeImage: opts.showArt ? poster : undefined,
     largeText,
-    smallImage: opts.showArt ? discordAsset(game?.iconUrl) : undefined,
+    smallImage: opts.showArt ? logo : undefined,
     smallText,
     largeUrl: opts.showExtraDetails ? website : undefined,
     smallUrl: opts.showExtraDetails ? store : undefined,
