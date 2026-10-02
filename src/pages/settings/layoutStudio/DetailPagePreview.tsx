@@ -128,6 +128,7 @@ const GAME_HIDDEN_NOTE_SECTIONS: DetailSectionKey[] = [
   "mods",
   "weblinks",
   "news",
+  "map",
 ];
 const STORE_HIDDEN_NOTE_SECTIONS: DetailSectionKey[] = [
   "steamFeatures",
@@ -140,6 +141,7 @@ const STORE_HIDDEN_NOTE_SECTIONS: DetailSectionKey[] = [
   "achievements",
   "weblinks",
   "news",
+  "map",
 ];
 
 /**

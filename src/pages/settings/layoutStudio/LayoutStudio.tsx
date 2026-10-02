@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   LayoutTemplate,
   List,
+  Map as MapIcon,
   type LucideIcon,
   MessageSquare,
   Monitor,
@@ -149,6 +150,7 @@ const DETAIL_TAB_ICON: Record<DetailTabKey, LucideIcon> = {
   weblinks: Globe,
   news: Newspaper,
   dlc: Puzzle,
+  map: MapIcon,
 };
 
 const HERO_ELEMENT_ICON: Record<HeroElementKey, LucideIcon> = {

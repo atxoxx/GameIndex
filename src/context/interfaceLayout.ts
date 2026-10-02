@@ -988,11 +988,11 @@ export function normalizeSidebarSectionVisibility(raw: unknown): SidebarSectionV
 export type DetailTabScope = "game" | "store";
 export type DetailTabKey =
   | "overview" | "dlc" | "reviews" | "activity" | "notes"
-  | "achievements" | "mods" | "saves" | "weblinks" | "news";
+  | "achievements" | "mods" | "saves" | "weblinks" | "news" | "map";
 
 export const DETAIL_TABS: Record<DetailTabScope, DetailTabKey[]> = {
-  game: ["overview", "dlc", "reviews", "activity", "notes", "achievements", "mods", "saves", "weblinks", "news"],
-  store: ["overview", "dlc", "reviews", "achievements", "weblinks", "news"],
+  game: ["overview", "dlc", "reviews", "activity", "notes", "achievements", "mods", "saves", "weblinks", "news", "map"],
+  store: ["overview", "dlc", "reviews", "achievements", "weblinks", "news", "map"],
 };
 export const DEFAULT_DETAIL_TAB_ORDER = DETAIL_TABS; // shipped order
 
@@ -1010,6 +1010,7 @@ export const DETAIL_TAB_LABEL_KEY: Record<DetailTabKey, string> = {
   saves: "saves.tab",
   weblinks: "game.tab.weblinks",
   news: "game.tab.news",
+  map: "game.tab.map",
 };
 
 export type DetailTabOrderMap = Partial<Record<DetailTabScope, DetailTabKey[]>>;

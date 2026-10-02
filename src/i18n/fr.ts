@@ -7612,6 +7612,8 @@ export const fr: TranslationDict = {
   "settings.interface.widgetGameSaveBackup": "Sauvegardes",
   "settings.detailSections.dlc.title": "DLC et extensions",
   "settings.detailSections.dlc.desc": "Afficher ou masquer la section DLC et partage familial Steam.",
+  "settings.detailSections.map.title": "Carte",
+  "settings.detailSections.map.desc": "Afficher ou masquer l'onglet de carte interactive.",
   "dlc.cardTitle": "DLC et extensions",
   "dlc.ownedCountBadge": "{owned} / {total} possédés",
   "dlc.familySharing": "Partage familial Steam",

@@ -7613,6 +7613,8 @@ export const ru: TranslationDict = {
   "settings.interface.widgetGameSaveBackup": "Резервные копии сохранений",
   "settings.detailSections.dlc.title": "DLC и дополнения",
   "settings.detailSections.dlc.desc": "Показывать или скрывать раздел DLC и Семейного доступа Steam.",
+  "settings.detailSections.map.title": "Карта",
+  "settings.detailSections.map.desc": "Показывать или скрывать вкладку интерактивной карты.",
   "dlc.cardTitle": "DLC и дополнения",
   "dlc.ownedCountBadge": "{owned} / {total} куплено",
   "dlc.familySharing": "Семейный доступ Steam",

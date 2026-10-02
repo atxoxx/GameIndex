@@ -7613,6 +7613,8 @@ export const es: TranslationDict = {
   "settings.interface.widgetGameSaveBackup": "Copias de partidas",
   "settings.detailSections.dlc.title": "DLC y expansiones",
   "settings.detailSections.dlc.desc": "Mostrar u ocultar la sección de DLCs y préstamo familiar de Steam.",
+  "settings.detailSections.map.title": "Mapa",
+  "settings.detailSections.map.desc": "Mostrar u ocultar la pestaña de mapa interactivo.",
   "dlc.cardTitle": "DLC y expansiones",
   "dlc.ownedCountBadge": "{owned} / {total} en propiedad",
   "dlc.familySharing": "Préstamo familiar de Steam",

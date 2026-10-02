@@ -145,6 +145,7 @@ export function buildDetailSectionItems(
   const leading: DetailSectionKey[] = [
     "steamFeatures",
     "dlc",
+    "map",
     "systemRequirements",
     "gameRelations",
     "timeToBeat",

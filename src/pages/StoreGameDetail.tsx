@@ -172,9 +172,6 @@ export default function StoreGameDetail() {
   const isTabVisible = useCallback(
     (tab: StoreTab): boolean => {
       if (tab === "overview") return true;
-      // The Map tab is always offered; when no provider matches, it still
-      // opens so the user can search for another game name.
-      if (tab === "map") return true;
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       return detailSectionVisible[tab as DetailSectionKey];
     },
@@ -427,9 +424,8 @@ export default function StoreGameDetail() {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
       { id: "dlc" as const, label: t("game.tab.dlc"), icon: IconDlc },
-      // Always offered; the tab itself explains when no provider matched and
-      // lets the user search. It sorts last since it is not in the
-      // reorderable detail-tab set.
+      // A normal detail tab (hidden/reordered in the Layout Studio). When no
+      // provider matches it still opens so the user can search by name.
       {
         id: "map" as const,
         label: t("game.tab.map"),
@@ -615,6 +611,7 @@ export default function StoreGameDetail() {
                   "achievements",
                   "weblinks",
                   "news",
+                  "map",
                 ]}
               />
 

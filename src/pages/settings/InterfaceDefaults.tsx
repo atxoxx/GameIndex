@@ -28,6 +28,7 @@ const TAB_DETAIL_KEYS: ReadonlySet<DetailSectionKey> = new Set([
   "mods",
   "weblinks",
   "news",
+  "map",
 ]);
 
 /**

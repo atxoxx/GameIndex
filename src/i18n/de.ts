@@ -7612,6 +7612,8 @@ export const de: TranslationDict = {
   "settings.interface.widgetGameSaveBackup": "Spielstand-Backups",
   "settings.detailSections.dlc.title": "DLCs & Add-ons",
   "settings.detailSections.dlc.desc": "DLCs und Steam-Familienbibliothek-Bereich anzeigen oder ausblenden.",
+  "settings.detailSections.map.title": "Karte",
+  "settings.detailSections.map.desc": "Karten-Tab ein- oder ausblenden.",
   "dlc.cardTitle": "DLCs & Add-ons",
   "dlc.ownedCountBadge": "{owned} / {total} im Besitz",
   "dlc.familySharing": "Steam-Familienbibliothek",

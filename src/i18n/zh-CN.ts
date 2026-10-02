@@ -7612,6 +7612,8 @@ export const zhCN: TranslationDict = {
   "settings.interface.widgetGameSaveBackup": "存档备份",
   "settings.detailSections.dlc.title": "DLC 与附加内容",
   "settings.detailSections.dlc.desc": "显示或隐藏 DLC 及 Steam 家庭共享板块。",
+  "settings.detailSections.map.title": "地图",
+  "settings.detailSections.map.desc": "显示或隐藏互动地图标签页。",
   "dlc.cardTitle": "DLC 与附加内容",
   "dlc.ownedCountBadge": "已拥有 {owned} / {total}",
   "dlc.familySharing": "Steam 家庭共享",
