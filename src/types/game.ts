@@ -1231,25 +1231,26 @@ export interface GameMetadataImages {
   logo: string | null;
 }
 
-/** One selectable map belonging to a MapGenie game. Mirrors the Rust
- *  `MapgenieMap` (camelCase JSON). */
-export interface MapgenieMap {
+/** One selectable map belonging to a provider entry. Mirrors the Rust
+ *  `MapSourceMap` (camelCase JSON). */
+export interface MapSourceMap {
   title: string;
-  slug: string;
   url: string;
 }
 
-/** A game matched on MapGenie (mapgenie.io) plus the interactive map
- *  URLs it exposes. Returned by the `fetch_mapgenie_map` Tauri command;
- *  `null` means no confident match, so the Map tab stays hidden. */
-export interface MapgenieGame {
-  slug: string;
+/** A provider that hosts a map for the requested game. Returned by the
+ *  `fetch_game_maps` Tauri command; an empty array means no provider has
+ *  a map, so the Map tab stays hidden. */
+export interface MapSourceResult {
+  /** Stable provider id (`mapgenie`, `gamemaps`, `gamemappers`, `wand`, `gamemapscom`). */
+  id: string;
+  /** Display label ("MapGenie", "GameMaps", …). */
+  label: string;
+  /** The game title as that provider names it. */
   title: string;
-  /** Preferred map URL (the first available map). */
+  /** Preferred map URL (the first map). */
   url: string;
-  /** Catalog preview image, when MapGenie provides one. */
-  image?: string;
-  maps: MapgenieMap[];
+  maps: MapSourceMap[];
 }
 
 /** A single categorized image from the LaunchBox Games Database. */

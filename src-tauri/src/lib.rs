@@ -85,7 +85,7 @@ mod store;
 mod sessions;
 mod steam_stats;
 mod webview;
-mod mapgenie;
+mod map_sources;
 mod friends;
 
 use crate::games::*;
@@ -226,7 +226,7 @@ pub fn run() {
             steamgriddb::sgdb_search_games,
             price::fetch_game_prices_batch,
             protondb::fetch_protondb_status,
-            mapgenie::fetch_mapgenie_map,
+            map_sources::fetch_game_maps,
             fetch_url,
             webview_history_navigate,
             webview_current_url,

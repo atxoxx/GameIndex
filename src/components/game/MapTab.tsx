@@ -6,11 +6,11 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { IconExternalLink } from "./icons";
-import type { MapgenieGame } from "../../types/game";
+import type { MapSourceResult } from "../../types/game";
 
 const MAP_WEBVIEW_PREFIX = "mapgenie-preview-";
 
-/** Tear down every MapGenie webview, tolerating ones already gone. */
+/** Tear down every map webview, tolerating ones already gone. */
 async function closeMapWebviews() {
   try {
     const all = await Webview.getAll();
@@ -26,37 +26,48 @@ async function closeMapWebviews() {
 }
 
 interface MapTabProps {
-  game: MapgenieGame;
+  sources: MapSourceResult[];
   /** Hide the native webview while a DOM modal sits above it. */
   visible?: boolean;
 }
 
 /**
- * MapGenie interactive map tab.
+ * Interactive map tab backed by one or more external providers
+ * (MapGenie, GameMaps, GameMappers, Wand, Game-Maps).
  *
- * MapGenie is served through the same native child-webview pipeline the
- * WebLinks preview uses (`create_preview_webview`), so the map is fully
- * interactive and sidesteps iframe/framing restrictions. The DOM only
- * owns the toolbar and the frame placeholder the native view tracks.
+ * Pages are served through the same native child-webview pipeline the
+ * WebLinks preview uses (`create_preview_webview`), so they are fully
+ * interactive and sidestep iframe/framing restrictions. The DOM only
+ * owns the toolbars and the frame placeholder the native view tracks.
  */
-export default function MapTab({ game, visible = true }: MapTabProps) {
+export default function MapTab({ sources, visible = true }: MapTabProps) {
   const { t } = useLanguage();
   const contentFilterEnabled = useWebviewContentFilterEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const [activeSlug, setActiveSlug] = useState(game.maps[0]?.slug ?? game.slug);
+  const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
+  const [activeMapUrl, setActiveMapUrl] = useState<string | null>(null);
   const [webviewInst, setWebviewInst] = useState<Webview | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-  const activeMap = game.maps.find((m) => m.slug === activeSlug) ?? game.maps[0];
-  const activeUrl = activeMap?.url ?? game.url;
+  const activeSource =
+    sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? null;
 
-  // Re-home onto a fresh map whenever the game itself changes.
+  // Prefer an explicitly chosen map, but fall back to the provider's
+  // preferred URL when the source (and therefore map list) changes.
+  const activeUrl =
+    activeMapUrl && activeSource?.maps.some((m) => m.url === activeMapUrl)
+      ? activeMapUrl
+      : activeSource?.url ?? "";
+
+  const sourceSignature = sources.map((s) => s.id).join("|");
   useEffect(() => {
-    setActiveSlug(game.maps[0]?.slug ?? game.slug);
-  }, [game.slug, game.maps]);
+    setActiveSourceId(null);
+    setActiveMapUrl(null);
+  }, [sourceSignature]);
 
   const openExternal = useCallback(() => {
+    if (!activeUrl) return;
     openUrl(activeUrl).catch(() => {
       window.open(activeUrl, "_blank", "noopener,noreferrer");
     });
@@ -107,10 +118,16 @@ export default function MapTab({ game, visible = true }: MapTabProps) {
     (visible ? webviewInst.show() : webviewInst.hide()).catch(() => {});
   }, [webviewInst, visible]);
 
-  // (Re)create the native webview whenever the selected map changes.
+  // (Re)create the native webview whenever the selected URL changes.
   useEffect(() => {
     let active = true;
     let local: Webview | null = null;
+
+    if (!activeUrl) {
+      setStatus("loading");
+      return;
+    }
+
     setStatus("loading");
 
     async function init() {
@@ -131,7 +148,7 @@ export default function MapTab({ game, visible = true }: MapTabProps) {
           contentFilter: contentFilterEnabled,
         });
         const webview = await Webview.getByLabel(label);
-        if (!webview) throw new Error("MapGenie webview was not created");
+        if (!webview) throw new Error("map webview was not created");
 
         if (!active) {
           invoke("close_preview_webview", { label }).catch(() => {});
@@ -143,7 +160,7 @@ export default function MapTab({ game, visible = true }: MapTabProps) {
         setWebviewInst(webview);
         setStatus("ready");
       } catch (err) {
-        console.error("Failed to create MapGenie webview:", err);
+        console.error("Failed to create map webview:", err);
         if (active) setStatus("error");
       }
     }
@@ -162,41 +179,67 @@ export default function MapTab({ game, visible = true }: MapTabProps) {
     };
   }, [activeUrl, contentFilterEnabled]);
 
+  if (!activeSource) return null;
+
   return (
     <div className="map-tab">
       <div className="map-tab__toolbar">
         <div className="map-tab__heading">
           <span className="map-tab__eyebrow">{t("map.source")}</span>
-          <span className="map-tab__game">{game.title}</span>
+          <span className="map-tab__game">{activeSource.title}</span>
         </div>
-
-        {game.maps.length > 1 && (
-          <div className="map-tab__maps" role="tablist" aria-label={t("map.selectMap")}>
-            {game.maps.map((map) => (
-              <button
-                key={map.slug}
-                type="button"
-                role="tab"
-                aria-selected={map.slug === activeMap?.slug}
-                className={`map-tab__chip${map.slug === activeMap?.slug ? " is-active" : ""}`}
-                onClick={() => setActiveSlug(map.slug)}
-              >
-                {map.title}
-              </button>
-            ))}
-          </div>
-        )}
 
         <button
           type="button"
           className="map-tab__external"
           onClick={openExternal}
-          title={t("map.openOnMapGenie")}
+          title={t("map.openOnProvider", { provider: activeSource.label })}
         >
           <IconExternalLink size={15} />
-          <span>{t("map.openOnMapGenie")}</span>
+          <span>{t("map.openOnProvider", { provider: activeSource.label })}</span>
         </button>
       </div>
+
+      {sources.length > 1 && (
+        <div
+          className="map-tab__sources"
+          role="tablist"
+          aria-label={t("map.selectSource")}
+        >
+          {sources.map((source) => (
+            <button
+              key={source.id}
+              type="button"
+              role="tab"
+              aria-selected={source.id === activeSource.id}
+              className={`map-tab__chip${source.id === activeSource.id ? " is-active" : ""}`}
+              onClick={() => {
+                setActiveSourceId(source.id);
+                setActiveMapUrl(null);
+              }}
+            >
+              {source.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeSource.maps.length > 1 && (
+        <div className="map-tab__maps" role="tablist" aria-label={t("map.selectMap")}>
+          {activeSource.maps.map((map) => (
+            <button
+              key={map.url}
+              type="button"
+              role="tab"
+              aria-selected={map.url === activeUrl}
+              className={`map-tab__chip${map.url === activeUrl ? " is-active" : ""}`}
+              onClick={() => setActiveMapUrl(map.url)}
+            >
+              {map.title}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="map-tab__frame" ref={containerRef}>
         {status !== "ready" && (
@@ -215,7 +258,7 @@ export default function MapTab({ game, visible = true }: MapTabProps) {
                   onClick={openExternal}
                 >
                   <IconExternalLink size={15} />
-                  <span>{t("map.openOnMapGenie")}</span>
+                  <span>{t("map.openOnProvider", { provider: activeSource.label })}</span>
                 </button>
               </>
             )}

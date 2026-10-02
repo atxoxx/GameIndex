@@ -53,12 +53,12 @@
   text-overflow: ellipsis;
 }
 
+.map-tab__sources,
 .map-tab__maps {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  flex: 1;
   min-width: 0;
 }
 

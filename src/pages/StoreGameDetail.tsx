@@ -22,7 +22,7 @@ import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
 import StoreGameLoadingSkeleton from "../components/store/StoreGameLoadingSkeleton";
 import { PageWidgetSlot } from "../components/PageWidget";
-import { useMapgenieMap } from "../hooks/useMapgenieMap";
+import { useGameMaps } from "../hooks/useGameMaps";
 import {
   IconOverview,
   IconMessageSquare,
@@ -148,10 +148,10 @@ export default function StoreGameDetail() {
   const mountedRef = useRef(true);
   const enrichedSlugRef = useRef<string | null>(null);
 
-  // MapGenie lookup — resolved before the loading/error early returns so
+  // Map provider lookup — resolved before the loading/error early returns so
   // hook order stays stable. Title is empty until the detail fetch lands,
   // which simply keeps the Map tab hidden until then.
-  const mapLookup = useMapgenieMap(data?.title);
+  const mapLookup = useGameMaps(data?.title);
 
   // Tab synchronization with URL query param
   const urlTab = searchParams.get("tab") as StoreTab | null;
@@ -162,11 +162,11 @@ export default function StoreGameDetail() {
   const isTabVisible = useCallback(
     (tab: StoreTab): boolean => {
       if (tab === "overview") return true;
-      if (tab === "map") return mapLookup.status === "found";
+      if (tab === "map") return mapLookup.sources.length > 0;
       if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       return detailSectionVisible[tab as DetailSectionKey];
     },
-    [isSimpleUi, detailSectionVisible, mapLookup.status],
+    [isSimpleUi, detailSectionVisible, mapLookup.sources.length],
   );
 
   const handleTabChange = useCallback(
@@ -415,9 +415,9 @@ export default function StoreGameDetail() {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
       { id: "dlc" as const, label: t("game.tab.dlc"), icon: IconDlc },
-      // Conditional MapGenie tab; sorts last since it's not in the
+      // Conditional map tab; sorts last since it's not in the
       // reorderable detail-tab set.
-      ...(mapLookup.status === "found"
+      ...(mapLookup.sources.length > 0
         ? [{ id: "map" as const, label: t("game.tab.map"), icon: IconMap }]
         : []),
     ];
@@ -428,7 +428,7 @@ export default function StoreGameDetail() {
     return allTabs
       .sort((a, b) => order(a.id) - order(b.id))
       .filter((tab) => isTabVisible(tab.id));
-  }, [t, data?.websites, isTabVisible, storeTabOrder, mapLookup.status]);
+  }, [t, data?.websites, isTabVisible, storeTabOrder, mapLookup.sources.length]);
 
   if (loading) return <StoreGameLoadingSkeleton />;
   if (error) return <StoreGameError message={error} onRetry={fetchData} />;
@@ -749,8 +749,8 @@ export default function StoreGameDetail() {
         />
       )}
 
-      {effectiveTab === "map" && mapLookup.data && (
-        <MapTab game={mapLookup.data} visible={!lightboxOpen} />
+      {effectiveTab === "map" && mapLookup.sources.length > 0 && (
+        <MapTab sources={mapLookup.sources} visible={!lightboxOpen} />
       )}
 
       {/* Unified Image Lightbox */}
