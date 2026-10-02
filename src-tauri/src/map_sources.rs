@@ -13,9 +13,13 @@
 //!
 //! Matching is deliberately permissive about *presentation* differences
 //! (edition suffixes, roman numerals, `&`/`and`, publisher prefixes,
-//! subtitles after a dash) but exact about the name itself, so we never
-//! send someone to a different game. Providers resolve concurrently and
-//! independently; a game that matches none simply has no Map tab.
+//! subtitles after a dash) but exact about the name itself, so a specific
+//! title always resolves to its own game. When a query only names a
+//! franchise (`STALKER`), several entries can share the loosened key; the
+//! newest sequel wins rather than whichever entry happened to be indexed
+//! first, unless a provider has a game titled exactly that base name.
+//! Providers resolve concurrently and independently; a game that matches
+//! none simply has no Map tab.
 
 use std::collections::HashSet;
 use std::sync::{Arc, OnceLock};
@@ -69,6 +73,12 @@ struct IndexedGame {
     title: String,
     url: String,
     maps: Vec<MapSourceMap>,
+    /// Fully normalized provider title, used to recognize an exact base
+    /// match (e.g. a provider entry actually titled "Borderlands").
+    norm: String,
+    /// Highest number in the title (sequel/year), used to prefer the newest
+    /// entry when several games share a loosened franchise key.
+    sequel: u32,
 }
 
 struct CachedIndex {
@@ -210,6 +220,14 @@ fn push_key(out: &mut Vec<String>, key: &str) {
     }
 }
 
+/// Curated aliases are explicit, so short acronyms (`hl`, `gta`) are allowed
+/// even though the general key builder rejects keys under three characters.
+fn push_alias(out: &mut Vec<String>, key: &str) {
+    if !key.is_empty() && !out.iter().any(|existing| existing == key) {
+        out.push(key.to_string());
+    }
+}
+
 fn strip_parentheses(input: &str) -> String {
     static RE: OnceLock<Regex> = OnceLock::new();
     let re = RE.get_or_init(|| Regex::new(r"\([^)]*\)").expect("valid paren regex"));
@@ -268,6 +286,47 @@ fn strip_publisher_prefix(input: &str) -> String {
         }
     }
     input.to_string()
+}
+
+/// Highest number that appears as a standalone token in a title, with Roman
+/// numerals and number words folded to Arabic ("STALKER 2" → 2,
+/// "Grand Theft Auto V" → 5). Used only to break ties between entries that
+/// share a loosened franchise key.
+fn max_number(input: &str) -> u32 {
+    input
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .filter_map(|token| {
+            token
+                .parse::<u32>()
+                .ok()
+                .or_else(|| roman_to_arabic(token).and_then(|n| n.parse().ok()))
+                .or_else(|| word_to_number(token).and_then(|n| n.parse().ok()))
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+/// Drop a trailing sequel number so a bare franchise name still indexes the
+/// newest entry: "STALKER 2" → "STALKER", "The Witcher 3" → "The Witcher".
+/// Returns `None` when the last token is not a number.
+fn strip_trailing_number(input: &str) -> Option<String> {
+    let tokens: Vec<&str> = input
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .collect();
+    if tokens.len() < 2 {
+        return None;
+    }
+    let last = tokens[tokens.len() - 1].to_lowercase();
+    let is_number = last.parse::<u32>().is_ok()
+        || roman_to_arabic(&last).is_some()
+        || word_to_number(&last).is_some();
+    if !is_number {
+        return None;
+    }
+    Some(tokens[..tokens.len() - 1].join(" "))
 }
 
 fn significant_tokens(input: &str) -> String {
@@ -401,7 +460,7 @@ pub(crate) fn variants(name: &str) -> Vec<String> {
 
     // Cross-reference aliases and acronyms.
     for alias in game_aliases(&norm) {
-        push_key(&mut out, alias);
+        push_alias(&mut out, alias);
     }
 
     let no_paren = strip_parentheses(&cleaned);
@@ -444,6 +503,16 @@ pub(crate) fn variants(name: &str) -> Vec<String> {
         push_key(&mut out, &significant_tokens(base));
     }
 
+    // Bare-franchise fallback: "STALKER 2" also indexes as "stalker" so a
+    // base-name query reaches the newest entry, not just the games whose
+    // subtitle happens to start with the franchise name.
+    for base in [no_dash.as_str(), no_colon.as_str()] {
+        if let Some(bare) = strip_trailing_number(base) {
+            push_key(&mut out, &normalize(&bare));
+            push_key(&mut out, &significant_tokens(&bare));
+        }
+    }
+
     out
 }
 
@@ -456,24 +525,43 @@ fn single_map(title: &str, url: &str) -> Vec<MapSourceMap> {
 
 fn push_variants(
     out: &mut Vec<IndexedGame>,
-    seen: &mut HashSet<String>,
+    seen: &mut HashSet<(String, String)>,
     names: &[String],
     title: &str,
     url: &str,
     maps: &[MapSourceMap],
 ) {
+    let norm = normalize(title);
+    let sequel = max_number(title);
     for name in names {
         for key in variants(name) {
-            if seen.insert(key.clone()) {
+            // Keep every game that shares a key; `to_result` ranks them.
+            if seen.insert((key.clone(), url.to_string())) {
                 out.push(IndexedGame {
                     key,
                     title: title.to_string(),
                     url: url.to_string(),
                     maps: maps.to_vec(),
+                    norm: norm.clone(),
+                    sequel,
                 });
             }
         }
     }
+}
+
+/// Pick the better of two candidates that matched the same key. A game whose
+/// own normalized title equals the matched key wins outright (a provider
+/// entry actually titled "Borderlands" beats "Borderlands 4"). Otherwise the
+/// highest sequel number wins, so a bare "STALKER" query resolves to the
+/// newest entry instead of whichever title happened to be indexed first.
+fn is_better_candidate(candidate: &IndexedGame, current: &IndexedGame, matched_key: &str) -> bool {
+    let candidate_exact = candidate.norm == matched_key;
+    let current_exact = current.norm == matched_key;
+    if candidate_exact != current_exact {
+        return candidate_exact;
+    }
+    candidate.sequel > current.sequel
 }
 
 fn to_result(
@@ -484,7 +572,15 @@ fn to_result(
 ) -> Option<MapSourceResult> {
     let query = variants(game_name);
     for q in &query {
-        if let Some(game) = index.iter().find(|game| &game.key == q) {
+        let mut best: Option<&IndexedGame> = None;
+        for game in index.iter().filter(|game| &game.key == q) {
+            match best {
+                None => best = Some(game),
+                Some(current) if is_better_candidate(game, current, q) => best = Some(game),
+                _ => {}
+            }
+        }
+        if let Some(game) = best {
             return Some(MapSourceResult {
                 id: id.to_string(),
                 label: label.to_string(),
@@ -1379,6 +1475,90 @@ mod tests {
 
         assert!(find(&index, "Fallout 76").is_some(), "matches canonical title");
         assert!(find(&index, "fo76").is_some(), "matches domain abbreviation");
+    }
+
+    #[test]
+    fn trailing_numbers_strip_to_a_base_franchise_key() {
+        assert_eq!(strip_trailing_number("STALKER 2").as_deref(), Some("STALKER"));
+        assert_eq!(
+            strip_trailing_number("The Witcher 3").as_deref(),
+            Some("The Witcher")
+        );
+        assert_eq!(
+            strip_trailing_number("S.T.A.L.K.E.R. 2").as_deref(),
+            Some("S T A L K E R")
+        );
+        // Not a sequel number — nothing to strip.
+        assert_eq!(strip_trailing_number("Elden Ring"), None);
+        assert_eq!(strip_trailing_number("Borderlands"), None);
+    }
+
+    #[test]
+    fn max_number_folds_romans_and_words() {
+        assert_eq!(max_number("STALKER 2: Heart of Chornobyl"), 2);
+        assert_eq!(max_number("Grand Theft Auto V"), 5);
+        assert_eq!(max_number("Left Four Dead 2"), 4);
+        assert_eq!(max_number("Elden Ring"), 0);
+    }
+
+    #[test]
+    fn wand_bare_franchise_query_prefers_newest_sequel() {
+        let html = r#"
+            <a href="/maps/stalker-2-heart-of-chornobyl">
+                <div><h4>STALKER 2: Heart of Chornobyl</h4></div>
+            </a>
+            <a href="/maps/stalker-call-of-pripyat">
+                <div><h4>S.T.A.L.K.E.R.: Call of Pripyat</h4></div>
+            </a>
+            <a href="/maps/stalker-clear-sky-enhanced-edition">
+                <div><h4>S.T.A.L.K.E.R.: Clear Sky - Enhanced Edition</h4></div>
+            </a>
+        "#;
+        let index = parse_wand_maps(html);
+
+        let bare = to_result("wand", "Wand", &index, "S.T.A.L.K.E.R.")
+            .expect("a base franchise query should still resolve");
+        assert_eq!(bare.url, "https://wand.com/maps/stalker-2-heart-of-chornobyl");
+    }
+
+    #[test]
+    fn wand_specific_titles_still_resolve_to_their_own_game() {
+        let html = r#"
+            <a href="/maps/stalker-2-heart-of-chornobyl">
+                <div><h4>STALKER 2: Heart of Chornobyl</h4></div>
+            </a>
+            <a href="/maps/stalker-call-of-pripyat">
+                <div><h4>S.T.A.L.K.E.R.: Call of Pripyat</h4></div>
+            </a>
+        "#;
+        let index = parse_wand_maps(html);
+
+        let cop = to_result("wand", "Wand", &index, "S.T.A.L.K.E.R.: Call of Pripyat")
+            .expect("exact title matches its own game");
+        assert_eq!(cop.url, "https://wand.com/maps/stalker-call-of-pripyat");
+
+        let sequel = to_result("wand", "Wand", &index, "STALKER 2: Heart of Chornobyl")
+            .expect("exact title matches its own game");
+        assert_eq!(sequel.url, "https://wand.com/maps/stalker-2-heart-of-chornobyl");
+    }
+
+    #[test]
+    fn exact_base_title_beats_a_newer_sequel() {
+        let html = r#"
+            <a href="/maps/borderlands-4">
+                <div><h4>Borderlands 4</h4></div>
+            </a>
+            <a href="/maps/borderlands">
+                <div><h4>Borderlands</h4></div>
+            </a>
+        "#;
+        let index = parse_wand_maps(html);
+
+        assert_eq!(
+            find(&index, "Borderlands").as_deref(),
+            Some("https://wand.com/maps/borderlands"),
+            "the exact base title should win over a newer sequel"
+        );
     }
 }
 
