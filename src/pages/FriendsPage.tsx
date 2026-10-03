@@ -850,7 +850,7 @@ export default function FriendsPage() {
               const remoteLibStats =
                 remoteProfile.libStats ?? (remoteIsCore ? friend.libStats : undefined);
               const remoteGames = remoteOutbox.games ?? (remoteIsCore ? friend.games : undefined);
-              const remoteLastActive = remoteProfile.lastActive ?? friend.lastActive;
+              const remoteLastActive = remoteProfile.lastActive || friend.lastActive;
 
               const hasDiff =
                 friend.name !== remoteName ||

@@ -247,8 +247,8 @@ function RecommendationCard({
       </div>
 
       <CommentsSection
-        count={rec.comments.length}
-        comments={rec.comments}
+        count={(rec.comments ?? []).length}
+        comments={rec.comments ?? []}
         profileName={profileName}
         onAdd={(text) => void social.handleAddComment(rec.id, text)}
         onDelete={(commentId, authorName) => void social.handleDeleteComment(rec.id, commentId, authorName)}
@@ -332,8 +332,8 @@ function SuggestionCard({
       </div>
 
       <CommentsSection
-        count={sug.comments.length}
-        comments={sug.comments}
+        count={(sug.comments ?? []).length}
+        comments={sug.comments ?? []}
         profileName={profileName}
         onAdd={(text) => void social.handleAddSuggestionComment(sug.id, text)}
         onDelete={(commentId, authorName) => void social.handleDeleteSuggestionComment(sug.id, commentId, authorName)}

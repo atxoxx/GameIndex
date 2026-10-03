@@ -883,7 +883,11 @@ export function saveSessions(sessions: GameSession[]): void {
 
 export function loadRecommendations(): GameRecommendation[] {
   const profileName = getActiveProfileName();
-  return readJson<GameRecommendation[]>(`${LS_RECOMMENDATIONS_PREFIX}${profileName}`, []);
+  return readJson<GameRecommendation[]>(`${LS_RECOMMENDATIONS_PREFIX}${profileName}`, []).map((rec) => ({
+    ...rec,
+    comments: rec.comments ?? [],
+    reactions: rec.reactions ?? {},
+  }));
 }
 
 export function saveRecommendations(recs: GameRecommendation[]): void {
@@ -894,7 +898,11 @@ export function saveRecommendations(recs: GameRecommendation[]): void {
 
 export function loadSuggestions(): GameSuggestion[] {
   const profileName = getActiveProfileName();
-  return readJson<GameSuggestion[]>(`${LS_SUGGESTIONS_PREFIX}${profileName}`, []);
+  return readJson<GameSuggestion[]>(`${LS_SUGGESTIONS_PREFIX}${profileName}`, []).map((sug) => ({
+    ...sug,
+    comments: sug.comments ?? [],
+    reactions: sug.reactions ?? {},
+  }));
 }
 
 export function saveSuggestions(suggestions: GameSuggestion[]): void {
@@ -1041,8 +1049,8 @@ export function mergeSessions(local: GameSession[], remote: GameSession[]): Game
       // Attendees list should reflect "going" RSVPs for backward compatibility.
       const attendees =
         keepRemote
-          ? Array.from(new Set([...remoteSession.attendees, ...Object.keys(rsvpMap).filter((n) => rsvpMap[n] === "going")]))
-          : Array.from(new Set([...localSession.attendees, ...Object.keys(rsvpMap).filter((n) => rsvpMap[n] === "going")]));
+          ? Array.from(new Set([...(remoteSession.attendees ?? []), ...Object.keys(rsvpMap).filter((n) => rsvpMap[n] === "going")]))
+          : Array.from(new Set([...(localSession.attendees ?? []), ...Object.keys(rsvpMap).filter((n) => rsvpMap[n] === "going")]));
 
       // Merge the rich participant metadata (roles, notes, guest flag, tz).
       const participantsMap = new Map<string, SessionParticipant>();
@@ -1071,13 +1079,15 @@ export function mergeSessions(local: GameSession[], remote: GameSession[]): Game
         const base = keepRemote ? remoteSession.poll : localSession.poll;
         const other = keepRemote ? localSession.poll : remoteSession.poll;
         const votes: Record<string, string[]> = {};
-        base.options.forEach((o) => (votes[o.id] = [...(base.votes[o.id] || [])]));
-        other.options.forEach((o) => {
+        const baseVotes = base.votes ?? {};
+        const otherVotes = other.votes ?? {};
+        (base.options ?? []).forEach((o) => (votes[o.id] = [...(baseVotes[o.id] || [])]));
+        (other.options ?? []).forEach((o) => {
           const voters = new Set(votes[o.id] || []);
-          (other.votes[o.id] || []).forEach((v) => voters.add(v));
+          (otherVotes[o.id] || []).forEach((v) => voters.add(v));
           votes[o.id] = Array.from(voters);
         });
-        poll = { options: base.options, votes };
+        poll = { options: base.options ?? other.options ?? [], votes };
       }
 
       mergedMap.set(remoteSession.id, {
@@ -1097,7 +1107,7 @@ export function mergeSessions(local: GameSession[], remote: GameSession[]): Game
         participants: Array.from(participantsMap.values()),
         messages,
         durationMin: remoteSession.durationMin ?? localSession.durationMin,
-        poll: poll && poll.options.length > 0 ? poll : undefined,
+        poll: poll && poll.options && poll.options.length > 0 ? poll : undefined,
         recurrence: keepRemote ? remoteSession.recurrence ?? localSession.recurrence : localSession.recurrence ?? remoteSession.recurrence,
       });
     }
@@ -1109,12 +1119,12 @@ export function mergeSessions(local: GameSession[], remote: GameSession[]): Game
 export function mergeRecommendations(local: GameRecommendation[], remote: GameRecommendation[]): GameRecommendation[] {
   const mergedMap = new Map<string, GameRecommendation>();
   
-  local.forEach((r) => mergedMap.set(r.id, r));
+  local.forEach((r) => mergedMap.set(r.id, { ...r, comments: r.comments ?? [], reactions: r.reactions ?? {} }));
   
   remote.forEach((remoteRec) => {
     const localRec = mergedMap.get(remoteRec.id);
     if (!localRec) {
-      mergedMap.set(remoteRec.id, remoteRec);
+      mergedMap.set(remoteRec.id, { ...remoteRec, comments: remoteRec.comments ?? [], reactions: remoteRec.reactions ?? {} });
     } else {
       const keepRemote = remoteRec.updatedAt > localRec.updatedAt;
       
@@ -1142,8 +1152,8 @@ export function mergeRecommendations(local: GameRecommendation[], remote: GameRe
       }
  
       const commentMap = new Map<string, any>();
-      localRec.comments.forEach((c) => commentMap.set(c.id, c));
-      remoteRec.comments.forEach((c) => commentMap.set(c.id, c));
+      (localRec.comments ?? []).forEach((c) => commentMap.set(c.id, c));
+      (remoteRec.comments ?? []).forEach((c) => commentMap.set(c.id, c));
  
       const comments = Array.from(commentMap.values()).sort((a, b) => a.timestamp - b.timestamp);
  
@@ -1178,12 +1188,12 @@ export function mergeRecommendations(local: GameRecommendation[], remote: GameRe
 export function mergeSuggestions(local: GameSuggestion[], remote: GameSuggestion[]): GameSuggestion[] {
   const mergedMap = new Map<string, GameSuggestion>();
 
-  local.forEach((s) => mergedMap.set(s.id, s));
+  local.forEach((s) => mergedMap.set(s.id, { ...s, comments: s.comments ?? [], reactions: s.reactions ?? {} }));
 
   remote.forEach((remoteSug) => {
     const localSug = mergedMap.get(remoteSug.id);
     if (!localSug) {
-      mergedMap.set(remoteSug.id, remoteSug);
+      mergedMap.set(remoteSug.id, { ...remoteSug, comments: remoteSug.comments ?? [], reactions: remoteSug.reactions ?? {} });
       return;
     }
 
@@ -1210,8 +1220,8 @@ export function mergeSuggestions(local: GameSuggestion[], remote: GameSuggestion
     }
 
     const commentMap = new Map<string, SuggestionComment>();
-    localSug.comments.forEach((c) => commentMap.set(c.id, c));
-    remoteSug.comments.forEach((c) => commentMap.set(c.id, c));
+    (localSug.comments ?? []).forEach((c) => commentMap.set(c.id, c));
+    (remoteSug.comments ?? []).forEach((c) => commentMap.set(c.id, c));
 
     const comments = Array.from(commentMap.values()).sort((a, b) => a.timestamp - b.timestamp);
 
@@ -1783,7 +1793,7 @@ export function mergeDatabases(local: FriendsDatabase, remote: FriendsDatabase):
           region: remoteFriend.region || localFriend.region,
           libStats: remoteFriend.libStats || localFriend.libStats,
           games: remoteFriend.games || localFriend.games,
-          lastActive: remoteFriend.lastActive ?? localFriend.lastActive,
+          lastActive: remoteFriend.lastActive || localFriend.lastActive,
         });
       }
     });

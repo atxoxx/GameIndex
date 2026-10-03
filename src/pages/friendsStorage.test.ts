@@ -13,6 +13,11 @@ import {
   scopeNostrPayload,
   setNostrShareScope,
   loadFriends,
+  loadRecommendations,
+  loadSuggestions,
+  mergeRecommendations,
+  mergeSessions,
+  mergeSuggestions,
 } from "./friendsStorage";
 import type { NostrOutboxPayload } from "./friendsStorage";
 
@@ -579,5 +584,93 @@ describe("friend profile sync scope handling", () => {
       playtimeMinutes: 100,
       achievementsCount: 2,
     });
+  });
+});
+
+describe("merge tolerates core-scoped payloads", () => {
+  it("merges a remote recommendation that lost its comments and reactions", () => {
+    const localRec = makePayload().recommendations[0];
+    const coreRec = scopeNostrPayload(makePayload(), "core").recommendations[0];
+    expect(coreRec.comments).toBeUndefined();
+
+    const merged = mergeRecommendations([localRec], [coreRec]);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].comments.map((c) => c.id)).toEqual(["c1"]);
+    expect(merged[0].reactions).toEqual({ Other: "like" });
+  });
+
+  it("normalizes a brand-new remote recommendation without comments", () => {
+    const coreRec = scopeNostrPayload(makePayload(), "core").recommendations[0];
+
+    const merged = mergeRecommendations([], [{ ...coreRec, id: "r2" }]);
+
+    expect(merged[0].comments).toEqual([]);
+    expect(merged[0].reactions).toEqual({});
+  });
+
+  it("merges a remote suggestion that lost its comments and reactions", () => {
+    const localSug = makePayload().suggestions[0];
+    const coreSug = scopeNostrPayload(makePayload(), "core").suggestions[0];
+    expect(coreSug.comments).toBeUndefined();
+
+    const merged = mergeSuggestions([localSug], [coreSug]);
+
+    expect(merged[0].comments.map((c) => c.id)).toEqual(["c2"]);
+    expect(merged[0].reactions).toEqual({ Other: "interest" });
+  });
+
+  it("merges a core-scoped session missing attendees and poll votes", () => {
+    const localSession = makePayload().sessions[0];
+    const coreSession = scopeNostrPayload(makePayload(), "core").sessions[0];
+    expect(coreSession.attendees).toBeUndefined();
+
+    const mergedLocalWins = mergeSessions([localSession], [coreSession]);
+    expect(mergedLocalWins[0].attendees).toEqual(expect.arrayContaining(["Me", "Other"]));
+    expect(mergedLocalWins[0].poll?.votes["o1"]).toEqual(["Other"]);
+
+    const mergedRemoteWins = mergeSessions([localSession], [{ ...coreSession, updatedAt: 99 }]);
+    expect(mergedRemoteWins[0].attendees).toEqual(["Me"]);
+  });
+});
+
+describe("load normalization", () => {
+  it("defaults missing comments and reactions on stored records", () => {
+    localStorage.setItem(
+      "gamelib.friends.recommendations.A",
+      JSON.stringify([
+        {
+          id: "r9",
+          gameId: "g1",
+          gameName: "Game X",
+          recommendedBy: "Me",
+          recommendedTo: "All Friends",
+          reason: "",
+          rating: 5,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+    localStorage.setItem(
+      "gamelib.friends.suggestions.A",
+      JSON.stringify([
+        {
+          id: "sg9",
+          gameId: "g2",
+          gameName: "Wish Game",
+          note: "",
+          suggestedBy: "Me",
+          suggestedTo: "All Friends",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+
+    expect(loadRecommendations()[0].comments).toEqual([]);
+    expect(loadRecommendations()[0].reactions).toEqual({});
+    expect(loadSuggestions()[0].comments).toEqual([]);
+    expect(loadSuggestions()[0].reactions).toEqual({});
   });
 });

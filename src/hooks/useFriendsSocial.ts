@@ -1033,7 +1033,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
         timestamp: Date.now(),
       };
       const updated = recommendationsRef.current.map((r) =>
-        r.id === recId ? { ...r, comments: [...r.comments, newComment], updatedAt: Date.now() } : r,
+        r.id === recId ? { ...r, comments: [...(r.comments ?? []), newComment], updatedAt: Date.now() } : r,
       );
       await persistRecommendations(updated);
       showToast(t("friendsPage.commentPosted"), "success");
@@ -1049,7 +1049,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       }
       const updated = recommendationsRef.current.map((r) =>
         r.id === recId
-          ? { ...r, comments: r.comments.filter((c) => c.id !== commentId), updatedAt: Date.now() }
+          ? { ...r, comments: (r.comments ?? []).filter((c) => c.id !== commentId), updatedAt: Date.now() }
           : r,
       );
       await persistRecommendations(updated);
@@ -1138,7 +1138,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       };
       const updated = suggestionsRef.current.map((s) =>
         s.id === sugId
-          ? { ...s, comments: [...s.comments, comment], updatedAt: Date.now() }
+          ? { ...s, comments: [...(s.comments ?? []), comment], updatedAt: Date.now() }
           : s,
       );
       await persistSuggestions(updated);
@@ -1156,7 +1156,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
         s.id === sugId
           ? {
               ...s,
-              comments: s.comments.filter((c) => c.id !== commentId),
+              comments: (s.comments ?? []).filter((c) => c.id !== commentId),
               updatedAt: Date.now(),
             }
           : s,

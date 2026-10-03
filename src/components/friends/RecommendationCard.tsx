@@ -44,6 +44,7 @@ export default function RecommendationCard({
   const likesCount = Object.values(reactions).filter((r) => r === "like").length;
   const lovesCount = Object.values(reactions).filter((r) => r === "love").length;
   const playsCount = Object.values(reactions).filter((r) => r === "play").length;
+  const comments = rec.comments ?? [];
 
   const handleSendComment = () => {
     const text = commentDraft.trim();
@@ -168,7 +169,7 @@ export default function RecommendationCard({
         >
           <MessageIcon />
           <span>
-            {rec.comments.length > 0 ? rec.comments.length : t("friendsPage.comment")}
+            {comments.length > 0 ? comments.length : t("friendsPage.comment")}
           </span>
         </button>
       </div>
@@ -176,10 +177,10 @@ export default function RecommendationCard({
       {showComments && (
         <div className="rec-comments-section">
           <div className="rec-comments-list">
-            {rec.comments.length === 0 ? (
+            {comments.length === 0 ? (
               <div className="rec-comments-empty">{t("friendsPage.noCommentsYet")}</div>
             ) : (
-              rec.comments.map((c) => (
+              comments.map((c) => (
                 <div key={c.id} className="rec-comment-bubble">
                   <div className="rec-comment-header">
                     <span className="rec-comment-author">{c.authorName}</span>
