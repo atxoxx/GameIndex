@@ -106,8 +106,11 @@ sha1 = "0.10"
 # `default-features = false` + `deflate` keeps the direct dependency
 # minimal; the crate is already in the lock graph transitively.
 zip = { version = "4", default-features = false, features = ["deflate"] }
-# Secure archive installation for common mod packages.
-sevenz-rust = "0.6"
+# 7z extraction for ROM archives (`roms::extract_rom_archive`). Migrated off
+# `sevenz-rust`, which is abandoned and has an unpatched path traversal
+# (RUSTSEC-2026-0245); `sevenz-rust2` rejects escaping entry names in
+# `safe_join`. `util` only — the old crate defaulted to LZMA decode too.
+sevenz-rust2 = { version = "0.23", default-features = false, features = ["util"] }
 # Steam `appcache/appinfo.vdf` binary parsing — counts a Steam game's
 # launch actions so the edit modal can hint about the launch-picker
 # option (`steam://launch/<appid>/dialog`). Pure-Rust, no binary deps.

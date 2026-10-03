@@ -1639,7 +1639,7 @@ pub fn extract_rom_archive(
             extracted.push(target);
         }
     } else if ext == "7z" {
-        sevenz_rust::decompress_file(&src, &cache_dir)
+        sevenz_rust2::decompress_file(&src, &cache_dir)
             .map_err(|e| format!("7z extract: {e}"))?;
         collect_files(&cache_dir, &mut extracted);
     } else {
