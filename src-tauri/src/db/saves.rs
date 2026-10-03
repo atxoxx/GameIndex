@@ -227,17 +227,27 @@ pub fn delete_locations_for_game(db: &Db, game_id: &str) -> Result<u64, String> 
         .map_err(|e| format!("saves delete_locations_for_game: {e}"))
 }
 
+/// Comparison key for path de-duplication: separator- and
+/// trailing-separator-insensitive, case-insensitive, so a folder added by
+/// hand as `C:\Saves\` matches the detector's `C:/Saves`.
+fn path_key(path: &str) -> String {
+    path.replace('\\', "/")
+        .trim_end_matches('/')
+        .to_lowercase()
+}
+
 /// Find a location for a game by path (used to de-dupe detection runs).
-/// Matching is case-insensitive so Windows paths don't duplicate.
+/// Matching ignores case, separator style and trailing separators so
+/// Windows paths don't duplicate.
 pub fn find_location_by_path(
     db: &Db,
     game_id: &str,
     path: &str,
 ) -> Result<Option<SaveLocation>, String> {
-    let target = path.to_lowercase();
+    let target = path_key(path);
     Ok(list_locations(db, game_id)?
         .into_iter()
-        .find(|l| l.path.to_lowercase() == target))
+        .find(|l| path_key(&l.path) == target))
 }
 
 /// List backups, optionally scoped to a game. Newest first.
@@ -438,6 +448,8 @@ mod tests {
 
         // Case-insensitive path dedupe lookup.
         assert!(find_location_by_path(&db, "game-a", "/TMP/A").unwrap().is_some());
+        // Windows-style separators and a trailing separator still dedupe.
+        assert!(find_location_by_path(&db, "game-a", r"\TMP\A\").unwrap().is_some());
 
         // Toggle include + restore stamp.
         let mut edit = a.clone();

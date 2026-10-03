@@ -322,22 +322,37 @@ pub async fn saves_detect_locations(
     saves::list_locations(&db, &game_id)
 }
 
-/// Scan the whole library for save locations. Emits `saves-progress` and
-/// returns the number of games scanned.
+/// Scan the library for save locations. Emits `saves-progress` and returns
+/// the number of games scanned.
 ///
-/// The library-wide pass is local-only so it stays fast and offline; when
-/// `include_pcgw` is on, a second pass consults PCGamingWiki for the games
-/// the local scan could not place. Wiki answers are cached for a week, so
-/// repeat scans are near-instant. Network lookups are serialized with a
-/// short delay to respect the wiki's 60 requests/minute limit.
+/// Only installed games are considered, and games that already have stored
+/// locations are skipped — the per-game "Rescan" action is the way to look
+/// for more on those. The first pass is local-only so it stays fast and
+/// offline; when `include_pcgw` is on, a second pass consults PCGamingWiki
+/// for the games the local scan could not place. Wiki answers are cached
+/// for a week, so repeat scans are near-instant. Network lookups are
+/// serialized with a short delay to respect the wiki's 60 requests/minute
+/// limit.
 #[tauri::command]
 pub async fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
     let db = state_db(&app)?;
     let mut settings = load_settings(&db);
-    let games = db::games::list_all(&db)?;
-    let total = games.len() as u64;
+    // Only installed games can have save data on disk, and a game that
+    // already has stored locations is left alone: the per-game "Rescan"
+    // action is the way to look for more. Repeat scans stay cheap.
+    let mut targets: Vec<db::games::GameRow> = Vec::new();
+    for game in db::games::list_all(&db)? {
+        if !game.installed {
+            continue;
+        }
+        if !saves::list_locations(&db, &game.id)?.is_empty() {
+            continue;
+        }
+        targets.push(game);
+    }
+    let total = targets.len() as u64;
     let mut added_total = 0u32;
-    for (i, game) in games.iter().enumerate() {
+    for (i, game) in targets.iter().enumerate() {
         let _ = app.emit(
             "saves-progress",
             SaveProgress {
@@ -354,11 +369,18 @@ pub async fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
     }
 
     if settings.include_pcgw {
-        for (i, game) in games.iter().enumerate() {
-            // Only ask the wiki for games local detection couldn't place.
-            if !saves::list_locations(&db, &game.id)?.is_empty() {
-                continue;
-            }
+        // Local detection may have placed some games; only the remaining
+        // ones need a (paced) wiki lookup.
+        let unresolved: Vec<&db::games::GameRow> = targets
+            .iter()
+            .filter(|game| {
+                saves::list_locations(&db, &game.id)
+                    .map(|l| l.is_empty())
+                    .unwrap_or(false)
+            })
+            .collect();
+        let pcgw_total = unresolved.len() as u64;
+        for (i, game) in unresolved.iter().enumerate() {
             let _ = app.emit(
                 "saves-progress",
                 SaveProgress {
@@ -366,13 +388,13 @@ pub async fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
                     game_id: game.id.clone(),
                     game_name: game.name.clone(),
                     current: i as u64,
-                    total,
-                    percent: if total == 0 { 100 } else { ((i as u64 * 100) / total) as u8 },
+                    total: pcgw_total,
+                    percent: if pcgw_total == 0 { 100 } else { ((i as u64 * 100) / pcgw_total) as u8 },
                     message: format!("PCGamingWiki: {}", game.name),
                 },
             );
-            let result = pcgw::detect_for_game(&db, game).await;
-            added_total += merge_locations(&db, game, result.locations).unwrap_or(0);
+            let result = pcgw::detect_for_game(&db, *game).await;
+            added_total += merge_locations(&db, *game, result.locations).unwrap_or(0);
             if result.fetched {
                 tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
             }
@@ -393,7 +415,7 @@ pub async fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
             message: format!("Found {added_total} new save location(s)"),
         },
     );
-    Ok(games.len() as u32)
+    Ok(targets.len() as u32)
 }
 
 /// Add a user-chosen folder/file as a save location.

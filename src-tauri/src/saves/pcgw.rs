@@ -368,6 +368,20 @@ fn page_from_wiki_url(url: &str) -> Option<String> {
     }
 }
 
+/// Pick the wiki page for a name search. Only a normalized-exact match is
+/// trusted: opensearch orders by relevance, so a "close" first result can
+/// belong to a different game and would attach that game's save folders.
+fn pick_page_title(titles: &[String], name: &str) -> Option<String> {
+    let target = normalize_name(name);
+    if target.is_empty() {
+        return None;
+    }
+    titles
+        .iter()
+        .find(|title| normalize_name(title) == target)
+        .cloned()
+}
+
 /// Resolve a game to a wiki page title. `Err(())` signals a network
 /// failure (so callers avoid caching a false negative).
 async fn resolve_page_name(app_id: Option<u32>, name: &str) -> Result<Option<String>, ()> {
@@ -394,23 +408,16 @@ async fn resolve_page_name(app_id: Option<u32>, name: &str) -> Result<Option<Str
     );
     let resp = client().get(&url).send().await.map_err(|_| ())?;
     let json: serde_json::Value = resp.json().await.map_err(|_| ())?;
-    let titles = json
+    let titles: Vec<String> = json
         .get(1)
         .and_then(|v| v.as_array())
-        .cloned()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|t| t.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
-    let target = normalize_name(name);
-    let mut first: Option<String> = None;
-    for title in titles {
-        let Some(title) = title.as_str() else { continue };
-        if first.is_none() {
-            first = Some(title.to_string());
-        }
-        if normalize_name(title) == target {
-            return Ok(Some(title.to_string()));
-        }
-    }
-    Ok(first)
+    Ok(pick_page_title(&titles, name))
 }
 
 /// Fetch and parse a page's `Game data/saves` rows.
@@ -654,5 +661,29 @@ mod tests {
             page_from_wiki_url("https://www.pcgamingwiki.com/api/appid.php?appid=1"),
             None
         );
+    }
+
+    #[test]
+    fn search_titles_must_match_exactly() {
+        // An unrelated relevance hit must not be accepted.
+        let unrelated = vec![
+            "Elden Ring II".to_string(),
+            "Elden Ring: Shadow of the Erdtree".to_string(),
+        ];
+        assert_eq!(pick_page_title(&unrelated, "Elden Ring"), None);
+
+        // Exact match wins even when it is not the first result.
+        let mixed = vec!["Some Other Game".to_string(), "Elden Ring".to_string()];
+        assert_eq!(pick_page_title(&mixed, "Elden Ring").as_deref(), Some("Elden Ring"));
+
+        // Normalization ignores case and punctuation.
+        let punctuation = vec!["Baldurs Gate 3".to_string()];
+        assert_eq!(
+            pick_page_title(&punctuation, "Baldur's Gate 3").as_deref(),
+            Some("Baldurs Gate 3")
+        );
+
+        assert_eq!(pick_page_title(&[], "Elden Ring"), None);
+        assert_eq!(pick_page_title(&["X".to_string()], "   "), None);
     }
 }
