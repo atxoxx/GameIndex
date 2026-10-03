@@ -17,7 +17,11 @@ const assetsDir = join(root, "dist", "assets");
 
 const BUDGETS = {
   entry: 950_000, // index-*.js — cold-boot critical path
-  locale: 560_000, // de/fr/es/ru/zh-CN base dictionaries (ru highest: 2-byte Cyrillic UTF-8)
+  // ru is the largest base dictionary (~600 KB, 2-byte Cyrillic UTF-8; next is
+  // fr at ~475 KB). Recalibrated 2026-10 after feature growth consumed the
+  // 560 KB headroom — the gate should catch a lost lazy-split or an accidental
+  // import, not a few weeks of new strings.
+  locale: 650_000,
   total: 9_500_000, // all JS combined (< 10 MB bundle target)
 };
 
