@@ -3,7 +3,7 @@
 use tauri::Manager;
 use crate::db;
 use crate::game_scraper;
-use crate::game_scraper::{GameMetadataResult, IgdbPlatformInfo, IgdbReview, PcRequirementsPayload, ReviewFetchResult, StoreGameSummary};
+use crate::game_scraper::{GameMetadataResult, GameRelationsResult, IgdbPlatformInfo, IgdbReview, PcRequirementsPayload, ReviewFetchResult, StoreGameSummary};
 
 /// Phase-1 wrapper around the store_cache DAO. The frontend used to
 /// ship a single JSON blob under `<app_data_dir>/store_cache.json`
@@ -270,6 +270,11 @@ pub async fn get_collection_games(
     limit: Option<u32>,
 ) -> Result<Vec<StoreGameSummary>, String> {
     game_scraper::get_collection_games(collection_id, limit.unwrap_or(50)).await
+}
+
+#[tauri::command]
+pub async fn get_game_relations(igdb_id: u64) -> Result<GameRelationsResult, String> {
+    game_scraper::get_game_relations(igdb_id).await
 }
 
 /// Fetch reviews for a game from the best available source (Steam first, IGDB fallback).

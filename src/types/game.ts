@@ -2120,4 +2120,30 @@ export interface RelationGroup {
   games: RelatedGame[];
 }
 
+/** One external IGDB-related game returned by `get_game_relations`. */
+export interface RelatedGameEntry {
+  id: number;
+  name: string;
+  coverUrl?: string | null;
+  releaseYear?: number | null;
+  rating?: number | null;
+}
+
+/** A named IGDB group (franchise or collection) with its member games. */
+export interface RelationGameGroup {
+  id: number;
+  name: string;
+  games: RelatedGameEntry[];
+}
+
+/** The external relation graph for one seed game, returned by
+ *  `get_game_relations`. */
+export interface GameRelationsResult {
+  franchiseGroups: RelationGameGroup[];
+  collectionGroups: RelationGameGroup[];
+  similarGames: RelatedGameEntry[];
+  developerGames: RelatedGameEntry[];
+  publisherGames: RelatedGameEntry[];
+}
+
 

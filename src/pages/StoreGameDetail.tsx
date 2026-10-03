@@ -647,6 +647,7 @@ export default function StoreGameDetail() {
                   <GameRelationsCard
                     mode="store"
                     currentGame={data}
+                    igdbId={data.igdbId ?? null}
                     similarGames={data.similarGames}
                     collectionId={data.collectionId}
                     collectionName={data.collection}

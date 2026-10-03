@@ -610,6 +610,7 @@ function GameDetail({ game }: { game: Game }) {
                       mode="library"
                       currentGame={game}
                       currentGameId={game.id}
+                      igdbId={game.igdbId ?? null}
                       similarGames={game.similarGames}
                       collectionId={game.collectionId}
                       collectionName={game.collection}

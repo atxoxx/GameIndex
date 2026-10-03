@@ -11,7 +11,10 @@ import { slugify, gameDisplayName } from "../types/game";
 import type {
   Game,
   GameMetadataResult,
+  GameRelationsResult,
   RelatedGame,
+  RelatedGameEntry,
+  RelationGameGroup,
   RelationGroup,
   RelationType,
   StoreGameSummary,
@@ -97,6 +100,10 @@ interface BaseProps {
    * `publisher` / `collection` / `franchise` / `genres`.
    */
   currentGame: Game | GameMetadataResult;
+  /** IGDB numeric id for the current game. When present, the card
+   *  fetches the external IGDB relation graph; when absent it falls
+   *  back to the local-library-only behavior. */
+  igdbId?: number | null;
 }
 
 interface LibraryModeProps extends BaseProps {
@@ -154,6 +161,19 @@ const collectionCache = new Map<number, CollectionCacheEntry>();
 const COLLECTION_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const COLLECTION_CACHE_MAX_ENTRIES = 50; // ~50 collections × ~5KB each = 250KB ceiling
 
+/* ─── Module-level IGDB relations cache ──────────────────────────────
+ *
+ * `get_game_relations` fans out into several metered IGDB requests, so
+ * we cache the assembled graph per IGDB id in memory. Same 6h TTL and
+ * bounded FIFO eviction as the collection cache above. */
+interface RelationsCacheEntry {
+  data: GameRelationsResult;
+  fetchedAt: number;
+}
+const relationsCache = new Map<number, RelationsCacheEntry>();
+const RELATIONS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const RELATIONS_CACHE_MAX_ENTRIES = 200;
+
 /* ─── Library scan helpers ──────────────────────────────────────────── */
 
 /** Normalize a name for cross-source deduplication. */
@@ -199,20 +219,76 @@ function countOverlap(a: string[] | undefined, b: string[] | undefined): number 
   return count;
 }
 
+/** Wrap an external IGDB entry as a navigable `RelatedGame`. */
+function toRelatedGame(entry: RelatedGameEntry): RelatedGame {
+  return {
+    id: entry.id,
+    name: entry.name,
+    coverUrl: entry.coverUrl ?? null,
+    slug: slugify(entry.name),
+  };
+}
+
+/** Flatten every group's games into one deduped list. */
+function flattenRelationGroups(groups: RelationGameGroup[]): RelatedGame[] {
+  const out: RelatedGame[] = [];
+  const seen = new Set<string>();
+  for (const group of groups) {
+    for (const g of group.games) {
+      const key = normalizeName(g.name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(toRelatedGame(g));
+    }
+  }
+  return out;
+}
+
+/** Append external IGDB games to a local-match group, deduping by
+ *  normalized name and linking entries that exist in the library. */
+function appendExternal(
+  matches: RelatedGame[],
+  seen: Set<string>,
+  library: Game[],
+  external: RelatedGame[]
+): void {
+  for (const ext of external) {
+    const key = normalizeName(ext.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const inLib = library.find((lg) => namesMatch(lg.name, ext.name));
+    matches.push({
+      ...ext,
+      coverUrl: inLib?.coverArtUrl ?? ext.coverUrl ?? null,
+      inLibrary: !!inLib,
+      libraryGameId: inLib?.id,
+    });
+  }
+}
+
+/** Pre-resolved data passed into both group builders. */
+interface ExternalRelations {
+  similarGames: RelatedGame[];
+  collectionGames: RelatedGame[];
+  franchiseGames: RelatedGame[];
+  developerGames: RelatedGame[];
+  publisherGames: RelatedGame[];
+}
+
 /* ─── Group builders (per mode) ─────────────────────────────────────── */
 
 /** Library-mode: build all 7 groups (5 library-local + 2 IGDB-derived) in one pass. */
 function buildLibraryGroups(
   current: Game,
   library: Game[],
-  similarGames: RelatedGame[],
-  collectionMembers: StoreGameSummary[]
+  external: ExternalRelations
 ): RelationGroup[] {
   const name = ("name" in current ? current.name : (current as any).title) || "";
   const seen = new Set<string>();
   // Reserve the current game's own name so it never re-appears
   // in any group (it's the "anchor" the user is already on).
   seen.add(normalizeName(name));
+  const { similarGames, collectionGames: collectionMembers } = external;
 
   const groups: RelationGroup[] = [];
 
@@ -258,24 +334,27 @@ function buildLibraryGroups(
   }
 
   // 2. Same Franchise (tokenized overlap matching)
-  if (current.franchise && current.franchise.trim().length > 0) {
+  {
     const matches: RelatedGame[] = [];
-    for (const g of library) {
-      if (g.id === current.id) continue;
-      if (hasAnyOverlap(g.franchise, current.franchise)) {
-        const key = normalizeName(g.name);
-        if (!seen.has(key)) {
-          seen.add(key);
-          matches.push({
-            id: 0,
-            name: gameDisplayName(g),
-            coverUrl: g.coverArtUrl,
-            libraryGameId: g.id,
-            inLibrary: true,
-          });
+    if (current.franchise && current.franchise.trim().length > 0) {
+      for (const g of library) {
+        if (g.id === current.id) continue;
+        if (hasAnyOverlap(g.franchise, current.franchise)) {
+          const key = normalizeName(g.name);
+          if (!seen.has(key)) {
+            seen.add(key);
+            matches.push({
+              id: 0,
+              name: gameDisplayName(g),
+              coverUrl: g.coverArtUrl,
+              libraryGameId: g.id,
+              inLibrary: true,
+            });
+          }
         }
       }
     }
+    appendExternal(matches, seen, library, external.franchiseGames);
     if (matches.length > 0) {
       groups.push({
         type: "same_franchise",
@@ -287,58 +366,64 @@ function buildLibraryGroups(
   }
 
   // 3. Same Developer (tokenized overlap matching for co-developers)
-  if (current.developer && current.developer.trim().length > 0) {
+  {
     const matches: RelatedGame[] = [];
-    for (const g of library) {
-      if (g.id === current.id) continue;
-      if (hasAnyOverlap(g.developer, current.developer)) {
-        const key = normalizeName(g.name);
-        if (!seen.has(key)) {
-          seen.add(key);
-          matches.push({
-            id: 0,
-            name: gameDisplayName(g),
-            coverUrl: g.coverArtUrl,
-            libraryGameId: g.id,
-            inLibrary: true,
-          });
+    if (current.developer && current.developer.trim().length > 0) {
+      for (const g of library) {
+        if (g.id === current.id) continue;
+        if (hasAnyOverlap(g.developer, current.developer)) {
+          const key = normalizeName(g.name);
+          if (!seen.has(key)) {
+            seen.add(key);
+            matches.push({
+              id: 0,
+              name: gameDisplayName(g),
+              coverUrl: g.coverArtUrl,
+              libraryGameId: g.id,
+              inLibrary: true,
+            });
+          }
         }
       }
     }
+    appendExternal(matches, seen, library, external.developerGames);
     if (matches.length > 0) {
       groups.push({
         type: "same_developer",
         title: "More by this developer",
-        subtitle: current.developer,
+        subtitle: current.developer ?? undefined,
         games: matches,
       });
     }
   }
 
   // 4. Same Publisher (tokenized overlap matching)
-  if (current.publisher && current.publisher.trim().length > 0) {
+  {
     const matches: RelatedGame[] = [];
-    for (const g of library) {
-      if (g.id === current.id) continue;
-      if (hasAnyOverlap(g.publisher, current.publisher)) {
-        const key = normalizeName(g.name);
-        if (!seen.has(key)) {
-          seen.add(key);
-          matches.push({
-            id: 0,
-            name: gameDisplayName(g),
-            coverUrl: g.coverArtUrl,
-            libraryGameId: g.id,
-            inLibrary: true,
-          });
+    if (current.publisher && current.publisher.trim().length > 0) {
+      for (const g of library) {
+        if (g.id === current.id) continue;
+        if (hasAnyOverlap(g.publisher, current.publisher)) {
+          const key = normalizeName(g.name);
+          if (!seen.has(key)) {
+            seen.add(key);
+            matches.push({
+              id: 0,
+              name: gameDisplayName(g),
+              coverUrl: g.coverArtUrl,
+              libraryGameId: g.id,
+              inLibrary: true,
+            });
+          }
         }
       }
     }
+    appendExternal(matches, seen, library, external.publisherGames);
     if (matches.length > 0) {
       groups.push({
         type: "same_publisher",
         title: "More by this publisher",
-        subtitle: current.publisher,
+        subtitle: current.publisher ?? undefined,
         games: matches,
       });
     }
@@ -452,13 +537,13 @@ function buildLibraryGroups(
 function buildStoreGroups(
   current: GameMetadataResult,
   library: Game[],
-  similarGames: RelatedGame[],
-  collectionMembers: StoreGameSummary[]
+  external: ExternalRelations
 ): RelationGroup[] {
   const title = ("title" in current ? current.title : (current as any).name) || "";
   const seen = new Set<string>();
   // Reserve the current title.
   seen.add(normalizeName(title));
+  const { similarGames, collectionGames: collectionMembers } = external;
 
   const groups: RelationGroup[] = [];
 
@@ -551,56 +636,62 @@ function buildStoreGroups(
   }
 
   // 4. Same Developer (tokenized overlap matching)
-  if (current.developer && current.developer.trim().length > 0) {
+  {
     const matches: RelatedGame[] = [];
-    for (const g of library) {
-      if (hasAnyOverlap(g.developer, current.developer)) {
-        const key = normalizeName(g.name);
-        if (!seen.has(key)) {
-          seen.add(key);
-          matches.push({
-            id: 0,
-            name: gameDisplayName(g),
-            coverUrl: g.coverArtUrl,
-            libraryGameId: g.id,
-            inLibrary: true,
-          });
+    if (current.developer && current.developer.trim().length > 0) {
+      for (const g of library) {
+        if (hasAnyOverlap(g.developer, current.developer)) {
+          const key = normalizeName(g.name);
+          if (!seen.has(key)) {
+            seen.add(key);
+            matches.push({
+              id: 0,
+              name: gameDisplayName(g),
+              coverUrl: g.coverArtUrl,
+              libraryGameId: g.id,
+              inLibrary: true,
+            });
+          }
         }
       }
     }
+    appendExternal(matches, seen, library, external.developerGames);
     if (matches.length > 0) {
       groups.push({
         type: "same_developer",
         title: "More by this developer",
-        subtitle: current.developer,
+        subtitle: current.developer ?? undefined,
         games: matches,
       });
     }
   }
 
   // 5. Same Publisher (tokenized overlap matching)
-  if (current.publisher && current.publisher.trim().length > 0) {
+  {
     const matches: RelatedGame[] = [];
-    for (const g of library) {
-      if (hasAnyOverlap(g.publisher, current.publisher)) {
-        const key = normalizeName(g.name);
-        if (!seen.has(key)) {
-          seen.add(key);
-          matches.push({
-            id: 0,
-            name: gameDisplayName(g),
-            coverUrl: g.coverArtUrl,
-            libraryGameId: g.id,
-            inLibrary: true,
-          });
+    if (current.publisher && current.publisher.trim().length > 0) {
+      for (const g of library) {
+        if (hasAnyOverlap(g.publisher, current.publisher)) {
+          const key = normalizeName(g.name);
+          if (!seen.has(key)) {
+            seen.add(key);
+            matches.push({
+              id: 0,
+              name: gameDisplayName(g),
+              coverUrl: g.coverArtUrl,
+              libraryGameId: g.id,
+              inLibrary: true,
+            });
+          }
         }
       }
     }
+    appendExternal(matches, seen, library, external.publisherGames);
     if (matches.length > 0) {
       groups.push({
         type: "same_publisher",
         title: "More by this publisher",
-        subtitle: current.publisher,
+        subtitle: current.publisher ?? undefined,
         games: matches,
       });
     }
@@ -647,23 +738,26 @@ function buildStoreGroups(
   }
 
   // 7. Same Franchise (tokenized overlap matching)
-  if (current.franchise && current.franchise.trim().length > 0) {
+  {
     const matches: RelatedGame[] = [];
-    for (const g of library) {
-      if (hasAnyOverlap(g.franchise, current.franchise)) {
-        const key = normalizeName(g.name);
-        if (!seen.has(key)) {
-          seen.add(key);
-          matches.push({
-            id: 0,
-            name: gameDisplayName(g),
-            coverUrl: g.coverArtUrl,
-            libraryGameId: g.id,
-            inLibrary: true,
-          });
+    if (current.franchise && current.franchise.trim().length > 0) {
+      for (const g of library) {
+        if (hasAnyOverlap(g.franchise, current.franchise)) {
+          const key = normalizeName(g.name);
+          if (!seen.has(key)) {
+            seen.add(key);
+            matches.push({
+              id: 0,
+              name: gameDisplayName(g),
+              coverUrl: g.coverArtUrl,
+              libraryGameId: g.id,
+              inLibrary: true,
+            });
+          }
         }
       }
     }
+    appendExternal(matches, seen, library, external.franchiseGames);
     if (matches.length > 0) {
       groups.push({
         type: "same_franchise",
@@ -789,6 +883,49 @@ function useCollectionGames(collectionId: number | undefined): {
   }, [collectionId]);
 
   return { games, loading };
+}
+
+/* ─── IGDB relation graph hook (both modes) ────────────────────────── */
+
+function useGameRelations(igdbId?: number | null): GameRelationsResult | null {
+  const [data, setData] = useState<GameRelationsResult | null>(null);
+
+  useEffect(() => {
+    if (igdbId == null) {
+      setData(null);
+      return;
+    }
+
+    const cached = relationsCache.get(igdbId);
+    if (cached !== undefined && Date.now() - cached.fetchedAt < RELATIONS_CACHE_TTL_MS) {
+      setData(cached.data);
+      return;
+    }
+
+    let cancelled = false;
+    setData(null);
+    invoke<GameRelationsResult>("get_game_relations", { igdbId })
+      .then((result) => {
+        if (cancelled) return;
+        if (relationsCache.size >= RELATIONS_CACHE_MAX_ENTRIES) {
+          const oldestKey = relationsCache.keys().next().value;
+          if (oldestKey !== undefined) {
+            relationsCache.delete(oldestKey);
+          }
+        }
+        relationsCache.set(igdbId, { data: result, fetchedAt: Date.now() });
+        setData(result);
+      })
+      .catch((err) => {
+        console.warn("GameRelations: get_game_relations failed:", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [igdbId]);
+
+  return data;
 }
 
 /* ─── Group icon map ───────────────────────────────────────────────── */
@@ -1013,53 +1150,52 @@ export default function GameRelationsCard(props: GameRelationsCardProps) {
   const { mode, currentGame } = props;
   const navigate = useNavigate();
   const { games: library } = useGames();
+  const relations = useGameRelations(props.igdbId);
 
-  // For both modes, optionally fetch the IGDB collection members when
-  // a collection ID is available. The useCollectionGames hook is a
-  // no-op when `collectionId` is undefined (no fetch, no cache write,
-  // no loading state), so it's safe to call unconditionally here.
-  const { games: collectionMembers } = useCollectionGames(props.collectionId);
+  const { games: collectionMembers } = useCollectionGames(
+    relations && relations.collectionGroups.length > 0
+      ? undefined
+      : props.collectionId
+  );
 
-  // Build all groups in a single memo. The expensive bit is the
-  // library scan, which is O(N × G). We re-run only when the
-  // current game (or its identity-bearing props) changes.
+  const external = useMemo<ExternalRelations>(() => {
+    const fetchedSimilar = relations?.similarGames;
+    const similarGames: RelatedGame[] =
+      fetchedSimilar && fetchedSimilar.length > 0
+        ? fetchedSimilar.map(toRelatedGame)
+        : (props.similarGames ?? []).map((sg) => ({
+            id: sg.id,
+            name: sg.name,
+            coverUrl: sg.coverUrl ?? null,
+            slug: slugify(sg.name),
+          }));
+
+    const externalCollectionGroups = relations?.collectionGroups;
+    const collectionGames: RelatedGame[] =
+      externalCollectionGroups && externalCollectionGroups.length > 0
+        ? flattenRelationGroups(externalCollectionGroups)
+        : collectionMembers.map((s) => ({
+            id: s.id,
+            name: s.name,
+            coverUrl: s.coverUrl ?? null,
+            slug: s.slug,
+          }));
+
+    return {
+      similarGames,
+      collectionGames,
+      franchiseGames: flattenRelationGroups(relations?.franchiseGroups ?? []),
+      developerGames: (relations?.developerGames ?? []).map(toRelatedGame),
+      publisherGames: (relations?.publisherGames ?? []).map(toRelatedGame),
+    };
+  }, [relations, collectionMembers, props.similarGames]);
+
   const groups = useMemo<RelationGroup[]>(() => {
-    // IGDB-derived related games are passed in as a flat list of
-    // `SimilarGame`s; we wrap them in `RelatedGame` (adding a slug for
-    // store navigation) once so both the library and store builders
-    // can consume them.
-    const similar: RelatedGame[] = (props.similarGames ?? []).map((sg) => ({
-      id: sg.id,
-      name: sg.name,
-      coverUrl: sg.coverUrl,
-      slug: slugify(sg.name),
-    }));
     if (mode === "library") {
-      // Type assertion: the LibraryModeProps type guarantees
-      // `currentGame` is a `Game` in library mode.
-      return buildLibraryGroups(
-        currentGame as Game,
-        library,
-        similar,
-        collectionMembers
-      );
+      return buildLibraryGroups(currentGame as Game, library, external);
     }
-    // Store mode
-    return buildStoreGroups(
-      currentGame as GameMetadataResult,
-      library,
-      similar,
-      collectionMembers
-    );
-  }, [
-    mode,
-    currentGame,
-    library,
-    collectionMembers,
-    props.similarGames,
-    props.collectionId,
-    props.collectionName,
-  ]);
+    return buildStoreGroups(currentGame as GameMetadataResult, library, external);
+  }, [mode, currentGame, library, external]);
 
   // Navigation handler — pick the right route based on which
   // navigation hint the entry carries. Library games win over
