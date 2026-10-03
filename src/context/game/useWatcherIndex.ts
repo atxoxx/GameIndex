@@ -85,13 +85,15 @@ export function useWatcherIndex(options: {
       // here). Mirror the in-app uninstall flow and drop the entry from
       // the library instead of keeping a stale "not installed" row.
       if (!installed) {
-        const removed = gamesRef.current.find((g) => g.steamAppId === appId);
+        const removed = gamesRef.current.find(
+          (g) => g.steamAppId === appId && g.platform === "Steam"
+        );
         // Only drop entries the library believed were installed. An owned
         // game that was never installed is absent from the backend's
         // uninstall baseline in the first place, but guard here too so a
         // stray event can't remove a deliberately-kept not-installed game.
         if (removed && removed.installed) {
-          removeGamesRef.current?.((g) => g.steamAppId === appId);
+          removeGamesRef.current?.((g) => g.steamAppId === appId && g.platform === "Steam");
           showToast(t("game.uninstalledToast", { name: removed.name }), "info");
         }
         return;
@@ -102,7 +104,7 @@ export function useWatcherIndex(options: {
         let updatedGameName = "";
 
         const next = prev.map((g) => {
-          if (g.steamAppId !== appId) return g;
+          if (g.steamAppId !== appId || g.platform !== "Steam") return g;
           if (g.installed === installed && (!exePath || g.path === exePath)) return g;
           updated = true;
           updatedGameName = g.name;

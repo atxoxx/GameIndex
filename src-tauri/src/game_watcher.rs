@@ -556,18 +556,24 @@ impl GameWatcher {
     pub fn rebuild_index(&mut self, games: Vec<GameRef>) {
         // Capture the library's Steam entries first: the process index
         // only holds games with a resolvable exe/install dir, but the
-        // install scan needs every Steam game (including owned-but-not-
-        // installed ones) to reconcile closed-app install/uninstall.
+        // install scan needs every Steam-platform game (including owned-
+        // but-not-installed ones) to reconcile closed-app install/
+        // uninstall. Only genuine Steam games qualify — a local/manual
+        // import may carry a Steam AppID for metadata but has no
+        // appmanifest, so treating it as Steam would report it as
+        // uninstalled and delete it from the library.
         let mut steam_library: HashMap<u32, SteamLibraryGame> = HashMap::new();
         for game in &games {
-            if let Some(appid) = game.steam_app_id {
-                steam_library.insert(
-                    appid,
-                    SteamLibraryGame {
-                        name: game.game_name.clone(),
-                        installed: game.installed,
-                    },
-                );
+            if game.platform == "Steam" {
+                if let Some(appid) = game.steam_app_id {
+                    steam_library.insert(
+                        appid,
+                        SteamLibraryGame {
+                            name: game.game_name.clone(),
+                            installed: game.installed,
+                        },
+                    );
+                }
             }
         }
         // Only a change to the Steam AppID set or an install flag needs a
@@ -3486,6 +3492,61 @@ mod tests {
         let entry = watcher.steam_library.get(&570).expect("library entry kept");
         assert_eq!(entry.name, "Dota 2");
         assert!(!entry.installed);
+    }
+
+    #[test]
+    fn rebuild_index_excludes_non_steam_games_from_steam_library() {
+        // A local/manual import may carry a Steam AppID for metadata but
+        // has no appmanifest, so it must not seed the Steam install scan.
+        let tmp = tempfile::tempdir().unwrap();
+        let mut watcher = GameWatcher::new(crate::db::Db::open(tmp.path()).unwrap());
+        watcher.rebuild_index(vec![
+            GameRef {
+                game_id: "local-1".to_string(),
+                game_name: "Local Game".to_string(),
+                platform: "Local".to_string(),
+                exe_path: Some("C:\\Games\\Local\\local.exe".to_string()),
+                install_dir: None,
+                steam_app_id: Some(489830),
+                installed: true,
+            },
+            GameRef {
+                game_id: "manual-1".to_string(),
+                game_name: "Manual Game".to_string(),
+                platform: "Manual".to_string(),
+                exe_path: None,
+                install_dir: None,
+                steam_app_id: Some(570),
+                installed: true,
+            },
+            GameRef {
+                game_id: "steam-1".to_string(),
+                game_name: "Team Fortress 2".to_string(),
+                platform: "Steam".to_string(),
+                exe_path: None,
+                install_dir: None,
+                steam_app_id: Some(440),
+                installed: true,
+            },
+        ]);
+
+        assert!(
+            !watcher.steam_library.contains_key(&489830),
+            "a local game's metadata AppID must not seed the Steam library"
+        );
+        assert!(
+            !watcher.steam_library.contains_key(&570),
+            "a manual game's metadata AppID must not seed the Steam library"
+        );
+        assert!(
+            watcher.steam_library.contains_key(&440),
+            "a genuine Steam game still seeds the Steam library"
+        );
+        // The local game has no Steam platform, but it is still a
+        // runnable process and must stay in the process index.
+        assert!(watcher
+            .process_index
+            .contains_key(&normalize_path_lower("C:\\Games\\Local\\local.exe")));
     }
 
     // ── is_currently_running ─────────────────────────────────────────
