@@ -144,6 +144,7 @@ export interface SteamDlcItem {
 export interface SteamGameDlcsResult {
   appId: number;
   totalDlcs: number;
+  totalAvailable?: number;
   ownedCount: number;
   installedCount: number;
   dlcs: SteamDlcItem[];

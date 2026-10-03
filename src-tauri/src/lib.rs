@@ -68,7 +68,7 @@ use uplay::{
 use steam::auth::{steam_connect, steam_logout, steam_get_session};
 use steam::sync::steam_sync_games;
 use steam::family::{steam_get_family_group, steam_get_family_share_info};
-use steam::dlc::{steam_get_game_dlcs, steam_toggle_dlc_owned};
+use steam::dlc::{steam_get_game_dlcs, steam_mark_dlcs_owned, steam_toggle_dlc_owned};
 use size::{detect_game_size, check_paths_exist, open_folder, disk_usage, resolve_mounts, move_game_install, uninstall_game, measure_path_size};
 use system_screenshots::detect_system_screenshot_folders;
 
@@ -140,7 +140,7 @@ pub fn run() {
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,
             steam_get_family_group, steam_get_family_share_info,
-            steam_get_game_dlcs, steam_toggle_dlc_owned,
+            steam_get_game_dlcs, steam_toggle_dlc_owned, steam_mark_dlcs_owned,
             epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_sync_library, epic_is_authenticated, epic_logout,
             epic::achievements::epic_fetch_achievements,
             gog_start_login, gog_sync_library, gog_is_authenticated, gog_logout,

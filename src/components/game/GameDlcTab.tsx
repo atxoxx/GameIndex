@@ -7,7 +7,7 @@ import type { SteamGameDlcsResult, SteamDlcItem } from "../../types/steam";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { steamCodeForUi } from "../../i18n/languages";
-import { IconDlc, IconFamily, IconSteam } from "./icons";
+import { IconDlc, IconFamily, IconSteam, IconCheck } from "./icons";
 import { Button } from "../ui";
 
 interface GameDlcTabProps {
@@ -51,6 +51,7 @@ export default function GameDlcTab({
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy] = useState<SortType>("default");
   const [selectedDlc, setSelectedDlc] = useState<SteamDlcItem | null>(null);
+  const [markAllPending, setMarkAllPending] = useState(false);
 
   const activeAppIdRef = useRef<number | null>(null);
 
@@ -145,6 +146,48 @@ export default function GameDlcTab({
     },
     [appId, showToast, t, fetchDlcs]
   );
+
+  const handleMarkAllOwned = useCallback(async () => {
+    if (!appId || !data) return;
+    const dlcAppIds = data.dlcs.filter((d) => !d.isOwned).map((d) => d.appId);
+    if (dlcAppIds.length === 0) return;
+
+    const count = dlcAppIds.length;
+    const idSet = new Set(dlcAppIds);
+    setMarkAllPending(true);
+
+    // Optimistic update
+    setData((prev) => {
+      if (!prev) return prev;
+      const updatedList = prev.dlcs.map((item) =>
+        idSet.has(item.appId) ? { ...item, isOwned: true } : item
+      );
+      return {
+        ...prev,
+        ownedCount: updatedList.filter((item) => item.isOwned).length,
+        dlcs: updatedList,
+      };
+    });
+
+    setSelectedDlc((prev) =>
+      prev && idSet.has(prev.appId) ? { ...prev, isOwned: true } : prev
+    );
+
+    try {
+      await invoke("steam_mark_dlcs_owned", {
+        appId,
+        dlcAppIds,
+        owned: true,
+      });
+      showToast(t("dlc.markedAllAsOwned", { count }), "info");
+    } catch (err) {
+      console.error("Failed to mark all DLCs as owned:", err);
+      showToast(t("dlc.toggleFailed"), "error");
+      fetchDlcs();
+    } finally {
+      setMarkAllPending(false);
+    }
+  }, [appId, data, showToast, t, fetchDlcs]);
 
   const handleOpenStore = useCallback((dlcAppId: number) => {
     openUrl(`https://store.steampowered.com/app/${dlcAppId}/`).catch((err) => {
@@ -293,6 +336,8 @@ export default function GameDlcTab({
     );
   }
 
+  const truncatedTotal = data.totalAvailable ?? 0;
+
   return (
     <div className="dlc-tab-root">
       {/* Family Sharing Banner */}
@@ -422,30 +467,51 @@ export default function GameDlcTab({
           )}
         </div>
 
-        <div className="dlc-search-wrap">
-          <svg
-            className="dlc-search-icon"
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            className="dlc-search-input"
-            placeholder={t("dlc.searchPlaceholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="dlc-controls-right">
+          {counts.unowned > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleMarkAllOwned}
+              disabled={markAllPending}
+              title={t("dlc.markAllOwned")}
+            >
+              <IconCheck size={14} />
+              <span>{t("dlc.markAllOwned")}</span>
+            </Button>
+          )}
+
+          <div className="dlc-search-wrap">
+            <svg
+              className="dlc-search-icon"
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              className="dlc-search-input"
+              placeholder={t("dlc.searchPlaceholder")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
+
+      {truncatedTotal > data.dlcs.length && (
+        <p className="dlc-truncated-hint">
+          {t("dlc.truncatedHint", { count: truncatedTotal })}
+        </p>
+      )}
 
       {/* DLC Cards Grid */}
       {filteredDlcs.length === 0 ? (

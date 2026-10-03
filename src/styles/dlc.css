@@ -425,6 +425,19 @@
   border-color: var(--color-accent);
 }
 
+.dlc-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dlc-truncated-hint {
+  margin: calc(var(--space-md) * -0.5) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
 /* ── DLC Card Grid ────────────────────────────────────────────────────── */
 
 .dlc-grid {

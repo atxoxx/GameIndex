@@ -168,6 +168,11 @@ pub struct SteamDlcItem {
 pub struct SteamGameDlcsResult {
     pub app_id: u32,
     pub total_dlcs: u32,
+    /// Number of DLC AppIDs discovered after dedupe but before the
+    /// 100-item cap. Lets the UI flag catalogs it is only partially
+    /// showing, and survives old payloads/caches via `serde(default)`.
+    #[serde(default)]
+    pub total_available: u32,
     pub owned_count: u32,
     pub installed_count: u32,
     pub dlcs: Vec<SteamDlcItem>,

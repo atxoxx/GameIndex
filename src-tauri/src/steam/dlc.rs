@@ -50,6 +50,30 @@ fn resolve_steam_lang(app: &AppHandle) -> String {
 struct CachedDlcBlob {
     timestamp: u64,
     dlcs: Vec<SteamDlcItem>,
+    #[serde(default)]
+    total_available: u32,
+}
+
+/// Dedupe discovered DLC AppIDs (preserving first-seen order), move ids in
+/// `known` to the front so owned/installed DLC survive the cap, then truncate
+/// to `cap`. Returns the capped list plus the total count before truncation.
+fn order_dlc_appids(discovered: Vec<u32>, known: &HashSet<u32>, cap: usize) -> (Vec<u32>, u32) {
+    let mut seen: HashSet<u32> = HashSet::with_capacity(discovered.len());
+    let mut deduped: Vec<u32> = Vec::with_capacity(discovered.len());
+    for id in discovered {
+        if seen.insert(id) {
+            deduped.push(id);
+        }
+    }
+
+    let total_available = deduped.len() as u32;
+
+    let mut ordered: Vec<u32> = Vec::with_capacity(deduped.len());
+    ordered.extend(deduped.iter().copied().filter(|id| known.contains(id)));
+    ordered.extend(deduped.iter().copied().filter(|id| !known.contains(id)));
+    ordered.truncate(cap);
+
+    (ordered, total_available)
 }
 
 fn unix_now() -> u64 {
@@ -231,35 +255,38 @@ pub async fn steam_get_game_dlcs(
 
     let cache_key = format!("steam_dlc_cache_{app_id}_{target_lang}");
 
-    // Check cached DLC data
-    if force_refresh != Some(true) {
-        if let Ok(Some(cached_json)) = db::kv::get(&db, &cache_key) {
-            if let Ok(blob) = serde_json::from_str::<CachedDlcBlob>(&cached_json) {
-                if unix_now().saturating_sub(blob.timestamp) < DLC_CACHE_TTL_SECS {
-                    let mut dlcs = blob.dlcs;
-                    let mut owned_count = 0;
-                    let mut installed_count = 0;
+    // Check cached DLC data. A fresh blob is served directly; an expired one
+    // is retained as a fallback in case the store is unreachable below.
+    let mut stale: Option<CachedDlcBlob> = None;
+    if let Ok(Some(cached_json)) = db::kv::get(&db, &cache_key) {
+        if let Ok(blob) = serde_json::from_str::<CachedDlcBlob>(&cached_json) {
+            let is_fresh = unix_now().saturating_sub(blob.timestamp) < DLC_CACHE_TTL_SECS;
+            if force_refresh != Some(true) && is_fresh {
+                let mut dlcs = blob.dlcs;
+                let mut owned_count = 0;
+                let mut installed_count = 0;
 
-                    for item in &mut dlcs {
-                        evaluate_dlc(item);
-                        if item.is_owned {
-                            owned_count += 1;
-                        }
-                        if item.is_installed {
-                            installed_count += 1;
-                        }
+                for item in &mut dlcs {
+                    evaluate_dlc(item);
+                    if item.is_owned {
+                        owned_count += 1;
                     }
-
-                    return Ok(SteamGameDlcsResult {
-                        app_id,
-                        total_dlcs: dlcs.len() as u32,
-                        owned_count,
-                        installed_count,
-                        dlcs,
-                        family_share,
-                    });
+                    if item.is_installed {
+                        installed_count += 1;
+                    }
                 }
+
+                return Ok(SteamGameDlcsResult {
+                    app_id,
+                    total_dlcs: dlcs.len() as u32,
+                    total_available: blob.total_available,
+                    owned_count,
+                    installed_count,
+                    dlcs,
+                    family_share,
+                });
             }
+            stale = Some(blob);
         }
     }
 
@@ -278,6 +305,7 @@ pub async fn steam_get_game_dlcs(
             return Ok(SteamGameDlcsResult {
                 app_id,
                 total_dlcs: 0,
+                total_available: 0,
                 owned_count: 0,
                 installed_count: 0,
                 dlcs: Vec::new(),
@@ -285,6 +313,34 @@ pub async fn steam_get_game_dlcs(
             });
         }
         Err(e) => {
+            if let Some(blob) = stale {
+                eprintln!(
+                    "[steam dlc] base appdetails for {app_id} ({target_lang}) failed: {e}; serving cached catalog"
+                );
+                let mut dlcs = blob.dlcs;
+                let mut owned_count = 0;
+                let mut installed_count = 0;
+
+                for item in &mut dlcs {
+                    evaluate_dlc(item);
+                    if item.is_owned {
+                        owned_count += 1;
+                    }
+                    if item.is_installed {
+                        installed_count += 1;
+                    }
+                }
+
+                return Ok(SteamGameDlcsResult {
+                    app_id,
+                    total_dlcs: dlcs.len() as u32,
+                    total_available: blob.total_available,
+                    owned_count,
+                    installed_count,
+                    dlcs,
+                    family_share,
+                });
+            }
             eprintln!("[steam dlc] base appdetails for {app_id} ({target_lang}) failed: {e}");
             return Err(format!("Steam store: {e}"));
         }
@@ -311,6 +367,7 @@ pub async fn steam_get_game_dlcs(
         return Ok(SteamGameDlcsResult {
             app_id,
             total_dlcs: 0,
+            total_available: 0,
             owned_count: 0,
             installed_count: 0,
             dlcs: Vec::new(),
@@ -318,8 +375,23 @@ pub async fn steam_get_game_dlcs(
         });
     }
 
+    // Known-owned/installed ids are kept ahead of the cap so a large catalog
+    // can never hide DLC the user already has.
+    let mut known: HashSet<u32> = HashSet::with_capacity(
+        installed_dlc_ids.len() + owned_tickets.len() + family_shared_dlcs.len(),
+    );
+    known.extend(installed_dlc_ids.iter().copied());
+    known.extend(owned_tickets.iter().copied());
+    known.extend(family_shared_dlcs.iter().copied());
+    for id in &dlc_appids {
+        let manual_key = format!("steam_dlc_owned_{id}");
+        if db::kv::get(&db, &manual_key).ok().flatten().as_deref() == Some("1") {
+            known.insert(*id);
+        }
+    }
+
     // Cap at 100 DLCs to prevent excessive fan-out on games like Train Simulator or Rocksmith
-    let limited_dlcs: Vec<u32> = dlc_appids.into_iter().take(100).collect();
+    let (limited_dlcs, total_available) = order_dlc_appids(dlc_appids, &known, 100);
 
     // 6. Fan out requests across Semaphore
     let sem = Arc::new(tokio::sync::Semaphore::new(8));
@@ -419,6 +491,7 @@ pub async fn steam_get_game_dlcs(
         let blob = CachedDlcBlob {
             timestamp: unix_now(),
             dlcs: dlcs.clone(),
+            total_available,
         };
         if let Ok(serialized) = serde_json::to_string(&blob) {
             let _ = db::kv::set(&db, &cache_key, &serialized);
@@ -428,6 +501,7 @@ pub async fn steam_get_game_dlcs(
     Ok(SteamGameDlcsResult {
         app_id,
         total_dlcs: dlcs.len() as u32,
+        total_available,
         owned_count,
         installed_count,
         dlcs,
@@ -446,6 +520,28 @@ pub fn steam_toggle_dlc_owned(
     let db = app.state::<db::Db>().inner().clone();
     let manual_key = format!("steam_dlc_owned_{dlc_app_id}");
     db::kv::set(&db, &manual_key, if owned { "1" } else { "0" })
+}
+
+/// Tauri command: set ownership for many DLCs in one round trip.
+#[tauri::command]
+pub fn steam_mark_dlcs_owned(
+    app: AppHandle,
+    _app_id: u32,
+    dlc_app_ids: Vec<u32>,
+    owned: bool,
+) -> Result<u32, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    let value = if owned { "1" } else { "0" };
+    let mut written = 0u32;
+
+    for dlc_app_id in dlc_app_ids.into_iter().take(1000) {
+        let manual_key = format!("steam_dlc_owned_{dlc_app_id}");
+        if db::kv::set(&db, &manual_key, value).is_ok() {
+            written += 1;
+        }
+    }
+
+    Ok(written)
 }
 
 #[cfg(test)]
@@ -479,5 +575,37 @@ mod tests {
         // The response is keyed under a different app id.
         let other = json!({ "1": { "success": true, "data": { "name": "x" } } });
         assert!(appdetails_data(&other, 292030).is_none());
+    }
+
+    #[test]
+    fn order_dlc_appids_dedupes_preserving_first_seen_order() {
+        let known = HashSet::new();
+        let (ordered, total) = order_dlc_appids(vec![3, 1, 3, 2, 1], &known, 100);
+        assert_eq!(ordered, vec![3, 1, 2]);
+        assert_eq!(total, 3);
+    }
+
+    #[test]
+    fn order_dlc_appids_moves_known_ids_to_the_front() {
+        let known: HashSet<u32> = [4, 9].into_iter().collect();
+        let (ordered, total) = order_dlc_appids(vec![1, 4, 2, 9, 3], &known, 100);
+        assert_eq!(ordered, vec![4, 9, 1, 2, 3]);
+        assert_eq!(total, 5);
+    }
+
+    #[test]
+    fn order_dlc_appids_caps_after_known_and_reports_total() {
+        let known: HashSet<u32> = [5].into_iter().collect();
+        let (ordered, total) = order_dlc_appids(vec![1, 2, 3, 4, 5], &known, 2);
+        assert_eq!(ordered, vec![5, 1]);
+        assert_eq!(total, 5);
+    }
+
+    #[test]
+    fn cached_dlc_blob_defaults_missing_total_available() {
+        let json = json!({ "timestamp": 123, "dlcs": [] }).to_string();
+        let blob: CachedDlcBlob = serde_json::from_str(&json).expect("old blob");
+        assert_eq!(blob.timestamp, 123);
+        assert_eq!(blob.total_available, 0);
     }
 }
