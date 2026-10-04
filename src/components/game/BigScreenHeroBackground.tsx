@@ -48,6 +48,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAnimatedMediaEnabled } from "../../context/SettingsContext";
+import { useIsLinux } from "../../hooks/useIsLinux";
 
 interface BigScreenHeroBackgroundProps {
   bannerUrl?: string;
@@ -118,6 +119,12 @@ export default function BigScreenHeroBackground({
   // the screenshot cycle / static fallbacks in place.
   const animatedMediaEnabled = useAnimatedMediaEnabled();
   const skipAnimatedMedia = reducedMotion || !animatedMediaEnabled;
+  // WebKitGTK on Linux re-rasterises every full-bleed animated layer and
+  // keeps an extra video decode pipeline alive, so the decorative backdrop
+  // collapses to a single static image there. The CSS platform overrides
+  // freeze the Ken-Burns keyframe; the parent's trailer lightbox (the only
+  // user-initiated playback) is untouched.
+  const isLinux = useIsLinux();
 
   // Pick the active source. Memoized so the cycle doesn't re-decide
   // when an unrelated prop changes.
@@ -139,6 +146,12 @@ export default function BigScreenHeroBackground({
   // BigScreenGamePage still opens the chosen video in a lightbox
   // iframe where the URL actually plays.
   const mode = useMemo(() => {
+    if (isLinux) {
+      if (screenshots && screenshots.length >= 1) return "single-shot" as const;
+      if (bannerUrl) return "banner" as const;
+      if (coverArtUrl) return "cover" as const;
+      return "empty" as const;
+    }
     if (
       !skipAnimatedMedia &&
       videos &&
@@ -153,7 +166,7 @@ export default function BigScreenHeroBackground({
     if (bannerUrl) return "banner" as const;
     if (coverArtUrl) return "cover" as const;
     return "empty" as const;
-  }, [skipAnimatedMedia, videos, animatedUrl, screenshots, bannerUrl, coverArtUrl]);
+  }, [isLinux, skipAnimatedMedia, videos, animatedUrl, screenshots, bannerUrl, coverArtUrl]);
 
   if (mode === "video") {
     return <VideoBackground src={videos![0]} paused={paused} />;
