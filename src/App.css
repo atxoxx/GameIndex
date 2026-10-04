@@ -17,6 +17,7 @@
 @import "./styles/status-badges.css";
 @import "./styles/command-palette.css";
 @import "./styles/platform-linux.css";
+@import "./styles/perf.css";
 @import "./styles/theme-creator.css";
 @import "./styles/mo2-manager.css";
 @import "./styles/dlc.css";

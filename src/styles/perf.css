@@ -1,0 +1,125 @@
+/* ============================================================================
+   Large-surface blur removal (all platforms)
+   ============================================================================
+   `backdrop-filter` is the single largest GPU/VRAM cost the webview pays:
+   each declaration allocates an offscreen compositor surface and re-reads
+   the backdrop behind its element on every frame that backdrop moves. On a
+   large surface that stays mounted over scrolling content — the shell's
+   content scroller, a sticky toolbar, a tab bar, a full-screen scrim — that
+   readback runs on every scroll frame for as long as the surface is visible.
+
+   `platform-linux.css` already drops the blur on exactly these surfaces for
+   WebKitGTK (whose implementation is the most expensive). The same list is
+   safe everywhere: every background here is a theme tint that is 70-96%
+   opaque, so the frosted look is visually near-identical once the blur goes —
+   it is mostly the 1px hairline border and the tint carrying the "glass"
+   read, not the blur behind an almost-opaque fill.
+
+   Deliberately NOT included: the small per-card pills/badges
+   (`.lib-card-cover-badge`, status dots, `.badge`, rating chips, ...). Those
+   are tiny, non-scrolling, transient surfaces where the blur is cheap and
+   part of the detail-plane look.
+
+   Specificity notes (the reason this is not a plain selector list):
+   - The six UI styles (`[data-ui-style="…"]`, see `ui-styles/`) paint the
+     shell, nav, scrims and card primitives with `backdrop-filter` at
+     `!important` and specificity (0,2,0). A bare `.topnav` — even with
+     `!important` — loses to that. Wrapping the list in `:root :is(...)`
+     raises every target to at least (0,2,0), and this file is imported after
+     the UI styles, so the equal-specificity tie resolves in our favour while
+     the higher-specificity compound selectors simply outrank them.
+   - `:is()` takes the specificity of its most specific argument
+     (`.studio-preview .studio-detail-card`, here), so the rule as a whole is
+     comfortably above every competing declaration. */
+
+:root :is(
+  /* Shell: the top nav and the whole content scroller stay on screen while
+     anything scrolls, so their backdrop is re-captured continuously. */
+  .topnav,
+  .topnav-tabs,
+  .app-main,
+  .app-topnav,
+  .app-sidebar,
+  .sidebar,
+
+  /* Full-screen scrims and overlays. */
+  .modal-backdrop,
+  .modal,
+  .command-palette-backdrop,
+  .command-palette-panel,
+  .image-lightbox__backdrop,
+  .image-lightbox__thumb-strip,
+  .bigscreen-search-scrim,
+  .bigscreen-lightbox-mask,
+  .store-surprise-scrim,
+  .store-search-palette-scrim,
+  .dl-modal-backdrop,
+  .cmd-drawer-backdrop,
+  .cmd-cheatsheet-backdrop,
+  .lib-filter-overlay-scrim,
+  .store-filter-overlay-scrim,
+  .home-customize-overlay,
+
+  /* Large glass panels / primitives. */
+  .glass,
+  .glass-card,
+  .ui-card,
+  .ui-card--glass,
+  .kpi-tile,
+  .settings-section,
+  .settings-behavior-card,
+  .mo2-header-card,
+
+  /* Sticky bars, toolbars, headers. */
+  .store-tab-bar,
+  .store-toolbar,
+  .store-filter-bar,
+  .store-header,
+  .settings-topnav-bar,
+  .bigscreen-tab-bar,
+  .lib-toolbar,
+  .lib-stat,
+  .lib-group-header,
+  .lib-hero,
+  .lib-hero-btn--ghost,
+  .storage-floating-batch-bar,
+
+  /* Large content sections layered over full-bleed heroes. */
+  .game-section,
+  .game-quick-stats-bar,
+  .game-quick-actions__menu,
+  .home-hero__btn--ghost,
+  .home-hero__btn--dice,
+
+  /* Shifted panels, popovers and drawers (the small transient ones keep it). */
+  .sidebar-filter-popover,
+  .sidebar-view-options-menu,
+  .sidebar-bulk-action-bar,
+  .store-filter-sidebar,
+  .store-filter-overlay,
+  .store-search-dropdown,
+  .store-empty,
+  .store-spotlight-top,
+  .store-spotlight-dock,
+  .steam-stats-popover,
+  .lib-groupby-list,
+  .lib-filter,
+  .lib-filter-overlay,
+  .lib-hero-spotlight,
+  .lib-bulk-bar,
+  .dl-popover,
+  .msd__menu,
+  .bigscreen-overlay-drawer,
+  .bigscreen-overlay-drawer--modal,
+  .bigscreen-gamepage-hero-facts,
+  .cmd-drawer-panel,
+  .studio-preview .studio-detail-card,
+  .studio-detail-qstats,
+
+  /* Splash windows run at launch — the worst moment to capture a backdrop. */
+  .splashscreen-root,
+  .splashscreen-root--window
+) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}

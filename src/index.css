@@ -127,6 +127,27 @@ a:focus-visible {
   }
 }
 
+/* ── Reduced transparency support (GPU / VRAM) ─────────────────────────
+ * Windows Settings → Personalization → Colors → Transparency effects (and
+ * the equivalent GNOME/KDE toggles) surface to the webview as
+ * `prefers-reduced-transparency: reduce`. Every `backdrop-filter` is an
+ * offscreen compositor surface: it pins a GPU texture and re-reads the
+ * backdrop on each scroll frame, which is the single largest VRAM cost the
+ * webview incurs. The glass panels are already ~90%-opaque theme tints, so
+ * honouring the preference is visually near-identical while removing that
+ * per-frame surface — the same trade-off platform-linux.css makes for
+ * WebKitGTK, but driven by the OS preference instead of the platform.
+ * `!important` guarantees the reset beats every surface rule regardless of
+ * specificity; unsupported engines simply never match the media feature. */
+@media (prefers-reduced-transparency: reduce) {
+  *,
+  *::before,
+  *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
 /* ── FlagIcon (inline SVG flags) ───────────────────────────────────────────
  * Windows can't render flag emoji (Segoe UI Emoji ships no flag
  * glyphs), so country flags are drawn as inline SVGs via
