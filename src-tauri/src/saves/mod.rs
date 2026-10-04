@@ -251,35 +251,42 @@ pub fn saves_set_settings(
 
 /// Header summary for the Saves page.
 #[tauri::command]
-pub fn saves_summary(app: AppHandle) -> Result<SavesSummary, String> {
+pub async fn saves_summary(app: AppHandle) -> Result<SavesSummary, String> {
     let db = state_db(&app)?;
-    let mut settings = load_settings(&db);
-    if settings.backup_dir.trim().is_empty() {
-        settings.backup_dir = resolved_backup_dir(&app, &settings)?
-            .to_string_lossy()
-            .to_string();
-    }
-    let (locations, games, backups, bytes) = saves::summary_counts(&db)?;
-    let all = saves::list_all_locations(&db)?;
-    let missing = all
-        .iter()
-        .filter(|l| !Path::new(&l.path).exists())
-        .count() as u64;
-    let last_backup_at = saves::list_backups(&db, None)?
-        .first()
-        .map(|b| b.created_at);
-    Ok(SavesSummary {
-        enabled: settings.enabled,
-        backup_dir: settings.backup_dir,
-        games_with_locations: games,
-        total_locations: locations,
-        missing_locations: missing,
-        total_backups: backups,
-        total_backup_bytes: bytes,
-        last_backup_at,
-        auto_backup_on_exit: settings.auto_backup_on_exit,
-        retention: settings.retention,
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut settings = load_settings(&db);
+        if settings.backup_dir.trim().is_empty() {
+            settings.backup_dir = resolved_backup_dir(&app_handle, &settings)?
+                .to_string_lossy()
+                .to_string();
+        }
+        let (locations, games, backups, bytes) = saves::summary_counts(&db)?;
+        // `.exists()` probes the filesystem for every stored path; a stale
+        // location on a slow/removable drive must not stall the event loop.
+        let all = saves::list_all_locations(&db)?;
+        let missing = all
+            .iter()
+            .filter(|l| !Path::new(&l.path).exists())
+            .count() as u64;
+        let last_backup_at = saves::list_backups(&db, None)?
+            .first()
+            .map(|b| b.created_at);
+        Ok(SavesSummary {
+            enabled: settings.enabled,
+            backup_dir: settings.backup_dir,
+            games_with_locations: games,
+            total_locations: locations,
+            missing_locations: missing,
+            total_backups: backups,
+            total_backup_bytes: bytes,
+            last_backup_at,
+            auto_backup_on_exit: settings.auto_backup_on_exit,
+            retention: settings.retention,
+        })
     })
+    .await
+    .map_err(|e| format!("saves_summary task: {e}"))?
 }
 
 // ── Locations ───────────────────────────────────────────────────────────
@@ -501,8 +508,12 @@ pub fn saves_list_backups(
 }
 
 /// Snapshot a game's included save locations.
+///
+/// Walking and zipping potentially tens of thousands of files is heavy disk
+/// I/O, so the body runs on a blocking thread — a synchronous command would
+/// run on the event loop and freeze the whole UI for the duration.
 #[tauri::command]
-pub fn saves_backup_game(
+pub async fn saves_backup_game(
     app: AppHandle,
     game_id: String,
     note: Option<String>,
@@ -512,123 +523,159 @@ pub fn saves_backup_game(
     let Some(game) = db::games::get(&db, &game_id)? else {
         return Err(format!("Game not found: {game_id}"));
     };
-    // Auto-detect on first backup so a game the user never opened still
-    // gets sensible coverage.
-    if saves::list_locations(&db, &game_id)?.is_empty() {
-        merge_detected(&db, &game, settings.include_emulator_saves)?;
-    }
-    let locations = included_locations(&db, &game_id)?;
-    if locations.is_empty() {
-        return Err("No save locations configured for this game".into());
-    }
     let backup_dir = resolved_backup_dir(&app, &settings)?;
-    std::fs::create_dir_all(&backup_dir).map_err(|e| format!("create backup dir: {e}"))?;
-    let backup = engine::create_backup(
-        Some(&app),
-        &db,
-        &game.id,
-        &game.name,
-        &locations,
-        "manual",
-        note.as_deref().unwrap_or(""),
-        &backup_dir,
-        &settings.effective_ignore(),
-    )?;
-    engine::prune_backups(&db, &backup_dir, &game.id, settings.retention);
-    Ok(backup)
-}
-
-/// Snapshot every game that has included locations.
-#[tauri::command]
-pub fn saves_backup_all(app: AppHandle) -> Result<Vec<SaveBackup>, String> {
-    let db = state_db(&app)?;
-    let settings = load_settings(&db);
-    let backup_dir = resolved_backup_dir(&app, &settings)?;
-    std::fs::create_dir_all(&backup_dir).map_err(|e| format!("create backup dir: {e}"))?;
-    let games = db::games::list_all(&db)?;
-    let mut done = Vec::new();
-    for game in games {
-        let locations = included_locations(&db, &game.id)?;
-        if locations.is_empty() {
-            continue;
+    let ignore = settings.effective_ignore();
+    let include_emulator = settings.include_emulator_saves;
+    let retention = settings.retention;
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        // Auto-detect on first backup so a game the user never opened still
+        // gets sensible coverage.
+        if saves::list_locations(&db, &game_id)?.is_empty() {
+            merge_detected(&db, &game, include_emulator)?;
         }
-        match engine::create_backup(
-            Some(&app),
+        let locations = included_locations(&db, &game_id)?;
+        if locations.is_empty() {
+            return Err("No save locations configured for this game".into());
+        }
+        std::fs::create_dir_all(&backup_dir).map_err(|e| format!("create backup dir: {e}"))?;
+        let backup = engine::create_backup(
+            Some(&app_handle),
             &db,
             &game.id,
             &game.name,
             &locations,
             "manual",
-            "Backup all",
+            note.as_deref().unwrap_or(""),
             &backup_dir,
-            &settings.effective_ignore(),
-        ) {
-            Ok(backup) => {
-                engine::prune_backups(&db, &backup_dir, &game.id, settings.retention);
-                done.push(backup);
+            &ignore,
+        )?;
+        engine::prune_backups(&db, &backup_dir, &game.id, retention);
+        Ok(backup)
+    })
+    .await
+    .map_err(|e| format!("saves_backup_game task: {e}"))?
+}
+
+/// Snapshot every game that has included locations.
+#[tauri::command]
+pub async fn saves_backup_all(app: AppHandle) -> Result<Vec<SaveBackup>, String> {
+    let db = state_db(&app)?;
+    let settings = load_settings(&db);
+    let backup_dir = resolved_backup_dir(&app, &settings)?;
+    let ignore = settings.effective_ignore();
+    let retention = settings.retention;
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        std::fs::create_dir_all(&backup_dir).map_err(|e| format!("create backup dir: {e}"))?;
+        let games = db::games::list_all(&db)?;
+        let mut done = Vec::new();
+        for game in games {
+            let locations = included_locations(&db, &game.id)?;
+            if locations.is_empty() {
+                continue;
             }
-            Err(e) => eprintln!("[saves] backup_all {} failed: {e}", game.id),
+            match engine::create_backup(
+                Some(&app_handle),
+                &db,
+                &game.id,
+                &game.name,
+                &locations,
+                "manual",
+                "Backup all",
+                &backup_dir,
+                &ignore,
+            ) {
+                Ok(backup) => {
+                    engine::prune_backups(&db, &backup_dir, &game.id, retention);
+                    done.push(backup);
+                }
+                Err(e) => eprintln!("[saves] backup_all {} failed: {e}", game.id),
+            }
         }
-    }
-    Ok(done)
+        Ok(done)
+    })
+    .await
+    .map_err(|e| format!("saves_backup_all task: {e}"))?
 }
 
 /// Restore a snapshot, optionally snapshotting current saves first.
 #[tauri::command]
-pub fn saves_restore_backup(app: AppHandle, backup_id: String) -> Result<RestoreResult, String> {
+pub async fn saves_restore_backup(
+    app: AppHandle,
+    backup_id: String,
+) -> Result<RestoreResult, String> {
     let db = state_db(&app)?;
     let settings = load_settings(&db);
-    let backup = saves::get_backup(&db, &backup_id)?
-        .ok_or_else(|| format!("Backup not found: {backup_id}"))?;
     let backup_dir = resolved_backup_dir(&app, &settings)?;
-    let result = engine::restore_backup(
-        Some(&app),
-        &db,
-        &backup,
-        settings.restore_safety_snapshot,
-        &backup_dir,
-        &settings.effective_ignore(),
-    )?;
-    // Prune again: the safety snapshot counts toward retention.
-    engine::prune_backups(&db, &backup_dir, &backup.game_id, settings.retention);
-    Ok(result)
+    let ignore = settings.effective_ignore();
+    let safety = settings.restore_safety_snapshot;
+    let retention = settings.retention;
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let backup = saves::get_backup(&db, &backup_id)?
+            .ok_or_else(|| format!("Backup not found: {backup_id}"))?;
+        let result = engine::restore_backup(
+            Some(&app_handle),
+            &db,
+            &backup,
+            safety,
+            &backup_dir,
+            &ignore,
+        )?;
+        // Prune again: the safety snapshot counts toward retention.
+        engine::prune_backups(&db, &backup_dir, &backup.game_id, retention);
+        Ok(result)
+    })
+    .await
+    .map_err(|e| format!("saves_restore_backup task: {e}"))?
 }
 
 /// Delete one snapshot (index row + on-disk directory).
 #[tauri::command]
-pub fn saves_delete_backup(app: AppHandle, backup_id: String) -> Result<u64, String> {
+pub async fn saves_delete_backup(app: AppHandle, backup_id: String) -> Result<u64, String> {
     let db = state_db(&app)?;
     let settings = load_settings(&db);
     let backup_dir = resolved_backup_dir(&app, &settings)?;
-    if let Some(backup) = saves::get_backup(&db, &backup_id)? {
-        engine::delete_snapshot(&backup, &backup_dir);
-    }
-    saves::delete_backup(&db, &backup_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(backup) = saves::get_backup(&db, &backup_id)? {
+            engine::delete_snapshot(&backup, &backup_dir);
+        }
+        saves::delete_backup(&db, &backup_id)
+    })
+    .await
+    .map_err(|e| format!("saves_delete_backup task: {e}"))?
 }
 
 /// Delete every snapshot for a game.
 #[tauri::command]
-pub fn saves_delete_game_backups(app: AppHandle, game_id: String) -> Result<u64, String> {
+pub async fn saves_delete_game_backups(app: AppHandle, game_id: String) -> Result<u64, String> {
     let db = state_db(&app)?;
     let settings = load_settings(&db);
     let backup_dir = resolved_backup_dir(&app, &settings)?;
-    for backup in saves::list_backups(&db, Some(&game_id))? {
-        engine::delete_snapshot(&backup, &backup_dir);
-    }
-    saves::delete_backups_for_game(&db, &game_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        for backup in saves::list_backups(&db, Some(&game_id))? {
+            engine::delete_snapshot(&backup, &backup_dir);
+        }
+        saves::delete_backups_for_game(&db, &game_id)
+    })
+    .await
+    .map_err(|e| format!("saves_delete_game_backups task: {e}"))?
 }
 
 /// Read a snapshot's manifest for the backup browser.
 #[tauri::command]
-pub fn saves_get_backup_manifest(
+pub async fn saves_get_backup_manifest(
     app: AppHandle,
     backup_id: String,
 ) -> Result<Option<BackupManifest>, String> {
     let db = state_db(&app)?;
-    match saves::get_backup(&db, &backup_id)? {
+    tauri::async_runtime::spawn_blocking(move || match saves::get_backup(&db, &backup_id)? {
         Some(backup) => Ok(engine::read_manifest(&backup)),
         None => Err(format!("Backup not found: {backup_id}")),
-    }
+    })
+    .await
+    .map_err(|e| format!("saves_get_backup_manifest task: {e}"))?
 }
 
 // ── Opening paths ───────────────────────────────────────────────────────

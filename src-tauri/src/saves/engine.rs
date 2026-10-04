@@ -39,6 +39,11 @@ const ARCHIVE_EXT: &str = "gisave";
 /// Name of the manifest entry inside the archive / legacy snapshot directory.
 const MANIFEST_JSON: &str = "manifest.json";
 
+/// Emit file-level backup progress every N files (plus the final file).
+/// Backups routinely touch tens of thousands of files, so the UI needs a
+/// heartbeat without flooding the event channel.
+const PROGRESS_STEP: u64 = 250;
+
 /// Deflate options shared by every entry written to a snapshot archive.
 fn zip_opts() -> zip::write::SimpleFileOptions {
     zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated)
@@ -246,6 +251,26 @@ struct CollectedFile {
     modified_ms: u64,
 }
 
+/// True when `path` is a Windows reparse point (junction or symlink) that
+/// must not be descended into. `FileType::is_symlink` already covers
+/// symlinks; this additionally catches directory junctions, whose targets
+/// can point back up the tree and spin the walk forever.
+fn is_reparse_dir(path: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        return std::fs::symlink_metadata(path)
+            .map(|m| m.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0)
+            .unwrap_or(false);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+        false
+    }
+}
+
 /// Walk a directory collecting regular files (no symlink following).
 fn walk_files(root: &Path, dir: &Path, patterns: &[String], out: &mut Vec<CollectedFile>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -258,6 +283,9 @@ fn walk_files(root: &Path, dir: &Path, patterns: &[String], out: &mut Vec<Collec
             continue;
         }
         if ft.is_dir() {
+            if is_reparse_dir(&path) {
+                continue;
+            }
             walk_files(root, &path, patterns, out);
             continue;
         }
@@ -326,6 +354,34 @@ pub fn create_backup(
     std::fs::create_dir_all(&game_dir).map_err(|e| format!("create backup dir: {e}"))?;
     let root = unique_archive_path(&game_dir, created_at, kind);
 
+    // Discover every file up front so the progress bar can report an honest
+    // file total and the UI never looks stalled on a single huge folder.
+    // Walking is cheap metadata I/O; zipping is the expensive pass.
+    let mut discovered: Vec<Vec<CollectedFile>> = Vec::with_capacity(locations.len());
+    let mut total_files = 0u64;
+    for loc in locations {
+        let src = Path::new(&loc.path);
+        let files = if loc.kind == "file" {
+            match src.file_name().and_then(|n| n.to_str()) {
+                Some(name) if src.is_file() && !is_ignored(ignore, name, name) => {
+                    vec![CollectedFile {
+                        rel: name.to_string(),
+                        modified_ms: modified_ms_of(src),
+                    }]
+                }
+                _ => Vec::new(),
+            }
+        } else if src.is_dir() {
+            let mut collected = Vec::new();
+            walk_files(src, src, ignore, &mut collected);
+            collected
+        } else {
+            Vec::new()
+        };
+        total_files += files.len() as u64;
+        discovered.push(files);
+    }
+
     let file = File::create(&root).map_err(|e| format!("create snapshot archive: {e}"))?;
     let mut zip = ZipWriter::new(file);
 
@@ -333,64 +389,59 @@ pub fn create_backup(
     let mut manifest_files: Vec<ManifestFile> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
     let mut copied_locations = 0u32;
+    let mut done_files = 0u64;
 
-    let total = locations.len().max(1) as u64;
     for (i, loc) in locations.iter().enumerate() {
+        let src = Path::new(&loc.path);
+        let mut file_count = 0u64;
+        let mut total_bytes = 0u64;
+
         emit(
             app,
             "backup",
             game_id,
             game_name,
-            i as u64,
-            total,
+            done_files,
+            total_files,
             &format!("Backing up {}", loc.label),
         );
-        let src = Path::new(&loc.path);
-        let mut file_count = 0u64;
-        let mut total_bytes = 0u64;
 
-        if loc.kind == "file" {
-            if src.is_file() {
-                let name = src.file_name().and_then(|n| n.to_str()).unwrap_or("save");
-                if !is_ignored(ignore, name, name) {
-                    let modified_ms = modified_ms_of(src);
-                    match add_file_to_zip(&mut zip, i as u32, "", name, src) {
-                        Ok(bytes) => {
-                            file_count += 1;
-                            total_bytes += bytes;
-                            manifest_files.push(ManifestFile {
-                                location_index: i as u32,
-                                rel: name.to_string(),
-                                size: bytes,
-                                modified_ms,
-                            });
-                        }
-                        Err(e) => errors.push(format!("{name}: {e}")),
-                    }
+        for f in &discovered[i] {
+            let rel_arg = if loc.kind == "file" { "" } else { f.rel.as_str() };
+            match add_file_to_zip(&mut zip, i as u32, rel_arg, &f.rel, src) {
+                Ok(bytes) => {
+                    file_count += 1;
+                    total_bytes += bytes;
+                    manifest_files.push(ManifestFile {
+                        location_index: i as u32,
+                        rel: f.rel.clone(),
+                        size: bytes,
+                        modified_ms: f.modified_ms,
+                    });
                 }
+                Err(e) => errors.push(format!("{}: {e}", f.rel)),
             }
-        } else if src.is_dir() {
-            let mut collected = Vec::new();
-            walk_files(src, src, ignore, &mut collected);
-            for f in collected {
-                match add_file_to_zip(&mut zip, i as u32, &f.rel, &f.rel, src) {
-                    Ok(bytes) => {
-                        file_count += 1;
-                        total_bytes += bytes;
-                        manifest_files.push(ManifestFile {
-                            location_index: i as u32,
-                            rel: f.rel,
-                            size: bytes,
-                            modified_ms: f.modified_ms,
-                        });
-                    }
-                    Err(e) => errors.push(format!("{}: {e}", f.rel)),
-                }
+            done_files += 1;
+            if total_files > PROGRESS_STEP
+                && (done_files % PROGRESS_STEP == 0 || done_files == total_files)
+            {
+                emit(
+                    app,
+                    "backup",
+                    game_id,
+                    game_name,
+                    done_files,
+                    total_files,
+                    &format!("Backing up {} ({done_files} files)", loc.label),
+                );
             }
-        } else {
-            errors.push(format!("missing: {}", loc.path));
         }
 
+        // A folder location that no longer exists is recorded as an error;
+        // a single-file location that vanished is simply skipped.
+        if !src.exists() && loc.kind != "file" {
+            errors.push(format!("missing: {}", loc.path));
+        }
         if file_count > 0 || src.exists() {
             copied_locations += 1;
         }
@@ -465,8 +516,8 @@ pub fn create_backup(
         "backup",
         game_id,
         game_name,
-        total,
-        total,
+        total_files.max(1),
+        total_files.max(1),
         "Backup complete",
     );
     Ok(backup)
