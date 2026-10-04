@@ -27,16 +27,26 @@ use crate::{achievements, db, local_achievements};
 pub const KV_LOCAL_ACHIEVEMENTS: &str = "local_achievements_enabled";
 
 /// Tick cadence. While a game is running the watcher scans on every tick so
-/// unlocks are picked up promptly; with nothing running it backs off to
-/// [`IDLE_SCAN_INTERVAL`] (the tick still wakes on this cadence, but only
-/// reads a boolean — no filesystem walk).
+/// unlocks are picked up promptly; with nothing running it wakes in short
+/// chunks and scans only every [`IDLE_SCAN_INTERVAL`].
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Minimum gap between full scan passes when no game session is active.
 /// Crack/emulator achievement files only change while their game runs, so
 /// walking the cracker roots every 5 s with nothing running is wasted disk
 /// I/O. A slow baseline pass still catches files edited between sessions.
-const IDLE_SCAN_INTERVAL: Duration = Duration::from_secs(60);
+const IDLE_SCAN_INTERVAL: Duration = Duration::from_secs(300);
+
+/// While a game runs the cheap per-file mtime check still runs on every
+/// [`POLL_INTERVAL`] tick, but the expensive directory walk is refreshed at
+/// most this often. A file created mid-session is therefore discovered
+/// within a minute, while unlocks in already-known files stay <=5 s.
+const RUNNING_WALK_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
+
+/// While idle the loop sleeps in chunks of this length instead of one
+/// [`IDLE_SCAN_INTERVAL`] block, so a game that launches during the back-off
+/// is noticed within a chunk; the scan itself still runs at the idle cadence.
+const IDLE_POLL_CHUNK: Duration = Duration::from_secs(30);
 
 /// Max dirty games synced concurrently in one pass. Schema fetches carry
 /// a 20s timeout; syncing sequentially would turn an offline startup
@@ -136,6 +146,27 @@ fn file_mtime_ms(path: &PathBuf) -> Option<u64> {
         .map(|d| d.as_millis() as u64)
 }
 
+/// Whether the cached directory walk must be refreshed on this tick.
+///
+/// A missing cache (`None`) always refreshes. While a game runs the walk is
+/// refreshed at most once per [`RUNNING_WALK_REFRESH_INTERVAL`]; while idle
+/// the pass cadence is already [`IDLE_SCAN_INTERVAL`], so each pass refreshes.
+fn walk_refresh_due(
+    last_walk: Option<std::time::Instant>,
+    now: std::time::Instant,
+    running: bool,
+) -> bool {
+    let Some(last) = last_walk else {
+        return true;
+    };
+    let interval = if running {
+        RUNNING_WALK_REFRESH_INTERVAL
+    } else {
+        IDLE_SCAN_INTERVAL
+    };
+    now.duration_since(last) >= interval
+}
+
 /// Currently-achieved api names (uppercased) for a game, from cache.
 fn cached_achieved(app: &AppHandle, game_id: &str) -> HashSet<String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
@@ -174,13 +205,19 @@ pub fn start(app: AppHandle) {
         let mut file_stats: HashMap<PathBuf, u64> = HashMap::new();
 
         // ── Pre-search (silent): catch offline unlocks ──────────────
-        run_pass(&app, &client, &mut file_stats, false).await;
+        // First pass always walks fresh so nothing unlocked while the app
+        // was closed is missed.
+        let mut all_files = local_achievements::find_all_achievement_files();
+        let mut last_walk = Some(std::time::Instant::now());
+        run_pass(&app, &client, &mut file_stats, &all_files, false).await;
 
         // ── Steady poll ─────────────────────────────────────────────
-        // Scan on every tick while a game is running (unlocks change only
-        // then); with nothing running, back off to IDLE_SCAN_INTERVAL. The
-        // 5 s tick still fires either way, but the idle path only reads the
-        // cheap `game_is_running` flag — no filesystem walk.
+        // Scan every 5 s while a game is running (unlocks change only then).
+        // With nothing running, wake in short chunks so a launch is noticed
+        // promptly, but run the scan itself only every IDLE_SCAN_INTERVAL.
+        // The expensive directory walk is cached and refreshed per
+        // `walk_refresh_due`; the per-file mtime check in `run_pass` still
+        // runs on every pass so already-known unlocks stay prompt.
         let mut last_scan = std::time::Instant::now();
         loop {
             if !is_enabled(&app) {
@@ -188,18 +225,28 @@ pub fn start(app: AppHandle) {
                 continue;
             }
             let running = game_is_running(&app);
-            let sleep_dur = if running {
-                POLL_INTERVAL
+            if running {
+                tokio::time::sleep(POLL_INTERVAL).await;
             } else {
-                IDLE_SCAN_INTERVAL
-            };
-            tokio::time::sleep(sleep_dur).await;
-
-            if !running && last_scan.elapsed() < IDLE_SCAN_INTERVAL {
-                continue;
+                // Poll in short chunks so a game launched during the idle
+                // back-off is picked up within a chunk; the scan itself still
+                // runs at the idle cadence.
+                tokio::time::sleep(IDLE_POLL_CHUNK).await;
+                if game_is_running(&app) {
+                    continue;
+                }
+                if last_scan.elapsed() < IDLE_SCAN_INTERVAL {
+                    continue;
+                }
             }
             last_scan = std::time::Instant::now();
-            run_pass(&app, &client, &mut file_stats, true).await;
+
+            let now = std::time::Instant::now();
+            if walk_refresh_due(last_walk, now, running) {
+                all_files = local_achievements::find_all_achievement_files();
+                last_walk = Some(now);
+            }
+            run_pass(&app, &client, &mut file_stats, &all_files, true).await;
         }
     });
 }
@@ -217,10 +264,14 @@ fn game_is_running(app: &AppHandle) -> bool {
 
 /// One scan pass. When `notify` is false (pre-search) we still update the
 /// cache + emit `achievements-updated`, but suppress unlock toasts.
+///
+/// `all_files` is the caller-owned directory-walk result so the expensive
+/// walk is not repeated on every tick.
 async fn run_pass(
     app: &AppHandle,
     client: &reqwest::Client,
     file_stats: &mut HashMap<PathBuf, u64>,
+    all_files: &HashMap<String, Vec<local_achievements::AchievementFile>>,
     notify: bool,
 ) {
     if !is_enabled(app) {
@@ -232,7 +283,6 @@ async fn run_pass(
         return;
     }
 
-    let all_files = local_achievements::find_all_achievement_files();
     let language = resolve_language(app);
 
     // Phase 1 (fast, local-only): detect which games changed and seed the
@@ -340,5 +390,56 @@ pub fn set_local_achievements_enabled(app: AppHandle, enabled: bool) -> Result<(
         KV_LOCAL_ACHIEVEMENTS,
         if enabled { "true" } else { "false" },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn walk_refresh_is_due_when_there_is_no_previous_walk() {
+        let now = Instant::now();
+        assert!(walk_refresh_due(None, now, true));
+        assert!(walk_refresh_due(None, now, false));
+    }
+
+    #[test]
+    fn walk_refresh_while_running_is_not_due_before_a_minute() {
+        let now = Instant::now();
+        let last = now - Duration::from_secs(59);
+        assert!(!walk_refresh_due(Some(last), now, true));
+    }
+
+    #[test]
+    fn walk_refresh_while_running_is_due_at_a_minute() {
+        let now = Instant::now();
+        let last = now - Duration::from_secs(60);
+        assert!(walk_refresh_due(Some(last), now, true));
+    }
+
+    #[test]
+    fn walk_refresh_while_idle_is_not_due_before_five_minutes() {
+        let now = Instant::now();
+        let last = now - Duration::from_secs(299);
+        assert!(!walk_refresh_due(Some(last), now, false));
+    }
+
+    #[test]
+    fn walk_refresh_while_idle_is_due_at_five_minutes() {
+        let now = Instant::now();
+        let last = now - Duration::from_secs(300);
+        assert!(walk_refresh_due(Some(last), now, false));
+    }
+
+    #[test]
+    fn idle_scan_interval_is_five_minutes() {
+        assert_eq!(IDLE_SCAN_INTERVAL, Duration::from_secs(300));
+    }
+
+    #[test]
+    fn idle_poll_chunk_stays_short() {
+        assert!(IDLE_POLL_CHUNK <= Duration::from_secs(60));
+    }
 }
 
