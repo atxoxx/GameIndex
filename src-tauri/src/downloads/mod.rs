@@ -274,7 +274,10 @@ pub async fn initialize_engine(
                     continue;
                 }
                 let heals = guard.refresh_stats();
-                guard.flush_if_dirty();
+                // Coalesce the per-second stat churn into a bounded write
+                // cadence; the live UI still gets every tick via the emit
+                // below, and explicit mutations flush immediately.
+                guard.flush_if_dirty_throttled(Duration::from_secs(3));
                 let progress = guard.take_progress_update();
                 (heals, progress)
             };

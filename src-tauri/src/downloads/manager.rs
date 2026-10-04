@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter};
 use tokio::sync::RwLock;
@@ -45,6 +45,9 @@ pub struct DownloadManager {
     state_dir: PathBuf,
     app: Option<AppHandle>,
     dirty: bool,
+    /// When the record set was last written to `downloads.json`. Lets the
+    /// periodic loop coalesce the every-second stat churn into one write.
+    last_persist: Option<Instant>,
     last_emitted_hash: u64,
     /// Live byte counters for direct downloads (shared with workers).
     pub direct_counters: HashMap<String, Arc<AtomicU64>>,
@@ -117,6 +120,7 @@ impl DownloadManager {
             state_dir,
             app: None,
             dirty: false,
+            last_persist: None,
             last_emitted_hash: 0,
             direct_counters: HashMap::new(),
             direct_last_calc: HashMap::new(),
@@ -184,15 +188,38 @@ impl DownloadManager {
         self.dirty = true;
     }
 
+    /// Immediately persist a dirty record set. Use this from explicit
+    /// mutations (a removal, a user action) where the write must be durable
+    /// before the caller returns.
     pub fn flush_if_dirty(&mut self) {
         if self.dirty {
-            persistence::save(
-                &self.state_dir,
-                &self.downloads,
-                &self.removed_torrents,
-            );
-            self.dirty = false;
+            self.persist_now();
         }
+    }
+
+    /// Persist a dirty record set at most once per `min_interval`. The 1 s
+    /// status loop uses this: an active transfer re-dirties the records every
+    /// tick (speed + byte counters), and rewriting the whole `downloads.json`
+    /// every second is pure write amplification. Progress is re-derived from
+    /// the partial file / HTTP resume on the next boot, so a few seconds of
+    /// staleness costs nothing. Explicit mutations still use
+    /// [`flush_if_dirty`] for an immediate write.
+    pub fn flush_if_dirty_throttled(&mut self, min_interval: Duration) {
+        if !self.dirty {
+            return;
+        }
+        if let Some(last) = self.last_persist {
+            if last.elapsed() < min_interval {
+                return;
+            }
+        }
+        self.persist_now();
+    }
+
+    fn persist_now(&mut self) {
+        persistence::save(&self.state_dir, &self.downloads, &self.removed_torrents);
+        self.dirty = false;
+        self.last_persist = Some(Instant::now());
     }
 
     /// Snapshot for the frontend: completed records at the bottom,
@@ -2223,6 +2250,45 @@ mod tests {
         assert_eq!(
             mgr.automation_paused.get("g").map(String::as_str),
             Some("game")
+        );
+    }
+
+    #[test]
+    fn throttled_flush_coalesces_rapid_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut mgr = DownloadManager::new(dir.path().to_path_buf());
+        let d = Download::new(
+            "dl_1".to_string(),
+            DownloadKind::Direct,
+            "One".to_string(),
+            "https://example.com/a".to_string(),
+            "C:\\Games\\A".to_string(),
+            None,
+            "test".to_string(),
+            false,
+        );
+        mgr.downloads_mut().insert(d.id.clone(), d);
+
+        // A zero interval always writes (and records the flush time).
+        mgr.mark_dirty();
+        mgr.flush_if_dirty_throttled(Duration::ZERO);
+        assert_eq!(persistence::load(dir.path()).downloads.len(), 1);
+
+        // A change made within the window is coalesced: the on-disk copy
+        // still holds the pre-change value.
+        mgr.downloads_mut().get_mut("dl_1").unwrap().name = "Renamed".to_string();
+        mgr.mark_dirty();
+        mgr.flush_if_dirty_throttled(Duration::from_secs(3600));
+        assert_eq!(
+            persistence::load(dir.path()).downloads["dl_1"].name,
+            "One"
+        );
+
+        // The coalesced change lands on the next unthrottled flush.
+        mgr.flush_if_dirty_throttled(Duration::ZERO);
+        assert_eq!(
+            persistence::load(dir.path()).downloads["dl_1"].name,
+            "Renamed"
         );
     }
 }

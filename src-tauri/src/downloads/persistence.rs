@@ -218,7 +218,10 @@ pub fn save(
             })
             .collect(),
     };
-    if let Ok(content) = serde_json::to_string_pretty(&state) {
+    // Compact, not pretty: this file is rewritten whenever a transfer's
+    // stats change, and the pretty indentation only bloats every write
+    // (~30-40% more bytes) for a document no human reads.
+    if let Ok(content) = serde_json::to_string(&state) {
         let path = state_file(state_dir);
         let tmp = path.with_extension("json.tmp");
         if std::fs::write(&tmp, &content).is_ok() {
