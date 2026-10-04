@@ -30,22 +30,30 @@ export default function GameTabs<T extends string = string>({
     opacity: number;
   }>({ left: 0, width: 0, opacity: 0 });
 
-  // Update sliding indicator position & scroll active tab into view
+  // Update sliding indicator position & center the active tab in the strip
   useEffect(() => {
     const activeEl = tabRefs.current.get(activeTab);
     const container = containerRef.current;
     if (activeEl && container) {
-      activeEl.scrollIntoView({
-        behavior: "smooth",
-        inline: "center",
-        block: "nearest",
-      });
+      // Center the active tab by scrolling the strip itself, not via
+      // `scrollIntoView`. That call also scrolls ancestors, so when the async
+      // tab data lands (achievement/note counts, map status) `tabs` changes,
+      // this effect re-runs, and a user who had scrolled down gets yanked back
+      // up to the tab bar. Touching `scrollLeft` leaves `.app-main` alone.
+      const containerRect = container.getBoundingClientRect();
+      const elRect = activeEl.getBoundingClientRect();
+      const targetLeft =
+        container.scrollLeft +
+        (elRect.left - containerRect.left) -
+        (containerRect.width - elRect.width) / 2;
+      container.scrollTo({ left: targetLeft, behavior: "smooth" });
+
       const updateIndicator = () => {
-        const containerRect = container.getBoundingClientRect();
-        const elRect = activeEl.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        const eRect = activeEl.getBoundingClientRect();
         setIndicatorStyle({
-          left: elRect.left - containerRect.left + container.scrollLeft,
-          width: elRect.width,
+          left: eRect.left - cRect.left + container.scrollLeft,
+          width: eRect.width,
           opacity: 1,
         });
       };
