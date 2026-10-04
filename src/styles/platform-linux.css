@@ -93,13 +93,16 @@
   animation: none;
 }
 
-/* The six UI styles paint the shell, the sidebar and the card primitives with
-   `backdrop-filter` at `!important`, which the attribute-scoped declarations
-   above cannot override. These are the largest and longest-lived surfaces in
-   the app - `.app-main` is the whole content scroller - and on WebKitGTK each
-   one is a backdrop capture that is redone on every scroll frame. Their
-   backgrounds are already theme tints, so the blur is dropped here exactly as
-   the earlier passes did for the top nav and the modal scrims. */
+/* The six UI styles paint the shell, the nav, the scrims and the card
+   primitives with `backdrop-filter` at `!important`, which the
+   attribute-scoped declarations above cannot override. These are the largest
+   and longest-lived surfaces in the app - `.app-main` is the whole content
+   scroller - and on WebKitGTK each one is a backdrop capture that is redone on
+   every scroll frame. Their backgrounds are already theme tints, so the blur
+   is dropped here exactly as the earlier passes did for the top nav and the
+   modal scrims. */
+[data-platform="linux"] .topnav,
+[data-platform="linux"] .modal-backdrop,
 [data-platform="linux"] .app-main,
 [data-platform="linux"] .sidebar,
 [data-platform="linux"] .sidebar-filter-popover,
@@ -143,4 +146,76 @@
 [data-platform="linux"] .splashscreen-ambient-glow-secondary {
   filter: none !important;
   animation: none !important;
+}
+
+/* Third pass: the remaining continuous full-surface motions - the big-screen
+   backdrop drift, the big-screen gamepage Ken Burns and the game hero drift -
+   are re-rasterised every frame while on screen, keeping the compositor busy.
+   They are purely decorative, so the animation is stopped. */
+[data-platform="linux"] .bigscreen-gamepage-hero-bg-slide img,
+[data-platform="linux"] .bigscreen-dashboard-backdrop-img,
+[data-platform="linux"] .game-hero__bg {
+  animation: none;
+}
+
+/* The cover-collage backdrops behind the library and home heroes blur a
+   full-width image grid (18-20px) that is re-rasterised on every resize and
+   scroll. Their low opacity and legibility veils already soften them, so the
+   filter is dropped entirely. */
+[data-platform="linux"] .lib-hero-collage,
+[data-platform="linux"] .home-hero__collage {
+  filter: none;
+}
+
+/* `will-change` opts these large or long-lived layers into a permanent
+   compositor layer, which on WebKitGTK pins GPU memory. Released so the browser
+   promotes them only while they are actually animating or scrolling. The
+   status-dot pulse keeps its `will-change`-free animation - only the hint
+   goes. */
+[data-platform="linux"] .lib-cards--virtual,
+[data-platform="linux"] .lib-empty-card-icon--accent,
+[data-platform="linux"] .news-hero-progress-bar {
+  will-change: auto;
+}
+
+/* The animated WebP's `will-change` is load-bearing while a cover is visible
+   (it repaints every frame), so only inactive covers release their layer. */
+[data-platform="linux"] .store-card-cover-animated:not(.is-active) {
+  will-change: auto;
+}
+
+/* Fourth pass: full-screen, sticky and large surfaces missed by the passes
+   above - scrims and lightboxes, sticky headers and filter panels, the store
+   search palette, the in-app splash scrim and the big-screen hero facts. Their
+   backgrounds are already opaque-ish theme tints, so the blur is dropped
+   exactly as before. Small pills/badges keep theirs. */
+[data-platform="linux"] .splashscreen-root,
+[data-platform="linux"] .lib-groupby-list,
+[data-platform="linux"] .lib-filter,
+[data-platform="linux"] .lib-filter-overlay,
+[data-platform="linux"] .lib-hero-spotlight,
+[data-platform="linux"] .lib-bulk-bar,
+[data-platform="linux"] .store-filter-sidebar,
+[data-platform="linux"] .store-filter-overlay,
+[data-platform="linux"] .steam-stats-popover,
+[data-platform="linux"] .store-empty,
+[data-platform="linux"] .store-header,
+[data-platform="linux"] .store-spotlight-top,
+[data-platform="linux"] .store-spotlight-dock,
+[data-platform="linux"] .store-search-dropdown,
+[data-platform="linux"] .store-surprise-scrim,
+[data-platform="linux"] .store-search-palette-scrim,
+[data-platform="linux"] .settings-topnav-bar,
+[data-platform="linux"] .storage-floating-batch-bar,
+[data-platform="linux"] .mo2-header-card,
+[data-platform="linux"] .studio-preview .studio-detail-card,
+[data-platform="linux"] .studio-detail-qstats,
+[data-platform="linux"] .bigscreen-gamepage-hero-facts,
+[data-platform="linux"] .bigscreen-lightbox-mask,
+[data-platform="linux"] .dl-modal-backdrop,
+[data-platform="linux"] .cmd-drawer-panel,
+[data-platform="linux"] .cmd-drawer-backdrop,
+[data-platform="linux"] .cmd-cheatsheet-backdrop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
