@@ -165,6 +165,8 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
   const [editCover, setEditCover] = useState(game.coverArtUrl || "");
   const [editHero, setEditHero] = useState(game.bannerUrl || "");
   const [editLogo, setEditLogo] = useState(game.logoUrl || "");
+  const [editCoverSource, setEditCoverSource] = useState(game.coverSourceUrl);
+  const [editLogoSource, setEditLogoSource] = useState(game.logoSourceUrl);
   const [editScreenshots, setEditScreenshots] = useState<string[]>(game.screenshots || []);
   const [editVideos, setEditVideos] = useState<string[]>(game.videos || []);
   const [editWebsites, setEditWebsites] = useState<string[]>(game.websites || []);
@@ -609,7 +611,8 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
 
   function artworkPatch(
     key: "icon" | "cover" | "hero" | "banner" | "logo",
-    value: string
+    value: string,
+    sourceUrl?: string
   ): Partial<Game> {
     const slot = key === "banner" ? "hero" : key;
     const url = value || undefined;
@@ -617,10 +620,14 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
     if (slot === "cover") {
       return {
         coverArtUrl: url,
-        coverSourceUrl: /^https:\/\//i.test(value) ? value : undefined,
+        coverSourceUrl: sourceUrl ?? (/^https:\/\//i.test(value) ? value : undefined),
       };
     }
-    return slot === "hero" ? { bannerUrl: url } : { logoUrl: url };
+    if (slot === "hero") return { bannerUrl: url };
+    return {
+      logoUrl: url,
+      logoSourceUrl: sourceUrl ?? (/^https:\/\//i.test(value) ? value : undefined),
+    };
   }
 
   /** DB-only artwork patch for `patch_game`: just the touched column(s), with
@@ -628,7 +635,8 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
    *  revive a stale value for another slot. */
   function artworkDbPatch(
     key: "icon" | "cover" | "hero" | "banner" | "logo",
-    value: string
+    value: string,
+    sourceUrl?: string
   ): Record<string, string | null> {
     const slot = key === "banner" ? "hero" : key;
     const url = value || null;
@@ -636,18 +644,28 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
     if (slot === "cover") {
       return {
         coverArtUrl: url,
-        coverSourceUrl: /^https:\/\//i.test(value) ? value : null,
+        coverSourceUrl: sourceUrl ?? (/^https:\/\//i.test(value) ? value : null),
       };
     }
-    return slot === "hero" ? { bannerUrl: url } : { logoUrl: url };
+    if (slot === "hero") return { bannerUrl: url };
+    return {
+      logoUrl: url,
+      logoSourceUrl: sourceUrl ?? (/^https:\/\//i.test(value) ? value : null),
+    };
   }
 
   function persistImageSlot(
     key: "icon" | "cover" | "hero" | "banner" | "logo",
-    value: string
+    value: string,
+    sourceUrl?: string
   ) {
-    const patch = artworkPatch(key, value);
+    const patch = artworkPatch(key, value, sourceUrl);
     setImageSlot(key, value);
+    if (key === "cover") {
+      setEditCoverSource(sourceUrl ?? (/^https:\/\//i.test(value) ? value : undefined));
+    } else if (key === "logo") {
+      setEditLogoSource(sourceUrl ?? (/^https:\/\//i.test(value) ? value : undefined));
+    }
     updateGame(game.id, patch);
     // Persist only the touched artwork column through the merge-safe
     // `patch_game`. A full-row `save_game` built from a stale snapshot could
@@ -655,7 +673,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
     // picks several images, so the targeted patch is what makes each
     // selection stick. `null` clears a column because `patch_game` leaves
     // absent keys untouched.
-    invoke("patch_game", { id: game.id, patch: artworkDbPatch(key, value) }).catch((err) =>
+    invoke("patch_game", { id: game.id, patch: artworkDbPatch(key, value, sourceUrl) }).catch((err) =>
       console.warn(`Immediate artwork persist failed for ${game.name}:`, err)
     );
   }
@@ -691,7 +709,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
           await invoke<string>("artwork_asset_url", { relativePath })
         )
       );
-      persistImageSlot(slot, assetUrl);
+      persistImageSlot(slot, assetUrl, url);
       artworkSavedToast(slot);
       return true;
     }
@@ -776,6 +794,8 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
       if (coverUrl) setEditCover(coverUrl);
       if (finalBannerUrl) setEditHero(finalBannerUrl);
       if (logoUrl) setEditLogo(logoUrl);
+      if (downloaded.cover) setEditCoverSource(result.images.cover ?? undefined);
+      if (downloaded.logo) setEditLogoSource(result.images.logo ?? undefined);
 
       setEditScreenshots(result.screenshots || []);
       setEditVideos(result.videos || []);
@@ -1067,9 +1087,10 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
       steamAppId: newSteamAppId,
       iconUrl: newIcon,
       coverArtUrl: newCover,
-      coverSourceUrl: /^https:\/\//i.test(newCover || "") ? newCover : undefined,
+      coverSourceUrl: editCoverSource || (/^https:\/\//i.test(newCover || "") ? newCover : undefined),
       bannerUrl: newHero,
       logoUrl: newLogo,
+      logoSourceUrl: editLogoSource || (/^https:\/\//i.test(newLogo || "") ? newLogo : undefined),
       description: newDescription,
       sizeBytes: newSizeBytes,
       sizeRootPath: newSizeRootPath,

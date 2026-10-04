@@ -61,6 +61,13 @@ pub(crate) struct GameData {
     pub(crate) banner_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) logo_url: Option<String>,
+    /// Original public https URL the logo was downloaded from — kept
+    /// so Discord Rich Presence can show the game-logo badge (Discord
+    /// fetches images server-side; the base64 `logo_url` data URI
+    /// can't be fetched). `default` keeps older payloads deserializing
+    /// cleanly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) logo_source_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -360,6 +367,7 @@ impl From<GameData> for db::games::GameRow {
             icon_url: g.icon_url,
             banner_url: g.banner_url,
             logo_url: g.logo_url,
+            logo_source_url: g.logo_source_url,
             description: g.description,
             developer: g.developer,
             publisher: g.publisher,
@@ -456,6 +464,7 @@ impl From<db::games::GameRow> for GameData {
             icon_url: r.icon_url,
             banner_url: r.banner_url,
             logo_url: r.logo_url,
+            logo_source_url: r.logo_source_url,
             description: r.description,
             developer: r.developer,
             publisher: r.publisher,
@@ -994,6 +1003,7 @@ mod tests {
             "iconUrl": "data:image/png;base64,BBBB",
             "bannerUrl": "data:image/png;base64,CCCC",
             "logoUrl": "data:image/png;base64,DDDD",
+            "logoSourceUrl": "https://images.igdb.com/x-logo.png",
             "description": "desc",
             "developer": "dev",
             "publisher": "pub",
@@ -1116,6 +1126,7 @@ mod tests {
             "iconUrl": "data:image/png;base64,BBBB",
             "bannerUrl": "data:image/png;base64,CCCC",
             "logoUrl": "data:image/png;base64,DDDD",
+            "logoSourceUrl": "https://images.igdb.com/x-logo.png",
             "description": "desc",
             "developer": "dev",
             "publisher": "pub",

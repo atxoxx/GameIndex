@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
-import { useEnrich, enrichAttemptsThisSession } from "./useEnrich";
+import { useEnrich, enrichAttemptsThisSession, fetchAllImages } from "./useEnrich";
 import type { Game, GameMetadataResult } from "../../types/game";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -124,5 +124,26 @@ describe("useEnrich concurrent edits", () => {
     // A full-row save from the pre-fetch snapshot could roll back artwork the
     // user changed while HLTB was loading.
     expect(mockedInvoke).not.toHaveBeenCalledWith("save_game", expect.anything());
+  });
+});
+
+describe("fetchAllImages logoSourceUrl", () => {
+  beforeEach(() => {
+    mockedInvoke.mockReset();
+    mockedInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "download_image") return Promise.resolve(null);
+      return Promise.resolve(null);
+    });
+  });
+
+  it("keeps the original public https URL for Discord presence", async () => {
+    const images = await fetchAllImages({ logo: "https://cdn.example/logo.png" });
+    expect(images.logoSourceUrl).toBe("https://cdn.example/logo.png");
+    expect(images.logoUrl).toBe("https://cdn.example/logo.png");
+  });
+
+  it("drops a non-https logo source instead of leaking a data URI", async () => {
+    const images = await fetchAllImages({ logo: "data:image/png;base64,AAAA" });
+    expect(images.logoSourceUrl).toBeUndefined();
   });
 });

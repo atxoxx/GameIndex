@@ -92,6 +92,13 @@ pub const GAMES_V11_DDL: &str = include_str!("schema_games_v11.sql");
 /// `name` stays the canonical identity used for matching and launches.
 pub const GAMES_V12_DDL: &str = include_str!("schema_games_v12.sql");
 
+/// DDL for the `games` domain, v13 migration: the `logo_source_url`
+/// column holding the original public https URL a game logo was
+/// downloaded from (for Discord Rich Presence). Applied as a separate
+/// migration version so existing installs (already at `games` v12)
+/// pick it up on next launch; fresh installs apply v1 → … → v13.
+pub const GAMES_V13_DDL: &str = include_str!("schema_games_v13.sql");
+
 /// DDL for the `game_notes` domain: user-authored notes / guides
 /// attached to library games (Markdown content + tags + pin flag).
 pub const GAME_NOTES_DDL: &str = include_str!("schema_game_notes.sql");
@@ -198,7 +205,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "games",
-        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL), ("v8", GAMES_V8_DDL), ("v9", GAMES_V9_DDL), ("v10", GAMES_V10_DDL), ("v11", GAMES_V11_DDL), ("v12", GAMES_V12_DDL)],
+        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL), ("v8", GAMES_V8_DDL), ("v9", GAMES_V9_DDL), ("v10", GAMES_V10_DDL), ("v11", GAMES_V11_DDL), ("v12", GAMES_V12_DDL), ("v13", GAMES_V13_DDL)],
     },
     DomainSchema {
         label: "sessions",

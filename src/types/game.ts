@@ -172,6 +172,12 @@ export interface Game {
   genres?: string[];
   bannerUrl?: string; // base64 data URL for hero/banner image (used at top of game page)
   logoUrl?: string; // base64 data URL for logo/title image
+  /** Original public https URL the logo was downloaded from. Mirrors
+   *  `coverSourceUrl` — kept so Discord Rich Presence can show the
+   *  game's current logo (Discord fetches images server-side; the
+   *  asset:// `logoUrl` can't be fetched). Cleared when the user
+   *  replaces the logo with local/custom art. */
+  logoSourceUrl?: string;
   metadataSource?: string; // e.g., "Steam", "IGDB"
   metadataUrl?: string; // source page URL
   rating?: number; // user rating (1-5 stars)

@@ -40,12 +40,15 @@ export function discordPoster(game: Game | undefined): string | undefined {
 }
 
 /**
- * Public logo URL for the small activity badge. Prefers a logo already stored
- * as an https URL, then derives the Steam CDN logo from the app id. Falls back
- * to `undefined` when the game has neither, so callers can show the poster
- * instead.
+ * Public logo URL for the small activity badge. Prefers the tracked original
+ * https source of the current logo (`logoSourceUrl`), then a legacy
+ * `logoUrl` already stored as https, then derives the Steam CDN logo from
+ * the app id. Falls back to `undefined` when the game has none, so callers
+ * can show the poster instead.
  */
 export function discordGameLogo(game: Game | undefined): string | undefined {
+  const source = discordAsset(game?.logoSourceUrl);
+  if (source) return source;
   const stored = discordAsset(game?.logoUrl);
   if (stored) return stored;
   if (game?.steamAppId) {

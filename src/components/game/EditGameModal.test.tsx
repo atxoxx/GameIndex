@@ -653,9 +653,57 @@ describe("EditGameModal instant artwork save", () => {
           id: "game-1",
           patch: expect.objectContaining({
             logoUrl: expect.stringContaining("asset://localhost/"),
+            logoSourceUrl: null,
           }),
         })
       )
+    );
+  });
+
+  it("preserves the tracked logo source through save", () => {
+    render(
+      <EditGameModal
+        game={makeGame({
+          logoUrl: "asset://localhost/logo.png",
+          logoSourceUrl: "https://cdn.example/logo.png",
+        })}
+        onClose={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    expect(updateGameMock).toHaveBeenCalledWith(
+      "game-1",
+      expect.objectContaining({ logoSourceUrl: "https://cdn.example/logo.png" })
+    );
+  });
+
+  it("clears both the logo and its tracked source when the logo is removed", async () => {
+    render(
+      <EditGameModal
+        game={makeGame({
+          logoUrl: "asset://localhost/old-logo.png",
+          logoSourceUrl: "https://cdn.example/old-logo.png",
+        })}
+        onClose={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    fireEvent.click(screen.getByTitle("Clear this image slot"));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "patch_game",
+        expect.objectContaining({
+          id: "game-1",
+          patch: expect.objectContaining({ logoUrl: null, logoSourceUrl: null }),
+        })
+      )
+    );
+    expect(updateGameMock).toHaveBeenCalledWith(
+      "game-1",
+      expect.objectContaining({ logoUrl: undefined, logoSourceUrl: undefined })
     );
   });
 

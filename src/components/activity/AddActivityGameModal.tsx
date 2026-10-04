@@ -117,6 +117,7 @@ export function AddActivityGameModal({
         coverSourceUrl: imageData.coverSourceUrl,
         bannerUrl: imageData.bannerUrl,
         logoUrl: imageData.logoUrl,
+        logoSourceUrl: imageData.logoSourceUrl,
         description: selectedMetadata?.description ?? undefined,
         developer: selectedMetadata?.developer ?? undefined,
         publisher: selectedMetadata?.publisher ?? undefined,

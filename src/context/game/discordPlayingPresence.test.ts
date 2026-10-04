@@ -249,6 +249,44 @@ describe("discord URL helpers", () => {
     expect(discordGameLogo(makeGame({ logoUrl: "asset://localhost/l.png" }))).toBeUndefined();
   });
 
+  it("prefers the tracked logo source over the Steam CDN and asset logos", () => {
+    expect(
+      discordGameLogo(
+        makeGame({
+          steamAppId: 367520,
+          logoSourceUrl: "https://cdn.example/custom-logo.png",
+        }),
+      ),
+    ).toBe("https://cdn.example/custom-logo.png");
+    expect(
+      discordGameLogo(
+        makeGame({
+          logoUrl: "asset://localhost/logo.png",
+          logoSourceUrl: "https://cdn.example/custom-logo.png",
+        }),
+      ),
+    ).toBe("https://cdn.example/custom-logo.png");
+  });
+
+  it("ignores a non-https logo source and falls through", () => {
+    expect(
+      discordGameLogo(
+        makeGame({ logoSourceUrl: "asset://localhost/logo.png", steamAppId: 367520 }),
+      ),
+    ).toBe("https://cdn.cloudflare.steamstatic.com/steam/apps/367520/logo.png");
+    expect(
+      discordGameLogo(
+        makeGame({
+          logoSourceUrl: "data:image/png;base64,AAAA",
+          logoUrl: "https://cdn.example/l.png",
+        }),
+      ),
+    ).toBe("https://cdn.example/l.png");
+    expect(
+      discordGameLogo(makeGame({ logoSourceUrl: "http://cdn.example/l.png" })),
+    ).toBeUndefined();
+  });
+
   it("uses the public cover source as the poster", () => {
     expect(discordPoster(makeGame({ coverSourceUrl: "https://cdn.example/c.jpg" }))).toBe(
       "https://cdn.example/c.jpg",

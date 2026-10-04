@@ -99,6 +99,7 @@ async function fetchAllImages(images: { icon?: string | null; cover?: string | n
     coverSourceUrl: discordAsset(images.cover),
     bannerUrl: heroUrl ?? bannerUrl ?? undefined,
     logoUrl: logoUrl ?? undefined,
+    logoSourceUrl: discordAsset(images.logo),
   };
 }
 
@@ -272,6 +273,7 @@ export function useEnrich(options: {
 
       let sgdbIconUrl: string | undefined;
       let sgdbLogoUrl: string | undefined;
+      let sgdbLogoSourceUrl: string | undefined;
       if (resolvedSteamAppId || gameName) {
         try {
           const sgdb = await invoke<SgdbAssets | null>("sgdb_get_assets", {
@@ -281,6 +283,7 @@ export function useEnrich(options: {
           if (sgdb) {
             if (!images.logoUrl && sgdb.logoUrl) {
               sgdbLogoUrl = await downloadImageSafe(sgdb.logoUrl);
+              sgdbLogoSourceUrl = discordAsset(sgdb.logoUrl);
             }
             if (!isFrontendUsableImage(current.iconUrl) && sgdb.iconUrl) {
               sgdbIconUrl = await downloadImageSafe(sgdb.iconUrl);
@@ -325,6 +328,9 @@ export function useEnrich(options: {
         logoUrl: isFrontendUsableImage(latest.logoUrl)
           ? latest.logoUrl
           : (images.logoUrl ?? sgdbLogoUrl ?? latest.logoUrl),
+        logoSourceUrl: isFrontendUsableImage(latest.logoUrl)
+          ? latest.logoSourceUrl
+          : (images.logoSourceUrl ?? sgdbLogoSourceUrl ?? latest.logoSourceUrl),
         iconUrl: isFrontendUsableImage(latest.iconUrl)
           ? latest.iconUrl
           : (sgdbIconUrl ?? latest.iconUrl),
