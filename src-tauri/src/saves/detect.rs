@@ -125,7 +125,9 @@ pub fn resolve_template(template: &str, ctx: &TemplateCtx<'_>) -> Option<PathBuf
         "<winSavedGames>" => ctx.roots.saved_games.clone()?,
         "<winProgramData>" => ctx.roots.program_data.clone()?,
         "<home>" => ctx.roots.home.clone()?,
-        "<base>" => ctx.install_dir.clone()?,
+        // `<base>` is the internal token; `<path-to-game>` and the wiki's
+        // `{{p|game}}` both mean the game's install folder.
+        "<base>" | "<path-to-game>" | "{{p|game}}" => ctx.install_dir.clone()?,
         _ => return None,
     };
     for seg in segments {
@@ -149,6 +151,21 @@ pub fn resolve_template(template: &str, ctx: &TemplateCtx<'_>) -> Option<PathBuf
 
 /// Return the install directory hint for a game (the folder holding its exe).
 pub(super) fn install_dir(game: &GameRow) -> Option<PathBuf> {
+    // Prefer the measured install root: for Unity/Unreal/Source titles the
+    // launch exe lives in a `bin`/`x64` subfolder, so its parent is *not*
+    // the game folder that `<path-to-game>`/`{{p|game}}` refer to. The
+    // measured root is only trusted when it still looks like a directory.
+    if let Some(root) = game
+        .size_root_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+    {
+        let dir = PathBuf::from(root);
+        if dir.is_dir() {
+            return Some(dir);
+        }
+    }
     if game.path.trim().is_empty() {
         return None;
     }
@@ -463,6 +480,30 @@ mod tests {
         assert!(resolve_template("<nope>/x", &ctx).is_none());
         // `<storeAppId>` with no app id cannot resolve.
         assert!(resolve_template("<home>/<storeAppId>", &ctx).is_none());
+    }
+
+    #[test]
+    fn template_expands_path_to_game_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = roots_with(dir.path());
+        let install = dir.path().join("Games/Thing");
+        let ctx = TemplateCtx {
+            roots: &roots,
+            app_id: None,
+            install_dir: Some(install.clone()),
+        };
+        // PCGamingWiki's `<path-to-game>` and `{{p|game}}` both resolve to
+        // the game's install folder.
+        let saves = resolve_template("<path-to-game>/saves", &ctx).unwrap();
+        assert!(saves.ends_with(install.join("saves")));
+        assert_eq!(resolve_template("{{p|game}}", &ctx).unwrap(), install);
+        // With no install hint neither spelling can resolve.
+        let no_install = TemplateCtx {
+            roots: &roots,
+            app_id: None,
+            install_dir: None,
+        };
+        assert!(resolve_template("<path-to-game>", &no_install).is_none());
     }
 
     #[test]

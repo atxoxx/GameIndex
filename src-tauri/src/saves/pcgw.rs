@@ -623,6 +623,28 @@ mod tests {
     }
 
     #[test]
+    fn resolves_path_to_game_against_install_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = roots_with(dir.path());
+        let install = dir.path().join("Games/Kerbal");
+        std::fs::create_dir_all(install.join("saves")).unwrap();
+        let ctx = TemplateCtx {
+            roots: &roots,
+            app_id: None,
+            install_dir: Some(install.clone()),
+        };
+        let entries = vec![PcgwEntry {
+            platform: "Windows".into(),
+            raw: r"<path-to-game>\saves".into(),
+        }];
+        let found = resolve_entries(&entries, &ctx);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].source, "pcgamingwiki");
+        assert!(found[0].path.ends_with("Games/Kerbal/saves"));
+        assert_eq!(found[0].kind, "dir");
+    }
+
+    #[test]
     fn skips_windows_rows_on_non_windows_and_missing_paths() {
         let dir = tempfile::tempdir().unwrap();
         let roots = roots_with(dir.path());
