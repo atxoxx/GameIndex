@@ -169,6 +169,16 @@ const POLL_INTERVAL_FAST: std::time::Duration = std::time::Duration::from_secs(1
 /// playtime is anchored at attach, so nothing is lost.
 const POLL_INTERVAL_IDLE: std::time::Duration = std::time::Duration::from_secs(30);
 
+/// Minimum interval between periodic Steam install scans (registry +
+/// `appmanifest_*.acf` reads). The scan exists only to notice installs/
+/// uninstalls that happened *outside* GameIndex; both are rare events,
+/// so a 5-minute convergence window is plenty and cuts the periodic
+/// disk pokes (and the HDD spin-ups they cause) 5x versus the old 60 s.
+/// Library mutations and the first/reconcile scan bypass this throttle
+/// entirely (see `steam_baseline_dirty` and `request_immediate_poll`),
+/// so in-app install/uninstall detection stays immediate.
+const STEAM_INSTALL_SCAN_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
+
 /// Grace period once a tracked process goes missing before the session
 /// is ended. A lost session polls at POLL_INTERVAL_FAST, so this window
 /// is now measured at 1 s resolution and still spans several process
@@ -492,7 +502,7 @@ pub struct GameWatcher {
     /// `true` once the library has been (re)loaded and the next Steam
     /// scan should reconcile its declared install state against disk.
     /// Bypasses the scan throttle so startup/mutation reconciling is
-    /// prompt instead of waiting out the 60 s cadence.
+    /// prompt instead of waiting out the periodic cadence.
     steam_baseline_dirty: bool,
     /// AppIDs already announced as uninstalled. Stops a repeat event
     /// while the library index hasn't yet dropped the removed entry.
@@ -736,8 +746,8 @@ impl GameWatcher {
             if let Some(last) = self.last_steam_install_poll {
                 // Re-scan throttle (registry + appmanifest_*.acf files).
                 // The diff only emits on actual install-state changes, so
-                // a 60 s cadence is plenty.
-                if now.duration_since(last) < std::time::Duration::from_secs(60) {
+                // a 5-minute cadence is plenty for out-of-app changes.
+                if now.duration_since(last) < STEAM_INSTALL_SCAN_INTERVAL {
                     return None;
                 }
             }
