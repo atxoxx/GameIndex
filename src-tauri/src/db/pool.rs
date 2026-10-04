@@ -233,7 +233,8 @@ fn init_connection(conn: &mut Connection) -> rusqlite::Result<()> {
          PRAGMA foreign_keys = ON;\n\
          PRAGMA busy_timeout = 5000;\n\
          PRAGMA wal_autocheckpoint = 1000;\n\
-         PRAGMA cache_size = -512;\n",
+         PRAGMA cache_size = -512;\n\
+         PRAGMA temp_store = MEMORY;\n",
     )
 }
 
