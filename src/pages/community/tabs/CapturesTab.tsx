@@ -44,20 +44,87 @@ const folderIcon = (
   </svg>
 );
 
-// Global in-memory cache for resolved base64 data URLs. These are full-size
-// screenshot fallbacks (only used when `convertFileSrc` can't serve the
-// file), so the cap is deliberately small — a handful of 4K PNGs is already
-// tens of MB. Oldest entries are evicted first (Map preserves insert order).
-const MEDIA_DATA_URL_CACHE_MAX = 12;
-const mediaDataUrlCache = new Map<string, string>();
+// Map a capture extension to a MIME type so the Blob URL renders in
+// `<img>`/`<video>` without relying on content sniffing.
+const MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  bmp: "image/bmp",
+  avif: "image/avif",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  mkv: "video/x-matroska",
+};
 
-function cacheMediaDataUrl(path: string, dataUrl: string): void {
-  mediaDataUrlCache.set(path, dataUrl);
-  while (mediaDataUrlCache.size > MEDIA_DATA_URL_CACHE_MAX) {
-    const oldest = mediaDataUrlCache.keys().next().value;
-    if (oldest === undefined) break;
-    mediaDataUrlCache.delete(oldest);
-  }
+function mimeFromPath(path: string): string {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXT[ext] ?? "application/octet-stream";
+}
+
+/**
+ * Resolve a capture file to a displayable URL.
+ *
+ * `convertFileSrc` (the asset protocol) is tried first. Capture folders live
+ * outside its scope, so an `<img>`/`<video>` error falls back to
+ * `read_media_file`, which returns raw bytes. Those are wrapped in a Blob URL
+ * and revoked when the path changes or the component unmounts — unlike the
+ * old base64 `data:` cache, this never pins a multi-megabyte string in the
+ * JS heap, and memory is bounded by what is actually mounted.
+ */
+function useMediaFallbackSrc(path: string) {
+  const [src, setSrc] = useState<string>(() => convertFileSrc(path));
+  const [failed, setFailed] = useState(false);
+  const blobUrlRef = useRef<string | null>(null);
+  const inflightRef = useRef(false);
+  // Bumped on every path change/unmount so a late-resolving fetch for a
+  // previous path can't install a Blob URL that is never revoked.
+  const genRef = useRef(0);
+
+  useEffect(() => {
+    const gen = ++genRef.current;
+    setFailed(false);
+    inflightRef.current = false;
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+    setSrc(convertFileSrc(path));
+    return () => {
+      // Invalidate any in-flight fetch for this path.
+      genRef.current = gen + 1;
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, [path]);
+
+  const handleError = useCallback(() => {
+    if (inflightRef.current || blobUrlRef.current) return;
+    inflightRef.current = true;
+    const gen = genRef.current;
+    invoke<ArrayBuffer>("read_media_file", { filePath: path })
+      .then((bytes) => {
+        if (gen !== genRef.current) return;
+        const url = URL.createObjectURL(
+          new Blob([bytes], { type: mimeFromPath(path) })
+        );
+        blobUrlRef.current = url;
+        setSrc(url);
+      })
+      .catch(() => {
+        if (gen === genRef.current) setFailed(true);
+      })
+      .finally(() => {
+        inflightRef.current = false;
+      });
+  }, [path]);
+
+  return { src, failed, handleError };
 }
 
 interface CaptureThumbProps {
@@ -80,29 +147,8 @@ function CaptureThumb({
   showOverlayName = false,
 }: CaptureThumbProps) {
   const { t } = useLanguage();
-  const [failed, setFailed] = useState(false);
-  const [imgSrc, setImgSrc] = useState<string>(() => mediaDataUrlCache.get(path) || convertFileSrc(path));
+  const { src: imgSrc, failed, handleError } = useMediaFallbackSrc(path);
   const isVid = isVideoPath(path);
-
-  const handleError = useCallback(() => {
-    if (mediaDataUrlCache.has(path)) {
-      setImgSrc(mediaDataUrlCache.get(path)!);
-      return;
-    }
-    invoke<string>("read_cover_image", { filePath: path })
-      .then((dataUrl) => {
-        cacheMediaDataUrl(path, dataUrl);
-        setImgSrc(dataUrl);
-      })
-      .catch(() => {
-        setFailed(true);
-      });
-  }, [path]);
-
-  useEffect(() => {
-    setFailed(false);
-    setImgSrc(mediaDataUrlCache.get(path) || convertFileSrc(path));
-  }, [path]);
 
   return (
     <div
@@ -164,30 +210,8 @@ interface LightboxMediaProps {
 }
 
 function LightboxMedia({ path }: LightboxMediaProps) {
-  const [failed, setFailed] = useState(false);
-  const [src, setSrc] = useState<string>(() => mediaDataUrlCache.get(path) || convertFileSrc(path));
+  const { src, failed, handleError } = useMediaFallbackSrc(path);
   const isVid = isVideoPath(path);
-
-  useEffect(() => {
-    setFailed(false);
-    const cached = mediaDataUrlCache.get(path);
-    if (cached) {
-      setSrc(cached);
-    } else {
-      setSrc(convertFileSrc(path));
-    }
-  }, [path]);
-
-  const handleError = useCallback(() => {
-    invoke<string>("read_cover_image", { filePath: path })
-      .then((dataUrl) => {
-        cacheMediaDataUrl(path, dataUrl);
-        setSrc(dataUrl);
-      })
-      .catch(() => {
-        setFailed(true);
-      });
-  }, [path]);
 
   if (failed) {
     return (
@@ -229,26 +253,9 @@ interface CarouselThumbProps {
 }
 
 function CarouselThumb({ path, active, onClick }: CarouselThumbProps) {
-  const [failed, setFailed] = useState(false);
-  const [src, setSrc] = useState<string>(() => mediaDataUrlCache.get(path) || convertFileSrc(path));
+  const { src, failed, handleError } = useMediaFallbackSrc(path);
   const isVid = isVideoPath(path);
   const fileName = path.split(/[\\/]/).pop() || path;
-
-  useEffect(() => {
-    setFailed(false);
-    setSrc(mediaDataUrlCache.get(path) || convertFileSrc(path));
-  }, [path]);
-
-  const handleError = useCallback(() => {
-    invoke<string>("read_cover_image", { filePath: path })
-      .then((dataUrl) => {
-        cacheMediaDataUrl(path, dataUrl);
-        setSrc(dataUrl);
-      })
-      .catch(() => {
-        setFailed(true);
-      });
-  }, [path]);
 
   return (
     <button

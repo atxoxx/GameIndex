@@ -33,42 +33,26 @@ pub struct ExeScanProgress {
     pub cancelled: bool,
 }
 
-/// Read an image file from disk and return it as a base64 data URL.
+/// Read a local media file as raw bytes for the webview's fallback path.
+///
+/// The asset protocol (`convertFileSrc`) serves files inside the configured
+/// scope directly and is the primary path. Capture folders live outside that
+/// scope, so an `<img>`/`<video>` error falls back to this command. Returning
+/// raw bytes (instead of a base64 `data:` URL) avoids the ~33% string
+/// inflation and lets the frontend wrap the buffer in a revocable Blob URL
+/// rather than pinning a multi-megabyte JS string per screenshot.
+///
+/// Capped so a large video can't be slurped into memory by mistake.
 #[tauri::command]
-pub fn read_cover_image(file_path: String) -> Result<String, String> {
+pub fn read_media_file(file_path: String) -> Result<tauri::ipc::Response, String> {
+    const MAX_MEDIA_BYTES: u64 = 64 * 1024 * 1024;
     let path = Path::new(&file_path);
-    if !path.exists() {
-        return Err("File not found".into());
+    let meta = std::fs::metadata(path).map_err(|e| format!("Failed to stat file: {e}"))?;
+    if meta.len() > MAX_MEDIA_BYTES {
+        return Err("File too large".into());
     }
-    let data = std::fs::read(path).map_err(|e| format!("Failed to read file: {}", e))?;
-    let mime = mime_guess::from_path(path).first_or_octet_stream();
-    let b64 = base64_encode(&data);
-    Ok(format!("data:{};base64,{}", mime, b64))
-}
-
-/// Simple base64 encoding (no external crate needed).
-fn base64_encode(data: &[u8]) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::new();
-    for chunk in data.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
-        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        out.push(CHARS[((triple >> 18) & 63) as usize] as char);
-        out.push(CHARS[((triple >> 12) & 63) as usize] as char);
-        if chunk.len() > 1 {
-            out.push(CHARS[((triple >> 6) & 63) as usize] as char);
-        } else {
-            out.push('=');
-        }
-        if chunk.len() > 2 {
-            out.push(CHARS[(triple & 63) as usize] as char);
-        } else {
-            out.push('=');
-        }
-    }
-    out
+    let data = std::fs::read(path).map_err(|e| format!("Failed to read file: {e}"))?;
+    Ok(tauri::ipc::Response::new(data))
 }
 
 /// Serializable struct holding metadata about a scanned executable.
