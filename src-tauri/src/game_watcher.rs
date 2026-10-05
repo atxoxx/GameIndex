@@ -165,9 +165,9 @@ const POLL_INTERVAL_FAST: std::time::Duration = std::time::Duration::from_secs(1
 /// polls relax to this cadence. App-launched sessions never wait on it:
 /// launches wake the loop immediately (see `request_immediate_poll`).
 /// Passive detection of an externally launched game therefore starts
-/// ≤30 s later than before, which only delays session start — recorded
-/// playtime is anchored at attach, so nothing is lost.
-const POLL_INTERVAL_IDLE: std::time::Duration = std::time::Duration::from_secs(30);
+/// ≤60 s later, which only delays session start — recorded playtime is
+/// anchored at attach, so nothing is lost.
+const POLL_INTERVAL_IDLE: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// Minimum interval between periodic Steam install scans (registry +
 /// `appmanifest_*.acf` reads). The scan exists only to notice installs/

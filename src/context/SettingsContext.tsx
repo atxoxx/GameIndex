@@ -1289,14 +1289,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const [samplingIntervalSec, setSamplingIntervalSecState] = useState<number>(
     () => {
-      const raw = parseFloat(lsGet(LS_SAMPLING_SEC) ?? "5");
-      return Number.isFinite(raw) && raw >= 0.25 ? raw : 5;
+      const raw = parseFloat(lsGet(LS_SAMPLING_SEC) ?? "10");
+      return Number.isFinite(raw) && raw >= 0.25 ? raw : 10;
     },
   );
   const setSamplingIntervalSec = useCallback((next: number) => {
     const clamped = Number.isFinite(next)
       ? Math.min(60, Math.max(0.25, Math.round(next * 4) / 4))
-      : 5;
+      : 10;
     setSamplingIntervalSecState(clamped);
     lsSet(LS_SAMPLING_SEC, String(clamped));
   }, []);

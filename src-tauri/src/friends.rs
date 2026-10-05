@@ -498,6 +498,12 @@ pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle) {
     let mut have_snapshot = false;
     let mut last_modified: Option<std::time::SystemTime> = None;
     let mut sync_id_seen = String::new();
+
+    // External-IP lookups hit a third-party HTTP service. The address only
+    // changes when the network does, so cache it and re-check at most every
+    // 10 minutes instead of on every 30 s tick.
+    let mut external_ip_cache: Option<(String, std::time::Instant)> = None;
+    const EXTERNAL_IP_TTL: std::time::Duration = std::time::Duration::from_secs(600);
     
     loop {
         interval.tick().await;
@@ -559,7 +565,24 @@ pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle) {
         }
 
         if let Some(port) = active_listener {
-            if let Some(ext_ip) = fetch_external_ip().await {
+            let ip_now = std::time::Instant::now();
+            let cached_ip = match &external_ip_cache {
+                Some((ip, at)) if ip_now.duration_since(*at) < EXTERNAL_IP_TTL => {
+                    Some(ip.clone())
+                }
+                _ => None,
+            };
+            let ext_ip = match cached_ip {
+                Some(ip) => Some(ip),
+                None => match fetch_external_ip().await {
+                    Some(ip) => {
+                        external_ip_cache = Some((ip.clone(), ip_now));
+                        Some(ip)
+                    }
+                    None => None,
+                },
+            };
+            if let Some(ext_ip) = ext_ip {
                 let current_addr = format!("{}:{}", ext_ip, port);
                 let (has_changed, needs_upnp) = {
                     let last_published = state.external_ip.lock().unwrap();

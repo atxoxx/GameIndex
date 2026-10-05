@@ -15,7 +15,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures::StreamExt;
 use serde::Serialize;
@@ -53,6 +53,12 @@ const IDLE_POLL_CHUNK: Duration = Duration::from_secs(30);
 /// pre-search into N serial 20s stalls. 4 keeps the burst small while
 /// still overlapping the per-game round-trips.
 const MAX_CONCURRENT_SYNCS: usize = 4;
+
+/// How long an executable-directory achievement probe (`SteamData/user_stats.ini`,
+/// `3DMGAME/...`) is reused before re-statting. The files next to the exe
+/// don't appear or vanish mid-session, so re-checking every 5 s while a game
+/// runs is pure disk churn.
+const EXE_PROBE_TTL: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -118,11 +124,16 @@ fn load_watched_games(app: &AppHandle) -> Vec<WatchedGame> {
     }
 }
 
+/// Cached executable-directory achievement probes, keyed by exe path.
+type ExeProbeCache = HashMap<String, (Vec<local_achievements::AchievementFile>, Instant)>;
+
 /// Gather the on-disk achievement files for a game, using a pre-built
 /// `appid -> files` map (folder scan) plus per-game executable-dir files.
+/// The exe-dir probe is memoized in `exe_cache` (see [`EXE_PROBE_TTL`]).
 fn files_for_game(
     game: &WatchedGame,
     all_files: &HashMap<String, Vec<local_achievements::AchievementFile>>,
+    exe_cache: &mut ExeProbeCache,
 ) -> Vec<local_achievements::AchievementFile> {
     let mut out = Vec::new();
     for object_id in local_achievements::get_alternative_object_ids(&game.steam_app_id.to_string())
@@ -131,9 +142,24 @@ fn files_for_game(
             out.extend(files.iter().cloned());
         }
     }
-    out.extend(local_achievements::find_achievement_file_in_executable_directory(
-        game.exe_path.as_deref(),
-    ));
+
+    if let Some(exe) = game.exe_path.as_deref() {
+        let now = Instant::now();
+        // Resolve to an owned clone so the cache borrow ends before any insert.
+        let fresh_files = match exe_cache.get(exe) {
+            Some((files, at)) if now.duration_since(*at) < EXE_PROBE_TTL => Some(files.clone()),
+            _ => None,
+        };
+        match fresh_files {
+            Some(files) => out.extend(files),
+            None => {
+                let files =
+                    local_achievements::find_achievement_file_in_executable_directory(Some(exe));
+                exe_cache.insert(exe.to_string(), (files.clone(), now));
+                out.extend(files);
+            }
+        }
+    }
     out
 }
 
@@ -203,13 +229,15 @@ pub fn start(app: AppHandle) {
 
         // path -> last-seen mtime (ms). Seeded during the pre-search.
         let mut file_stats: HashMap<PathBuf, u64> = HashMap::new();
+        // exe path -> memoized achievement probe (see EXE_PROBE_TTL).
+        let mut exe_probe_cache: ExeProbeCache = HashMap::new();
 
         // ── Pre-search (silent): catch offline unlocks ──────────────
         // First pass always walks fresh so nothing unlocked while the app
         // was closed is missed.
         let mut all_files = local_achievements::find_all_achievement_files();
         let mut last_walk = Some(std::time::Instant::now());
-        run_pass(&app, &client, &mut file_stats, &all_files, false).await;
+        run_pass(&app, &client, &mut file_stats, &all_files, &mut exe_probe_cache, false).await;
 
         // ── Steady poll ─────────────────────────────────────────────
         // Scan every 5 s while a game is running (unlocks change only then).
@@ -246,7 +274,7 @@ pub fn start(app: AppHandle) {
                 all_files = local_achievements::find_all_achievement_files();
                 last_walk = Some(now);
             }
-            run_pass(&app, &client, &mut file_stats, &all_files, true).await;
+            run_pass(&app, &client, &mut file_stats, &all_files, &mut exe_probe_cache, true).await;
         }
     });
 }
@@ -272,6 +300,7 @@ async fn run_pass(
     client: &reqwest::Client,
     file_stats: &mut HashMap<PathBuf, u64>,
     all_files: &HashMap<String, Vec<local_achievements::AchievementFile>>,
+    exe_cache: &mut ExeProbeCache,
     notify: bool,
 ) {
     if !is_enabled(app) {
@@ -291,7 +320,7 @@ async fn run_pass(
     // pass can tell a change from a no-op.
     let mut dirty_games: Vec<WatchedGame> = Vec::new();
     for game in &games {
-        let files = files_for_game(game, &all_files);
+        let files = files_for_game(game, all_files, exe_cache);
         if files.is_empty() {
             continue;
         }

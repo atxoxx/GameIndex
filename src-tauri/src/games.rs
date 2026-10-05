@@ -742,16 +742,25 @@ fn load_games_blocking(db: &db::Db, app_data_dir: &std::path::Path) -> Result<Ve
     // dirs on the boot path the UI waits on. Defer both to a background
     // thread a few seconds after startup: `load_games` returns as fast as
     // the query allows, and pruning still happens once per session.
+    //
+    // Guarded so repeated `load_games` calls (React StrictMode double-invoke,
+    // route remounts, a manual refresh) don't each spawn a fresh walk of the
+    // artwork tree — the set only shrinks while a process is alive, so the
+    // first pass is the one that matters.
     {
-        let dir = app_data_dir.to_path_buf();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_secs(5));
-            db::artwork::cleanup_unreferenced_artwork(&dir, &ids);
-            db::artwork::cleanup_non_library_caches(
-                &dir,
-                std::time::Duration::from_secs(30 * 24 * 60 * 60),
-            );
-        });
+        static ARTWORK_CLEANUP_STARTED: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        if !ARTWORK_CLEANUP_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            let dir = app_data_dir.to_path_buf();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                db::artwork::cleanup_unreferenced_artwork(&dir, &ids);
+                db::artwork::cleanup_non_library_caches(
+                    &dir,
+                    std::time::Duration::from_secs(30 * 24 * 60 * 60),
+                );
+            });
+        }
     }
     Ok(out)
 }

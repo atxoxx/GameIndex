@@ -2430,10 +2430,17 @@ pub async fn search_game_metadata(
 /// base64-encoded as `data:text/html;base64,…`, which the browser
 /// `<img>` can't render and which would poison the game's cover.
 pub async fn download_image_to_base64(url: &str) -> Option<String> {
+    // Artwork is a portrait cover or a logo; anything larger is a mistake or
+    // a hostile response. Refuse it before allocating a multi-megabyte
+    // buffer (and the ~33% larger base64 string that follows) in RAM.
+    const MAX_IMAGE_BYTES: u64 = 12 * 1024 * 1024;
     let client = http_client();
 
     let response = client.get(url).send().await.ok()?;
     if !response.status().is_success() {
+        return None;
+    }
+    if response.content_length().is_some_and(|len| len > MAX_IMAGE_BYTES) {
         return None;
     }
     let content_type = response
@@ -2444,6 +2451,9 @@ pub async fn download_image_to_base64(url: &str) -> Option<String> {
         .to_string();
 
     let bytes = response.bytes().await.ok()?;
+    if bytes.len() as u64 > MAX_IMAGE_BYTES {
+        return None;
+    }
     let b64 = base64_encode(&bytes);
     Some(format!("data:{};base64,{}", content_type, b64))
 }

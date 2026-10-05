@@ -76,7 +76,11 @@ impl Default for MetricsConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            interval_ms: 5000,
+            // 10 s rather than 5 s: each sample fans out to several WMI
+            // queries (CPU, RAM, up to three GPU-engine counters) plus the
+            // LHM/OHM sensor namespace, and `GPUEngine` is expensive. The
+            // recorded curve is still plenty granular for a session chart.
+            interval_ms: 10000,
             capture_fps: true,
             capture_cpu: true,
             capture_gpu: true,

@@ -563,7 +563,7 @@ pub fn delete_rom_file(app: tauri::AppHandle, game_id: String) -> Result<u64, St
 const ROM_POLL_SECS: u64 = 25;
 /// Back-off cadence when no emulator has a ROM folder: there is nothing to
 /// watch, so don't pay for a DB query + directory signature every 25 s.
-const ROM_IDLE_POLL_SECS: u64 = 120;
+const ROM_IDLE_POLL_SECS: u64 = 300;
 
 pub fn start_rom_watcher(app: tauri::AppHandle) {
     std::thread::spawn(move || {
