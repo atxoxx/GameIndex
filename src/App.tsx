@@ -135,9 +135,16 @@ function AppShell() {
 
     const applyPauseState = () => {
       if (!document.hidden) sawVisible = true;
-      const shouldPause =
-        runningGameIds.length > 0 || (sawVisible && document.hidden);
+      // A genuinely hidden window is the only state where keyframe animations
+      // may be frozen — a paused entrance animation holds its `opacity: 0`
+      // first keyframe and would blank the page/modal/chip it belongs to. A
+      // running game marks the app low-attention too, but the window can still
+      // be on screen, so it must only drop the transitions/blur, never the
+      // animations (see `.animations-paused` in index.css).
+      const windowHidden = sawVisible && document.hidden;
+      const shouldPause = runningGameIds.length > 0 || windowHidden;
       document.documentElement.classList.toggle("animations-paused", shouldPause);
+      document.documentElement.toggleAttribute("data-window-hidden", windowHidden);
       if (shouldPause) {
         document.querySelectorAll("video").forEach((v) => {
           if (!v.paused) v.pause();

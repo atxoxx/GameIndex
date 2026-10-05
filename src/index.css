@@ -38,14 +38,29 @@ body,
   app-region: no-drag;
 }
 
-/* Paused animations when window is minimized, hidden, or a game is running */
+/* Resource trim for the low-attention states (window hidden/minimized, or a
+   game running). Dropping transitions and backdrop blur is safe here: unlike
+   a paused keyframe animation, removing a transition/compositor effect snaps
+   the element to its final computed style, so nothing can stay hidden. */
 .animations-paused *,
 .animations-paused *::before,
 .animations-paused *::after {
-  animation-play-state: paused !important;
   transition: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* Freeze keyframe animations ONLY when the window is actually hidden. A
+   paused animation holds its first keyframe, and nearly every entrance
+   animation in this app starts at `opacity: 0` — so pausing them while the
+   window is visible blanked routed pages, modals, and the "now playing" chip
+   the instant a game launched (the running-game signal also set this class).
+   The user is looking at the window in those states, so animations must keep
+   playing; only a genuinely hidden window can safely stop them. */
+.animations-paused[data-window-hidden] *,
+.animations-paused[data-window-hidden] *::before,
+.animations-paused[data-window-hidden] *::after {
+  animation-play-state: paused !important;
 }
 
 body {
