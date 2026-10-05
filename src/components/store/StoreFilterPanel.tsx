@@ -8,9 +8,10 @@ interface StoreFilterPanelProps {
 }
 
 /**
- * Wraps `StoreFilterSidebar` in both the inline (wide-viewport) rail and
- * a left-side overlay (compact widths), so the filter UI isn't duplicated.
- * The overlay is toggled via the toolbar "Filters" trigger.
+ * Wraps `StoreFilterSidebar` in the always-mounted inline rail. The
+ * compact-width slide-in overlay markup is retained for the Layout Studio /
+ * future reuse but is disabled in CSS, so this effectively renders the rail
+ * plus its collapse toggle everywhere.
  */
 export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps) {
   const { t } = useLanguage();

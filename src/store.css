@@ -311,16 +311,19 @@
   min-height: 0;
 }
 
-/* Inline filter rail (wide viewports) with collapse toggle — mirrors the
-   library's `lib-rail-wrap` / `lib-rail-toggle-btn`. Hidden on compact
-   widths, where the left-side overlay is used instead. */
+/* Inline filter rail with collapse toggle — mirrors the library's
+   `lib-rail-wrap` / `lib-rail-toggle-btn`. Always rendered; the compact-width
+   overlay trigger and drawer stay disabled (see the Responsive section). */
 .store-filter-rail {
-  display: none;
+  display: flex;
   position: relative;
   flex-shrink: 0;
   align-items: flex-start;
   gap: var(--space-sm);
   transition: width var(--transition-normal);
+  /* Sticky offset for the collapse toggle + filter panel. Small so the rail
+     pins near the top of the scroll area — nothing sticky sits above it. */
+  --store-sticky-top: var(--space-md);
 }
 
 .store-filter-rail.collapsed {
@@ -335,6 +338,9 @@
   width: 36px;
   height: 36px;
   flex-shrink: 0;
+  position: sticky;
+  top: var(--store-sticky-top);
+  z-index: 21;
   background: var(--color-surface-glass);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -374,9 +380,13 @@
   border-color: var(--color-accent);
 }
 
-/* Inline sidebar is shown only on wide viewports inside the rail. */
+/* Inline sidebar is shown at every viewport width inside the rail. */
 .store-layout-inline-sidebar {
-  display: none;
+  display: block;
+  /* Stretch to the rail's full height so the sticky `.store-filter-sidebar`
+     inside it has scroll room to follow the page. The rail's own
+     `align-items: flex-start` keeps the collapse toggle pinned to the top. */
+  align-self: stretch;
 }
 
 .store-main {
@@ -465,7 +475,7 @@
   border-radius: var(--radius-lg);
   height: fit-content;
   position: sticky;
-  top: calc(var(--space-md) + 64px);
+  top: var(--store-sticky-top);
   align-self: flex-start;
   max-height: calc(100vh - 96px);
   overflow-y: auto;
@@ -1376,33 +1386,17 @@
 
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
-/* Wide screens: show the inline filter rail, hide the overlay trigger/overlay. */
-@media (min-width: 1024px) {
-  .store-filter-rail {
-    display: flex;
-  }
-
-  .store-layout-inline-sidebar {
-    display: block;
-  }
-
-  .store-filter-trigger {
-    display: none;
-  }
-
-  /* The overlay must never appear next to the inline rail. It can
-     otherwise stay open after the window is widened past this breakpoint,
-     rendering two filter panels side by side. */
-  .store-filter-overlay,
-  .store-filter-overlay-scrim {
-    display: none;
-  }
+/* The inline filter rail is always rendered and sticky at every size, so the
+   compact-width slide-in overlay and its toolbar trigger stay disabled. If a
+   filter panel is collapsed via the rail toggle, the rail itself collapses to
+   the toggle. */
+.store-filter-trigger {
+  display: none;
 }
 
-@media (max-width: 1023px) {
-  .store-filter-trigger {
-    display: inline-flex;
-  }
+.store-filter-overlay,
+.store-filter-overlay-scrim {
+  display: none;
 }
 
 /* ── Floating-bar safe area ──────────────────────────────────────────────
@@ -1417,6 +1411,15 @@
 @media (max-width: 768px) {
   .store-layout {
     flex-direction: column;
+  }
+
+  /* Stacked layout: the filter rail spans the full width above the grid. */
+  .store-layout-inline-sidebar {
+    flex: 1;
+  }
+
+  .store-filter-sidebar {
+    width: 100%;
   }
 
   .store-game-grid {

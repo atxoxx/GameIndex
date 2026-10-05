@@ -1128,6 +1128,13 @@
   max-width: 300px;
   box-sizing: border-box;
   transition: width var(--transition-normal);
+  /* Stretch to the grid's full height so the sticky `.lib-filter` inside it
+     can follow the page scroll instead of being trapped in a short
+     containing block. `align-items: flex-start` keeps the toggle on top. */
+  align-self: stretch;
+  /* Sticky offset for the toggle + filter panel. Small so the rail pins near
+     the top of the scroll area — nothing sticky sits above it. */
+  --lib-sticky-top: var(--space-md);
 }
 
 .lib-rail-wrap.collapsed {
@@ -1190,6 +1197,15 @@
   outline-offset: 2px;
 }
 
+/* Only the filter-rail toggle follows the page scroll. The section toggles in
+   the Continue Playing / Recently Added rails belong to their own cards and
+   must not become sticky. */
+.lib-rail-wrap .lib-rail-toggle-btn {
+  position: sticky;
+  top: var(--lib-sticky-top);
+  z-index: 21;
+}
+
 .lib-main {
   flex: 1 1 0;
   min-width: 0;
@@ -1217,7 +1233,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   position: sticky;
-  top: calc(var(--space-md) + 64px);
+  top: var(--lib-sticky-top);
   max-height: calc(100vh - 96px);
   overflow-y: auto;
   scrollbar-width: thin;
@@ -1710,9 +1726,10 @@ select.lib-filter-search option {
   gap: var(--space-md);
 }
 
-/* Toolbar Filter Trigger button */
+/* Toolbar Filter Trigger button — superseded by the always-visible inline
+   rail, so keep it out of the layout at every size. */
 .lib-filter-trigger {
-  display: inline-flex;
+  display: none;
   align-items: center;
   gap: 6px;
   height: 36px;
@@ -1765,22 +1782,11 @@ select.lib-filter-search option {
   color: var(--color-accent);
 }
 
-@media (min-width: 1024px) {
-  .lib-filter-trigger {
-    display: none;
-  }
-  .lib-filter-overlay,
-  .lib-filter-overlay-scrim {
-    display: none;
-  }
-}
-
-/* Below 1024 the toolbar's overlay "Filters" button takes over, so the
-   inline rail must not render in parallel. */
-@media (max-width: 1023px) {
-  .lib-rail-wrap {
-    display: none;
-  }
+/* The inline filter rail is always rendered and sticky at every size, so the
+   compact-width slide-in overlay stays disabled. */
+.lib-filter-overlay,
+.lib-filter-overlay-scrim {
+  display: none;
 }
 
 /* ────────────────────────────────────────────────────────────────────
@@ -3037,12 +3043,6 @@ select.lib-filter-search option {
   /* Stacked rows break the cluster divider's meaning — drop it. */
   .lib-toolbar-sep {
     display: none;
-  }
-  /* The toolbar wraps taller in this range, so the sticky panel would
-     tuck under it — scroll the panel with the page instead. */
-  .lib-filter {
-    position: static;
-    top: auto;
   }
   /* The rail gets narrower than 300px here; let segment labels wrap to
      two lines rather than ellipsizing words like "Not installed". */
