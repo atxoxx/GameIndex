@@ -1100,10 +1100,28 @@ function RelationGroupSection({
   onCardClick: (game: RelatedGame) => void;
 }) {
   const { t } = useLanguage();
+  // Every relation category starts collapsed so the card is a compact,
+  // scannable list of headings; a click reveals that category's row. The
+  // rows are unmounted while collapsed, which also avoids mounting (and
+  // progressive-loading covers for) dozens of off-screen cards.
+  const [open, setOpen] = useState(false);
   const subtitleKey = GROUP_STATIC_SUBTITLE_KEY[group.type];
+  const toggle = () => setOpen((v) => !v);
   return (
-    <div className="game-relations-group">
-      <div className="game-relations-group-header">
+    <div className={`game-relations-group${open ? " is-open" : ""}`}>
+      <div
+        className="game-relations-group-header"
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={toggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggle();
+          }
+        }}
+      >
         <span className="game-relations-group-icon">
           {GROUP_ICONS[group.type]}
         </span>
@@ -1122,23 +1140,37 @@ function RelationGroupSection({
             </span>
           )}
         </div>
+        <span className="game-relations-group-chevron" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
       </div>
-      <div className="game-relations-row">
-        {group.games.map((g, i) => {
-          // Composite key so the same game id can appear in two
-          // different groups without React warning about duplicate
-          // keys (we dedupe upstream, but be defensive).
-          const key = `${group.type}-${g.libraryGameId ?? g.id ?? g.slug ?? g.name}-${i}`;
-          return (
-            <div key={key} className="game-relations-row-item">
-              <RelationRowCard
-                game={g}
-                onClick={() => onCardClick(g)}
-              />
-            </div>
-          );
-        })}
-      </div>
+      {open && (
+        <div className="game-relations-row">
+          {group.games.map((g, i) => {
+            // Composite key so the same game id can appear in two
+            // different groups without React warning about duplicate
+            // keys (we dedupe upstream, but be defensive).
+            const key = `${group.type}-${g.libraryGameId ?? g.id ?? g.slug ?? g.name}-${i}`;
+            return (
+              <div key={key} className="game-relations-row-item">
+                <RelationRowCard
+                  game={g}
+                  onClick={() => onCardClick(g)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
