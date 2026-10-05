@@ -264,7 +264,7 @@ function VideoBackground({ src, paused }: { src: string; paused?: boolean }) {
         muted
         loop
         playsInline
-        preload="auto"
+        preload="metadata"
       />
     </div>
   );

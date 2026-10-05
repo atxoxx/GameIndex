@@ -589,6 +589,11 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     const initial = window.setTimeout(() => {
       void checkForUpdates(false);
       interval = window.setInterval(() => {
+        // Skip the hourly re-check while the window is hidden (minimized
+        // to the tray): there is no UI to surface an update on, and the
+        // fetch wakes the network and JSON parsing for nothing. The next
+        // visible tick catches up.
+        if (document.hidden) return;
         void checkForUpdates(false);
       }, 60 * 60 * 1000);
     }, 3000);

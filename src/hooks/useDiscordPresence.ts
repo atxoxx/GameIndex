@@ -61,6 +61,7 @@ export function useDiscordPresence() {
   const { activeDownloads } = useDownloads();
   const { count: wishlistCount } = useWishlistContext();
   const {
+    discordRichPresence,
     discordShowBrowsing,
     discordShowDownloads,
     discordShowArt,
@@ -139,6 +140,20 @@ export function useDiscordPresence() {
   }, [unlockFlash]);
 
   useEffect(() => {
+    // The user has Rich Presence switched off. Clear any activity the
+    // backend is still advertising and stop recomputing a payload on every
+    // library/download/wishlist/route change — those all flow through this
+    // effect, and building + serializing a payload per tick is pure waste
+    // when the master switch is off.
+    if (!discordRichPresence) {
+      const stopped = JSON.stringify({ state: "stopped" });
+      if (lastSent.current !== stopped) {
+        lastSent.current = stopped;
+        void emit("discord-presence-update", { state: "stopped" });
+      }
+      return;
+    }
+
     const now = Date.now();
     const running = new Set(runningGameIds);
     for (const id of running) {
@@ -261,6 +276,7 @@ export function useDiscordPresence() {
     };
     send(payload);
   }, [
+    discordRichPresence,
     pathname,
     runningGameIds.join(","),
     games,

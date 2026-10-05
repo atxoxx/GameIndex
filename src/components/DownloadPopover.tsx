@@ -420,13 +420,14 @@ export default function DownloadPopover({
   // left looking at "No active downloads" — the panel flips to
   // History automatically.
   useEffect(() => {
+    if (!open) return;
     if (tab === "active" && activeDownloads.length === 0 && completedDownloads.length > 0) {
       setTab("history");
     }
     if (tab === "history" && completedDownloads.length === 0 && activeDownloads.length > 0) {
       setTab("active");
     }
-  }, [tab, activeDownloads.length, completedDownloads.length]);
+  }, [open, tab, activeDownloads.length, completedDownloads.length]);
 
   async function handlePause(id: string) {
     try {

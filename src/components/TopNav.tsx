@@ -195,6 +195,23 @@ export default function TopNav() {
     return () => window.removeEventListener("gamelib:open-command-palette", openPalette);
   }, []);
 
+  // Warm the command-palette chunk once the app is idle so the first
+  // Ctrl/Cmd+K opens instantly. The component itself is only mounted while
+  // the palette is open (see the render below): keeping it resident meant
+  // its item list was rebuilt on every library/download/wishlist/route
+  // change even though it rendered nothing.
+  useEffect(() => {
+    const preload = () => {
+      void import("./CommandPalette");
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preload, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(preload, 3000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   // Translate vertical mouse-wheel input into horizontal tab scrolling.
   const handleTabsWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
     const tabs = tabsRef.current;
@@ -550,9 +567,11 @@ export default function TopNav() {
           <WindowControls />
         </div>
       </header>
-      <Suspense fallback={null}>
-        <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      </Suspense>
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette isOpen onClose={() => setPaletteOpen(false)} />
+        </Suspense>
+      )}
     </>
   );
 }
