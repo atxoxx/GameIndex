@@ -37,6 +37,9 @@ const PriceContext =
 
 const BATCH_DEBOUNCE_MS = 150;
 
+/** Session cache bound. Subscribed entries are never evicted. */
+const MAX_CACHE_ENTRIES = 1000;
+
 export function PriceProvider({ children }: { children: ReactNode }) {
   const cacheRef = useRef<Map<string, GamePrice | null>>(new Map());
   const pendingRef = useRef<Set<string>>(new Set());
@@ -66,6 +69,14 @@ export function PriceProvider({ children }: { children: ReactNode }) {
           cacheRef.current.set(name, result[name] ?? null);
           inflightRef.current.delete(name);
           notify(name);
+        }
+        // Bound the session cache; never evict a name a mounted card reads.
+        if (cacheRef.current.size > MAX_CACHE_ENTRIES) {
+          for (const key of cacheRef.current.keys()) {
+            if (cacheRef.current.size <= MAX_CACHE_ENTRIES) break;
+            if (listenersRef.current.has(key)) continue;
+            cacheRef.current.delete(key);
+          }
         }
       })
       .catch(() => {

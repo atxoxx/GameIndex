@@ -44,6 +44,10 @@ const SteamGridDbContext =
 /** Coalesce window: registrations within this window share one batch call. */
 const BATCH_DEBOUNCE_MS = 150;
 
+/** Session cache bound. Entries a mounted card is subscribed to are never
+ *  evicted, so a visible card can't lose its art. */
+const MAX_CACHE_ENTRIES = 1000;
+
 export function SteamGridDbProvider({ children }: { children: ReactNode }) {
   // Resolved cache: AppID -> assets | null (null = looked up, no art).
   const cacheRef = useRef<Map<number, SgdbAssets | null>>(new Map());
@@ -77,6 +81,15 @@ export function SteamGridDbProvider({ children }: { children: ReactNode }) {
           cacheRef.current.set(id, result[String(id)] ?? null);
           inflightRef.current.delete(id);
           notify(id);
+        }
+        // Bound the session cache. Never drop an entry a mounted card is
+        // subscribed to — it would lose its art until remount.
+        if (cacheRef.current.size > MAX_CACHE_ENTRIES) {
+          for (const key of cacheRef.current.keys()) {
+            if (cacheRef.current.size <= MAX_CACHE_ENTRIES) break;
+            if (listenersRef.current.has(key)) continue;
+            cacheRef.current.delete(key);
+          }
         }
       })
       .catch(() => {
