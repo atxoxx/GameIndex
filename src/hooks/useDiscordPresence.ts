@@ -54,7 +54,7 @@ const UNLOCK_FLASH_MS = 25_000;
 export function useDiscordPresence() {
   const { pathname } = useLocation();
   const { games, runningGameIds } = useGames();
-  const { storePlatforms, modsGameName, storeGameName } = usePresence();
+  const { storePlatforms, modsGameName, storeGameName, storeGameArt } = usePresence();
   const { isBigScreen } = useBigScreen();
   const { getAchievementSummary } = useAchievements();
   const { t } = useLanguage();
@@ -258,6 +258,7 @@ export function useDiscordPresence() {
         storePlatforms,
         modsGameName,
         storeGameName,
+        storeGameArt,
         bigScreen: isBigScreen,
       },
       t,
@@ -283,6 +284,7 @@ export function useDiscordPresence() {
     storePlatforms.join(","),
     modsGameName,
     storeGameName,
+    storeGameArt,
     isBigScreen,
     discordShowBrowsing,
     discordShowDownloads,

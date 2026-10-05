@@ -134,6 +134,8 @@ export interface BrowsingContext {
   modsGameName: string | null;
   /** Real title of the store detail page, when available. */
   storeGameName: string | null;
+  /** Public cover/logo URL of the store detail page, when available. */
+  storeGameArt: string | null;
   /** True while the 10-foot Big Screen shell is active. */
   bigScreen: boolean;
 }
@@ -197,10 +199,11 @@ export function browsingHint(ctx: BrowsingContext, t: TranslateFn): BrowsingHint
   }
   if (pathname.startsWith("/store/")) {
     const slug = pathname.split("/")[2] ?? "";
+    const name = ctx.storeGameName ?? slug.replace(/-/g, " ");
     return {
-      details: t("discordPresence.storeGamePage", {
-        game: ctx.storeGameName ?? slug.replace(/-/g, " "),
-      }),
+      details: t("discordPresence.storeGamePage", { game: name }),
+      largeImage: discordAsset(ctx.storeGameArt),
+      largeText: ctx.storeGameName ?? undefined,
     };
   }
   if (pathname === "/wishlist") {

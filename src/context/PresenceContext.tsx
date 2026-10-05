@@ -24,6 +24,10 @@ export interface PresenceContextValue {
    *  Discord presence show the proper name instead of the URL slug. */
   storeGameName: string | null;
   setStoreGameName: (name: string | null) => void;
+  /** Public cover/logo URL of the store detail page currently open, or null.
+   *  Discord fetches the image server-side, so only https sources are usable. */
+  storeGameArt: string | null;
+  setStoreGameArt: (art: string | null) => void;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -39,6 +43,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [storePlatforms, setStorePlatforms] = useState<string[]>([]);
   const [modsGameName, setModsGameName] = useState<string | null>(null);
   const [storeGameName, setStoreGameName] = useState<string | null>(null);
+  const [storeGameArt, setStoreGameArt] = useState<string | null>(null);
 
   const handleSetStorePlatforms = useCallback((platforms: string[]) => {
     setStorePlatforms(platforms);
@@ -52,6 +57,10 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setStoreGameName(name);
   }, []);
 
+  const handleSetStoreGameArt = useCallback((art: string | null) => {
+    setStoreGameArt(art);
+  }, []);
+
   const contextValue = useMemo(() => ({
     storePlatforms,
     setStorePlatforms: handleSetStorePlatforms,
@@ -59,7 +68,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setModsGameName: handleSetModsGameName,
     storeGameName,
     setStoreGameName: handleSetStoreGameName,
-  }), [storePlatforms, handleSetStorePlatforms, modsGameName, handleSetModsGameName, storeGameName, handleSetStoreGameName]);
+    storeGameArt,
+    setStoreGameArt: handleSetStoreGameArt,
+  }), [storePlatforms, handleSetStorePlatforms, modsGameName, handleSetModsGameName, storeGameName, handleSetStoreGameName, storeGameArt, handleSetStoreGameArt]);
 
   return (
     <PresenceContext.Provider value={contextValue}>

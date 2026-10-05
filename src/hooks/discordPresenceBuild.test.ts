@@ -61,6 +61,7 @@ function makeCtx(overrides: Partial<BrowsingContext> = {}): BrowsingContext {
     storePlatforms: [],
     modsGameName: null,
     storeGameName: null,
+    storeGameArt: null,
     bigScreen: false,
     ...overrides,
   };
@@ -116,6 +117,30 @@ describe("browsingHint", () => {
     expect(
       browsingHint(makeCtx({ pathname: "/store/hollow-knight" }), t).details,
     ).toBe("discordPresence.storeGamePage(game=hollow knight)");
+  });
+
+  it("attaches the published store cover art to the store page hint", () => {
+    const hint = browsingHint(
+      makeCtx({
+        pathname: "/store/hollow-knight",
+        storeGameName: "Hollow Knight",
+        storeGameArt: "https://cdn.example/hk-cover.jpg",
+      }),
+      t,
+    );
+    expect(hint.largeImage).toBe("https://cdn.example/hk-cover.jpg");
+    expect(hint.largeText).toBe("Hollow Knight");
+  });
+
+  it("drops a non-https store cover instead of sending an unusable asset", () => {
+    const hint = browsingHint(
+      makeCtx({
+        pathname: "/store/hollow-knight",
+        storeGameArt: "data:image/png;base64,AAAA",
+      }),
+      t,
+    );
+    expect(hint.largeImage).toBeUndefined();
   });
 
   it("shows a library count on the home route", () => {

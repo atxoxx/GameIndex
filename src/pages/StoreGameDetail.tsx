@@ -129,7 +129,7 @@ export default function StoreGameDetail() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { games, addStoreGame } = useGames();
-  const { setStoreGameName } = usePresence();
+  const { setStoreGameName, setStoreGameArt } = usePresence();
   const { isWishlisted, toggle: toggleWishlist } = useWishlistContext();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -302,6 +302,20 @@ export default function StoreGameDetail() {
     setStoreGameName(data?.title ?? null);
     return () => setStoreGameName(null);
   }, [data?.title, setStoreGameName]);
+
+  // Publish the store art so Discord presence shows the cover/logo while this
+  // page is open. Only public https sources are usable — Discord fetches the
+  // image server-side — so `discordAsset` filters the rest downstream.
+  useEffect(() => {
+    setStoreGameArt(
+      data?.images.cover ??
+        data?.images.logo ??
+        data?.images.hero ??
+        data?.images.banner ??
+        null,
+    );
+    return () => setStoreGameArt(null);
+  }, [data?.images, setStoreGameArt]);
 
   // Enrich title via IGDB if needed
   useEffect(() => {
