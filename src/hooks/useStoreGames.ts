@@ -74,7 +74,7 @@ export function useStoreGames() {
   const [category, setCategoryState] = useState<StoreCategory>("all");
   const [searchQuery, setSearchQueryRaw] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [sort, setSortState] = useState<StoreSort>("default");
+  const [sort, setSortState] = useState<StoreSort>("popularity");
 
   // ── Mutable refs (avoid stale closures) ────────────────────────────────
   const offsetRef = useRef(0);
@@ -83,7 +83,7 @@ export function useStoreGames() {
   const activeCategoryRef = useRef<StoreCategory>("all");
   const mountedRef = useRef(true);
   const gamesRef = useRef<StoreGameSummary[]>([]);
-  const sortRef = useRef<StoreSort>("default");
+  const sortRef = useRef<StoreSort>("popularity");
 
   // Keep gamesRef in sync so performFetch can read latest games without
   // needing games in its dependency array (avoids cascading re-creations).
@@ -126,7 +126,7 @@ export function useStoreGames() {
           yearMin: f.yearMin,
           yearMax: f.yearMax,
           ratingMin: f.ratingMin,
-          sort: sortRef.current === "default" ? null : sortRef.current,
+          sort: sortRef.current,
         };
         if (query) {
           // ── Search with in-memory cache (10 min TTL) ────────────────
@@ -198,7 +198,7 @@ export function useStoreGames() {
         // results are short-lived (re-fetched on every Apply click) and
         // aren't worth a disk round-trip.
         const isUnfiltered = !recomputeHasFilters(filtersRef.current);
-        const isDefaultSort = sortRef.current === "default";
+        const isDefaultSort = sortRef.current === "popularity";
         if (fetchCategory && !query && isUnfiltered && isDefaultSort) {
           setCategoryCache(fetchCategory, newList);
         }
@@ -228,10 +228,10 @@ export function useStoreGames() {
       setSearchQueryRaw("");
       setError(null);
 
-      // Try cache first (only valid for the default sort — a custom sort
-      // must always re-fetch since we never persist sorted slices).
+      // Try cache first (only valid for the default popularity sort — a
+      // custom sort must always re-fetch since we never persist sorted slices).
       const cached =
-        sortRef.current === "default" ? getCategoryCache(newCategory) : null;
+        sortRef.current === "popularity" ? getCategoryCache(newCategory) : null;
       if (cached) {
         setGames(cached);
         offsetRef.current = cached.length;
@@ -290,18 +290,25 @@ export function useStoreGames() {
     (next: StoreSort) => {
       sortRef.current = next;
       setSortState(next);
-      // During a live search the IGDB endpoint ignores sort clauses — the
-      // catalogue re-orders the loaded results client-side, so a sort
-      // change is a pure state update with no re-fetch. Category browsing
-      // re-queries with the new IGDB sort clause.
-      if (isSearching && searchQuery) return;
+      // Re-query the current context with the new ordering. This also covers
+      // live searches: IGDB honours an explicit sort clause for search
+      // queries, so re-fetching keeps every page (not just the loaded slice)
+      // in the chosen order. The catalogue additionally re-sorts loaded
+      // results client-side as a fast visual update.
       requestIdRef.current += 1;
       const reqId = requestIdRef.current;
       offsetRef.current = 0;
       setHasMore(true);
       setError(null);
-      setGames([]);
-      performFetch(reqId, activeCategoryRef.current, "", 0, false);
+      if (isSearching && searchQuery.trim()) {
+        // Keep the current results mounted: the catalogue re-sorts them
+        // client-side immediately, then the authoritative server-ordered
+        // page replaces them without a blank flash.
+        performFetch(reqId, null, searchQuery, 0, false);
+      } else {
+        setGames([]);
+        performFetch(reqId, activeCategoryRef.current, "", 0, false);
+      }
     },
     [performFetch, isSearching, searchQuery]
   );
@@ -346,7 +353,7 @@ export function useStoreGames() {
         setSearchQueryRaw("");
         requestIdRef.current += 1;
         const cached =
-          recomputeHasFilters(filtersRef.current) || sortRef.current !== "default"
+          recomputeHasFilters(filtersRef.current) || sortRef.current !== "popularity"
             ? null
             : getCategoryCache(activeCategoryRef.current);
         if (cached) {
@@ -391,7 +398,7 @@ export function useStoreGames() {
         // never persisted, so the cached list would show default order.
         const cached =
           recomputeHasFilters(filtersRef.current) ||
-          sortRef.current !== "default"
+          sortRef.current !== "popularity"
             ? null
             : getCategoryCache(activeCategoryRef.current);
         if (cached) {

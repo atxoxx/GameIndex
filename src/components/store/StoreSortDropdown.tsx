@@ -46,7 +46,7 @@ export default function StoreSortDropdown({
     <div className="store-sort" ref={rootRef}>
       <button
         type="button"
-        className={`store-sort-trigger${value !== "default" ? " has-active" : ""}`}
+        className={`store-sort-trigger${value !== "popularity" ? " has-active" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}

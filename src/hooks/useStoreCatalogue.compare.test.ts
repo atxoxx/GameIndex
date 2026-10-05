@@ -49,7 +49,7 @@ vi.mock("./useStoreGames", () => ({
     applyFilters: vi.fn(),
     resetFilters: vi.fn(),
     clearSearch: vi.fn(),
-    sort: "default",
+    sort: "popularity",
     setSort: vi.fn(),
   }),
 }));

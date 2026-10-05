@@ -1506,6 +1506,10 @@ export interface StoreGameSummary {
   firstReleaseDate: string | null;
   totalRatingCount: number;
   hypes: number;
+  /** IGDB follower count. Optional so older cached records (and endpoints
+   *  that don't request the field) still deserialize; drives the
+   *  "Most Followed" sort. */
+  follows?: number;
   /** External URLs for the title (Steam store page, Epic, official site,
    *  etc.). Populated from IGDB's `websites.url` field so the Store Hero
    *  (and any other card rendering a Steam concurrent-player badge)
@@ -1555,12 +1559,11 @@ export const STORE_PAGE_SIZE = 20;
 // ─── Store Sort ──────────────────────────────────────────────────────────────
 
 /**
- * User-selectable sort order for store category browsing. Maps to an IGDB
- * `sort` clause in `fetch_store_games` (Rust). `default` keeps the
- * category's built-in ranking (e.g. Trending → hypes desc).
+ * User-selectable sort order for store browsing. Maps to an IGDB `sort`
+ * clause in `fetch_store_games` (Rust). `popularity` is the default and
+ * orders by total rating count.
  */
 export type StoreSort =
-  | "default"
   | "popularity"
   | "rating"
   | "trending"
@@ -1572,7 +1575,6 @@ export type StoreSort =
 
 /** Ordered list of sort options for rendering the dropdown. */
 export const STORE_SORTS: readonly StoreSort[] = [
-  "default",
   "popularity",
   "rating",
   "trending",

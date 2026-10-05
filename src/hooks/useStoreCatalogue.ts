@@ -192,28 +192,16 @@ function releaseDateMs(d: string | null): number | null {
 }
 
 /**
- * Client-side sort applied to search results. Tier-first stable sort:
- * primary = relevance tier (0→6), secondary = selected sort within same tier,
- * tertiary = stable original order. Does not destroy IGDB relevance when
- * sort=default (keeps original order within tier).
+ * Client-side sort applied to the merged search results. Stable
+ * decorate-sort-undecorate so equal keys keep the incoming order (the
+ * server's ranking for the chosen sort, or the local-merge order).
  */
 export function sortSearchResults(
   games: StoreGameSummary[],
-  sort: StoreSort,
-  query = ""
+  sort: StoreSort
 ): StoreGameSummary[] {
-  const qLower = query.trim().toLowerCase();
-  const tokens = tokenizeSearchQuery(query);
-  const useTier = !!qLower && tokens.length > 0;
-  // Decorate with tier + idx for stable sort
-  const decorated = games.map((g, idx) => ({
-    game: g,
-    idx,
-    tier: useTier ? getStoreRelevanceScore(g, qLower, tokens) : 999,
-  }));
+  const decorated = games.map((game, idx) => ({ game, idx }));
   decorated.sort((a, b) => {
-    if (useTier && a.tier !== b.tier) return a.tier - b.tier;
-    // Within same tier, apply selected sort
     switch (sort) {
       case "rating":
         return (b.game.rating ?? -1) - (a.game.rating ?? -1) || a.idx - b.idx;
@@ -224,8 +212,11 @@ export function sortSearchResults(
           a.idx - b.idx
         );
       case "trending":
-      case "follows":
         return (b.game.hypes ?? 0) - (a.game.hypes ?? 0) || a.idx - b.idx;
+      case "follows":
+        // Follows is a distinct IGDB signal from hypes (pre-release interest
+        // vs. follower count) — use the real field rather than aliasing it.
+        return (b.game.follows ?? 0) - (a.game.follows ?? 0) || a.idx - b.idx;
       case "release_new": {
         const av = releaseDateMs(a.game.firstReleaseDate);
         const bv = releaseDateMs(b.game.firstReleaseDate);
@@ -541,7 +532,7 @@ export function useStoreCatalogue(): StoreCatalogue {
     // non-default sort re-orders the merged results locally via tier-first sort.
     const base =
       isSearching
-        ? sortSearchResults(visibleGames, sort, searchQuery)
+        ? sortSearchResults(visibleGames, sort)
         : visibleGames;
     if (showHidden || hiddenGames.count === 0) return base;
     return base.filter((g) => !hiddenGames.hiddenSet.has(g.slug));

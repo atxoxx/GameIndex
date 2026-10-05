@@ -665,6 +665,10 @@ pub struct StoreGameSummary {
     pub first_release_date: Option<String>,
     pub total_rating_count: u64,
     pub hypes: u64,
+    /// Number of IGDB users following the game. Drives the "Most Followed"
+    /// sort; defaults to `0` when IGDB has not reported a count.
+    #[serde(default)]
+    pub follows: u64,
     /// External URLs associated with the title on IGDB (Steam store page,
     /// Epic, official site, etc.). Populated for the store hero so it
     /// can render the live Steam concurrent-player badge on rotating
@@ -689,6 +693,8 @@ struct IgdbGameSummary {
     first_release_date: Option<i64>,
     total_rating_count: Option<u64>,
     hypes: Option<u64>,
+    #[serde(default)]
+    follows: Option<u64>,
     /// IGDB `game_type` category (0 = main game, 1 = DLC, 5 = mod, …). Used
     /// by the search re-ranker to push add-on content below real titles.
     #[serde(default)]
@@ -4172,7 +4178,10 @@ pub async fn fetch_store_games(
     // the client never has to know IGDB's field names.
     let base_sort = match sort.as_deref() {
         Some("popularity") => "total_rating_count desc".to_string(),
-        Some("rating") => "aggregated_rating desc".to_string(),
+        // "Top Rated" sorts on the same field the cards display and the
+        // rating filter uses (IGDB user `rating`), so the ordering is
+        // consistent with what the user sees.
+        Some("rating") => "rating desc".to_string(),
         Some("trending") => "hypes desc".to_string(),
         Some("follows") => "follows desc".to_string(),
         Some("release_new") => "first_release_date desc".to_string(),
@@ -4344,6 +4353,7 @@ pub async fn fetch_store_games(
                 first_release_date: release_date,
                 total_rating_count: g.total_rating_count.unwrap_or(0),
                 hypes: g.hypes.unwrap_or(0),
+                follows: g.follows.unwrap_or(0),
                 websites,
             }
         })
@@ -4425,6 +4435,7 @@ fn map_igdb_summary(g: IgdbGameSummary) -> StoreGameSummary {
         first_release_date: release_date,
         total_rating_count: g.total_rating_count.unwrap_or(0),
         hypes: g.hypes.unwrap_or(0),
+        follows: g.follows.unwrap_or(0),
         websites,
     }
 }
@@ -4787,7 +4798,7 @@ pub async fn search_store_games(
     // ranking for the search. The value mapping mirrors `fetch_store_games`.
     let sort_clause = match sort.as_deref() {
         Some("popularity") => Some("total_rating_count desc".to_string()),
-        Some("rating") => Some("aggregated_rating desc".to_string()),
+        Some("rating") => Some("rating desc".to_string()),
         Some("trending") => Some("hypes desc".to_string()),
         Some("follows") => Some("follows desc".to_string()),
         Some("release_new") => Some("first_release_date desc".to_string()),
@@ -4802,7 +4813,7 @@ pub async fn search_store_games(
     // only emitted when non-empty, so the request never carries a bare
     // `where ;` / `sort ;`.
     let mut body = format!(
-        r#"search "{}"; fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url,game_type;"#,
+        r#"search "{}"; fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,follows,websites.url,game_type;"#,
         escaped
     );
     if !where_clause.is_empty() {
@@ -4921,6 +4932,7 @@ pub async fn search_store_games(
                 first_release_date: release_date,
                 total_rating_count: g.total_rating_count.unwrap_or(0),
                 hypes: g.hypes.unwrap_or(0),
+                follows: g.follows.unwrap_or(0),
                 websites,
             }
         })
@@ -7736,6 +7748,7 @@ offset 0;"#,
                 first_release_date: release_date,
                 total_rating_count: g.total_rating_count.unwrap_or(0),
                 hypes: g.hypes.unwrap_or(0),
+                follows: g.follows.unwrap_or(0),
                 websites,
             }
         })
