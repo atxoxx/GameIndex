@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useContext } from "react";
+import { useRef, useEffect, useLayoutEffect, useCallback, useContext, useState } from "react";
 import StoreGameCard from "./StoreGameCard";
 import { Button } from "../ui";
 import { DensityContext } from "../../context/DensityContext";
@@ -29,6 +29,39 @@ interface StoreGameGridProps {
   onClearSearch?: () => void;
   /** Reports pointer enter/leave on individual game posters. */
   onCardHover?: (hovering: boolean) => void;
+}
+
+/** Below this many cards the grid renders everything; above it, offscreen
+ *  rows are unmounted. The store list grows unbounded via infinite scroll,
+ *  so without a window every visited page stays mounted with its poster
+ *  decoded. */
+const VIRTUALIZE_THRESHOLD = 60;
+/** Rows rendered beyond the viewport on each side, so a fast scroll never
+ *  outruns React and keyboard focus stays inside the mounted window. */
+const OVERSCAN_ROWS = 4;
+
+function isWindow(target: HTMLElement | Window): target is Window {
+  return target === window;
+}
+
+function findScrollContainer(el: HTMLElement | null): HTMLElement | Window {
+  let node: HTMLElement | null = el?.parentElement ?? null;
+  while (node) {
+    const style = getComputedStyle(node);
+    if (/(auto|scroll|overlay)/.test(style.overflowY)) return node;
+    node = node.parentElement;
+  }
+  return window;
+}
+
+interface StoreGridMetrics {
+  cols: number;
+  rowStride: number;
+  rowGap: number;
+}
+
+function sameStoreMetrics(a: StoreGridMetrics, b: StoreGridMetrics): boolean {
+  return a.cols === b.cols && a.rowStride === b.rowStride && a.rowGap === b.rowGap;
 }
 
 function CardSkeleton({ list = false }: { list?: boolean }) {
@@ -104,33 +137,154 @@ export default function StoreGameGrid({
   const isList = density === "list";
   const isCompact = density === "compact";
 
+  // ── Windowing ────────────────────────────────────────────────────────
+  // The store list grows without bound through infinite scroll. Rendering
+  // every loaded page keeps each poster decoded and each card's hooks
+  // alive long after it scrolled away, so above the threshold only the
+  // visible rows (plus an overscan) are mounted; spacers reserve the rest.
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
+  const [metrics, setMetrics] = useState<StoreGridMetrics | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<number | null>(null);
+
+  const canVirtualize = games.length > VIRTUALIZE_THRESHOLD;
+
+  const readMetrics = useCallback((): StoreGridMetrics | null => {
+    const grid = gridRef.current;
+    if (!grid) return null;
+    const cell = grid.querySelector<HTMLElement>(".store-game-cell");
+    if (!cell) return null;
+    const style = getComputedStyle(grid);
+    const cols = style.gridTemplateColumns.split(/\s+/).filter(Boolean).length;
+    const rowGap = parseFloat(style.rowGap) || 0;
+    const cellHeight = cell.getBoundingClientRect().height;
+    if (cols <= 0 || cellHeight <= 0) return null;
+    return { cols, rowStride: cellHeight + rowGap, rowGap };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!canVirtualize) {
+      setMetrics(null);
+      return;
+    }
+    const next = readMetrics();
+    if (!next) return;
+    setMetrics((prev) => (prev && sameStoreMetrics(prev, next) ? prev : next));
+  }, [canVirtualize, readMetrics, games.length, density]);
+
+  useEffect(() => {
+    if (!canVirtualize) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    const container = findScrollContainer(grid);
+
+    const compute = () => {
+      const el = gridRef.current;
+      if (!el) return;
+      const elRect = el.getBoundingClientRect();
+      const containerRect = isWindow(container)
+        ? { top: 0, height: window.innerHeight }
+        : { top: container.getBoundingClientRect().top, height: container.clientHeight };
+      setScrollTop(Math.max(0, containerRect.top - elRect.top));
+      if (containerRect.height > 0) setViewportH(containerRect.height);
+    };
+    compute();
+
+    // A resize changes the auto-fill column count, so re-measure the grid
+    // metrics as well as the scroll offset.
+    const remeasure = () => {
+      const next = readMetrics();
+      if (!next) return;
+      setMetrics((prev) => (prev && sameStoreMetrics(prev, next) ? prev : next));
+    };
+
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        compute();
+      });
+    };
+    const onResize = () => {
+      compute();
+      remeasure();
+    };
+    container.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    const ro = new ResizeObserver(onResize);
+    ro.observe(grid);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      container.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      ro.disconnect();
+    };
+  }, [canVirtualize, readMetrics]);
+
+  // Focus a card by its global index. Cards are tagged with `data-index`, so
+  // keyboard navigation keeps working even though only a slice is mounted.
+  const focusIndex = useCallback((index: number) => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const cell = grid.querySelector<HTMLElement>(`[data-index="${index}"]`);
+    if (!cell) {
+      // Outside the mounted window — expand it for one render, then focus.
+      setPendingFocus(index);
+      return;
+    }
+    const focusable = cell.querySelector<HTMLElement>(".store-game-card") ?? cell;
+    focusable.focus();
+    focusable.scrollIntoView({ block: "nearest" });
+  }, []);
+
+  useEffect(() => {
+    if (pendingFocus === null) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    const cell = grid.querySelector<HTMLElement>(`[data-index="${pendingFocus}"]`);
+    if (!cell) return;
+    const focusable = cell.querySelector<HTMLElement>(".store-game-card") ?? cell;
+    focusable.focus();
+    focusable.scrollIntoView({ block: "nearest" });
+    setPendingFocus(null);
+  }, [pendingFocus]);
+
   const handleGridKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const grid = gridRef.current;
       if (!grid) return;
-      const cards = Array.from(
-        grid.querySelectorAll<HTMLElement>(".store-game-card")
-      );
-      if (cards.length === 0) return;
       const active = document.activeElement as HTMLElement | null;
-      const currentIndex = active ? cards.indexOf(active) : -1;
+      const currentIndex = active
+        ? Number(active.closest<HTMLElement>("[data-index]")?.dataset.index ?? -1)
+        : -1;
+      if (games.length === 0) return;
 
       let cols = 1;
-      if (!isList && cards.length > 1) {
-        const firstTop = cards[0].offsetTop;
-        cols = cards.filter((c) => c.offsetTop === firstTop).length || 1;
+      if (!isList) {
+        if (metrics && canVirtualize) {
+          cols = metrics.cols;
+        } else {
+          const cells = Array.from(
+            grid.querySelectorAll<HTMLElement>(".store-game-cell")
+          );
+          if (cells.length > 1) {
+            const firstTop = cells[0].offsetTop;
+            cols = cells.filter((c) => c.offsetTop === firstTop).length || 1;
+          }
+        }
       }
 
       let nextIndex = currentIndex;
       switch (e.key) {
         case "ArrowRight":
-          nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, cards.length - 1);
+          nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, games.length - 1);
           break;
         case "ArrowLeft":
           nextIndex = currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0);
           break;
         case "ArrowDown":
-          nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + cols, cards.length - 1);
+          nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + cols, games.length - 1);
           break;
         case "ArrowUp":
           nextIndex = currentIndex < 0 ? 0 : Math.max(currentIndex - cols, 0);
@@ -148,13 +302,12 @@ export default function StoreGameGrid({
           return;
       }
 
-      if (nextIndex !== currentIndex && cards[nextIndex]) {
+      if (nextIndex !== currentIndex && nextIndex >= 0) {
         e.preventDefault();
-        cards[nextIndex].focus();
-        cards[nextIndex].scrollIntoView({ block: "nearest" });
+        focusIndex(nextIndex);
       }
     },
-    [games, wishlistStatus, isList]
+    [games, wishlistStatus, isList, metrics, canVirtualize, focusIndex]
   );
 
   const handleIntersect = useCallback(
@@ -286,6 +439,34 @@ export default function StoreGameGrid({
     );
   }
 
+  const virtual = canVirtualize && metrics !== null;
+  let visibleStart = 0;
+  let visibleEnd = games.length;
+  let topSpace = 0;
+  let bottomSpace = 0;
+  if (virtual && metrics) {
+    const { cols, rowStride, rowGap } = metrics;
+    const rows = Math.ceil(games.length / cols);
+    const overscanPx = rowStride * OVERSCAN_ROWS;
+    let firstRow = Math.max(0, Math.floor((scrollTop - overscanPx) / rowStride));
+    let lastRow = Math.min(
+      rows - 1,
+      Math.ceil((scrollTop + viewportH + overscanPx) / rowStride) - 1
+    );
+    if (lastRow < firstRow) lastRow = firstRow;
+    visibleStart = firstRow * cols;
+    visibleEnd = Math.min(games.length, (lastRow + 1) * cols);
+    if (pendingFocus !== null) {
+      // Guarantee the keyboard target is inside the mounted slice.
+      visibleStart = Math.min(visibleStart, pendingFocus);
+      visibleEnd = Math.max(visibleEnd, pendingFocus + 1);
+    }
+    topSpace = firstRow > 0 ? firstRow * rowStride - rowGap : 0;
+    const hiddenBelow = rows - 1 - lastRow;
+    bottomSpace = hiddenBelow > 0 ? hiddenBelow * rowStride - rowGap : 0;
+  }
+  const visibleGames = virtual ? games.slice(visibleStart, visibleEnd) : games;
+
   return (
     <div className="store-game-grid-container">
       {/* Subtle source-availability pending cue — shown while useSourceAvailabilityCache
@@ -333,27 +514,45 @@ export default function StoreGameGrid({
         ref={gridRef}
         onKeyDown={handleGridKeyDown}
       >
-        {games.map((game, i) => (
+        {topSpace > 0 && (
           <div
-            key={game.id}
-            className="store-game-cell"
-            style={{ animationDelay: `${Math.min(i, 20) * 20}ms` }}
-          >
-            <StoreGameCard
-              game={game}
-              onClick={onCardClick}
-              searchQuery={searchQuery}
-              inLibrary={isInLibrary ? isInLibrary(game) : false}
-              onHide={onHide}
-              onCompare={onCompare}
-              inCompare={compareSlugs ? compareSlugs.has(game.slug) : false}
-              selectable={bulkMode}
-              selected={selectedSlugs ? selectedSlugs.has(game.slug) : false}
-              onToggleSelect={onToggleSelect}
-              onHoverChange={onCardHover}
-            />
-          </div>
-        ))}
+            className="store-game-cell-spacer"
+            aria-hidden="true"
+            style={{ gridColumn: "1 / -1", height: topSpace }}
+          />
+        )}
+        {visibleGames.map((game, i) => {
+          const globalIndex = virtual ? visibleStart + i : i;
+          return (
+            <div
+              key={game.id}
+              data-index={globalIndex}
+              className={`store-game-cell${virtual ? " store-game-cell--virtual" : ""}`}
+              style={virtual ? undefined : { animationDelay: `${Math.min(globalIndex, 20) * 20}ms` }}
+            >
+              <StoreGameCard
+                game={game}
+                onClick={onCardClick}
+                searchQuery={searchQuery}
+                inLibrary={isInLibrary ? isInLibrary(game) : false}
+                onHide={onHide}
+                onCompare={onCompare}
+                inCompare={compareSlugs ? compareSlugs.has(game.slug) : false}
+                selectable={bulkMode}
+                selected={selectedSlugs ? selectedSlugs.has(game.slug) : false}
+                onToggleSelect={onToggleSelect}
+                onHoverChange={onCardHover}
+              />
+            </div>
+          );
+        })}
+        {bottomSpace > 0 && (
+          <div
+            className="store-game-cell-spacer"
+            aria-hidden="true"
+            style={{ gridColumn: "1 / -1", height: bottomSpace }}
+          />
+        )}
       </div>
 
       {/* Sentinel div for infinite scroll */}

@@ -852,6 +852,19 @@
   }
 }
 
+/* Windowed cells are mounted/unmounted as the user scrolls. Replaying the
+   entrance cascade on every remount would flicker, so the large-list path
+   renders cells statically. */
+.store-game-cell--virtual {
+  animation: none;
+}
+
+/* Reserved space for rows scrolled out of the window; spans the grid so it
+   never occupies a column. */
+.store-game-cell-spacer {
+  min-width: 0;
+}
+
 /* ── Store Game Card ───────────────────────────────────────────────────── */
 
 /* List density: single-column horizontal rows with small cover preview */
