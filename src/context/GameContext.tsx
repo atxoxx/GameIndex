@@ -157,6 +157,32 @@ function generateId(): string {
   return `game-${Date.now()}-${nextId++}`;
 }
 
+/**
+ * Heavy IGDB/media arrays fetched on demand by `get_game_detail`. Mirrors the
+ * backend's `HEAVY_GAME_FIELDS`; stripped from an evicted detail record so the
+ * in-memory library doesn't pin every game's screenshots/trailers/reviews for
+ * the whole session.
+ */
+function stripHeavyGameFields(game: Game): Game {
+  return {
+    ...game,
+    screenshots: undefined,
+    videos: undefined,
+    similarGames: undefined,
+    releases: undefined,
+    igdbReviews: undefined,
+    languageSupports: undefined,
+    steamAchievements: undefined,
+  };
+}
+
+/**
+ * How many fully-detailed game records stay resident. The durable copy lives
+ * in SQLite; eviction only drops the in-memory merge, and revisiting the game
+ * refetches it.
+ */
+const DETAIL_CACHE_MAX = 16;
+
 export function GameProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -188,28 +214,78 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // dependency without re-registering the event listener every render.
   const removeGamesRef = useRef<((predicate: (game: Game) => boolean) => void) | null>(null);
 
-  // Ids whose full game record has been fetched via `get_game_detail`.
+  // Ids whose full game record has been fetched via `get_game_detail`,
+  // ordered as an LRU (a Map preserves insertion order; re-insert on touch).
   // Games loaded from the summary list are absent; detail-loaded games are
   // persisted with a full `save_game`, while summary-only games use the
   // merge-safe `patch_game` so a light mutation can't clear heavy columns.
-  const detailLoadedIdsRef = useRef<Set<string>>(new Set());
+  const detailLoadedIdsRef = useRef<Map<string, true>>(new Map());
+
+  // Mark a game's detail as resident, refreshing its recency. Once the cache
+  // exceeds the cap the least-recently-used record has its heavy arrays
+  // dropped from `games`; `patch_game` ignores heavy keys, so the DB row is
+  // preserved and a revisit refetches it.
+  const evictDetailOverflow = useCallback(
+    (keepId?: string) => {
+      const map = detailLoadedIdsRef.current;
+      if (map.size <= DETAIL_CACHE_MAX) return;
+      const evicted: string[] = [];
+      while (map.size > DETAIL_CACHE_MAX) {
+        const oldest = map.keys().next().value;
+        if (oldest === undefined || oldest === keepId) break;
+        map.delete(oldest);
+        evicted.push(oldest);
+      }
+      if (evicted.length === 0) return;
+      const evictedSet = new Set(evicted);
+      setGames((prev) =>
+        prev.map((g) => (evictedSet.has(g.id) ? stripHeavyGameFields(g) : g))
+      );
+    },
+    [setGames]
+  );
+
+  const markDetailLoaded = useCallback(
+    (id: string) => {
+      const map = detailLoadedIdsRef.current;
+      if (map.has(id)) map.delete(id);
+      map.set(id, true);
+      evictDetailOverflow(id);
+    },
+    [evictDetailOverflow]
+  );
+
+  // Batch variant so importing a whole library marks every row before a
+  // single eviction pass, instead of one array-wide strip per game.
+  const markManyDetailLoaded = useCallback(
+    (ids: string[]) => {
+      const map = detailLoadedIdsRef.current;
+      for (const id of ids) {
+        if (map.has(id)) map.delete(id);
+        map.set(id, true);
+      }
+      evictDetailOverflow();
+    },
+    [evictDetailOverflow]
+  );
 
   const loadGameDetail = useCallback(async (id: string): Promise<Game | null> => {
     if (detailLoadedIdsRef.current.has(id)) {
+      markDetailLoaded(id);
       return gamesRef.current.find((g) => g.id === id) ?? null;
     }
     try {
       const full = await invoke<Game | null>("get_game_detail", { id });
       if (!full) return null;
-      detailLoadedIdsRef.current.add(id);
       const normalized = normalizeGameArtworkUrls(full);
+      markDetailLoaded(id);
       setGames((prev) => prev.map((g) => (g.id === id ? { ...g, ...normalized } : g)));
       return normalized;
     } catch (err) {
       console.warn(`[GameContext] Failed to load detail for ${id}:`, err);
       return null;
     }
-  }, []);
+  }, [markDetailLoaded]);
 
   const isGameDetailLoaded = useCallback(
     (id: string) => detailLoadedIdsRef.current.has(id),
@@ -388,12 +464,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // On initial library load, auto-enrich any games that are missing metadata or tags/relations
   useEffect(() => {
     if (!gamesHydrated || games.length === 0) return;
-    const needy = games.filter(gameNeedsEnrichment);
-    if (needy.length > 0) {
-      enqueueEnrichBatch(
-        needy.map((g) => ({ id: g.id, name: g.name, steamAppId: g.steamAppId }))
-      );
+
+    const run = () => {
+      const needy = games.filter(gameNeedsEnrichment);
+      if (needy.length > 0) {
+        enqueueEnrichBatch(
+          needy.map((g) => ({ id: g.id, name: g.name, steamAppId: g.steamAppId }))
+        );
+      }
+    };
+
+    // Launching to the tray keeps the window hidden. Hold the library-wide
+    // enrichment storm (network calls, artwork downloads, full-row DB
+    // writes) until the user actually looks at the app instead of spending
+    // it against a window nobody can see.
+    if (document.hidden) {
+      const onVisible = () => {
+        if (document.hidden) return;
+        document.removeEventListener("visibilitychange", onVisible);
+        run();
+      };
+      document.addEventListener("visibilitychange", onVisible);
+      return () => document.removeEventListener("visibilitychange", onVisible);
     }
+
+    run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gamesHydrated]);
 
@@ -401,17 +496,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const id = game.id || generateId();
     const withId = { ...game, id };
     // Authored in-memory with its full metadata, so it is detail-loaded.
-    detailLoadedIdsRef.current.add(id);
+    markDetailLoaded(id);
     setGames((prev) => dedupeGamesById([...prev, withId]));
     // Refresh the watcher index so the new game is passively detectable.
     scheduleWatcherIndexRebuild();
     // Auto-enrich in background queue (installed or not)
     enqueueEnrich({ id: withId.id, name: withId.name, steamAppId: withId.steamAppId });
-  }, [scheduleWatcherIndexRebuild, enqueueEnrich]);
+  }, [scheduleWatcherIndexRebuild, enqueueEnrich, markDetailLoaded]);
 
   const addGames = useCallback((newGames: Game[]) => {
     const withIds = newGames.map((g) => ({ ...g, id: g.id || generateId() }));
-    withIds.forEach((g) => detailLoadedIdsRef.current.add(g.id));
+    markManyDetailLoaded(withIds.map((g) => g.id));
     setGames((prev) => dedupeGamesById([...prev, ...withIds]));
     // Refresh the watcher index so the imported games are passively
     // detectable without a restart.
@@ -420,7 +515,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     enqueueEnrichBatch(
       withIds.map((g) => ({ id: g.id, name: g.name, steamAppId: g.steamAppId }))
     );
-  }, [scheduleWatcherIndexRebuild, enqueueEnrichBatch]);
+  }, [scheduleWatcherIndexRebuild, enqueueEnrichBatch, markManyDetailLoaded]);
 
   const removeGame = useCallback(
     (id: string) => {
@@ -573,7 +668,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       metadataUrl: metadata.sourceUrl,
     };
 
-    detailLoadedIdsRef.current.add(newGame.id);
+    markDetailLoaded(newGame.id);
     setGames((prev) => [...prev, newGame]);
     // Refresh the watcher index so the new store game is passively
     // detectable once it has a path.
@@ -587,7 +682,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     );
 
     return newGame.id;
-  }, [games, showToast, fetchGameReviews, fetchAllImages, scheduleWatcherIndexRebuild, t]);
+  }, [games, showToast, fetchGameReviews, fetchAllImages, scheduleWatcherIndexRebuild, t, markDetailLoaded]);
 
   const importLocalGames = useCallback(async (
     items: { path: string; metadata: GameMetadataResult | null }[]
@@ -678,7 +773,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     if (imported.length > 0) {
-      imported.forEach((g) => detailLoadedIdsRef.current.add(g.id));
+      markManyDetailLoaded(imported.map((g) => g.id));
       setGames((prev) => [...prev, ...imported]);
       // Refresh the watcher index so the imported exes are passively
       // detectable immediately.
@@ -729,7 +824,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } else {
       showToast(t("gameContext.noNewImports"), "info");
     }
-  }, [games, showToast, fetchGameReviews, updateGame, fetchAllImages, scheduleWatcherIndexRebuild, enqueueEnrich, t]);
+  }, [games, showToast, fetchGameReviews, updateGame, fetchAllImages, scheduleWatcherIndexRebuild, enqueueEnrich, t, markManyDetailLoaded]);
 
   const contextValue = useMemo(() => ({
     games,
