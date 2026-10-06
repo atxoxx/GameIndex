@@ -32,7 +32,7 @@
   background: color-mix(in srgb, var(--color-warning) 70%, var(--color-accent));
 }
 
-/* ── Capacity bars — accent personality ────────────────────────── */
+/* ── Capacity bars — clean restrained accent ────────────────────── */
 .storage-page .storage__capacity-bar,
 .storage-page .storage__drive-bar,
 .storage-page .storage__coverage-bar {
@@ -43,23 +43,21 @@
 .storage-page .storage__drive-fill,
 .storage-page .storage__coverage-fill {
   background: var(--color-accent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 /* ── Drive cards — flat surface with accent on active/hover ────── */
 .storage-page .storage__drive-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 .storage-page .storage__drive-card:hover {
   border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
-  transform: translateY(-1px);
-  box-shadow: var(--elevation-2);
+  box-shadow: var(--elevation-1);
 }
 .storage-page .storage__drive-card--active {
   border-color: var(--color-accent);
-  box-shadow: var(--ring-accent-soft), var(--elevation-2);
+  box-shadow: var(--ring-accent-soft);
   background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
 }
 

@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { playActionSound } from "../../utils/soundEffects";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "tertiary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -9,6 +9,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize;
   isLoading?: boolean;
   active?: boolean;
+  iconOnly?: boolean;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
 }
@@ -16,6 +17,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const variantClasses: Record<ButtonVariant, string> = {
   primary: "ui-btn--primary",
   secondary: "ui-btn--secondary",
+  tertiary: "ui-btn--tertiary",
   ghost: "ui-btn--ghost",
   danger: "ui-btn--danger",
 };
@@ -33,6 +35,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size = "md",
       isLoading,
       active,
+      iconOnly,
       leftIcon,
       rightIcon,
       className,
@@ -49,6 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           "ui-btn",
           variantClasses[variant],
           sizeClasses[size],
+          iconOnly ? "ui-btn--icon-only" : "",
           active ? "ui-btn--active" : "",
           className ?? "",
         ]

@@ -77,7 +77,7 @@
   padding: 0 var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   color: var(--color-text-muted);
   transition: border-color var(--transition-fast),
     background var(--transition-fast),
@@ -91,7 +91,7 @@
 .wishlist-search:focus-within {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-bg-tertiary) 94%, var(--color-accent) 6%);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 .wishlist-search svg {
@@ -290,9 +290,7 @@
 .wishlist-filter-section h4 {
   margin: 0 0 var(--space-xs);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
 }
 

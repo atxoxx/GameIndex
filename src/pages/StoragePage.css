@@ -49,22 +49,18 @@
 .storage-kpi-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
   position: relative;
   overflow: hidden;
-  transition: all var(--duration-fast, 150ms) ease;
+  transition: border-color var(--duration-fast, 150ms) ease, box-shadow var(--duration-fast, 150ms) ease, background var(--duration-fast, 150ms) ease;
 }
 
 .storage-kpi-card--primary {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent) 12%, var(--color-surface)) 0%,
-    var(--color-surface) 100%
-  );
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
 }
 
@@ -73,18 +69,13 @@
 }
 
 .storage-kpi-card--interactive:hover {
-  transform: translateY(-2px);
   border-color: var(--color-accent);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-accent) 15%, transparent);
+  box-shadow: var(--shadow-sm);
 }
 
 .storage-kpi-card--alert {
   border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-danger) 10%, var(--color-surface)) 0%,
-    var(--color-surface) 100%
-  );
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-surface));
 }
 
 .storage-kpi-head {

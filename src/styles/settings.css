@@ -264,10 +264,9 @@
 
 .settings-section-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
@@ -300,7 +299,7 @@
   padding: var(--space-lg);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 /* Vertical spacing rhythm used across the tabs. */
@@ -317,13 +316,12 @@
   gap: var(--space-xs);
 }
 
-/* Field label — muted uppercase xs per the design language. */
+/* Field label — clean desktop label per the design system. */
 .settings-label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
+  color: var(--color-text-primary);
 }
 
 /* Descriptive lead paragraph under a label (accent desc, landing page…). */

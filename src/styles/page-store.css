@@ -14,19 +14,12 @@
   margin-bottom: 0;
 }
 
-/* ── Brand mesh wash behind the featured hero ────────────────────── */
+/* ── Brand styling for the featured hero ────────────────────────── */
 .store-page .store-hero {
-  box-shadow: var(--shadow-brand);
+  box-shadow: var(--shadow-sm);
 }
 .store-page .store-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background: var(--mesh-gradient);
-  mix-blend-mode: screen;
-  opacity: 0.85;
+  display: none;
 }
 
 /* ── Brand-align the hero eyebrow + primary CTA ─────────────────── */
@@ -142,7 +135,6 @@
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   border-color: transparent;
-  box-shadow: 0 0 12px var(--color-accent-glow);
 }
 
 /* ============================================================================
@@ -223,9 +215,8 @@
 }
 
 .store-spotlight-tab.active {
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
-  box-shadow: 0 2px 10px var(--color-accent-glow);
 }
 
 .store-featured-surprise {
@@ -253,7 +244,6 @@
   border-color: var(--color-accent);
   color: var(--color-accent);
   background: var(--scrim-pill);
-  box-shadow: 0 0 14px var(--color-accent-glow);
 }
 
 .store-featured-surprise.is-spinning svg {

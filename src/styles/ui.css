@@ -13,24 +13,25 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
+  height: 34px;
+  padding: 0 var(--space-lg);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-family: inherit;
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: transform var(--duration-normal) var(--ease-standard),
-              background var(--duration-normal) var(--ease-standard),
-              border-color var(--duration-normal) var(--ease-standard),
-              box-shadow var(--duration-normal) var(--ease-standard),
-              color var(--duration-normal) var(--ease-standard),
-              filter var(--duration-normal) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard),
+              opacity var(--duration-fast) var(--ease-standard);
   white-space: nowrap;
   user-select: none;
   outline: none;
-  line-height: 1.2;
+  line-height: 1;
   position: relative;
+  box-sizing: border-box;
 }
 
 .ui-btn:focus-visible {
@@ -39,74 +40,93 @@
 }
 
 .ui-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .ui-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
+  opacity: 0.88;
 }
 
 /* Sizes */
 .ui-btn--sm {
-  padding: var(--space-xs) var(--space-md);
+  height: 28px;
+  padding: 0 var(--space-md);
   font-size: var(--font-size-xs);
   gap: var(--space-xs);
   border-radius: var(--radius-sm);
 }
 
 .ui-btn--lg {
-  padding: var(--space-md) var(--space-2xl);
+  height: 40px;
+  padding: 0 var(--space-xl);
   font-size: var(--font-size-md);
   gap: var(--space-md);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
+}
+
+/* Icon-only buttons */
+.ui-btn--icon-only {
+  width: 34px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.ui-btn--icon-only.ui-btn--sm {
+  width: 28px;
+  padding: 0;
+}
+
+.ui-btn--icon-only.ui-btn--lg {
+  width: 40px;
+  padding: 0;
 }
 
 /* Variants */
-/* The glossy top edge derives from --color-accent-contrast instead of a
- * raw white: identical rendering in dark themes (white ink), and it
- * adapts per theme — e.g. Nord pairs a light accent with dark contrast
- * ink, where a hardcoded white inset would wash out. */
 .ui-btn--primary {
   background: var(--color-accent);
   color: var(--color-accent-contrast, #ffffff);
   border-color: transparent;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent), 0 3px 12px var(--color-accent-glow);
-  position: relative;
-  overflow: hidden;
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .ui-btn--primary:hover:not(:disabled) {
   filter: brightness(1.08);
-  transform: translateY(-1.5px);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 35%, transparent), 0 6px 20px var(--color-accent-glow);
 }
 
 .ui-btn--secondary {
-  background: var(--color-bg-tertiary);
+  background: var(--color-surface-raised);
   color: var(--color-text-primary);
   border-color: var(--color-border);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
 .ui-btn--secondary:hover:not(:disabled) {
   background: var(--color-bg-hover);
   border-color: var(--color-border-light);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-sm);
 }
 
-/* Active (toggle/pressed) state — used for selected filter/toggle buttons. */
-.ui-btn--active {
-  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary));
-  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+.ui-btn--tertiary {
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+
+.ui-btn--tertiary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text-primary) 9%, transparent);
   color: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent), 0 2px 8px var(--color-accent-glow);
+}
+
+/* Active (toggle/pressed) state */
+.ui-btn--active {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface-raised));
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  color: var(--color-text-primary);
 }
 
 .ui-btn--active:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-accent) 24%, var(--color-bg-tertiary));
+  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface-raised));
 }
 
 .ui-btn--ghost {
@@ -118,21 +138,17 @@
 .ui-btn--ghost:hover:not(:disabled) {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
-  border-color: var(--color-border);
-  transform: translateY(-1px);
 }
 
 .ui-btn--danger {
   color: #fff;
   background: var(--color-danger);
   border-color: transparent;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 18%, transparent), 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent);
+  font-weight: var(--font-weight-semibold);
 }
 
 .ui-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-danger) 88%, white 12%);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 22%, transparent), 0 4px 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
+  filter: brightness(1.08);
 }
 
 /* Icon slots */
@@ -148,8 +164,8 @@
 }
 
 .ui-btn--sm .ui-btn__icon svg {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
 }
 
 .ui-btn--lg .ui-btn__icon svg {
@@ -177,31 +193,27 @@
 
 .ui-card {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform var(--duration-normal) var(--ease-standard),
-              box-shadow var(--duration-normal) var(--ease-standard),
-              border-color var(--duration-normal) var(--ease-standard),
-              background-color var(--duration-normal) var(--ease-standard);
+  background: var(--color-surface);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
 }
 
 .ui-card--surface {
   background: var(--color-surface);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
 .ui-card--glass {
   background: var(--color-surface-raised);
   border-color: var(--color-border-light);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
 .ui-card--raised {
   background: var(--color-surface-raised);
   border-color: var(--color-border);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-sm);
 }
 
 .ui-card:hover {
@@ -209,13 +221,11 @@
 }
 
 .ui-card--raised:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 0 1px var(--color-accent-border);
-  border-color: var(--color-accent-border);
+  border-color: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
 }
 
 .ui-card__header {
-  padding: var(--space-lg) var(--space-xl);
+  padding: var(--space-md) var(--space-lg);
   border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
@@ -223,30 +233,27 @@
 }
 
 .ui-card__body {
-  padding: var(--space-xl);
+  padding: var(--space-lg);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
   color: var(--color-text-secondary);
 }
 
-/* KPI tile variant — keep .ui-card canonical; .ui-card--kpi is the only
-   approved tile density for stats/KPIs. Do not create ad-hoc .stat-card
-   or .kpi-tile duplicates elsewhere. */
+/* KPI tile variant — clean desktop numeric metric */
 .ui-card--kpi {
-  padding: var(--space-lg);
-  gap: var(--space-sm);
-  background: var(--color-surface-raised);
+  padding: var(--space-md) var(--space-lg);
+  gap: var(--space-2xs);
+  background: var(--color-surface);
   border-color: var(--color-border);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-2);
+  border-radius: var(--radius-md);
 }
 
 .ui-card--kpi .ui-card__header {
-  padding: 0 0 var(--space-sm) 0;
+  padding: 0;
   border-bottom: none;
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
   color: var(--color-text-muted);
 }
 
@@ -256,57 +263,107 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
-  padding: var(--space-3xs) var(--space-sm);
+  padding: 2px 8px;
   font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-medium);
   border-radius: var(--radius-full);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
   white-space: nowrap;
   border: 1px solid transparent;
-  line-height: 1.4;
-  box-shadow: inset 0 1px 0 var(--color-border-faint);
+  line-height: 1.3;
 }
 
 .ui-badge--md {
-  padding: var(--space-2xs) var(--space-md);
+  padding: 3px 10px;
   font-size: var(--font-size-xs);
 }
 
 .ui-badge--default {
-  background: var(--color-bg-tertiary);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
   color: var(--color-text-secondary);
   border-color: var(--color-border);
 }
 
 .ui-badge--success {
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
   color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 24%, transparent);
 }
 
 .ui-badge--warning {
-  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
   color: var(--color-warning);
-  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 24%, transparent);
 }
 
 .ui-badge--danger {
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
   color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 24%, transparent);
 }
 
 .ui-badge--info {
-  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
   color: var(--color-info);
-  border-color: color-mix(in srgb, var(--color-info) 30%, transparent);
+  border-color: color-mix(in srgb, var(--color-info) 24%, transparent);
 }
 
 .ui-badge--accent {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   color: var(--color-accent);
-  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+
+/* ── Table Primitives (Dense Data Screens) ────────────────────────────── */
+
+.ui-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.ui-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--font-size-sm);
+}
+
+.ui-table th {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ui-table td {
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text-primary);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  vertical-align: middle;
+}
+
+.ui-table tbody tr {
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ui-table tbody tr:hover {
+  background: var(--color-bg-hover);
+}
+
+.ui-table--dense th,
+.ui-table--dense td {
+  padding: 6px var(--space-sm);
+  font-size: var(--font-size-xs);
 }
 
 /* Dot indicator */

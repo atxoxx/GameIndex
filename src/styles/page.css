@@ -51,20 +51,6 @@
   position: relative;
 }
 
-/* Quiet accent underline — a short flat bar, no glow, so the
-   header reads as structure instead of decoration. */
-.page-header::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -1px;
-  width: var(--space-2xl);
-  height: 2px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent);
-  pointer-events: none;
-}
-
 .page-header__main {
   min-width: min(100%, 320px);
   flex: 1 1 auto;

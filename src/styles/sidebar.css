@@ -41,24 +41,23 @@ html[data-game-accent] .sidebar {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-tertiary) 75%, transparent);
+  height: 32px;
+  padding: 0 var(--space-md);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 2px color-mix(in srgb, var(--color-bg-primary) 28%, transparent);
   transition: border-color var(--duration-fast) var(--ease-standard),
-    background var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
+    background var(--duration-fast) var(--ease-standard);
+  box-sizing: border-box;
 }
 
 .sidebar-search:focus-within {
   border-color: var(--color-accent);
-  box-shadow: var(--ring-accent-soft), inset 0 1px 2px color-mix(in srgb, var(--color-bg-primary) 28%, transparent);
-  background: var(--color-bg-tertiary);
+  box-shadow: var(--ring-accent-soft);
+  background: var(--color-surface-raised);
 }
 
 .sidebar-search:focus-within .sidebar-search-icon {
-  transform: scale(1.08);
   color: var(--color-accent);
 }
 
@@ -357,21 +356,17 @@ html[data-game-accent] .sidebar {
 .sidebar-game-item.active {
   background: color-mix(
     in srgb,
-    var(--color-accent) 14%,
-    var(--color-bg-tertiary)
+    var(--color-accent) 12%,
+    var(--color-surface-raised)
   );
-  box-shadow: inset 4px 0 12px -4px var(--color-accent-glow),
-    inset 0 1px 0 var(--color-border-highlight);
 }
 
-/* Hover after active: bump the tint a touch so the user can tell
- * the selected row also responds to hover, without losing the
- * "selected" affordance. */
+/* Hover after active */
 .sidebar-game-item.active:hover {
   background: color-mix(
     in srgb,
-    var(--color-accent) 20%,
-    var(--color-bg-tertiary)
+    var(--color-accent) 16%,
+    var(--color-surface-raised)
   );
 }
 

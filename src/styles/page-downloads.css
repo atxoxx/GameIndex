@@ -101,8 +101,8 @@
 
 .dl-magnet-bar.drag-over {
   border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
-  box-shadow: 0 0 16px var(--color-accent-glow);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 .dl-magnet-input-group {
@@ -122,12 +122,10 @@
 
 .dl-magnet-badge {
   font-size: var(--font-size-2xs);
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-weight: var(--font-weight-semibold);
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   flex-shrink: 0;
-  text-transform: uppercase;
 }
 
 .dl-magnet-badge--magnet {
@@ -333,10 +331,8 @@
   align-items: center;
   gap: 6px;
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .dl-hero-dot {
@@ -1048,11 +1044,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-2xs);
-  font-weight: 800;
+  font-weight: var(--font-weight-medium);
   padding: 2px 7px;
   border-radius: var(--radius-xs);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
   font-family: inherit;
   white-space: nowrap;
   width: max-content;
@@ -1060,10 +1054,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-row-status--downloading {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 .dl-row-status--seeding {
@@ -1142,9 +1135,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-page .dl-row:hover {
   background: color-mix(in srgb, var(--color-accent) 4%, var(--color-bg-secondary));
-  border-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-border));
-  transform: translateY(-1px);
-  box-shadow: var(--elevation-2);
+  border-color: color-mix(in srgb, var(--color-accent) 24%, var(--color-border));
+  box-shadow: var(--elevation-1);
 }
 
 .dl-page .dl-row--selected {
@@ -1291,11 +1283,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-row-badge {
   font-size: var(--font-size-2xs);
-  font-weight: 800;
+  font-weight: var(--font-weight-medium);
   padding: 1px 5px;
   border-radius: var(--radius-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
   vertical-align: middle;
   flex-shrink: 0;
 }
@@ -1326,10 +1316,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-row-source {
   font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   padding: 2px 7px;
   border-radius: var(--radius-sm);
   background: var(--color-bg-tertiary);
@@ -1794,9 +1782,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
   border-color: var(--color-border-light);
+  box-shadow: var(--shadow-sm);
 }
 
 .dl-card--selected {

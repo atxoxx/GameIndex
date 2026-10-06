@@ -179,32 +179,27 @@
   --font-weight-bold: 700;
   --font-weight-extrabold: 800;
 
-  /* ── Border Radius System ───────────────────────────────────────── */
+  /* ── Border Radius System (Restrained Desktop Scale) ────────────── */
   --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-2xl: 32px;
-  --radius-3xl: 48px;
-  --radius-full: 9999px;
+  --radius-sm: 6px;   /* Small controls, compact tags, pills */
+  --radius-md: 8px;   /* Standard controls, inputs, buttons */
+  --radius-lg: 10px;  /* Cards, dialogs, dropdowns */
+  --radius-xl: 12px;  /* Panels, sidebars, containers */
+  --radius-2xl: 16px; /* Hero banners, large modals */
+  --radius-3xl: 16px; /* Clamped legacy alias */
+  --radius-full: 9999px; /* Status dots, pill tags only */
 
-  /* ── Elevation System ──────────────────────────────────────────────
-     One canonical ladder, level 1 (flush) → level 5 (overlay). Each
-     step is a tight contact shadow + a soft ambient falloff. The
-     legacy `shadow-*` / `depth-*` names resolve to this ladder so
-     every consumer stays on the same predictable scale. */
-  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --elevation-2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.35);
-  --elevation-3: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
-  --elevation-4: 0 4px 8px rgba(0, 0, 0, 0.32), 0 16px 40px rgba(0, 0, 0, 0.45);
-  --elevation-5: 0 8px 16px rgba(0, 0, 0, 0.35), 0 32px 80px rgba(0, 0, 0, 0.55);
+  /* ── Elevation System (Quiet, tactile desktop ladder) ───────────── */
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --elevation-2: 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --elevation-3: 0 4px 12px rgba(0, 0, 0, 0.24);
+  --elevation-4: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --elevation-5: 0 16px 40px rgba(0, 0, 0, 0.35);
 
-  /* Accent glow ring (not elevation — a highlight, kept separate). */
-  --shadow-glow: 0 0 0 1px var(--color-border-glow), 0 0 24px var(--color-accent-glow);
+  /* Subtle accent boundary highlight (no blown-out neon smudges) */
+  --shadow-glow: 0 0 0 1px var(--color-accent-border), 0 2px 8px color-mix(in srgb, var(--color-accent) 18%, transparent);
 
-  /* Legacy aliases → canonical scale (drop the old inset "lit edge"
-     highlights so resting surfaces read quieter). */
+  /* Legacy aliases → canonical scale */
   --shadow-xs: var(--elevation-1);
   --shadow-sm: var(--elevation-2);
   --shadow-md: var(--elevation-3);
@@ -245,19 +240,19 @@
   --ring-accent: 0 0 0 2px var(--color-bg-primary), 0 0 0 4px var(--color-accent);
   --ring-accent-soft: 0 0 0 3px var(--color-focus-ring);
 
-  /* ── Animation System ───────────────────────────────────────────── */
+  /* ── Animation System (Snappy, responsive desktop curves) ───────── */
   --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
-  --duration-instant: 80ms;
-  --duration-fast: 140ms;
-  --duration-normal: 220ms;
-  --duration-slow: 380ms;
-  --duration-slower: 550ms;
+  --duration-instant: 70ms;
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 280ms;
+  --duration-slower: 400ms;
 
   --transition-instant: var(--duration-instant) var(--ease-standard);
   --transition-fast: var(--duration-fast) var(--ease-standard);
@@ -276,6 +271,36 @@
   --sidebar-icon-rail-width: 84px;
   --sidebar-hover-preview-width: 260px;
 
+  /* ── Canonical Semantic Tokens (Product Design Spec) ────────────── */
+  --background: var(--color-bg-primary);
+  --background-secondary: var(--color-bg-secondary);
+  --surface: var(--color-surface);
+  --surface-elevated: var(--color-surface-raised);
+  --surface-hover: var(--color-bg-hover);
+  --border: var(--color-border);
+  --border-subtle: var(--color-border-faint);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --danger: var(--color-danger);
+  --info: var(--color-info);
+
+  /* Spacing Scale Aliases (4, 8, 12, 16, 20, 24, 32, 40, 48, 64) */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+
   /* ── Legacy token aliases ─────────────────────────────────────────
      Older stylesheets (imports.css, modals.css, activity.css, and a
      few inline component styles) reference pre-token-system names.
@@ -289,12 +314,7 @@
   --accent-primary: var(--color-accent);
   --bg-secondary: var(--color-bg-secondary);
   --bg-tertiary: var(--color-bg-tertiary);
-  --text-primary: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --text-muted: var(--color-text-muted);
   --border-subtle: var(--color-border);
-  --color-background: var(--color-bg-secondary);
-  --color-surface-hover: var(--color-bg-hover);
   --color-bg-surface: var(--color-surface);
   --color-bg-surface-hover: var(--color-bg-hover);
   --color-accent-text: var(--color-accent-contrast);

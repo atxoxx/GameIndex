@@ -14,23 +14,20 @@
 .deals-gamepass-card:hover,
 .deals-deal-card:hover,
 .deals-giveaway-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--elevation-3);
-  border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+  box-shadow: var(--elevation-2);
+  border-color: color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
 }
 
-/* Active tab subtle glow underline */
+/* Active tab clean underline */
 .deals-subtab.active::after {
   content: "";
   position: absolute;
   bottom: -2px;
-  left: 20%;
-  right: 20%;
-  height: 3px;
+  left: 15%;
+  right: 15%;
+  height: 2px;
   background: var(--color-accent);
   border-radius: var(--radius-full);
-  filter: blur(4px);
-  opacity: 0.5;
 }
 
 /* Empty state — unified via .empty-state primitive */
@@ -44,7 +41,7 @@
   gap: var(--space-md);
   padding: var(--space-3xl) var(--space-xl);
   text-align: center;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   border: 1px dashed var(--color-border);
   background: var(--color-bg-secondary);
   min-height: 220px;
@@ -91,7 +88,7 @@
   gap: var(--space-md);
   padding: var(--space-3xl) var(--space-xl);
   text-align: center;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--color-danger) 28%, var(--color-border));
   background: color-mix(in srgb, var(--color-danger) 4%, var(--color-bg-secondary));
   min-height: 220px;

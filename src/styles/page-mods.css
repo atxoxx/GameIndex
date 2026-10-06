@@ -64,7 +64,7 @@
 .mods-games-pane {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: var(--space-lg);
   position: sticky;
   top: 16px;
@@ -85,9 +85,7 @@
 
 .mods-games-pane-title {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   display: flex;
   align-items: center;
@@ -831,7 +829,6 @@
   opacity: 1;
   transform: scale(1);
   border-color: var(--color-accent-border);
-  box-shadow: 0 0 12px var(--color-accent-glow);
 }
 
 .mods-resizer:hover .mods-resizer__grip i,
@@ -841,9 +838,8 @@
 
 .mods-resizer:hover::before,
 .mods-resizer:focus-visible::before,
-.mods-split.is-resizing .mods-resizer::before {
+.mods-split.is-resizing .mods-resizer__before {
   background: var(--color-accent);
-  box-shadow: 0 0 8px var(--color-accent-glow);
 }
 
 .mods-resizer:focus-visible {

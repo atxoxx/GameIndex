@@ -322,7 +322,7 @@ export default function TopNav() {
 
           <button
             type="button"
-            className="topnav-btn--cmd"
+            className="topnav-search-trigger"
             onClick={() => {
               playTabSound();
               setPaletteOpen(true);
@@ -330,7 +330,9 @@ export default function TopNav() {
             title={t("topnav.searchPlaceholder")}
             aria-label={t("topnav.searchPlaceholder")}
           >
-            <Search className="topnav-cmd-icon" aria-hidden="true" />
+            <Search className="topnav-search-trigger__icon" aria-hidden="true" />
+            <span className="topnav-search-trigger__text">{t("topnav.searchPlaceholder")}</span>
+            <kbd className="topnav-search-trigger__kbd">Ctrl K</kbd>
           </button>
 
           <span className="topnav-divider" aria-hidden="true" />
