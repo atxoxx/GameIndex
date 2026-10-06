@@ -60,8 +60,54 @@ pub struct ModRow {
     pub update_available: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
+    /// Remote mod-site id this mod was installed from (`nexus`,
+    /// `thunderstore`, `gamebanana`, …). None for hand-installed mods.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_mod_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_file_id: Option<String>,
+    /// Canonical web page of the remote mod (if known).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_url: Option<String>,
     pub detected_at: u64,
     pub updated_at: u64,
+}
+
+/// Mapping from a library game to its external id on a mod site, e.g.
+/// `("nexus", "skyrimspecialedition")` or `("thunderstore", "riskofrain2")`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModSourceLinkRow {
+    pub game_id: String,
+    pub source: String,
+    pub external_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    pub updated_at: u64,
+}
+
+/// One download performed from the Discover browser.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModRemoteInstallRow {
+    pub id: String,
+    pub game_id: String,
+    pub source: String,
+    pub source_mod_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_file_id: Option<String>,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installed_path: Option<String>,
+    pub installed_at: u64,
 }
 
 /// Per-game modding configuration (detected engine, mods root folder,
@@ -83,7 +129,7 @@ pub struct GameModSettingsRow {
     pub updated_at: u64,
 }
 
-const SELECT_SQL: &str = "SELECT id, game_id, name, version, author, engine, kind, path, enabled, load_order, size_bytes, file_count, md5, nexus_mod_id, nexus_domain, latest_version, update_available, notes, detected_at, updated_at FROM mods";
+const SELECT_SQL: &str = "SELECT id, game_id, name, version, author, engine, kind, path, enabled, load_order, size_bytes, file_count, md5, nexus_mod_id, nexus_domain, latest_version, update_available, notes, detected_at, updated_at, source, source_mod_id, source_file_id, remote_url FROM mods";
 
 fn row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<ModRow> {
     Ok(ModRow {
@@ -107,6 +153,10 @@ fn row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<ModRow> {
         notes: r.get(17)?,
         detected_at: r.get::<_, i64>(18)? as u64,
         updated_at: r.get::<_, i64>(19)? as u64,
+        source: r.get(20)?,
+        source_mod_id: r.get(21)?,
+        source_file_id: r.get(22)?,
+        remote_url: r.get(23)?,
     })
 }
 
@@ -116,8 +166,9 @@ fn bind_insert(conn: &rusqlite::Connection, m: &ModRow) -> Result<(), String> {
             id, game_id, name, version, author, engine, kind, path,
             enabled, load_order, size_bytes, file_count, md5,
             nexus_mod_id, nexus_domain, latest_version, update_available,
-            notes, detected_at, updated_at
-        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)",
+            notes, detected_at, updated_at,
+            source, source_mod_id, source_file_id, remote_url
+        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24)",
         params![
             m.id,
             m.game_id,
@@ -139,6 +190,10 @@ fn bind_insert(conn: &rusqlite::Connection, m: &ModRow) -> Result<(), String> {
             m.notes,
             m.detected_at as i64,
             m.updated_at as i64,
+            m.source,
+            m.source_mod_id,
+            m.source_file_id,
+            m.remote_url,
         ],
     )
     .map_err(|e| format!("mods upsert: {e}"))?;
@@ -404,18 +459,172 @@ pub fn list_all_settings(db: &Db) -> Result<Vec<GameModSettingsRow>, String> {
     Ok(out)
 }
 
+// ── Remote source links & installs ──────────────────────────────────
+
+/// Upsert the game → external-id mapping for one mod source.
+pub fn upsert_source_link(db: &Db, link: &ModSourceLinkRow) -> Result<(), String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO mod_source_links(game_id, source, external_id, display_name, updated_at)
+         VALUES (?1,?2,?3,?4,?5)",
+        params![link.game_id, link.source, link.external_id, link.display_name, link.updated_at as i64],
+    )
+    .map_err(|e| format!("mod source link upsert: {e}"))?;
+    Ok(())
+}
+
+/// Every stored source mapping for a game.
+pub fn list_source_links(db: &Db, game_id: &str) -> Result<Vec<ModSourceLinkRow>, String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT game_id, source, external_id, display_name, updated_at FROM mod_source_links WHERE game_id = ?1 ORDER BY source")
+        .map_err(|e| format!("mod source links prepare: {e}"))?;
+    let rows = stmt
+        .query_map(params![game_id], |r| {
+            Ok(ModSourceLinkRow {
+                game_id: r.get(0)?,
+                source: r.get(1)?,
+                external_id: r.get(2)?,
+                display_name: r.get(3)?,
+                updated_at: r.get::<_, i64>(4)? as u64,
+            })
+        })
+        .map_err(|e| format!("mod source links query: {e}"))?;
+    rows.map(|r| r.map_err(|e| format!("mod source link row: {e}"))).collect()
+}
+
+/// Remove a stored mapping (forces re-detection next time).
+pub fn delete_source_link(db: &Db, game_id: &str, source: &str) -> Result<(), String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM mod_source_links WHERE game_id = ?1 AND source = ?2",
+        params![game_id, source],
+    )
+    .map_err(|e| format!("mod source link delete: {e}"))?;
+    Ok(())
+}
+
+/// Record a download performed from the Discover browser.
+pub fn insert_remote_install(db: &Db, row: &ModRemoteInstallRow) -> Result<(), String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO mod_remote_installs(
+            id, game_id, source, source_mod_id, source_file_id, name, author,
+            version, remote_url, installed_path, installed_at
+        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+        params![
+            row.id,
+            row.game_id,
+            row.source,
+            row.source_mod_id,
+            row.source_file_id,
+            row.name,
+            row.author,
+            row.version,
+            row.remote_url,
+            row.installed_path,
+            row.installed_at as i64,
+        ],
+    )
+    .map_err(|e| format!("mod remote install insert: {e}"))?;
+    Ok(())
+}
+
+/// Recent Discover installs for a game, newest first.
+pub fn list_remote_installs(db: &Db, game_id: &str) -> Result<Vec<ModRemoteInstallRow>, String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, game_id, source, source_mod_id, source_file_id, name, author, version, remote_url, installed_path, installed_at FROM mod_remote_installs WHERE game_id = ?1 ORDER BY installed_at DESC")
+        .map_err(|e| format!("mod remote installs prepare: {e}"))?;
+    let rows = stmt
+        .query_map(params![game_id], |r| {
+            Ok(ModRemoteInstallRow {
+                id: r.get(0)?,
+                game_id: r.get(1)?,
+                source: r.get(2)?,
+                source_mod_id: r.get(3)?,
+                source_file_id: r.get(4)?,
+                name: r.get(5)?,
+                author: r.get(6)?,
+                version: r.get(7)?,
+                remote_url: r.get(8)?,
+                installed_path: r.get(9)?,
+                installed_at: r.get::<_, i64>(10)? as u64,
+            })
+        })
+        .map_err(|e| format!("mod remote installs query: {e}"))?;
+    rows.map(|r| r.map_err(|e| format!("mod remote install row: {e}"))).collect()
+}
+
+pub fn delete_remote_install(db: &Db, id: &str) -> Result<(), String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM mod_remote_installs WHERE id = ?1", params![id])
+        .map_err(|e| format!("mod remote install delete: {e}"))?;
+    Ok(())
+}
+
+/// Every stored source mapping (backup/restore).
+pub fn list_all_source_links(db: &Db) -> Result<Vec<ModSourceLinkRow>, String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT game_id, source, external_id, display_name, updated_at FROM mod_source_links ORDER BY game_id, source")
+        .map_err(|e| format!("mod source links list_all prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(ModSourceLinkRow {
+                game_id: r.get(0)?,
+                source: r.get(1)?,
+                external_id: r.get(2)?,
+                display_name: r.get(3)?,
+                updated_at: r.get::<_, i64>(4)? as u64,
+            })
+        })
+        .map_err(|e| format!("mod source links list_all query: {e}"))?;
+    rows.map(|r| r.map_err(|e| format!("mod source link row: {e}"))).collect()
+}
+
+/// Every recorded Discover install (backup/restore).
+pub fn list_all_remote_installs(db: &Db) -> Result<Vec<ModRemoteInstallRow>, String> {
+    let conn = db.mods().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, game_id, source, source_mod_id, source_file_id, name, author, version, remote_url, installed_path, installed_at FROM mod_remote_installs ORDER BY installed_at DESC")
+        .map_err(|e| format!("mod remote installs list_all prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(ModRemoteInstallRow {
+                id: r.get(0)?,
+                game_id: r.get(1)?,
+                source: r.get(2)?,
+                source_mod_id: r.get(3)?,
+                source_file_id: r.get(4)?,
+                name: r.get(5)?,
+                author: r.get(6)?,
+                version: r.get(7)?,
+                remote_url: r.get(8)?,
+                installed_path: r.get(9)?,
+                installed_at: r.get::<_, i64>(10)? as u64,
+            })
+        })
+        .map_err(|e| format!("mod remote installs list_all query: {e}"))?;
+    rows.map(|r| r.map_err(|e| format!("mod remote install row: {e}"))).collect()
+}
+
 #[cfg(test)]
 
 mod tests {
     use super::*;
-    use crate::db::schema::MODS_DDL;
+    use crate::db::schema::{MODS_DDL, MODS_V2_DDL, MODS_V3_DDL};
 
     fn test_db() -> (tempfile::TempDir, Db) {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open(dir.path()).unwrap();
         {
             let c = db.mods().unwrap();
+            // Mirror the real migration chain so the v3 provenance
+            // columns and the remote-source tables exist.
             c.execute_batch(MODS_DDL).unwrap();
+            c.execute_batch(MODS_V2_DDL).unwrap();
+            c.execute_batch(MODS_V3_DDL).unwrap();
         }
         (dir, db)
     }
@@ -440,6 +649,10 @@ mod tests {
             latest_version: None,
             update_available: false,
             notes: None,
+            source: None,
+            source_mod_id: None,
+            source_file_id: None,
+            remote_url: None,
             detected_at: 100,
             updated_at: 100,
         }

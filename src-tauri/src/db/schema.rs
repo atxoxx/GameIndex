@@ -156,6 +156,11 @@ pub const MODS_DDL: &str = include_str!("schema_mods.sql");
 /// dev-era tables with a different column set) + `custom_root`.
 pub const MODS_V2_DDL: &str = include_str!("schema_mods_v2.sql");
 
+/// DDL for the `mods` domain, v3: provenance columns on `mods` plus
+/// `mod_source_links` (game → external id per mod site) and
+/// `mod_remote_installs` (Discover-browser download audit log).
+pub const MODS_V3_DDL: &str = include_str!("schema_mods_v3.sql");
+
 /// DDL for the `plugins` domain: the `plugins` table holding one row
 /// per installed JS search plugin (manifest + sha256 + enabled flag).
 pub const PLUGINS_DDL: &str = include_str!("schema_plugins.sql");
@@ -249,7 +254,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "mods",
-        versions: &[("v1", MODS_DDL), ("v2", MODS_V2_DDL)],
+        versions: &[("v1", MODS_DDL), ("v2", MODS_V2_DDL), ("v3", MODS_V3_DDL)],
     },
     DomainSchema {
         label: "plugins",

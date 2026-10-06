@@ -20,6 +20,7 @@ pub mod detect;
 pub mod mo2;
 pub mod nexus;
 pub mod operations;
+pub mod sources;
 
 use std::collections::HashMap;
 use std::fs;
@@ -185,7 +186,7 @@ fn archive_entry_is_safe(name: &str) -> bool {
     !path.is_absolute() && !path.components().any(|c| matches!(c, std::path::Component::ParentDir))
 }
 
-fn install_zip_archive(archive: &Path, destination: &Path) -> Result<u64, String> {
+pub(crate) fn install_zip_archive(archive: &Path, destination: &Path) -> Result<u64, String> {
     let file = fs::File::open(archive).map_err(|e| format!("archive open: {e}"))?;
     let mut zip = zip::ZipArchive::new(file).map_err(|e| format!("archive read: {e}"))?;
     fs::create_dir_all(destination).map_err(|e| format!("install mkdir: {e}"))?;
@@ -351,6 +352,11 @@ async fn mods_scan_game_internal(
             m.latest_version = prev.latest_version.clone();
             m.update_available = prev.update_available;
             m.detected_at = prev.detected_at;
+            // Provenance from the Discover browser survives re-scans.
+            m.source = prev.source.clone();
+            m.source_mod_id = prev.source_mod_id.clone();
+            m.source_file_id = prev.source_file_id.clone();
+            m.remote_url = prev.remote_url.clone();
             if m.version.is_none() {
                 m.version = prev.version.clone();
             }

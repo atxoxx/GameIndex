@@ -124,6 +124,10 @@ fn base_row(game_id: &str, name: &str, engine: &str, kind: &str, path: &Path, en
         latest_version: None,
         update_available: false,
         notes: None,
+        source: None,
+        source_mod_id: None,
+        source_file_id: None,
+        remote_url: None,
         detected_at: now,
         updated_at: now,
     }

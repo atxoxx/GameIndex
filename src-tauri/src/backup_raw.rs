@@ -389,6 +389,24 @@ where
                     zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
                     zip.write_all(b"\n").map_err(|e| e.to_string())?;
                 }
+
+                zip.start_file("data/mod_source_links.ndjson", zip_file_opts())
+                    .map_err(|e| format!("zip mod_source_links entry: {e}"))?;
+                let links = mods::list_all_source_links(db)?;
+                for l in &links {
+                    let line = serde_json::to_string(l).map_err(|e| e.to_string())?;
+                    zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+                    zip.write_all(b"\n").map_err(|e| e.to_string())?;
+                }
+
+                zip.start_file("data/mod_remote_installs.ndjson", zip_file_opts())
+                    .map_err(|e| format!("zip mod_remote_installs entry: {e}"))?;
+                let installs = mods::list_all_remote_installs(db)?;
+                for i in &installs {
+                    let line = serde_json::to_string(i).map_err(|e| e.to_string())?;
+                    zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+                    zip.write_all(b"\n").map_err(|e| e.to_string())?;
+                }
             }
             "plugins" => {
                 zip.start_file("data/plugins.ndjson", zip_file_opts())
@@ -702,6 +720,8 @@ where
                         let _ = conn.execute("DELETE FROM mods", []);
                         let _ = conn.execute("DELETE FROM mod_profiles", []);
                         let _ = conn.execute("DELETE FROM game_mod_settings", []);
+                        let _ = conn.execute("DELETE FROM mod_source_links", []);
+                        let _ = conn.execute("DELETE FROM mod_remote_installs", []);
                     }
                 }
                 if let Ok(entry) = archive.by_name("data/mods.ndjson") {
@@ -737,6 +757,30 @@ where
                         }
                         if let Ok(row) = serde_json::from_str::<GameModSettingsRow>(&l) {
                             let _ = mods::upsert_settings(db, &row);
+                        }
+                    }
+                }
+                if let Ok(entry) = archive.by_name("data/mod_source_links.ndjson") {
+                    let reader = BufReader::new(entry);
+                    for line in reader.lines() {
+                        let l = line.map_err(|e| e.to_string())?;
+                        if l.trim().is_empty() {
+                            continue;
+                        }
+                        if let Ok(row) = serde_json::from_str::<mods::ModSourceLinkRow>(&l) {
+                            let _ = mods::upsert_source_link(db, &row);
+                        }
+                    }
+                }
+                if let Ok(entry) = archive.by_name("data/mod_remote_installs.ndjson") {
+                    let reader = BufReader::new(entry);
+                    for line in reader.lines() {
+                        let l = line.map_err(|e| e.to_string())?;
+                        if l.trim().is_empty() {
+                            continue;
+                        }
+                        if let Ok(row) = serde_json::from_str::<mods::ModRemoteInstallRow>(&l) {
+                            let _ = mods::insert_remote_install(db, &row);
                         }
                     }
                 }
