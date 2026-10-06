@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gameindex.app/schemas/plugin-manifest.schema.json",
+  "title": "GameIndex Plugin Descriptor",
+  "description": "Schema for the object passed to definePlugin() in a GameIndex search plugin. The `search` member is a live JavaScript function and therefore cannot be represented in JSON Schema; it is required by the runtime but omitted from `required` here so the serializable manifest can be validated on its own.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "version",
+    "author",
+    "description",
+    "sourceUrl",
+    "platformCategory"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Stable, URL-safe identifier for the plugin.",
+      "examples": ["fitgirl", "my-source"]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable plugin name shown in the UI."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Plugin version, conventionally semver.",
+      "examples": ["1.0.0"]
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Author or maintainer of the plugin."
+    },
+    "description": {
+      "type": "string",
+      "description": "One-line summary of what the plugin searches."
+    },
+    "sourceUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical site the plugin queries."
+    },
+    "platformCategory": {
+      "type": "string",
+      "enum": ["pc", "console", "hybrid"],
+      "description": "Broad platform class this plugin covers. Unknown values are normalised to \"pc\" by the host."
+    },
+    "allowedHosts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Hosts the plugin is allowed to contact when the host enforces an egress allow-list."
+    },
+    "rateLimitMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Minimum delay between outbound requests, in milliseconds."
+    },
+    "cacheTtlSecs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How long search results may be cached, in seconds."
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon URL or built-in icon name for the Sources list."
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri",
+      "description": "Project or documentation homepage."
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional capability flags declared by the plugin."
+    },
+    "config": {
+      "type": "object",
+      "description": "Optional user-configurable settings, described as a JSON-Schema-like object. The host renders a form from it and passes the resolved values to search(query, config)."
+    },
+    "search": {
+      "description": "The search entry point: a JavaScript function `search(query, config) -> Array`. Required by the runtime, but not representable in JSON Schema."
+    }
+  },
+  "additionalProperties": false
+}
