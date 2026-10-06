@@ -982,6 +982,7 @@ mod tests {
             "internetarchive",
             "knaben",
             "onlinefix",
+            "romsfun",
             "vimm",
             "yourbittorrent",
             "zeigames",
