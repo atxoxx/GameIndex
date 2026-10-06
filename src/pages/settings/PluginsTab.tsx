@@ -13,7 +13,9 @@ import { ListIcon, PluginIcon } from "./settingsIcons";
 import type {
   PluginBulkToggleResult,
   PluginCandidate,
+  PluginConfigField,
   PluginInfo,
+  PluginRawResult,
 } from "../../types/plugins";
 
 /**
@@ -530,85 +532,88 @@ export default function PluginsTab() {
           <div className="settings-plugins-list">
             {plugins.map((plugin) => (
               <div className="settings-plugins-item" key={plugin.id}>
-                <div className="settings-plugins-item-info">
-                  <div className="settings-plugins-item-title">
-                    <span className="settings-plugins-item-name">{plugin.name}</span>
-                    {plugin.version && (
-                      <span className="settings-plugins-item-version">
-                        v{plugin.version}
-                      </span>
-                    )}
-                    <span
-                      className={`settings-plugins-item-badge settings-plugins-item-badge--${
-                        categoryBadge(plugin.platformCategory).cls
-                      }`}
-                    >
-                      {categoryBadge(plugin.platformCategory).label}
-                    </span>
-                  </div>
-                  <div className="settings-plugins-item-sub">
-                    {plugin.author
-                      ? `${t("settings.plugins.author")}: ${plugin.author}`
-                      : ""}
-                    {plugin.author && plugin.importedAt > 0 ? " · " : ""}
-                    {plugin.importedAt > 0
-                      ? t("settings.plugins.importedOn", {
-                          date: importedDate(plugin.importedAt),
-                        })
-                      : ""}
-                  </div>
-                  {plugin.lastError && (
-                    <p className="settings-plugins-item-error" role="status">
-                      {t("settings.plugins.lastError", { error: plugin.lastError })}
-                    </p>
-                  )}
-                </div>
-                <div className="settings-plugins-item-actions">
-                  <label className="settings-plugins-toggle">
-                    <span className="settings-plugins-toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={plugin.enabled}
-                        disabled={busyId === plugin.id}
-                        onChange={() => void handleToggle(plugin)}
-                      />
-                      <span className="settings-plugins-toggle-track" aria-hidden>
-                        <span className="settings-plugins-toggle-thumb" />
-                      </span>
-                    </span>
-                    <span
-                      className={`settings-plugins-toggle-state${
-                        plugin.enabled ? " enabled" : ""
-                      }`}
-                    >
-                      {plugin.enabled
-                        ? t("settings.plugins.enabled")
-                        : t("settings.plugins.disabled")}
-                    </span>
-                  </label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void handleRemove(plugin)}
-                    disabled={busyId === plugin.id}
-                    leftIcon={
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
+                <div className="settings-plugins-item-main">
+                  <div className="settings-plugins-item-info">
+                    <div className="settings-plugins-item-title">
+                      <span className="settings-plugins-item-name">{plugin.name}</span>
+                      {plugin.version && (
+                        <span className="settings-plugins-item-version">
+                          v{plugin.version}
+                        </span>
+                      )}
+                      <span
+                        className={`settings-plugins-item-badge settings-plugins-item-badge--${
+                          categoryBadge(plugin.platformCategory).cls
+                        }`}
                       >
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
-                    }
-                  >
-                    {t("settings.plugins.remove")}
-                  </Button>
+                        {categoryBadge(plugin.platformCategory).label}
+                      </span>
+                    </div>
+                    <div className="settings-plugins-item-sub">
+                      {plugin.author
+                        ? `${t("settings.plugins.author")}: ${plugin.author}`
+                        : ""}
+                      {plugin.author && plugin.importedAt > 0 ? " · " : ""}
+                      {plugin.importedAt > 0
+                        ? t("settings.plugins.importedOn", {
+                            date: importedDate(plugin.importedAt),
+                          })
+                        : ""}
+                    </div>
+                    {plugin.lastError && (
+                      <p className="settings-plugins-item-error" role="status">
+                        {t("settings.plugins.lastError", { error: plugin.lastError })}
+                      </p>
+                    )}
+                  </div>
+                  <div className="settings-plugins-item-actions">
+                    <label className="settings-plugins-toggle">
+                      <span className="settings-plugins-toggle-switch">
+                        <input
+                          type="checkbox"
+                          checked={plugin.enabled}
+                          disabled={busyId === plugin.id}
+                          onChange={() => void handleToggle(plugin)}
+                        />
+                        <span className="settings-plugins-toggle-track" aria-hidden>
+                          <span className="settings-plugins-toggle-thumb" />
+                        </span>
+                      </span>
+                      <span
+                        className={`settings-plugins-toggle-state${
+                          plugin.enabled ? " enabled" : ""
+                        }`}
+                      >
+                        {plugin.enabled
+                          ? t("settings.plugins.enabled")
+                          : t("settings.plugins.disabled")}
+                      </span>
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleRemove(plugin)}
+                      disabled={busyId === plugin.id}
+                      leftIcon={
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      }
+                    >
+                      {t("settings.plugins.remove")}
+                    </Button>
+                  </div>
                 </div>
+                <PluginExtras plugin={plugin} />
               </div>
             ))}
           </div>
@@ -624,5 +629,336 @@ export default function PluginsTab() {
         onInstalled={handleBulkInstalled}
       />
     </>
+  );
+}
+
+/**
+ * PluginExtras — the per-plugin collapsible configuration form and the
+ * "Test search" probe. Rendered once per installed plugin under its row.
+ *
+ * Config values are write-only from the UI's perspective: the backend
+ * exposes which keys are stored (`plugins_config_status`) but never
+ * returns a stored secret, so inputs always start empty and only the
+ * "set / not set" state is shown.
+ */
+function PluginExtras({ plugin }: { plugin: PluginInfo }) {
+  const { t } = useLanguage();
+  const { showToast } = useToast();
+
+  const configFields: PluginConfigField[] = plugin.manifest?.config ?? [];
+  const hasConfig = configFields.length > 0;
+
+  const [configOpen, setConfigOpen] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
+
+  // Config state — `status` is key -> has a stored value.
+  const [status, setStatus] = useState<Record<string, boolean> | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  // Test-search state.
+  const [query, setQuery] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [results, setResults] = useState<PluginRawResult[] | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  const loadStatus = useCallback(async () => {
+    setStatusLoading(true);
+    try {
+      const s = await invoke<Record<string, boolean>>("plugins_config_status", {
+        id: plugin.id,
+      });
+      setStatus(s && typeof s === "object" ? s : {});
+    } catch (e) {
+      console.error("[PluginsTab] plugins_config_status failed:", e);
+      setStatus({});
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [plugin.id]);
+
+  const toggleConfig = () => {
+    const next = !configOpen;
+    setConfigOpen(next);
+    if (next && status === null) void loadStatus();
+  };
+
+  const handleSave = async (field: PluginConfigField) => {
+    const value = (drafts[field.key] ?? "").trim();
+    if (!value) return;
+    setBusyKey(field.key);
+    try {
+      await invoke("plugins_set_config", {
+        id: plugin.id,
+        key: field.key,
+        value,
+      });
+      setStatus((prev) => ({ ...(prev ?? {}), [field.key]: true }));
+      setDrafts((prev) => ({ ...prev, [field.key]: "" }));
+      showToast(
+        t("settings.plugins.configSavedToast", { label: field.label || field.key }),
+        "success",
+      );
+    } catch (e) {
+      console.error("[PluginsTab] plugins_set_config failed:", e);
+      showToast(t("settings.plugins.configError", { error: String(e) }), "error");
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleClear = async (field: PluginConfigField) => {
+    setBusyKey(field.key);
+    try {
+      await invoke("plugins_clear_config", { id: plugin.id, key: field.key });
+      setStatus((prev) => ({ ...(prev ?? {}), [field.key]: false }));
+      setDrafts((prev) => ({ ...prev, [field.key]: "" }));
+      showToast(
+        t("settings.plugins.configClearedToast", { label: field.label || field.key }),
+        "success",
+      );
+    } catch (e) {
+      console.error("[PluginsTab] plugins_clear_config failed:", e);
+      showToast(t("settings.plugins.configError", { error: String(e) }), "error");
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleTest = async () => {
+    const q = query.trim();
+    if (!q) return;
+    setTesting(true);
+    setTestError(null);
+    setResults(null);
+    try {
+      const res = await invoke<PluginRawResult[]>("plugins_test_search", {
+        id: plugin.id,
+        query: q,
+      });
+      setResults(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error("[PluginsTab] plugins_test_search failed:", e);
+      setTestError(String(e));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="settings-plugins-extras">
+      <div className="settings-plugins-extras-toggles">
+        {hasConfig && (
+          <button
+            type="button"
+            className="settings-plugins-extras-toggle"
+            aria-expanded={configOpen}
+            onClick={toggleConfig}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`settings-plugins-extras-caret${configOpen ? " open" : ""}`}
+              aria-hidden
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            {t("settings.plugins.configTitle")}
+          </button>
+        )}
+        <button
+          type="button"
+          className="settings-plugins-extras-toggle"
+          aria-expanded={testOpen}
+          onClick={() => setTestOpen((v) => !v)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`settings-plugins-extras-caret${testOpen ? " open" : ""}`}
+            aria-hidden
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+          {t("settings.plugins.testTitle")}
+        </button>
+      </div>
+
+      {hasConfig && configOpen && (
+        <div className="settings-plugins-config">
+          {statusLoading ? (
+            <p className="settings-helper-text">
+              {t("settings.plugins.configLoading")}
+            </p>
+          ) : (
+            <div className="settings-plugins-config-fields">
+              {configFields.map((field) => {
+                const isSet = status?.[field.key] ?? false;
+                const isRevealed = !!revealed[field.key];
+                const busy = busyKey === field.key;
+                return (
+                  <div className="settings-plugins-config-field" key={field.key}>
+                    <div className="settings-plugins-config-label">
+                      <span className="settings-plugins-config-label-text">
+                        {field.label || field.key}
+                      </span>
+                      {field.required && (
+                        <span className="settings-plugins-config-required">
+                          {t("settings.plugins.configRequired")}
+                        </span>
+                      )}
+                      <span
+                        className={`settings-plugins-config-status${
+                          isSet ? " set" : ""
+                        }`}
+                      >
+                        {isSet
+                          ? t("settings.plugins.configSet")
+                          : t("settings.plugins.configNotSet")}
+                      </span>
+                    </div>
+                    {field.description && (
+                      <p className="settings-plugins-config-desc">
+                        {field.description}
+                      </p>
+                    )}
+                    <div className="settings-plugins-config-input-row">
+                      <input
+                        type={field.secret && !isRevealed ? "password" : "text"}
+                        className="settings-plugins-config-input"
+                        value={drafts[field.key] ?? ""}
+                        placeholder={field.placeholder ?? ""}
+                        autoComplete="off"
+                        spellCheck={false}
+                        disabled={busy}
+                        onChange={(e) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [field.key]: e.target.value,
+                          }))
+                        }
+                      />
+                      {field.secret && (
+                        <button
+                          type="button"
+                          className="settings-plugins-config-reveal"
+                          onClick={() =>
+                            setRevealed((prev) => ({
+                              ...prev,
+                              [field.key]: !prev[field.key],
+                            }))
+                          }
+                        >
+                          {isRevealed
+                            ? t("settings.plugins.configHideSecret")
+                            : t("settings.plugins.configShowSecret")}
+                        </button>
+                      )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        isLoading={busy}
+                        disabled={busy || !(drafts[field.key] ?? "").trim()}
+                        onClick={() => void handleSave(field)}
+                      >
+                        {t("settings.plugins.configSave")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy || !isSet}
+                        onClick={() => void handleClear(field)}
+                      >
+                        {t("settings.plugins.configClear")}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {testOpen && (
+        <div className="settings-plugins-test">
+          <div className="settings-plugins-test-row">
+            <input
+              type="text"
+              className="settings-plugins-test-input"
+              value={query}
+              placeholder={t("settings.plugins.testPlaceholder")}
+              autoComplete="off"
+              spellCheck={false}
+              disabled={testing}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleTest();
+              }}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              isLoading={testing}
+              disabled={testing || !query.trim()}
+              onClick={() => void handleTest()}
+            >
+              {t("settings.plugins.testRun")}
+            </Button>
+          </div>
+
+          {testError && (
+            <p className="settings-plugins-error" role="alert">
+              {t("settings.plugins.testError", { error: testError })}
+            </p>
+          )}
+
+          {testing ? (
+            <p className="settings-helper-text">{t("settings.plugins.testing")}</p>
+          ) : testError ? null : results === null ? (
+            <p className="settings-helper-text">{t("settings.plugins.testIdle")}</p>
+          ) : results.length === 0 ? (
+            <p className="settings-helper-text">
+              {t("settings.plugins.testNoResults")}
+            </p>
+          ) : (
+            <>
+              <p className="settings-plugins-test-count">
+                {t("settings.plugins.testResultCount", { count: results.length })}
+              </p>
+              <ul className="settings-plugins-test-list">
+                {results.map((r, i) => (
+                  <li className="settings-plugins-test-item" key={r.id || i}>
+                    <span className="settings-plugins-test-title" title={r.title}>
+                      {r.title || t("settings.plugins.testUntitled")}
+                    </span>
+                    <span className="settings-plugins-test-meta">
+                      {r.size && (
+                        <span className="settings-plugins-test-size">{r.size}</span>
+                      )}
+                      {r.platform && (
+                        <span className="settings-plugins-test-platform">
+                          {r.platform}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

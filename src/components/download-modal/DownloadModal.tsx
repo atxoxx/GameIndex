@@ -374,8 +374,13 @@ export default function DownloadModal({
   );
 
   // Smart default: the top-ranked result is badged and auto-selected.
+  // A plugin hit that explicitly flags itself `recommended` wins first.
   const recommendedId = useMemo(() => {
     if (filteredMatches.length === 0) return null;
+    const pluginPick = filteredMatches.find(
+      (m) => m.provider === "plugin" && m.recommended === true,
+    );
+    if (pluginPick) return pluginPick.id;
     const ranked = rankByRecommendation(filteredMatches, (m) => ({
       reliability: reliabilityFor(m.sourceName),
     }));

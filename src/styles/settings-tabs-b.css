@@ -1304,9 +1304,8 @@
 
 .settings-plugins-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
+  flex-direction: column;
+  gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1317,6 +1316,14 @@
 .settings-plugins-item:hover {
   border-color: var(--color-border-light);
   box-shadow: var(--shadow-sm);
+}
+
+/* Top row of a plugin card: identity/meta on the left, actions right. */
+.settings-plugins-item-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
 }
 
 .settings-plugins-item-info {
@@ -1495,6 +1502,246 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+}
+
+/* ── Per-plugin extras: configuration + test search ───────────────────── */
+
+.settings-plugins-extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-plugins-extras-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+/* Disclosure button — caret rotates when its panel is open. */
+.settings-plugins-extras-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border: none;
+  background: none;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: color var(--transition-fast);
+}
+
+.settings-plugins-extras-toggle:hover,
+.settings-plugins-extras-toggle:focus-visible {
+  color: var(--color-accent);
+}
+
+.settings-plugins-extras-caret {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.settings-plugins-extras-caret.open {
+  transform: rotate(90deg);
+}
+
+/* Config form. */
+.settings-plugins-config {
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.settings-plugins-config-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.settings-plugins-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.settings-plugins-config-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.settings-plugins-config-label-text {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.settings-plugins-config-required {
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-warning);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* "Set / not set" pill — green when a value is stored. */
+.settings-plugins-config-status {
+  padding: 0 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.settings-plugins-config-status.set {
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+}
+
+.settings-plugins-config-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.settings-plugins-config-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.settings-plugins-config-input,
+.settings-plugins-test-input {
+  flex: 1;
+  min-width: 160px;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast);
+}
+
+.settings-plugins-config-input:focus-visible,
+.settings-plugins-test-input:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.settings-plugins-config-input:disabled,
+.settings-plugins-test-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settings-plugins-config-reveal {
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.settings-plugins-config-reveal:hover,
+.settings-plugins-config-reveal:focus-visible {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Test-search panel. */
+.settings-plugins-test {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.settings-plugins-test-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.settings-plugins-test-count {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.settings-plugins-test-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.settings-plugins-test-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.settings-plugins-test-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-plugins-test-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-plugins-test-platform {
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
 }
 
 /* ── Bulk import review modal ─────────────────────────────────────────── */

@@ -70,15 +70,23 @@ export function ResultRow({
           : null;
 
   const meta = useMemo(
-    () => parseReleaseMetadata(match.title, installedVersion),
-    [match.title, installedVersion],
+    () => parseReleaseMetadata(match.title, installedVersion, match),
+    [match, installedVersion],
   );
   const mirrorCount = match.uris ? match.uris.length : 0;
 
+  // Plugins may supply a cleaner display name; `title` stays the source of
+  // truth for copy actions, downloaded-state checks and library matching.
+  const displayTitle = match.matchTitle?.trim() || match.title;
+
+  // The plugin-provided version wins over the title heuristic (the same
+  // precedence parseReleaseMetadata applies, surfaced as one badge).
+  const versionLabel = match.version?.trim() || meta.version;
+
   const titleSegments = useMemo(
     () =>
-      highlightQuery ? highlightSegments(match.title, highlightQuery) : [{ text: match.title, highlight: false }],
-    [match.title, highlightQuery],
+      highlightQuery ? highlightSegments(displayTitle, highlightQuery) : [{ text: displayTitle, highlight: false }],
+    [displayTitle, highlightQuery],
   );
 
   const copyText = async (e: React.MouseEvent, text: string, label: string) => {
@@ -160,7 +168,7 @@ export function ResultRow({
               </span>
             )}
 
-            {meta.version && (
+            {versionLabel && (
               <span
                 className={`dl-badge dl-badge--version${
                   meta.versionComparison === "newer"
@@ -173,12 +181,12 @@ export function ResultRow({
                 }`}
                 title={
                   meta.versionComparison === "newer"
-                    ? `${meta.version} (${t("downloadModal.versionNewer")})`
+                    ? `${versionLabel} (${t("downloadModal.versionNewer")})`
                     : meta.versionComparison === "same"
-                      ? `${meta.version} (${t("downloadModal.versionCurrent")})`
+                      ? `${versionLabel} (${t("downloadModal.versionCurrent")})`
                       : meta.versionComparison === "older"
-                        ? `${meta.version} (${t("downloadModal.versionOlder")})`
-                        : `Version: ${meta.version}`
+                        ? `${versionLabel} (${t("downloadModal.versionOlder")})`
+                        : `${t("downloadModal.detailVersion")}: ${versionLabel}`
                 }
               >
                 {meta.versionComparison === "newer" && (
@@ -187,7 +195,7 @@ export function ResultRow({
                     <polyline points="5 12 12 5 19 12" />
                   </svg>
                 )}
-                <span>{meta.version}</span>
+                <span>{versionLabel}</span>
                 {meta.versionComparison === "newer" && (
                   <span className="dl-version-status-pill">{t("downloadModal.versionNewer")}</span>
                 )}
@@ -236,6 +244,12 @@ export function ResultRow({
                 </span>
               );
             })()}
+
+            {match.region && (
+              <span className="dl-badge dl-badge--region" title={`${t("downloadModal.detailRegion")}: ${match.region}`}>
+                {match.region}
+              </span>
+            )}
 
             {match.isNew && <span className="dl-badge dl-badge--new">{t("downloads.newlyAddedSource")}</span>}
 
@@ -325,7 +339,7 @@ export function ResultRow({
         </div>
 
         {/* Release Title */}
-        <h4 className="dl-result-title" title={match.title}>
+        <h4 className="dl-result-title" title={displayTitle}>
           {titleSegments.map((seg, i) =>
             seg.highlight ? (
               <mark key={i} className="dl-result-highlight">

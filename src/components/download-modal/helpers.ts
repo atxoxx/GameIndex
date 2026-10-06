@@ -172,6 +172,20 @@ export function hostLabelForUri(uri: string, fallbackIndex = 0): string {
   }
 }
 
+/** Render a numeric byte count as a compact, human-readable size (binary units). */
+export function formatByteSize(bytes: number | null | undefined): string {
+  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const decimals = unit === 0 || value >= 100 ? 0 : 1;
+  return `${value.toFixed(decimals)} ${units[unit]}`;
+}
+
 /** Parse human-readable byte sizes into numeric bytes (e.g. "62.4 GB" -> 67001489817). */
 export function parseByteSize(sizeStr: string | number | null | undefined): number {
   if (typeof sizeStr === "number") return sizeStr;
@@ -249,10 +263,17 @@ const KNOWN_EDITIONS = [
   "Standard Edition",
 ];
 
-/** Extract intelligent release metadata (scene group, version, edition, multi-part, etc.). */
+/**
+ * Extract intelligent release metadata (scene group, version, edition, multi-part, etc.).
+ *
+ * When a plugin supplies explicit `releaseGroup` / `version`, those values
+ * win over the title heuristics — a plugin that parsed its own upstream
+ * metadata is more reliable than guessing from the filename.
+ */
 export function parseReleaseMetadata(
   rawTitle: string,
-  installedVersion?: string | null
+  installedVersion?: string | null,
+  pluginMeta?: Pick<DownloadSearchResult, "releaseGroup" | "version"> | null
 ): ParsedReleaseMeta {
   if (!rawTitle) return { cleanTitle: "" };
 
@@ -293,9 +314,18 @@ export function parseReleaseMetadata(
     }
   }
 
-  const versionComparison = compareReleaseToInstalled(parsedVer, installedVersion);
+  // 4. Plugin-provided metadata takes precedence over title heuristics.
+  const pluginGroup = pluginMeta?.releaseGroup?.trim();
+  if (pluginGroup) detectedGroup = pluginGroup;
+  const pluginVersion = pluginMeta?.version?.trim();
+  if (pluginVersion) detectedVersion = pluginVersion;
 
-  // 4. Detect Multi-language / Multi-part
+  const versionComparison = compareReleaseToInstalled(
+    pluginVersion || parsedVer,
+    installedVersion
+  );
+
+  // 5. Detect Multi-language / Multi-part
   const multiLangMatch = clean.match(/MULTi\d+|ENG(?:\/FRA|\/GER|\/ESP|\/RUS|\/JPN|\/ITA|\/KOR|\/ZHO)*/i);
   if (multiLangMatch) {
     detectedLanguages.push(multiLangMatch[0]);
@@ -325,7 +355,7 @@ export function parseReleaseMetadata(
 export function extractReleaseGroups(matches: DisplayMatch[]): string[] {
   const groups = new Set<string>();
   for (const m of matches) {
-    const meta = parseReleaseMetadata(m.title);
+    const meta = parseReleaseMetadata(m.title, undefined, m);
     if (meta.group) {
       groups.add(meta.group);
     }
@@ -562,7 +592,7 @@ export function filterMatches(
 
   if (groupFilter && groupFilter !== "all") {
     list = list.filter((m) => {
-      const meta = parseReleaseMetadata(m.title);
+      const meta = parseReleaseMetadata(m.title, undefined, m);
       return meta.group?.toLowerCase() === groupFilter.toLowerCase();
     });
   }
@@ -580,10 +610,14 @@ export function filterMatches(
       list = list.filter((m) =>
         matchesQuery(parsed, [
           m.title,
+          m.matchTitle,
           m.platform,
           m.sourceName,
           m.provenance,
           m.detailUrl,
+          m.description,
+          m.region,
+          m.releaseGroup,
         ]),
       );
     }

@@ -42,6 +42,15 @@ export function CompareDrawer({
 }) {
   const { t, language } = useLanguage();
 
+  const hasGroup = matches.some(
+    (m) => parseReleaseMetadata(m.title, installedVersion, m).group,
+  );
+  const hasVersion = matches.some(
+    (m) => parseReleaseMetadata(m.title, installedVersion, m).version,
+  );
+  const hasRegion = matches.some((m) => Boolean(m.region?.trim()));
+  const hasChecksums = matches.some((m) => (m.checksums?.length ?? 0) > 0);
+
   const fields: Array<{
     key: string;
     label: string;
@@ -57,16 +66,56 @@ export function CompareDrawer({
       label: t("downloadModal.detailSize"),
       render: (m) => m.fileSize || t("downloadModal.unknownSize"),
     },
-    {
-      key: "group",
-      label: t("downloadModal.compareTableGroup"),
-      render: (m) => parseReleaseMetadata(m.title, installedVersion).group ?? "—",
-    },
-    {
-      key: "version",
-      label: t("downloadModal.compareTableVersion"),
-      render: (m) => parseReleaseMetadata(m.title, installedVersion).version ?? "—",
-    },
+    ...(hasGroup
+      ? [
+          {
+            key: "group",
+            label: t("downloadModal.compareTableGroup"),
+            render: (m: DisplayMatch) =>
+              parseReleaseMetadata(m.title, installedVersion, m).group ?? "—",
+          },
+        ]
+      : []),
+    ...(hasVersion
+      ? [
+          {
+            key: "version",
+            label: t("downloadModal.compareTableVersion"),
+            render: (m: DisplayMatch) =>
+              parseReleaseMetadata(m.title, installedVersion, m).version ?? "—",
+          },
+        ]
+      : []),
+    ...(hasRegion
+      ? [
+          {
+            key: "region",
+            label: t("downloadModal.compareTableRegion"),
+            render: (m: DisplayMatch) => m.region?.trim() || "—",
+          },
+        ]
+      : []),
+    ...(hasChecksums
+      ? [
+          {
+            key: "checksums",
+            label: t("downloadModal.compareTableChecksums"),
+            render: (m: DisplayMatch) => {
+              const count = m.checksums?.length ?? 0;
+              return count > 0 ? (
+                <span
+                  className="dl-compare-checksum-count"
+                  title={t("downloadModal.checksumCount", { count })}
+                >
+                  {count}
+                </span>
+              ) : (
+                "—"
+              );
+            },
+          },
+        ]
+      : []),
     {
       key: "swarm",
       label: t("downloadModal.compareTableSwarm"),

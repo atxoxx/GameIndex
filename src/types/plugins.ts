@@ -10,6 +10,50 @@
 import type { MatchedDownload } from "./source";
 
 /**
+ * One user-configurable field declared by a plugin's manifest
+ * (`manifest.config`). Mirrors the Rust `PluginConfigField`. `secret`
+ * values are stored in the OS keychain and are never read back to the
+ * UI — only whether a value is stored (`plugins_config_status`).
+ */
+export interface PluginConfigField {
+  /** Stable machine key used to store/read the value. */
+  key: string;
+  /** Human-readable label shown above the input. */
+  label: string;
+  /** True when the value is a secret and must go to the keychain. */
+  secret?: boolean;
+  /** True when the field must be filled before the plugin can run. */
+  required?: boolean;
+  /** Optional input placeholder text. */
+  placeholder?: string;
+  /** Optional helper text rendered under the input. */
+  description?: string;
+}
+
+/**
+ * A plugin's parsed descriptor, evaluated from its `definePlugin(...)`
+ * call. Unknown keys are preserved so newer manifests don't break older
+ * clients.
+ */
+export interface PluginManifest {
+  /** User-configurable settings declared by the plugin. */
+  config?: PluginConfigField[];
+  /** Optional icon URL / data URI shown in the plugins UI. */
+  icon?: string;
+  /** Optional project homepage shown in the plugins UI. */
+  homepage?: string;
+  /** Free-form capability tags a plugin advertises (e.g. "search"). */
+  capabilities?: string[];
+  /** Host allowlist; empty means the plugin may reach any host. */
+  allowedHosts?: string[];
+  /** Minimum spacing between requests to the same host (ms). */
+  rateLimitMs?: number;
+  /** How long this plugin's raw results stay cached (seconds). */
+  cacheTtlSecs?: number;
+  [k: string]: unknown;
+}
+
+/**
  * The validated metadata of a `.js` plugin file, returned by
  * `plugins_import_file`. Nothing is written to disk or executed until
  * the user confirms the trust gate and `plugins_install` runs.
@@ -24,6 +68,8 @@ export interface PluginCandidate {
   /** sha256 of the file contents, shown to the user to verify the file. */
   fileHash: string;
   filePath: string;
+  /** The evaluated manifest, so the UI can render metadata + config. */
+  manifest?: PluginManifest;
 }
 
 /** An installed plugin. Adds the runtime state the manager keeps per plugin. */
@@ -46,6 +92,46 @@ export interface PluginInfo extends PluginCandidate {
 export interface PluginBulkToggleResult {
   changed: number;
   failed: string[];
+}
+
+/**
+ * One raw torrent result returned by a plugin's `search()` — the payload
+ * of `plugins_test_search`. Mirrors the Rust `PluginRawResult`; every
+ * field is optional because plugins are third-party and tolerant
+ * deserialization is the contract. `size` may be a human-readable string
+ * ("1.5 GB") or a raw number string.
+ */
+export interface PluginRawResult {
+  id?: string;
+  title?: string;
+  size?: string;
+  sizeBytes?: number;
+  infohash?: string;
+  magnet?: string;
+  torrentUrl?: string;
+  seeds?: number;
+  peers?: number;
+  uploadDate?: number;
+  uploadDateIso?: string;
+  verified?: boolean;
+  url?: string;
+  category?: string;
+  /** Platform / console the release targets (e.g. "Nintendo Switch"). */
+  platform?: string;
+  directUrls?: string[];
+  /** Upstream site a meta-search hit was cached from. */
+  provenance?: string;
+  referer?: string;
+  matchTitle?: string;
+  fileList?: { name: string; size: number }[];
+  checksums?: { algo: string; value: string }[];
+  version?: string;
+  region?: string;
+  coverUrl?: string;
+  description?: string;
+  releaseGroup?: string;
+  /** Plugin's own recommendation flag. */
+  recommended?: boolean;
 }
 
 /**
@@ -93,6 +179,26 @@ export interface DownloadSearchResult extends MatchedDownload {
    * declared category.
    */
   platformCategory?: string;
+  /** Clean, human-readable release name a plugin supplies when the raw
+   *  `title` is a scene/technical filename. Display-only: `title` is
+   *  still used for copy actions and library matching. */
+  matchTitle?: string;
+  /** Files contained in the release, as reported by the plugin. */
+  fileList?: { name: string; size: number }[];
+  /** Checksums the plugin computed for the release (e.g. sha256/md5). */
+  checksums?: { algo: string; value: string }[];
+  /** Explicit release version, preferred over heuristics from `title`. */
+  version?: string;
+  /** Target region / language release (e.g. "EUR", "USA", "JP"). */
+  region?: string;
+  /** Cover art URL shown in the detail inspector spotlight. */
+  coverUrl?: string;
+  /** Free-form release description supplied by the plugin. */
+  description?: string;
+  /** Scene / repack group that produced the release. */
+  releaseGroup?: string;
+  /** True when the plugin recommends this result. */
+  recommended?: boolean;
 }
 
 export interface SearchProgressEvent {

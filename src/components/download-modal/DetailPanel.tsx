@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   classifyUri,
@@ -8,6 +8,7 @@ import {
   webUrlFor,
   extractMirrors,
   parseReleaseMetadata,
+  formatByteSize,
 } from "./helpers";
 import type { DisplayMatch, CacheCheckStatus } from "./types";
 import { OptionsSection } from "./OptionsSection";
@@ -66,9 +67,26 @@ export function DetailPanel({
   className?: string;
 }) {
   const { t } = useLanguage();
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const mirrors = useMemo(() => extractMirrors(match), [match]);
-  const meta = useMemo(() => parseReleaseMetadata(match?.title ?? "", installedVersion), [match?.title, installedVersion]);
+  const meta = useMemo(
+    () => parseReleaseMetadata(match?.title ?? "", installedVersion, match),
+    [match, installedVersion],
+  );
+
+  const copyText = async (text: string, label: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(label);
+      window.setTimeout(() => {
+        setCopiedKey((curr) => (curr === label ? null : curr));
+      }, 1400);
+    } catch {
+      // Ignore clipboard failure
+    }
+  };
 
   if (!match) {
     return (
@@ -118,6 +136,15 @@ export function DetailPanel({
   const score = match.matchScore;
   const tier = score >= 0.8 ? "high" : score >= 0.4 ? "partial" : "low";
 
+  const releaseGroup = match.releaseGroup?.trim() || meta.group;
+  const releaseVersion = match.version?.trim() || meta.version;
+  const region = match.region?.trim();
+  const fileList = match.fileList ?? [];
+  const checksums = match.checksums ?? [];
+  const description = match.description?.trim();
+  const coverUrl = match.coverUrl?.trim();
+  const hasReleaseInfo = Boolean(releaseGroup || releaseVersion || region);
+
   return (
     <aside className={`dl-detail-inspector ${className || ""}`} aria-label={t("downloadModal.configHeader")}>
       {/* Panel Header */}
@@ -134,6 +161,16 @@ export function DetailPanel({
 
       {/* Selected Release Spotlight Card */}
       <div className="dl-spotlight-card">
+        {coverUrl && (
+          <div className="dl-spotlight-cover">
+            <img
+              src={coverUrl}
+              alt={match.matchTitle?.trim() || match.title}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        )}
         <div className="dl-spotlight-header">
           <div className="dl-spotlight-source-wrap">
             <span className="dl-spotlight-source">{match.sourceName}</span>
@@ -246,6 +283,98 @@ export function DetailPanel({
           )}
         </div>
       </div>
+
+      {/* Release metadata supplied by the plugin */}
+      {hasReleaseInfo && (
+        <div className="dl-panel-section">
+          <div className="dl-panel-section-header">
+            <span className="dl-panel-section-title">{t("downloadModal.detailReleaseInfo")}</span>
+          </div>
+          <div className="dl-panel-rows">
+            {releaseGroup && (
+              <div className="dl-panel-row">
+                <span className="dl-panel-row-label">{t("downloadModal.detailReleaseGroup")}</span>
+                <span className="dl-panel-row-value">{releaseGroup}</span>
+              </div>
+            )}
+            {releaseVersion && (
+              <div className="dl-panel-row">
+                <span className="dl-panel-row-label">{t("downloadModal.detailVersion")}</span>
+                <span className="dl-panel-row-value">{releaseVersion}</span>
+              </div>
+            )}
+            {region && (
+              <div className="dl-panel-row">
+                <span className="dl-panel-row-label">{t("downloadModal.detailRegion")}</span>
+                <span className="dl-panel-row-value">{region}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Plugin-provided release description */}
+      {description && (
+        <div className="dl-panel-section">
+          <div className="dl-panel-section-header">
+            <span className="dl-panel-section-title">{t("downloadModal.detailDescription")}</span>
+          </div>
+          <p className="dl-panel-description">{description}</p>
+        </div>
+      )}
+
+      {/* Plugin-provided file list */}
+      {fileList.length > 0 && (
+        <div className="dl-panel-section">
+          <div className="dl-panel-section-header">
+            <span className="dl-panel-section-title">{t("downloadModal.detailFiles")}</span>
+            <span className="dl-panel-count-tag">
+              {t("downloadModal.fileCount", { count: fileList.length })}
+            </span>
+          </div>
+          <div className="dl-file-list">
+            {fileList.map((file, idx) => (
+              <div className="dl-file-row" key={`${file.name}-${idx}`}>
+                <span className="dl-file-name" title={file.name}>
+                  {file.name}
+                </span>
+                <span className="dl-file-size">{formatByteSize(file.size)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Plugin-provided checksums */}
+      {checksums.length > 0 && (
+        <div className="dl-panel-section">
+          <div className="dl-panel-section-header">
+            <span className="dl-panel-section-title">{t("downloadModal.detailChecksums")}</span>
+            <span className="dl-panel-count-tag">
+              {t("downloadModal.checksumCount", { count: checksums.length })}
+            </span>
+          </div>
+          <div className="dl-checksum-list">
+            {checksums.map((sum, idx) => {
+              const label = `${sum.algo}:${idx}`;
+              return (
+                <button
+                  type="button"
+                  className={`dl-plugin-chip dl-plugin-chip--mono${copiedKey === label ? " copied" : ""}`}
+                  key={`${sum.algo}-${idx}`}
+                  title={`${sum.algo}: ${sum.value}`}
+                  onClick={() => void copyText(sum.value, label)}
+                  aria-label={t("downloadModal.copyChecksum")}
+                >
+                  <span className="dl-checksum-algo">{sum.algo}</span>
+                  <span className="dl-checksum-value">{sum.value}</span>
+                  {copiedKey === label && <span>{t("downloadModal.copied")}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Available Mirrors & Hosters Selector (Dropdown) */}
       {mirrors.length > 1 && (
