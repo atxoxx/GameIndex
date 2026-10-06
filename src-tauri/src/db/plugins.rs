@@ -40,11 +40,17 @@ pub struct PluginRow {
     /// the plugin manifest, normalised on write. Empty for legacy rows
     /// created before this column existed.
     pub platform_category: String,
+    /// The full parsed manifest as compact JSON (see `PluginManifest`),
+    /// so the frontend can render metadata without re-evaluating the
+    /// sandbox. Empty for legacy rows / old backups; defaulted so
+    /// pre-v3 archives still deserialize.
+    #[serde(default)]
+    pub manifest_json: String,
 }
 
 const SELECT_SQL: &str = "SELECT id, name, version, author, description, source_url,
                                  file_hash, file_path, enabled, imported_at, last_error,
-                                 platform_category
+                                 platform_category, manifest_json
                             FROM plugins";
 
 fn row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<PluginRow> {
@@ -61,6 +67,7 @@ fn row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<PluginRow> {
         imported_at: r.get::<_, i64>(9)? as u64,
         last_error: r.get(10)?,
         platform_category: r.get(11)?,
+        manifest_json: r.get(12)?,
     })
 }
 
@@ -95,8 +102,8 @@ pub fn upsert_plugin(db: &Db, plugin: &PluginRow) -> Result<(), String> {
         "INSERT INTO plugins(
             id, name, version, author, description, source_url,
             file_hash, file_path, enabled, imported_at, last_error,
-            platform_category
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            platform_category, manifest_json
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
          ON CONFLICT(id) DO UPDATE SET
             name        = excluded.name,
             version     = excluded.version,
@@ -108,7 +115,8 @@ pub fn upsert_plugin(db: &Db, plugin: &PluginRow) -> Result<(), String> {
             enabled     = excluded.enabled,
             imported_at = excluded.imported_at,
             last_error  = excluded.last_error,
-            platform_category = excluded.platform_category",
+            platform_category = excluded.platform_category,
+            manifest_json = excluded.manifest_json",
         params![
             plugin.id,
             plugin.name,
@@ -122,6 +130,7 @@ pub fn upsert_plugin(db: &Db, plugin: &PluginRow) -> Result<(), String> {
             plugin.imported_at as i64,
             plugin.last_error,
             plugin.platform_category,
+            plugin.manifest_json,
         ],
     )
     .map_err(|e| format!("plugins upsert: {e}"))?;
@@ -170,5 +179,18 @@ pub fn set_plugin_category(db: &Db, id: &str, category: &str) -> Result<(), Stri
         params![category, id],
     )
     .map_err(|e| format!("plugins category {id}: {e}"))?;
+    Ok(())
+}
+
+/// Refresh the stored manifest JSON (see [`PluginRow::manifest_json`]).
+/// Called after every successful evaluation on install/load/toggle so the
+/// row tracks the manifest the sandbox actually declared.
+pub fn set_plugin_manifest(db: &Db, id: &str, manifest_json: &str) -> Result<(), String> {
+    let conn = db.plugins().map_err(|e| format!("plugins conn: {e}"))?;
+    conn.execute(
+        "UPDATE plugins SET manifest_json = ?1 WHERE id = ?2",
+        params![manifest_json, id],
+    )
+    .map_err(|e| format!("plugins manifest {id}: {e}"))?;
     Ok(())
 }

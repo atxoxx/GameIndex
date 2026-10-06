@@ -163,6 +163,10 @@ pub const PLUGINS_DDL: &str = include_str!("schema_plugins.sql");
 /// v2: adds `platform_category` so results can be filtered PC/console.
 pub const PLUGINS_V2_DDL: &str = include_str!("schema_plugins_v2.sql");
 
+/// v3: adds `manifest_json`, the full parsed manifest as compact JSON,
+/// so the frontend can render plugin metadata without re-evaluating.
+pub const PLUGINS_V3_DDL: &str = include_str!("schema_plugins_v3.sql");
+
 /// DDL for the `compatibility` domain: isolated Wine/Proton/Linux runner
 /// settings, per-game runner overrides, and runner cache.
 pub const COMPATIBILITY_DDL: &str = include_str!("schema_compatibility.sql");
@@ -249,7 +253,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "plugins",
-        versions: &[("v1", PLUGINS_DDL), ("v2", PLUGINS_V2_DDL)],
+        versions: &[("v1", PLUGINS_DDL), ("v2", PLUGINS_V2_DDL), ("v3", PLUGINS_V3_DDL)],
     },
     DomainSchema {
         label: "compatibility",

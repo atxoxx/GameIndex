@@ -60,9 +60,10 @@
 //! (no network runs during `definePlugin`), guarantees zero shared
 //! mutable state, and resets every limit for every call.
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::name::QName;
@@ -84,12 +85,24 @@ const INTERRUPT_BUDGET: u64 = 2000;
 const HTTP_MAX_ATTEMPTS: usize = 3;
 const HTTP_RETRY_BACKOFF_MS: [u64; 2] = [500, 1000];
 
+/// Hard cap on a `httpGetBytes` body (base64 inflates it ~33%).
+const HTTP_BYTES_MAX: usize = 4 * 1024 * 1024;
+
+/// Hard cap on a `httpGetTorrent` body — generous enough for a real
+/// multi-file torrent's metadata, small enough that a hostile host
+/// cannot exhaust the sandbox heap.
+const HTTP_TORRENT_MAX: usize = 16 * 1024 * 1024;
+
+/// Default (and hard maximum) number of nodes `parseHtml` returns.
+const PARSE_HTML_DEFAULT_LIMIT: usize = 100;
+
 // ─── Plugin descriptor ──────────────────────────────────────────────────────
 
 /// The manifest a plugin declares via `definePlugin`. All fields are
 /// plain owned data so a [`PluginDescriptor`] can be moved across
 /// threads into `spawn_blocking`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PluginManifest {
     pub id: String,
     pub name: String,
@@ -102,6 +115,57 @@ pub struct PluginManifest {
     /// by [`crate::plugins::normalize_platform_category`] at the
     /// command boundary; the sandbox stores the raw declared string.
     pub platform_category: String,
+    /// Host allowlist declared as `allowedHosts`. Empty means the
+    /// plugin may reach any host; a non-empty list restricts every
+    /// network call to those hosts (or their subdomains).
+    pub allowed_hosts: Vec<String>,
+    /// Minimum spacing between requests to the same host, from the
+    /// `rateLimitMs` manifest field. `0` disables throttling.
+    pub rate_limit_ms: u64,
+    /// How long this plugin's raw results stay cached, from the
+    /// `cacheTtlSecs` manifest field. `None` falls back to the global
+    /// `PLUGIN_CACHE_TTL`; the value is clamped by the manager.
+    #[serde(default)]
+    pub cache_ttl_secs: Option<u64>,
+    /// Optional icon URL / data URI shown in the plugins UI.
+    #[serde(default)]
+    pub icon: Option<String>,
+    /// Optional project homepage shown in the plugins UI.
+    #[serde(default)]
+    pub homepage: Option<String>,
+    /// Free-form capability tags a plugin advertises (e.g. "search",
+    /// "direct"). Defaults to empty for legacy plugins.
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    /// User-configurable settings declared by the plugin. Rendered as a
+    /// form in the plugins UI; values are stored separately.
+    #[serde(default)]
+    pub config: Vec<PluginConfigField>,
+}
+
+/// One user-configurable manifest field (`config` array entry).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginConfigField {
+    /// Stable machine key used to store/read the value.
+    #[serde(default)]
+    pub key: String,
+    /// Human-readable label shown above the input.
+    #[serde(default)]
+    pub label: String,
+    /// True when the value is a secret and must go to the keychain
+    /// rather than the plugin config store.
+    #[serde(default)]
+    pub secret: bool,
+    /// True when the field must be filled before the plugin can run.
+    #[serde(default)]
+    pub required: bool,
+    /// Optional input placeholder text.
+    #[serde(default)]
+    pub placeholder: Option<String>,
+    /// Optional helper text rendered under the input.
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 /// A validated plugin: its manifest plus the raw source text.
@@ -112,6 +176,27 @@ pub struct PluginManifest {
 pub struct PluginDescriptor {
     pub manifest: PluginManifest,
     source: String,
+}
+
+/// One file inside a plugin result's `fileList` (multi-file torrents /
+/// repacks). Name plus byte size; both tolerant to missing input.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginFile {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub size: u64,
+}
+
+/// One checksum entry (`checksums` array): algorithm name plus value.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginChecksum {
+    #[serde(default)]
+    pub algo: String,
+    #[serde(default)]
+    pub value: String,
 }
 
 /// One torrent result returned by a plugin's `search()`.
@@ -173,6 +258,35 @@ pub struct PluginRawResult {
     /// through to `torrent_add` untouched.
     #[serde(default)]
     pub referer: Option<String>,
+    /// Optional title the match score should be computed against when
+    /// it differs from the display `title` (e.g. a clean release name
+    /// while `title` carries a noisy suffix). Trimmed; empty is ignored.
+    #[serde(default)]
+    pub match_title: Option<String>,
+    /// Optional list of files contained in the release.
+    #[serde(default)]
+    pub file_list: Option<Vec<PluginFile>>,
+    /// Optional checksums (md5/sha1/sha256/...) for the release.
+    #[serde(default)]
+    pub checksums: Option<Vec<PluginChecksum>>,
+    /// Optional release version string.
+    #[serde(default)]
+    pub version: Option<String>,
+    /// Optional region code (e.g. "USA", "EUR", "JPN") for ROMs.
+    #[serde(default)]
+    pub region: Option<String>,
+    /// Optional cover art URL.
+    #[serde(default)]
+    pub cover_url: Option<String>,
+    /// Optional long description.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Optional release group / repacker name.
+    #[serde(default)]
+    pub release_group: Option<String>,
+    /// Plugin's own recommendation flag (e.g. verified repacker).
+    #[serde(default)]
+    pub recommended: Option<bool>,
 }
 
 /// `size` accepts `"1.5 GB"` (string) or `12345` (number) — plugins
@@ -207,17 +321,470 @@ fn new_sandbox_runtime() -> Result<Runtime, String> {
     Ok(runtime)
 }
 
-/// Give a sandbox the three HTTP globals. `httpGet` is a Rust closure;
-/// `httpGetJson` is a one-line JS wrapper so parse errors are regular
-/// JS exceptions with a stack; `httpGetXml` runs the quick-xml feed
-/// parser (see [`parse_torznab_xml`]) and returns a real JS object.
-fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) -> Result<(), String> {
+// ─── Egress policy ──────────────────────────────────────────────────────────
+
+/// Per-run network policy shared between the HTTP globals and
+/// `definePlugin`. The allowlist is only known *after* the plugin source
+/// runs (it declares `allowedHosts` inside `definePlugin`), so both
+/// sides share one slot the manifest fills in; every egress call consults
+/// it live.
+#[derive(Clone, Default)]
+struct HttpPolicy {
+    allowlist: Arc<Mutex<Option<Vec<String>>>>,
+    rate_limit_ms: Arc<AtomicU64>,
+}
+
+/// Process-global last-request timestamps, keyed by host. Shared across
+/// every plugin and search so a plugin cannot sidestep its own rate
+/// limit by re-evaluating, and different plugins hitting the same host
+/// still queue behind each other.
+static RATE_LIMIT: OnceLock<Mutex<HashMap<String, Instant>>> = OnceLock::new();
+
+fn rate_limit_map() -> &'static Mutex<HashMap<String, Instant>> {
+    RATE_LIMIT.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+impl HttpPolicy {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record the manifest's allowlist. An empty list means "no
+    /// restriction" (the field is optional and most plugins omit it).
+    fn set_allowlist(&self, hosts: Vec<String>) {
+        if let Ok(mut slot) = self.allowlist.lock() {
+            *slot = if hosts.is_empty() { None } else { Some(hosts) };
+        }
+    }
+
+    fn set_rate_limit_ms(&self, ms: u64) {
+        self.rate_limit_ms.store(ms, Ordering::Relaxed);
+    }
+
+    /// Reject a URL whose host is neither an exact allowlist entry nor a
+    /// subdomain of one. No allowlist → everything passes.
+    fn check_host(&self, url: &str) -> Result<(), String> {
+        let list = match self.allowlist.lock() {
+            Ok(slot) => slot.clone(),
+            Err(_) => None,
+        };
+        let Some(list) = list else { return Ok(()) };
+        let host = host_of(url).ok_or_else(|| format!("blocked URL (no host): {url}"))?;
+        let host = host.to_ascii_lowercase();
+        let allowed = list.iter().any(|entry| {
+            let entry = entry.trim().trim_start_matches('.').to_ascii_lowercase();
+            !entry.is_empty() && (host == entry || host.ends_with(&format!(".{entry}")))
+        });
+        if allowed {
+            Ok(())
+        } else {
+            Err(format!("host {host} is not in the plugin's allowedHosts"))
+        }
+    }
+
+    /// Block until this host may be hit again. The next slot is reserved
+    /// while the lock is held so concurrent callers queue in order
+    /// instead of all sleeping for the same interval.
+    fn wait_for_rate_limit(&self, url: &str) {
+        let ms = self.rate_limit_ms.load(Ordering::Relaxed);
+        if ms == 0 {
+            return;
+        }
+        let Some(host) = host_of(url) else { return };
+        let host = host.to_ascii_lowercase();
+        let now = Instant::now();
+        let interval = Duration::from_millis(ms);
+        let mut map = match rate_limit_map().lock() {
+            Ok(map) => map,
+            Err(_) => return,
+        };
+        let wait = match map.get(&host) {
+            Some(last) => {
+                let elapsed = now.saturating_duration_since(*last);
+                if elapsed < interval {
+                    interval - elapsed
+                } else {
+                    Duration::ZERO
+                }
+            }
+            None => Duration::ZERO,
+        };
+        map.insert(host, now + wait);
+        drop(map);
+        if !wait.is_zero() {
+            std::thread::sleep(wait);
+        }
+    }
+}
+
+/// Lowercased host component of an absolute URL, if it parses.
+fn host_of(url: &str) -> Option<String> {
+    url::Url::parse(url)
+        .ok()
+        .and_then(|u| u.host_str().map(str::to_string))
+}
+
+/// How one request attempt ended, from the retry loop's point of view.
+enum AttemptOutcome<T> {
+    /// Succeeded — stop.
+    Ok(T),
+    /// Deterministic failure (e.g. HTTP 4xx) — stop, retrying won't help.
+    FailFast(String),
+    /// Transient failure (transport error / HTTP 5xx) — retry.
+    Retry(String),
+}
+
+/// The single egress chokepoint: scheme + allowlist + rate limit, then
+/// the shared retry policy. Every HTTP global funnels through here so a
+/// policy cannot be bypassed by choosing a different global.
+fn with_retry<T>(
+    policy: &HttpPolicy,
+    label: &str,
+    url: &str,
+    mut attempt: impl FnMut() -> AttemptOutcome<T>,
+) -> Result<T, String> {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err(format!("{label}: blocked non-http(s) URL: {url}"));
+    }
+    policy.check_host(url)?;
+    policy.wait_for_rate_limit(url);
+
+    let mut last_err = String::new();
+    for attempt_index in 0..HTTP_MAX_ATTEMPTS {
+        if attempt_index > 0 {
+            let backoff = HTTP_RETRY_BACKOFF_MS
+                [(attempt_index - 1).min(HTTP_RETRY_BACKOFF_MS.len() - 1)];
+            std::thread::sleep(Duration::from_millis(backoff));
+        }
+        match attempt() {
+            AttemptOutcome::Ok(value) => return Ok(value),
+            AttemptOutcome::FailFast(err) => return Err(format!("{label}: {url} -> {err}")),
+            AttemptOutcome::Retry(err) => last_err = err,
+        }
+    }
+    Err(format!(
+        "{label}: {url} failed after {HTTP_MAX_ATTEMPTS} attempts: {last_err}"
+    ))
+}
+
+/// Classify a text-response attempt the way `httpGet` always has:
+/// success → body, 5xx / transport → retry, everything else → fail fast.
+fn text_attempt(
+    response: Result<reqwest::blocking::Response, reqwest::Error>,
+) -> AttemptOutcome<String> {
+    match response {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                match resp.text() {
+                    Ok(text) => AttemptOutcome::Ok(text),
+                    Err(e) => AttemptOutcome::Retry(e.to_string()),
+                }
+            } else if status.is_server_error() {
+                AttemptOutcome::Retry(format!("HTTP {}", status.as_u16()))
+            } else {
+                AttemptOutcome::FailFast(format!("HTTP {}", status.as_u16()))
+            }
+        }
+        Err(e) => AttemptOutcome::Retry(e.to_string()),
+    }
+}
+
+/// Reject header names/values that could smuggle a second request (CRLF
+/// injection) and validate them against the HTTP grammar up front.
+fn validate_headers(headers: Vec<(String, String)>) -> Result<Vec<(String, String)>, String> {
+    for (name, value) in &headers {
+        if name.is_empty() {
+            return Err("header name must not be empty".to_string());
+        }
+        if name.contains('\r') || name.contains('\n') || value.contains('\r') || value.contains('\n')
+        {
+            return Err(format!("header {name:?} contains CR or LF"));
+        }
+        reqwest::header::HeaderName::from_bytes(name.as_bytes())
+            .map_err(|e| format!("invalid header name {name:?}: {e}"))?;
+        reqwest::header::HeaderValue::from_str(value)
+            .map_err(|e| format!("invalid value for header {name:?}: {e}"))?;
+    }
+    Ok(headers)
+}
+
+fn build_request(
+    client: &reqwest::blocking::Client,
+    method: &reqwest::Method,
+    url: &str,
+    referer: Option<&str>,
+    headers: &[(String, String)],
+    body: Option<&str>,
+) -> reqwest::blocking::RequestBuilder {
+    let mut req = client.request(method.clone(), url);
+    if let Some(referer) = referer {
+        req = req.header(reqwest::header::REFERER, referer);
+    }
+    for (name, value) in headers {
+        req = req.header(name.as_str(), value.as_str());
+    }
+    if let Some(body) = body {
+        req = req.body(body.to_string());
+    }
+    req
+}
+
+/// GET with optional extra headers, used by both `httpGet` (no headers)
+/// and `httpGetAll` (per-URL headers).
+fn http_get_with(
+    client: &reqwest::blocking::Client,
+    policy: &HttpPolicy,
+    url: &str,
+    referer: Option<&str>,
+    headers: &[(String, String)],
+) -> Result<String, String> {
+    with_retry(policy, "httpGet", url, || {
+        let request = build_request(client, &reqwest::Method::GET, url, referer, headers, None);
+        text_attempt(request.send())
+    })
+}
+
+/// `httpRequest` — arbitrary method/body/headers, same retry policy.
+fn http_request(
+    client: &reqwest::blocking::Client,
+    policy: &HttpPolicy,
+    method: &reqwest::Method,
+    url: &str,
+    referer: Option<&str>,
+    headers: &[(String, String)],
+    body: Option<&str>,
+) -> Result<String, String> {
+    with_retry(policy, "httpRequest", url, || {
+        let request = build_request(client, method, url, referer, headers, body);
+        text_attempt(request.send())
+    })
+}
+
+/// GET a binary body, capped at `max_bytes`. `httpGetBytes` and
+/// `httpGetTorrent` share this; only the cap and post-processing differ.
+fn http_get_bytes(
+    client: &reqwest::blocking::Client,
+    policy: &HttpPolicy,
+    url: &str,
+    referer: Option<&str>,
+    max_bytes: usize,
+) -> Result<Vec<u8>, String> {
+    with_retry(policy, "httpGetBytes", url, || {
+        let request = build_request(client, &reqwest::Method::GET, url, referer, &[], None);
+        match request.send() {
+            Ok(resp) => {
+                let status = resp.status();
+                if status.is_success() {
+                    if let Some(len) = resp.content_length() {
+                        if len as usize > max_bytes {
+                            return AttemptOutcome::FailFast(format!(
+                                "body too large: {len} bytes (max {max_bytes})"
+                            ));
+                        }
+                    }
+                    match resp.bytes() {
+                        Ok(bytes) if bytes.len() > max_bytes => AttemptOutcome::FailFast(format!(
+                            "body too large: {} bytes (max {max_bytes})",
+                            bytes.len()
+                        )),
+                        Ok(bytes) => AttemptOutcome::Ok(bytes.to_vec()),
+                        Err(e) => AttemptOutcome::Retry(e.to_string()),
+                    }
+                } else if status.is_server_error() {
+                    AttemptOutcome::Retry(format!("HTTP {}", status.as_u16()))
+                } else {
+                    AttemptOutcome::FailFast(format!("HTTP {}", status.as_u16()))
+                }
+            }
+            Err(e) => AttemptOutcome::Retry(e.to_string()),
+        }
+    })
+}
+
+/// Result of `httpHead`: enough to decide whether a URL is worth
+/// downloading without transferring its body.
+struct HeadInfo {
+    status: u16,
+    final_url: String,
+    content_type: Option<String>,
+    content_length: Option<u64>,
+}
+
+fn http_head(
+    client: &reqwest::blocking::Client,
+    policy: &HttpPolicy,
+    url: &str,
+    referer: Option<&str>,
+) -> Result<HeadInfo, String> {
+    with_retry(policy, "httpHead", url, || {
+        let request = build_request(client, &reqwest::Method::HEAD, url, referer, &[], None);
+        match request.send() {
+            // A HEAD probe reports the status even for 4xx/5xx — that is
+            // the point of the call — so only transport errors retry.
+            Ok(resp) => AttemptOutcome::Ok(HeadInfo {
+                status: resp.status().as_u16(),
+                final_url: resp.url().as_str().to_string(),
+                content_type: resp
+                    .headers()
+                    .get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::to_string),
+                content_length: resp.content_length(),
+            }),
+            Err(e) => AttemptOutcome::Retry(e.to_string()),
+        }
+    })
+}
+
+/// Options object accepted by `httpRequest` / `httpRequestJson`.
+struct RequestOptions {
+    method: String,
+    headers: Vec<(String, String)>,
+    body: Option<String>,
+    referer: Option<String>,
+}
+
+fn parse_request_options<'js>(options: Option<Object<'js>>) -> Result<RequestOptions, String> {
+    let mut parsed = RequestOptions {
+        method: "GET".to_string(),
+        headers: Vec::new(),
+        body: None,
+        referer: None,
+    };
+    let Some(object) = options else {
+        return Ok(parsed);
+    };
+    if let Some(method) = object
+        .get::<_, Option<String>>("method")
+        .map_err(|e| e.to_string())?
+    {
+        if !method.trim().is_empty() {
+            parsed.method = method;
+        }
+    }
+    parsed.referer = object
+        .get::<_, Option<String>>("referer")
+        .map_err(|e| e.to_string())?;
+    parsed.body = object
+        .get::<_, Option<String>>("body")
+        .map_err(|e| e.to_string())?;
+    if let Some(headers) = object
+        .get::<_, Option<HashMap<String, String>>>("headers")
+        .map_err(|e| e.to_string())?
+    {
+        parsed.headers = validate_headers(headers.into_iter().collect())?;
+    }
+    Ok(parsed)
+}
+
+/// One entry of a `httpGetAll` input.
+#[derive(Clone)]
+struct FetchSpec {
+    url: String,
+    referer: Option<String>,
+    headers: Vec<(String, String)>,
+}
+
+/// `httpGetAll` accepts either `string[]` (the original shape) or
+/// `{ url, referer?, headers? }[]` so callers can mix sources.
+fn parse_fetch_specs<'js>(value: Value<'js>) -> Result<Vec<FetchSpec>, String> {
+    let array = value
+        .as_array()
+        .ok_or_else(|| "httpGetAll: expected an array".to_string())?;
+    let mut specs = Vec::with_capacity(array.len());
+    for item in array.iter::<Value>() {
+        let item = item.map_err(|e| e.to_string())?;
+        if item.is_string() {
+            let url = item
+                .as_string()
+                .and_then(|s| s.to_string().ok())
+                .ok_or_else(|| "httpGetAll: invalid URL string".to_string())?;
+            specs.push(FetchSpec {
+                url,
+                referer: None,
+                headers: Vec::new(),
+            });
+        } else if item.is_object() {
+            let object = item
+                .as_object()
+                .ok_or_else(|| "httpGetAll: invalid request object".to_string())?;
+            let url = object
+                .get::<_, String>("url")
+                .map_err(|e| e.to_string())?;
+            let referer = object
+                .get::<_, Option<String>>("referer")
+                .map_err(|e| e.to_string())?;
+            let headers = match object
+                .get::<_, Option<HashMap<String, String>>>("headers")
+                .map_err(|e| e.to_string())?
+            {
+                Some(headers) => validate_headers(headers.into_iter().collect())?,
+                None => Vec::new(),
+            };
+            specs.push(FetchSpec {
+                url,
+                referer,
+                headers,
+            });
+        } else {
+            return Err(
+                "httpGetAll: array items must be strings or { url, ... } objects".to_string(),
+            );
+        }
+    }
+    Ok(specs)
+}
+
+/// Standard base64 (with padding). Implemented inline rather than pulling
+/// a crate in for the one `httpGetBytes` return path.
+fn base64_encode(data: &[u8]) -> String {
+    const TABLE: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
+        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
+        let n = (b0 << 16) | (b1 << 8) | b2;
+        out.push(TABLE[((n >> 18) & 63) as usize] as char);
+        out.push(TABLE[((n >> 12) & 63) as usize] as char);
+        if chunk.len() > 1 {
+            out.push(TABLE[((n >> 6) & 63) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if chunk.len() > 2 {
+            out.push(TABLE[(n & 63) as usize] as char);
+        } else {
+            out.push('=');
+        }
+    }
+    out
+}
+
+/// Give a sandbox the HTTP globals. `httpGet` / `httpGetXml` /
+/// `httpRequest` / `httpHead` / `httpGetBytes` / `httpGetTorrent` are
+/// Rust closures; `httpGetJson` / `httpRequestJson` are one-line JS
+/// wrappers so parse errors are regular JS exceptions with a stack;
+/// `httpGetXml` runs the quick-xml feed parser (see
+/// [`parse_torznab_xml`]).
+///
+/// `policy` is the per-run allowlist / rate-limit slot shared with
+/// `definePlugin`: it is injected empty and filled in once the plugin's
+/// manifest runs, so every later network call is governed by it.
+fn inject_http_globals<'js>(
+    ctx: &Ctx<'js>,
+    http: &reqwest::blocking::Client,
+    policy: &HttpPolicy,
+) -> Result<(), String> {
     let http_get_owned = http.clone();
+    let policy_get = policy.clone();
     let http_get = Function::new(
         ctx.clone(),
         move |ctx: Ctx<'js>, url: String, referer: Opt<Option<String>>| -> Result<String, rquickjs::Error> {
             let ref_str = referer.0.flatten();
-            http_get_text(&http_get_owned, &url, ref_str.as_deref())
+            http_get_with(&http_get_owned, &policy_get, &url, ref_str.as_deref(), &[])
                 .map_err(|e| Exception::throw_message(&ctx, &e))
         },
     )
@@ -227,11 +794,12 @@ fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) ->
         .map_err(|e| format!("inject httpGet: {e}"))?;
 
     let http_get_xml_owned = http.clone();
+    let policy_xml = policy.clone();
     let http_get_xml = Function::new(
         ctx.clone(),
         move |ctx: Ctx<'js>, url: String, referer: Opt<Option<String>>| -> Result<Value<'js>, rquickjs::Error> {
             let ref_str = referer.0.flatten();
-            let text = http_get_text(&http_get_xml_owned, &url, ref_str.as_deref())
+            let text = http_get_with(&http_get_xml_owned, &policy_xml, &url, ref_str.as_deref(), &[])
                 .map_err(|e| Exception::throw_message(&ctx, &e))?;
             let parsed = parse_torznab_xml(&text)
                 .map_err(|e| Exception::throw_message(&ctx, &e))?;
@@ -248,43 +816,202 @@ fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) ->
         .set("httpGetXml", http_get_xml)
         .map_err(|e| format!("inject httpGetXml: {e}"))?;
 
-    ctx.eval::<(), _>(
-        "function httpGetJson(url, referer) { return JSON.parse(httpGet(url, referer)); }",
+    let http_request_owned = http.clone();
+    let policy_request = policy.clone();
+    let http_request_fn = Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, url: String, options: Opt<Option<Object<'js>>>| -> Result<String, rquickjs::Error> {
+            let parsed = parse_request_options(options.0.flatten())
+                .map_err(|e| Exception::throw_message(&ctx, &e))?;
+            let method = reqwest::Method::from_bytes(parsed.method.trim().to_uppercase().as_bytes())
+                .map_err(|e| {
+                    Exception::throw_message(
+                        &ctx,
+                        &format!("httpRequest: invalid method {:?}: {e}", parsed.method),
+                    )
+                })?;
+            http_request(
+                &http_request_owned,
+                &policy_request,
+                &method,
+                &url,
+                parsed.referer.as_deref(),
+                &parsed.headers,
+                parsed.body.as_deref(),
+            )
+            .map_err(|e| Exception::throw_message(&ctx, &e))
+        },
     )
-    .map_err(|e| format!("inject httpGetJson: {e}"))?;
+    .map_err(|e| format!("create httpRequest closure: {e}"))?;
+    ctx.globals()
+        .set("httpRequest", http_request_fn)
+        .map_err(|e| format!("inject httpRequest: {e}"))?;
 
-    inject_http_get_all(ctx, http)
+    let http_head_owned = http.clone();
+    let policy_head = policy.clone();
+    let http_head_fn = Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, url: String, referer: Opt<Option<String>>| -> Result<Value<'js>, rquickjs::Error> {
+            let ref_str = referer.0.flatten();
+            let info = http_head(&http_head_owned, &policy_head, &url, ref_str.as_deref())
+                .map_err(|e| Exception::throw_message(&ctx, &e))?;
+            let json = serde_json::json!({
+                "status": info.status,
+                "finalUrl": info.final_url,
+                "contentType": info.content_type,
+                "contentLength": info.content_length,
+            });
+            let json = serde_json::to_string(&json).map_err(|e| {
+                Exception::throw_message(&ctx, &format!("httpHead: serialize: {e}"))
+            })?;
+            ctx.json_parse(json).map_err(|e| {
+                Exception::throw_message(&ctx, &format!("httpHead: materialize object: {e}"))
+            })
+        },
+    )
+    .map_err(|e| format!("create httpHead closure: {e}"))?;
+    ctx.globals()
+        .set("httpHead", http_head_fn)
+        .map_err(|e| format!("inject httpHead: {e}"))?;
+
+    let http_bytes_owned = http.clone();
+    let policy_bytes = policy.clone();
+    let http_get_bytes_fn = Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, url: String, referer: Opt<Option<String>>| -> Result<String, rquickjs::Error> {
+            let ref_str = referer.0.flatten();
+            let data = http_get_bytes(
+                &http_bytes_owned,
+                &policy_bytes,
+                &url,
+                ref_str.as_deref(),
+                HTTP_BYTES_MAX,
+            )
+            .map_err(|e| Exception::throw_message(&ctx, &e))?;
+            Ok(base64_encode(&data))
+        },
+    )
+    .map_err(|e| format!("create httpGetBytes closure: {e}"))?;
+    ctx.globals()
+        .set("httpGetBytes", http_get_bytes_fn)
+        .map_err(|e| format!("inject httpGetBytes: {e}"))?;
+
+    let http_torrent_owned = http.clone();
+    let policy_torrent = policy.clone();
+    let http_get_torrent_fn = Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, url: String, referer: Opt<Option<String>>| -> Result<Value<'js>, rquickjs::Error> {
+            let ref_str = referer.0.flatten();
+            let data = http_get_bytes(
+                &http_torrent_owned,
+                &policy_torrent,
+                &url,
+                ref_str.as_deref(),
+                HTTP_TORRENT_MAX,
+            )
+            .map_err(|e| Exception::throw_message(&ctx, &e))?;
+            let parsed = crate::plugins::bencode::parse_torrent(&data)
+                .map_err(|e| Exception::throw_message(&ctx, &e))?;
+            let json = serde_json::to_string(&parsed).map_err(|e| {
+                Exception::throw_message(&ctx, &format!("httpGetTorrent: serialize: {e}"))
+            })?;
+            ctx.json_parse(json).map_err(|e| {
+                Exception::throw_message(&ctx, &format!("httpGetTorrent: materialize object: {e}"))
+            })
+        },
+    )
+    .map_err(|e| format!("create httpGetTorrent closure: {e}"))?;
+    ctx.globals()
+        .set("httpGetTorrent", http_get_torrent_fn)
+        .map_err(|e| format!("inject httpGetTorrent: {e}"))?;
+
+    let parse_html_fn = Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, html: String, selector: String, limit: Opt<Option<u64>>| -> Result<Value<'js>, rquickjs::Error> {
+            let limit = limit
+                .0
+                .flatten()
+                .unwrap_or(PARSE_HTML_DEFAULT_LIMIT as u64)
+                .min(usize::MAX as u64) as usize;
+            let value = crate::plugins::html::query(&html, &selector, limit)
+                .map_err(|e| Exception::throw_message(&ctx, &e))?;
+            let json = serde_json::to_string(&value).map_err(|e| {
+                Exception::throw_message(&ctx, &format!("parseHtml: serialize: {e}"))
+            })?;
+            ctx.json_parse(json).map_err(|e| {
+                Exception::throw_message(&ctx, &format!("parseHtml: materialize array: {e}"))
+            })
+        },
+    )
+    .map_err(|e| format!("create parseHtml closure: {e}"))?;
+    ctx.globals()
+        .set("parseHtml", parse_html_fn)
+        .map_err(|e| format!("inject parseHtml: {e}"))?;
+
+    let sleep_fn = Function::new(
+        ctx.clone(),
+        move |_ctx: Ctx<'js>, ms: u64| -> Result<(), rquickjs::Error> {
+            std::thread::sleep(Duration::from_millis(ms.min(3000)));
+            Ok(())
+        },
+    )
+    .map_err(|e| format!("create sleep closure: {e}"))?;
+    ctx.globals()
+        .set("sleep", sleep_fn)
+        .map_err(|e| format!("inject sleep: {e}"))?;
+
+    ctx.eval::<(), _>(
+        "function httpGetJson(url, referer) { return JSON.parse(httpGet(url, referer)); }\n\
+         function httpRequestJson(url, options) { return JSON.parse(httpRequest(url, options)); }",
+    )
+    .map_err(|e| format!("inject JSON wrappers: {e}"))?;
+
+    inject_http_get_all(ctx, http, policy)
 }
 
 /// Give a sandbox the `httpGetAll(urls)` global: fetches many URLs in
 /// parallel and returns an array of bodies aligned with the input
-/// (failed fetches become empty strings). Used by catalog-style plugins
-/// (e.g. romheaven) that must pull a couple dozen small index files in
-/// one search — fetching them sequentially would blow the 20 s search
-/// budget. Concurrency is capped so a public gateway is not hammered.
+/// (failed fetches become empty strings). The input is either a
+/// `string[]` or a `{ url, referer?, headers? }[]`. Used by catalog-style
+/// plugins (e.g. romheaven) that must pull a couple dozen small index
+/// files in one search — fetching them sequentially would blow the 20 s
+/// search budget. Concurrency is capped so a public gateway is not
+/// hammered.
 fn inject_http_get_all<'js>(
     ctx: &Ctx<'js>,
     http: &reqwest::blocking::Client,
+    policy: &HttpPolicy,
 ) -> Result<(), String> {
     let http_owned = http.clone();
+    let policy_owned = policy.clone();
     let get_all = Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, urls: Vec<String>| -> Result<Value<'js>, rquickjs::Error> {
+        move |ctx: Ctx<'js>, urls: Value<'js>| -> Result<Value<'js>, rquickjs::Error> {
+            let specs =
+                parse_fetch_specs(urls).map_err(|e| Exception::throw_message(&ctx, &e))?;
             // Chunked so at most CONCURRENT_FETCHES requests are in
             // flight at once; each thread returns its own body and the
             // chunk joins before the next starts, so there is no shared
             // mutable state to synchronise.
             const CONCURRENT_FETCHES: usize = 8;
-            let mut results: Vec<String> = Vec::with_capacity(urls.len());
-            for chunk in urls.chunks(CONCURRENT_FETCHES) {
+            let mut results: Vec<String> = Vec::with_capacity(specs.len());
+            for chunk in specs.chunks(CONCURRENT_FETCHES) {
                 let chunk_results = std::thread::scope(|scope| {
                     let handles: Vec<_> = chunk
                         .iter()
-                        .map(|url| {
+                        .map(|spec| {
                             let client = http_owned.clone();
-                            let url = url.clone();
+                            let policy = policy_owned.clone();
+                            let spec = spec.clone();
                             scope.spawn(move || {
-                                http_get_text(&client, &url, None).unwrap_or_default()
+                                http_get_with(
+                                    &client,
+                                    &policy,
+                                    &spec.url,
+                                    spec.referer.as_deref(),
+                                    &spec.headers,
+                                )
+                                .unwrap_or_default()
                             })
                         })
                         .collect();
@@ -313,16 +1040,20 @@ fn inject_http_get_all<'js>(
 ///
 /// 1. rejects a second call (exactly-once contract),
 /// 2. pulls the manifest fields out of the descriptor object,
-/// 3. stashes the `search` function on the private `__pluginSearch`
+/// 3. publishes the `allowedHosts` / `rateLimitMs` policy for the HTTP
+///    globals (which already exist by now),
+/// 4. stashes the `search` function on the private `__pluginSearch`
 ///    global for the query wrapper to call,
-/// 4. records the manifest in the Rust `slot` for the caller.
+/// 5. records the manifest in the Rust `slot` for the caller.
 fn inject_define_plugin<'js>(
     ctx: &Ctx<'js>,
     count: &Arc<AtomicU32>,
     slot: &Arc<Mutex<Option<PluginManifest>>>,
+    policy: &HttpPolicy,
 ) -> Result<(), String> {
     let count_f = count.clone();
     let slot_f = slot.clone();
+    let policy_f = policy.clone();
     let define = Function::new(
         ctx.clone(),
         move |ctx: Ctx<'js>, descriptor: Object<'js>| -> Result<(), rquickjs::Error> {
@@ -342,8 +1073,35 @@ fn inject_define_plugin<'js>(
             let description: String = descriptor.get("description").unwrap_or_default();
             let source_url: String = descriptor.get("sourceUrl").unwrap_or_default();
             let platform_category: String = descriptor.get("platformCategory").unwrap_or_default();
+            let allowed_hosts: Vec<String> = descriptor.get("allowedHosts").unwrap_or_default();
+            let rate_limit_ms: u64 = descriptor.get("rateLimitMs").unwrap_or_default();
+            let cache_ttl_secs: Option<u64> =
+                descriptor.get("cacheTtlSecs").unwrap_or_default();
+            let icon: Option<String> = descriptor.get("icon").unwrap_or_default();
+            let homepage: Option<String> = descriptor.get("homepage").unwrap_or_default();
+            let capabilities: Vec<String> = descriptor.get("capabilities").unwrap_or_default();
+            // `config` is an array of objects, which rquickjs cannot
+            // convert directly — round-trip it through JSON so unknown
+            // extra keys are ignored by serde and a malformed entry
+            // degrades to an empty config rather than failing the whole
+            // plugin evaluation.
+            let config: Vec<PluginConfigField> = match descriptor
+                .get::<_, Option<Value>>("config")
+            {
+                Ok(Some(value)) => ctx
+                    .json_stringify(value)?
+                    .and_then(|json| json.to_string().ok())
+                    .and_then(|json| serde_json::from_str(&json).ok())
+                    .unwrap_or_default(),
+                _ => Vec::new(),
+            };
             let search: Function = descriptor.get("search")?;
             ctx.globals().set("__pluginSearch", search)?;
+            // Publish the policy before storing the manifest: the
+            // plugin's search() runs only after definePlugin returns, and
+            // it must already see the allowlist.
+            policy_f.set_allowlist(allowed_hosts.clone());
+            policy_f.set_rate_limit_ms(rate_limit_ms);
             let manifest = PluginManifest {
                 id,
                 name,
@@ -352,6 +1110,13 @@ fn inject_define_plugin<'js>(
                 description,
                 source_url,
                 platform_category,
+                allowed_hosts,
+                rate_limit_ms,
+                cache_ttl_secs,
+                icon,
+                homepage,
+                capabilities,
+                config,
             };
             if let Ok(mut slot) = slot_f.lock() {
                 *slot = Some(manifest);
@@ -376,10 +1141,13 @@ pub fn evaluate_plugin(source: &str, http: &reqwest::blocking::Client) -> Result
     let ctx = Context::full(&runtime).map_err(|e| format!("create JS context: {e}"))?;
     let count = Arc::new(AtomicU32::new(0));
     let slot = Arc::new(Mutex::new(None));
+    // Validation never performs a network call, so the policy only needs
+    // to exist for `definePlugin` to populate; it is never enforced here.
+    let policy = HttpPolicy::new();
 
     ctx.with(|ctx| -> Result<(), String> {
-        inject_http_globals(&ctx, http)?;
-        inject_define_plugin(&ctx, &count, &slot)?;
+        inject_http_globals(&ctx, http, &policy)?;
+        inject_define_plugin(&ctx, &count, &slot, &policy)?;
         if let Err(e) = ctx.eval::<(), _>(source) {
             return Err(describe_js_error(&ctx, "eval plugin", e));
         }
@@ -416,16 +1184,36 @@ pub fn evaluate_plugin(source: &str, http: &reqwest::blocking::Client) -> Result
 pub fn run_search(
     descriptor: &PluginDescriptor,
     query: &str,
-    http: &reqwest::blocking::Client,
+    config_json: &str,
+    _http: &reqwest::blocking::Client,
 ) -> Result<Vec<PluginRawResult>, String> {
+    // One client per search. The cookie store lets a plugin carry a
+    // session / CSRF cookie across the sequential requests of a single
+    // search, while a fresh client per call keeps those cookies out of
+    // every other search and plugin.
+    let http = reqwest::blocking::Client::builder()
+        .user_agent(crate::plugins::PLUGIN_HTTP_UA)
+        .timeout(Duration::from_secs(15))
+        .use_rustls_tls()
+        .cookie_store(true)
+        .build()
+        .map_err(|e| format!("build plugin search client: {e}"))?;
+
     let runtime = new_sandbox_runtime()?;
     let ctx = Context::full(&runtime).map_err(|e| format!("create JS context: {e}"))?;
     let count = Arc::new(AtomicU32::new(0));
     let slot = Arc::new(Mutex::new(None));
+    let policy = HttpPolicy::new();
+    // Arm the policy from the manifest captured at validation time. The
+    // source re-declares the same values when it calls definePlugin below,
+    // but arming up front means the allowlist is in force even if that
+    // call is somehow skipped.
+    policy.set_allowlist(descriptor.manifest.allowed_hosts.clone());
+    policy.set_rate_limit_ms(descriptor.manifest.rate_limit_ms);
 
     ctx.with(|ctx| -> Result<Vec<PluginRawResult>, String> {
-        inject_http_globals(&ctx, http)?;
-        inject_define_plugin(&ctx, &count, &slot)?;
+        inject_http_globals(&ctx, &http, &policy)?;
+        inject_define_plugin(&ctx, &count, &slot, &policy)?;
         if let Err(e) = ctx.eval::<(), _>(descriptor.source.as_str()) {
             return Err(describe_js_error(&ctx, "eval plugin", e));
         }
@@ -442,8 +1230,19 @@ pub fn run_search(
         ctx.globals()
             .set("__pluginQuery", query.to_string())
             .map_err(|e| format!("inject query: {e}"))?;
+        // Inject the config as a parsed JS object *value*. `config_json`
+        // is always a JSON object string ("{}" when the user configured
+        // nothing), so legacy plugins that ignore the second argument
+        // keep working. Parsing in the runtime (rather than pasting the
+        // string into source) keeps arbitrary secret values inert.
+        let config = ctx
+            .json_parse(config_json.to_string())
+            .map_err(|e| describe_js_error(&ctx, "inject config", e))?;
+        ctx.globals()
+            .set("__pluginConfig", config)
+            .map_err(|e| format!("inject config: {e}"))?;
         let wrapper = r#"(function () {
-            var r = __pluginSearch(__pluginQuery);
+            var r = __pluginSearch(__pluginQuery, __pluginConfig);
             if (r == null) r = [];
             if (!Array.isArray(r)) throw new Error("plugin search() must return an array");
             return JSON.stringify(r);
@@ -457,51 +1256,6 @@ pub fn run_search(
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-/// The blocking GET behind the `httpGet` global.
-///
-/// Scheme check first: only `http://` / `https://` ever reach the
-/// client — `file://`, `ftp://`, etc. are rejected. Then up to three
-/// attempts (immediate, +500 ms, +1 s) for transport errors and HTTP
-/// 5xx; 4xx fails on the first attempt because retrying a 403/404
-/// never helps and only wastes the search budget.
-fn http_get_text(
-    client: &reqwest::blocking::Client,
-    url: &str,
-    referer: Option<&str>,
-) -> Result<String, String> {
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err(format!("httpGet: blocked non-http(s) URL: {url}"));
-    }
-    let mut last_err = String::new();
-    for attempt in 0..HTTP_MAX_ATTEMPTS {
-        if attempt > 0 {
-            let backoff = HTTP_RETRY_BACKOFF_MS[(attempt - 1).min(HTTP_RETRY_BACKOFF_MS.len() - 1)];
-            std::thread::sleep(Duration::from_millis(backoff));
-        }
-        let mut req = client.get(url);
-        if let Some(r) = referer {
-            req = req.header(reqwest::header::REFERER, r);
-        }
-        match req.send() {
-            Ok(resp) => {
-                let status = resp.status();
-                if status.is_success() {
-                    return resp
-                        .text()
-                        .map_err(|e| format!("httpGet: read body of {url}: {e}"));
-                }
-                last_err = format!("HTTP {}", status.as_u16());
-                if !status.is_server_error() {
-                    return Err(format!("httpGet: {url} -> {last_err}"));
-                }
-                // 5xx → fall through to the next attempt.
-            }
-            Err(e) => last_err = format!("{e}"),
-        }
-    }
-    Err(format!("httpGet: {url} failed after {HTTP_MAX_ATTEMPTS} attempts: {last_err}"))
-}
 
 /// Parse an RSS 2.0 / Torznab feed into the fixed JSON shape handed to
 /// JS by `httpGetXml`:

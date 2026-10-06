@@ -51,11 +51,14 @@ use sha2::{Digest, Sha256};
 use tauri::{Emitter, Manager};
 
 use crate::db::{self, Db};
+use crate::db::secrets::SecretStore;
 use crate::source_manager::{self, MatchedDownload};
 
+mod bencode;
+mod html;
 mod runtime;
 
-pub use runtime::PluginRawResult;
+pub use runtime::{PluginChecksum, PluginFile, PluginRawResult};
 
 /// How long raw plugin search results stay fresh (yourbittorrent's
 /// documented search-fresh policy).
@@ -95,6 +98,11 @@ pub struct PluginInfo {
     pub last_error: Option<String>,
     /// Broad platform class: "pc" | "console" | "hybrid".
     pub platform_category: String,
+    /// The full parsed plugin manifest as JSON, so the plugins UI can
+    /// render icon/homepage/config/capabilities without re-evaluating.
+    /// Null for legacy rows that predate the v3 column.
+    #[serde(default)]
+    pub manifest: serde_json::Value,
 }
 
 impl From<db::plugins::PluginRow> for PluginInfo {
@@ -111,7 +119,18 @@ impl From<db::plugins::PluginRow> for PluginInfo {
             imported_at: r.imported_at,
             last_error: r.last_error,
             platform_category: normalize_platform_category(&r.platform_category),
+            manifest: parse_manifest_json(&r.manifest_json),
         }
+    }
+}
+
+/// Parse a stored manifest JSON blob, degrading an empty/malformed
+/// value to JSON null so legacy rows still serialize cleanly.
+fn parse_manifest_json(raw: &str) -> serde_json::Value {
+    if raw.trim().is_empty() {
+        serde_json::Value::Null
+    } else {
+        serde_json::from_str(raw).unwrap_or(serde_json::Value::Null)
     }
 }
 
@@ -127,6 +146,10 @@ pub struct PluginCandidate {
     pub source_url: String,
     pub file_hash: String,
     pub file_path: String,
+    /// The evaluated manifest as JSON, so the import preview can show
+    /// the same metadata the installed row will expose.
+    #[serde(default)]
+    pub manifest: serde_json::Value,
 }
 
 /// Result of a bulk enable/disable-all operation: how many plugins
@@ -183,6 +206,33 @@ pub struct DownloadSearchResult {
     /// declared category (normalised to "pc" when absent).
     #[serde(default)]
     pub platform_category: String,
+    /// Title to score matches against when it differs from `title`.
+    #[serde(default)]
+    pub match_title: Option<String>,
+    /// Files contained in the release, when the plugin reports them.
+    #[serde(default)]
+    pub file_list: Option<Vec<PluginFile>>,
+    /// Checksums for the release, when the plugin reports them.
+    #[serde(default)]
+    pub checksums: Option<Vec<PluginChecksum>>,
+    /// Release version string, when the plugin reports one.
+    #[serde(default)]
+    pub version: Option<String>,
+    /// Region code (e.g. "USA", "EUR") for ROM hits.
+    #[serde(default)]
+    pub region: Option<String>,
+    /// Cover art URL.
+    #[serde(default)]
+    pub cover_url: Option<String>,
+    /// Long description of the release.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Release group / repacker name.
+    #[serde(default)]
+    pub release_group: Option<String>,
+    /// Plugin's own recommendation flag.
+    #[serde(default)]
+    pub recommended: Option<bool>,
 }
 
 // ─── PluginManager ──────────────────────────────────────────────────────────
@@ -276,6 +326,18 @@ impl PluginManager {
                                 &category,
                             );
                         }
+                        // Keep the stored manifest current (new fields
+                        // appear as plugins are upgraded) without a write
+                        // when nothing changed.
+                        let manifest_json =
+                            serde_json::to_string(&descriptor.manifest).unwrap_or_default();
+                        if manifest_json != row.manifest_json {
+                            let _ = db::plugins::set_plugin_manifest(
+                                &self.db,
+                                &row.id,
+                                &manifest_json,
+                            );
+                        }
                     }
                     Err(e) => {
                         eprintln!("[plugins] {} failed validation: {e}", row.id);
@@ -304,13 +366,16 @@ impl PluginManager {
         query: &str,
     ) -> Result<Vec<PluginRawResult>, String> {
         let key = (row.id.clone(), query.to_string());
+        // Per-plugin freshness: a plugin may declare `cacheTtlSecs`;
+        // otherwise the global default applies.
+        let ttl = plugin_cache_ttl(row);
         {
             let cache = self
                 .cache
                 .lock()
                 .map_err(|e| format!("plugin cache lock: {e}"))?;
             if let Some((at, results)) = cache.get(&key) {
-                if at.elapsed() < PLUGIN_CACHE_TTL {
+                if at.elapsed() < ttl {
                     return Ok(results.clone());
                 }
             }
@@ -318,12 +383,16 @@ impl PluginManager {
 
         let descriptor = runtime::evaluate_plugin(source, &self.http)
             .map_err(|e| format!("evaluate {}: {e}", row.id))?;
+        // Read the plugin's configured values from the keychain (only
+        // the keys its manifest declares) and serialize them once so the
+        // blocking task can move a plain string across the boundary.
+        let config_json = plugin_config_json(&row.id, &row.manifest_json);
         let http = self.http.clone();
         let query_owned = query.to_string();
         let joined = tokio::time::timeout(
             PLUGIN_SEARCH_TIMEOUT,
             tokio::task::spawn_blocking(move || {
-                runtime::run_search(&descriptor, &query_owned, &http)
+                runtime::run_search(&descriptor, &query_owned, &config_json, &http)
             }),
         )
         .await
@@ -366,6 +435,83 @@ impl PluginManager {
             cache.retain(|(plugin_id, _), _| plugin_id != id);
         }
     }
+}
+
+// ─── Per-plugin config ──────────────────────────────────────────────────────
+
+/// Sanitize one id/key component to the `[a-z0-9_]` alphabet used in
+/// keychain account names. Case is folded and every other character
+/// (notably the `-` allowed in plugin ids) collapses to `_`. The mapping
+/// is deterministic so the same plugin always addresses the same entry.
+fn sanitize_account_component(raw: &str) -> String {
+    raw.chars()
+        .map(|c| {
+            let lower = c.to_ascii_lowercase();
+            if lower.is_ascii_lowercase() || lower.is_ascii_digit() || lower == '_' {
+                lower
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+/// Keychain account for a plugin config value: `plugin_<id>_<key>` with
+/// both components sanitized to `[a-z0-9_]`. Secrets live only in the OS
+/// keychain — never in the DB or on disk.
+pub fn config_account(id: &str, key: &str) -> String {
+    format!(
+        "plugin_{}_{}",
+        sanitize_account_component(id),
+        sanitize_account_component(key)
+    )
+}
+
+/// Declared config keys for a plugin, parsed leniently from the stored
+/// manifest JSON. Using `Value` rather than `PluginManifest` means a
+/// legacy row missing newer manifest fields still yields its config list.
+fn declared_config_keys(manifest_json: &str) -> Vec<String> {
+    serde_json::from_str::<serde_json::Value>(manifest_json)
+        .ok()
+        .and_then(|v| v.get("config").cloned())
+        .and_then(|c| serde_json::from_value::<Vec<runtime::PluginConfigField>>(c).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|f| f.key)
+        .filter(|k| !k.trim().is_empty())
+        .collect()
+}
+
+/// Assemble the JSON object injected into a plugin's sandbox from its
+/// declared keys and the values that are actually stored. A declared key
+/// with no stored value is omitted (never nulled) so a plugin can tell
+/// "unset" from "empty". Always returns a JSON *object* string — `{}`
+/// when nothing is configured — so legacy plugins that ignore the second
+/// `search` argument keep working unchanged.
+fn config_json(declared: &[String], stored: &HashMap<String, String>) -> String {
+    let mut map = serde_json::Map::new();
+    for key in declared {
+        if let Some(value) = stored.get(key) {
+            map.insert(key.clone(), serde_json::Value::String(value.clone()));
+        }
+    }
+    serde_json::to_string(&serde_json::Value::Object(map))
+        .unwrap_or_else(|_| "{}".to_string())
+}
+
+/// Read every declared key's value from the keychain and serialize the
+/// result for injection. A keychain read error is treated as "unset" —
+/// a missing/broken credential store must never fail a search.
+fn plugin_config_json(id: &str, manifest_json: &str) -> String {
+    let declared = declared_config_keys(manifest_json);
+    let store = SecretStore::new();
+    let mut stored = HashMap::new();
+    for key in &declared {
+        if let Ok(Some(value)) = store.get(&config_account(id, key)) {
+            stored.insert(key.clone(), value);
+        }
+    }
+    config_json(&declared, &stored)
 }
 
 // ─── Tauri commands ─────────────────────────────────────────────────────────
@@ -424,6 +570,7 @@ pub async fn plugins_import_file(
         source_url: m.source_url.clone(),
         file_hash,
         file_path: path,
+        manifest: serde_json::to_value(m).unwrap_or(serde_json::Value::Null),
     })
 }
 
@@ -471,6 +618,7 @@ pub async fn plugins_install(
         imported_at: unix_now_secs(),
         last_error: None,
         platform_category: normalize_platform_category(&m.platform_category),
+        manifest_json: serde_json::to_string(m).unwrap_or_default(),
     };
     db::plugins::upsert_plugin(&state.db, &row)?;
     if let Ok(mut map) = state.sources.lock() {
@@ -522,6 +670,11 @@ pub async fn plugins_toggle(
                         normalize_platform_category(&descriptor.manifest.platform_category);
                     if category != row.platform_category {
                         let _ = db::plugins::set_plugin_category(&state.db, &id, &category);
+                    }
+                    let manifest_json =
+                        serde_json::to_string(&descriptor.manifest).unwrap_or_default();
+                    if manifest_json != row.manifest_json {
+                        let _ = db::plugins::set_plugin_manifest(&state.db, &id, &manifest_json);
                     }
                 }
                 Err(e) => {
@@ -575,6 +728,15 @@ pub async fn plugins_set_all_enabled(
                             let _ =
                                 db::plugins::set_plugin_category(&state.db, &row.id, &category);
                         }
+                        let manifest_json =
+                            serde_json::to_string(&descriptor.manifest).unwrap_or_default();
+                        if manifest_json != row.manifest_json {
+                            let _ = db::plugins::set_plugin_manifest(
+                                &state.db,
+                                &row.id,
+                                &manifest_json,
+                            );
+                        }
                     }
                     Err(e) => {
                         let _ = db::plugins::set_plugin_error(&state.db, &row.id, Some(&e));
@@ -602,6 +764,125 @@ pub async fn plugins_set_all_enabled(
     }
 
     Ok(PluginBulkToggleResult { changed, failed })
+}
+
+/// Persist one config value for a plugin in the OS keychain. The key
+/// must be declared in the plugin's manifest `config` array so a typo
+/// can never write an arbitrary keychain entry.
+#[tauri::command]
+pub async fn plugins_set_config(
+    state: tauri::State<'_, Arc<PluginManager>>,
+    id: String,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    let row = db::plugins::get_plugin(&state.db, &id)?
+        .ok_or_else(|| format!("Plugin not found: {id}"))?;
+    if !declared_config_keys(&row.manifest_json).iter().any(|k| k == &key) {
+        return Err(format!("Plugin {id} does not declare a config key {key:?}"));
+    }
+    SecretStore::new().set(&config_account(&id, &key), &value)?;
+    // A config change must take effect on the next search, so drop any
+    // cached results that were produced under the previous value.
+    state.drop_cache_for(&id);
+    Ok(())
+}
+
+/// Remove one plugin config value from the keychain. Validates the key
+/// the same way as `plugins_set_config` so a typo cannot delete an
+/// unrelated entry.
+#[tauri::command]
+pub async fn plugins_clear_config(
+    state: tauri::State<'_, Arc<PluginManager>>,
+    id: String,
+    key: String,
+) -> Result<(), String> {
+    let row = db::plugins::get_plugin(&state.db, &id)?
+        .ok_or_else(|| format!("Plugin not found: {id}"))?;
+    if !declared_config_keys(&row.manifest_json).iter().any(|k| k == &key) {
+        return Err(format!("Plugin {id} does not declare a config key {key:?}"));
+    }
+    SecretStore::new().delete(&config_account(&id, &key))?;
+    state.drop_cache_for(&id);
+    Ok(())
+}
+
+/// Report, for each declared config key, whether a value is stored.
+/// Only presence is reported — the value itself never leaves the
+/// keychain, not even to the settings UI that set it.
+#[tauri::command]
+pub async fn plugins_config_status(
+    state: tauri::State<'_, Arc<PluginManager>>,
+    id: String,
+) -> Result<HashMap<String, bool>, String> {
+    let row = db::plugins::get_plugin(&state.db, &id)?
+        .ok_or_else(|| format!("Plugin not found: {id}"))?;
+    let store = SecretStore::new();
+    let mut status = HashMap::new();
+    for key in declared_config_keys(&row.manifest_json) {
+        // An empty stored string counts as "not configured" so clearing
+        // a field and saving an empty field behave the same in the UI.
+        let present = matches!(
+            store.get(&config_account(&id, &key)),
+            Ok(Some(value)) if !value.is_empty()
+        );
+        status.insert(key, present);
+    }
+    Ok(status)
+}
+
+/// Run a fresh, uncached search for a single plugin so the settings UI
+/// can verify a configuration before saving. Bypasses the result cache
+/// entirely and records/clears `last_error` accordingly.
+#[tauri::command]
+pub async fn plugins_test_search(
+    state: tauri::State<'_, Arc<PluginManager>>,
+    id: String,
+    query: String,
+) -> Result<Vec<PluginRawResult>, String> {
+    let row = db::plugins::get_plugin(&state.db, &id)?
+        .ok_or_else(|| format!("Plugin not found: {id}"))?;
+    // Re-read + re-evaluate from disk (not the in-memory map) so the
+    // test reflects the current file even if it was edited after load.
+    let source = std::fs::read_to_string(&row.file_path)
+        .map_err(|e| format!("read plugin file {}: {e}", row.file_path))?;
+    let descriptor = match runtime::evaluate_plugin(&source, &state.http) {
+        Ok(d) => d,
+        Err(e) => {
+            let _ = db::plugins::set_plugin_error(&state.db, &id, Some(&e));
+            return Err(format!("evaluate {id}: {e}"));
+        }
+    };
+    let config_json = plugin_config_json(&id, &row.manifest_json);
+    let http = state.http.clone();
+    let query_owned = query.clone();
+    let joined = tokio::time::timeout(
+        PLUGIN_SEARCH_TIMEOUT,
+        tokio::task::spawn_blocking(move || {
+            runtime::run_search(&descriptor, &query_owned, &config_json, &http)
+        }),
+    )
+    .await
+    .map_err(|_| {
+        format!(
+            "plugin {id} search timed out after {}s",
+            PLUGIN_SEARCH_TIMEOUT.as_secs()
+        )
+    })?
+    .map_err(|e| format!("plugin search task failed: {e}"))?;
+
+    match joined {
+        Ok(results) => {
+            // A successful test clears any stale error from a previous
+            // failing search.
+            let _ = db::plugins::set_plugin_error(&state.db, &id, None);
+            Ok(results)
+        }
+        Err(e) => {
+            let _ = db::plugins::set_plugin_error(&state.db, &id, Some(&e));
+            Err(e)
+        }
+    }
 }
 
 /// Merged download search: built-in sources first, then every enabled
@@ -668,7 +949,8 @@ pub async fn search_downloads(
             out.push(result);
         }
     }
-    Ok(out)
+    // 6. Collapse duplicate releases that share an infohash.
+    Ok(merge_by_infohash(out))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -813,7 +1095,10 @@ pub async fn search_downloads_stream(
     }
 
     let out = all_results.lock().await.clone();
-    Ok(out)
+    // Collapse duplicate releases that share an infohash (the per-source
+    // progress events above intentionally stay unmerged so the UI can
+    // render results as they arrive).
+    Ok(merge_by_infohash(out))
 }
 
 // ─── Mapping helpers ────────────────────────────────────────────────────────
@@ -842,6 +1127,15 @@ fn source_to_download_search_result(m: MatchedDownload) -> DownloadSearchResult 
         provenance: None,
         referer: None,
         platform_category: "pc".to_string(),
+        match_title: None,
+        file_list: None,
+        checksums: None,
+        version: None,
+        region: None,
+        cover_url: None,
+        description: None,
+        release_group: None,
+        recommended: None,
     }
 }
 
@@ -854,7 +1148,15 @@ fn raw_to_download_search_result(
     raw: &PluginRawResult,
     query: &str,
 ) -> Option<DownloadSearchResult> {
-    let match_score = source_manager::title_similarity(query, &raw.title);
+    // Score against `matchTitle` when the plugin supplies a clean one;
+    // the display `title` is left untouched.
+    let match_source = raw
+        .match_title
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(raw.title.as_str());
+    let match_score = source_manager::title_similarity(query, match_source);
     if match_score < MIN_MATCH_SCORE {
         return None;
     }
@@ -908,6 +1210,15 @@ fn raw_to_download_search_result(
         provenance: raw.provenance.clone(),
         referer: raw.referer.clone(),
         platform_category: normalize_platform_category(&row.platform_category),
+        match_title: raw.match_title.clone().filter(|s| !s.trim().is_empty()),
+        file_list: raw.file_list.clone().filter(|f| !f.is_empty()),
+        checksums: raw.checksums.clone().filter(|c| !c.is_empty()),
+        version: raw.version.clone().filter(|s| !s.is_empty()),
+        region: raw.region.clone().filter(|s| !s.is_empty()),
+        cover_url: raw.cover_url.clone().filter(|s| !s.is_empty()),
+        description: raw.description.clone().filter(|s| !s.is_empty()),
+        release_group: raw.release_group.clone().filter(|s| !s.is_empty()),
+        recommended: raw.recommended,
     })
 }
 
@@ -941,6 +1252,67 @@ fn normalize_platform_category(raw: &str) -> String {
         "hybrid" | "both" => "hybrid".to_string(),
         _ => "pc".to_string(),
     }
+}
+
+/// Effective cache TTL for a plugin: its manifest's `cacheTtlSecs` when
+/// present, clamped to `0..=3600` seconds, else the global default. A
+/// value of `0` disables caching (every search refetches).
+fn plugin_cache_ttl(row: &db::plugins::PluginRow) -> Duration {
+    let secs = serde_json::from_str::<serde_json::Value>(&row.manifest_json)
+        .ok()
+        .and_then(|v| v.get("cacheTtlSecs").and_then(|s| s.as_u64()));
+    match secs {
+        Some(s) => Duration::from_secs(s.min(3600)),
+        None => PLUGIN_CACHE_TTL,
+    }
+}
+
+/// Normalised form of an infohash for dedupe: trimmed + lowercased.
+fn normalize_infohash(raw: &str) -> String {
+    raw.trim().to_ascii_lowercase()
+}
+
+/// Collapse results that share a normalised, non-empty `infohash`:
+/// keep the first occurrence, append any `uris` the later duplicates
+/// carry, and keep the larger `seeds`/`peers`. Results without an
+/// infohash (and all differing hashes) pass through untouched.
+fn merge_by_infohash(results: Vec<DownloadSearchResult>) -> Vec<DownloadSearchResult> {
+    let mut out: Vec<DownloadSearchResult> = Vec::with_capacity(results.len());
+    let mut index: HashMap<String, usize> = HashMap::new();
+    for result in results {
+        let key = result
+            .infohash
+            .as_deref()
+            .map(normalize_infohash)
+            .filter(|h| !h.is_empty());
+        let Some(key) = key else {
+            out.push(result);
+            continue;
+        };
+        match index.get(&key) {
+            Some(&at) => {
+                let kept = &mut out[at];
+                for uri in result.uris {
+                    if !uri.is_empty() && !kept.uris.contains(&uri) {
+                        kept.uris.push(uri);
+                    }
+                }
+                kept.seeds = match (kept.seeds, result.seeds) {
+                    (Some(a), Some(b)) => Some(a.max(b)),
+                    (a, b) => a.or(b),
+                };
+                kept.peers = match (kept.peers, result.peers) {
+                    (Some(a), Some(b)) => Some(a.max(b)),
+                    (a, b) => a.or(b),
+                };
+            }
+            None => {
+                index.insert(key, out.len());
+                out.push(result);
+            }
+        }
+    }
+    out
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -1024,7 +1396,7 @@ mod tests {
                             continue;
                         }
                     };
-                    let results = match runtime::run_search(&descriptor, "elden ring", &http) {
+                    let results = match runtime::run_search(&descriptor, "elden ring", "{}", &http) {
                         Ok(r) => r,
                         Err(e) => {
                             failures.push(format!("{}: search: {e}", path.display()));
@@ -1125,7 +1497,7 @@ mod tests {
                 .expect("client");
 
             let descriptor = runtime::evaluate_plugin(&source, &http).expect("evaluate_plugin");
-            let results = runtime::run_search(&descriptor, "cult of the lamb", &http).expect("run_search");
+            let results = runtime::run_search(&descriptor, "cult of the lamb", "{}", &http).expect("run_search");
             (descriptor, results)
         })
         .await
@@ -1151,5 +1523,143 @@ mod tests {
         assert!(has_direct, "expected at least one direct download result");
         assert!(has_magnet, "expected at least one magnet result");
         assert!(has_torrent, "expected at least one torrent result");
+    }
+
+    /// Minimal `DownloadSearchResult` for the merge helper tests.
+    fn result_with(
+        infohash: Option<&str>,
+        uris: &[&str],
+        seeds: Option<u32>,
+        peers: Option<u32>,
+    ) -> DownloadSearchResult {
+        DownloadSearchResult {
+            id: String::new(),
+            source_name: String::new(),
+            source_id: String::new(),
+            title: String::new(),
+            file_size: String::new(),
+            uris: uris.iter().map(|s| s.to_string()).collect(),
+            magnet: None,
+            upload_date: None,
+            match_score: 1.0,
+            is_new: false,
+            provider: "plugin".to_string(),
+            plugin_id: None,
+            infohash: infohash.map(str::to_string),
+            seeds,
+            peers,
+            torrent_url: None,
+            verified: None,
+            detail_url: None,
+            platform: None,
+            provenance: None,
+            referer: None,
+            platform_category: "pc".to_string(),
+            match_title: None,
+            file_list: None,
+            checksums: None,
+            version: None,
+            region: None,
+            cover_url: None,
+            description: None,
+            release_group: None,
+            recommended: None,
+        }
+    }
+
+    #[test]
+    fn merge_by_infohash_merges_shared_and_keeps_distinct() {
+        // The first two share a hash modulo case/whitespace and must
+        // collapse (union uris, keep the larger seeds/peers); the
+        // different hash and the hashless result stay separate.
+        let merged = merge_by_infohash(vec![
+            result_with(Some("ABC123"), &["magnet:a"], Some(5), Some(1)),
+            result_with(Some("  abc123 "), &["magnet:b", "magnet:a"], Some(9), Some(2)),
+            result_with(Some("deadbeef"), &["magnet:c"], Some(1), None),
+            result_with(None, &["magnet:d"], None, None),
+        ]);
+        assert_eq!(merged.len(), 3, "same hash merges, others stay separate");
+        let first = &merged[0];
+        assert_eq!(first.uris, vec!["magnet:a", "magnet:b"]);
+        assert_eq!(first.seeds, Some(9));
+        assert_eq!(first.peers, Some(2));
+        assert!(merged
+            .iter()
+            .any(|r| r.infohash.as_deref() == Some("deadbeef")));
+        assert!(merged.iter().any(|r| r.infohash.is_none()));
+    }
+
+    #[test]
+    fn manifest_json_round_trip_preserves_extended_fields() {
+        let manifest = runtime::PluginManifest {
+            id: "demo".into(),
+            name: "Demo".into(),
+            version: "1.0.0".into(),
+            author: "me".into(),
+            description: "desc".into(),
+            source_url: "https://example.com".into(),
+            platform_category: "hybrid".into(),
+            allowed_hosts: vec!["example.com".into()],
+            rate_limit_ms: 500,
+            cache_ttl_secs: Some(120),
+            icon: Some("https://example.com/icon.png".into()),
+            homepage: Some("https://example.com".into()),
+            capabilities: vec!["search".into(), "direct".into()],
+            config: vec![runtime::PluginConfigField {
+                key: "apiKey".into(),
+                label: "API key".into(),
+                secret: true,
+                required: true,
+                placeholder: Some("sk-...".into()),
+                description: Some("your key".into()),
+            }],
+        };
+        let json = serde_json::to_string(&manifest).expect("serialize manifest");
+        // The stored blob is camelCase, which `plugin_cache_ttl` reads.
+        assert!(json.contains("\"cacheTtlSecs\":120"), "json was {json}");
+        assert!(json.contains("\"allowedHosts\":[\"example.com\"]"));
+        let back: runtime::PluginManifest =
+            serde_json::from_str(&json).expect("deserialize manifest");
+        assert_eq!(manifest, back);
+    }
+
+    #[test]
+    fn config_account_sanitizes_to_keychain_alphabet() {
+        // Ids allow `-`; keys may be arbitrary. Both fold to [a-z0-9_]
+        // and the `plugin_` prefix separates them from other entries.
+        assert_eq!(
+            config_account("my-plugin", "apiKey"),
+            "plugin_my_plugin_apikey"
+        );
+        assert_eq!(
+            config_account("Rom-Fun.2", "client.id/secret"),
+            "plugin_rom_fun_2_client_id_secret"
+        );
+        // Already-clean values are left alone, and the transform is
+        // deterministic (same input -> same account).
+        assert_eq!(config_account("abc_123", "key_1"), "plugin_abc_123_key_1");
+        assert_eq!(
+            config_account("my-plugin", "apiKey"),
+            config_account("my-plugin", "apiKey")
+        );
+    }
+
+    #[test]
+    fn config_json_tolerates_missing_values() {
+        let declared = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let mut stored = HashMap::new();
+        stored.insert("a".to_string(), "secret-a".to_string());
+        // `b` is declared but unset and `c` is not stored at all — both
+        // must be omitted rather than nulled.
+        let json = config_json(&declared, &stored);
+        assert_eq!(json, r#"{"a":"secret-a"}"#);
+
+        // Nothing configured -> still a valid empty JSON object so
+        // legacy plugins that ignore the second search argument work.
+        assert_eq!(config_json(&[], &HashMap::new()), "{}");
+        assert_eq!(
+            config_json(&["missing".to_string()], &HashMap::new()),
+            "{}"
+        );
     }
 }

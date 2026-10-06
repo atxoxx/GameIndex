@@ -171,6 +171,10 @@ pub fn run() {
             plugins::plugins_remove,
             plugins::plugins_toggle,
             plugins::plugins_set_all_enabled,
+            plugins::plugins_set_config,
+            plugins::plugins_clear_config,
+            plugins::plugins_config_status,
+            plugins::plugins_test_search,
             plugins::search_downloads,
             // Backup & restore of the local domain databases (Settings → Backup).
             backup::backup_get_status,
