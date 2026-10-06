@@ -8171,6 +8171,7 @@ mod store_search_ranking_tests {
             first_release_date: year.map(ts_for_year),
             total_rating_count: rating_count,
             hypes: None,
+            follows: None,
             game_type,
             websites: None,
         }
