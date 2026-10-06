@@ -79,14 +79,22 @@ rusqlite = { version = "0.31", features = ["bundled", "backup"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.24"
 # OS keychain for OAuth tokens / debrid API keys (Phase 4).
-# Default features include apple-native (macOS Keychain),
-# windows-native (Credential Manager), and crypto-rust. We
-# additionally opt into sync-secret-service so Linux boxes with
-# Gnome Keyring / KWallet work out of the box. `crypto-rust`
-# (default) avoids the openssl-sys transitive dep — we deliberately
-# do NOT use `vendored` (that's an openssl-sys feature, not
-# keyring's).
-keyring = { version = "3", features = ["sync-secret-service"] }
+# keyring 3 ships NO default features, so each native backend must be
+# opted into explicitly — without windows-native / apple-native it
+# silently falls back to the in-memory mock store (secrets appear to
+# save, then read back as NoEntry on the next Entry). We enable
+# windows-native (Credential Manager), apple-native (macOS Keychain)
+# and sync-secret-service for Linux boxes with Gnome Keyring /
+# KWallet. `crypto-rust` keeps the secret-service transport encrypted
+# with a pure-Rust impl and avoids the openssl-sys transitive dep — we
+# deliberately do NOT use `vendored` (that's an openssl-sys feature,
+# not keyring's).
+keyring = { version = "3", features = [
+    "windows-native",
+    "apple-native",
+    "sync-secret-service",
+    "crypto-rust",
+] }
 # Steam login helpers (encrypt_password + token extraction).
 # Phase 4 keeps these crates here because the original Steam
 # auth.rs already used them; the migration only changes WHERE we

@@ -68,3 +68,50 @@ impl SecretStore {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SecretStore;
+
+    /// A secret written by one [`SecretStore`] must be readable by a
+    /// fresh one, i.e. it must actually reach the OS keystore.
+    ///
+    /// This is the regression guard for the mock-store trap: `keyring`
+    /// 3 has no default features, so if the platform backend
+    /// (`windows-native` / `apple-native` / `sync-secret-service`) is not
+    /// enabled the crate silently falls back to an in-memory mock whose
+    /// secrets never leave the `Entry` that set them. Writes report
+    /// success, then a new `Entry` reads `NoEntry` — the exact symptoms
+    /// behind "Nexus key saved" followed by "API key not set".
+    ///
+    /// Skips (rather than fails) where no keychain backend is reachable,
+    /// e.g. a headless Linux box without a Secret Service daemon.
+    #[test]
+    fn secret_round_trips_across_entries() {
+        let account = "gamelib_secret_store_test_roundtrip";
+        let store = SecretStore::new();
+        let _ = store.delete(account);
+
+        if store.set(account, "roundtrip-value").is_err() {
+            eprintln!("skipping: no OS keychain backend available");
+            return;
+        }
+        let read = SecretStore::new()
+            .get(account)
+            .expect("keyring get should not error");
+        assert_eq!(
+            read.as_deref(),
+            Some("roundtrip-value"),
+            "secret did not persist across entries — keyring is using the mock store"
+        );
+        store.delete(account).expect("cleanup test secret");
+    }
+
+    #[test]
+    fn missing_secret_reads_as_none() {
+        let account = "gamelib_secret_store_test_missing";
+        let store = SecretStore::new();
+        let _ = store.delete(account);
+        assert!(store.get(account).expect("get absent secret").is_none());
+    }
+}
