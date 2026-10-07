@@ -117,33 +117,52 @@ pub async fn browse(
     page_size: u32,
 ) -> Result<RemoteModSearch, String> {
     let key = key()?;
-    let endpoint = match sort {
-        "latest" => "latest_added",
-        "updated" => "latest_updated",
-        _ => "trending",
-    };
-    let url = format!("{API}/games/{external_id}/mods/{endpoint}.json");
-    let resp = http_client()
-        .get(&url)
-        .header("apikey", &key)
-        .send()
-        .await
-        .map_err(|e| format!("nexus browse: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("nexus browse: HTTP {}", resp.status()));
+    // The v1 API has no paginated "all mods" endpoint — each feed returns
+    // a small fixed window. Merge the three feeds and de-dupe so the
+    // browser still has a useful pool to page through.
+    let endpoints = ["latest_added", "latest_updated", "trending"];
+    let futures = endpoints.iter().map(|endpoint| {
+        let url = format!("{API}/games/{external_id}/mods/{endpoint}.json");
+        let key = key.clone();
+        async move {
+            let resp = http_client()
+                .get(&url)
+                .header("apikey", &key)
+                .send()
+                .await
+                .ok()?;
+            if !resp.status().is_success() {
+                return None;
+            }
+            resp.json::<Value>().await.ok()
+        }
+    });
+    let responses = futures::future::join_all(futures).await;
+
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut results: Vec<RemoteModSummary> = Vec::new();
+    let mut had_response = false;
+    for v in responses.into_iter().flatten() {
+        had_response = true;
+        let arr = first_array(&v, &["mods", "results", "data"])
+            .cloned()
+            .unwrap_or_default();
+        for item in &arr {
+            if let Some(m) = summary_from_item(external_id, item) {
+                if seen.insert(m.id.clone()) {
+                    results.push(m);
+                }
+            }
+        }
     }
-    let v: Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("nexus browse decode: {e}"))?;
-    let arr = first_array(&v, &["mods", "results", "data"]).cloned().unwrap_or_default();
+    if !had_response {
+        return Err("nexus browse: request failed".to_string());
+    }
+
     let q = normalize_name(query);
-    let mut results: Vec<RemoteModSummary> = arr
-        .iter()
-        .filter_map(|item| summary_from_item(external_id, item))
-        .filter(|m| {
-            q.is_empty()
-                || normalize_name(&m.name).contains(&q)
+    if !q.is_empty() {
+        results.retain(|m| {
+            normalize_name(&m.name).contains(&q)
                 || m.summary
                     .as_deref()
                     .map(|s| normalize_name(s).contains(&q))
@@ -152,9 +171,18 @@ pub async fn browse(
                     .as_deref()
                     .map(|a| normalize_name(a).contains(&q))
                     .unwrap_or(false)
-        })
-        .collect();
-    results.sort_by(|a, b| b.endorsements.unwrap_or(0).cmp(&a.endorsements.unwrap_or(0)));
+        });
+    }
+
+    match sort {
+        "latest" => results.sort_by(|a, b| b.created_at.cmp(&a.created_at)),
+        "updated" => results.sort_by(|a, b| b.updated_at.cmp(&a.updated_at)),
+        "downloads" => {
+            results.sort_by(|a, b| b.downloads.unwrap_or(0).cmp(&a.downloads.unwrap_or(0)))
+        }
+        _ => results.sort_by(|a, b| b.endorsements.unwrap_or(0).cmp(&a.endorsements.unwrap_or(0))),
+    }
+
     let total = results.len() as i64;
     let start = ((page.saturating_sub(1)) * page_size) as usize;
     let end = (start + page_size as usize).min(results.len());

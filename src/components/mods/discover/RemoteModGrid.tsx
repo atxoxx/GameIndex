@@ -64,6 +64,25 @@ export default function RemoteModGrid({
     return () => observer.disconnect();
   }, [hasMore, canObserve, onLoadMore, loading, loadingMore, results.length]);
 
+  // Scroll fallback: `scroll` with capture catches nested scroll
+  // containers the observer can miss, and covers environments without
+  // IntersectionObserver. `loadMore` itself guards against re-entry.
+  useEffect(() => {
+    if (!hasMore) return;
+    const check = () => {
+      const el = sentinelRef.current;
+      if (!el) return;
+      if (el.getBoundingClientRect().top <= window.innerHeight + 600) onLoadMore();
+    };
+    check();
+    window.addEventListener("scroll", check, true);
+    window.addEventListener("resize", check);
+    return () => {
+      window.removeEventListener("scroll", check, true);
+      window.removeEventListener("resize", check);
+    };
+  }, [hasMore, onLoadMore, results.length]);
+
   if (!hasSource) {
     return (
       <div className="mods-discover-empty">
