@@ -324,6 +324,12 @@ export default function Sidebar() {
     });
   }, [processedFilteredGames]);
 
+  // The alphabet rail (and the list gutter reserved for it) only appear
+  // when the section is enabled, the sidebar is expanded, and there are
+  // enough distinct letters to be worth indexing.
+  const showAlphabetRail =
+    alphabetRailVisible && !isIconRail && availableLetters.length > 3;
+
   const handleSelectLetter = useCallback(
     (letter: string) => {
       const target = processedFilteredGames.find((g) => {
@@ -884,7 +890,9 @@ export default function Sidebar() {
 
       {/* Main scrollable game list */}
       {gameListVisible && <div
-        className="sidebar-list"
+        className={
+          "sidebar-list" + (showAlphabetRail ? " sidebar-list--with-rail" : "")
+        }
         onClick={handleListClick}
         onContextMenu={handleListContextMenu}
         onKeyDown={handleListKeyDown}
@@ -1119,7 +1127,7 @@ export default function Sidebar() {
       </div>}
 
       {/* Alphabet Scrubber Rail (when sorted alphabetically or grouped by letter) */}
-      {alphabetRailVisible && !isIconRail && availableLetters.length > 3 && (
+      {showAlphabetRail && (
         <SidebarAlphabetScrubber
           availableLetters={availableLetters}
           onSelectLetter={handleSelectLetter}

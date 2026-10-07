@@ -8,6 +8,7 @@
   background: var(--color-bg-secondary);
   border-right: 1px solid var(--color-border);
   width: var(--sidebar-width);
+  position: relative;
   transition: width var(--duration-slow) var(--ease-standard), opacity var(--duration-normal) var(--ease-standard);
   box-shadow: inset 0 1px 0 var(--color-border-highlight), inset -1px 0 0 var(--color-border-faint);
 }
@@ -34,27 +35,29 @@ html[data-game-accent] .sidebar {
 }
 
 .sidebar-header {
-  padding: var(--space-md) var(--space-md) var(--space-xs);
+  padding: var(--space-md) var(--space-md) var(--space-sm);
 }
 
 .sidebar-search {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  height: 32px;
-  padding: 0 var(--space-md);
-  background: var(--color-surface);
+  height: 34px;
+  padding: 0 var(--space-sm) 0 var(--space-md);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 82%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
   transition: border-color var(--duration-fast) var(--ease-standard),
-    background var(--duration-fast) var(--ease-standard);
+    background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
   box-sizing: border-box;
 }
 
 .sidebar-search:focus-within {
   border-color: var(--color-accent);
   box-shadow: var(--ring-accent-soft);
-  background: var(--color-surface-raised);
+  background: var(--color-bg-tertiary);
 }
 
 .sidebar-search:focus-within .sidebar-search-icon {
@@ -130,22 +133,29 @@ html[data-game-accent] .sidebar {
 }
 
 .sidebar-divider {
-  margin: var(--space-xs) var(--space-md);
+  margin: var(--space-2xs) var(--space-sm);
   border: none;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border-faint);
 }
 
 .sidebar-divider--thin {
-  margin: var(--space-xs) var(--space-sm);
-  border-top-color: color-mix(in srgb, var(--color-border) 60%, transparent);
+  margin: var(--space-2xs) var(--space-sm);
+  border-top-color: color-mix(in srgb, var(--color-border) 45%, transparent);
 }
 
 .sidebar-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0 var(--space-sm) var(--space-lg);
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
+}
+
+/* Reserve a gutter for the alphabet rail so it never sits on top of the
+ * row status / pin column. */
+.sidebar-list--with-rail {
+  padding-right: calc(var(--space-lg) + 10px);
 }
 
 .sidebar-list::-webkit-scrollbar {
@@ -170,16 +180,23 @@ html[data-game-accent] .sidebar {
 
 .sidebar-list-header,
 .sidebar-section-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xs);
-  padding: var(--space-md) var(--space-sm) var(--space-xs);
+  padding: var(--space-md) var(--space-sm) var(--space-2xs);
+  background: color-mix(in srgb, var(--color-bg-secondary) 90%, transparent);
+  backdrop-filter: blur(10px) saturate(130%);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+  border-bottom: 1px solid var(--color-border-faint);
   font-size: var(--font-size-2xs);
-  font-weight: 700;
-  color: var(--color-text-muted);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   user-select: none;
 }
 
@@ -190,7 +207,7 @@ html[data-game-accent] .sidebar {
 }
 
 .sidebar-section-header .sidebar-section-title-text {
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
 .sidebar-section-header--collapsible {
@@ -307,13 +324,15 @@ html[data-game-accent] .sidebar {
 .sidebar-game-item {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background var(--duration-normal) var(--ease-standard),
+              border-color var(--duration-normal) var(--ease-standard),
               box-shadow var(--duration-normal) var(--ease-standard);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   position: relative;
   /* Full-width guarantee: combined with `box-sizing: border-box`
    * ensures the row paints edge-to-edge of its container. */
@@ -323,6 +342,7 @@ html[data-game-accent] .sidebar {
 
 .sidebar-game-item:hover {
   background: var(--color-bg-hover);
+  border-color: var(--color-border-faint);
   box-shadow: inset 0 1px 0 var(--color-border-highlight);
   /* No translateX: the previous 4px slide visually clipped the
    * right edge against the sidebar wall — making the highlight
@@ -337,12 +357,12 @@ html[data-game-accent] .sidebar {
 .sidebar-game-item::after {
   content: "";
   position: absolute;
-  left: 0;
+  left: -1px;
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 24px;
-  border-radius: var(--radius-full);
+  height: 22px;
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
   background: transparent;
   pointer-events: none;
   transition: background var(--duration-normal) var(--ease-standard);
@@ -359,6 +379,7 @@ html[data-game-accent] .sidebar {
     var(--color-accent) 12%,
     var(--color-surface-raised)
   );
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 /* Hover after active */
@@ -368,6 +389,7 @@ html[data-game-accent] .sidebar {
     var(--color-accent) 16%,
     var(--color-surface-raised)
   );
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 /* Keyboard focus: an inset accent ring so the outline follows the
@@ -396,12 +418,12 @@ html[data-game-accent] .sidebar {
   height: 36px;
   border-radius: var(--radius-sm);
   background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-faint);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast),
     box-shadow var(--transition-fast),
     border-color var(--transition-fast);
@@ -461,8 +483,6 @@ html[data-game-accent] .sidebar {
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
-  padding-right: 28px;
-  box-sizing: border-box;
   min-width: 0;
 }
 
@@ -880,10 +900,12 @@ html[data-game-accent] .sidebar {
  * they win the specificity tie for hover/active rows. */
 .sidebar-game-item.has-icon .sidebar-game-icon {
   background: transparent;
+  border-color: transparent;
   box-shadow: none;
 }
 
 .sidebar-game-item.has-icon:hover .sidebar-game-icon {
+  border-color: transparent;
   box-shadow: none;
 }
 
@@ -929,19 +951,6 @@ html[data-game-accent] .sidebar {
  * Sidebar component via `.sidebar-pinned-section::before` (added
  * by Sidebar.tsx inline because pure-CSS hooks are simpler than
  * restructuring the divider HTML). */
-.sidebar-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-sm) var(--space-2xs);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
 .sidebar-section-header svg {
   width: 11px;
   height: 11px;
@@ -982,7 +991,7 @@ html[data-game-accent] .sidebar {
 .sidebar-active-filters {
   display: flex;
   gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-lg) var(--space-xs);
+  padding: var(--space-2xs) var(--space-md) var(--space-xs);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -991,7 +1000,15 @@ html[data-game-accent] .sidebar {
   display: none;
 }
 
-/* .sidebar-active-filter primitive in ui.css — wrapper only */
+/* .sidebar-active-filter primitive in ui.css — wrapper only. The
+ * sidebar-scoped override below tightens the shared primitive so chips
+ * fit the narrow column without feeling oversized. */
+.sidebar-active-filters .sidebar-active-filter {
+  padding: 3px var(--space-sm);
+  gap: var(--space-2xs);
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+}
 
 .sidebar-active-filter__remove {
   display: inline-flex;
@@ -1210,7 +1227,7 @@ html[data-game-accent] .sidebar {
 .sidebar-game-play {
   position: absolute;
   top: 50%;
-  right: 12px; /* row horizontal padding — sits on the status-dot column */
+  right: 8px; /* row horizontal padding — sits on the status-dot column */
   transform: translateY(-50%) scale(0.85);
   width: 24px;
   height: 24px;
@@ -1349,15 +1366,7 @@ html[data-game-accent] .sidebar {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
-}
-
-.sidebar-header-title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  letter-spacing: 0.3px;
-  flex: 1;
+  margin-bottom: var(--space-sm);
 }
 
 /* Sidebar collapse toggle (replaces import button in icon-rail
@@ -1420,7 +1429,7 @@ html[data-game-accent] .sidebar {
   align-items: center;
   justify-content: center;
   position: relative;
-  width: 38px;
+  width: 40px;
   flex-shrink: 0;
   padding: 0;
   background: color-mix(in srgb, var(--color-bg-tertiary) 86%, transparent);
@@ -1679,11 +1688,11 @@ html[data-game-accent] .sidebar {
  * paint skip. */
 .sidebar-game-item {
   content-visibility: auto;
-  /* 52px ≈ 8px top pad + 36px cover + 8px bottom pad; the
-   * estimated intrinsic-size MUST be close to the actual row
+  /* 50px ≈ 6px top pad + 36px cover + 6px bottom pad + 2px border;
+   * the estimated intrinsic-size MUST be close to the actual row
    * height, otherwise the scrollbar jerks as rows
    * enter/leave the visible viewport. */
-  contain-intrinsic-size: 52px;
+  contain-intrinsic-size: 50px;
 }
 
 
@@ -1693,29 +1702,35 @@ html[data-game-accent] .sidebar {
   margin-top: var(--space-sm);
 }
 
-.sidebar-import-btn {
+/* Slim, understated "add games" affordance. The dashed border reads as
+ * an empty drop target rather than a competing call to action; hover
+ * warms it with an accent tint instead of a full accent fill. The
+ * compound selectors are deliberate: they outrank the generic
+ * `.ui-btn--secondary` variant from ui.css. */
+.sidebar-import-btn.ui-btn--secondary {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: var(--space-xs);
   width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-tertiary) 86%, transparent);
-  border: 1px solid var(--color-border);
+  height: 34px;
+  padding: 0 var(--space-md);
+  background: transparent;
+  border: 1px dashed var(--color-border-light);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
-  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: none;
   transition: color var(--transition-fast),
     background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-sm);
+    border-color var(--transition-fast);
 }
 
-.sidebar-import-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent-contrast);
-  background: var(--color-accent);
-  box-shadow: 0 4px 15px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 20%, transparent);
+.sidebar-import-btn.ui-btn--secondary:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
 }
 
 .sidebar-import-btn:focus-visible {
@@ -1723,9 +1738,13 @@ html[data-game-accent] .sidebar {
   box-shadow: var(--ring-accent-soft);
 }
 
+.sidebar-import-btn .ui-btn__icon--left {
+  color: var(--color-accent);
+}
+
 .sidebar-import-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
 }
 
@@ -2219,13 +2238,6 @@ html[data-game-accent] .sidebar {
    ============================================================================ */
 
 /* ── Sidebar Header Toolbar & Quick Filters ── */
-.sidebar-header-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-xs);
-}
-
 .sidebar-header-actions-row {
   display: flex;
   align-items: center;
@@ -2237,33 +2249,38 @@ html[data-game-accent] .sidebar {
 .sidebar-header-title {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  padding-left: 2px;
 }
 
 .sidebar-header-tools {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
 }
 
 .sidebar-header-tool-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   padding: 0;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: transparent;
   border: 1px solid transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-standard);
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
 }
 
 .sidebar-header-tool-btn:hover {
@@ -2279,8 +2296,8 @@ html[data-game-accent] .sidebar {
 }
 
 .sidebar-header-tool-btn svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 /* ── View Options Dropdown Menu ── */
@@ -2576,57 +2593,89 @@ html[data-game-accent] .sidebar {
   }
 }
 
-/* ── Alphabet Quick Scrubber Rail ── */
+/* ── Alphabet Quick Scrubber Rail ──
+ * Vertically centred over the game list, so it never collides with the
+ * (variable-height) header or the stats footer. It stays faint until
+ * the sidebar is hovered, then reveals a quiet surface when the rail
+ * itself is hovered.
+ *
+ * The hover states deliberately use ONLY colour/opacity/shadow — never
+ * `transform` or `backdrop-filter`. The previous letter `scale()` made
+ * the browser scroll the rail's own overflow container to keep the
+ * enlarged glyph in view, which read as the whole rail jumping. */
 .sidebar-alphabet-scrubber {
   position: absolute;
   right: 8px;
-  top: 140px;
-  bottom: 48px;
-  max-height: calc(var(--app-h) - 188px);
+  top: 50%;
+  transform: translateY(-50%);
+  max-height: calc(100% - 210px);
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1px;
+  padding: var(--space-2xs) 1px;
+  border-radius: var(--radius-full);
   z-index: 3;
   pointer-events: auto;
   user-select: none;
-  opacity: 0.35;
-  transition: opacity var(--duration-normal);
+  opacity: 0.4;
+  transition: opacity var(--duration-normal) var(--ease-standard),
+    background var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard);
 }
 
 .sidebar:hover .sidebar-alphabet-scrubber {
-  opacity: 0.9;
+  opacity: 1;
+}
+
+.sidebar-alphabet-scrubber:hover {
+  background: color-mix(in srgb, var(--color-bg-primary) 78%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-border-faint);
 }
 
 .sidebar-alphabet-scrubber__btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 12px;
-  font-size: 8px;
+  width: 16px;
+  height: 11px;
+  font-size: 9px;
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   border: none;
   background: transparent;
   padding: 0;
   cursor: pointer;
-  border-radius: 2px;
-  transition: all var(--duration-fast);
+  border-radius: var(--radius-xs);
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
 }
 
 .sidebar-alphabet-scrubber__btn:hover {
   color: var(--color-accent);
   background: var(--color-bg-hover);
-  transform: scale(1.4);
 }
 
 .sidebar-alphabet-scrubber__btn.active {
   color: var(--color-accent);
   font-weight: var(--font-weight-extrabold);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+/* Right-docked sidebar: mirror the rail to the inner (left) edge and
+ * move the reserved gutter with it. */
+html[data-sidebar-position="right"] .sidebar-alphabet-scrubber {
+  right: auto;
+  left: 8px;
+}
+
+html[data-sidebar-position="right"] .sidebar-list--with-rail {
+  padding-right: var(--space-sm);
+  padding-left: calc(var(--space-lg) + 10px);
 }
 
 /* ── Interactive Resize Handle ── */
@@ -2686,58 +2735,89 @@ html[data-sidebar-position="right"] .sidebar-resize-handle {
   display: none !important;
 }
 
-/* ── Mini Stats Footer ── */
+/* ── Mini Stats Footer ──
+ * Three even cells (value over an uppercase label) separated by
+ * hairlines, so the numbers scan as a small dashboard rather than a
+ * loose row of icon+number pairs. */
 .sidebar-stats-footer {
-  padding: 6px var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-primary) 65%, var(--color-bg-secondary));
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in srgb, var(--color-bg-primary) 72%, var(--color-bg-secondary));
   border-top: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--color-text-muted);
   flex-shrink: 0;
-  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 1px 0 var(--color-border-faint);
 }
 
 .sidebar-stats-footer__items {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
   width: 100%;
-  gap: var(--space-xs);
 }
 
 .sidebar-stats-footer__item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0 var(--space-2xs);
+  border: none;
+  background: none;
+  font-family: inherit;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-stats-footer__item + .sidebar-stats-footer__item {
+  border-left: 1px solid var(--color-border-faint);
+}
+
+.sidebar-stats-footer__main {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-medium);
 }
 
 .sidebar-stats-footer__item svg {
   width: 12px;
   height: 12px;
-  opacity: 0.75;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.sidebar-stats-footer__value {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  line-height: 1.2;
+}
+
+.sidebar-stats-footer__label {
+  max-width: 100%;
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-stats-footer__item--clickable {
-  background: none;
-  border: none;
-  padding: 2px 4px;
-  border-radius: var(--radius-xs);
-  color: var(--color-text-muted);
   cursor: pointer;
-  transition: all var(--duration-fast);
+  border-radius: var(--radius-xs);
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
 .sidebar-stats-footer__item--clickable:hover {
   background: var(--color-bg-hover);
+}
+
+.sidebar-stats-footer__item--clickable:hover .sidebar-stats-footer__value {
   color: var(--color-success);
 }
 
@@ -2747,6 +2827,7 @@ html[data-sidebar-position="right"] .sidebar-resize-handle {
   border-radius: 50%;
   background: var(--color-success);
   box-shadow: 0 0 4px var(--color-success);
+  flex-shrink: 0;
 }
 
 /* ── Group Sections Container ── */

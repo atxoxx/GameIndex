@@ -6,8 +6,9 @@ import type { SidebarStatsFooterProps } from "./types";
 /**
  * SidebarStatsFooter
  * ──────────────────
- * Sticky bottom library overview bar displaying total titles, installed titles,
- * and total hours played.
+ * Sticky bottom library overview bar. Three evenly-spaced cells read
+ * top-to-bottom as value → label, so the numbers stay scannable at a
+ * glance while the labels clarify what each figure means.
  */
 function SidebarStatsFooterBase({
   stats,
@@ -22,12 +23,18 @@ function SidebarStatsFooterBase({
       aria-label={t("sidebar.statsAria")}
     >
       <div className="sidebar-stats-footer__items">
-        <div className="sidebar-stats-footer__item" title={t("sidebar.statsTotalTooltip", { count: stats.total })}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="6" width="20" height="12" rx="2" />
-            <path d="M6 12h4m-2-2v4m7-2h.01m3 0h.01" />
-          </svg>
-          <span>{stats.total}</span>
+        <div
+          className="sidebar-stats-footer__item"
+          title={t("sidebar.statsTotalTooltip", { count: stats.total })}
+        >
+          <span className="sidebar-stats-footer__main">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <path d="M6 12h4m-2-2v4m7-2h.01m3 0h.01" />
+            </svg>
+            <span className="sidebar-stats-footer__value">{stats.total}</span>
+          </span>
+          <span className="sidebar-stats-footer__label">{t("bigscreen.friends.games")}</span>
         </div>
 
         <button
@@ -36,16 +43,27 @@ function SidebarStatsFooterBase({
           onClick={onFilterInstalled}
           title={t("sidebar.statsInstalledTooltip", { count: stats.installed })}
         >
-          <span className="sidebar-stats-footer__dot" aria-hidden="true" />
-          <span>{stats.installed}</span>
+          <span className="sidebar-stats-footer__main">
+            <span className="sidebar-stats-footer__dot" aria-hidden="true" />
+            <span className="sidebar-stats-footer__value">{stats.installed}</span>
+          </span>
+          <span className="sidebar-stats-footer__label">{t("filter.installed")}</span>
         </button>
 
-        <div className="sidebar-stats-footer__item" title={t("sidebar.statsPlaytimeTooltip")}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          <span>{formatMinutesTotal(stats.totalPlaytimeMinutes)}</span>
+        <div
+          className="sidebar-stats-footer__item"
+          title={t("sidebar.statsPlaytimeTooltip")}
+        >
+          <span className="sidebar-stats-footer__main">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span className="sidebar-stats-footer__value">
+              {formatMinutesTotal(stats.totalPlaytimeMinutes)}
+            </span>
+          </span>
+          <span className="sidebar-stats-footer__label">{t("sidebar.metaShowPlaytime")}</span>
         </div>
       </div>
     </footer>
