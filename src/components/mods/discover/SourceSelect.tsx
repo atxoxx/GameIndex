@@ -1,6 +1,7 @@
-// Dropdown of mod websites detected for the selected game.
+// Website picker for the selected game, rendered as a row of chips so
+// every detected source is visible at a glance (with its status).
 
-import { Settings2, RefreshCw } from "lucide-react";
+import { RefreshCw, Settings2 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { ModSourceInfo } from "../../../types/mods";
 import "./mods-discover.css";
@@ -16,6 +17,12 @@ interface SourceSelectProps {
   disabled: boolean;
 }
 
+function statusOf(s: ModSourceInfo): "ready" | "needs-key" | "unmapped" {
+  if (s.available) return "ready";
+  if (s.requiresCredential && !s.hasCredential) return "needs-key";
+  return "unmapped";
+}
+
 export default function SourceSelect({
   sources,
   value,
@@ -27,68 +34,67 @@ export default function SourceSelect({
   disabled,
 }: SourceSelectProps) {
   const { t } = useLanguage();
-  const available = sources.filter((s) => s.available);
-  const unavailable = sources.filter((s) => !s.available);
 
   return (
-    <div className="mods-discover-field mods-discover-field--source">
-      <label className="mods-discover-label" htmlFor="mods-discover-source">
-        {t("mods.discover.source")}
-      </label>
-      <div className="mods-discover-source-row">
-        <select
-          id="mods-discover-source"
-          className="mods-discover-select"
-          value={value ?? ""}
-          disabled={disabled || loading}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="" disabled>
-            {loading ? t("mods.discover.detecting") : t("mods.discover.selectSource")}
-          </option>
-          {available.length > 0 && (
-            <optgroup label={t("mods.discover.detectedGroup")}>
-              {available.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                  {s.externalLabel ? ` · ${s.externalLabel}` : ""}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {unavailable.length > 0 && (
-            <optgroup label={t("mods.discover.otherGroup")}>
-              {unavailable.map((s) => (
-                <option key={s.id} value={s.id} disabled>
-                  {s.name}
-                  {s.note ? ` — ${s.note}` : ""}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
-        <button
-          type="button"
-          className="mods-discover-icon-btn"
-          onClick={onResolve}
-          disabled={disabled || resolving}
-          title={t("mods.discover.detectSources")}
-          aria-label={t("mods.discover.detectSources")}
-        >
-          <RefreshCw size={15} className={resolving ? "spinning" : undefined} />
-        </button>
-        <button
-          type="button"
-          className="mods-discover-icon-btn"
-          onClick={onConfigure}
-          title={t("mods.discover.manageSources")}
-          aria-label={t("mods.discover.manageSources")}
-        >
-          <Settings2 size={15} />
-        </button>
+    <div className="mods-discover-sources">
+      <div className="mods-discover-sources-head">
+        <span className="mods-discover-label">{t("mods.discover.source")}</span>
+        <div className="mods-discover-sources-actions">
+          <button
+            type="button"
+            className="mods-discover-icon-btn"
+            onClick={onResolve}
+            disabled={disabled || resolving}
+            title={t("mods.discover.detectSources")}
+            aria-label={t("mods.discover.detectSources")}
+          >
+            <RefreshCw size={15} className={resolving ? "spinning" : undefined} />
+          </button>
+          <button
+            type="button"
+            className="mods-discover-icon-btn"
+            onClick={onConfigure}
+            title={t("mods.discover.manageSources")}
+            aria-label={t("mods.discover.manageSources")}
+          >
+            <Settings2 size={15} />
+          </button>
+        </div>
       </div>
-      {!loading && available.length === 0 && (
+
+      {loading && sources.length === 0 ? (
+        <div className="mods-discover-chips">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <span key={i} className="mods-discover-chip mods-discover-chip--skeleton" />
+          ))}
+        </div>
+      ) : sources.length === 0 ? (
         <p className="mods-discover-hint">{t("mods.discover.noSources")}</p>
+      ) : (
+        <div className="mods-discover-chips" role="listbox" aria-label={t("mods.discover.source")}>
+          {sources.map((s) => {
+            const status = statusOf(s);
+            const selected = s.id === value;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                disabled={disabled || !s.available}
+                title={s.note ?? s.externalLabel ?? s.name}
+                className={`mods-discover-chip mods-discover-chip--${status}${selected ? " is-selected" : ""}`}
+                onClick={() => onChange(s.id)}
+              >
+                <span className="mods-discover-chip-dot" aria-hidden="true" />
+                <span className="mods-discover-chip-name">{s.name}</span>
+                {s.externalLabel && status === "ready" && (
+                  <span className="mods-discover-chip-ref">{s.externalLabel}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );

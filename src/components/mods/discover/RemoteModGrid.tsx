@@ -22,6 +22,7 @@ interface RemoteModGridProps {
   hasSource: boolean;
   view: DiscoverView;
   total?: number;
+  installedKeys: Set<string>;
   onOpen: (mod: RemoteModSummary) => void;
   onOpenExternal: (mod: RemoteModSummary) => void;
   onLoadMore: () => void;
@@ -38,6 +39,7 @@ export default function RemoteModGrid({
   hasSource,
   view,
   total,
+  installedKeys,
   onOpen,
   onOpenExternal,
   onLoadMore,
@@ -140,6 +142,7 @@ export default function RemoteModGrid({
             <RemoteModCard
               key={`${mod.source}:${mod.id}`}
               mod={mod}
+              installed={installedKeys.has(`${mod.source}:${mod.id}`)}
               onOpen={onOpen}
               onOpenExternal={onOpenExternal}
             />
@@ -151,6 +154,7 @@ export default function RemoteModGrid({
             <RemoteModRow
               key={`${mod.source}:${mod.id}`}
               mod={mod}
+              installed={installedKeys.has(`${mod.source}:${mod.id}`)}
               onOpen={onOpen}
               onOpenExternal={onOpenExternal}
             />

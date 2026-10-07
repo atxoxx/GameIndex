@@ -34,6 +34,32 @@ export function formatRemoteDate(raw?: string): string | null {
   return date.toLocaleDateString();
 }
 
+/** Compact relative time ("3d", "2mo") for timestamps in cards. */
+export function relativeTime(raw?: string): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let date: Date;
+  if (/^\d+$/.test(trimmed)) {
+    const num = Number(trimmed);
+    date = new Date(num > 1e12 ? num : num * 1000);
+  } else {
+    date = new Date(trimmed);
+  }
+  if (Number.isNaN(date.getTime())) return null;
+  const sec = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+  if (sec < 90) return "now";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.round(hr / 24);
+  if (day < 30) return `${day}d`;
+  const mo = Math.round(day / 30);
+  if (mo < 12) return `${mo}mo`;
+  return `${Math.round(mo / 12)}y`;
+}
+
 /** Sites return HTML descriptions; render them as readable plain text. */
 export function htmlToText(raw?: string): string {
   if (!raw) return "";

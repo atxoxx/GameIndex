@@ -1,22 +1,28 @@
 // List-layout row for one remote mod result.
 
 import { useState } from "react";
-import { Download, ExternalLink, ThumbsUp } from "lucide-react";
+import { Check, Download, ExternalLink, ThumbsUp } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { RemoteModSummary } from "../../../types/mods";
-import { formatCount, formatRemoteDate, sourceLabel } from "./format";
+import { formatCount, relativeTime, sourceLabel } from "./format";
 import "./mods-discover.css";
 
 interface RemoteModRowProps {
   mod: RemoteModSummary;
+  installed?: boolean;
   onOpen: (mod: RemoteModSummary) => void;
   onOpenExternal: (mod: RemoteModSummary) => void;
 }
 
-export default function RemoteModRow({ mod, onOpen, onOpenExternal }: RemoteModRowProps) {
+export default function RemoteModRow({
+  mod,
+  installed,
+  onOpen,
+  onOpenExternal,
+}: RemoteModRowProps) {
   const { t } = useLanguage();
   const [broken, setBroken] = useState(false);
-  const updated = formatRemoteDate(mod.updatedAt);
+  const updated = relativeTime(mod.updatedAt);
 
   return (
     <div className="mods-discover-row">
@@ -36,6 +42,11 @@ export default function RemoteModRow({ mod, onOpen, onOpenExternal }: RemoteModR
         <div className="mods-discover-row-info">
           <div className="mods-discover-row-topline">
             <span className="mods-discover-row-name">{mod.name}</span>
+            {installed && (
+              <span className="mods-discover-row-installed">
+                <Check size={11} /> {t("mods.discover.installedBadge")}
+              </span>
+            )}
             <span className="mods-discover-row-source">{sourceLabel(mod.source)}</span>
           </div>
           <span className="mods-discover-row-author">

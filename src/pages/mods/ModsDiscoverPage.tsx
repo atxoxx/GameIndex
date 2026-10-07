@@ -21,18 +21,16 @@ import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button, PageHeader } from "../../components/ui";
+import MultiSelectDropdown from "../../components/ui/MultiSelectDropdown";
 import SourceSelect from "../../components/mods/discover/SourceSelect";
 import SourceConfigModal from "../../components/mods/discover/SourceConfigModal";
+import DiscoverHero from "../../components/mods/discover/DiscoverHero";
 import RemoteModGrid, {
   type DiscoverView,
 } from "../../components/mods/discover/RemoteModGrid";
 import RemoteModDetailModal from "../../components/mods/discover/RemoteModDetailModal";
 import { sourceLabel, formatRemoteDate } from "../../components/mods/discover/format";
-import {
-  useModBrowse,
-  useModSources,
-  useRemoteInstalls,
-} from "../../hooks/useModDiscover";
+import { useModBrowse, useModSources, useRemoteInstalls } from "../../hooks/useModDiscover";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { gameDisplayName } from "../../types/game";
 import type { RemoteModSummary } from "../../types/mods";
@@ -55,13 +53,12 @@ export default function ModsDiscoverPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [gameId, setGameId] = useState<string | null>(
-    searchParams.get("gameId"),
-  );
-  const [sourceId, setSourceId] = useState<string | null>(null);
+  const [gameId, setGameId] = useState<string | null>(searchParams.get("gameId"));
+  const [sourceId, setSourceId] = useState<string | null>(searchParams.get("source"));
   const [configOpen, setConfigOpen] = useState(false);
   const [activeMod, setActiveMod] = useState<RemoteModSummary | null>(null);
   const [category, setCategory] = useState("all");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [view, setView] = usePersistedState<DiscoverView>(
     "gamelib.mods.discover.view_v1",
     "grid",
@@ -77,7 +74,6 @@ export default function ModsDiscoverPage() {
   );
 
   const selectedGame = candidates.find((g) => g.id === gameId) ?? null;
-  const gameName = selectedGame ? gameDisplayName(selectedGame) : undefined;
 
   const { sources, loading, resolving, resolveAll, setCredential, setLink, clearLink } =
     useModSources(gameId);
@@ -91,10 +87,18 @@ export default function ModsDiscoverPage() {
   const installs = useRemoteInstalls(gameId);
   const autoResolvedRef = useRef<string | null>(null);
 
+  const availableCount = useMemo(
+    () => sources.filter((s) => s.available).length,
+    [sources],
+  );
+
+  const installedKeys = useMemo(
+    () => new Set(installs.installs.map((i) => `${i.source}:${i.sourceModId}`)),
+    [installs.installs],
+  );
+
   // Detect the websites a game lives on, once per game — even when
-  // another site is already mapped (a Steam game always has Workshop,
-  // which previously suppressed detection for everything else). A
-  // per-game timestamp keeps us from re-hitting the network every visit.
+  // another site is already mapped (a Steam game always has Workshop).
   useEffect(() => {
     if (!gameId || loading || resolving || sources.length === 0) return;
     if (autoResolvedRef.current === gameId) return;
@@ -135,11 +139,14 @@ export default function ModsDiscoverPage() {
 
   // Keep the URL shareable.
   useEffect(() => {
-    if (gameId && searchParams.get("gameId") !== gameId) {
-      setSearchParams({ gameId }, { replace: true });
+    const next: Record<string, string> = {};
+    if (gameId) next.gameId = gameId;
+    if (sourceId) next.source = sourceId;
+    if (searchParams.get("gameId") !== next.gameId || searchParams.get("source") !== next.source) {
+      setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId]);
+  }, [gameId, sourceId]);
 
   // Pick a source whenever the game changes: prefer the one this game
   // used last, else the first detected/available one.
@@ -153,7 +160,7 @@ export default function ModsDiscoverPage() {
     try {
       stored = gameId ? localStorage.getItem(sourcePrefKey(gameId)) : null;
     } catch {
-      /* localStorage may be unavailable */
+      /* ignore */
     }
     const remembered = stored
       ? (sources.find((s) => s.id === stored && s.available) ?? null)
@@ -171,7 +178,7 @@ export default function ModsDiscoverPage() {
     }
   };
 
-  // Category facets are derived from the current result page.
+  // Facets are derived from the current result page.
   const categories = useMemo(
     () =>
       Array.from(
@@ -183,17 +190,39 @@ export default function ModsDiscoverPage() {
       ).sort((a, b) => a.localeCompare(b)),
     [browse.results],
   );
-  const visibleResults = useMemo(
+  const tagCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of browse.results) {
+      for (const tag of r.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    return counts;
+  }, [browse.results]);
+  const tagOptions = useMemo(
     () =>
-      category === "all"
-        ? browse.results
-        : browse.results.filter((r) => r.category === category),
-    [browse.results, category],
+      Array.from(tagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 24)
+        .map(([tag]) => tag),
+    [tagCounts],
+  );
+  const tagCountMap = useMemo(
+    () => Object.fromEntries(tagCounts.entries()),
+    [tagCounts],
   );
 
-  // Reset the category filter when the game or website changes.
+  const visibleResults = useMemo(() => {
+    let list = browse.results;
+    if (category !== "all") list = list.filter((r) => r.category === category);
+    if (selectedTags.length > 0) {
+      list = list.filter((r) => r.tags.some((tag) => selectedTags.includes(tag)));
+    }
+    return list;
+  }, [browse.results, category, selectedTags]);
+
+  // Reset filters when the game or website changes.
   useEffect(() => {
     setCategory("all");
+    setSelectedTags([]);
   }, [gameId, sourceId]);
 
   const handleInstalled = async () => {
@@ -230,153 +259,172 @@ export default function ModsDiscoverPage() {
         }
       />
 
-      <div className="mods-discover-controls">
-        <div className="mods-discover-field">
-          <label className="mods-discover-label" htmlFor="mods-discover-game">
-            {t("mods.discover.selectGame")}
-          </label>
-          <select
-            id="mods-discover-game"
-            className="mods-discover-select"
-            value={gameId ?? ""}
-            onChange={(e) => setGameId(e.target.value || null)}
-          >
-            <option value="" disabled>
-              {t("mods.discover.selectGamePlaceholder")}
-            </option>
-            {candidates.map((g) => (
-              <option key={g.id} value={g.id}>
-                {gameDisplayName(g)}
-              </option>
-            ))}
-          </select>
-        </div>
+      <DiscoverHero
+        game={selectedGame}
+        detectedCount={availableCount}
+        detecting={resolving || loading}
+      />
 
-        <SourceSelect
-          sources={sources}
-          value={sourceId}
-          onChange={handleSourceChange}
-          onConfigure={() => setConfigOpen(true)}
-          onResolve={handleResolve}
-          resolving={resolving}
-          loading={loading}
-          disabled={!gameId}
-        />
+      <SourceSelect
+        sources={sources}
+        value={sourceId}
+        onChange={handleSourceChange}
+        onConfigure={() => setConfigOpen(true)}
+        onResolve={handleResolve}
+        resolving={resolving}
+        loading={loading}
+        disabled={!gameId}
+      />
 
-        <div className="mods-discover-field mods-discover-field--search">
-          <label className="mods-discover-label" htmlFor="mods-discover-search">
-            {t("mods.discover.search")}
-          </label>
-          <div className="mods-discover-search">
-            <Search size={15} className="mods-discover-search-icon" />
-            <input
-              id="mods-discover-search"
-              type="text"
-              className="mods-discover-search-input"
-              placeholder={t("mods.discover.searchPlaceholder")}
-              value={browse.query}
-              disabled={!selectedSource?.available}
-              onChange={(e) => browse.setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") browse.flush();
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="mods-discover-field">
-          <label className="mods-discover-label" htmlFor="mods-discover-sort">
-            {t("mods.discover.sortBy")}
-          </label>
-          <select
-            id="mods-discover-sort"
-            className="mods-discover-select"
-            value={browse.sort}
-            disabled={!selectedSource?.available}
-            onChange={(e) => browse.setSort(e.target.value)}
-          >
-            {SORTS.map((s) => (
-              <option key={s} value={s}>
-                {t(`mods.discover.sort.${s}`)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="mods-discover-field">
-          <label className="mods-discover-label" htmlFor="mods-discover-category">
-            {t("mods.discover.category")}
-          </label>
-          <select
-            id="mods-discover-category"
-            className="mods-discover-select"
-            value={category}
-            disabled={categories.length === 0}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="all">{t("mods.discover.allCategories")}</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="mods-discover-meta">
-        <div className="mods-discover-meta-left">
-          {selectedSource?.available && !browse.loading && (
-            <span>
-              {browse.total != null
-                ? t("mods.discover.resultsCount", { count: String(browse.total) })
-                : t("mods.discover.resultsCount", {
-                    count: String(browse.results.length),
-                  })}
-            </span>
-          )}
-          {selectedSource?.note && (
-            <span className="mods-discover-note">{selectedSource.note}</span>
-          )}
-        </div>
-        <div className="mods-discover-meta-right">
-          {selectedSource?.available && (
-            <button
-              type="button"
-              className="mods-discover-icon-btn"
-              onClick={browse.refresh}
-              disabled={browse.loading}
-              title={t("mods.discover.refresh")}
-              aria-label={t("mods.discover.refresh")}
+      <div className="mods-discover-toolbar">
+        <div className="mods-discover-toolbar-row">
+          <div className="mods-discover-field mods-discover-field--game">
+            <label className="mods-discover-label" htmlFor="mods-discover-game">
+              {t("mods.discover.selectGame")}
+            </label>
+            <select
+              id="mods-discover-game"
+              className="mods-discover-select"
+              value={gameId ?? ""}
+              onChange={(e) => setGameId(e.target.value || null)}
             >
-              <RefreshCw size={15} className={browse.loading ? "spinning" : undefined} />
-            </button>
+              <option value="" disabled>
+                {t("mods.discover.selectGamePlaceholder")}
+              </option>
+              {candidates.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {gameDisplayName(g)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mods-discover-field mods-discover-field--search">
+            <label className="mods-discover-label" htmlFor="mods-discover-search">
+              {t("mods.discover.search")}
+            </label>
+            <div className="mods-discover-search">
+              <Search size={15} className="mods-discover-search-icon" />
+              <input
+                id="mods-discover-search"
+                type="text"
+                className="mods-discover-search-input"
+                placeholder={t("mods.discover.searchPlaceholder")}
+                value={browse.query}
+                disabled={!selectedSource?.available}
+                onChange={(e) => browse.setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") browse.flush();
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="mods-discover-field">
+            <label className="mods-discover-label" htmlFor="mods-discover-sort">
+              {t("mods.discover.sortBy")}
+            </label>
+            <select
+              id="mods-discover-sort"
+              className="mods-discover-select"
+              value={browse.sort}
+              disabled={!selectedSource?.available}
+              onChange={(e) => browse.setSort(e.target.value)}
+            >
+              {SORTS.map((s) => (
+                <option key={s} value={s}>
+                  {t(`mods.discover.sort.${s}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mods-discover-field">
+            <label className="mods-discover-label" htmlFor="mods-discover-category">
+              {t("mods.discover.category")}
+            </label>
+            <select
+              id="mods-discover-category"
+              className="mods-discover-select"
+              value={category}
+              disabled={categories.length === 0}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="all">{t("mods.discover.allCategories")}</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {tagOptions.length > 0 && (
+            <div className="mods-discover-field mods-discover-field--tags">
+              <label className="mods-discover-label">{t("mods.discover.tags")}</label>
+              <MultiSelectDropdown
+                label={t("mods.discover.tags")}
+                placeholder={t("mods.discover.allTags")}
+                options={tagOptions}
+                selected={selectedTags}
+                onChange={setSelectedTags}
+                counts={tagCountMap}
+                clearLabel={t("mods.source.clear")}
+                showSearch
+                searchPlaceholder={t("mods.discover.tags")}
+                noResultsLabel={t("mods.discover.empty")}
+              />
+            </div>
           )}
-          <div
-            className="mods-discover-viewtoggle"
-            role="group"
-            aria-label={t("mods.discover.viewAria")}
-          >
-          <button
-            type="button"
-            className={`mods-discover-viewtoggle-btn${view === "grid" ? " active" : ""}`}
-            onClick={() => setView("grid")}
-            title={t("mods.discover.view.grid")}
-            aria-label={t("mods.discover.view.grid")}
-            aria-pressed={view === "grid"}
-          >
-            <LayoutGrid size={15} />
-          </button>
-          <button
-            type="button"
-            className={`mods-discover-viewtoggle-btn${view === "list" ? " active" : ""}`}
-            onClick={() => setView("list")}
-            title={t("mods.discover.view.list")}
-            aria-label={t("mods.discover.view.list")}
-            aria-pressed={view === "list"}
-          >
-            <List size={15} />
-            </button>
+        </div>
+
+        <div className="mods-discover-toolbar-row mods-discover-toolbar-row--meta">
+          <span className="mods-discover-count">
+            {selectedSource?.available && !browse.loading
+              ? browse.total != null
+                ? t("mods.discover.resultsCount", { count: String(browse.total) })
+                : t("mods.discover.resultsCount", { count: String(browse.results.length) })
+              : selectedSource?.note ?? ""}
+          </span>
+          <div className="mods-discover-meta-right">
+            {selectedSource?.available && (
+              <button
+                type="button"
+                className="mods-discover-icon-btn"
+                onClick={browse.refresh}
+                disabled={browse.loading}
+                title={t("mods.discover.refresh")}
+                aria-label={t("mods.discover.refresh")}
+              >
+                <RefreshCw size={15} className={browse.loading ? "spinning" : undefined} />
+              </button>
+            )}
+            <div
+              className="mods-discover-viewtoggle"
+              role="group"
+              aria-label={t("mods.discover.viewAria")}
+            >
+              <button
+                type="button"
+                className={`mods-discover-viewtoggle-btn${view === "grid" ? " active" : ""}`}
+                onClick={() => setView("grid")}
+                title={t("mods.discover.view.grid")}
+                aria-label={t("mods.discover.view.grid")}
+                aria-pressed={view === "grid"}
+              >
+                <LayoutGrid size={15} />
+              </button>
+              <button
+                type="button"
+                className={`mods-discover-viewtoggle-btn${view === "list" ? " active" : ""}`}
+                onClick={() => setView("list")}
+                title={t("mods.discover.view.list")}
+                aria-label={t("mods.discover.view.list")}
+                aria-pressed={view === "list"}
+              >
+                <List size={15} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -390,6 +438,7 @@ export default function ModsDiscoverPage() {
         hasSource={!!selectedSource?.available}
         view={view}
         total={browse.total}
+        installedKeys={installedKeys}
         onOpen={setActiveMod}
         onOpenExternal={(mod) => void openUrl(mod.url)}
         onLoadMore={browse.loadMore}
@@ -422,9 +471,7 @@ export default function ModsDiscoverPage() {
                       className="mods-discover-icon-btn"
                       title={t("mods.discover.openFolder")}
                       aria-label={t("mods.discover.openFolder")}
-                      onClick={() =>
-                        void invoke("open_folder", { path: item.installedPath })
-                      }
+                      onClick={() => void invoke("open_folder", { path: item.installedPath })}
                     >
                       <FolderOpen size={14} />
                     </button>
@@ -459,7 +506,7 @@ export default function ModsDiscoverPage() {
       <SourceConfigModal
         open={configOpen}
         gameId={gameId}
-        gameName={gameName}
+        gameName={selectedGame ? gameDisplayName(selectedGame) : undefined}
         sources={sources}
         onClose={() => setConfigOpen(false)}
         onSetCredential={setCredential}

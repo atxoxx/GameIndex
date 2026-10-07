@@ -1,22 +1,28 @@
 // One remote mod result card.
 
 import { useState } from "react";
-import { Download, ExternalLink, ThumbsUp } from "lucide-react";
+import { Check, Download, ExternalLink, ThumbsUp } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { RemoteModSummary } from "../../../types/mods";
-import { formatCount, formatRemoteDate, sourceLabel } from "./format";
+import { formatCount, relativeTime, sourceLabel } from "./format";
 import "./mods-discover.css";
 
 interface RemoteModCardProps {
   mod: RemoteModSummary;
+  installed?: boolean;
   onOpen: (mod: RemoteModSummary) => void;
   onOpenExternal: (mod: RemoteModSummary) => void;
 }
 
-export default function RemoteModCard({ mod, onOpen, onOpenExternal }: RemoteModCardProps) {
+export default function RemoteModCard({
+  mod,
+  installed,
+  onOpen,
+  onOpenExternal,
+}: RemoteModCardProps) {
   const { t } = useLanguage();
   const [broken, setBroken] = useState(false);
-  const updated = formatRemoteDate(mod.updatedAt);
+  const updated = relativeTime(mod.updatedAt);
 
   return (
     <div className="mods-discover-card">
@@ -40,6 +46,11 @@ export default function RemoteModCard({ mod, onOpen, onOpenExternal }: RemoteMod
             </span>
           )}
           <span className="mods-discover-card-source">{sourceLabel(mod.source)}</span>
+          {installed && (
+            <span className="mods-discover-card-installed">
+              <Check size={11} /> {t("mods.discover.installedBadge")}
+            </span>
+          )}
         </div>
         <div className="mods-discover-card-body">
           <span className="mods-discover-card-name">{mod.name}</span>
@@ -58,11 +69,16 @@ export default function RemoteModCard({ mod, onOpen, onOpenExternal }: RemoteMod
             )}
             {mod.version && <span className="mods-discover-card-version">v{mod.version}</span>}
           </div>
-          {updated && (
-            <span className="mods-discover-card-updated">
-              {t("mods.discover.updated", { date: updated })}
-            </span>
-          )}
+          <div className="mods-discover-card-foot">
+            {mod.category && (
+              <span className="mods-discover-card-category">{mod.category}</span>
+            )}
+            {updated && (
+              <span className="mods-discover-card-updated">
+                {t("mods.discover.updated", { date: updated })}
+              </span>
+            )}
+          </div>
         </div>
       </button>
       <button
