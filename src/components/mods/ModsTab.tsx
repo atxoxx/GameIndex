@@ -41,32 +41,41 @@ export default function ModsTab({
   return (
     <div className="mods-tab" role="region" aria-label={t("mods.eyebrow")}>
       {/* Game Context Header Card */}
-      <div className="mods-tab-header-card">
-        <div className="mods-tab-header-left">
-          <div className="mods-tab-cover">
+      <div className="mods-workspace-banner">
+        <div className="mods-workspace-banner-main">
+          <div className="mods-workspace-cover">
             {game.coverArtUrl ? (
               <img src={game.coverArtUrl} alt="" loading="lazy" />
             ) : (
               <span>{gameDisplayName(game).slice(0, 2).toUpperCase()}</span>
             )}
           </div>
-          <div className="mods-tab-title-group">
-            <div className="mods-tab-eyebrow">
-              <span>{game.platform}</span>
+          <div className="mods-workspace-meta">
+            <div className="mods-workspace-tagline">
+              <span className="mods-workspace-platform">{game.platform}</span>
               {presets.length > 0 && (
                 <span className="mods-tab-preset-pill">
                   {presets.length} {t("mods.presets")}
                 </span>
               )}
+              {game.modsFolder && (
+                <button
+                  type="button"
+                  className="mods-workspace-folder-chip"
+                  onClick={handleOpenFolder}
+                  title={`${t("mods.openLocation")}: ${game.modsFolder}`}
+                >
+                  <FolderOpen size={12} />
+                  <span className="mods-workspace-folder-text">{game.modsFolder}</span>
+                </button>
+              )}
             </div>
-            <h2 className="mods-tab-game-title">{gameDisplayName(game)}</h2>
-            <p className="mods-tab-subtitle">
-              {t("mods.tab.bannerSubtitle")}
-            </p>
+            <h2 className="mods-workspace-title">{gameDisplayName(game)}</h2>
+            <p className="mods-workspace-subtitle">{t("mods.tab.bannerSubtitle")}</p>
           </div>
         </div>
 
-        <div className="mods-tab-header-right">
+        <div className="mods-workspace-controls">
           {/* Subtab Toggle Buttons */}
           <div className="mods-tab-nav-switcher" role="tablist">
             <button
@@ -91,30 +100,17 @@ export default function ModsTab({
               <span>{t("mods.discover.cta")}</span>
             </button>
           </div>
-
-          {game.modsFolder && (
-            <div className="mods-tab-path-badge" title={game.modsFolder}>
-              <FolderOpen size={13} />
-              <span className="mods-tab-path-text">{game.modsFolder}</span>
-              <button
-                type="button"
-                className="mods-tab-path-open-btn"
-                onClick={handleOpenFolder}
-                title={t("mods.openFolder")}
-              >
-                {t("mods.openLocation")}
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Main Content: Installed ModManager or Embedded Discover */}
-      {tab === "installed" ? (
-        <ModManager game={game} onModsSized={onModsSized} />
-      ) : (
-        <ModsDiscoverView game={game} variant="subtab" />
-      )}
+      <div className="mods-workspace-view-wrap" key={tab}>
+        {tab === "installed" ? (
+          <ModManager game={game} onModsSized={onModsSized} />
+        ) : (
+          <ModsDiscoverView game={game} variant="subtab" />
+        )}
+      </div>
     </div>
   );
 }

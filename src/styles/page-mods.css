@@ -1859,7 +1859,7 @@
 
 .mods-global-cockpit {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-md);
   margin-bottom: var(--space-2xl);
   animation: fadeIn var(--duration-normal) var(--ease-standard);
@@ -1874,20 +1874,33 @@
   align-items: center;
   gap: var(--space-md);
   box-shadow: var(--shadow-sm);
-  transition: transform var(--duration-normal) var(--ease-standard),
-    border-color var(--duration-normal) var(--ease-standard),
-    background var(--duration-normal) var(--ease-standard);
+  transition: transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+  user-select: none;
 }
 
-.mods-global-kpi:hover {
+.mods-global-kpi.is-interactive {
+  cursor: pointer;
+}
+
+.mods-global-kpi.is-interactive:hover {
   transform: translateY(-2px);
   border-color: var(--color-border-light);
   background: var(--color-bg-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.mods-global-kpi.is-filter-active {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  box-shadow: 0 0 0 1px var(--color-accent);
 }
 
 .mods-global-kpi-icon {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-lg);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -1895,11 +1908,13 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
 }
 
-.mods-global-kpi-icon svg {
-  width: 20px;
-  height: 20px;
+.mods-global-kpi.is-interactive:hover .mods-global-kpi-icon {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
 }
 
 .mods-global-kpi.accent-active .mods-global-kpi-icon {
@@ -1922,7 +1937,7 @@
 }
 
 .mods-global-kpi-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -1937,6 +1952,7 @@
   align-items: baseline;
   gap: 6px;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .mods-global-kpi-sub {
@@ -1983,15 +1999,25 @@
   border-color: var(--color-border-light);
 }
 
-.mods-rail-filters-row {
+.mods-rail-controls-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-xs);
+  padding: 2px 0;
+}
+
+.mods-rail-filter-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   flex-wrap: wrap;
-  padding-bottom: 2px;
 }
 
 .mods-rail-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   padding: 4px 10px;
@@ -2001,6 +2027,7 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-standard);
+  white-space: nowrap;
 }
 
 .mods-rail-filter-pill:hover {
@@ -2011,8 +2038,108 @@
 
 .mods-rail-filter-pill.active {
   background: var(--color-accent);
-  color: var(--color-accent-contrast);
+  color: var(--color-accent-contrast, #ffffff);
   border-color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.mods-rail-filter-badge {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.15);
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.mods-rail-filter-pill.active .mods-rail-filter-badge {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mods-rail-sort-control {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.mods-rail-sort-select {
+  height: 28px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.mods-rail-sort-select:hover,
+.mods-rail-sort-select:focus {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.mods-games-empty-reset {
+  margin-top: var(--space-sm);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mods-games-empty-reset:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-accent);
+}
+
+.mods-game-selected-indicator {
+  position: absolute;
+  left: 0;
+  top: 15%;
+  bottom: 15%;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: var(--color-accent);
+}
+
+.mods-game-header-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.mods-game-platform-pill {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.mods-game-count-badge {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.mods-game-size-text {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
 }
 
 .mods-game-row.compact {
@@ -2700,21 +2827,24 @@
   border-color: var(--color-accent);
 }
 
-/* ── Per-Game Page "ModsTab" Header Card ─────────────────────────── */
+/* ── Unified Game Workspace Banner (Main Page & ModsTab) ─────────── */
 
+.mods-workspace-banner,
 .mods-tab-header-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-xl);
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-xl);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2xl);
-  padding: var(--space-lg) var(--space-xl);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
   box-shadow: var(--shadow-sm);
+  animation: fadeIn var(--duration-fast) var(--ease-standard);
 }
 
+.mods-workspace-banner-main,
 .mods-tab-header-left {
   display: flex;
   align-items: center;
@@ -2723,9 +2853,10 @@
   flex: 1;
 }
 
+.mods-workspace-cover,
 .mods-tab-cover {
-  width: 56px;
-  height: 74px;
+  width: 52px;
+  height: 70px;
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-bg-tertiary);
@@ -2736,60 +2867,109 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
+.mods-workspace-cover img,
 .mods-tab-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
+.mods-workspace-meta,
 .mods-tab-title-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
+.mods-workspace-tagline,
 .mods-tab-eyebrow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.mods-workspace-platform {
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--color-text-muted);
 }
 
-.mods-tab-preset-pill {
+.mods-workspace-stat-pill {
   font-size: var(--font-size-2xs);
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-  color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  font-weight: var(--font-weight-medium);
+  padding: 1px 7px;
   border-radius: var(--radius-full);
-  padding: 1px 6px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
 }
 
+.mods-workspace-folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  max-width: 260px;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.mods-workspace-folder-chip:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.mods-workspace-folder-text {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mods-workspace-title,
 .mods-tab-game-title {
   margin: 0;
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.mods-workspace-subtitle,
 .mods-tab-subtitle {
   margin: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
+.mods-workspace-controls,
 .mods-tab-header-right {
   display: flex;
   align-items: center;
   gap: var(--space-md);
   flex-shrink: 0;
+}
+
+.mods-workspace-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .mods-tab-path-badge {
@@ -2838,9 +3018,9 @@
   align-items: center;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 2px;
-  gap: 2px;
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 3px;
   flex-shrink: 0;
 }
 
@@ -2848,16 +3028,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: 7px;
+  padding: 7px 16px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
   white-space: nowrap;
 }
 
@@ -2869,51 +3051,29 @@
 .mods-tab-nav-btn.active {
   background: var(--color-accent);
   color: var(--color-accent-contrast, #ffffff);
-  font-weight: var(--font-weight-medium);
   box-shadow: var(--shadow-sm);
 }
 
+.mods-tab-nav-count {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.15);
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
 
-/* ── Selected game bar (main Mods page manager header) ─────────── */
+.mods-tab-nav-btn.active .mods-tab-nav-count {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mods-workspace-view-wrap {
+  animation: fadeIn var(--duration-fast) var(--ease-standard);
+}
 
 .mods-manager-game-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-.mods-manager-game-bar-info {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-sm);
-  min-width: 0;
-  flex: 1;
-}
-
-.mods-manager-game-bar-name {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mods-manager-game-bar-platform {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
-.mods-manager-game-bar-action {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex: 1;
+  display: none;
 }
 
 /* ── Rail refresh button spinner ───────────────────────────────── */
