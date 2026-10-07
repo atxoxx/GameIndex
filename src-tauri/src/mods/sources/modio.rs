@@ -49,49 +49,40 @@ fn summary_from_record(record: &Value) -> Option<RemoteModSummary> {
     })
 }
 
-pub async fn resolve_game(title: &str) -> Result<Option<GameRef>, String> {
+pub async fn resolve_game(candidates: &[String]) -> Result<Option<GameRef>, String> {
     let key = key()?;
-    let url = with_key(
-        format!("{API}/games?_q={}&_limit=20", urlencoding::encode(title)),
-        &key,
-    );
-    let resp = http_client()
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("modio game search: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("modio game search: HTTP {}", resp.status()));
-    }
-    let v: Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("modio game search decode: {e}"))?;
-    let arr = first_array(&v, &["data"]).cloned().unwrap_or_default();
-    let norm = normalize_name(title);
     let mut best: Option<(i32, GameRef)> = None;
-    for g in &arr {
-        let Some(id) = val_i64(g, &["id"]) else { continue };
-        let name = val_str(g, &["name"]).unwrap_or_default();
-        let name_id = val_str(g, &["name_id"]).unwrap_or_default();
-        for cand in [name.as_str(), name_id.as_str()] {
-            let cn = normalize_name(cand);
-            if cn.is_empty() {
+    for candidate in candidates.iter().take(3) {
+        let url = with_key(
+            format!("{API}/games?_q={}&_limit=20", urlencoding::encode(candidate)),
+            &key,
+        );
+        let Ok(resp) = http_client().get(&url).send().await else {
+            continue;
+        };
+        if !resp.status().is_success() {
+            continue;
+        }
+        let Ok(v) = resp.json::<Value>().await else {
+            continue;
+        };
+        let arr = first_array(&v, &["data"]).cloned().unwrap_or_default();
+        for g in &arr {
+            let Some(id) = val_i64(g, &["id"]) else {
                 continue;
-            }
-            let score = if cn == norm {
-                100
-            } else if cn.contains(&norm) || norm.contains(&cn) {
-                60
-            } else {
-                0
             };
-            if score > best.as_ref().map(|b| b.0).unwrap_or(0) {
-                best = Some((score, GameRef { external_id: id.to_string(), label: name.clone() }));
+            let name = val_str(g, &["name"]).unwrap_or_default();
+            let name_id = val_str(g, &["name_id"]).unwrap_or_default();
+            let score = best_score(candidates, &[&name, &name_id]);
+            if score >= MATCH_FLOOR && score > best.as_ref().map(|b| b.0).unwrap_or(0) {
+                best = Some((score, GameRef { external_id: id.to_string(), label: name }));
             }
         }
+        if best.as_ref().map(|b| b.0).unwrap_or(0) >= 100 {
+            break;
+        }
     }
-    Ok(best.filter(|(s, _)| *s >= 60).map(|(_, g)| g))
+    Ok(best.map(|(_, g)| g))
 }
 
 pub async fn browse(

@@ -23,51 +23,67 @@ fn client_page(url: &str) -> impl std::future::Future<Output = Result<String, St
     }
 }
 
-pub async fn resolve_game(title: &str) -> Result<Option<GameRef>, String> {
-    let url = format!(
-        "https://www.moddb.com/search?q={}",
-        urlencoding::encode(title)
-    );
-    let html = client_page(&url).await?;
-    let doc = Html::parse_document(&html);
-    let sel = Selector::parse("a[href^='/games/']").unwrap();
-    let norm = normalize_name(title);
-    let mut best: Option<(i32, GameRef)> = None;
-    let mut seen = std::collections::HashSet::new();
-    for a in doc.select(&sel) {
-        let href = a.value().attr("href").unwrap_or("");
-        let path = href.trim_end_matches('/');
-        // Only direct game pages: /games/{slug}
-        let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
-        if parts.len() != 2 || parts[0] != "games" {
+pub async fn resolve_game(candidates: &[String]) -> Result<Option<GameRef>, String> {
+    // 1) Direct slug probe — ModDB game URLs are `/games/<slug>`, and a
+    //    missing game returns 404 (client_page turns that into an error).
+    for candidate in candidates.iter().take(3) {
+        let slug = slugify(candidate);
+        if slug.is_empty() {
             continue;
         }
-        let slug = parts[1].to_string();
-        if !seen.insert(slug.clone()) {
-            continue;
-        }
-        let text: String = a.text().collect::<Vec<_>>().join(" ");
-        let label = if text.trim().is_empty() {
-            slug.replace('-', " ")
-        } else {
-            text.trim().to_string()
-        };
-        let cn = normalize_name(&label);
-        if cn.is_empty() {
-            continue;
-        }
-        let score = if cn == norm {
-            100
-        } else if cn.contains(&norm) || norm.contains(&cn) {
-            60
-        } else {
-            0
-        };
-        if score > best.as_ref().map(|b| b.0).unwrap_or(0) {
-            best = Some((score, GameRef { external_id: slug, label }));
+        let url = format!("https://www.moddb.com/games/{slug}");
+        if let Ok(html) = client_page(&url).await {
+            let lower = html.to_lowercase();
+            if lower.contains("<title>") && !lower.contains("page not found") {
+                return Ok(Some(GameRef {
+                    external_id: slug,
+                    label: candidate.clone(),
+                }));
+            }
         }
     }
-    Ok(best.filter(|(s, _)| *s >= 60).map(|(_, g)| g))
+
+    // 2) Search fallback, scored against every title candidate.
+    for candidate in candidates.iter().take(3) {
+        let url = format!(
+            "https://www.moddb.com/search?q={}",
+            urlencoding::encode(candidate)
+        );
+        let Ok(html) = client_page(&url).await else {
+            continue;
+        };
+        let doc = Html::parse_document(&html);
+        let sel = Selector::parse("a[href^='/games/']").unwrap();
+        let mut best: Option<(i32, GameRef)> = None;
+        let mut seen = std::collections::HashSet::new();
+        for a in doc.select(&sel) {
+            let href = a.value().attr("href").unwrap_or("");
+            let path = href.trim_end_matches('/');
+            // Only direct game pages: /games/{slug}
+            let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
+            if parts.len() != 2 || parts[0] != "games" {
+                continue;
+            }
+            let slug = parts[1].to_string();
+            if !seen.insert(slug.clone()) {
+                continue;
+            }
+            let text: String = a.text().collect::<Vec<_>>().join(" ");
+            let label = if text.trim().is_empty() {
+                slug.replace('-', " ")
+            } else {
+                text.trim().to_string()
+            };
+            let score = best_score(candidates, &[&label, &slug]);
+            if score >= MATCH_FLOOR && score > best.as_ref().map(|b| b.0).unwrap_or(0) {
+                best = Some((score, GameRef { external_id: slug, label }));
+            }
+        }
+        if let Some((_, g)) = best {
+            return Ok(Some(g));
+        }
+    }
+    Ok(None)
 }
 
 pub async fn browse(

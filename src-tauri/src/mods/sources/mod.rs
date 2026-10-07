@@ -185,6 +185,114 @@ pub fn normalize_name(s: &str) -> String {
     out
 }
 
+/// URL slug form of a title (`The Witcher 3` → `the-witcher-3`).
+pub fn slugify(s: &str) -> String {
+    let lower = s.to_lowercase();
+    let mut out = String::with_capacity(lower.len());
+    let mut prev_dash = false;
+    for c in lower.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+            prev_dash = false;
+        } else if !prev_dash {
+            out.push('-');
+            prev_dash = true;
+        }
+    }
+    out.trim_matches('-').to_string()
+}
+
+/// Titles we try when matching a game on a mod site: the user's display
+/// name, the canonical name, and any IGDB alternative names. More
+/// candidates means fewer "no matching game found" cases across sites.
+pub fn title_candidates(game: &GameRow) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut push = |s: &str| {
+        let t = s.trim();
+        if t.is_empty() {
+            return;
+        }
+        if !out.iter().any(|e| e.eq_ignore_ascii_case(t)) {
+            out.push(t.to_string());
+        }
+    };
+    if let Some(d) = &game.display_name {
+        push(d);
+    }
+    push(&game.name);
+    if let Some(alts) = &game.alternative_names {
+        for a in alts.iter().take(8) {
+            push(a);
+        }
+    }
+    out
+}
+
+/// Words that don't help distinguish one game from another.
+const STOP_WORDS: &[&str] = &[
+    "the", "a", "an", "of", "and", "edition", "definitive", "remastered", "enhanced",
+    "complete", "deluxe", "ultimate", "goty", "game", "year", "hd",
+];
+
+fn tokens(s: &str) -> std::collections::HashSet<String> {
+    s.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty() && !STOP_WORDS.contains(t))
+        .map(str::to_string)
+        .collect()
+}
+
+/// 0..100 similarity between a game title and a site's name/slug. Exact
+/// and containment matches score highest; otherwise a stop-word-aware
+/// token overlap decides, so "Fallout 4" does not match "Fallout 76".
+pub fn score_name(candidate: &str, target: &str) -> i32 {
+    let a = normalize_name(candidate);
+    let b = normalize_name(target);
+    if a.is_empty() || b.is_empty() {
+        return 0;
+    }
+    if a == b {
+        return 100;
+    }
+    // A meaningful title contained in a longer one ("Skyrim" in "The
+    // Elder Scrolls V: Skyrim"). The length guard keeps short generic
+    // words from matching everything.
+    let (short, long) = if a.len() <= b.len() { (&a, &b) } else { (&b, &a) };
+    if short.len() >= 5 && long.contains(short.as_str()) {
+        return 85;
+    }
+    let ta = tokens(candidate);
+    let tb = tokens(target);
+    if ta.is_empty() || tb.is_empty() {
+        return 0;
+    }
+    let inter = ta.intersection(&tb).count() as f64;
+    let union = ta.union(&tb).count() as f64;
+    if union == 0.0 {
+        return 0;
+    }
+    let score = (inter / union) * 100.0;
+    if score >= 60.0 {
+        score as i32
+    } else {
+        0
+    }
+}
+
+/// Best score for a set of candidate titles against a set of site names.
+pub fn best_score(candidates: &[String], targets: &[&str]) -> i32 {
+    let mut best = 0;
+    for c in candidates {
+        for t in targets {
+            best = best.max(score_name(c, t));
+        }
+    }
+    best
+}
+
+/// Minimum score a candidate must reach before we accept a mapping.
+pub const MATCH_FLOOR: i32 = 60;
+
 // ── Types ───────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize)]
@@ -374,17 +482,17 @@ pub fn steam_api_key() -> Option<String> {
 
 pub async fn resolve_game(
     source: &str,
-    title: &str,
+    candidates: &[String],
     steam_app_id: Option<u32>,
     existing: Option<&str>,
 ) -> Result<Option<GameRef>, String> {
     match source {
-        SOURCE_NEXUS => nexus::resolve_game(existing).await,
-        SOURCE_THUNDERSTORE => thunderstore::resolve_game(title).await,
-        SOURCE_GAMEBANANA => gamebanana::resolve_game(title).await,
-        SOURCE_MODDB => moddb::resolve_game(title).await,
-        SOURCE_CURSEFORGE => curseforge::resolve_game(title).await,
-        SOURCE_MODIO => modio::resolve_game(title).await,
+        SOURCE_NEXUS => nexus::resolve_game(candidates, existing).await,
+        SOURCE_THUNDERSTORE => thunderstore::resolve_game(candidates).await,
+        SOURCE_GAMEBANANA => gamebanana::resolve_game(candidates).await,
+        SOURCE_MODDB => moddb::resolve_game(candidates).await,
+        SOURCE_CURSEFORGE => curseforge::resolve_game(candidates).await,
+        SOURCE_MODIO => modio::resolve_game(candidates).await,
         SOURCE_WORKSHOP => Ok(steam_app_id.map(|id| GameRef {
             external_id: id.to_string(),
             label: format!("App {id}"),
@@ -520,14 +628,11 @@ pub async fn detect_sources(
         .collect();
     let settings = db::mods::get_settings(db, &game.id)?;
     let nexus_domain = settings.as_ref().and_then(|s| s.nexus_domain.clone());
-    let title = game
-        .display_name
-        .clone()
-        .unwrap_or_else(|| game.name.clone());
+    let candidates = title_candidates(game);
 
     // Optionally resolve unresolved mappings over the network, in
-    // parallel. Each source is independent, so one failure can't block
-    // the others.
+    // parallel. Each source is independent and time-boxed, so one slow
+    // or failing site can't stall the others.
     let mut resolved: HashMap<String, GameRef> = HashMap::new();
     if resolve {
         let sources: Vec<&str> = ALL_SOURCES
@@ -541,12 +646,15 @@ pub async fn detect_sources(
             .collect();
         let futures = sources.iter().map(|s| {
             let source = *s;
-            let title = title.clone();
+            let candidates = candidates.clone();
             let existing = nexus_domain.clone();
             async move {
-                let existing_ref = existing.as_deref();
-                let res =
-                    resolve_game(source, &title, game.steam_app_id, existing_ref).await;
+                let res = tokio::time::timeout(
+                    Duration::from_secs(20),
+                    resolve_game(source, &candidates, game.steam_app_id, existing.as_deref()),
+                )
+                .await
+                .unwrap_or_else(|_| Err("detection timed out".to_string()));
                 (source, res)
             }
         });
@@ -769,6 +877,33 @@ mod tests {
     fn normalize_name_strips_punctuation_and_case() {
         assert_eq!(normalize_name("The Witcher 3: Wild Hunt"), "thewitcher3wildhunt");
         assert_eq!(normalize_name("STALKER — Shadow of Chernobyl"), "stalkershadowofchernobyl");
+    }
+
+    #[test]
+    fn score_name_matches_aliases_but_not_siblings() {
+        // A subtitle alias matches its base title.
+        assert_eq!(score_name("Skyrim", "The Elder Scrolls V: Skyrim"), 85);
+        // Slug-form identifiers match exactly.
+        assert_eq!(score_name("Risk of Rain 2", "riskofrain2"), 100);
+        // Sequels must not collide.
+        assert!(score_name("Fallout 4", "Fallout 76") < MATCH_FLOOR);
+        assert!(score_name("Dark Souls", "Cyberpunk 2077") < MATCH_FLOOR);
+    }
+
+    #[test]
+    fn best_score_picks_the_closest_candidate() {
+        let candidates = vec![
+            "The Witcher 3: Wild Hunt".to_string(),
+            "Witcher 3".to_string(),
+        ];
+        assert!(best_score(&candidates, &["The Witcher 3"]) >= MATCH_FLOOR);
+        assert_eq!(best_score(&candidates, &["Cyberpunk 2077"]), 0);
+    }
+
+    #[test]
+    fn slugify_makes_url_safe_slugs() {
+        assert_eq!(slugify("The Witcher 3: Wild Hunt"), "the-witcher-3-wild-hunt");
+        assert_eq!(slugify("  Halo: CE  "), "halo-ce");
     }
 
     #[test]

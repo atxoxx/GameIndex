@@ -9,7 +9,7 @@ use super::*;
 const API: &str = "https://thunderstore.io/api/experimental";
 const COMMUNITIES: &str = "https://thunderstore.io/api/v1/community/";
 
-pub async fn resolve_game(title: &str) -> Result<Option<GameRef>, String> {
+pub async fn resolve_game(candidates: &[String]) -> Result<Option<GameRef>, String> {
     let resp = http_client()
         .get(COMMUNITIES)
         .send()
@@ -23,7 +23,6 @@ pub async fn resolve_game(title: &str) -> Result<Option<GameRef>, String> {
         .await
         .map_err(|e| format!("thunderstore communities decode: {e}"))?;
     let arr = first_array(&v, &["results", "data"]).cloned().unwrap_or_default();
-    let norm = normalize_name(title);
     let mut best: Option<(i32, GameRef)> = None;
     for c in &arr {
         let identifier = val_str(c, &["identifier", "name_id", "name"]).unwrap_or_default();
@@ -32,30 +31,18 @@ pub async fn resolve_game(title: &str) -> Result<Option<GameRef>, String> {
         if identifier.is_empty() {
             continue;
         }
-        for cand in [identifier.as_str(), display.as_str()] {
-            let cn = normalize_name(cand);
-            if cn.is_empty() {
-                continue;
-            }
-            let score = if cn == norm {
-                100
-            } else if cn.contains(&norm) || norm.contains(&cn) {
-                60
-            } else {
-                0
-            };
-            if score > best.as_ref().map(|b| b.0).unwrap_or(0) {
-                best = Some((
-                    score,
-                    GameRef {
-                        external_id: identifier.clone(),
-                        label: display.clone(),
-                    },
-                ));
-            }
+        let score = best_score(candidates, &[&identifier, &display]);
+        if score >= MATCH_FLOOR && score > best.as_ref().map(|b| b.0).unwrap_or(0) {
+            best = Some((
+                score,
+                GameRef {
+                    external_id: identifier,
+                    label: display,
+                },
+            ));
         }
     }
-    Ok(best.filter(|(s, _)| *s >= 60).map(|(_, g)| g))
+    Ok(best.map(|(_, g)| g))
 }
 
 fn version_obj(pkg: &Value) -> Option<&Value> {

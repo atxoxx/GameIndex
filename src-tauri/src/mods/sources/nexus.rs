@@ -6,6 +6,7 @@
 //! at the mod page (where the site manages the `nxm://` handoff).
 
 use super::*;
+use std::sync::{Mutex, OnceLock};
 
 const API: &str = "https://api.nexusmods.com/v1";
 
@@ -15,11 +16,74 @@ fn key() -> Result<String, String> {
         .ok_or_else(|| "Nexus Mods API key not set".to_string())
 }
 
-pub async fn resolve_game(existing: Option<&str>) -> Result<Option<GameRef>, String> {
-    Ok(existing.map(|d| GameRef {
-        external_id: d.to_string(),
-        label: d.to_string(),
-    }))
+/// The full Nexus game catalogue (`/games.json`) is stable for hours, so
+/// cache it for the process lifetime — name→domain matching would
+/// otherwise refetch ~1000 games on every detection.
+static GAMES_CACHE: OnceLock<Mutex<Option<Vec<Value>>>> = OnceLock::new();
+
+fn cache() -> &'static Mutex<Option<Vec<Value>>> {
+    GAMES_CACHE.get_or_init(|| Mutex::new(None))
+}
+
+async fn all_games(key: &str) -> Result<Vec<Value>, String> {
+    if let Some(cached) = cache().lock().ok().and_then(|g| g.clone()) {
+        return Ok(cached);
+    }
+    let resp = http_client()
+        .get(format!("{API}/games.json"))
+        .header("apikey", key)
+        .send()
+        .await
+        .map_err(|e| format!("nexus games: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("nexus games: HTTP {}", resp.status()));
+    }
+    let v: Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("nexus games decode: {e}"))?;
+    let arr = first_array(&v, &["games", "data"]).cloned().unwrap_or_default();
+    if let Ok(mut guard) = cache().lock() {
+        *guard = Some(arr.clone());
+    }
+    Ok(arr)
+}
+
+/// Match a game to its Nexus domain. Uses the stored domain when the
+/// scanner already found one; otherwise looks the title up in the game
+/// catalogue (needs the API key).
+pub async fn resolve_game(
+    candidates: &[String],
+    existing: Option<&str>,
+) -> Result<Option<GameRef>, String> {
+    if let Some(d) = existing.filter(|d| !d.trim().is_empty()) {
+        return Ok(Some(GameRef {
+            external_id: d.to_string(),
+            label: d.to_string(),
+        }));
+    }
+    let key = match key() {
+        Ok(k) => k,
+        Err(_) => return Ok(None),
+    };
+    let games = match all_games(&key).await {
+        Ok(g) => g,
+        Err(_) => return Ok(None),
+    };
+    let mut best: Option<(i32, GameRef)> = None;
+    for g in &games {
+        let name = val_str(g, &["name"]).unwrap_or_default();
+        let domain = val_str(g, &["domain_name", "domain"]).unwrap_or_default();
+        if domain.is_empty() {
+            continue;
+        }
+        let score = best_score(candidates, &[&name, &domain]);
+        if score >= MATCH_FLOOR && score > best.as_ref().map(|b| b.0).unwrap_or(0) {
+            let label = if name.is_empty() { domain.clone() } else { name };
+            best = Some((score, GameRef { external_id: domain, label }));
+        }
+    }
+    Ok(best.map(|(_, g)| g))
 }
 
 fn summary_from_item(domain: &str, item: &Value) -> Option<RemoteModSummary> {

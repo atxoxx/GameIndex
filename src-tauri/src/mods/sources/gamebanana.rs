@@ -55,46 +55,40 @@ fn summary_from_record(record: &Value) -> Option<RemoteModSummary> {
     })
 }
 
-pub async fn resolve_game(title: &str) -> Result<Option<GameRef>, String> {
-    let url = format!(
-        "{API}/Util/Search/Results?_sModelName=Game&_sSearchString={}&_nPerpage=15",
-        urlencoding::encode(title)
-    );
-    let resp = http_client()
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("gamebanana game search: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("gamebanana game search: HTTP {}", resp.status()));
-    }
-    let v: Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("gamebanana game search decode: {e}"))?;
-    let arr = first_array(&v, &["_aRecords", "records"]).cloned().unwrap_or_default();
-    let norm = normalize_name(title);
+pub async fn resolve_game(candidates: &[String]) -> Result<Option<GameRef>, String> {
+    // Try the strongest candidate first, then fall back to the rest; the
+    // search endpoint returns near-matches that the scorer filters.
     let mut best: Option<(i32, GameRef)> = None;
-    for g in &arr {
-        let name = val_str(g, &["_sName", "name"]).unwrap_or_default();
-        let id = val_i64(g, &["_idRow", "id"]);
-        let Some(id) = id else { continue };
-        let cn = normalize_name(&name);
-        if cn.is_empty() {
+    for candidate in candidates.iter().take(3) {
+        let url = format!(
+            "{API}/Util/Search/Results?_sModelName=Game&_sSearchString={}&_nPerpage=15",
+            urlencoding::encode(candidate)
+        );
+        let Ok(resp) = http_client().get(&url).send().await else {
+            continue;
+        };
+        if !resp.status().is_success() {
             continue;
         }
-        let score = if cn == norm {
-            100
-        } else if cn.contains(&norm) || norm.contains(&cn) {
-            60
-        } else {
-            0
+        let Ok(v) = resp.json::<Value>().await else {
+            continue;
         };
-        if score > best.as_ref().map(|b| b.0).unwrap_or(0) {
-            best = Some((score, GameRef { external_id: id.to_string(), label: name }));
+        let arr = first_array(&v, &["_aRecords", "records"]).cloned().unwrap_or_default();
+        for g in &arr {
+            let name = val_str(g, &["_sName", "name"]).unwrap_or_default();
+            let Some(id) = val_i64(g, &["_idRow", "id"]) else {
+                continue;
+            };
+            let score = best_score(candidates, &[&name]);
+            if score >= MATCH_FLOOR && score > best.as_ref().map(|b| b.0).unwrap_or(0) {
+                best = Some((score, GameRef { external_id: id.to_string(), label: name }));
+            }
+        }
+        if best.as_ref().map(|b| b.0).unwrap_or(0) >= 100 {
+            break;
         }
     }
-    Ok(best.filter(|(s, _)| *s >= 60).map(|(_, g)| g))
+    Ok(best.map(|(_, g)| g))
 }
 
 pub async fn browse(

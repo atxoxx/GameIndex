@@ -1,6 +1,7 @@
 //! CurseForge client — v1 REST API with an `x-api-key` header.
 
 use super::*;
+use std::sync::{Mutex, OnceLock};
 
 const API: &str = "https://api.curseforge.com/v1";
 
@@ -79,43 +80,54 @@ fn summary_from_record(record: &Value) -> Option<RemoteModSummary> {
     })
 }
 
-pub async fn resolve_game(title: &str) -> Result<Option<GameRef>, String> {
-    let key = key()?;
-    let norm = normalize_name(title);
-    let mut best: Option<(i32, GameRef)> = None;
-    for page in 0..6 {
+/// The CurseForge game catalogue changes slowly; cache it for the
+/// process so repeated detections don't re-page through ~1000 games.
+static GAMES_CACHE: OnceLock<Mutex<Option<Vec<Value>>>> = OnceLock::new();
+
+fn cache() -> &'static Mutex<Option<Vec<Value>>> {
+    GAMES_CACHE.get_or_init(|| Mutex::new(None))
+}
+
+async fn all_games(key: &str) -> Result<Vec<Value>, String> {
+    if let Some(cached) = cache().lock().ok().and_then(|g| g.clone()) {
+        return Ok(cached);
+    }
+    let mut all = Vec::new();
+    for page in 0..16 {
         let url = format!("{API}/games?index={}&pageSize=50", page * 50);
-        let v = get_json(&url, &key).await?;
+        let v = get_json(&url, key).await?;
         let arr = first_array(&v, &["data"]).cloned().unwrap_or_default();
         if arr.is_empty() {
             break;
         }
-        for g in &arr {
-            let Some(id) = val_i64(g, &["id"]) else { continue };
-            let name = val_str(g, &["name"]).unwrap_or_default();
-            let slug = val_str(g, &["slug"]).unwrap_or_default();
-            for cand in [name.as_str(), slug.as_str()] {
-                let cn = normalize_name(cand);
-                if cn.is_empty() {
-                    continue;
-                }
-                let score = if cn == norm {
-                    100
-                } else if cn.contains(&norm) || norm.contains(&cn) {
-                    60
-                } else {
-                    0
-                };
-                if score > best.as_ref().map(|b| b.0).unwrap_or(0) {
-                    best = Some((score, GameRef { external_id: id.to_string(), label: name.clone() }));
-                }
-            }
-        }
-        if best.as_ref().map(|b| b.0).unwrap_or(0) >= 100 {
+        all.extend(arr);
+        if all.len() >= 800 {
             break;
         }
     }
-    Ok(best.filter(|(s, _)| *s >= 60).map(|(_, g)| g))
+    if let Ok(mut guard) = cache().lock() {
+        *guard = Some(all.clone());
+    }
+    Ok(all)
+}
+
+pub async fn resolve_game(candidates: &[String]) -> Result<Option<GameRef>, String> {
+    let key = key()?;
+    let games = match all_games(&key).await {
+        Ok(g) => g,
+        Err(_) => return Ok(None),
+    };
+    let mut best: Option<(i32, GameRef)> = None;
+    for g in &games {
+        let Some(id) = val_i64(g, &["id"]) else { continue };
+        let name = val_str(g, &["name"]).unwrap_or_default();
+        let slug = val_str(g, &["slug"]).unwrap_or_default();
+        let score = best_score(candidates, &[&name, &slug]);
+        if score >= MATCH_FLOOR && score > best.as_ref().map(|b| b.0).unwrap_or(0) {
+            best = Some((score, GameRef { external_id: id.to_string(), label: name }));
+        }
+    }
+    Ok(best.map(|(_, g)| g))
 }
 
 pub async fn browse(
