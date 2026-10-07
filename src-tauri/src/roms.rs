@@ -1331,13 +1331,32 @@ fn discovery_roots() -> Vec<(PathBuf, usize)> {
             if let Ok(v) = std::env::var(var) {
                 let p = PathBuf::from(&v);
                 if p.is_dir() {
-                    roots.push((p.clone(), 0));
+                    // Emulators usually live one or two levels below Program
+                    // Files (e.g. `Program Files\Dolphin\Dolphin.exe`), so the
+                    // install trees need a couple of levels of recursion.
+                    let depth = if var == "ProgramFiles" || var == "ProgramFiles(x86)" {
+                        2
+                    } else {
+                        0
+                    };
+                    roots.push((p.clone(), depth));
                     if var == "LOCALAPPDATA" || var == "USERPROFILE" || var == "HOME" {
                         roots.push((p.join("Programs"), 2));
                         roots.push((p.join("Emulation"), 2));
                         roots.push((p.join("Emulators"), 2));
                         roots.push((p.join("RetroArch-Win64"), 2));
                     }
+                }
+            }
+        }
+        // Portable installs commonly sit in a top-level folder on the system
+        // drive (e.g. `C:\Emulators\Dolphin\Dolphin.exe`).
+        if let Ok(drive) = std::env::var("SystemDrive") {
+            let root = PathBuf::from(format!("{drive}{}", std::path::MAIN_SEPARATOR));
+            for rel in ["Emulators", "Emulation", "RetroArch-Win64"] {
+                let p = root.join(rel);
+                if p.is_dir() {
+                    roots.push((p, 2));
                 }
             }
         }
