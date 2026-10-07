@@ -2204,8 +2204,75 @@
 .retro-settings {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
-  max-width: 720px;
+  gap: var(--space-lg);
+}
+
+/* Card shell shared by the credentials and mapping blocks. */
+.retro-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+/* Username / API key sit side by side and stack as the card narrows. */
+.retro-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md) var(--space-lg);
+}
+
+/* Master enable switch — a full-width row separated from the fields. */
+.retro-toggle {
+  align-items: flex-start;
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.retro-toggle input[type="checkbox"] {
+  margin-top: 1px;
+}
+
+.retro-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.retro-card-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+}
+
+/* Column captions above the mapping rows — mirrors .retro-map-row. */
+.retro-map-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-bottom: calc(var(--space-xs) * -1);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+}
+
+/* Empty / error state placeholder. */
+.retro-empty {
+  margin: 0;
+  padding: var(--space-lg);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-md);
 }
 
 .retro-key-saved {
@@ -2221,16 +2288,6 @@
   border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
   border-radius: var(--radius-md);
   white-space: nowrap;
-}
-
-.retro-console-map {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-lg);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
 }
 
 .retro-map-row {
@@ -2305,11 +2362,17 @@
 .retro-settings-actions {
   display: flex;
   justify-content: flex-end;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
 }
 
 @media (max-width: 560px) {
-  .retro-map-row {
+  .retro-map-row,
+  .retro-map-head {
     grid-template-columns: 1fr;
+  }
+  .retro-map-head {
+    display: none;
   }
   .retro-map-remove {
     justify-self: end;

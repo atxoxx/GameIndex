@@ -1000,48 +1000,51 @@ export default function IntegrationsTab({
           collapseLabel={t("settings.aria.collapse", { name: t("settings.retro.title") })}
         >
         <div className="retro-settings">
-          <div className="integration-tile-form">
-            <label className="settings-control">
-              <span className="settings-label">{t("settings.retro.username")}</span>
-              <input
-                type="text"
-                className="settings-input"
-                value={retro.username}
-                onChange={(e) => setRetro((p) => ({ ...p, username: e.target.value }))}
-                autoComplete="off"
-                placeholder={t("settings.retro.usernamePlaceholder")}
-                disabled={retro.saving}
-              />
-            </label>
-            <label className="settings-control">
-              <div className="settings-label-row">
-                <span className="settings-label">{t("settings.retro.apiKey")}</span>
-                <a
-                  href="https://retroachievements.org/settings"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="settings-link"
-                >
-                  {t("settings.retro.getKey")}
-                </a>
-              </div>
-              <div className="settings-input-group">
+          <div className="retro-card">
+            <div className="retro-field-grid">
+              <label className="settings-control">
+                <span className="settings-label">{t("settings.retro.username")}</span>
                 <input
-                  type="password"
+                  type="text"
                   className="settings-input"
-                  value={retro.apiKey}
-                  onChange={(e) => setRetro((p) => ({ ...p, apiKey: e.target.value }))}
-                  autoComplete="new-password"
-                  placeholder={t("settings.retro.apiKeyPlaceholder")}
+                  value={retro.username}
+                  onChange={(e) => setRetro((p) => ({ ...p, username: e.target.value }))}
+                  autoComplete="off"
+                  placeholder={t("settings.retro.usernamePlaceholder")}
                   disabled={retro.saving}
                 />
-                {retro.hasApiKey && (
-                  <span className="retro-key-saved">{t("settings.retro.keySaved")}</span>
-                )}
-              </div>
-              <p className="settings-helper-text">{t("settings.retro.apiKeyHint")}</p>
-            </label>
-            <label className="settings-checkbox-label">
+              </label>
+              <label className="settings-control">
+                <div className="settings-label-row">
+                  <span className="settings-label">{t("settings.retro.apiKey")}</span>
+                  <a
+                    href="https://retroachievements.org/settings"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="settings-link"
+                  >
+                    {t("settings.retro.getKey")}
+                  </a>
+                </div>
+                <div className="settings-input-group">
+                  <input
+                    type="password"
+                    className="settings-input"
+                    value={retro.apiKey}
+                    onChange={(e) => setRetro((p) => ({ ...p, apiKey: e.target.value }))}
+                    autoComplete="new-password"
+                    placeholder={t("settings.retro.apiKeyPlaceholder")}
+                    disabled={retro.saving}
+                  />
+                  {retro.hasApiKey && (
+                    <span className="retro-key-saved">{t("settings.retro.keySaved")}</span>
+                  )}
+                </div>
+                <p className="settings-helper-text">{t("settings.retro.apiKeyHint")}</p>
+              </label>
+            </div>
+
+            <label className="settings-checkbox-label retro-toggle">
               <input
                 type="checkbox"
                 checked={retro.enabled}
@@ -1055,13 +1058,23 @@ export default function IntegrationsTab({
             </label>
           </div>
 
-          <div className="retro-console-map">
-            <span className="settings-label">{t("settings.retro.consoleMap")}</span>
-            <p className="settings-helper-text">{t("settings.retro.consoleMapDesc")}</p>
+          <div className="retro-card">
+            <div className="retro-card-head">
+              <span className="retro-card-title">{t("settings.retro.consoleMap")}</span>
+              <p className="settings-helper-text">{t("settings.retro.consoleMapDesc")}</p>
+            </div>
+
             {retro.loading ? (
               <p className="settings-helper-text">{t("common.loading")}</p>
+            ) : retro.consoles.length === 0 ? (
+              <p className="retro-empty">{t("settings.retro.noConsoles")}</p>
             ) : (
               <>
+                <div className="retro-map-head" aria-hidden>
+                  <span>{t("settings.retro.platform")}</span>
+                  <span>{t("settings.retro.console")}</span>
+                  <span />
+                </div>
                 {retro.consoleMap.map((row, i) => (
                   <div className="retro-map-row" key={i}>
                     <input
@@ -1116,9 +1129,6 @@ export default function IntegrationsTab({
                     </button>
                   </div>
                 ))}
-                {retro.consoles.length === 0 && !retro.loading && (
-                  <p className="settings-helper-text">{t("settings.retro.noConsoles")}</p>
-                )}
                 <button
                   type="button"
                   className="retro-map-add"
