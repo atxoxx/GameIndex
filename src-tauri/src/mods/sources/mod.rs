@@ -359,7 +359,11 @@ pub fn steam_api_key() -> Option<String> {
         .ok()
         .flatten()?;
     let v: Value = serde_json::from_str(&secret).ok()?;
-    v.get("api_key")
+    // `SteamSession` serialises with `rename_all = "camelCase"`, so the
+    // stored key is `apiKey`; `api_key`/`webApiToken` are tolerated for
+    // older blobs.
+    v.get("apiKey")
+        .or_else(|| v.get("api_key"))
         .or_else(|| v.get("webApiToken"))
         .and_then(|x| x.as_str())
         .map(|s| s.to_string())

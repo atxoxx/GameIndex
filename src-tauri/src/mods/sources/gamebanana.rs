@@ -135,11 +135,21 @@ pub async fn browse(
         .map_err(|e| format!("gamebanana browse decode: {e}"))?;
     let arr = first_array(&v, &["_aRecords", "records"]).cloned().unwrap_or_default();
     let results: Vec<RemoteModSummary> = arr.iter().filter_map(summary_from_record).collect();
-    let total = v
-        .get("_aMetadata")
+    let meta = v.get("_aMetadata");
+    let total = meta
         .and_then(|m| val_i64(m, &["_nRecordCount"]))
         .or(Some(results.len() as i64));
-    let has_more = results.len() as u32 >= page_size && !query.trim().is_empty();
+    let complete = meta
+        .and_then(|m| m.get("_bIsComplete"))
+        .and_then(|x| x.as_bool());
+    let has_more = match complete {
+        Some(true) => false,
+        Some(false) => true,
+        None => match total {
+            Some(t) => (page as i64 * page_size as i64) < t,
+            None => results.len() as u32 >= page_size,
+        },
+    };
     Ok(RemoteModSearch {
         source: SOURCE_GAMEBANANA.to_string(),
         query: query.to_string(),

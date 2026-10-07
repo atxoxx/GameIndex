@@ -132,6 +132,8 @@ pub async fn browse(
             file_count: None,
         });
     }
+    // Mod DB lists a game's mods on a single page; there is no reliable
+    // pagination to scrape, so we return what the page holds.
     let total = results.len() as i64;
     let start = ((page.saturating_sub(1)) * page_size) as usize;
     let end = (start + page_size as usize).min(results.len());
@@ -146,7 +148,7 @@ pub async fn browse(
         results: page_results,
         page,
         total: Some(total),
-        has_more: end < results.len(),
+        has_more: false,
     })
 }
 
