@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  collectTagCounts,
   formatBytes,
   formatCount,
   formatRemoteDate,
   htmlToText,
+  modHasSelectedTag,
+  relativeTime,
   sourceLabel,
 } from "./format";
 
@@ -45,5 +48,28 @@ describe("mods discover format helpers", () => {
     expect(sourceLabel("nexus")).toBe("Nexus Mods");
     expect(sourceLabel("workshop")).toBe("Steam Workshop");
     expect(sourceLabel("unknown-site")).toBe("unknown-site");
+  });
+
+  it("formats relative time without throwing on bad input", () => {
+    expect(relativeTime(undefined)).toBeNull();
+    expect(relativeTime("not-a-date")).toBeNull();
+    expect(relativeTime(String(Math.floor(Date.now() / 1000)))).toBe("now");
+  });
+
+  // Regression: the backend omits `tags` when empty, which previously
+  // crashed the tag facet with "r.tags is not iterable".
+  it("collects tag facets when results omit the tags array", () => {
+    const results = [{ tags: ["A", "B"] }, {}, { tags: ["A"] }];
+    const counts = collectTagCounts(results);
+    expect(counts.get("A")).toBe(2);
+    expect(counts.get("B")).toBe(1);
+    expect(counts.get("C")).toBeUndefined();
+  });
+
+  it("matches the selected tag filter safely", () => {
+    expect(modHasSelectedTag({}, [])).toBe(true);
+    expect(modHasSelectedTag({}, ["A"])).toBe(false);
+    expect(modHasSelectedTag({ tags: ["A"] }, ["A"])).toBe(true);
+    expect(modHasSelectedTag({ tags: ["A"] }, ["B"])).toBe(false);
   });
 });

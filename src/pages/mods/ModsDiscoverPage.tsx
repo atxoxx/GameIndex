@@ -29,7 +29,12 @@ import RemoteModGrid, {
   type DiscoverView,
 } from "../../components/mods/discover/RemoteModGrid";
 import RemoteModDetailModal from "../../components/mods/discover/RemoteModDetailModal";
-import { sourceLabel, formatRemoteDate } from "../../components/mods/discover/format";
+import {
+  sourceLabel,
+  formatRemoteDate,
+  collectTagCounts,
+  modHasSelectedTag,
+} from "../../components/mods/discover/format";
 import { useModBrowse, useModSources, useRemoteInstalls } from "../../hooks/useModDiscover";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { gameDisplayName } from "../../types/game";
@@ -190,13 +195,7 @@ export default function ModsDiscoverPage() {
       ).sort((a, b) => a.localeCompare(b)),
     [browse.results],
   );
-  const tagCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const r of browse.results) {
-      for (const tag of r.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-    return counts;
-  }, [browse.results]);
+  const tagCounts = useMemo(() => collectTagCounts(browse.results), [browse.results]);
   const tagOptions = useMemo(
     () =>
       Array.from(tagCounts.entries())
@@ -214,7 +213,7 @@ export default function ModsDiscoverPage() {
     let list = browse.results;
     if (category !== "all") list = list.filter((r) => r.category === category);
     if (selectedTags.length > 0) {
-      list = list.filter((r) => r.tags.some((tag) => selectedTags.includes(tag)));
+      list = list.filter((r) => modHasSelectedTag(r, selectedTags));
     }
     return list;
   }, [browse.results, category, selectedTags]);

@@ -91,3 +91,23 @@ const SOURCE_LABELS: Record<ModSourceId, string> = {
 export function sourceLabel(id: string): string {
   return SOURCE_LABELS[id as ModSourceId] ?? id;
 }
+
+/**
+ * Count tags across results for the tag facet. `tags` is omitted by the
+ * backend when empty, so it must be treated as optional.
+ */
+export function collectTagCounts(results: { tags?: string[] }[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const r of results) {
+    for (const tag of r.tags ?? []) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/** Whether a result matches the selected tag filter (empty = all). */
+export function modHasSelectedTag(mod: { tags?: string[] }, selected: string[]): boolean {
+  if (selected.length === 0) return true;
+  return (mod.tags ?? []).some((tag) => selected.includes(tag));
+}

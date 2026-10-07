@@ -131,7 +131,8 @@ export interface RemoteModSummary {
   thumbnailUrl?: string;
   url: string;
   category?: string;
-  tags: string[];
+  /** Omitted by the backend when empty, so treat it as optional. */
+  tags?: string[];
   fileCount?: number;
 }
 
@@ -158,7 +159,8 @@ export interface RemoteModDetail {
   description?: string;
   gallery: string[];
   files: RemoteModFile[];
-  links: RemoteModLink[];
+  /** Omitted by the backend when empty. */
+  links?: RemoteModLink[];
 }
 
 export interface RemoteModSearch {
