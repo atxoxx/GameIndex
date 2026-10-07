@@ -51,6 +51,7 @@ const SavesPage = lazy(() => import("../pages/saves/SavesPage"));
 const AchievementsPage = lazy(() => import("../pages/AchievementsPage"));
 const EmulatorsPage = lazy(() => import("../pages/EmulatorsPage"));
 const ModsPage = lazy(() => import("../pages/mods/ModsPage"));
+const ModsDiscoverPage = lazy(() => import("../pages/mods/ModsDiscoverPage"));
 
 // Big Screen variants — bundled into the `bigscreen` chunk via
 // vite.config.ts manualChunks, but still lazy so desktop never pays
@@ -215,6 +216,8 @@ export function bigScreenParentOf(pathname: string): string | null {
   if (segments.length === 2) {
     if (segments[0] === "library") return "/library";
     if (segments[0] === "store") return "/store";
+    // `/mods/discover` walks up to the Mods manager.
+    if (segments[0] === "mods") return "/mods";
     // `settings/:tab` is a System-hub sub-route (the registry maps it to
     // BigScreenSystem), so it walks up to the hub like mods/emulators/docs.
     if (segments[0] === "settings") return "/settings";
@@ -285,6 +288,7 @@ export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "friends", desktop: () => <FriendsPage />, bigscreen: () => <BigScreenFriends /> },
   { path: "emulators", desktop: () => <EmulatorsPage />, bigscreen: () => <BigScreenEmulatorsPage /> },
   { path: "mods", desktop: () => <ModsPage />, bigscreen: () => <BigScreenModsPage /> },
+  { path: "mods/discover", desktop: () => <ModsDiscoverPage /> },
   { path: "settings", desktop: () => <SettingsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "settings/:tab", desktop: () => <SettingsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "docs", desktop: () => <DocsPage />, bigscreen: () => <BigScreenDocsPage /> },

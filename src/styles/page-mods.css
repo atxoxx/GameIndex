@@ -2958,3 +2958,21 @@
   }
 }
 
+/* Provenance badge for mods installed from the Discover browser. */
+.mods-source-provenance {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin: var(--space-sm) 0;
+}
+
+.mods-source-provenance-chip {
+  padding: 2px var(--space-sm);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+

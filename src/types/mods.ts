@@ -32,6 +32,11 @@ export interface GameMod {
   latestVersion?: string;
   updateAvailable: boolean;
   notes?: string;
+  /** Remote mod-site provenance, set when installed from Discover. */
+  source?: string;
+  sourceModId?: string;
+  sourceFileId?: string;
+  remoteUrl?: string;
   detectedAt: number;
   updatedAt: number;
 }
@@ -81,6 +86,122 @@ export interface NexusStatus {
   userName?: string;
   isPremium?: boolean;
   error?: string;
+}
+
+// ── Multi-source mod browsing ("Discover") ──────────────────────────
+
+/** A supported mod website. */
+export type ModSourceId =
+  | "nexus"
+  | "thunderstore"
+  | "gamebanana"
+  | "moddb"
+  | "curseforge"
+  | "modio"
+  | "workshop";
+
+/** Which sites have content for a game, and whether they're usable. */
+export interface ModSourceInfo {
+  id: ModSourceId;
+  name: string;
+  homepage: string;
+  requiresCredential: boolean;
+  hasCredential: boolean;
+  /** A game→site mapping exists (and any required key is set). */
+  available: boolean;
+  externalId?: string;
+  externalLabel?: string;
+  /** False when the site can't hand out an archive (Steam Workshop). */
+  directDownload: boolean;
+  supportsSearch: boolean;
+  note?: string;
+}
+
+export interface RemoteModSummary {
+  source: ModSourceId;
+  id: string;
+  name: string;
+  author?: string;
+  summary?: string;
+  version?: string;
+  downloads?: number;
+  endorsements?: number;
+  updatedAt?: string;
+  createdAt?: string;
+  thumbnailUrl?: string;
+  url: string;
+  category?: string;
+  tags: string[];
+  fileCount?: number;
+}
+
+export interface RemoteModFile {
+  id: string;
+  name: string;
+  version?: string;
+  sizeBytes?: number;
+  uploadedAt?: string;
+  category?: string;
+  isPrimary: boolean;
+  downloadKind: "direct" | "external" | "steam";
+  downloadUrl?: string;
+  fileName?: string;
+}
+
+export interface RemoteModLink {
+  label: string;
+  url: string;
+}
+
+export interface RemoteModDetail {
+  summary: RemoteModSummary;
+  description?: string;
+  gallery: string[];
+  files: RemoteModFile[];
+  links: RemoteModLink[];
+}
+
+export interface RemoteModSearch {
+  source: ModSourceId;
+  query: string;
+  results: RemoteModSummary[];
+  page: number;
+  total?: number;
+  hasMore: boolean;
+}
+
+export type RemoteInstallStatus = "installed" | "manual" | "external" | "steam";
+
+export interface RemoteInstallResult {
+  status: RemoteInstallStatus;
+  installedPath?: string;
+  installedFiles: number;
+  url?: string;
+  message?: string;
+}
+
+export interface ModRemoteInstall {
+  id: string;
+  gameId: string;
+  source: string;
+  sourceModId: string;
+  sourceFileId?: string;
+  name: string;
+  author?: string;
+  version?: string;
+  remoteUrl?: string;
+  installedPath?: string;
+  installedAt: number;
+}
+
+/** Progress event emitted while a remote mod is downloaded/installed. */
+export interface ModRemoteProgress {
+  source: string;
+  modId: string;
+  phase: "starting" | "downloading" | "installing" | "complete" | string;
+  downloaded: number;
+  total?: number;
+  message?: string;
 }
 
 /** Human labels for engine badges (not localized — proper nouns). */

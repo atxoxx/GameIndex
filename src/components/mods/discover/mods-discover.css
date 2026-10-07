@@ -1,0 +1,801 @@
+/* Mods "Discover" browser — multi-source mod website browsing.
+   Theme tokens only; every dark style has a light counterpart via the
+   shared CSS custom properties. */
+
+.mods-discover-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+}
+
+/* ── Controls ─────────────────────────────────────────────────────── */
+
+.mods-discover-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.2fr) minmax(220px, 2fr) minmax(140px, 0.8fr);
+  gap: var(--space-md);
+  align-items: end;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.mods-discover-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.mods-discover-label {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.mods-discover-select,
+.mods-discover-search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  transition: border-color var(--duration-normal) var(--ease-standard);
+}
+
+.mods-discover-select:focus,
+.mods-discover-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.mods-discover-select:disabled,
+.mods-discover-search-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mods-discover-source-row {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.mods-discover-source-row .mods-discover-select {
+  flex: 1;
+}
+
+.mods-discover-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-normal) var(--ease-standard),
+    color var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard);
+}
+
+.mods-discover-icon-btn:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+  border-color: var(--color-border-light);
+}
+
+.mods-discover-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mods-discover-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mods-discover-search-icon {
+  position: absolute;
+  left: var(--space-md);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.mods-discover-search-input {
+  padding-left: calc(var(--space-md) * 2 + 15px);
+}
+
+.mods-discover-meta {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Results grid ─────────────────────────────────────────────────── */
+
+.mods-discover-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.mods-discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 18vw, 260px), 1fr));
+  gap: var(--space-md);
+}
+
+.mods-discover-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.mods-discover-loadmore {
+  display: flex;
+  justify-content: center;
+}
+
+.mods-discover-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-3xl) var(--space-lg);
+  text-align: center;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.mods-discover-empty h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+}
+
+.mods-discover-empty p {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--font-size-sm);
+}
+
+/* ── Card ─────────────────────────────────────────────────────────── */
+
+.mods-discover-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.mods-discover-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-light);
+  box-shadow: var(--shadow-md);
+}
+
+.mods-discover-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.mods-discover-card-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: var(--color-bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.mods-discover-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mods-discover-card-thumb-fallback {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.mods-discover-card-source {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  padding: 2px var(--space-sm);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 85%, transparent);
+  color: var(--color-accent-contrast);
+  font-weight: 600;
+}
+
+.mods-discover-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+.mods-discover-card-name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mods-discover-card-author {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-card-summary {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mods-discover-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mods-discover-card-updated {
+  margin-top: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-card-external {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
+  color: var(--color-text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-standard);
+}
+
+.mods-discover-card:hover .mods-discover-card-external {
+  opacity: 1;
+}
+
+/* ── Progress ─────────────────────────────────────────────────────── */
+
+.mods-discover-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.mods-discover-progress-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-progress-label {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.mods-discover-progress-track {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.mods-discover-progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.mods-discover-progress-fill.indeterminate {
+  width: 40%;
+  animation: mods-discover-indeterminate 1.2s var(--ease-standard) infinite;
+}
+
+@keyframes mods-discover-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+.mods-discover-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Recent installs ──────────────────────────────────────────────── */
+
+.mods-discover-recent {
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.mods-discover-recent h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.mods-discover-recent ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.mods-discover-recent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+}
+
+.mods-discover-recent-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mods-discover-recent-name {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mods-discover-recent-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-recent-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* ── Source config modal ──────────────────────────────────────────── */
+
+.mods-source-modal {
+  width: min(760px, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mods-source-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mods-source-modal-header h2 {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--font-size-lg);
+}
+
+.mods-source-modal-header p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.mods-source-modal-game {
+  display: inline-block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-source-modal-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.mods-source-card {
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.mods-source-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.mods-source-card-head h3 {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.mods-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.mods-source-status {
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.mods-source-status.is-ok {
+  background: color-mix(in srgb, var(--color-success, #4ade80) 20%, transparent);
+  color: var(--color-success, #4ade80);
+}
+
+.mods-source-status.is-missing {
+  background: color-mix(in srgb, var(--color-warning, #f59e0b) 20%, transparent);
+  color: var(--color-warning, #f59e0b);
+}
+
+.mods-source-note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-source-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.mods-source-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.mods-source-field-row {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.mods-source-input {
+  flex: 1;
+  height: 34px;
+  padding: 0 var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.mods-source-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.mods-source-mapped {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Remote detail modal ──────────────────────────────────────────── */
+
+.mods-remote-modal {
+  width: min(860px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mods-remote-modal-header {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mods-remote-modal-art {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.mods-remote-modal-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mods-remote-modal-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.mods-remote-modal-source {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.mods-remote-modal-title h2 {
+  margin: 2px 0 var(--space-xs);
+  font-size: var(--font-size-xl);
+}
+
+.mods-remote-modal-sub,
+.mods-remote-modal-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.mods-remote-modal-stats {
+  margin-top: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-remote-modal-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mods-remote-modal-header-actions {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: flex-start;
+}
+
+.mods-remote-modal-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.mods-remote-modal-section h3 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.mods-remote-modal-description {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.mods-remote-modal-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-sm);
+}
+
+.mods-remote-modal-gallery img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.mods-remote-modal-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.mods-remote-modal-error {
+  color: var(--color-warning, #f59e0b);
+  font-size: var(--font-size-sm);
+}
+
+.mods-remote-modal-nofiles {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+}
+
+.mods-remote-modal-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.mods-remote-file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.mods-remote-file-icon {
+  color: var(--color-text-muted);
+}
+
+.mods-remote-file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mods-remote-file-name {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.mods-remote-file-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-remote-file-primary {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+
+@media (max-width: 1280px) {
+  .mods-discover-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .mods-discover-controls {
+    grid-template-columns: 1fr;
+  }
+}

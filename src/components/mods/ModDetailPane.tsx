@@ -6,6 +6,7 @@ import { Button } from "../ui";
 import { ENGINE_LABELS, type GameMod, type ModConflict, type ModEngine } from "../../types/mods";
 import ModConflictVisualizer from "./ModConflictVisualizer";
 import ModFileInspector from "./ModFileInspector";
+import { sourceLabel } from "./discover/format";
 
 function formatModSize(bytes?: number): string {
   if (bytes == null || bytes <= 0) return "—";
@@ -193,6 +194,24 @@ export default function ModDetailPane({
 
       {selected.engine === "workshop" && (
         <div className="mods-workshop-hint">ℹ {t("mods.workshopManaged")}</div>
+      )}
+
+      {/* Provenance for mods installed from the Discover browser */}
+      {selected.source && (
+        <div className="mods-source-provenance">
+          <span className="mods-source-provenance-chip">
+            {t("mods.source.installedFrom", { source: sourceLabel(selected.source) })}
+          </span>
+          {selected.remoteUrl && (
+            <button
+              type="button"
+              className="mods-nexus-link"
+              onClick={() => void openUrl(selected.remoteUrl!)}
+            >
+              {t("mods.source.viewSource")}
+            </button>
+          )}
+        </div>
       )}
 
       {/* KPI Grid */}
