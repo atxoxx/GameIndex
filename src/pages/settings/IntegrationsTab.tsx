@@ -6,6 +6,8 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button, ConfirmModal } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
+import SettingsCategory from "./SettingsCategory";
+import ModSitesSettings from "./ModSitesSettings";
 import IntegrationTile from "./IntegrationTile";
 import type { useIntegrations } from "./useIntegrations";
 import { HumbleToggle, UplayToggle } from "./IntegrationToggles";
@@ -41,6 +43,19 @@ const TILE_IDS = [
   "integration-rockstar",
   "integration-uplay",
 ];
+
+/** Deep-link anchor id → the collapsible category that must open to reveal it. */
+const CATEGORY_OF_SECTION: Record<string, string> = {
+  "integration-steam": "stores",
+  "integration-epic": "stores",
+  "integration-gog": "stores",
+  "integration-humble": "stores",
+  "integration-rockstar": "launchers",
+  "integration-uplay": "launchers",
+  "section-mods": "mods",
+  "section-retro": "achievements",
+  "section-datasync": "sync",
+};
 
 export default function IntegrationsTab({
   integrations,
@@ -142,22 +157,34 @@ export default function IntegrationsTab({
     removeIntegrationGames,
   } = integrations;
 
-  // Accordion state — one flag per tile. Deep links (search / jump bar
-  // / ?section=) auto-expand the targeted tile before scrolling there.
+  // Accordion state — one flag per category and one per tile. Every
+  // category starts collapsed; deep links (search / jump bar / ?section=)
+  // auto-expand the targeted category (and tile) before scrolling there.
+  const [openCats, setOpenCats] = useState<Record<string, boolean>>({});
   const [openTiles, setOpenTiles] = useState<Record<string, boolean>>({});
   const scrollTarget = useSectionScroll(sectionIds);
 
   useEffect(() => {
-    if (scrollTarget && TILE_IDS.includes(scrollTarget)) {
-      setOpenTiles((prev) => ({ ...prev, [scrollTarget]: true }));
+    if (!scrollTarget) return;
+    const category = CATEGORY_OF_SECTION[scrollTarget];
+    if (category) {
+      setOpenCats((prev) => (prev[category] ? prev : { ...prev, [category]: true }));
+    }
+    if (TILE_IDS.includes(scrollTarget)) {
+      setOpenTiles((prev) => (prev[scrollTarget] ? prev : { ...prev, [scrollTarget]: true }));
     }
   }, [scrollTarget]);
+
+  const toggleCategory = (id: string) =>
+    setOpenCats((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const toggleTile = (id: string) =>
     setOpenTiles((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  /** Overview chip click: expand the tile and bring it into view. */
+  /** Overview chip click: expand the category + tile and bring it into view. */
   const jumpToTile = (id: string) => {
+    const category = CATEGORY_OF_SECTION[id];
+    if (category) setOpenCats((prev) => ({ ...prev, [category]: true }));
     setOpenTiles((prev) => ({ ...prev, [id]: true }));
     requestAnimationFrame(() => {
       const el = document.getElementById(id);
@@ -233,11 +260,15 @@ export default function IntegrationsTab({
           ))}
         </div>
 
-        {/* ── Store accounts — the four linked integrations ── */}
-        <p className="settings-toggles-title">
-          {t("settings.integrations.groupAccounts")}
-        </p>
-
+        {/* ── Game stores — the four linked account integrations ── */}
+        <SettingsCategory
+          icon={<SteamIcon />}
+          title={t("settings.integrations.categoryStores")}
+          open={!!openCats["stores"]}
+          onToggle={() => toggleCategory("stores")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integrations.categoryStores") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integrations.categoryStores") })}
+        >
         {/* ── Steam ── */}
         <IntegrationTile
           brand="steam"
@@ -798,12 +829,17 @@ export default function IntegrationsTab({
             />
           </div>
         </IntegrationTile>
+        </SettingsCategory>
 
         {/* ── Local launchers — account-less registry scans ── */}
-        <p className="settings-toggles-title">
-          {t("settings.integrations.groupLocal")}
-        </p>
-
+        <SettingsCategory
+          icon={<RockstarIcon />}
+          title={t("settings.integrations.categoryLaunchers")}
+          open={!!openCats["launchers"]}
+          onToggle={() => toggleCategory("launchers")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integrations.categoryLaunchers") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integrations.categoryLaunchers") })}
+        >
         {/* ── Rockstar Games Launcher ── */}
         <IntegrationTile
           brand="rockstar"
@@ -936,17 +972,33 @@ export default function IntegrationsTab({
             />
           </div>
         </IntegrationTile>
+        </SettingsCategory>
 
-        <p className="integration-footer">{t("settings.integrations.footerNotice")}</p>
-      </SettingsSection>
+        {/* ── Mods & community — mod site API keys ── */}
+        <SettingsCategory
+          id="section-mods"
+          icon={<ModsIcon />}
+          title={t("settings.mods.title")}
+          desc={t("settings.mods.desc")}
+          open={!!openCats["mods"]}
+          onToggle={() => toggleCategory("mods")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.mods.title") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.mods.title") })}
+        >
+          <ModSitesSettings />
+        </SettingsCategory>
 
-      {/* ── RetroAchievements — emulated / local game achievements ── */}
-      <SettingsSection
-        id="section-retro"
-        icon={<RetroIcon />}
-        title={t("settings.retro.title")}
-        desc={t("settings.retro.desc")}
-      >
+        {/* ── Achievements — emulated / local game achievements ── */}
+        <SettingsCategory
+          id="section-retro"
+          icon={<RetroIcon />}
+          title={t("settings.retro.title")}
+          desc={t("settings.retro.desc")}
+          open={!!openCats["achievements"]}
+          onToggle={() => toggleCategory("achievements")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.retro.title") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.retro.title") })}
+        >
         <div className="retro-settings">
           <div className="integration-tile-form">
             <label className="settings-control">
@@ -1102,15 +1154,19 @@ export default function IntegrationsTab({
             </Button>
           </div>
         </div>
-      </SettingsSection>
+        </SettingsCategory>
 
-      {/* ── Data & sync preferences (across vendors) ── */}
-      <SettingsSection
-        id="section-datasync"
-        icon={<IntegrationsIcon />}
-        title={t("settings.section.dataSync")}
-        desc={t("settings.dataSync.desc")}
-      >
+        {/* ── Sync & data preferences (across vendors) ── */}
+        <SettingsCategory
+          id="section-datasync"
+          icon={<IntegrationsIcon />}
+          title={t("settings.section.dataSync")}
+          desc={t("settings.dataSync.desc")}
+          open={!!openCats["sync"]}
+          onToggle={() => toggleCategory("sync")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.section.dataSync") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.section.dataSync") })}
+        >
         <div className="settings-data-panel">
           <div className="settings-data-row">
             <div className="settings-data-row-text">
@@ -1218,6 +1274,9 @@ export default function IntegrationsTab({
             </div>
           </label>
         </div>
+        </SettingsCategory>
+
+        <p className="integration-footer">{t("settings.integrations.footerNotice")}</p>
       </SettingsSection>
 
       <ConfirmModal
@@ -1262,6 +1321,25 @@ function RetroIcon() {
       <path d="M7 10v4M5 12h4" />
       <circle cx="16" cy="11" r="0.5" fill="currentColor" />
       <circle cx="18" cy="13" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Package glyph for the Mods & community category. */
+function ModsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+      <line x1="12" y1="22.08" x2="12" y2="12" />
     </svg>
   );
 }

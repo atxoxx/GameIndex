@@ -55,14 +55,6 @@ export function useModSources(gameId: string | null) {
 
   const resolveAll = useCallback(() => detect(true), [detect]);
 
-  const setCredential = useCallback(
-    async (source: string, key: string) => {
-      await invoke("mods_source_set_credential", { source, key });
-      await detect(false);
-    },
-    [detect],
-  );
-
   const setLink = useCallback(
     async (source: string, externalId: string, displayName?: string) => {
       await invoke("mods_source_set_link", {
@@ -91,7 +83,6 @@ export function useModSources(gameId: string | null) {
     error,
     detect,
     resolveAll,
-    setCredential,
     setLink,
     clearLink,
   };

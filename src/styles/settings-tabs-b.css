@@ -22,6 +22,206 @@
  * INTEGRATIONS TAB
  * ========================================================================== */
 
+/* ── Category groups ─────────────────────────────────────────────────────── */
+
+/* Collapsible grouping shell. The header is a full-width toggle; the body
+ * eases open via grid-template-rows 0fr → 1fr (same trick as the library
+ * filter groups). Categories start collapsed so the tab opens as a short,
+ * scannable list of groups. */
+.settings-category {
+  margin-bottom: var(--space-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.settings-category:hover,
+.settings-category.is-open {
+  border-color: var(--color-border-light);
+}
+
+.settings-category__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: background var(--transition-fast);
+}
+
+.settings-category__header:hover {
+  background: color-mix(in srgb, var(--color-bg-secondary) 45%, transparent);
+}
+
+.settings-category__header:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.settings-category__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, var(--color-border));
+  color: var(--color-accent);
+}
+
+.settings-category__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-category__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-category__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.2px;
+}
+
+.settings-category__desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.settings-category__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.settings-category__header:hover .settings-category__chevron {
+  color: var(--color-text-secondary);
+}
+
+.settings-category__chevron.open {
+  transform: rotate(180deg);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
+}
+
+.settings-category__chevron svg {
+  width: 13px;
+  height: 13px;
+}
+
+.settings-category__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-normal) var(--ease-standard);
+}
+
+.settings-category.is-open .settings-category__body {
+  grid-template-rows: 1fr;
+}
+
+.settings-category__content {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.settings-category.is-open .settings-category__content {
+  padding: 0 var(--space-md) var(--space-lg);
+}
+
+/* The category body already spaces its tiles; drop the trailing margin on
+ * the last card so the group closes cleanly. */
+.settings-category__content > .integration-tile:last-child {
+  margin-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-category__body {
+    transition: none;
+  }
+}
+
+/* ── Mod site API keys ───────────────────────────────────────────────────── */
+
+.mod-sites-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.mod-sites-settings__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.mod-sites-settings__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.mod-sites-settings .settings-input-group .settings-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.settings-source-badge.is-ready {
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+
+.settings-source-badge.is-missing {
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+}
+
 /* ── Store tiles ─────────────────────────────────────────────────────────── */
 
 .integration-tile {

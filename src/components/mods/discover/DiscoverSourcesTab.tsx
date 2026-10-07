@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   CheckCircle2,
   ExternalLink,
-  KeyRound,
   Link2,
   RefreshCw,
+  Settings2,
   ShieldAlert,
   Trash2,
 } from "lucide-react";
@@ -21,7 +22,6 @@ interface DiscoverSourcesTabProps {
   sources: ModSourceInfo[];
   resolving: boolean;
   onResolve: () => void;
-  onSetCredential: (source: string, key: string) => Promise<void>;
   onSetLink: (source: string, externalId: string, displayName?: string) => Promise<void>;
   onClearLink: (source: string) => Promise<void>;
 }
@@ -32,28 +32,13 @@ export default function DiscoverSourcesTab({
   sources,
   resolving,
   onResolve,
-  onSetCredential,
   onSetLink,
   onClearLink,
 }: DiscoverSourcesTabProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
   const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
-
-  const handleSaveKey = async (source: string) => {
-    const key = keyDrafts[source] ?? "";
-    setSaving(source);
-    try {
-      await onSetCredential(source, key);
-      showToast(t("mods.source.keySaved"), "success");
-    } catch (err) {
-      showToast(String(err), "error");
-    } finally {
-      setSaving(null);
-    }
-  };
 
   const handleSaveLink = async (source: string) => {
     const value = (linkDrafts[source] ?? "").trim();
@@ -94,21 +79,29 @@ export default function DiscoverSourcesTab({
           </p>
         </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={!gameId || resolving}
-          onClick={onResolve}
-          leftIcon={<RefreshCw size={14} className={resolving ? "spinning" : undefined} />}
-        >
-          {resolving ? t("mods.discover.detecting") : t("mods.discover.detectSources")}
-        </Button>
+        <div className="mods-discover-sources-banner-actions">
+          <Link
+            className="mods-discover-sources-settings-link"
+            to="/settings/integrations?section=section-mods"
+          >
+            <Settings2 size={13} />
+            {t("mods.openSettings")}
+          </Link>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!gameId || resolving}
+            onClick={onResolve}
+            leftIcon={<RefreshCw size={14} className={resolving ? "spinning" : undefined} />}
+          >
+            {resolving ? t("mods.discover.detecting") : t("mods.discover.detectSources")}
+          </Button>
+        </div>
       </div>
 
       <div className="mods-discover-sources-grid">
         {sources.map((source) => {
           const isSaving = saving === source.id;
-          const keyDraft = keyDrafts[source.id] ?? "";
           const linkDraft = linkDrafts[source.id] ?? source.externalId ?? "";
 
           return (
@@ -147,45 +140,7 @@ export default function DiscoverSourcesTab({
                 <p className="mods-discover-source-note">{source.note}</p>
               )}
 
-              {/* API Key credential row */}
-              {source.requiresCredential && (
-                <div className="mods-discover-source-form-group">
-                  <div className="mods-discover-source-form-label">
-                    <KeyRound size={13} />
-                    <span>{t("mods.source.apiKey")}</span>
-                    {source.hasCredential && (
-                      <span className="mods-discover-key-saved-tag">
-                        ✓ {t("mods.source.keySavedBadge")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mods-discover-source-input-row">
-                    <input
-                      type="password"
-                      className="mods-discover-input"
-                      placeholder={
-                        source.hasCredential
-                          ? "••••••••••••••••"
-                          : t("mods.source.apiKeyPlaceholder")
-                      }
-                      value={keyDraft}
-                      onChange={(e) =>
-                        setKeyDrafts((d) => ({ ...d, [source.id]: e.target.value }))
-                      }
-                    />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={isSaving || !keyDraft.trim()}
-                      onClick={() => void handleSaveKey(source.id)}
-                    >
-                      {t("common.save")}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Game link / slug row */}
+              {/* Game link / slug row — API keys live in Settings. */}
               {gameId && (
                 <div className="mods-discover-source-form-group">
                   <div className="mods-discover-source-form-label">

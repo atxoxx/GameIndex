@@ -29,8 +29,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof ModCommandBar>
     onOpenExport: vi.fn(),
     onPickFolder: vi.fn(),
     hasModsRoot: true,
-    nexusOpen: false,
-    onToggleNexus: vi.fn(),
+    onOpenNexusSettings: vi.fn(),
     onUndo: vi.fn(),
     ...overrides,
   };

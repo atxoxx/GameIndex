@@ -249,14 +249,20 @@ export function buildSettingsCatalog(
           keywords: "ubisoft connect uplay scan registry import installed",
         },
         {
-          id: "section-datasync",
-          labelKey: "settings.section.dataSync",
-          keywords: "auto sync interval history retention achievements spoilers local tracking",
+          id: "section-mods",
+          labelKey: "settings.mods.title",
+          keywords:
+            "nexus mods curseforge modio api key account login token mod sites mod manager download update modding",
         },
         {
           id: "section-retro",
           labelKey: "settings.retro.title",
           keywords: "retro achievements retroachievements emulator rom hash console mapping",
+        },
+        {
+          id: "section-datasync",
+          labelKey: "settings.section.dataSync",
+          keywords: "auto sync interval history retention achievements spoilers local tracking",
         },
       ],
     },

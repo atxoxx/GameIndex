@@ -15,6 +15,7 @@ import {
   Gamepad2,
   HardDrive,
   Layers,
+  Settings2,
 } from "lucide-react";
 import { Button, KpiTile, PageHeader } from "../../components/ui";
 import PageWidget from "../../components/PageWidget";
@@ -158,14 +159,24 @@ export default function ModsPage() {
             title={t("mods.title")}
             description={t("mods.subtitle")}
             actions={
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Compass size={14} />}
-                onClick={() => navigate("/mods/discover")}
-              >
-                {t("mods.discover.title")}
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Compass size={14} />}
+                  onClick={() => navigate("/mods/discover")}
+                >
+                  {t("mods.discover.title")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Settings2 size={14} />}
+                  onClick={() => navigate("/settings/integrations?section=section-mods")}
+                >
+                  {t("mods.openSettings")}
+                </Button>
+              </>
             }
           />
         </div>

@@ -54,8 +54,7 @@ interface ModCommandBarProps {
   onPickFolder: () => void;
   hasModsRoot: boolean;
   customRootTitle?: string;
-  nexusOpen: boolean;
-  onToggleNexus: () => void;
+  onOpenNexusSettings: () => void;
   onUndo: () => void;
 }
 
@@ -83,8 +82,7 @@ export default function ModCommandBar({
   onPickFolder,
   hasModsRoot,
   customRootTitle,
-  nexusOpen,
-  onToggleNexus,
+  onOpenNexusSettings,
   onUndo,
 }: ModCommandBarProps) {
   const { t } = useLanguage();
@@ -200,12 +198,11 @@ export default function ModCommandBar({
     });
     items.push({
       id: "nexus",
-      label: t("mods.nexus"),
+      label: t("mods.openSettings"),
       icon: <Settings2 size={15} />,
-      active: nexusOpen,
       onSelect: () => {
         setMoreMenu(null);
-        onToggleNexus();
+        onOpenNexusSettings();
       },
     });
     return items;
@@ -215,14 +212,13 @@ export default function ModCommandBar({
     counts.total,
     hasModsRoot,
     customRootTitle,
-    nexusOpen,
     onCheckUpdates,
     onUndo,
     onOpenPresets,
     onOpenExport,
     onOpenFolder,
     onPickFolder,
-    onToggleNexus,
+    onOpenNexusSettings,
   ]);
 
   return (

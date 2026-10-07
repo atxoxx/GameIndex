@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, KeyRound, Link2, Trash2 } from "lucide-react";
+import { ExternalLink, Link2, Trash2 } from "lucide-react";
 import { Button } from "../../ui";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
@@ -17,7 +17,6 @@ interface SourceConfigModalProps {
   gameName?: string;
   sources: ModSourceInfo[];
   onClose: () => void;
-  onSetCredential: (source: string, key: string) => Promise<void>;
   onSetLink: (source: string, externalId: string, displayName?: string) => Promise<void>;
   onClearLink: (source: string) => Promise<void>;
 }
@@ -28,13 +27,11 @@ export default function SourceConfigModal({
   gameName,
   sources,
   onClose,
-  onSetCredential,
   onSetLink,
   onClearLink,
 }: SourceConfigModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
   const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -52,19 +49,6 @@ export default function SourceConfigModal({
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const handleSaveKey = async (source: string) => {
-    const key = keyDrafts[source] ?? "";
-    setSaving(source);
-    try {
-      await onSetCredential(source, key);
-      showToast(t("mods.source.keySaved"), "success");
-    } catch (err) {
-      showToast(String(err), "error");
-    } finally {
-      setSaving(null);
-    }
-  };
 
   const handleSaveLink = async (source: string) => {
     const value = (linkDrafts[source] ?? "").trim();
@@ -146,33 +130,6 @@ export default function SourceConfigModal({
 
               {s.id === "workshop" && (
                 <p className="mods-source-note">{t("mods.source.steamWorkshopNote")}</p>
-              )}
-
-              {s.requiresCredential && s.id !== "workshop" && (
-                <div className="mods-source-field">
-                  <label className="mods-source-field-label">
-                    <KeyRound size={13} /> {t("mods.source.apiKey")}
-                  </label>
-                  <div className="mods-source-field-row">
-                    <input
-                      type="password"
-                      className="mods-source-input"
-                      placeholder={s.hasCredential ? "••••••••" : t("mods.source.apiKeyPlaceholder")}
-                      value={keyDrafts[s.id] ?? ""}
-                      onChange={(e) =>
-                        setKeyDrafts((d) => ({ ...d, [s.id]: e.target.value }))
-                      }
-                    />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      isLoading={saving === s.id}
-                      onClick={() => void handleSaveKey(s.id)}
-                    >
-                      {t("mods.source.save")}
-                    </Button>
-                  </div>
-                </div>
               )}
 
               {gameId && (

@@ -157,7 +157,6 @@ export default function ModsDiscoverView({
     loading: sourcesLoading,
     resolving,
     resolveAll,
-    setCredential,
     setLink,
     clearLink,
   } = useModSources(gameId);
@@ -808,7 +807,6 @@ export default function ModsDiscoverView({
             sources={sources}
             resolving={resolving}
             onResolve={handleResolve}
-            onSetCredential={setCredential}
             onSetLink={setLink}
             onClearLink={clearLink}
           />
@@ -822,7 +820,6 @@ export default function ModsDiscoverView({
         gameName={activeGame ? gameDisplayName(activeGame) : undefined}
         sources={sources}
         onClose={() => setConfigOpen(false)}
-        onSetCredential={setCredential}
         onSetLink={setLink}
         onClearLink={clearLink}
       />

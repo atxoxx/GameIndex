@@ -3,6 +3,7 @@
 // split; all backend behavior lives in useGameMods / useMo2.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -16,8 +17,8 @@ import type {
   ModWorkspaceStats,
 } from "../../types/mods";
 import { useGameMods } from "../../hooks/useGameMods";
-import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useToast } from "../../context/ToastContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { usePersistedState } from "../../hooks/usePersistedState";
@@ -26,7 +27,6 @@ import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import ModCommandBar from "./ModCommandBar";
 import ModList from "./ModList";
 import ModDetailPane from "./ModDetailPane";
-import NexusDrawer from "./NexusDrawer";
 import ModPresetsModal, { type ModPreset } from "./ModPresetsModal";
 import ModExportModal from "./ModExportModal";
 import ModInstallModal from "./ModInstallModal";
@@ -52,6 +52,7 @@ export default function ModManager({
 }: ModManagerProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const {
     payload,
     conflicts,
@@ -68,7 +69,6 @@ export default function ModManager({
     remove,
     checkUpdates,
     setCustomRoot,
-    setNexusDomain,
   } = useGameMods(game);
 
   const mo2 = useMo2(game);
@@ -94,7 +94,6 @@ export default function ModManager({
   const [showPresetsModal, setShowPresetsModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
-  const [nexusOpen, setNexusOpen] = useState(false);
   const modMenu = useContextMenu<GameMod>();
   const copy = useCopyToClipboard();
 
@@ -828,8 +827,9 @@ export default function ModManager({
             onPickFolder={() => void handlePickFolder()}
             hasModsRoot={!!payload?.settings?.modsRoot}
             customRootTitle={payload?.settings?.customRoot ?? undefined}
-            nexusOpen={nexusOpen}
-            onToggleNexus={() => setNexusOpen((v) => !v)}
+            onOpenNexusSettings={() =>
+              navigate("/settings/integrations?section=section-mods")
+            }
             onUndo={() => void undoLast()}
           />
 
@@ -838,15 +838,6 @@ export default function ModManager({
               {scanProgress.phase || t("mods.scanning")} · {scanProgress.filesExamined} files ·{" "}
               {scanProgress.modsFound} mods
             </div>
-          )}
-
-          {nexusOpen && (
-            <NexusDrawer
-              currentDomain={payload?.settings?.nexusDomain}
-              onDomainSaved={async (domain) => {
-                await setNexusDomain(domain);
-              }}
-            />
           )}
 
           {error && (
