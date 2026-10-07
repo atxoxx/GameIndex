@@ -3235,6 +3235,23 @@
   color: var(--color-accent-contrast, #ffffff);
 }
 
+.mods-discover-icon-btn--steam {
+  color: var(--brand-steam, var(--color-info));
+  border-color: color-mix(in srgb, var(--brand-steam, var(--color-info)) 40%, transparent);
+  background: color-mix(in srgb, var(--brand-steam, var(--color-info)) 10%, transparent);
+}
+
+.mods-discover-icon-btn--steam:hover:not(:disabled) {
+  color: var(--brand-steam, var(--color-info));
+  border-color: color-mix(in srgb, var(--brand-steam, var(--color-info)) 60%, transparent);
+  background: color-mix(in srgb, var(--brand-steam, var(--color-info)) 20%, transparent);
+}
+
+.mods-discover-icon-btn--steam svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* Card & Row Installed Indicators & Version Pills */
 .mods-discover-card.is-installed {
   border-color: color-mix(in srgb, var(--color-success, #22c55e) 45%, transparent);

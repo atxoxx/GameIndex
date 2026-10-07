@@ -8,6 +8,7 @@ import {
   modHasSelectedTag,
   relativeTime,
   sourceLabel,
+  steamWorkshopUrl,
 } from "./format";
 
 describe("mods discover format helpers", () => {
@@ -48,6 +49,12 @@ describe("mods discover format helpers", () => {
     expect(sourceLabel("nexus")).toBe("Nexus Mods");
     expect(sourceLabel("workshop")).toBe("Steam Workshop");
     expect(sourceLabel("unknown-site")).toBe("unknown-site");
+  });
+
+  it("builds Steam client deep links for workshop items", () => {
+    expect(steamWorkshopUrl("426629791")).toBe(
+      "steam://url/CommunityFilePage/426629791",
+    );
   });
 
   it("localizes relative time and guards bad input", () => {

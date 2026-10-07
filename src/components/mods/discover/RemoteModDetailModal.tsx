@@ -27,10 +27,12 @@ import {
   formatCount,
   relativeTime,
   sourceLabel,
+  steamWorkshopUrl,
 } from "./format";
 import { buildMediaItem, parseDescription, type MediaItem } from "./description";
 import ModMediaLightbox from "./ModMediaLightbox";
 import InstallProgress from "./InstallProgress";
+import { SteamIcon } from "../../weblinks/WebLinksIcons";
 import "./mods-discover.css";
 
 interface RemoteModDetailModalProps {
@@ -133,6 +135,11 @@ export default function RemoteModDetailModal({
   const galleryMedia: MediaItem[] = (detail?.gallery ?? []).map(buildMediaItem);
   const allMedia: MediaItem[] = [...descMedia, ...galleryMedia];
 
+  // Steam Workshop items install through the Steam client, so offer a deep
+  // link that opens the subscribe page in Steam instead of the browser.
+  const steamUrl =
+    source === "workshop" && summary.id ? steamWorkshopUrl(summary.id) : null;
+
   if (!open) return null;
 
   const updated = relativeTime(summary.updatedAt, language);
@@ -148,6 +155,14 @@ export default function RemoteModDetailModal({
   };
 
   const handleInstall = async (file?: RemoteModFile | null) => {
+    // Workshop items can't be downloaded out of band — Steam owns the
+    // subscription — so open the item in the Steam client instead of
+    // round-tripping through the backend just to get the web URL back.
+    if (file?.downloadKind === "steam" && steamUrl) {
+      void openUrl(steamUrl);
+      return;
+    }
+
     setInstallingFile(file?.id ?? "primary");
     try {
       const res = await install({
@@ -173,7 +188,8 @@ export default function RemoteModDetailModal({
       } else if (res.status === "manual") {
         showToast(res.message ?? t("mods.discover.manualNeeded"), "info");
       } else if (res.status === "steam") {
-        if (res.url) void openUrl(res.url);
+        if (steamUrl) void openUrl(steamUrl);
+        else if (res.url) void openUrl(res.url);
       } else if (res.status === "external") {
         if (res.url) void openUrl(res.url);
       }
@@ -261,6 +277,18 @@ export default function RemoteModDetailModal({
             >
               <ExternalLink size={16} />
             </button>
+
+            {steamUrl && (
+              <button
+                type="button"
+                className="mods-discover-icon-btn mods-discover-icon-btn--steam"
+                onClick={() => void openUrl(steamUrl)}
+                title={t("mods.discover.openInSteam")}
+                aria-label={t("mods.discover.openInSteam")}
+              >
+                {SteamIcon}
+              </button>
+            )}
 
             <button
               type="button"

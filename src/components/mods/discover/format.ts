@@ -110,6 +110,15 @@ export function sourceLabel(id: string): string {
 }
 
 /**
+ * Deep link that opens a Steam Workshop item in the Steam client (the
+ * subscribe page in the overlay) rather than the browser page. `id` is the
+ * published-file id.
+ */
+export function steamWorkshopUrl(id: string): string {
+  return `steam://url/CommunityFilePage/${id}`;
+}
+
+/**
  * Count tags across results for the tag facet. `tags` is omitted by the
  * backend when empty, so it must be treated as optional.
  */
