@@ -186,6 +186,8 @@ pub fn normalize_name(s: &str) -> String {
 }
 
 /// URL slug form of a title (`The Witcher 3` → `the-witcher-3`).
+/// Periods and apostrophes are dropped rather than turned into dashes so
+/// acronym titles survive: `S.T.A.L.K.E.R.` → `stalker`.
 pub fn slugify(s: &str) -> String {
     let lower = s.to_lowercase();
     let mut out = String::with_capacity(lower.len());
@@ -194,6 +196,9 @@ pub fn slugify(s: &str) -> String {
         if c.is_ascii_alphanumeric() {
             out.push(c);
             prev_dash = false;
+        } else if c == '.' || c == '\'' || c == '\u{2019}' {
+            // Drop punctuation that isn't a word separator.
+            continue;
         } else if !prev_dash {
             out.push('-');
             prev_dash = true;
@@ -1008,6 +1013,12 @@ mod tests {
     fn slugify_makes_url_safe_slugs() {
         assert_eq!(slugify("The Witcher 3: Wild Hunt"), "the-witcher-3-wild-hunt");
         assert_eq!(slugify("  Halo: CE  "), "halo-ce");
+        // Acronym titles drop their periods instead of hyphenating them.
+        assert_eq!(
+            slugify("S.T.A.L.K.E.R.: Call of Pripyat"),
+            "stalker-call-of-pripyat"
+        );
+        assert_eq!(slugify("S.T.A.L.K.E.R. Anomaly"), "stalker-anomaly");
     }
 
     #[test]
