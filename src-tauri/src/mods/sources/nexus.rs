@@ -6,9 +6,38 @@
 //! at the mod page (where the site manages the `nxm://` handoff).
 
 use super::*;
+use serde_json::json;
 use std::sync::{Mutex, OnceLock};
 
 const API: &str = "https://api.nexusmods.com/v1";
+const GRAPHQL: &str = "https://api.nexusmods.com/v2/graphql";
+
+/// Full-catalogue search. The v2 GraphQL API pages through every mod for
+/// a game (unlike the v1 feeds, which return a fixed window), and accepts
+/// the same personal API key via the `apikey` header.
+const MODS_QUERY: &str = r#"
+query Mods($filter: ModsFilter, $sort: [ModsSort!], $offset: Int, $count: Int) {
+  mods(filter: $filter, sort: $sort, offset: $offset, count: $count) {
+    totalCount
+    nodes {
+      modId
+      name
+      summary
+      version
+      author
+      createdAt
+      updatedAt
+      endorsements
+      downloads
+      pictureUrl
+      thumbnailUrl
+      adultContent
+      category
+      game { domainName }
+    }
+  }
+}
+"#;
 
 fn key() -> Result<String, String> {
     credential_for(SOURCE_NEXUS)?
@@ -117,17 +146,148 @@ pub async fn browse(
     page_size: u32,
 ) -> Result<RemoteModSearch, String> {
     let key = key()?;
+    // Prefer the v2 GraphQL catalogue (full pagination); fall back to the
+    // v1 feeds if the key/endpoint isn't accepted, or if an unfiltered
+    // query comes back empty (a mapped game always has mods).
+    match browse_graphql(&key, external_id, query, sort, page, page_size).await {
+        Ok(res) if !(res.results.is_empty() && query.trim().is_empty()) => Ok(res),
+        _ => browse_feeds(&key, external_id, query, sort, page, page_size).await,
+    }
+}
+
+/// POST a GraphQL query and unwrap `data`, surfacing any `errors`.
+async fn graphql_post(key: &str, query: &str, variables: Value) -> Result<Value, String> {
+    let body = json!({ "query": query, "variables": variables });
+    let resp = http_client()
+        .post(GRAPHQL)
+        .header("apikey", key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("nexus graphql: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("nexus graphql: HTTP {}", resp.status()));
+    }
+    let v: Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("nexus graphql decode: {e}"))?;
+    if let Some(errors) = v.get("errors").and_then(|e| e.as_array()) {
+        if !errors.is_empty() {
+            let msg = errors
+                .iter()
+                .filter_map(|e| e.get("message").and_then(|m| m.as_str()))
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(format!("nexus graphql: {msg}"));
+        }
+    }
+    v.get("data")
+        .cloned()
+        .ok_or_else(|| "nexus graphql: empty data".to_string())
+}
+
+fn summary_from_graphql(domain: &str, n: &Value) -> Option<RemoteModSummary> {
+    let id = val_i64(n, &["modId"])?;
+    let name = val_str(n, &["name"]).unwrap_or_else(|| id.to_string());
+    Some(RemoteModSummary {
+        source: SOURCE_NEXUS.to_string(),
+        id: id.to_string(),
+        name,
+        author: val_str(n, &["author"]),
+        summary: val_str(n, &["summary"]),
+        version: val_str(n, &["version"]),
+        downloads: val_i64(n, &["downloads"]),
+        endorsements: val_i64(n, &["endorsements"]),
+        updated_at: val_str(n, &["updatedAt"]),
+        created_at: val_str(n, &["createdAt"]),
+        thumbnail_url: val_str(n, &["pictureUrl"]).or_else(|| val_str(n, &["thumbnailUrl"])),
+        url: format!("https://www.nexusmods.com/{domain}/mods/{id}"),
+        category: val_str(n, &["category"]),
+        tags: Vec::new(),
+        file_count: None,
+    })
+}
+
+async fn browse_graphql(
+    key: &str,
+    domain: &str,
+    query: &str,
+    sort: &str,
+    page: u32,
+    page_size: u32,
+) -> Result<RemoteModSearch, String> {
+    let mut clauses = vec![json!({
+        "gameDomainName": [{ "value": domain, "op": "EQUALS" }]
+    })];
+    let q = query.trim();
+    if !q.is_empty() {
+        clauses.push(json!({ "name": [{ "value": q, "op": "WILDCARD" }] }));
+    }
+    let filter = json!({ "op": "AND", "filter": clauses });
+    let sort_value = match sort {
+        "latest" => json!([{ "createdAt": { "direction": "DESC" } }]),
+        "updated" => json!([{ "updatedAt": { "direction": "DESC" } }]),
+        "downloads" => json!([{ "downloads": { "direction": "DESC" } }]),
+        _ => {
+            if q.is_empty() {
+                json!([{ "endorsements": { "direction": "DESC" } }])
+            } else {
+                json!([{ "relevance": { "direction": "DESC" } }])
+            }
+        }
+    };
+    let offset = (page.saturating_sub(1) * page_size) as i64;
+    let variables = json!({
+        "filter": filter,
+        "sort": sort_value,
+        "offset": offset,
+        "count": page_size as i64,
+    });
+    let data = graphql_post(key, MODS_QUERY, variables).await?;
+    let mods = data.get("mods").ok_or("nexus graphql: no mods")?;
+    let total = mods.get("totalCount").and_then(|x| x.as_i64());
+    let nodes = mods
+        .get("nodes")
+        .and_then(|x| x.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let results: Vec<RemoteModSummary> = nodes
+        .iter()
+        .filter_map(|n| summary_from_graphql(domain, n))
+        .collect();
+    let has_more = total
+        .map(|t| (offset + results.len() as i64) < t)
+        .unwrap_or(results.len() as u32 >= page_size);
+    Ok(RemoteModSearch {
+        source: SOURCE_NEXUS.to_string(),
+        query: query.to_string(),
+        results,
+        page,
+        total,
+        has_more,
+    })
+}
+
+/// v1 fallback: merge the three fixed feeds into one de-duped pool.
+async fn browse_feeds(
+    key: &str,
+    external_id: &str,
+    query: &str,
+    sort: &str,
+    page: u32,
+    page_size: u32,
+) -> Result<RemoteModSearch, String> {
     // The v1 API has no paginated "all mods" endpoint — each feed returns
     // a small fixed window. Merge the three feeds and de-dupe so the
     // browser still has a useful pool to page through.
     let endpoints = ["latest_added", "latest_updated", "trending"];
     let futures = endpoints.iter().map(|endpoint| {
         let url = format!("{API}/games/{external_id}/mods/{endpoint}.json");
-        let key = key.clone();
         async move {
             let resp = http_client()
                 .get(&url)
-                .header("apikey", &key)
+                .header("apikey", key)
                 .send()
                 .await
                 .ok()?;
