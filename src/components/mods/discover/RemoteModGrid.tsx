@@ -1,6 +1,8 @@
 // Results container: grid or list layout, with loading / error / empty
-// states and a footer that carries the count and the load-more action.
+// states and automatic (infinite-scroll) paging as the user reaches the
+// end of the list.
 
+import { useEffect, useRef } from "react";
 import { SearchX, ServerCrash, PackageSearch } from "lucide-react";
 import { Button, Skeleton } from "../../ui";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -43,6 +45,24 @@ export default function RemoteModGrid({
   onConfigure,
 }: RemoteModGridProps) {
   const { t } = useLanguage();
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const canObserve =
+    typeof window !== "undefined" && "IntersectionObserver" in window;
+
+  // Load the next page automatically when the sentinel scrolls into view.
+  useEffect(() => {
+    if (!hasMore || !canObserve) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) onLoadMore();
+      },
+      { rootMargin: "600px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, canObserve, onLoadMore, loading, loadingMore, results.length]);
 
   if (!hasSource) {
     return (
@@ -128,17 +148,24 @@ export default function RemoteModGrid({
               })
             : t("mods.discover.showing", { shown: String(results.length) })}
         </span>
-        {hasMore && (
-          <Button
-            variant="secondary"
-            size="sm"
-            isLoading={loadingMore}
-            onClick={onLoadMore}
-          >
+        {/* Fallback for environments without IntersectionObserver. */}
+        {hasMore && !canObserve && (
+          <Button variant="secondary" size="sm" isLoading={loadingMore} onClick={onLoadMore}>
             {t("mods.discover.loadMore")}
           </Button>
         )}
       </div>
+
+      {hasMore && (
+        <div ref={sentinelRef} className="mods-discover-sentinel" aria-hidden="true">
+          {loadingMore && (
+            <span className="mods-discover-loading-more">
+              <span className="mods-discover-spinner" />
+              {t("mods.discover.loadingMore")}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

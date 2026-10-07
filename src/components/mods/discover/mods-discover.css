@@ -858,6 +858,38 @@
   color: var(--color-text-muted);
 }
 
+/* Infinite-scroll sentinel + loader. */
+.mods-discover-sentinel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 28px;
+  padding: var(--space-md) 0;
+}
+
+.mods-discover-loading-more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  animation: mods-discover-spin 0.7s linear infinite;
+}
+
+@keyframes mods-discover-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ── List layout ──────────────────────────────────────────────────── */
 
 .mods-discover-list {

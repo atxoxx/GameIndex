@@ -44,6 +44,10 @@ const SORTS = ["trending", "latest", "updated", "downloads"] as const;
 /** Remember the last website used for each game. */
 const sourcePrefKey = (gameId: string) => `gamelib.mods.discover.source.${gameId}`;
 
+/** Re-attempt unresolved websites after this long. */
+const DETECT_TTL_MS = 6 * 60 * 60 * 1000;
+const detectedKey = (gameId: string) => `gamelib.mods.discover.detected.${gameId}`;
+
 export default function ModsDiscoverPage() {
   const { games } = useGames();
   const { t } = useLanguage();
@@ -87,15 +91,40 @@ export default function ModsDiscoverPage() {
   const installs = useRemoteInstalls(gameId);
   const autoResolvedRef = useRef<string | null>(null);
 
-  // First visit to a game with nothing mapped: try to detect its mod
-  // sites once automatically (network), then leave it to the user.
+  // Detect the websites a game lives on, once per game — even when
+  // another site is already mapped (a Steam game always has Workshop,
+  // which previously suppressed detection for everything else). A
+  // per-game timestamp keeps us from re-hitting the network every visit.
   useEffect(() => {
     if (!gameId || loading || resolving || sources.length === 0) return;
     if (autoResolvedRef.current === gameId) return;
-    if (sources.some((s) => s.available)) return;
+    if (!sources.some((s) => !s.externalId)) return;
+    let last = 0;
+    try {
+      last = Number(localStorage.getItem(detectedKey(gameId)) || 0);
+    } catch {
+      /* ignore */
+    }
+    if (last && Date.now() - last < DETECT_TTL_MS) return;
     autoResolvedRef.current = gameId;
+    try {
+      localStorage.setItem(detectedKey(gameId), String(Date.now()));
+    } catch {
+      /* ignore */
+    }
     void resolveAll();
   }, [gameId, loading, resolving, sources, resolveAll]);
+
+  const handleResolve = () => {
+    if (gameId) {
+      try {
+        localStorage.setItem(detectedKey(gameId), String(Date.now()));
+      } catch {
+        /* ignore */
+      }
+    }
+    void resolveAll();
+  };
 
   // Default game selection.
   useEffect(() => {
@@ -228,7 +257,7 @@ export default function ModsDiscoverPage() {
           value={sourceId}
           onChange={handleSourceChange}
           onConfigure={() => setConfigOpen(true)}
-          onResolve={resolveAll}
+          onResolve={handleResolve}
           resolving={resolving}
           loading={loading}
           disabled={!gameId}

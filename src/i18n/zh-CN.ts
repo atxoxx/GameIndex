@@ -3493,6 +3493,7 @@ export const zhCN: TranslationDict = {
   "mods.discover.allCategories": "所有分类",
   "mods.discover.refresh": "刷新结果",
   "mods.discover.setupSources": "设置来源",
+  "mods.discover.loadingMore": "正在加载更多…",
   "edit.mo2LaunchTitle": "Mod Organizer 2",
   "edit.mo2LaunchHint": "通过带有虚拟化文件系统 (USVFS) 的 Mod Organizer 2 启动此游戏。",
   "edit.mo2LaunchToggleAria": "启用 Mod Organizer 2 启动",

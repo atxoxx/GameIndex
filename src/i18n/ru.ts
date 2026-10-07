@@ -3493,6 +3493,7 @@ export const ru: TranslationDict = {
   "mods.discover.allCategories": "Все категории",
   "mods.discover.refresh": "Обновить результаты",
   "mods.discover.setupSources": "Настроить источники",
+  "mods.discover.loadingMore": "Загрузка…",
   "edit.mo2LaunchTitle": "Mod Organizer 2",
   "edit.mo2LaunchHint": "Запускать эту игру через Mod Organizer 2 с виртуализированной файловой системой (USVFS).",
   "edit.mo2LaunchToggleAria": "Включить запуск через Mod Organizer 2",

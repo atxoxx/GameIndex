@@ -3493,6 +3493,7 @@ export const es: TranslationDict = {
   "mods.discover.allCategories": "Todas las categorías",
   "mods.discover.refresh": "Actualizar resultados",
   "mods.discover.setupSources": "Configurar fuentes",
+  "mods.discover.loadingMore": "Cargando más…",
   "edit.mo2LaunchTitle": "Mod Organizer 2",
   "edit.mo2LaunchHint": "Iniciar este juego a través de Mod Organizer 2 con sistema de archivos virtualizado (USVFS).",
   "edit.mo2LaunchToggleAria": "Habilitar inicio con Mod Organizer 2",
