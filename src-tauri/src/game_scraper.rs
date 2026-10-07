@@ -6786,19 +6786,34 @@ pub struct MetacriticScore {
 }
 
 /// Pull the first run of digits out of a label like
-/// "Based on 13,805 User Ratings" → 13805.
+/// "Based on 1,666 User Ratings" → 1666. Thousands separators (comma,
+/// dot, space, non-breaking space) inside a number are ignored.
 fn first_number(value: &str) -> Option<u32> {
     let mut digits = String::new();
-    let mut started = false;
+    let mut in_number = false;
     for ch in value.chars() {
         if ch.is_ascii_digit() {
             digits.push(ch);
-            started = true;
-        } else if started {
+            in_number = true;
+        } else if in_number {
+            if matches!(ch, ',' | '.' | ' ' | '\u{00a0}' | '\u{202f}') {
+                continue;
+            }
             break;
         }
     }
     digits.parse::<u32>().ok()
+}
+
+/// Read the review count from one distribution segment (e.g.
+/// "1,427 positive reviews (86%)" → 1427). Missing segments (Metacritic
+/// omits a zero-width bar) yield `None`.
+fn bar_count(product: &scraper::ElementRef<'_>, sel: &scraper::Selector) -> Option<u32> {
+    product
+        .select(sel)
+        .next()
+        .and_then(|el| el.value().attr("aria-label"))
+        .and_then(first_number)
 }
 
 /// Fetch the Metacritic score summary for a game by scraping its page.
@@ -6828,7 +6843,16 @@ pub async fn fetch_metacritic_score(game_name: &str) -> Result<MetacriticScore, 
         .await
         .map_err(|e| format!("Failed to read Metacritic response: {}", e))?;
 
-    let doc = scraper::Html::parse_document(&html);
+    parse_metacritic_scores(&html, &url)
+}
+
+/// Parse Metacritic score widgets out of a game page's HTML.
+///
+/// Kept separate from the network fetch so the bucket logic — which is easy
+/// to get wrong, since Metacritic omits zero-width distribution segments —
+/// is unit-testable.
+fn parse_metacritic_scores(html: &str, url: &str) -> Result<MetacriticScore, String> {
+    let doc = scraper::Html::parse_document(html);
 
     let wrapper_sel = scraper::Selector::parse("[data-testid='global-score-wrapper']")
         .map_err(|e| e.to_string())?;
@@ -6840,11 +6864,15 @@ pub async fn fetch_metacritic_score(game_name: &str) -> Result<MetacriticScore, 
         .map_err(|e| e.to_string())?;
     let count_sel = scraper::Selector::parse("[data-testid='global-score-review-count']")
         .map_err(|e| e.to_string())?;
-    let bar_sel = scraper::Selector::parse("[data-testid^='global-score-graph-bar-']")
+    let positive_sel = scraper::Selector::parse("[data-testid='global-score-graph-bar-positive']")
+        .map_err(|e| e.to_string())?;
+    let neutral_sel = scraper::Selector::parse("[data-testid='global-score-graph-bar-neutral']")
+        .map_err(|e| e.to_string())?;
+    let negative_sel = scraper::Selector::parse("[data-testid='global-score-graph-bar-negative']")
         .map_err(|e| e.to_string())?;
 
     let mut summary = MetacriticScore {
-        url: url.clone(),
+        url: url.to_string(),
         ..Default::default()
     };
 
@@ -6877,32 +6905,31 @@ pub async fn fetch_metacritic_score(game_name: &str) -> Result<MetacriticScore, 
             .map(|el| el.text().collect::<String>())
             .and_then(|s| first_number(&s));
 
+        // Each distribution graph is a sibling of the wrapper inside the same
+        // score card. Read its segments by sentiment — a zero-width segment is
+        // omitted from the DOM, so positional parsing would misalign the
+        // positive/neutral/negative buckets.
+        let scope = wrapper.parent().and_then(scraper::ElementRef::wrap);
+        let scope = scope.as_ref().unwrap_or(&wrapper);
+        let positive = bar_count(scope, &positive_sel);
+        let neutral = bar_count(scope, &neutral_sel);
+        let negative = bar_count(scope, &negative_sel);
+
         if is_user {
             summary.user_score = value.as_deref().and_then(|v| v.parse::<f64>().ok());
             summary.user_score_sentiment = sentiment;
             summary.user_rating_count = count;
+            summary.user_positive_count = positive;
+            summary.user_neutral_count = neutral;
+            summary.user_negative_count = negative;
         } else {
             summary.metascore = value.as_deref().and_then(|v| v.parse::<i32>().ok());
             summary.metascore_sentiment = sentiment;
             summary.critic_review_count = count;
+            summary.positive_count = positive;
+            summary.neutral_count = neutral;
+            summary.negative_count = negative;
         }
-    }
-
-    // The distribution bars come in pairs: the critic Metascore triple
-    // first, then the user score triple.
-    let bars: Vec<String> = doc
-        .select(&bar_sel)
-        .filter_map(|el| el.value().attr("aria-label").map(|s| s.to_string()))
-        .collect();
-    if bars.len() >= 3 {
-        summary.positive_count = first_number(&bars[0]);
-        summary.neutral_count = first_number(&bars[1]);
-        summary.negative_count = first_number(&bars[2]);
-    }
-    if bars.len() >= 6 {
-        summary.user_positive_count = first_number(&bars[3]);
-        summary.user_neutral_count = first_number(&bars[4]);
-        summary.user_negative_count = first_number(&bars[5]);
     }
 
     Ok(summary)
@@ -8479,6 +8506,96 @@ mod store_search_ranking_tests {
         all.sort_unstable();
         all.dedup();
         assert_eq!(all.len(), before, "pages must not overlap");
+    }
+}
+
+#[cfg(test)]
+mod metacritic_score_tests {
+    use super::*;
+
+    #[test]
+    fn first_number_ignores_thousand_separators() {
+        assert_eq!(first_number("Based on 1,666 User Ratings"), Some(1666));
+        assert_eq!(first_number("Based on 13,805 User Ratings"), Some(13805));
+        assert_eq!(first_number("24 positive reviews (92%)"), Some(24));
+        assert_eq!(first_number("no digits here"), None);
+    }
+
+    /// Black Mesa-style fixture: the critic graph omits its zero-width
+    /// negative segment, so positional parsing would shift the user buckets.
+    const BLACK_MESA_HTML: &str = r#"
+        <div data-testid="product-score">
+          <div data-testid="global-score-wrapper">
+            <div data-testid="global-score-header">Metascore</div>
+            <span data-testid="global-score-value">84</span>
+            <div data-testid="global-score-sentiment">Generally Favorable</div>
+            <div data-testid="global-score-review-count">
+              <a>Based on 26 Critic Reviews</a>
+            </div>
+          </div>
+          <div data-testid="global-score-graph">
+            <div data-testid="global-score-graph-bar-positive" aria-label="24 positive reviews (92%)"></div>
+            <div data-testid="global-score-graph-bar-neutral" aria-label="2 neutral reviews (8%)"></div>
+          </div>
+        </div>
+        <div data-testid="product-score">
+          <div data-testid="global-score-wrapper">
+            <div data-testid="global-score-header">User score</div>
+            <span data-testid="global-score-value">8.7</span>
+            <div data-testid="global-score-sentiment">Generally Favorable</div>
+            <div data-testid="global-score-review-count">
+              <a>Based on 1,666 User Ratings</a>
+            </div>
+          </div>
+          <div data-testid="global-score-graph">
+            <div data-testid="global-score-graph-bar-positive" aria-label="1,427 positive reviews (86%)"></div>
+            <div data-testid="global-score-graph-bar-neutral" aria-label="179 neutral reviews (11%)"></div>
+            <div data-testid="global-score-graph-bar-negative" aria-label="60 negative reviews (4%)"></div>
+          </div>
+        </div>
+        <div data-testid="product-score">
+          <div data-testid="global-score-wrapper">
+            <div data-testid="global-score-header">Metascore</div>
+            <span data-testid="global-score-value">99</span>
+          </div>
+          <div data-testid="global-score-graph">
+            <div data-testid="global-score-graph-bar-positive" aria-label="999 positive reviews (99%)"></div>
+          </div>
+        </div>
+    "#;
+
+    #[test]
+    fn parses_and_aligns_distribution_buckets() {
+        let summary =
+            parse_metacritic_scores(BLACK_MESA_HTML, "https://www.metacritic.com/game/black-mesa/")
+                .expect("parse should succeed");
+
+        assert_eq!(summary.url, "https://www.metacritic.com/game/black-mesa/");
+        assert_eq!(summary.metascore, Some(84));
+        assert_eq!(summary.metascore_sentiment.as_deref(), Some("Generally Favorable"));
+        assert_eq!(summary.critic_review_count, Some(26));
+        assert_eq!(summary.positive_count, Some(24));
+        assert_eq!(summary.neutral_count, Some(2));
+        assert_eq!(summary.negative_count, None);
+
+        assert_eq!(summary.user_score, Some(8.7));
+        assert_eq!(summary.user_rating_count, Some(1666));
+        assert_eq!(summary.user_positive_count, Some(1427));
+        assert_eq!(summary.user_neutral_count, Some(179));
+        assert_eq!(summary.user_negative_count, Some(60));
+
+        // The duplicate (lower) Metascore widget must not overwrite the hero.
+        assert_eq!(summary.metascore, Some(84));
+    }
+
+    #[test]
+    fn missing_widgets_yield_empty_summary() {
+        let summary =
+            parse_metacritic_scores("<html><body>no scores</body></html>", "https://x/")
+                .expect("parse should succeed");
+        assert_eq!(summary.metascore, None);
+        assert_eq!(summary.user_score, None);
+        assert_eq!(summary.critic_review_count, None);
     }
 }
 
