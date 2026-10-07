@@ -1184,9 +1184,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--space-md);
-  max-height: clamp(240px, calc(100vh - 430px), 65vh);
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
 .emu-rom-card {
@@ -1428,10 +1425,6 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: clamp(240px, calc(100vh - 430px), 65vh);
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
 .emu-game-row {
@@ -3056,12 +3049,11 @@
   font-weight: 700;
   width: 16px;
 }
-.emu-bios-
 .emu-bios-entry.is-found .emu-bios-state {
-  color: var(--color-success, #22c55e);
+  color: var(--color-success);
 }
 .emu-bios-entry.is-missing .emu-bios-state {
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
 }
 .emu-bios-entry-info {
   display: flex;
@@ -3106,4 +3098,483 @@
 .emu-rom-actions-row {
   display: flex;
   gap: 8px;
+}
+
+/* ============================================================================
+   Emulators redesign — header actions, sidebar status, setup checklist, quick
+   stats, hero actions, ROM toolbar, recent-rail launch, and the Add surface.
+   Token-driven; every color goes through var(--…).
+   ============================================================================ */
+
+/* ── Header actions ─────────────────────────────────────────────── */
+.emu-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* ── Stats: informational (disabled) tiles ──────────────────────── */
+.emu-stat:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.emu-stat:disabled:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Sidebar: status chips, dots, footer, empty ─────────────────── */
+.emu-status-chips {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.emu-status-chip {
+  flex: 1;
+  padding: 4px var(--space-sm);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+.emu-status-chip:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+.emu-status-chip.is-active {
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+}
+.emu-status-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+.emu-status-dot.is-ready {
+  background: var(--color-success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 60%, transparent);
+}
+.emu-status-dot.is-needs-setup {
+  background: var(--color-warning);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-warning) 55%, transparent);
+}
+.emu-sidebar-footer {
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+.emu-sidebar-footer .ui-btn {
+  width: 100%;
+}
+.emulators-list-empty strong {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.emulators-list-empty .ui-btn {
+  margin-top: var(--space-xs);
+}
+
+/* ── Detail empty state ─────────────────────────────────────────── */
+.emulators-detail-empty strong {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.emulators-detail-empty .ui-btn {
+  margin-top: var(--space-xs);
+}
+
+/* ── Setup checklist ────────────────────────────────────────────── */
+.emu-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  background: color-mix(in srgb, var(--color-warning) 7%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 26%, var(--color-border));
+  border-radius: var(--radius-lg);
+}
+.emu-setup-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.emu-setup-head h3 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+.emu-setup-progress {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+.emu-setup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.emu-setup-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+.emu-setup-icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+.emu-setup-step.is-done .emu-setup-icon {
+  color: var(--color-success);
+}
+.emu-setup-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.emu-setup-step.is-done .emu-setup-label {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--color-text-muted) 50%, transparent);
+}
+.emu-setup-action {
+  flex-shrink: 0;
+}
+
+/* ── Hero quick stats + actions ─────────────────────────────────── */
+.emu-quickstats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-sm);
+}
+.emu-quickstat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.emu-quickstat-label {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.emu-quickstat-value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.emu-hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+/* ── ROM manager toolbar ────────────────────────────────────────── */
+.emu-games-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.emu-games-toolbar .emu-games-search {
+  width: 200px;
+  flex-shrink: 0;
+}
+.emu-games-more {
+  flex-shrink: 0;
+}
+
+/* ── Recent rail launch affordance ──────────────────────────────── */
+.emu-recent-chip {
+  position: relative;
+}
+.emu-recent-chip-launch {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+.emu-recent-chip:hover .emu-recent-chip-launch,
+.emu-recent-chip:focus-within .emu-recent-chip-launch {
+  opacity: 1;
+}
+@media (hover: none) {
+  .emu-recent-chip-launch {
+    opacity: 1;
+  }
+}
+
+/* ── Add surface ────────────────────────────────────────────────── */
+.emu-add-modal {
+  max-width: min(720px, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+}
+.emu-add-tabs {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+}
+.emu-add-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-md);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.emu-add-tab:hover {
+  color: var(--color-text-primary);
+}
+.emu-add-tab.is-active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+.emu-add-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-xl);
+  overflow-y: auto;
+  min-height: 300px;
+}
+.emu-add-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.emu-add-explainer {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.emu-add-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 200px;
+  height: 34px;
+  padding: 0 var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+.emu-add-search:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+.emu-add-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+.emu-add-search input::placeholder {
+  color: var(--color-text-muted);
+}
+.emu-add-families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.emu-add-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+.emu-add-chip:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+.emu-add-chip.is-active {
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.emu-add-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.emu-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.emu-add-row-glyph {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  font-size: var(--font-size-lg);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.emu-add-row-glyph-img {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  object-fit: contain;
+  padding: 4px;
+}
+.emu-add-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.emu-add-row-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.emu-add-row-platform {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.emu-add-row-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.emu-add-row-path {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.emu-add-row-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+.emu-add-row-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+.emu-add-empty {
+  padding: var(--space-2xl);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+.emu-add-download {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl) var(--space-xl);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+.emu-add-download > svg {
+  color: var(--color-accent);
+}
+.emu-add-download p {
+  margin: 0;
+  max-width: 420px;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+/* ── Emulator tool modals (BIOS / duplicates / folders) ─────────── */
+.emu-bios-modal,
+.emu-folder-modal,
+.emu-dup-modal {
+  max-width: min(560px, 92vw);
+}
+.emu-bios-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }

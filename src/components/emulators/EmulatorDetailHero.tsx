@@ -1,41 +1,54 @@
-import { memo } from "react";
+import { memo, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  FolderOpen,
+  MoreHorizontal,
+  Pencil,
+  Play,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
-import type { Emulator, EmuRow, KnownEmulator } from "../../types/emulator";
-import { Button, Tooltip } from "../ui";
+import { Button, ContextMenu, type ContextMenuItem } from "../ui";
+import { formatBytesShort } from "../../types/download";
+import type { Emulator, KnownEmulator } from "../../types/emulator";
+import {
+  emulatorSetupSteps,
+  isEmulatorReady,
+  setupProgress,
+  type EmulatorVisual,
+  type SetupStepKey,
+} from "./emulatorUi";
+import EmulatorSetupChecklist from "./EmulatorSetupChecklist";
 
-interface DetailHeroProps {
-  selectedRow: EmuRow;
-  scanningId: string | null;
-  onLaunchExe: (emu: Emulator) => void;
-  onScan: (emu: Emulator) => void;
-  onEdit: (emu: Emulator) => void;
-  onDelete: (emu: Emulator) => void;
-  onOpenFolder: (path: string) => void;
-  onAddKnown: (known: KnownEmulator) => void;
+interface HeroProps {
+  emulator: Emulator;
+  known?: KnownEmulator;
+  visual: EmulatorVisual;
+  romCount: number;
+  totalSizeBytes: number;
+  lastScanned?: number;
+  lastPlayed?: number;
+  scanning: boolean;
+  onLaunchExe: () => void;
+  onScan: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onOpenFolder: (folder: string) => void;
+  onCheckBios: () => void;
+  onFindRomFolders: () => void;
   onOpenUrl: (url: string) => void;
-}
-
-const ICON = {
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  "aria-hidden": true,
-} as const;
-
-function truncateMiddle(path: string, max = 50): string {
-  if (path.length <= max) return path;
-  const head = path.slice(0, max / 2 - 1);
-  const tail = path.slice(path.length - (max / 2 - 1));
-  return `${head}…${tail}`;
+  onFixSetup: (key: SetupStepKey) => void;
 }
 
 function formatDate(ts?: number): string {
   if (!ts) return "";
   const d = new Date(ts);
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function relativeTime(
@@ -53,330 +66,262 @@ function relativeTime(
   return formatDate(ts);
 }
 
-function EmulatorGlyph({
-  logo,
-  glyph,
-  className,
-}: {
-  logo?: string;
-  glyph: string;
-  className: string;
-}) {
-  if (logo) {
-    return (
-      <img
-        className={`${className}-img`}
-        src={logo}
-        alt=""
-        draggable={false}
-        loading="lazy"
-        decoding="async"
-      />
-    );
-  }
-  return <span className={className}>{glyph}</span>;
+function GitHubMark({ size = 15 }: { size?: number }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.69 5.39-5.25 5.68.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z" />
+    </svg>
+  );
 }
 
 function EmulatorDetailHeroBase({
-  selectedRow,
-  scanningId,
+  emulator,
+  known,
+  visual,
+  romCount,
+  totalSizeBytes,
+  lastScanned,
+  lastPlayed,
+  scanning,
   onLaunchExe,
   onScan,
   onEdit,
   onDelete,
   onOpenFolder,
-  onAddKnown,
+  onCheckBios,
+  onFindRomFolders,
   onOpenUrl,
-}: DetailHeroProps) {
+  onFixSetup,
+}: HeroProps) {
   const { t } = useLanguage();
-  const isScanning = scanningId === selectedRow.id;
+  const ready = isEmulatorReady(emulator);
+  const steps = emulatorSetupSteps(emulator, romCount);
+  const progress = setupProgress(steps);
 
-  if (!selectedRow.added) {
-    return (
-      <div className="emulators-detail-header-card">
-        <header
-          className="emu-detail-banner"
-          style={{ ["--emu-accent" as string]: selectedRow.accent }}
-        >
-          <EmulatorGlyph
-            logo={selectedRow.logo}
-            glyph={selectedRow.glyph}
-            className="emu-detail-glyph"
-          />
-          <div className="emu-detail-titles">
-            <div className="emu-detail-title-row">
-              <h2 className="emu-detail-name">{selectedRow.name}</h2>
-              <span className="emu-status-pill emu-status-pill--lg is-catalog">
-                {t("emulators.status.notAdded")}
-              </span>
-            </div>
-            <span className="emu-detail-platform">{selectedRow.platform}</span>
-          </div>
-        </header>
+  const moreBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
 
-        <div className="emu-detail-body">
-          {selectedRow.known?.description && (
-            <p className="emu-detail-desc">{selectedRow.known.description}</p>
-          )}
+  const openMore = () => {
+    const rect = moreBtnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMoreMenu({ x: rect.right, y: rect.bottom + 4 });
+  };
 
-          <div className="emulators-notadded">
-            <EmulatorGlyph
-              logo={selectedRow.logo}
-              glyph={selectedRow.glyph}
-              className="emulators-notadded-glyph"
-            />
-            <h3>{t("emulators.detail.addTitle")}</h3>
-            <p>{t("emulators.detail.addDesc")}</p>
-            <div className="emulators-notadded-actions">
-              {selectedRow.known?.githubUrl && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={
-                    <svg {...ICON}>
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                  }
-                  onClick={() => onOpenUrl(selectedRow.known!.githubUrl!)}
-                >
-                  {t("emulators.github")}
-                </Button>
-              )}
-              <Button
-                variant="primary"
-                leftIcon={
-                  <svg {...ICON}>
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                }
-                onClick={() => selectedRow.known && onAddKnown(selectedRow.known)}
-              >
-                {t("emulators.detail.addCta", { name: selectedRow.name })}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const githubUrl = known?.githubUrl;
+  const romFolder = emulator.romFolder;
+
+  const menuItems = useMemo<ContextMenuItem[]>(() => {
+    const items: ContextMenuItem[] = [
+      {
+        id: "check-bios",
+        label: t("emulators.bios.check"),
+        icon: <AlertTriangle size={15} />,
+        onSelect: () => {
+          setMoreMenu(null);
+          onCheckBios();
+        },
+      },
+      {
+        id: "find-rom-folders",
+        label: t("emulators.discovery.romFolders"),
+        icon: <FolderOpen size={15} />,
+        onSelect: () => {
+          setMoreMenu(null);
+          onFindRomFolders();
+        },
+      },
+    ];
+
+    if (romFolder.trim().length > 0) {
+      items.push({
+        id: "open-folder",
+        label: t("emulators.openFolder"),
+        icon: <FolderOpen size={15} />,
+        onSelect: () => {
+          setMoreMenu(null);
+          onOpenFolder(romFolder);
+        },
+      });
+    }
+
+    if (githubUrl) {
+      items.push({
+        id: "github",
+        label: t("emulators.github"),
+        icon: <GitHubMark />,
+        onSelect: () => {
+          setMoreMenu(null);
+          onOpenUrl(githubUrl);
+        },
+      });
+    }
+
+    items.push({ id: "sep-delete", separator: true });
+    items.push({
+      id: "delete",
+      label: t("emulators.delete"),
+      icon: <Trash2 size={15} />,
+      danger: true,
+      onSelect: () => {
+        setMoreMenu(null);
+        onDelete();
+      },
+    });
+
+    return items;
+  }, [
+    t,
+    romFolder,
+    githubUrl,
+    onCheckBios,
+    onFindRomFolders,
+    onOpenFolder,
+    onOpenUrl,
+    onDelete,
+  ]);
 
   return (
     <div className="emulators-detail-header-card">
       <header
         className="emu-detail-banner"
-        style={{ ["--emu-accent" as string]: selectedRow.accent }}
+        style={{ ["--emu-accent" as string]: visual.accent }}
       >
-        <EmulatorGlyph
-          logo={selectedRow.logo}
-          glyph={selectedRow.glyph}
-          className="emu-detail-glyph"
-        />
+        {visual.logo ? (
+          <img
+            className="emu-detail-glyph-img"
+            src={visual.logo}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <span className="emu-detail-glyph">{visual.glyph}</span>
+        )}
         <div className="emu-detail-titles">
           <div className="emu-detail-title-row">
-            <h2 className="emu-detail-name">{selectedRow.name}</h2>
+            <h2 className="emu-detail-name">{emulator.name}</h2>
             <span
               className={`emu-status-pill emu-status-pill--lg ${
-                selectedRow.configured ? "is-configured" : "is-unconfigured"
+                ready ? "is-configured" : "is-unconfigured"
               }`}
             >
-              {selectedRow.configured
+              {ready
                 ? t("emulators.status.configured")
                 : t("emulators.status.notConfigured")}
             </span>
           </div>
-          <span className="emu-detail-platform">{selectedRow.platform}</span>
+          <span className="emu-detail-platform">{emulator.platform}</span>
         </div>
       </header>
 
       <div className="emu-detail-body">
-        {selectedRow.known?.description && (
-          <p className="emu-detail-desc">{selectedRow.known.description}</p>
+        {known?.description && (
+          <p className="emu-detail-desc">{known.description}</p>
         )}
 
-        <div className="emu-detail-meta-grid">
-          <div className="emu-detail-meta-tile">
-            <span className="emu-detail-meta-label">
-              <svg {...ICON}>
-                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
-              </svg>
-              {t("emulators.detail.executable")}
+        <EmulatorSetupChecklist
+          steps={steps}
+          progress={progress}
+          onFix={onFixSetup}
+        />
+
+        <div className="emu-quickstats">
+          <div className="emu-quickstat">
+            <span className="emu-quickstat-label">
+              {t("emulators.stats.games")}
             </span>
-            <span
-              className="emu-detail-meta-value emu-mono"
-              title={selectedRow.emulator?.executablePath}
-            >
-              {selectedRow.emulator?.executablePath
-                ? truncateMiddle(selectedRow.emulator.executablePath)
-                : "—"}
+            <span className="emu-quickstat-value">{romCount}</span>
+          </div>
+          <div className="emu-quickstat">
+            <span className="emu-quickstat-label">{t("emulators.games.size")}</span>
+            <span className="emu-quickstat-value">
+              {totalSizeBytes > 0 ? formatBytesShort(totalSizeBytes) : "—"}
             </span>
           </div>
-
-          <div className="emu-detail-meta-tile">
-            <div className="emu-detail-meta-tile-head">
-              <span className="emu-detail-meta-label">
-                <svg {...ICON}>
-                  <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                </svg>
-                {t("emulators.detail.romFolder")}
+          {lastPlayed != null && (
+            <div className="emu-quickstat">
+              <span className="emu-quickstat-label">{t("game.lastPlayed")}</span>
+              <span className="emu-quickstat-value">
+                {relativeTime(lastPlayed, t)}
               </span>
-              {selectedRow.emulator?.romFolder && (
-                <button
-                  type="button"
-                  className="emu-meta-folder-btn"
-                  title={t("emulators.openFolder")}
-                  onClick={() =>
-                    selectedRow.emulator && onOpenFolder(selectedRow.emulator.romFolder)
-                  }
-                >
-                  <svg {...ICON}>
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
-                  </svg>
-                </button>
-              )}
             </div>
-            <span
-              className="emu-detail-meta-value"
-              title={selectedRow.emulator?.romFolder}
-            >
-              {selectedRow.emulator?.romFolder
-                ? truncateMiddle(selectedRow.emulator.romFolder)
-                : "—"}
-            </span>
-          </div>
-
-          <div className="emu-detail-meta-tile">
-            <span className="emu-detail-meta-label">
-              <svg {...ICON}>
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
+          )}
+          <div className="emu-quickstat">
+            <span className="emu-quickstat-label">
               {t("emulators.detail.lastScanned")}
             </span>
-            <span className="emu-detail-meta-value">
-              {selectedRow.scannedAt
-                ? relativeTime(selectedRow.scannedAt, t)
+            <span className="emu-quickstat-value">
+              {lastScanned
+                ? relativeTime(lastScanned, t)
                 : t("emulators.neverScanned")}
-            </span>
-          </div>
-
-          <div className="emu-detail-meta-tile">
-            <span className="emu-detail-meta-label">
-              <svg {...ICON}>
-                <polyline points="4 17 10 11 4 5" />
-                <line x1="12" y1="19" x2="20" y2="19" />
-              </svg>
-              {t("emulators.argumentsTemplate")}
-            </span>
-            <span className="emu-detail-meta-value emu-mono">
-              {selectedRow.emulator?.argumentsTemplate
-                ? selectedRow.emulator.argumentsTemplate
-                : "—"}
             </span>
           </div>
         </div>
 
-        {selectedRow.emulator?.notes && (
-          <p className="emu-detail-notes">{selectedRow.emulator.notes}</p>
-        )}
-
-        <div className="emu-detail-actions">
-          {selectedRow.configured ? (
+        <div className="emu-hero-actions">
+          {ready ? (
             <Button
               variant="primary"
-              leftIcon={
-                <svg {...ICON}>
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-              }
-              onClick={() =>
-                selectedRow.emulator && onLaunchExe(selectedRow.emulator)
-              }
+              leftIcon={<Play size={16} />}
+              onClick={onLaunchExe}
             >
               {t("emulators.launchExe")}
             </Button>
           ) : (
-            <Tooltip content={t("emulators.launcherNotSet")} placement="bottom">
-              <Button
-                variant="primary"
-                leftIcon={
-                  <svg {...ICON}>
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                }
-                disabled
-              >
-                {t("emulators.launchExe")}
-              </Button>
-            </Tooltip>
+            <Button
+              variant="primary"
+              leftIcon={<Pencil size={16} />}
+              onClick={onEdit}
+            >
+              {t("emulators.setup.title")}
+            </Button>
           )}
 
           <Button
             variant="secondary"
-            leftIcon={
-              <svg {...ICON}>
-                <polyline points="23 4 23 10 17 10" />
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-              </svg>
-            }
-            isLoading={isScanning}
-            onClick={() => selectedRow.emulator && onScan(selectedRow.emulator)}
+            leftIcon={<RefreshCw size={16} />}
+            isLoading={scanning}
+            onClick={onScan}
           >
-            {isScanning ? t("emulators.scanning") : t("emulators.scan")}
+            {scanning ? t("emulators.scanning") : t("emulators.scan")}
           </Button>
 
           <Button
             variant="ghost"
-            leftIcon={
-              <svg {...ICON}>
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-              </svg>
-            }
-            onClick={() => selectedRow.emulator && onEdit(selectedRow.emulator)}
+            leftIcon={<Pencil size={16} />}
+            onClick={onEdit}
           >
             {t("emulators.edit")}
           </Button>
 
-          {selectedRow.known?.githubUrl && (
-            <Button
-              variant="ghost"
-              leftIcon={
-                <svg {...ICON}>
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
-              }
-              onClick={() => onOpenUrl(selectedRow.known!.githubUrl!)}
-            >
-              {t("emulators.github")}
-            </Button>
-          )}
-
-          <span className="emu-detail-actions-spacer" />
-
           <Button
-            variant="danger"
-            leftIcon={
-              <svg {...ICON}>
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                <path d="M10 11v6" />
-                <path d="M14 11v6" />
-              </svg>
-            }
-            onClick={() => selectedRow.emulator && onDelete(selectedRow.emulator)}
-          >
-            {t("emulators.delete")}
-          </Button>
+            ref={moreBtnRef}
+            variant="ghost"
+            iconOnly
+            title={t("emulators.actions.more")}
+            aria-label={t("emulators.actions.more")}
+            leftIcon={<MoreHorizontal size={16} />}
+            onClick={openMore}
+          />
         </div>
       </div>
+
+      {moreMenu && (
+        <ContextMenu
+          x={moreMenu.x}
+          y={moreMenu.y}
+          items={menuItems}
+          onClose={() => setMoreMenu(null)}
+          ariaLabel={t("emulators.actions.more")}
+        />
+      )}
     </div>
   );
 }
