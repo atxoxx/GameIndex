@@ -3,13 +3,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Boxes, Settings2 } from "lucide-react";
+import { Boxes } from "lucide-react";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button, PageHeader } from "../../components/ui";
 import ModsDiscoverView from "../../components/mods/discover/ModsDiscoverView";
-import SourceConfigModal from "../../components/mods/discover/SourceConfigModal";
-import { useModSources } from "../../hooks/useModDiscover";
 import { gameDisplayName } from "../../types/game";
 import "../../styles/page-mods.css";
 import "../../components/mods/discover/mods-discover.css";
@@ -32,7 +30,6 @@ export default function ModsDiscoverPage() {
   const [activeGameId, setActiveGameId] = useState<string | null>(
     urlGameId || (candidates[0]?.id ?? null),
   );
-  const [configOpen, setConfigOpen] = useState(false);
 
   useEffect(() => {
     if (urlGameId && urlGameId !== activeGameId) {
@@ -50,8 +47,6 @@ export default function ModsDiscoverPage() {
     [candidates, activeGameId],
   );
 
-  const { sources, setCredential, setLink, clearLink } = useModSources(selectedGame?.id ?? null);
-
   return (
     <div className="mods-discover-page">
       <PageHeader
@@ -59,24 +54,14 @@ export default function ModsDiscoverPage() {
         title={t("mods.discover.title")}
         description={t("mods.discover.subtitle")}
         actions={
-          <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center" }}>
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<Settings2 size={14} />}
-              onClick={() => setConfigOpen(true)}
-            >
-              {t("mods.discover.manageSources")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<Boxes size={14} />}
-              onClick={() => navigate("/mods")}
-            >
-              {t("mods.discover.openManager")}
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<Boxes size={14} />}
+            onClick={() => navigate("/mods")}
+          >
+            {t("mods.discover.openManager")}
+          </Button>
         }
       />
 
@@ -85,17 +70,6 @@ export default function ModsDiscoverPage() {
         games={candidates}
         onSelectGame={handleGameSelect}
         variant="page"
-      />
-
-      <SourceConfigModal
-        open={configOpen}
-        gameId={selectedGame?.id ?? null}
-        gameName={selectedGame ? gameDisplayName(selectedGame) : undefined}
-        sources={sources}
-        onClose={() => setConfigOpen(false)}
-        onSetCredential={setCredential}
-        onSetLink={setLink}
-        onClearLink={clearLink}
       />
     </div>
   );
