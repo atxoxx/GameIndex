@@ -2713,7 +2713,6 @@
   padding: var(--space-lg) var(--space-xl);
   margin-bottom: var(--space-xl);
   box-shadow: var(--shadow-sm);
-  flex-wrap: wrap;
 }
 
 .mods-tab-header-left {
@@ -2721,6 +2720,7 @@
   align-items: center;
   gap: var(--space-lg);
   min-width: 0;
+  flex: 1;
 }
 
 .mods-tab-cover {
@@ -2789,7 +2789,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .mods-tab-path-badge {
@@ -2841,11 +2841,13 @@
   border-radius: var(--radius-lg);
   padding: 2px;
   gap: 2px;
+  flex-shrink: 0;
 }
 
 .mods-tab-nav-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 6px 14px;
   border: none;
@@ -2855,7 +2857,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
   white-space: nowrap;
 }
 
@@ -2867,7 +2869,7 @@
 .mods-tab-nav-btn.active {
   background: var(--color-accent);
   color: var(--color-accent-contrast, #ffffff);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   box-shadow: var(--shadow-sm);
 }
 
@@ -2890,6 +2892,7 @@
   align-items: baseline;
   gap: var(--space-sm);
   min-width: 0;
+  flex: 1;
 }
 
 .mods-manager-game-bar-name {
@@ -2904,6 +2907,13 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+
+.mods-manager-game-bar-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
 }
 
 /* ── Rail refresh button spinner ───────────────────────────────── */

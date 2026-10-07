@@ -4,13 +4,11 @@
 
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useNavigate } from "react-router-dom";
-import { Boxes, Compass, FolderOpen, Maximize2 } from "lucide-react";
+import { Boxes, Compass, FolderOpen } from "lucide-react";
 import type { Game } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Button } from "../ui";
 import ModManager from "./ModManager";
 import ModsDiscoverView from "./discover/ModsDiscoverView";
 import { getGamePresets } from "./ModPresetsModal";
@@ -30,7 +28,6 @@ export default function ModsTab({
 }: ModsTabProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const navigate = useNavigate();
   const [tab, setTab] = useState<"installed" | "discover">(defaultSubtab);
   const presets = getGamePresets(game.id);
 
@@ -64,9 +61,7 @@ export default function ModsTab({
             </div>
             <h2 className="mods-tab-game-title">{gameDisplayName(game)}</h2>
             <p className="mods-tab-subtitle">
-              {tab === "discover"
-                ? t("mods.discover.subtitle")
-                : t("mods.tab.bannerSubtitle")}
+              {t("mods.tab.bannerSubtitle")}
             </p>
           </div>
         </div>
@@ -110,18 +105,6 @@ export default function ModsTab({
                 {t("mods.openLocation")}
               </button>
             </div>
-          )}
-
-          {tab === "discover" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<Maximize2 size={13} />}
-              onClick={() => navigate(`/mods/discover?gameId=${game.id}`)}
-              title={t("mods.discover.openFullScreen")}
-            >
-              {t("mods.discover.fullScreenBtn")}
-            </Button>
           )}
         </div>
       </div>
