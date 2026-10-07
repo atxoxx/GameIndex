@@ -50,10 +50,20 @@ describe("mods discover format helpers", () => {
     expect(sourceLabel("unknown-site")).toBe("unknown-site");
   });
 
-  it("formats relative time without throwing on bad input", () => {
+  it("localizes relative time and guards bad input", () => {
     expect(relativeTime(undefined)).toBeNull();
     expect(relativeTime("not-a-date")).toBeNull();
-    expect(relativeTime(String(Math.floor(Date.now() / 1000)))).toBe("now");
+    // A millisecond timestamp of "now" resolves to the localized "now".
+    expect(relativeTime(String(Date.now()), "en")).toBe("now");
+    // The value follows the locale, not just the label.
+    const threeDaysAgo = String(
+      Math.floor((Date.now() - 3 * 24 * 3600 * 1000) / 1000),
+    );
+    const en = relativeTime(threeDaysAgo, "en");
+    const fr = relativeTime(threeDaysAgo, "fr");
+    expect(en).toBeTruthy();
+    expect(fr).toBeTruthy();
+    expect(en).not.toBe(fr);
   });
 
   // Regression: the backend omits `tags` when empty, which previously

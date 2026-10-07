@@ -20,9 +20,9 @@ export default function RemoteModRow({
   onOpen,
   onOpenExternal,
 }: RemoteModRowProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [broken, setBroken] = useState(false);
-  const updated = relativeTime(mod.updatedAt);
+  const updated = relativeTime(mod.updatedAt, language);
 
   return (
     <div className="mods-discover-row">

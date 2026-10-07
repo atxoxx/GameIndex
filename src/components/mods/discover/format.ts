@@ -17,25 +17,8 @@ export function formatBytes(n?: number): string {
   return `${(n / 1024 ** 3).toFixed(2)} GB`;
 }
 
-/** Normalize the many timestamp shapes the sites return. */
-export function formatRemoteDate(raw?: string): string | null {
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  let date: Date;
-  if (/^\d+$/.test(trimmed)) {
-    const num = Number(trimmed);
-    const ms = num > 1e12 ? num : num * 1000;
-    date = new Date(ms);
-  } else {
-    date = new Date(trimmed);
-  }
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString();
-}
-
-/** Compact relative time ("3d", "2mo") for timestamps in cards. */
-export function relativeTime(raw?: string): string | null {
+/** Parse the many timestamp shapes the sites return. */
+function parseDate(raw?: string): Date | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -46,18 +29,52 @@ export function relativeTime(raw?: string): string | null {
   } else {
     date = new Date(trimmed);
   }
-  if (Number.isNaN(date.getTime())) return null;
-  const sec = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
-  if (sec < 90) return "now";
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h`;
-  const day = Math.round(hr / 24);
-  if (day < 30) return `${day}d`;
-  const mo = Math.round(day / 30);
-  if (mo < 12) return `${mo}mo`;
-  return `${Math.round(mo / 12)}y`;
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Normalize a timestamp into a localized date string. */
+export function formatRemoteDate(raw?: string): string | null {
+  const date = parseDate(raw);
+  return date ? date.toLocaleDateString() : null;
+}
+
+/**
+ * Localized relative time ("3 days ago", "il y a 3 jours", "vor 3 Tagen").
+ * `locale` is the active UI language so the value follows the label.
+ * Falls back to a compact numeric form where the API is unavailable.
+ */
+export function relativeTime(raw?: string, locale?: string): string | null {
+  const date = parseDate(raw);
+  if (!date) return null;
+  const sec = Math.round((Date.now() - date.getTime()) / 1000);
+  const abs = Math.abs(sec);
+  try {
+    const rtf = new Intl.RelativeTimeFormat(locale || undefined, {
+      numeric: "auto",
+      style: "short",
+    });
+    if (abs < 60) return rtf.format(-sec, "second");
+    const min = Math.round(sec / 60);
+    if (Math.abs(min) < 60) return rtf.format(-min, "minute");
+    const hr = Math.round(min / 60);
+    if (Math.abs(hr) < 24) return rtf.format(-hr, "hour");
+    const day = Math.round(hr / 24);
+    if (Math.abs(day) < 30) return rtf.format(-day, "day");
+    const mo = Math.round(day / 30);
+    if (Math.abs(mo) < 12) return rtf.format(-mo, "month");
+    return rtf.format(-Math.round(mo / 12), "year");
+  } catch {
+    if (abs < 90) return "now";
+    const min = Math.round(sec / 60);
+    if (Math.abs(min) < 60) return `${min}m`;
+    const hr = Math.round(min / 60);
+    if (Math.abs(hr) < 24) return `${hr}h`;
+    const day = Math.round(hr / 24);
+    if (Math.abs(day) < 30) return `${day}d`;
+    const mo = Math.round(day / 30);
+    if (Math.abs(mo) < 12) return `${mo}mo`;
+    return `${Math.round(mo / 12)}y`;
+  }
 }
 
 /** Sites return HTML descriptions; render them as readable plain text. */

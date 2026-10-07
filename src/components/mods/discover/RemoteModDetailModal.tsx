@@ -69,7 +69,7 @@ export default function RemoteModDetailModal({
   onClose,
   onInstalled,
 }: RemoteModDetailModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const { detail, loading, error, load } = useRemoteModDetail();
   const { busy, install } = useRemoteInstall();
@@ -117,8 +117,8 @@ export default function RemoteModDetailModal({
 
   if (!open) return null;
 
-  const updated = relativeTime(summary.updatedAt);
-  const created = relativeTime(summary.createdAt);
+  const updated = relativeTime(summary.updatedAt, language);
+  const created = relativeTime(summary.createdAt, language);
 
   const handleInstall = async (file?: RemoteModFile | null) => {
     setInstallingFile(file?.id ?? "primary");

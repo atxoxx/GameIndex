@@ -20,9 +20,9 @@ export default function RemoteModCard({
   onOpen,
   onOpenExternal,
 }: RemoteModCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [broken, setBroken] = useState(false);
-  const updated = relativeTime(mod.updatedAt);
+  const updated = relativeTime(mod.updatedAt, language);
 
   return (
     <div className="mods-discover-card">
