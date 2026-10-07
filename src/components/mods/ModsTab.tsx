@@ -3,10 +3,13 @@
 // and embeds the modular ModManager.
 
 import { invoke } from "@tauri-apps/api/core";
+import { useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
 import type { Game } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { Button } from "../ui";
 import ModManager from "./ModManager";
 import { getGamePresets } from "./ModPresetsModal";
 import "../../styles/page-mods.css";
@@ -19,6 +22,7 @@ interface ModsTabProps {
 export default function ModsTab({ game, onModsSized }: ModsTabProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const presets = getGamePresets(game.id);
 
   const handleOpenFolder = () => {
@@ -55,6 +59,14 @@ export default function ModsTab({ game, onModsSized }: ModsTabProps) {
         </div>
 
         <div className="mods-tab-header-right">
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Search size={14} />}
+            onClick={() => navigate(`/mods/discover?gameId=${game.id}`)}
+          >
+            {t("mods.discover.cta")}
+          </Button>
           {game.modsFolder && (
             <div className="mods-tab-path-badge" title={game.modsFolder}>
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

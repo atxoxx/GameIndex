@@ -1,11 +1,15 @@
-// Results grid with loading / error / empty / load-more states.
+// Results container: grid or list layout, with loading / error / empty
+// states and a footer that carries the count and the load-more action.
 
 import { SearchX, ServerCrash, PackageSearch } from "lucide-react";
 import { Button, Skeleton } from "../../ui";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { RemoteModSummary } from "../../../types/mods";
 import RemoteModCard from "./RemoteModCard";
+import RemoteModRow from "./RemoteModRow";
 import "./mods-discover.css";
+
+export type DiscoverView = "grid" | "list";
 
 interface RemoteModGridProps {
   results: RemoteModSummary[];
@@ -14,6 +18,8 @@ interface RemoteModGridProps {
   error: string | null;
   hasMore: boolean;
   hasSource: boolean;
+  view: DiscoverView;
+  total?: number;
   onOpen: (mod: RemoteModSummary) => void;
   onOpenExternal: (mod: RemoteModSummary) => void;
   onLoadMore: () => void;
@@ -27,6 +33,8 @@ export default function RemoteModGrid({
   error,
   hasMore,
   hasSource,
+  view,
+  total,
   onOpen,
   onOpenExternal,
   onLoadMore,
@@ -45,10 +53,10 @@ export default function RemoteModGrid({
 
   if (loading && results.length === 0) {
     return (
-      <div className="mods-discover-grid" aria-busy="true">
-        {Array.from({ length: 12 }).map((_, i) => (
+      <div className={view === "grid" ? "mods-discover-grid" : "mods-discover-list"} aria-busy="true">
+        {Array.from({ length: view === "grid" ? 12 : 8 }).map((_, i) => (
           <div key={i} className="mods-discover-skeleton">
-            <Skeleton shape="rect" width="100%" height="120px" />
+            <Skeleton shape="rect" width="100%" height={view === "grid" ? "120px" : "44px"} />
             <Skeleton width="80%" />
             <Skeleton width="50%" />
           </div>
@@ -82,18 +90,40 @@ export default function RemoteModGrid({
 
   return (
     <div className="mods-discover-results">
-      <div className="mods-discover-grid">
-        {results.map((mod) => (
-          <RemoteModCard
-            key={`${mod.source}:${mod.id}`}
-            mod={mod}
-            onOpen={onOpen}
-            onOpenExternal={onOpenExternal}
-          />
-        ))}
-      </div>
-      {hasMore && (
-        <div className="mods-discover-loadmore">
+      {view === "grid" ? (
+        <div className="mods-discover-grid">
+          {results.map((mod) => (
+            <RemoteModCard
+              key={`${mod.source}:${mod.id}`}
+              mod={mod}
+              onOpen={onOpen}
+              onOpenExternal={onOpenExternal}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="mods-discover-list">
+          {results.map((mod) => (
+            <RemoteModRow
+              key={`${mod.source}:${mod.id}`}
+              mod={mod}
+              onOpen={onOpen}
+              onOpenExternal={onOpenExternal}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="mods-discover-footer">
+        <span className="mods-discover-count">
+          {total != null
+            ? t("mods.discover.showingOf", {
+                shown: String(results.length),
+                total: String(total),
+              })
+            : t("mods.discover.showing", { shown: String(results.length) })}
+        </span>
+        {hasMore && (
           <Button
             variant="secondary"
             size="sm"
@@ -102,8 +132,8 @@ export default function RemoteModGrid({
           >
             {t("mods.discover.loadMore")}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

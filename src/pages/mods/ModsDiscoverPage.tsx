@@ -6,14 +6,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Boxes, FolderOpen, History, Search, Trash2 } from "lucide-react";
+import { Boxes, FolderOpen, History, LayoutGrid, List, Search, Trash2 } from "lucide-react";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button, PageHeader } from "../../components/ui";
 import SourceSelect from "../../components/mods/discover/SourceSelect";
 import SourceConfigModal from "../../components/mods/discover/SourceConfigModal";
-import RemoteModGrid from "../../components/mods/discover/RemoteModGrid";
+import RemoteModGrid, {
+  type DiscoverView,
+} from "../../components/mods/discover/RemoteModGrid";
 import RemoteModDetailModal from "../../components/mods/discover/RemoteModDetailModal";
 import { sourceLabel, formatRemoteDate } from "../../components/mods/discover/format";
 import {
@@ -21,6 +23,7 @@ import {
   useModSources,
   useRemoteInstalls,
 } from "../../hooks/useModDiscover";
+import { usePersistedState } from "../../hooks/usePersistedState";
 import { gameDisplayName } from "../../types/game";
 import type { RemoteModSummary } from "../../types/mods";
 import "../../styles/page-mods.css";
@@ -41,6 +44,11 @@ export default function ModsDiscoverPage() {
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [activeMod, setActiveMod] = useState<RemoteModSummary | null>(null);
+  const [view, setView] = usePersistedState<DiscoverView>(
+    "gamelib.mods.discover.view_v1",
+    "grid",
+    ["grid", "list"],
+  );
 
   const candidates = useMemo(
     () =>
@@ -207,18 +215,46 @@ export default function ModsDiscoverPage() {
       </div>
 
       <div className="mods-discover-meta">
-        {selectedSource?.available && !browse.loading && (
-          <span>
-            {browse.total != null
-              ? t("mods.discover.resultsCount", { count: String(browse.total) })
-              : t("mods.discover.resultsCount", {
-                  count: String(browse.results.length),
-                })}
-          </span>
-        )}
-        {selectedSource?.note && (
-          <span className="mods-discover-note">{selectedSource.note}</span>
-        )}
+        <div className="mods-discover-meta-left">
+          {selectedSource?.available && !browse.loading && (
+            <span>
+              {browse.total != null
+                ? t("mods.discover.resultsCount", { count: String(browse.total) })
+                : t("mods.discover.resultsCount", {
+                    count: String(browse.results.length),
+                  })}
+            </span>
+          )}
+          {selectedSource?.note && (
+            <span className="mods-discover-note">{selectedSource.note}</span>
+          )}
+        </div>
+        <div
+          className="mods-discover-viewtoggle"
+          role="group"
+          aria-label={t("mods.discover.viewAria")}
+        >
+          <button
+            type="button"
+            className={`mods-discover-viewtoggle-btn${view === "grid" ? " active" : ""}`}
+            onClick={() => setView("grid")}
+            title={t("mods.discover.view.grid")}
+            aria-label={t("mods.discover.view.grid")}
+            aria-pressed={view === "grid"}
+          >
+            <LayoutGrid size={15} />
+          </button>
+          <button
+            type="button"
+            className={`mods-discover-viewtoggle-btn${view === "list" ? " active" : ""}`}
+            onClick={() => setView("list")}
+            title={t("mods.discover.view.list")}
+            aria-label={t("mods.discover.view.list")}
+            aria-pressed={view === "list"}
+          >
+            <List size={15} />
+          </button>
+        </div>
       </div>
 
       <RemoteModGrid
@@ -228,6 +264,8 @@ export default function ModsDiscoverPage() {
         error={browse.error}
         hasMore={browse.hasMore}
         hasSource={!!selectedSource?.available}
+        view={view}
+        total={browse.total}
         onOpen={setActiveMod}
         onOpenExternal={(mod) => void openUrl(mod.url)}
         onLoadMore={browse.loadMore}

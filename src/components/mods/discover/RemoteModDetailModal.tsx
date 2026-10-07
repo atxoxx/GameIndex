@@ -1,5 +1,6 @@
-// Rich detail modal for a remote mod: description, gallery, file list,
-// and the download/install action (which may hand off to a browser/Steam).
+// Rich detail modal for a remote mod: formatted description (BBCode or
+// HTML), clickable/expandable media, a file list, and the download /
+// install action (which may hand off to a browser or Steam).
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -19,7 +20,9 @@ import {
   useRemoteModDetail,
 } from "../../../hooks/useModDiscover";
 import type { RemoteModFile, RemoteModSummary } from "../../../types/mods";
-import { formatBytes, formatCount, formatRemoteDate, htmlToText, sourceLabel } from "./format";
+import { formatBytes, formatCount, formatRemoteDate, sourceLabel } from "./format";
+import { buildMediaItem, parseDescription, type MediaItem } from "./description";
+import ModMediaLightbox from "./ModMediaLightbox";
 import InstallProgress from "./InstallProgress";
 import "./mods-discover.css";
 
@@ -53,6 +56,7 @@ export default function RemoteModDetailModal({
   const { detail, loading, error, load } = useRemoteModDetail();
   const { busy, install } = useRemoteInstall();
   const [installingFile, setInstallingFile] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -76,6 +80,18 @@ export default function RemoteModDetailModal({
 
   const files = detail?.files ?? [];
   const updated = formatRemoteDate(summary.updatedAt);
+
+  const parsed = detail?.description
+    ? parseDescription(
+        detail.description,
+        setLightboxIndex,
+        t("mods.discover.spoiler"),
+        (url) => void openUrl(url),
+      )
+    : null;
+  const descMedia: MediaItem[] = parsed?.media ?? [];
+  const galleryMedia: MediaItem[] = (detail?.gallery ?? []).map(buildMediaItem);
+  const allMedia: MediaItem[] = [...descMedia, ...galleryMedia];
 
   const handleInstall = async (file?: RemoteModFile) => {
     setInstallingFile(file?.id ?? "primary");
@@ -183,25 +199,43 @@ export default function RemoteModDetailModal({
             </div>
           )}
 
-          {!loading && error && (
-            <p className="mods-remote-modal-error">{error}</p>
-          )}
+          {!loading && error && <p className="mods-remote-modal-error">{error}</p>}
 
-          {!loading && detail?.description && (
+          {!loading && parsed && (
             <section className="mods-remote-modal-section">
               <h3>{t("mods.discover.description")}</h3>
-              <p className="mods-remote-modal-description">
-                {htmlToText(detail.description)}
-              </p>
+              <div className="mods-remote-modal-description">{parsed.node}</div>
             </section>
           )}
 
-          {!loading && detail && detail.gallery.length > 0 && (
+          {!loading && galleryMedia.length > 0 && (
             <section className="mods-remote-modal-section">
               <h3>{t("mods.discover.gallery")}</h3>
               <div className="mods-remote-modal-gallery">
-                {detail.gallery.slice(0, 8).map((src, i) => (
-                  <img key={i} src={src} alt="" loading="lazy" />
+                {galleryMedia.slice(0, 12).map((item, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="mods-remote-modal-gallery-item"
+                    onClick={() => setLightboxIndex(descMedia.length + i)}
+                  >
+                    {item.type === "video" ? (
+                      <>
+                        {item.poster ? (
+                          <img src={item.poster} alt="" loading="lazy" />
+                        ) : (
+                          <span className="mods-remote-modal-gallery-video-fallback" />
+                        )}
+                        <span className="mods-remote-modal-gallery-play" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </span>
+                      </>
+                    ) : (
+                      <img src={item.url} alt="" loading="lazy" />
+                    )}
+                  </button>
                 ))}
               </div>
             </section>
@@ -266,6 +300,15 @@ export default function RemoteModDetailModal({
           </section>
         </div>
       </div>
+
+      {lightboxIndex != null && allMedia.length > 0 && (
+        <ModMediaLightbox
+          items={allMedia}
+          index={Math.min(lightboxIndex, allMedia.length - 1)}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>,
     document.body,
   );

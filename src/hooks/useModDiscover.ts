@@ -127,7 +127,21 @@ export function useModBrowse(source: string | null, externalId: string | null) {
           pageSize: PAGE_SIZE,
         });
         if (id !== reqId.current) return;
-        setResults((prev) => (append ? [...prev, ...res.results] : res.results));
+        setResults((prev) => {
+          if (!append) return res.results;
+          // De-dupe across pages: some sites can repeat entries when the
+          // offset isn't honoured.
+          const seen = new Set(prev.map((m) => `${m.source}:${m.id}`));
+          const merged = [...prev];
+          for (const m of res.results) {
+            const key = `${m.source}:${m.id}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(m);
+            }
+          }
+          return merged;
+        });
         setTotal(res.total);
         setHasMore(res.hasMore);
         setPage(res.page);
