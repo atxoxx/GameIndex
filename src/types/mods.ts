@@ -60,6 +60,20 @@ export interface GameModsPayload {
   supportsReorder: boolean;
 }
 
+/** Status filter for the installed-mods list. */
+export type ModFilterTab = "all" | "enabled" | "disabled" | "updates" | "conflicts";
+
+/** Sort options for the installed-mods list. */
+export type ModSortOption = "order" | "name" | "size:desc" | "size:asc";
+
+/** Compact per-game summary shown in the workspace header. */
+export interface ModWorkspaceStats {
+  total: number;
+  enabled: number;
+  updates: number;
+  sizeBytes: number;
+}
+
 export interface ModConflict {
   relativePath: string;
   modIds: string[];

@@ -9,17 +9,13 @@ function formatModSize(bytes?: number): string {
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
-function EngineChip({ engine }: { engine: ModEngine | string }) {
-  const label = ENGINE_LABELS[engine as ModEngine] ?? engine;
-  return <span className={`mods-engine-chip mods-engine-${engine}`}>{label}</span>;
-}
-
 interface ModRowProps {
   mod: GameMod;
   orderIndex: number;
   isSelected: boolean;
   isMultiSelected: boolean;
   hasConflict: boolean;
+  showEngine: boolean;
   dragEnabled: boolean;
   dragOver: boolean;
   onSelect: () => void;
@@ -38,6 +34,7 @@ export default function ModRow({
   isSelected,
   isMultiSelected,
   hasConflict,
+  showEngine,
   dragEnabled,
   dragOver,
   onSelect,
@@ -50,6 +47,7 @@ export default function ModRow({
   onContextMenu,
 }: ModRowProps) {
   const { t } = useLanguage();
+  const engineLabel = ENGINE_LABELS[mod.engine as ModEngine] ?? mod.engine;
 
   return (
     <div
@@ -80,7 +78,6 @@ export default function ModRow({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* Multi-select Checkbox */}
       <input
         type="checkbox"
         className="mods-row-checkbox"
@@ -91,7 +88,6 @@ export default function ModRow({
         aria-label={t("mods.selectModTitle")}
       />
 
-      {/* Drag handle */}
       {dragEnabled && (
         <span className="mods-drag-handle" aria-hidden title={t("mods.loadOrderHint")}>
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -105,14 +101,9 @@ export default function ModRow({
         </span>
       )}
 
-      {/* Load order index */}
       <span className="mods-order-num">#{orderIndex + 1}</span>
 
-      {/* Cyber Switch Toggle */}
-      <label
-        className="mods-toggle-switch"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <label className="mods-toggle-switch" onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
           checked={mod.enabled}
@@ -125,7 +116,6 @@ export default function ModRow({
         <span className="mods-toggle-slider" />
       </label>
 
-      {/* Name and Version */}
       <div className="mods-row-main">
         <span className="mods-row-name" title={mod.name}>
           {mod.name}
@@ -148,19 +138,18 @@ export default function ModRow({
         </div>
       </div>
 
-      {/* Badges & Size */}
       <div className="mods-row-badges">
         {mod.updateAvailable && (
           <span className="mods-badge mods-badge-update" title={t("mods.updateAvailable")}>
-            ↑ {t("mods.updateAvailable")}
+            ↑
           </span>
         )}
         {hasConflict && (
           <span className="mods-badge mods-badge-conflict" title={t("mods.filter.conflicts")}>
-            ⚠ {t("mods.filter.conflicts")}
+            ⚠
           </span>
         )}
-        <EngineChip engine={mod.engine} />
+        {showEngine && <span className="mods-engine-chip">{engineLabel}</span>}
         <span className="mods-row-size">{formatModSize(mod.sizeBytes)}</span>
       </div>
     </div>

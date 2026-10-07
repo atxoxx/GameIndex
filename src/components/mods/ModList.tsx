@@ -1,13 +1,8 @@
 import { useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
-import { ENGINE_LABELS, type GameMod, type ModConflict, type ModEngine } from "../../types/mods";
+import type { GameMod, ModConflict } from "../../types/mods";
 import ModRow from "./ModRow";
-
-function EngineChip({ engine }: { engine: ModEngine | string }) {
-  const label = ENGINE_LABELS[engine as ModEngine] ?? engine;
-  return <span className={`mods-engine-chip mods-engine-${engine}`}>{label}</span>;
-}
 
 interface ModListProps {
   mods: GameMod[];
@@ -60,6 +55,8 @@ export default function ModList({
   const dragId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
+  const showEngine = engines.length > 1;
+
   const handleDrop = (targetId: string) => {
     const sourceId = dragId.current;
     dragId.current = null;
@@ -97,59 +94,45 @@ export default function ModList({
 
   return (
     <div className="mods-list-pane">
-      {/* Header bar */}
       <div className="mods-list-header">
         <div className="mods-list-header-title">
-          <input
-            type="checkbox"
-            className="mods-header-checkbox"
-            checked={allSelected}
-            onChange={onToggleSelectAll}
-            title={allSelected ? t("mods.deselectAll") : t("mods.selectAll")}
-          />
-          <span>{t("mods.loadOrder")}</span>
-          {engines.map((e) => (
-            <EngineChip key={e} engine={e} />
-          ))}
+          <label className="mods-list-header__check">
+            <input
+              type="checkbox"
+              className="mods-header-checkbox"
+              checked={allSelected}
+              onChange={onToggleSelectAll}
+              title={allSelected ? t("mods.deselectAll") : t("mods.selectAll")}
+            />
+          </label>
+          <span className="mods-list-header__title">{t("mods.loadOrder")}</span>
         </div>
         <span className="mods-list-header-hint">
           {selectedIds.size > 0
             ? t("mods.selectedCount", { count: String(selectedIds.size) })
             : supportsReorder
-            ? t("mods.loadOrderHint")
-            : t("mods.loadOrderReadOnly")}
+              ? t("mods.loadOrderHint")
+              : t("mods.loadOrderReadOnly")}
         </span>
       </div>
 
-      {/* Bulk action floating bar */}
       {selectedIds.size > 0 && (
-        <div className="mods-bulk-toolbar" role="toolbar" aria-label={t("mods.selectedCount", { count: String(selectedIds.size) })}>
+        <div
+          className="mods-bulk-toolbar"
+          role="toolbar"
+          aria-label={t("mods.selectedCount", { count: String(selectedIds.size) })}
+        >
           <span className="mods-bulk-count">
             {t("mods.selectedCount", { count: String(selectedIds.size) })}
           </span>
           <div className="mods-bulk-actions">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onBulkEnable}
-              isLoading={bulkProcessing}
-            >
+            <Button variant="secondary" size="sm" onClick={onBulkEnable} isLoading={bulkProcessing}>
               {t("mods.enable")}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onBulkDisable}
-              isLoading={bulkProcessing}
-            >
+            <Button variant="secondary" size="sm" onClick={onBulkDisable} isLoading={bulkProcessing}>
               {t("mods.disable")}
             </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={onBulkDelete}
-              isLoading={bulkProcessing}
-            >
+            <Button variant="danger" size="sm" onClick={onBulkDelete} isLoading={bulkProcessing}>
               {t("mods.delete")}
             </Button>
             <Button variant="ghost" size="sm" onClick={onClearSelection}>
@@ -159,7 +142,6 @@ export default function ModList({
         </div>
       )}
 
-      {/* Rows Container */}
       <div className="mods-list" role="listbox" aria-label={t("mods.loadOrder")}>
         {sortedMods.map((mod) => {
           const hasConflict = conflictsByMod.has(mod.id);
@@ -173,6 +155,7 @@ export default function ModList({
               isSelected={mod.id === selectedId}
               isMultiSelected={isMultiSelected}
               hasConflict={hasConflict}
+              showEngine={showEngine}
               dragEnabled={dragEnabled}
               dragOver={dragOverId === mod.id}
               onSelect={() => onSelectMod(mod.id)}

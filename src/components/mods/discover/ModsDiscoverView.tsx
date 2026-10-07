@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  SlidersHorizontal,
   Sparkles,
   Table,
   X,
@@ -129,7 +130,26 @@ export default function ModsDiscoverView({
   const [statusFilter, setStatusFilter] = useState<ModStatusFilter>("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement | null>(null);
   const [activeMod, setActiveMod] = useState<RemoteModSummary | null>(null);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (filtersRef.current?.contains(e.target as Node)) return;
+      setFiltersOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFiltersOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [filtersOpen]);
 
   // Data Hooks
   const {
@@ -535,83 +555,106 @@ export default function ModsDiscoverView({
                 </div>
               </div>
 
-              {/* Sort By Dropdown */}
-              <div className="mods-discover-field">
-                <label className="mods-discover-label" htmlFor="mods-discover-sort">
-                  {t("mods.discover.sortBy")}
-                </label>
-                <select
-                  id="mods-discover-sort"
-                  className="mods-discover-select"
-                  value={browse.sort}
-                  disabled={!selectedSource?.available}
-                  onChange={(e) => browse.setSort(e.target.value)}
+              {/* Filters popover: sort, category, status, tags */}
+              <div className="mods-discover-filters" ref={filtersRef}>
+                <button
+                  type="button"
+                  className={`mods-discover-filters-btn${filtersOpen ? " is-open" : ""}`}
+                  onClick={() => setFiltersOpen((v) => !v)}
+                  aria-expanded={filtersOpen}
                 >
-                  {SORTS.map((s) => (
-                    <option key={s} value={s}>
-                      {t(`mods.discover.sort.${s}`)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <SlidersHorizontal size={14} />
+                  <span>{t("mods.filters")}</span>
+                  {(() => {
+                    const active =
+                      (browse.sort !== "trending" ? 1 : 0) +
+                      (category !== "all" ? 1 : 0) +
+                      (statusFilter !== "all" ? 1 : 0) +
+                      (selectedTags.length > 0 ? 1 : 0);
+                    return active > 0 ? (
+                      <span className="mods-discover-filters-count">{active}</span>
+                    ) : null;
+                  })()}
+                </button>
 
-              {/* Category Dropdown */}
-              <div className="mods-discover-field">
-                <label className="mods-discover-label" htmlFor="mods-discover-category">
-                  {t("mods.discover.category")}
-                </label>
-                <select
-                  id="mods-discover-category"
-                  className="mods-discover-select"
-                  value={category}
-                  disabled={categories.length === 0}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  <option value="all">{t("mods.discover.allCategories")}</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {filtersOpen && (
+                  <div className="mods-discover-filters-popover" role="dialog" aria-label={t("mods.filters")}>
+                    <div className="mods-discover-field">
+                      <label className="mods-discover-label" htmlFor="mods-discover-sort">
+                        {t("mods.discover.sortBy")}
+                      </label>
+                      <select
+                        id="mods-discover-sort"
+                        className="mods-discover-select"
+                        value={browse.sort}
+                        disabled={!selectedSource?.available}
+                        onChange={(e) => browse.setSort(e.target.value)}
+                      >
+                        {SORTS.map((s) => (
+                          <option key={s} value={s}>
+                            {t(`mods.discover.sort.${s}`)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-              {/* Status Filter */}
-              <div className="mods-discover-field">
-                <label className="mods-discover-label" htmlFor="mods-discover-status">
-                  {t("mods.discover.filterStatus")}
-                </label>
-                <select
-                  id="mods-discover-status"
-                  className="mods-discover-select"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as ModStatusFilter)}
-                >
-                  <option value="all">{t("mods.discover.statusAll")}</option>
-                  <option value="not_installed">{t("mods.discover.statusNotInstalled")}</option>
-                  <option value="installed">{t("mods.discover.statusInstalled")}</option>
-                  <option value="bookmarked">{t("mods.discover.statusBookmarked")}</option>
-                </select>
-              </div>
+                    <div className="mods-discover-field">
+                      <label className="mods-discover-label" htmlFor="mods-discover-category">
+                        {t("mods.discover.category")}
+                      </label>
+                      <select
+                        id="mods-discover-category"
+                        className="mods-discover-select"
+                        value={category}
+                        disabled={categories.length === 0}
+                        onChange={(e) => setCategory(e.target.value)}
+                      >
+                        <option value="all">{t("mods.discover.allCategories")}</option>
+                        {categories.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-              {/* Tags Filter */}
-              {tagOptions.length > 0 && (
-                <div className="mods-discover-field mods-discover-field--tags">
-                  <label className="mods-discover-label">{t("mods.discover.tags")}</label>
-                  <MultiSelectDropdown
-                    label={t("mods.discover.tags")}
-                    placeholder={t("mods.discover.allTags")}
-                    options={tagOptions}
-                    selected={selectedTags}
-                    onChange={setSelectedTags}
-                    counts={tagCountMap}
-                    clearLabel={t("mods.source.clear")}
-                    showSearch
-                    searchPlaceholder={t("mods.discover.tags")}
-                    noResultsLabel={t("mods.discover.empty")}
-                  />
-                </div>
-              )}
+                    <div className="mods-discover-field">
+                      <label className="mods-discover-label" htmlFor="mods-discover-status">
+                        {t("mods.discover.filterStatus")}
+                      </label>
+                      <select
+                        id="mods-discover-status"
+                        className="mods-discover-select"
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value as ModStatusFilter)}
+                      >
+                        <option value="all">{t("mods.discover.statusAll")}</option>
+                        <option value="not_installed">{t("mods.discover.statusNotInstalled")}</option>
+                        <option value="installed">{t("mods.discover.statusInstalled")}</option>
+                        <option value="bookmarked">{t("mods.discover.statusBookmarked")}</option>
+                      </select>
+                    </div>
+
+                    {tagOptions.length > 0 && (
+                      <div className="mods-discover-field">
+                        <label className="mods-discover-label">{t("mods.discover.tags")}</label>
+                        <MultiSelectDropdown
+                          label={t("mods.discover.tags")}
+                          placeholder={t("mods.discover.allTags")}
+                          options={tagOptions}
+                          selected={selectedTags}
+                          onChange={setSelectedTags}
+                          counts={tagCountMap}
+                          clearLabel={t("mods.source.clear")}
+                          showSearch
+                          searchPlaceholder={t("mods.discover.tags")}
+                          noResultsLabel={t("mods.discover.empty")}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Quick Suggestions Strip */}
