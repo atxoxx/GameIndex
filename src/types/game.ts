@@ -510,6 +510,27 @@ export function mergeTimeToBeat(
   return current;
 }
 
+/**
+ * Metacritic score summary, mirrored from `src-tauri/src/game_scraper.rs`.
+ * `metascore` is the critic score (0-100); `userScore` is the community
+ * score (0-10). Both are `null` when Metacritic has no scores yet.
+ */
+export interface MetacriticScore {
+  url: string;
+  metascore?: number | null;
+  metascoreSentiment?: string | null;
+  criticReviewCount?: number | null;
+  userScore?: number | null;
+  userScoreSentiment?: string | null;
+  userRatingCount?: number | null;
+  positiveCount?: number | null;
+  neutralCount?: number | null;
+  negativeCount?: number | null;
+  userPositiveCount?: number | null;
+  userNeutralCount?: number | null;
+  userNegativeCount?: number | null;
+}
+
 export interface SimilarGame {
   id: number;
   name: string;

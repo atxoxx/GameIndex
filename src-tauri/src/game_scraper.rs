@@ -6759,6 +6759,155 @@ async fn fetch_metacritic_reviews(game_name: &str) -> Result<Vec<IgdbReview>, St
     Ok(reviews)
 }
 
+// ── Metacritic Score Summary ─────────────────────────────────────────────────
+
+/// Aggregate Metacritic scores scraped from a game's product page.
+///
+/// The hero renders two score widgets: the critic Metascore (0-100) and the
+/// user score (0-10). We surface both, their sentiment labels and review
+/// tallies, plus the critic review distribution, so the game page's Ratings
+/// card and its details modal can be served by a single request.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetacriticScore {
+    pub url: String,
+    pub metascore: Option<i32>,
+    pub metascore_sentiment: Option<String>,
+    pub critic_review_count: Option<u32>,
+    pub user_score: Option<f64>,
+    pub user_score_sentiment: Option<String>,
+    pub user_rating_count: Option<u32>,
+    pub positive_count: Option<u32>,
+    pub neutral_count: Option<u32>,
+    pub negative_count: Option<u32>,
+    pub user_positive_count: Option<u32>,
+    pub user_neutral_count: Option<u32>,
+    pub user_negative_count: Option<u32>,
+}
+
+/// Pull the first run of digits out of a label like
+/// "Based on 13,805 User Ratings" → 13805.
+fn first_number(value: &str) -> Option<u32> {
+    let mut digits = String::new();
+    let mut started = false;
+    for ch in value.chars() {
+        if ch.is_ascii_digit() {
+            digits.push(ch);
+            started = true;
+        } else if started {
+            break;
+        }
+    }
+    digits.parse::<u32>().ok()
+}
+
+/// Fetch the Metacritic score summary for a game by scraping its page.
+///
+/// Returns `Ok` with empty score fields when the page loads but exposes no
+/// scores yet (e.g. an unreleased title), so callers can fall back to their
+/// own rating without treating an incomplete page as an error.
+pub async fn fetch_metacritic_score(game_name: &str) -> Result<MetacriticScore, String> {
+    let client = external_reviews_client().ok_or("Failed to create HTTP client")?;
+
+    let slug = slugify_rust(game_name);
+    let direct_url = format!("https://www.metacritic.com/game/{}/", slug);
+    let url = resolve_game_url(&client, &direct_url, "metacritic.com", game_name).await?;
+
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Metacritic request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("Metacritic returned {}", resp.status()));
+    }
+
+    let html = resp
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read Metacritic response: {}", e))?;
+
+    let doc = scraper::Html::parse_document(&html);
+
+    let wrapper_sel = scraper::Selector::parse("[data-testid='global-score-wrapper']")
+        .map_err(|e| e.to_string())?;
+    let header_sel = scraper::Selector::parse("[data-testid='global-score-header']")
+        .map_err(|e| e.to_string())?;
+    let value_sel = scraper::Selector::parse("[data-testid='global-score-value']")
+        .map_err(|e| e.to_string())?;
+    let sentiment_sel = scraper::Selector::parse("[data-testid='global-score-sentiment']")
+        .map_err(|e| e.to_string())?;
+    let count_sel = scraper::Selector::parse("[data-testid='global-score-review-count']")
+        .map_err(|e| e.to_string())?;
+    let bar_sel = scraper::Selector::parse("[data-testid^='global-score-graph-bar-']")
+        .map_err(|e| e.to_string())?;
+
+    let mut summary = MetacriticScore {
+        url: url.clone(),
+        ..Default::default()
+    };
+
+    // The page renders each widget twice (hero + lower section); keep the
+    // first occurrence of each kind and ignore the duplicates.
+    for wrapper in doc.select(&wrapper_sel) {
+        let header = wrapper
+            .select(&header_sel)
+            .next()
+            .map(|el| el.text().collect::<String>().trim().to_lowercase())
+            .unwrap_or_default();
+        let is_user = header.contains("user");
+
+        if (is_user && summary.user_score.is_some()) || (!is_user && summary.metascore.is_some()) {
+            continue;
+        }
+
+        let value = wrapper
+            .select(&value_sel)
+            .next()
+            .map(|el| el.text().collect::<String>().trim().to_string());
+        let sentiment = wrapper
+            .select(&sentiment_sel)
+            .next()
+            .map(|el| el.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty());
+        let count = wrapper
+            .select(&count_sel)
+            .next()
+            .map(|el| el.text().collect::<String>())
+            .and_then(|s| first_number(&s));
+
+        if is_user {
+            summary.user_score = value.as_deref().and_then(|v| v.parse::<f64>().ok());
+            summary.user_score_sentiment = sentiment;
+            summary.user_rating_count = count;
+        } else {
+            summary.metascore = value.as_deref().and_then(|v| v.parse::<i32>().ok());
+            summary.metascore_sentiment = sentiment;
+            summary.critic_review_count = count;
+        }
+    }
+
+    // The distribution bars come in pairs: the critic Metascore triple
+    // first, then the user score triple.
+    let bars: Vec<String> = doc
+        .select(&bar_sel)
+        .filter_map(|el| el.value().attr("aria-label").map(|s| s.to_string()))
+        .collect();
+    if bars.len() >= 3 {
+        summary.positive_count = first_number(&bars[0]);
+        summary.neutral_count = first_number(&bars[1]);
+        summary.negative_count = first_number(&bars[2]);
+    }
+    if bars.len() >= 6 {
+        summary.user_positive_count = first_number(&bars[3]);
+        summary.user_neutral_count = first_number(&bars[4]);
+        summary.user_negative_count = first_number(&bars[5]);
+    }
+
+    Ok(summary)
+}
+
 /// Resolve an OpenCritic game page URL.
 ///
 /// OpenCritic's `/search?criteria=...` always returns HTTP 200, which would

@@ -327,6 +327,14 @@ pub async fn fetch_external_reviews(
     game_scraper::fetch_external_reviews(&game_name, &source).await
 }
 
+/// Fetch the Metacritic critic/user score summary for a game.
+#[tauri::command]
+pub async fn fetch_metacritic_score(
+    game_name: String,
+) -> Result<game_scraper::MetacriticScore, String> {
+    game_scraper::fetch_metacritic_score(&game_name).await
+}
+
 /// Read the user's chosen UI display language. Returns `None` when unset
 /// (the frontend treats that as the `en` default). The same `language`
 /// kv key is read by the achievements sync paths via
