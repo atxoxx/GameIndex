@@ -13,7 +13,9 @@
 
 .mods-discover-controls {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.2fr) minmax(220px, 2fr) minmax(140px, 0.8fr);
+  grid-template-columns:
+    minmax(150px, 1fr) minmax(180px, 1.1fr) minmax(200px, 1.7fr)
+    minmax(120px, 0.8fr) minmax(120px, 0.9fr);
   gap: var(--space-md);
   align-items: end;
   padding: var(--space-md) var(--space-lg);
@@ -810,6 +812,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
+}
+
+.mods-discover-meta-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .mods-discover-viewtoggle {

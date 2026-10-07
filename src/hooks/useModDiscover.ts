@@ -183,6 +183,11 @@ export function useModBrowse(source: string | null, externalId: string | null) {
     void run(1, false, query, sort);
   }, [query, run, sort]);
 
+  /** Run the search immediately (Enter), bypassing the debounce. */
+  const flush = useCallback(() => {
+    void run(1, false, query, sort);
+  }, [query, run, sort]);
+
   return {
     query,
     setQuery,
@@ -196,6 +201,7 @@ export function useModBrowse(source: string | null, externalId: string | null) {
     error,
     loadMore,
     refresh,
+    flush,
   };
 }
 

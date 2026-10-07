@@ -24,6 +24,7 @@ interface RemoteModGridProps {
   onOpenExternal: (mod: RemoteModSummary) => void;
   onLoadMore: () => void;
   onRetry: () => void;
+  onConfigure: () => void;
 }
 
 export default function RemoteModGrid({
@@ -39,6 +40,7 @@ export default function RemoteModGrid({
   onOpenExternal,
   onLoadMore,
   onRetry,
+  onConfigure,
 }: RemoteModGridProps) {
   const { t } = useLanguage();
 
@@ -47,6 +49,9 @@ export default function RemoteModGrid({
       <div className="mods-discover-empty">
         <PackageSearch size={36} />
         <h3>{t("mods.discover.noGame")}</h3>
+        <Button variant="secondary" size="sm" onClick={onConfigure}>
+          {t("mods.discover.setupSources")}
+        </Button>
       </div>
     );
   }

@@ -6,7 +6,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Boxes, FolderOpen, History, LayoutGrid, List, Search, Trash2 } from "lucide-react";
+import {
+  Boxes,
+  ExternalLink,
+  FolderOpen,
+  History,
+  LayoutGrid,
+  List,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -31,6 +41,9 @@ import "../../components/mods/discover/mods-discover.css";
 
 const SORTS = ["trending", "latest", "updated", "downloads"] as const;
 
+/** Remember the last website used for each game. */
+const sourcePrefKey = (gameId: string) => `gamelib.mods.discover.source.${gameId}`;
+
 export default function ModsDiscoverPage() {
   const { games } = useGames();
   const { t } = useLanguage();
@@ -44,6 +57,7 @@ export default function ModsDiscoverPage() {
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [activeMod, setActiveMod] = useState<RemoteModSummary | null>(null);
+  const [category, setCategory] = useState("all");
   const [view, setView] = usePersistedState<DiscoverView>(
     "gamelib.mods.discover.view_v1",
     "grid",
@@ -98,16 +112,60 @@ export default function ModsDiscoverPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId]);
 
-  // Default to the first available source whenever the game changes.
+  // Pick a source whenever the game changes: prefer the one this game
+  // used last, else the first detected/available one.
   useEffect(() => {
     if (sources.length === 0) {
       setSourceId(null);
       return;
     }
     if (sourceId && sources.some((s) => s.id === sourceId)) return;
-    const first = sources.find((s) => s.available);
+    let stored: string | null = null;
+    try {
+      stored = gameId ? localStorage.getItem(sourcePrefKey(gameId)) : null;
+    } catch {
+      /* localStorage may be unavailable */
+    }
+    const remembered = stored
+      ? (sources.find((s) => s.id === stored && s.available) ?? null)
+      : null;
+    const first = remembered ?? sources.find((s) => s.available);
     setSourceId(first?.id ?? null);
-  }, [sources, sourceId]);
+  }, [sources, sourceId, gameId]);
+
+  const handleSourceChange = (id: string) => {
+    setSourceId(id);
+    try {
+      if (gameId) localStorage.setItem(sourcePrefKey(gameId), id);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Category facets are derived from the current result page.
+  const categories = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          browse.results
+            .map((r) => r.category)
+            .filter((c): c is string => !!c && c.trim().length > 0),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [browse.results],
+  );
+  const visibleResults = useMemo(
+    () =>
+      category === "all"
+        ? browse.results
+        : browse.results.filter((r) => r.category === category),
+    [browse.results, category],
+  );
+
+  // Reset the category filter when the game or website changes.
+  useEffect(() => {
+    setCategory("all");
+  }, [gameId, sourceId]);
 
   const handleInstalled = async () => {
     if (selectedGame) {
@@ -168,7 +226,7 @@ export default function ModsDiscoverPage() {
         <SourceSelect
           sources={sources}
           value={sourceId}
-          onChange={setSourceId}
+          onChange={handleSourceChange}
           onConfigure={() => setConfigOpen(true)}
           onResolve={resolveAll}
           resolving={resolving}
@@ -190,6 +248,9 @@ export default function ModsDiscoverPage() {
               value={browse.query}
               disabled={!selectedSource?.available}
               onChange={(e) => browse.setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") browse.flush();
+              }}
             />
           </div>
         </div>
@@ -212,6 +273,26 @@ export default function ModsDiscoverPage() {
             ))}
           </select>
         </div>
+
+        <div className="mods-discover-field">
+          <label className="mods-discover-label" htmlFor="mods-discover-category">
+            {t("mods.discover.category")}
+          </label>
+          <select
+            id="mods-discover-category"
+            className="mods-discover-select"
+            value={category}
+            disabled={categories.length === 0}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="all">{t("mods.discover.allCategories")}</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="mods-discover-meta">
@@ -229,11 +310,24 @@ export default function ModsDiscoverPage() {
             <span className="mods-discover-note">{selectedSource.note}</span>
           )}
         </div>
-        <div
-          className="mods-discover-viewtoggle"
-          role="group"
-          aria-label={t("mods.discover.viewAria")}
-        >
+        <div className="mods-discover-meta-right">
+          {selectedSource?.available && (
+            <button
+              type="button"
+              className="mods-discover-icon-btn"
+              onClick={browse.refresh}
+              disabled={browse.loading}
+              title={t("mods.discover.refresh")}
+              aria-label={t("mods.discover.refresh")}
+            >
+              <RefreshCw size={15} className={browse.loading ? "spinning" : undefined} />
+            </button>
+          )}
+          <div
+            className="mods-discover-viewtoggle"
+            role="group"
+            aria-label={t("mods.discover.viewAria")}
+          >
           <button
             type="button"
             className={`mods-discover-viewtoggle-btn${view === "grid" ? " active" : ""}`}
@@ -253,12 +347,13 @@ export default function ModsDiscoverPage() {
             aria-pressed={view === "list"}
           >
             <List size={15} />
-          </button>
+            </button>
+          </div>
         </div>
       </div>
 
       <RemoteModGrid
-        results={browse.results}
+        results={visibleResults}
         loading={browse.loading}
         loadingMore={browse.loadingMore}
         error={browse.error}
@@ -270,6 +365,7 @@ export default function ModsDiscoverPage() {
         onOpenExternal={(mod) => void openUrl(mod.url)}
         onLoadMore={browse.loadMore}
         onRetry={browse.refresh}
+        onConfigure={() => setConfigOpen(true)}
       />
 
       {installs.installs.length > 0 && (
@@ -302,6 +398,17 @@ export default function ModsDiscoverPage() {
                       }
                     >
                       <FolderOpen size={14} />
+                    </button>
+                  )}
+                  {item.remoteUrl && (
+                    <button
+                      type="button"
+                      className="mods-discover-icon-btn"
+                      title={t("mods.discover.openPage")}
+                      aria-label={t("mods.discover.openPage")}
+                      onClick={() => void openUrl(item.remoteUrl!)}
+                    >
+                      <ExternalLink size={14} />
                     </button>
                   )}
                   <button
