@@ -75,7 +75,7 @@ interface CloseToken {
 }
 type Token = TextToken | OpenToken | CloseToken;
 
-const TAG_RE = /\[(\/)?([a-zA-Z*]+)(?:=([^\]]*))?\]/g;
+const TAG_RE = /\[(\/)?([a-zA-Z0-9*_-]+)(?:=([^\]]*))?\]/g;
 const SELF_CLOSING = new Set(["hr", "br"]);
 
 function tokenize(input: string): Token[] {
@@ -85,10 +85,24 @@ function tokenize(input: string): Token[] {
   TAG_RE.lastIndex = 0;
   while ((m = TAG_RE.exec(input)) !== null) {
     if (m.index > last) tokens.push({ t: "text", v: input.slice(last, m.index) });
+    const isClose = Boolean(m[1]);
     const tag = m[2].toLowerCase();
-    if (m[1]) tokens.push({ t: "close", tag });
-    else tokens.push({ t: "open", tag, val: m[3] });
+    const val = m[3];
     last = TAG_RE.lastIndex;
+
+    // Steam [noparse]...[/noparse] skips BBCode parsing for inner text
+    if (!isClose && tag === "noparse") {
+      const closeIdx = input.toLowerCase().indexOf("[/noparse]", last);
+      if (closeIdx !== -1) {
+        tokens.push({ t: "text", v: input.slice(last, closeIdx) });
+        TAG_RE.lastIndex = closeIdx + "[/noparse]".length;
+        last = TAG_RE.lastIndex;
+        continue;
+      }
+    }
+
+    if (isClose) tokens.push({ t: "close", tag });
+    else tokens.push({ t: "open", tag, val });
   }
   if (last < input.length) tokens.push({ t: "text", v: input.slice(last) });
   return tokens;
@@ -107,7 +121,7 @@ function buildTree(tokens: Token[]): BbNode {
     if (tok.t === "text") {
       stack[stack.length - 1].children.push(tok.v);
     } else if (tok.t === "open") {
-      if (tok.tag === "*") {
+      if (tok.tag === "*" || tok.tag === "li") {
         while (stack.length > 1 && stack[stack.length - 1].tag === "li") stack.pop();
         const li: BbNode = { tag: "li", children: [] };
         stack[stack.length - 1].children.push(li);
@@ -118,6 +132,13 @@ function buildTree(tokens: Token[]): BbNode {
       stack[stack.length - 1].children.push(node);
       if (!SELF_CLOSING.has(tok.tag)) stack.push(node);
     } else {
+      if (SELF_CLOSING.has(tok.tag)) continue;
+      if (tok.tag === "*" || tok.tag === "li") {
+        if (stack.length > 1 && stack[stack.length - 1].tag === "li") {
+          stack.pop();
+        }
+        continue;
+      }
       for (let i = stack.length - 1; i >= 1; i--) {
         if (stack[i].tag === tok.tag) {
           stack.length = i;
@@ -138,13 +159,28 @@ function decodeEntities(s: string): string {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'");
+    .replace(/&#0?39;/g, "'")
+    .replace(/&rsquo;|&lsquo;/g, "'")
+    .replace(/&rdquo;|&ldquo;/g, '"')
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
+    .replace(/&hellip;/g, "…")
+    .replace(/&#(\d+);/g, (_, dec) => {
+      const code = parseInt(dec, 10);
+      return Number.isNaN(code) ? "" : String.fromCharCode(code);
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      const code = parseInt(hex, 16);
+      return Number.isNaN(code) ? "" : String.fromCharCode(code);
+    });
 }
 
 function normalize(raw: string): string {
   let s = raw;
+  // Convert HTML break / block endings
   s = s.replace(/<\s*br\s*\/?\s*>/gi, "\n");
-  s = s.replace(/<\s*\/\s*(p|div|h[1-6]|tr)\s*>/gi, "\n\n");
+  s = s.replace(/<\s*\/\s*(p|div|tr)\s*>/gi, "\n\n");
+  s = s.replace(/<\s*hr\s*\/?\s*>/gi, "\n[hr]\n");
   s = s.replace(/<\s*li[^>]*>/gi, "\n[*]");
   s = s.replace(/<\s*a[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\s*\/\s*a\s*>/gi, "[url=$1]$2[/url]");
   s = s.replace(/<\s*img[^>]*src\s*=\s*["']([^"']+)["'][^>]*\/?>/gi, "[img]$1[/img]");
@@ -153,9 +189,36 @@ function normalize(raw: string): string {
   s = s.replace(/<\s*u\s*>/gi, "[u]").replace(/<\s*\/\s*u\s*>/gi, "[/u]");
   s = s.replace(/<\s*(s|strike|del)\s*>/gi, "[s]").replace(/<\s*\/\s*(s|strike|del)\s*>/gi, "[/s]");
   s = s.replace(/<\s*code\s*>/gi, "[code]").replace(/<\s*\/\s*code\s*>/gi, "[/code]");
+  s = s.replace(/<\s*pre[^>]*>/gi, "[pre]").replace(/<\s*\/\s*pre\s*>/gi, "[/pre]");
   s = s.replace(/<\s*blockquote\s*>/gi, "[quote]").replace(/<\s*\/\s*blockquote\s*>/gi, "[/quote]");
   s = s.replace(/<\s*video[^>]*src\s*=\s*["']([^"']+)["'][^>]*\/?>(?:<\s*\/\s*video\s*>)?/gi, "[video]$1[/video]");
+
+  // HTML headings to BBCode headings
+  s = s.replace(/<\s*h1[^>]*>([\s\S]*?)<\s*\/\s*h1\s*>/gi, "\n[h1]$1[/h1]\n");
+  s = s.replace(/<\s*h2[^>]*>([\s\S]*?)<\s*\/\s*h2\s*>/gi, "\n[h2]$1[/h2]\n");
+  s = s.replace(/<\s*h3[^>]*>([\s\S]*?)<\s*\/\s*h3\s*>/gi, "\n[h3]$1[/h3]\n");
+  s = s.replace(/<\s*h[4-6][^>]*>([\s\S]*?)<\s*\/\s*h[4-6]\s*>/gi, "\n[h3]$1[/h3]\n");
+
+  // HTML table to BBCode table
+  s = s.replace(/<\s*table[^>]*>/gi, "[table]").replace(/<\s*\/\s*table\s*>/gi, "[/table]");
+  s = s.replace(/<\s*tr[^>]*>/gi, "[tr]").replace(/<\s*\/\s*tr\s*>/gi, "[/tr]");
+  s = s.replace(/<\s*th[^>]*>/gi, "[th]").replace(/<\s*\/\s*th\s*>/gi, "[/th]");
+  s = s.replace(/<\s*td[^>]*>/gi, "[td]").replace(/<\s*\/\s*td\s*>/gi, "[/td]");
+
+  // Strip remaining HTML tags
   s = s.replace(/<[^>]+>/g, "");
+
+  // Text divider lines: repeated equals/hyphens/underscores/tildes into [hr]
+  s = s.replace(/[ \t]*={6,}[ \t]*/g, "\n[hr]\n");
+  s = s.replace(/(?:^|\n)[ \t]*[-_*~]{6,}[ \t]*(?:\n|$)/g, "\n[hr]\n");
+
+  // Markdown-style blockquotes (e.g. > some quote)
+  s = s.replace(/(?:^|\n)[ \t]*>[ \t]*(.+)/g, "\n[quote]$1[/quote]");
+  s = s.replace(/(?:\[\/quote\]\s*\[quote\])+/g, "\n");
+
+  // Ensure headings have surrounding line breaks for clean block layout
+  s = s.replace(/\[(h[1-6])\]\s*([\s\S]*?)\s*\[\/\1\]/gi, "\n[$1]$2[/$1]\n");
+
   return decodeEntities(s);
 }
 
@@ -182,6 +245,17 @@ const SIZE_PX: Record<string, string> = {
 
 const URL_RE = /(https?:\/\/[^\s[\]()]+)/g;
 
+function cleanUrl(raw: string): { url: string; trailing: string } {
+  const m = raw.match(/[.,;:!?)]+$/);
+  if (m) {
+    return {
+      url: raw.slice(0, -m[0].length),
+      trailing: m[0],
+    };
+  }
+  return { url: raw, trailing: "" };
+}
+
 function renderText(text: string, key: string, ctx: RenderCtx): ReactNode[] {
   const out: ReactNode[] = [];
   const lines = text.split("\n");
@@ -193,23 +267,27 @@ function renderText(text: string, key: string, ctx: RenderCtx): ReactNode[] {
       if (!part) return;
       if (URL_RE.test(part)) {
         URL_RE.lastIndex = 0;
-        const kind = mediaKind(part);
+        const { url, trailing } = cleanUrl(part);
+        const kind = mediaKind(url);
         if (kind === "video") {
-          out.push(renderMedia(part, `${key}-v-${li}-${pi}`, ctx));
+          out.push(renderMedia(url, `${key}-v-${li}-${pi}`, ctx));
         } else {
           out.push(
             <a
               key={`${key}-a-${li}-${pi}`}
               className="mods-mod-desc-link"
-              href={part}
+              href={url}
               onClick={(e) => {
                 e.preventDefault();
-                ctx.openUrl(part);
+                ctx.openUrl(url);
               }}
             >
-              {part}
+              {url}
             </a>,
           );
+        }
+        if (trailing) {
+          out.push(trailing);
         }
       } else {
         out.push(part);
@@ -274,6 +352,15 @@ function renderChildren(children: (BbNode | string)[], key: string, ctx: RenderC
 function renderNode(node: BbNode, key: string, ctx: RenderCtx): ReactNode {
   const inner = () => renderChildren(node.children, key, ctx);
   switch (node.tag) {
+    case "h1":
+      return <h3 key={key} className="mods-mod-desc-h1">{inner()}</h3>;
+    case "h2":
+      return <h4 key={key} className="mods-mod-desc-h2">{inner()}</h4>;
+    case "h3":
+    case "h4":
+    case "h5":
+    case "h6":
+      return <h5 key={key} className="mods-mod-desc-h3">{inner()}</h5>;
     case "b":
     case "strong":
       return <strong key={key}>{inner()}</strong>;
@@ -286,15 +373,30 @@ function renderNode(node: BbNode, key: string, ctx: RenderCtx): ReactNode {
     case "strike":
     case "del":
       return <s key={key}>{inner()}</s>;
+    case "sub":
+      return <sub key={key}>{inner()}</sub>;
+    case "sup":
+      return <sup key={key}>{inner()}</sup>;
     case "code":
       return (
         <code key={key} className="mods-mod-desc-code">
           {inner()}
         </code>
       );
+    case "pre":
+      return (
+        <pre key={key} className="mods-mod-desc-pre">
+          <code>{inner()}</code>
+        </pre>
+      );
     case "quote":
       return (
         <blockquote key={key} className="mods-mod-desc-quote">
+          {node.val && (
+            <div className="mods-mod-desc-quote-author">
+              {node.val.replace(/^["']|["']$/g, "")}:
+            </div>
+          )}
           {inner()}
         </blockquote>
       );
@@ -336,8 +438,9 @@ function renderNode(node: BbNode, key: string, ctx: RenderCtx): ReactNode {
       );
     }
     case "url": {
-      const href = (node.val ?? "").trim();
-      if (!href) return <span key={key}>{inner()}</span>;
+      const target = (node.val ?? textOf(node)).trim().replace(/^["']|["']$/g, "");
+      if (!target) return <span key={key}>{inner()}</span>;
+      const href = /^[a-z]+:\/\//i.test(target) ? target : `https://${target}`;
       return (
         <a
           key={key}
@@ -366,8 +469,35 @@ function renderNode(node: BbNode, key: string, ctx: RenderCtx): ReactNode {
         : `https://www.youtube.com/watch?v=${raw}`;
       return renderMedia(url, key, ctx);
     }
+    case "table":
+      return (
+        <div key={key} className="mods-mod-desc-table-wrap">
+          <table className="mods-mod-desc-table">
+            <tbody>{inner()}</tbody>
+          </table>
+        </div>
+      );
+    case "tr":
+      return <tr key={key}>{inner()}</tr>;
+    case "th":
+      return <th key={key} className="mods-mod-desc-th">{inner()}</th>;
+    case "td":
+      return <td key={key} className="mods-mod-desc-td">{inner()}</td>;
     case "list":
+      if (node.val === "1" || node.val === "a" || node.val === "i") {
+        return (
+          <ol key={key} className="mods-mod-desc-list mods-mod-desc-list--ordered">
+            {inner()}
+          </ol>
+        );
+      }
       return <ul key={key} className="mods-mod-desc-list">{inner()}</ul>;
+    case "olist":
+      return (
+        <ol key={key} className="mods-mod-desc-list mods-mod-desc-list--ordered">
+          {inner()}
+        </ol>
+      );
     case "li":
       return <li key={key}>{inner()}</li>;
     case "hr":

@@ -1,28 +1,37 @@
 // "Mods" tab on the game detail page.
 // Provides a rich contextual header with directory path, active preset status,
-// and embeds the modular ModManager.
+// and embeds both the modular ModManager (installed) and the embedded ModsDiscoverView (discover new).
 
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Boxes, Compass, FolderOpen, Maximize2 } from "lucide-react";
 import type { Game } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
 import ModManager from "./ModManager";
+import ModsDiscoverView from "./discover/ModsDiscoverView";
 import { getGamePresets } from "./ModPresetsModal";
 import "../../styles/page-mods.css";
+import "./discover/mods-discover.css";
 
 interface ModsTabProps {
   game: Game;
   onModsSized?: (info: { totalBytes: number; folder?: string }) => void;
+  defaultSubtab?: "installed" | "discover";
 }
 
-export default function ModsTab({ game, onModsSized }: ModsTabProps) {
+export default function ModsTab({
+  game,
+  onModsSized,
+  defaultSubtab = "installed",
+}: ModsTabProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [tab, setTab] = useState<"installed" | "discover">(defaultSubtab);
   const presets = getGamePresets(game.id);
 
   const handleOpenFolder = () => {
@@ -54,24 +63,43 @@ export default function ModsTab({ game, onModsSized }: ModsTabProps) {
               )}
             </div>
             <h2 className="mods-tab-game-title">{gameDisplayName(game)}</h2>
-            <p className="mods-tab-subtitle">{t("mods.tab.bannerSubtitle")}</p>
+            <p className="mods-tab-subtitle">
+              {tab === "discover"
+                ? t("mods.discover.subtitle")
+                : t("mods.tab.bannerSubtitle")}
+            </p>
           </div>
         </div>
 
         <div className="mods-tab-header-right">
-          <Button
-            variant="primary"
-            size="sm"
-            leftIcon={<Search size={14} />}
-            onClick={() => navigate(`/mods/discover?gameId=${game.id}`)}
-          >
-            {t("mods.discover.cta")}
-          </Button>
+          {/* Subtab Toggle Buttons */}
+          <div className="mods-tab-nav-switcher" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "installed"}
+              className={`mods-tab-nav-btn${tab === "installed" ? " active" : ""}`}
+              onClick={() => setTab("installed")}
+            >
+              <Boxes size={14} />
+              <span>{t("mods.tab.installedMods")}</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "discover"}
+              className={`mods-tab-nav-btn${tab === "discover" ? " active" : ""}`}
+              onClick={() => setTab("discover")}
+            >
+              <Compass size={14} />
+              <span>{t("mods.discover.cta")}</span>
+            </button>
+          </div>
+
           {game.modsFolder && (
             <div className="mods-tab-path-badge" title={game.modsFolder}>
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-              </svg>
+              <FolderOpen size={13} />
               <span className="mods-tab-path-text">{game.modsFolder}</span>
               <button
                 type="button"
@@ -83,11 +111,27 @@ export default function ModsTab({ game, onModsSized }: ModsTabProps) {
               </button>
             </div>
           )}
+
+          {tab === "discover" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<Maximize2 size={13} />}
+              onClick={() => navigate(`/mods/discover?gameId=${game.id}`)}
+              title={t("mods.discover.openFullScreen")}
+            >
+              {t("mods.discover.fullScreenBtn")}
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Main ModManager */}
-      <ModManager game={game} onModsSized={onModsSized} />
+      {/* Main Content: Installed ModManager or Embedded Discover */}
+      {tab === "installed" ? (
+        <ModManager game={game} onModsSized={onModsSized} />
+      ) : (
+        <ModsDiscoverView game={game} variant="subtab" />
+      )}
     </div>
   );
 }

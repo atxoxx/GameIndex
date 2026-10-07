@@ -30,7 +30,7 @@ fn summary_from_details(d: &Value) -> Option<RemoteModSummary> {
         id: id.clone(),
         name,
         author: val_str(d, &["creator"]),
-        summary: val_str(d, &["short_description", "file_description"]),
+        summary: val_str(d, &["short_description", "file_description", "description"]),
         version: val_str(d, &["time_updated"]),
         downloads: val_i64(d, &["subscriptions", "views"]),
         endorsements: val_i64(d, &["favorited", "favorites"]),
@@ -169,7 +169,8 @@ pub async fn detail(external_id: &str, mod_id: &str) -> Result<RemoteModDetail, 
     let arr = first_array(&response, &["publishedfiledetails"]).cloned().unwrap_or_default();
     let first = arr.first().ok_or("workshop: item not found")?;
     let summary = summary_from_details(first).ok_or("workshop: empty item")?;
-    let description = val_str(first, &["file_description", "short_description"]);
+    let description = val_str(first, &["description", "file_description", "short_description"])
+        .or_else(|| summary.summary.clone());
 
     // Gallery: hero preview, screenshots, extra previews, then video
     // URLs — the UI turns YouTube links into playable cards.

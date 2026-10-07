@@ -602,190 +602,601 @@
   color: var(--color-text-muted);
 }
 
-/* ── Remote detail modal ──────────────────────────────────────────── */
+/* ── Remote Mod Detail Modal ───────────────────────────────────────── */
 
-.mods-remote-modal {
-  width: min(860px, 94vw);
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.mods-remote-modal-header {
-  display: flex;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.mods-remote-modal-art {
-  width: 96px;
-  height: 96px;
-  flex: 0 0 auto;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--color-bg-tertiary);
+.mods-discover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 1200);
+  background: color-mix(in srgb, var(--color-scrim, #040509) 82%, transparent);
+  backdrop-filter: var(--blur-scrim, blur(16px));
+  -webkit-backdrop-filter: var(--blur-scrim, blur(16px));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-muted);
+  padding: var(--space-md);
+  animation: modal-backdrop-in 180ms var(--ease-out, ease) both;
 }
 
+.mods-discover-modal,
+.mods-remote-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 94vw);
+  max-height: min(88vh, 860px);
+  max-height: min(88dvh, 860px);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: 0 24px 64px -8px rgba(0, 0, 0, 0.6), var(--shadow-xl);
+  overflow: hidden;
+  animation: modal-in 220ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+.mods-discover-modal-head,
+.mods-remote-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
+  background: color-mix(in srgb, var(--color-surface) 60%, var(--color-bg-secondary));
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+}
+
+.mods-discover-modal-thumb,
+.mods-remote-modal-art {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.mods-discover-modal-thumb img,
 .mods-remote-modal-art img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.mods-remote-modal-title {
-  flex: 1;
-  min-width: 0;
-}
-
-.mods-remote-modal-source {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--color-accent);
-}
-
-.mods-remote-modal-title h2 {
-  margin: 2px 0 var(--space-xs);
-  font-size: var(--font-size-xl);
-}
-
-.mods-remote-modal-sub,
-.mods-remote-modal-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.mods-remote-modal-stats {
-  margin-top: var(--space-sm);
-  font-size: var(--font-size-xs);
+.mods-discover-modal-thumb span {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
   color: var(--color-text-muted);
 }
 
-.mods-remote-modal-stats span {
+.mods-discover-modal-titlegroup,
+.mods-remote-modal-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mods-discover-modal-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mods-discover-modal-source,
+.mods-remote-modal-source {
+  padding: 2px 10px;
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--source-color, var(--color-accent)) 18%, transparent);
+  color: var(--source-color, var(--color-accent));
+  border: 1px solid color-mix(in srgb, var(--source-color, var(--color-accent)) 40%, transparent);
+}
+
+.mods-discover-modal-category {
+  font-size: var(--font-size-2xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 2px 9px;
+}
+
+.mods-discover-modal-version {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 7px;
+}
+
+.mods-discover-modal-title {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.mods-discover-modal-author {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
+.mods-discover-modal-top-actions,
 .mods-remote-modal-header-actions {
   display: flex;
-  gap: var(--space-xs);
-  align-items: flex-start;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
+.mods-discover-modal-close:hover {
+  background: color-mix(in srgb, var(--color-danger, #f43f5e) 15%, transparent);
+  color: var(--color-danger, #f43f5e);
+  border-color: color-mix(in srgb, var(--color-danger, #f43f5e) 30%, transparent);
+}
+
+/* Stats Row */
+.mods-discover-modal-stats,
+.mods-remote-modal-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-xl);
+  background: color-mix(in srgb, var(--color-bg-secondary) 50%, var(--color-surface));
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mods-discover-modal-stat,
+.mods-remote-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-modal-stat svg,
+.mods-remote-stat-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.mods-discover-modal-stat-value,
+.mods-remote-stat-value {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.mods-discover-modal-stat-label,
+.mods-remote-stat-label {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Modal Tabs */
+.mods-discover-modal-tabs,
+.mods-remote-modal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.mods-discover-modal-tab,
+.mods-remote-modal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.mods-discover-modal-tab:hover,
+.mods-remote-modal-tab:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-bg-hover) 60%, transparent);
+}
+
+.mods-discover-modal-tab.active,
+.mods-remote-modal-tab.is-active {
+  color: var(--color-accent);
+}
+
+.mods-discover-modal-tab.active::after,
+.mods-remote-modal-tab.is-active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: var(--radius-full) var(--radius-full) 0 0;
+}
+
+.mods-discover-modal-tab-badge,
+.mods-remote-modal-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 7px;
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-modal-tab.active .mods-discover-modal-tab-badge,
+.mods-remote-modal-tab.is-active .mods-remote-modal-tab-count {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+}
+
+/* Modal Body */
+.mods-discover-modal-body,
 .mods-remote-modal-body {
-  padding: var(--space-lg);
+  flex: 1;
   overflow-y: auto;
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-height: 220px;
+}
+
+.mods-discover-modal-skeleton,
+.mods-remote-modal-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+}
+
+/* Overview Tab */
+.mods-discover-overview {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
 }
 
-.mods-remote-modal-section h3 {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--font-size-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-}
-
-.mods-remote-modal-description {
-  margin: 0;
-  white-space: pre-wrap;
-  font-size: var(--font-size-sm);
+.mods-discover-lead-summary {
+  padding: var(--space-md) var(--space-lg);
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-tertiary));
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
   line-height: 1.6;
-  color: var(--color-text-secondary);
+  font-weight: 500;
+  white-space: pre-line;
 }
 
-.mods-remote-modal-gallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-sm);
-}
-
-.mods-remote-modal-gallery img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-}
-
-.mods-remote-modal-loading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.mods-remote-modal-error {
-  color: var(--color-warning, #f59e0b);
+.mods-discover-description-rendered,
+.mods-remote-modal-description {
   font-size: var(--font-size-sm);
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  word-break: break-word;
 }
 
-.mods-remote-modal-nofiles {
+.mods-discover-description-rendered p {
+  margin: 0 0 var(--space-md);
+}
+
+.mods-discover-description-rendered p:last-child {
+  margin-bottom: 0;
+}
+
+.mods-discover-modal-taglist {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  color: var(--color-text-muted);
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
 }
 
+.mods-discover-taglist-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mods-discover-tag-pill {
+  padding: 3px 10px;
+  font-size: var(--font-size-2xs);
+  font-weight: 500;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-tag-pill:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+/* Files Tab */
+.mods-discover-files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.mods-discover-files-list,
 .mods-remote-modal-files {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
+.mods-discover-file-item,
 .mods-remote-file {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
+  transition: all var(--duration-fast) var(--ease-standard);
 }
 
-.mods-remote-file-icon {
-  color: var(--color-text-muted);
+.mods-discover-file-item:hover,
+.mods-remote-file:hover {
+  border-color: var(--color-border-light);
+  background: color-mix(in srgb, var(--color-bg-hover) 40%, var(--color-surface));
 }
 
+.mods-discover-file-item.is-primary {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.mods-discover-file-info,
 .mods-remote-file-info {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
 }
 
+.mods-discover-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mods-discover-file-name,
 .mods-remote-file-name {
   font-size: var(--font-size-sm);
-  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  word-break: break-all;
 }
 
+.mods-discover-file-primary-badge,
+.mods-remote-file-primary {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+}
+
+.mods-discover-file-version {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+
+.mods-discover-file-meta,
 .mods-remote-file-meta {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-md);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  flex-wrap: wrap;
 }
 
-.mods-remote-file-primary {
-  color: var(--color-accent);
-  font-weight: 600;
+/* Gallery Tab */
+.mods-discover-gallery,
+.mods-remote-modal-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.mods-discover-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+.mods-discover-gallery-item,
+.mods-remote-modal-gallery-item {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-gallery-item:hover,
+.mods-remote-modal-gallery-item:hover {
+  transform: scale(1.02);
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+}
+
+.mods-discover-gallery-item img,
+.mods-remote-modal-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mods-discover-video-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  backdrop-filter: blur(4px);
+}
+
+/* Modal Footer */
+.mods-discover-modal-foot,
+.mods-remote-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-xl);
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-secondary) 80%, var(--color-surface));
+}
+
+.mods-discover-modal-progress {
+  flex: 1;
+  max-width: 440px;
+}
+
+.mods-discover-modal-foot-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.mods-discover-spinner-sm {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  animation: mods-discover-spin 0.65s linear infinite;
+}
+
+@media (max-width: 768px) {
+  .mods-discover-modal-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mods-discover-modal-thumb {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 64px;
+  }
+
+  .mods-discover-modal-top-actions {
+    position: absolute;
+    top: var(--space-md);
+    right: var(--space-md);
+  }
+
+  .mods-discover-modal-stats {
+    grid-template-columns: 1fr 1fr;
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .mods-discover-modal-tabs {
+    padding: 0 var(--space-md);
+  }
+
+  .mods-discover-modal-body {
+    padding: var(--space-md);
+  }
+
+  .mods-discover-modal-foot {
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--space-md);
+  }
+
+  .mods-discover-modal-foot-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 /* ── Responsive ───────────────────────────────────────────────────── */
@@ -1173,84 +1584,7 @@
   white-space: nowrap;
 }
 
-/* ── Detail modal: tabs, stats, footer ────────────────────────────── */
-
-.mods-remote-modal-tabs {
-  display: flex;
-  gap: var(--space-xs);
-  padding: 0 var(--space-lg);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.mods-remote-modal-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.mods-remote-modal-tab.is-active {
-  color: var(--color-text);
-  border-bottom-color: var(--color-accent);
-}
-
-.mods-remote-modal-tab-count {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-full);
-  padding: 0 var(--space-sm);
-}
-
-.mods-remote-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-sm);
-}
-
-.mods-remote-stat {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto;
-  gap: 2px var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-.mods-remote-stat-icon {
-  grid-row: 1 / span 2;
-  align-self: center;
-  color: var(--color-accent);
-}
-
-.mods-remote-stat-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-.mods-remote-stat-value {
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.mods-remote-modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
+/* (Detail modal tabs & footer consolidated in Detail Modal section) */
 
 /* ── List layout ──────────────────────────────────────────────────── */
 
@@ -1480,6 +1814,47 @@
   letter-spacing: 0.05em;
 }
 
+.mods-mod-desc-h1 {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: var(--space-lg) 0 var(--space-xs);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--color-border-light);
+  padding-bottom: var(--space-2xs);
+}
+
+.mods-mod-desc-h1:first-child {
+  margin-top: 0;
+}
+
+.mods-mod-desc-h2 {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: var(--space-md) 0 var(--space-2xs);
+  line-height: 1.35;
+}
+
+.mods-mod-desc-h2:first-child {
+  margin-top: 0;
+}
+
+.mods-mod-desc-h3 {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: var(--space-sm) 0 var(--space-2xs);
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mods-mod-desc-h3:first-child {
+  margin-top: 0;
+}
+
 .mods-mod-desc-center {
   text-align: center;
 }
@@ -1489,52 +1864,78 @@
   padding-left: var(--space-lg);
 }
 
+.mods-mod-desc-list--ordered {
+  list-style-type: decimal;
+}
+
+.mods-mod-desc-quote-author {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2xs);
+}
+
+.mods-mod-desc-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: var(--space-md) 0;
+}
+
+.mods-mod-desc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.mods-mod-desc-table th,
+.mods-mod-desc-table td,
+.mods-mod-desc-th,
+.mods-mod-desc-td {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.mods-mod-desc-table th,
+.mods-mod-desc-th {
+  background: var(--color-bg-tertiary);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.mods-mod-desc-table td,
+.mods-mod-desc-td {
+  background: color-mix(in srgb, var(--color-surface) 40%, transparent);
+}
+
+.mods-mod-desc-pre {
+  margin: var(--space-sm) 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.88em;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.mods-mod-desc-pre code {
+  background: transparent;
+  padding: 0;
+}
+
 .mods-mod-desc-hr {
   border: none;
   border-top: 1px solid var(--color-border);
   margin: var(--space-md) 0;
 }
 
-/* ── Gallery media buttons ────────────────────────────────────────── */
-
-.mods-remote-modal-gallery-item {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--color-bg-tertiary);
-  cursor: pointer;
-}
-
-.mods-remote-modal-gallery-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.mods-remote-modal-gallery-video-fallback {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.mods-remote-modal-gallery-play {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mods-remote-modal-gallery-play svg {
-  padding: 4px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-accent) 90%, transparent);
-  color: var(--color-accent-contrast);
-}
+/* (Gallery item styles consolidated in Detail Modal section) */
 
 /* ── Media lightbox ───────────────────────────────────────────────── */
 
@@ -1638,3 +2039,1253 @@
   cursor: pointer;
   font-size: var(--font-size-xs);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   DISCOVER REFACTOR & ENHANCEMENT SUITE
+   ══════════════════════════════════════════════════════════════════════ */
+
+.mods-discover-view-root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+}
+
+.mods-discover-view--subtab {
+  gap: var(--space-md);
+}
+
+/* ── Top Navigation Bar ────────────────────────────────────────────── */
+
+.mods-discover-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  flex-wrap: wrap;
+}
+
+.mods-discover-nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-nav-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.mods-discover-nav-tab.active {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #ffffff);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+
+.mods-discover-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 7px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.mods-discover-nav-tab.active .mods-discover-nav-badge {
+  background: color-mix(in srgb, var(--color-accent-contrast, #ffffff) 24%, transparent);
+  color: var(--color-accent-contrast, #ffffff);
+}
+
+.mods-discover-nav-extra {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.mods-discover-tab-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* ── Spotlight / Featured Mod Banner ─────────────────────────────────── */
+
+.mods-discover-spotlight {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-xl);
+  padding: var(--space-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 900px) {
+  .mods-discover-spotlight {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mods-discover-spotlight-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(36px) saturate(1.4);
+  opacity: 0.18;
+  pointer-events: none;
+  transform: scale(1.1);
+}
+
+.mods-discover-spotlight-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, var(--color-surface) 60%, transparent 100%);
+  pointer-events: none;
+}
+
+.mods-discover-spotlight-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.mods-discover-spotlight-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mods-discover-spotlight-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.mods-discover-spotlight-source {
+  padding: 2px 10px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-badge-installed {
+  padding: 2px 8px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-success, #22c55e) 18%, transparent);
+  color: var(--color-success, #22c55e);
+  border: 1px solid color-mix(in srgb, var(--color-success, #22c55e) 35%, transparent);
+}
+
+.mods-discover-spotlight-title {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.mods-discover-spotlight-author {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-spotlight-summary {
+  margin: var(--space-xs) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mods-discover-spotlight-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.mods-discover-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mods-discover-spotlight-category {
+  padding: 2px 8px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-2xs);
+}
+
+.mods-discover-spotlight-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.mods-discover-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  border: none;
+}
+
+.mods-discover-btn--primary {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #ffffff);
+}
+
+.mods-discover-btn--primary:hover {
+  filter: brightness(1.1);
+  box-shadow: var(--shadow-sm);
+}
+
+.mods-discover-btn--secondary {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.mods-discover-btn--secondary:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.mods-discover-spotlight-media {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  aspect-ratio: 16 / 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mods-discover-spotlight-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--duration-normal) var(--ease-standard);
+}
+
+.mods-discover-spotlight-media:hover img {
+  transform: scale(1.04);
+}
+
+/* ── Source Brand Tags ─────────────────────────────────────────────── */
+
+.source-nexus {
+  --source-color: #e58835;
+}
+.source-thunderstore {
+  --source-color: #209cee;
+}
+.source-gamebanana {
+  --source-color: #f7ca18;
+}
+.source-moddb {
+  --source-color: #e02424;
+}
+.source-curseforge {
+  --source-color: #f16436;
+}
+.source-modio {
+  --source-color: #00bfa5;
+}
+.source-workshop {
+  --source-color: #66c0f4;
+}
+
+.mods-discover-card-source[class*="source-"],
+.mods-discover-chip[class*="source-"].is-selected,
+.mods-discover-modal-source[class*="source-"],
+.mods-discover-history-source[class*="source-"] {
+  border-color: color-mix(in srgb, var(--source-color, var(--color-accent)) 40%, transparent);
+}
+
+/* ── Quick Search Suggestions ──────────────────────────────────────── */
+
+.mods-discover-suggestions-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.mods-discover-suggestions-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.mods-discover-suggestions-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mods-discover-suggestion-pill {
+  padding: 3px 10px;
+  font-size: var(--font-size-xs);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-suggestion-pill:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+/* ── Compact Table View ────────────────────────────────────────────── */
+
+.mods-discover-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xs);
+  overflow: hidden;
+}
+
+.mods-discover-compact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 8px var(--space-md);
+  border-radius: var(--radius-md);
+  background: transparent;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-compact-row:hover {
+  background: var(--color-bg-hover);
+}
+
+.mods-discover-compact-row.is-installed {
+  border-left: 3px solid var(--color-success, #22c55e);
+}
+
+.mods-discover-compact-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mods-discover-compact-source {
+  padding: 1px 7px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.mods-discover-compact-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mods-discover-compact-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success, #22c55e);
+  background: color-mix(in srgb, var(--color-success, #22c55e) 14%, transparent);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.mods-discover-compact-author {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.mods-discover-compact-category {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.mods-discover-compact-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.mods-discover-compact-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mods-discover-compact-updated {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  width: 70px;
+  text-align: right;
+}
+
+.mods-discover-compact-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.mods-discover-compact-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-compact-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.mods-discover-compact-btn.is-bookmarked {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.mods-discover-compact-btn--install {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #ffffff);
+  border-color: var(--color-accent);
+}
+
+/* ── Card Action Buttons on Hover ──────────────────────────────────── */
+
+.mods-discover-card-actions {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-card:hover .mods-discover-card-actions {
+  opacity: 1;
+}
+
+.mods-discover-card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 85%, transparent);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  backdrop-filter: blur(8px);
+}
+
+.mods-discover-card-action-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.mods-discover-card-action-btn.is-bookmarked {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.mods-discover-card-action-btn--install {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #ffffff);
+  border-color: var(--color-accent);
+}
+
+.mods-discover-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-2xs);
+}
+
+/* ── Floating Back to Top Button ───────────────────────────────────── */
+
+.mods-discover-back-to-top {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-back-to-top:hover {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #ffffff);
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+
+/* ── History View ──────────────────────────────────────────────────── */
+
+.mods-discover-history-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.mods-discover-history-kpis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  flex-wrap: wrap;
+}
+
+.mods-discover-history-kpi {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.mods-discover-kpi-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+}
+
+.mods-discover-kpi-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.mods-discover-kpi-value {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.mods-discover-kpi-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-history-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 240px;
+}
+
+.mods-discover-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.mods-discover-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-history-item:hover {
+  border-color: var(--color-border-light);
+}
+
+.mods-discover-history-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mods-discover-history-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mods-discover-history-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.mods-discover-history-version {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+
+.mods-discover-history-source {
+  padding: 1px 7px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.mods-discover-history-meta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.mods-discover-history-path {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+
+.mods-discover-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.mods-discover-icon-btn--danger:hover {
+  color: var(--color-danger, #ef4444);
+  border-color: color-mix(in srgb, var(--color-danger, #ef4444) 40%, transparent);
+}
+
+/* ── Bookmarks View ────────────────────────────────────────────────── */
+
+.mods-discover-bookmarks-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.mods-discover-bookmarks-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  flex-wrap: wrap;
+}
+
+.mods-discover-bookmarks-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.mods-discover-bookmarks-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.mods-discover-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-clear-btn:hover {
+  color: var(--color-danger, #ef4444);
+  border-color: var(--color-danger, #ef4444);
+}
+
+/* ── Sources & Accounts View ───────────────────────────────────────── */
+
+.mods-discover-sources-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.mods-discover-sources-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  flex-wrap: wrap;
+}
+
+.mods-discover-sources-banner-info h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.mods-discover-sources-banner-info p {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-sources-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: var(--space-md);
+}
+
+.mods-discover-source-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+}
+
+.mods-discover-source-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.mods-discover-source-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mods-discover-source-card-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.mods-discover-source-link-icon {
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.mods-discover-source-link-icon:hover {
+  color: var(--color-accent);
+}
+
+.mods-discover-status-ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success, #22c55e);
+  background: color-mix(in srgb, var(--color-success, #22c55e) 15%, transparent);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.mods-discover-status-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.mods-discover-status-unlinked {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.mods-discover-source-note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-source-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mods-discover-source-form-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-key-saved-tag {
+  font-size: var(--font-size-2xs);
+  color: var(--color-success, #22c55e);
+  font-weight: var(--font-weight-semibold);
+  margin-left: auto;
+}
+
+.mods-discover-slug-tag {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.mods-discover-source-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.mods-discover-input {
+  flex: 1;
+  height: 34px;
+  padding: 0 var(--space-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.mods-discover-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* ── Discover Page & Component Extensions ─────────────────────────── */
+
+/* Empty Hero Icon Bubble */
+.mods-discover-hero-icon-bubble {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-xl);
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+/* Hero Eyebrow & Platform Pill */
+.mods-discover-hero-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 4px;
+}
+
+.mods-discover-hero-platform {
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.mods-discover-hero-title {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.mods-discover-hero-folder {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, monospace);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mods-discover-hero-folder-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans, inherit);
+}
+
+.mods-discover-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.mods-discover-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-hero-btn:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.mods-discover-hero-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Source Select Titles & Status Indicators */
+.mods-discover-sources-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.mods-discover-sources-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.mods-discover-chip-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--font-size-2xs);
+  color: var(--color-warning, #f59e0b);
+  font-weight: 600;
+}
+
+.mods-discover-chip-unmapped {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
+.mods-discover-chip--unmapped {
+  opacity: 0.75;
+}
+
+.mods-discover-source-status-badge {
+  display: flex;
+  align-items: center;
+}
+
+/* Toolbar Search Clear & Spinners */
+.mods-discover-search-clear {
+  position: absolute;
+  right: var(--space-sm);
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.mods-discover-search-clear:hover {
+  color: var(--color-text-primary);
+}
+
+.spinning {
+  animation: mods-discover-spin 0.8s linear infinite;
+}
+
+.mods-discover-load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-md) 0;
+}
+
+/* Icon Buttons & Bookmarking */
+.mods-discover-icon-btn.is-bookmarked {
+  color: var(--color-danger, #ef4444);
+  border-color: color-mix(in srgb, var(--color-danger, #ef4444) 40%, transparent);
+  background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
+}
+
+.mods-discover-icon-btn--primary {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #ffffff);
+  border-color: var(--color-accent);
+}
+
+.mods-discover-icon-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #ffffff);
+}
+
+/* Card & Row Installed Indicators & Version Pills */
+.mods-discover-card.is-installed {
+  border-color: color-mix(in srgb, var(--color-success, #22c55e) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success, #22c55e) 20%, transparent);
+}
+
+.mods-discover-card-version {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+
+.mods-discover-row.is-installed {
+  border-left: 3px solid var(--color-success, #22c55e);
+}
+
+.mods-discover-row-byline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.mods-discover-row-version {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+
+.mods-discover-row-date {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.mods-discover-row-category {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+}
+
+.mods-discover-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* History Author & Date */
+.mods-discover-history-author {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-history-date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-discover-empty-icon {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  margin-bottom: var(--space-xs);
+}
+
+/* Install Progress Phase Tag */
+.mods-discover-progress-phase {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+

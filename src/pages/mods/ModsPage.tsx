@@ -8,12 +8,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePresence } from "../../context/PresenceContext";
+import { Boxes, Compass } from "lucide-react";
 import { Button, PageHeader } from "../../components/ui";
 import ModManager from "../../components/mods/ModManager";
+import ModsDiscoverView from "../../components/mods/discover/ModsDiscoverView";
 import PageWidget from "../../components/PageWidget";
 import { ENGINE_LABELS, type ModEngine, type ModsOverviewEntry } from "../../types/mods";
 import { gameDisplayName, type Game } from "../../types/game";
 import "../../styles/page-mods.css";
+import "../../components/mods/discover/mods-discover.css";
 
 type RailFilter = "all" | "modded" | "updates";
 
@@ -34,6 +37,7 @@ export default function ModsPage() {
   const [search, setSearch] = useState("");
   const [railFilter, setRailFilter] = useState<RailFilter>("all");
   const [isRailCollapsed, setIsRailCollapsed] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState<"installed" | "discover">("installed");
   const { setModsGameName } = usePresence();
 
   // Installed games we can scan or that already have mods. Steam titles
@@ -499,6 +503,30 @@ export default function ModsPage() {
                     <span className="mods-manager-game-bar-name">{gameDisplayName(selectedGame)}</span>
                     <span className="mods-manager-game-bar-platform">{selectedGame.platform}</span>
                   </div>
+
+                  <div className="mods-tab-nav-switcher" role="tablist">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={workspaceTab === "installed"}
+                      className={`mods-tab-nav-btn${workspaceTab === "installed" ? " active" : ""}`}
+                      onClick={() => setWorkspaceTab("installed")}
+                    >
+                      <Boxes size={13} />
+                      <span>{t("mods.tab.installedMods")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={workspaceTab === "discover"}
+                      className={`mods-tab-nav-btn${workspaceTab === "discover" ? " active" : ""}`}
+                      onClick={() => setWorkspaceTab("discover")}
+                    >
+                      <Compass size={13} />
+                      <span>{t("mods.discover.cta")}</span>
+                    </button>
+                  </div>
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -514,19 +542,27 @@ export default function ModsPage() {
                     {t("mods.viewGamePage")}
                   </Button>
                 </div>
-                <ModManager
-                  key={selectedGame.id}
-                  game={selectedGame}
-                  onChanged={refreshOverview}
-                  onModsSized={(info) =>
-                    updateGame(selectedGame.id, {
-                      modsSizeBytes: info.totalBytes > 0 ? info.totalBytes : undefined,
-                      modsFolder: info.folder,
-                      modsDetectedAt:
-                        info.totalBytes > 0 ? new Date().toISOString() : undefined,
-                    })
-                  }
-                />
+                {workspaceTab === "installed" ? (
+                  <ModManager
+                    key={selectedGame.id}
+                    game={selectedGame}
+                    onChanged={refreshOverview}
+                    onModsSized={(info) =>
+                      updateGame(selectedGame.id, {
+                        modsSizeBytes: info.totalBytes > 0 ? info.totalBytes : undefined,
+                        modsFolder: info.folder,
+                        modsDetectedAt:
+                          info.totalBytes > 0 ? new Date().toISOString() : undefined,
+                      })
+                    }
+                  />
+                ) : (
+                  <ModsDiscoverView
+                    key={selectedGame.id}
+                    game={selectedGame}
+                    variant="subtab"
+                  />
+                )}
               </>
             ) : (
               <div className="mods-detail-empty">{t("mods.selectGame")}</div>
