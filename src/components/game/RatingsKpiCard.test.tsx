@@ -68,6 +68,10 @@ describe("RatingsKpiCard", () => {
     expect(screen.getByText("ratings.igdbCommunity")).toBeTruthy();
     expect(screen.getByText("77")).toBeTruthy();
     expect(screen.getByText("91")).toBeTruthy();
+    // Metacritic repartition replaces the old synthetic breakdown.
+    expect(screen.getByText("ratings.positive")).toBeTruthy();
+    expect(screen.getByText("ratings.mixed")).toBeTruthy();
+    expect(screen.getByText("ratings.negative")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /common.details/ }));
     expect(screen.getByTestId("mc-modal")).toBeTruthy();
