@@ -242,27 +242,121 @@ fn tokens(s: &str) -> std::collections::HashSet<String> {
         .collect()
 }
 
-/// 0..100 similarity between a game title and a site's name/slug. Exact
-/// and containment matches score highest; otherwise a stop-word-aware
-/// token overlap decides, so "Fallout 4" does not match "Fallout 76".
-pub fn score_name(candidate: &str, target: &str) -> i32 {
-    let a = normalize_name(candidate);
-    let b = normalize_name(target);
-    if a.is_empty() || b.is_empty() {
-        return 0;
+/// Roman numerals 1–12 and their arabic forms. Sites are inconsistent
+/// ("Final Fantasy VII" vs "Final Fantasy 7"), so we compare both.
+const NUMERALS: &[(&str, &str)] = &[
+    ("i", "1"),
+    ("ii", "2"),
+    ("iii", "3"),
+    ("iv", "4"),
+    ("v", "5"),
+    ("vi", "6"),
+    ("vii", "7"),
+    ("viii", "8"),
+    ("ix", "9"),
+    ("x", "10"),
+    ("xi", "11"),
+    ("xii", "12"),
+];
+
+/// Rewrite standalone numeral tokens. The first token is left alone so
+/// "I Am Alive" does not become "1 Am Alive".
+fn swap_numerals(s: &str, roman_to_arabic: bool) -> String {
+    let parts: Vec<&str> = s.split_whitespace().collect();
+    let mut changed = false;
+    let mut out: Vec<String> = Vec::with_capacity(parts.len());
+    for (idx, part) in parts.iter().enumerate() {
+        let lower = part.to_ascii_lowercase();
+        let mapped = if roman_to_arabic {
+            NUMERALS
+                .iter()
+                .find(|(r, _)| *r == lower)
+                .map(|(_, a)| (*a).to_string())
+        } else {
+            NUMERALS
+                .iter()
+                .find(|(_, a)| *a == lower)
+                .map(|(r, _)| (*r).to_string())
+        };
+        if idx > 0 {
+            if let Some(m) = mapped {
+                changed = true;
+                out.push(m);
+                continue;
+            }
+        }
+        out.push((*part).to_string());
     }
+    if changed {
+        out.join(" ")
+    } else {
+        s.to_string()
+    }
+}
+
+fn push_unique(out: &mut Vec<(String, bool)>, v: String, allow_containment: bool) {
+    if !out.iter().any(|(e, _)| e == &v) {
+        out.push((v, allow_containment));
+    }
+}
+
+/// Spelling variants worth comparing: the raw title, `&`→`and`, and
+/// roman↔arabic numeral swaps. `bool` marks whether containment matching
+/// is safe — it is not for numeral swaps, where "Civilization V" is a
+/// string prefix of "Civilization VI" but the games differ.
+fn raw_variants(s: &str) -> Vec<(String, bool)> {
+    let mut out: Vec<(String, bool)> = Vec::new();
+    push_unique(&mut out, s.to_string(), true);
+    let amp = s.replace('&', "and");
+    push_unique(&mut out, amp.clone(), true);
+    for base in [s, amp.as_str()] {
+        push_unique(&mut out, swap_numerals(base, true), false);
+        push_unique(&mut out, swap_numerals(base, false), false);
+    }
+    out
+}
+
+/// 0..100 similarity between a game title and a site's name/slug.
+/// Exact matches win; containment ("Skyrim" in "The Elder Scrolls V:
+/// Skyrim") next; otherwise a stop-word-aware token overlap decides, so
+/// "Fallout 4" does not match "Fallout 76".
+pub fn score_name(candidate: &str, target: &str) -> i32 {
+    let ca = raw_variants(candidate);
+    let tb = raw_variants(target);
+    let mut best = 0;
+    for (a_raw, a_allow) in &ca {
+        let a = normalize_name(a_raw);
+        if a.is_empty() {
+            continue;
+        }
+        for (b_raw, b_allow) in &tb {
+            let b = normalize_name(b_raw);
+            if b.is_empty() {
+                continue;
+            }
+            best = best.max(pair_score(a_raw, &a, b_raw, &b, *a_allow && *b_allow));
+            if best == 100 {
+                return 100;
+            }
+        }
+    }
+    best
+}
+
+fn pair_score(a_raw: &str, a: &str, b_raw: &str, b: &str, allow_containment: bool) -> i32 {
     if a == b {
         return 100;
     }
-    // A meaningful title contained in a longer one ("Skyrim" in "The
-    // Elder Scrolls V: Skyrim"). The length guard keeps short generic
-    // words from matching everything.
-    let (short, long) = if a.len() <= b.len() { (&a, &b) } else { (&b, &a) };
-    if short.len() >= 5 && long.contains(short.as_str()) {
-        return 85;
+    // A meaningful title contained in a longer one. The length guard
+    // keeps short generic words from matching everything.
+    if allow_containment {
+        let (short, long) = if a.len() <= b.len() { (a, b) } else { (b, a) };
+        if short.len() >= 5 && long.contains(short) {
+            return 85;
+        }
     }
-    let ta = tokens(candidate);
-    let tb = tokens(target);
+    let ta = tokens(a_raw);
+    let tb = tokens(b_raw);
     if ta.is_empty() || tb.is_empty() {
         return 0;
     }
@@ -888,6 +982,16 @@ mod tests {
         // Sequels must not collide.
         assert!(score_name("Fallout 4", "Fallout 76") < MATCH_FLOOR);
         assert!(score_name("Dark Souls", "Cyberpunk 2077") < MATCH_FLOOR);
+    }
+
+    #[test]
+    fn score_name_bridges_numerals_and_ampersands() {
+        assert_eq!(score_name("Final Fantasy VII", "Final Fantasy 7"), 100);
+        assert_eq!(score_name("Half-Life 2", "Half-Life II"), 100);
+        assert_eq!(score_name("Grand Theft Auto V", "Grand Theft Auto 5"), 100);
+        assert!(score_name("Dungeons & Dragons", "Dungeons and Dragons") >= MATCH_FLOOR);
+        // The numeral bridge must not merge different sequels.
+        assert!(score_name("Civilization 5", "Civilization 6") < MATCH_FLOOR);
     }
 
     #[test]

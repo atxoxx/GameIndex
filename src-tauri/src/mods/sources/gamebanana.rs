@@ -10,17 +10,26 @@ const API: &str = "https://gamebanana.com/apiv11";
 fn thumbnail(record: &Value) -> Option<String> {
     let media = record.get("_aPreviewMedia")?;
     let images = media.get("_aImages")?.as_array()?;
-    let first = images.first()?;
-    if let Some(file) = first.get("_sFile220").and_then(|x| x.as_str()) {
-        if let Some(base) = first.get("_sBaseUrl").and_then(|x| x.as_str()) {
-            return Some(format!("{base}/{file}"));
+    // Prefer a banner over the icon, then fall back to whatever's first.
+    let pick = |wanted: &str| {
+        images.iter().find(|i| {
+            i.get("_sType").and_then(|x| x.as_str()) == Some(wanted)
+        })
+    };
+    let first = pick("banner").or_else(|| images.first())?;
+    // Newer responses carry a ready-made `_sUrl`.
+    if let Some(url) = first.get("_sUrl").and_then(|x| x.as_str()) {
+        if !url.is_empty() {
+            return Some(url.to_string());
         }
     }
-    if let Some(file) = first.get("_sFile").and_then(|x| x.as_str()) {
-        if let Some(base) = first.get("_sBaseUrl").and_then(|x| x.as_str()) {
-            return Some(format!("{base}/{file}"));
+    for key in ["_sFile220", "_sFile530", "_sFile"] {
+        if let Some(file) = first.get(key).and_then(|x| x.as_str()) {
+            if let Some(base) = first.get("_sBaseUrl").and_then(|x| x.as_str()) {
+                return Some(format!("{base}/{file}"));
+            }
+            return Some(file.to_string());
         }
-        return Some(file.to_string());
     }
     None
 }
@@ -79,7 +88,10 @@ pub async fn resolve_game(candidates: &[String]) -> Result<Option<GameRef>, Stri
             let Some(id) = val_i64(g, &["_idRow", "id"]) else {
                 continue;
             };
-            let score = best_score(candidates, &[&name]);
+            let profile = val_str(g, &["_sProfileUrl"]).unwrap_or_default();
+            let slug = profile.rsplit('/').next().unwrap_or("");
+            let abbr = val_str(g, &["_sAbbreviation"]).unwrap_or_default();
+            let score = best_score(candidates, &[&name, slug, &abbr]);
             if score >= MATCH_FLOOR && score > best.as_ref().map(|b| b.0).unwrap_or(0) {
                 best = Some((score, GameRef { external_id: id.to_string(), label: name }));
             }

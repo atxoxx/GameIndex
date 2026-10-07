@@ -1,28 +1,68 @@
 //! Thunderstore client — public JSON API, no key required.
 //!
-//! Communities are matched by name (`/api/v1/community/`), packages come
-//! from the frontend catalogue endpoint for a community, and downloads
-//! are plain ZIPs served from `/package/download/{ns}/{name}/{ver}/`.
+//! Communities come from the cursor-paginated experimental community
+//! list; a community's packages from the community-scoped v1 endpoint
+//! (`/c/{community}/api/v1/package/`); downloads are plain ZIPs served
+//! from `/package/download/{ns}/{name}/{ver}/`.
 
 use super::*;
+use std::sync::{Mutex, OnceLock};
 
 const API: &str = "https://thunderstore.io/api/experimental";
-const COMMUNITIES: &str = "https://thunderstore.io/api/v1/community/";
+const COMMUNITY_LIST: &str = "https://thunderstore.io/api/experimental/community/";
+
+/// The community catalogue is stable for hours; cache the fully-paged
+/// list for the process so detection is a single pass after the first.
+static COMMUNITY_CACHE: OnceLock<Mutex<Option<Vec<Value>>>> = OnceLock::new();
+
+fn cache() -> &'static Mutex<Option<Vec<Value>>> {
+    COMMUNITY_CACHE.get_or_init(|| Mutex::new(None))
+}
+
+async fn communities() -> Result<Vec<Value>, String> {
+    if let Some(cached) = cache().lock().ok().and_then(|g| g.clone()) {
+        return Ok(cached);
+    }
+    let mut all: Vec<Value> = Vec::new();
+    let mut url = COMMUNITY_LIST.to_string();
+    for _ in 0..25 {
+        let resp = http_client()
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| format!("thunderstore communities: {e}"))?;
+        if !resp.status().is_success() {
+            if all.is_empty() {
+                return Err(format!("thunderstore communities: HTTP {}", resp.status()));
+            }
+            break;
+        }
+        let v: Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("thunderstore communities decode: {e}"))?;
+        if let Some(arr) = first_array(&v, &["results"]) {
+            all.extend(arr.iter().cloned());
+        }
+        let next = v
+            .get("pagination")
+            .and_then(|p| p.get("next_link"))
+            .and_then(|x| x.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        match next {
+            Some(n) => url = n,
+            None => break,
+        }
+    }
+    if let Ok(mut guard) = cache().lock() {
+        *guard = Some(all.clone());
+    }
+    Ok(all)
+}
 
 pub async fn resolve_game(candidates: &[String]) -> Result<Option<GameRef>, String> {
-    let resp = http_client()
-        .get(COMMUNITIES)
-        .send()
-        .await
-        .map_err(|e| format!("thunderstore communities: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("thunderstore communities: HTTP {}", resp.status()));
-    }
-    let v: Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("thunderstore communities decode: {e}"))?;
-    let arr = first_array(&v, &["results", "data"]).cloned().unwrap_or_default();
+    let arr = communities().await?;
     let mut best: Option<(i32, GameRef)> = None;
     for c in &arr {
         let identifier = val_str(c, &["identifier", "name_id", "name"]).unwrap_or_default();
@@ -45,13 +85,16 @@ pub async fn resolve_game(candidates: &[String]) -> Result<Option<GameRef>, Stri
     Ok(best.map(|(_, g)| g))
 }
 
-fn version_obj(pkg: &Value) -> Option<&Value> {
-    pkg.get("latest")
-        .filter(|v| v.is_object())
-        .or_else(|| {
-            pkg.get("versions")
-                .and_then(|v| v.as_array())
-                .and_then(|a| a.first())
+/// Newest version of a v1 package object.
+fn latest_version(pkg: &Value) -> Option<&Value> {
+    pkg.get("versions")
+        .and_then(|v| v.as_array())
+        .and_then(|versions| {
+            versions.iter().max_by(|a, b| {
+                let da = a.get("date_created").and_then(|x| x.as_str()).unwrap_or("");
+                let db = b.get("date_created").and_then(|x| x.as_str()).unwrap_or("");
+                da.cmp(db)
+            })
         })
 }
 
@@ -61,8 +104,8 @@ fn summary_from_package(pkg: &Value) -> Option<RemoteModSummary> {
     if name.is_empty() {
         return None;
     }
-    let full_name = val_str(pkg, &["full_name"]).unwrap_or_else(|| format!("{owner}/{name}"));
-    let ver = version_obj(pkg);
+    let full_name = val_str(pkg, &["full_name"]).unwrap_or_else(|| format!("{owner}-{name}"));
+    let ver = latest_version(pkg);
     let downloads = pkg
         .get("versions")
         .and_then(|v| v.as_array())
@@ -88,21 +131,25 @@ fn summary_from_package(pkg: &Value) -> Option<RemoteModSummary> {
         updated_at: timestamp_string(pkg.get("date_updated")),
         created_at: timestamp_string(pkg.get("date_created")),
         thumbnail_url: ver.and_then(|v| val_str(v, &["icon"])),
-        url: format!("https://thunderstore.io/c/{full_name}"),
+        url: val_str(pkg, &["package_url"])
+            .unwrap_or_else(|| format!("https://thunderstore.io/c/{full_name}")),
         category: categories.first().cloned(),
         tags: categories,
-        file_count: None,
+        file_count: pkg
+            .get("versions")
+            .and_then(|v| v.as_array())
+            .map(|v| v.len() as i64),
     })
 }
 
 pub async fn browse(
     external_id: &str,
     query: &str,
-    _sort: &str,
+    sort: &str,
     page: u32,
     page_size: u32,
 ) -> Result<RemoteModSearch, String> {
-    let url = format!("{API}/frontend/c/{external_id}/");
+    let url = format!("https://thunderstore.io/c/{external_id}/api/v1/package/");
     let resp = http_client()
         .get(&url)
         .send()
@@ -115,11 +162,12 @@ pub async fn browse(
         .json()
         .await
         .map_err(|e| format!("thunderstore browse decode: {e}"))?;
-    let arr = first_array(&v, &["packages", "results", "data"]).cloned().unwrap_or_default();
+    let arr = first_array(&v, &["results"]).cloned().unwrap_or_default();
 
     let q = normalize_name(query);
     let mut results: Vec<RemoteModSummary> = arr
         .iter()
+        .filter(|p| !p.get("is_deprecated").and_then(|x| x.as_bool()).unwrap_or(false))
         .filter_map(summary_from_package)
         .filter(|m| {
             q.is_empty()
@@ -134,10 +182,16 @@ pub async fn browse(
                     .unwrap_or(false)
         })
         .collect();
-    // Most-downloaded first when no explicit query.
-    if q.is_empty() {
-        results.sort_by(|a, b| b.downloads.unwrap_or(0).cmp(&a.downloads.unwrap_or(0)));
+
+    match sort {
+        "latest" | "updated" => {
+            results.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        }
+        _ => {
+            results.sort_by(|a, b| b.downloads.unwrap_or(0).cmp(&a.downloads.unwrap_or(0)));
+        }
     }
+
     let total = results.len() as i64;
     let start = ((page.saturating_sub(1)) * page_size) as usize;
     let end = (start + page_size as usize).min(results.len());
@@ -173,16 +227,15 @@ pub async fn detail(external_id: &str, mod_id: &str) -> Result<RemoteModDetail, 
         .json()
         .await
         .map_err(|e| format!("thunderstore detail decode: {e}"))?;
-    let summary = summary_from_package(&v).ok_or("thunderstore: empty package")?;
-    let versions = v
-        .get("versions")
-        .and_then(|x| x.as_array())
-        .cloned()
-        .unwrap_or_default();
+    let mut summary = summary_from_package(&v).ok_or("thunderstore: empty package")?;
+    summary.file_count = Some(1);
+
+    // The experimental detail exposes only `latest`; show it as the file.
+    let latest = v.get("latest").filter(|l| l.is_object());
     let mut files = Vec::new();
-    for ver in &versions {
+    if let Some(ver) = latest {
         let version_number = val_str(ver, &["version_number", "version"]).unwrap_or_default();
-        let url = val_str(ver, &["download_url"]).unwrap_or_else(|| {
+        let dl = val_str(ver, &["download_url"]).unwrap_or_else(|| {
             format!("https://thunderstore.io/package/download/{owner}/{name}/{version_number}/")
         });
         files.push(RemoteModFile {
@@ -192,13 +245,13 @@ pub async fn detail(external_id: &str, mod_id: &str) -> Result<RemoteModDetail, 
             size_bytes: val_i64(ver, &["file_size"]),
             uploaded_at: timestamp_string(ver.get("date_created")),
             category: None,
-            is_primary: files.is_empty(),
+            is_primary: true,
             download_kind: "direct".to_string(),
-            download_url: Some(url),
+            download_url: Some(dl),
             file_name: Some(format!("{name}-{version_number}.zip")),
         });
     }
-    let description = version_obj(&v)
+    let description = latest
         .and_then(|ver| val_str(ver, &["description"]))
         .or_else(|| summary.summary.clone());
     let _ = external_id;
@@ -220,7 +273,6 @@ pub async fn download(
         .split_once('/')
         .ok_or("thunderstore: mod id must be namespace/name")?;
     let version = file_id.unwrap_or("latest").to_string();
-    // The download endpoint always serves the ZIP; version may be a tag.
     let url = if version == "latest" {
         format!("https://thunderstore.io/package/download/{owner}/{name}/")
     } else {
