@@ -37,6 +37,18 @@ describe("mod description parser", () => {
     expect(html).not.toContain("<script");
   });
 
+  it("renders Steam previewyoutube as an embeddable video", () => {
+    const { media } = parseDescription(
+      "[previewyoutube=abc123][/previewyoutube]",
+      noop,
+      "Spoiler",
+      noop,
+    );
+    expect(media).toHaveLength(1);
+    expect(media[0].type).toBe("video");
+    expect(media[0].embedUrl).toContain("youtube.com/embed/abc123");
+  });
+
   it("classifies media and resolves video ids", () => {
     expect(mediaKind("https://a/b.jpg")).toBe("image");
     expect(mediaKind("https://a/b.mp4")).toBe("video");

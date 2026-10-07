@@ -7,7 +7,12 @@
 use super::*;
 
 const QUERY_URL: &str = "https://api.steampowered.com/IPublishedFileService/QueryFiles/v1/";
-const DETAILS_URL: &str = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/";
+/// Rich detail (screenshots, additional previews, videos, tags). Needs
+/// the Steam Web API key.
+const GET_DETAILS_URL: &str = "https://api.steampowered.com/IPublishedFileService/GetDetails/v1/";
+/// Keyless fallback used when no Steam key is configured.
+const LEGACY_DETAILS_URL: &str =
+    "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/";
 
 fn key() -> Result<String, String> {
     steam_api_key().ok_or_else(|| "Connect your Steam account to browse the Workshop".to_string())
@@ -97,9 +102,52 @@ pub async fn browse(
     })
 }
 
-pub async fn detail(external_id: &str, mod_id: &str) -> Result<RemoteModDetail, String> {
+fn push_unique_url(list: &mut Vec<String>, url: Option<String>) {
+    if let Some(u) = url {
+        let u = u.trim().to_string();
+        if !u.is_empty() && !list.contains(&u) {
+            list.push(u);
+        }
+    }
+}
+
+/// `IPublishedFileService/GetDetails` — richer than the legacy call and
+/// the only way to get screenshots, extra previews and videos.
+async fn get_details(key: &str, mod_id: &str) -> Result<Value, String> {
     let resp = http_client()
-        .post(DETAILS_URL)
+        .post(GET_DETAILS_URL)
+        .form(&[
+            ("key", key.to_string()),
+            ("publishedfileids[0]", mod_id.to_string()),
+            ("includeadditionalpreviews", "true".to_string()),
+            ("includeimages", "true".to_string()),
+            ("includevideos", "true".to_string()),
+            ("includetags", "true".to_string()),
+            ("includechildren", "true".to_string()),
+            ("includekvtags", "true".to_string()),
+            ("strip_description_bbcode", "false".to_string()),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("workshop details: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("workshop details: HTTP {}", resp.status()));
+    }
+    resp.json()
+        .await
+        .map_err(|e| format!("workshop details decode: {e}"))
+}
+
+/// Fetch the raw detail payload: rich keyed call when a Steam key is
+/// configured, otherwise the keyless legacy call.
+async fn fetch_detail_payload(mod_id: &str) -> Result<Value, String> {
+    if let Some(key) = steam_api_key() {
+        if let Ok(v) = get_details(&key, mod_id).await {
+            return Ok(v);
+        }
+    }
+    let resp = http_client()
+        .post(LEGACY_DETAILS_URL)
         .form(&[
             ("itemcount", "1".to_string()),
             ("publishedfileids[0]", mod_id.to_string()),
@@ -110,16 +158,36 @@ pub async fn detail(external_id: &str, mod_id: &str) -> Result<RemoteModDetail, 
     if !resp.status().is_success() {
         return Err(format!("workshop detail: HTTP {}", resp.status()));
     }
-    let v: Value = resp
-        .json()
+    resp.json()
         .await
-        .map_err(|e| format!("workshop detail decode: {e}"))?;
+        .map_err(|e| format!("workshop detail decode: {e}"))
+}
+
+pub async fn detail(external_id: &str, mod_id: &str) -> Result<RemoteModDetail, String> {
+    let v = fetch_detail_payload(mod_id).await?;
     let response = v.get("response").cloned().unwrap_or(Value::Null);
     let arr = first_array(&response, &["publishedfiledetails"]).cloned().unwrap_or_default();
     let first = arr.first().ok_or("workshop: item not found")?;
     let summary = summary_from_details(first).ok_or("workshop: empty item")?;
     let description = val_str(first, &["file_description", "short_description"]);
-    let gallery = val_str(first, &["preview_url"]).into_iter().collect();
+
+    // Gallery: hero preview, screenshots, extra previews, then video
+    // URLs — the UI turns YouTube links into playable cards.
+    let mut gallery: Vec<String> = Vec::new();
+    push_unique_url(&mut gallery, val_str(first, &["preview_url"]));
+    for key in ["images", "additional_previews"] {
+        if let Some(items) = first.get(key).and_then(|x| x.as_array()) {
+            for img in items {
+                push_unique_url(&mut gallery, val_str(img, &["url", "preview_url"]));
+            }
+        }
+    }
+    if let Some(videos) = first.get("videos").and_then(|x| x.as_array()) {
+        for video in videos {
+            push_unique_url(&mut gallery, val_str(video, &["url"]));
+        }
+    }
+
     let file_name = val_str(first, &["filename"]).unwrap_or_else(|| summary.name.clone());
     let files = vec![RemoteModFile {
         id: summary.id.clone(),

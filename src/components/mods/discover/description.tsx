@@ -358,6 +358,14 @@ function renderNode(node: BbNode, key: string, ctx: RenderCtx): ReactNode {
     case "youtube":
     case "vimeo":
       return renderMedia(videoUrl(node), key, ctx);
+    case "previewyoutube": {
+      // Steam: `[previewyoutube=VIDEO_ID][/previewyoutube]`.
+      const raw = (node.val ?? textOf(node)).trim();
+      const url = raw.startsWith("http")
+        ? raw
+        : `https://www.youtube.com/watch?v=${raw}`;
+      return renderMedia(url, key, ctx);
+    }
     case "list":
       return <ul key={key} className="mods-mod-desc-list">{inner()}</ul>;
     case "li":
