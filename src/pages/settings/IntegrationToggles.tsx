@@ -44,3 +44,7 @@ export function HumbleToggle(props: ToggleProps) {
 export function UplayToggle(props: ToggleProps) {
   return <Toggle {...props} />;
 }
+
+export function BetaToggle(props: ToggleProps) {
+  return <Toggle {...props} />;
+}

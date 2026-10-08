@@ -278,6 +278,10 @@
 .integration-tile.humble::before   { background: var(--brand-humble); }
 .integration-tile.rockstar::before { background: var(--brand-rockstar, #ffd344); }
 .integration-tile.uplay::before    { background: var(--brand-uplay); }
+.integration-tile.battlenet::before { background: var(--brand-battlenet, #4381c3); }
+.integration-tile.ea::before        { background: var(--brand-ea, #ff4747); }
+.integration-tile.xbox::before      { background: var(--brand-xbox, #107c10); }
+.integration-tile.itch::before      { background: var(--brand-itch, #fa5c5c); }
 
 .integration-tile-body-wrap {
   padding: var(--space-xl);
@@ -374,6 +378,26 @@
   color: var(--brand-uplay);
   background: color-mix(in srgb, var(--brand-uplay) 14%, var(--color-bg-tertiary));
   border-color: color-mix(in srgb, var(--brand-uplay) 30%, var(--color-border));
+}
+.integration-tile.battlenet .integration-tile-icon {
+  color: var(--brand-battlenet);
+  background: color-mix(in srgb, var(--brand-battlenet) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--brand-battlenet) 30%, var(--color-border));
+}
+.integration-tile.ea .integration-tile-icon {
+  color: var(--brand-ea);
+  background: color-mix(in srgb, var(--brand-ea) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--brand-ea) 30%, var(--color-border));
+}
+.integration-tile.xbox .integration-tile-icon {
+  color: var(--brand-xbox);
+  background: color-mix(in srgb, var(--brand-xbox) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--brand-xbox) 30%, var(--color-border));
+}
+.integration-tile.itch .integration-tile-icon {
+  color: var(--brand-itch);
+  background: color-mix(in srgb, var(--brand-itch) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--brand-itch) 30%, var(--color-border));
 }
 
 /* ── Status overview strip — one chip per store ─────────────────────────── */
@@ -512,6 +536,22 @@
   background: var(--color-success);
   box-shadow: 0 0 6px var(--color-success);
   flex-shrink: 0;
+}
+
+/* Beta store badge — always visible (unlike `.active`, which only shows
+ * on connected tiles) so the experimental status reads before sign-in. */
+.integration-badge.beta {
+  margin-left: 8px;
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+}
+
+.sync-result-note {
+  margin: 6px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
 }
 
 .integration-tile-body {

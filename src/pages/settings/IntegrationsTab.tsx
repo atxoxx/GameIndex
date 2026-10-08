@@ -9,10 +9,11 @@ import SettingsSection from "./SettingsSection";
 import SettingsCategory from "./SettingsCategory";
 import ModSitesSettings from "./ModSitesSettings";
 import IntegrationTile from "./IntegrationTile";
+import BetaIntegrationTile from "./BetaIntegrationTile";
 import type { useIntegrations } from "./useIntegrations";
 import { HumbleToggle, UplayToggle } from "./IntegrationToggles";
 import { useSectionScroll } from "./useSectionScroll";
-import { EpicIcon, GogIcon, HumbleIcon, IntegrationsIcon, RockstarIcon, SteamIcon, UplayIcon } from "./settingsIcons";
+import { BattleNetIcon, EAIcon, EpicIcon, GogIcon, HumbleIcon, IntegrationsIcon, ItchIcon, RockstarIcon, SteamIcon, UplayIcon, XboxIcon } from "./settingsIcons";
 import { IconFamily } from "../../components/game/icons";
 
 type Integrations = ReturnType<typeof useIntegrations>;
@@ -34,7 +35,7 @@ function useConfirm() {
   };
 }
 
-/** Tile ids of the six integrations, in display order. */
+/** Tile ids of the integrations, in display order. */
 const TILE_IDS = [
   "integration-steam",
   "integration-epic",
@@ -42,6 +43,10 @@ const TILE_IDS = [
   "integration-humble",
   "integration-rockstar",
   "integration-uplay",
+  "integration-battlenet",
+  "integration-ea",
+  "integration-xbox",
+  "integration-itch",
 ];
 
 /** Deep-link anchor id → the collapsible category that must open to reveal it. */
@@ -52,6 +57,10 @@ const CATEGORY_OF_SECTION: Record<string, string> = {
   "integration-humble": "stores",
   "integration-rockstar": "launchers",
   "integration-uplay": "launchers",
+  "integration-battlenet": "beta",
+  "integration-ea": "beta",
+  "integration-xbox": "beta",
+  "integration-itch": "beta",
   "section-mods": "mods",
   "section-retro": "achievements",
   "section-datasync": "sync",
@@ -153,6 +162,10 @@ export default function IntegrationsTab({
     humble,
     rockstar,
     uplay,
+    battlenet,
+    ea,
+    xbox,
+    itch,
     platformGameCount,
     removeIntegrationGames,
   } = integrations;
@@ -202,6 +215,10 @@ export default function IntegrationsTab({
     { id: "integration-humble", icon: <HumbleIcon />, name: t("settings.integration.humbleBundle"), connected: humble.humbleAuth.isAuthenticated },
     { id: "integration-rockstar", icon: <RockstarIcon />, name: t("settings.integration.rockstarGamesLauncher"), connected: !!rockstar.rockstarSyncResult?.clientInstalled },
     { id: "integration-uplay", icon: <UplayIcon />, name: t("settings.integration.ubisoftConnect"), connected: !!uplay.uplaySyncResult?.clientInstalled },
+    { id: "integration-battlenet", icon: <BattleNetIcon />, name: t("settings.integration.battleNet"), connected: battlenet.auth.isAuthenticated },
+    { id: "integration-ea", icon: <EAIcon />, name: t("settings.integration.ea"), connected: ea.auth.isAuthenticated },
+    { id: "integration-xbox", icon: <XboxIcon />, name: t("settings.integration.xbox"), connected: xbox.auth.isAuthenticated },
+    { id: "integration-itch", icon: <ItchIcon />, name: t("settings.integration.itch"), connected: itch.auth.isAuthenticated },
   ];
 
   /** Open the confirm modal for wiping every game imported from a store. */
@@ -224,6 +241,15 @@ export default function IntegrationsTab({
     confirm.confirm({
       title: t("settings.integrations.removeConnection"),
       message: t(platformKey),
+      onConfirm,
+    });
+  };
+
+  /** Confirm modal for a beta store — the message takes a `{store}` name. */
+  const confirmBetaDisconnect = (storeName: string, onConfirm: () => void) => {
+    confirm.confirm({
+      title: t("settings.integrations.removeConnection"),
+      message: t("settings.beta.confirmRemove", { store: storeName }),
       onConfirm,
     });
   };
@@ -972,6 +998,78 @@ export default function IntegrationsTab({
             />
           </div>
         </IntegrationTile>
+        </SettingsCategory>
+
+        {/* ── Beta stores — experimental, WebView-login integrations ── */}
+        <SettingsCategory
+          icon={<BattleNetIcon />}
+          title={t("settings.integrations.categoryBeta")}
+          desc={t("settings.beta.desc")}
+          open={!!openCats["beta"]}
+          onToggle={() => toggleCategory("beta")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integrations.categoryBeta") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integrations.categoryBeta") })}
+        >
+          <BetaIntegrationTile
+            id="integration-battlenet"
+            brand="battlenet"
+            icon={<BattleNetIcon />}
+            storeName={t("settings.integration.battleNet")}
+            integration={battlenet}
+            open={!!openTiles["integration-battlenet"]}
+            onToggle={() => toggleTile("integration-battlenet")}
+            onRemoveGames={() => confirmRemoveGames("Battle.net")}
+            onConfirmDisconnect={() =>
+              confirmBetaDisconnect(t("settings.integration.battleNet"), () => {
+                void battlenet.disconnect();
+              })
+            }
+          />
+          <BetaIntegrationTile
+            id="integration-ea"
+            brand="ea"
+            icon={<EAIcon />}
+            storeName={t("settings.integration.ea")}
+            integration={ea}
+            open={!!openTiles["integration-ea"]}
+            onToggle={() => toggleTile("integration-ea")}
+            onRemoveGames={() => confirmRemoveGames("EA")}
+            onConfirmDisconnect={() =>
+              confirmBetaDisconnect(t("settings.integration.ea"), () => {
+                void ea.disconnect();
+              })
+            }
+          />
+          <BetaIntegrationTile
+            id="integration-xbox"
+            brand="xbox"
+            icon={<XboxIcon />}
+            storeName={t("settings.integration.xbox")}
+            integration={xbox}
+            open={!!openTiles["integration-xbox"]}
+            onToggle={() => toggleTile("integration-xbox")}
+            onRemoveGames={() => confirmRemoveGames("Xbox")}
+            onConfirmDisconnect={() =>
+              confirmBetaDisconnect(t("settings.integration.xbox"), () => {
+                void xbox.disconnect();
+              })
+            }
+          />
+          <BetaIntegrationTile
+            id="integration-itch"
+            brand="itch"
+            icon={<ItchIcon />}
+            storeName={t("settings.integration.itch")}
+            integration={itch}
+            open={!!openTiles["integration-itch"]}
+            onToggle={() => toggleTile("integration-itch")}
+            onRemoveGames={() => confirmRemoveGames("itch.io")}
+            onConfirmDisconnect={() =>
+              confirmBetaDisconnect(t("settings.integration.itch"), () => {
+                void itch.disconnect();
+              })
+            }
+          />
         </SettingsCategory>
 
         {/* ── Mods & community — mod site API keys ── */}

@@ -215,7 +215,7 @@ export function buildSettingsCatalog(
       tab: "integrations",
       labelKey: "settings.tab.integrations",
       descKey: "settings.integrations.desc",
-      keywords: "steam epic gog humble rockstar ubisoft connect sync store library",
+      keywords: "steam epic gog humble rockstar ubisoft connect sync store library battlenet battle.net blizzard ea origin xbox microsoft store itch.io itch beta experimental",
       icon: <IntegrationsIcon />,
       sections: [
         {
@@ -247,6 +247,26 @@ export function buildSettingsCatalog(
           id: "integration-uplay",
           labelKey: "settings.integration.ubisoftConnect",
           keywords: "ubisoft connect uplay scan registry import installed",
+        },
+        {
+          id: "integration-battlenet",
+          labelKey: "settings.integration.battleNet",
+          keywords: "battle.net battlenet blizzard connect sync login library beta experimental",
+        },
+        {
+          id: "integration-ea",
+          labelKey: "settings.integration.ea",
+          keywords: "ea app origin electronic arts connect sync login library beta experimental",
+        },
+        {
+          id: "integration-xbox",
+          labelKey: "settings.integration.xbox",
+          keywords: "xbox microsoft store gamepass connect sync login library beta experimental",
+        },
+        {
+          id: "integration-itch",
+          labelKey: "settings.integration.itch",
+          keywords: "itch.io itch indie connect sync login library beta experimental",
         },
         {
           id: "section-mods",

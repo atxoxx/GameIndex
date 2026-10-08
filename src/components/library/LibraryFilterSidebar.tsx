@@ -22,6 +22,10 @@ const SOURCE_OPTIONS: readonly { value: LibrarySource; label?: string; labelKey?
   { value: "humble", label: "Humble" },
   { value: "rockstar", label: "Rockstar" },
   { value: "ubisoft", label: "Ubisoft" },
+  { value: "battlenet", label: "Battle.net" },
+  { value: "ea", label: "EA" },
+  { value: "xbox", label: "Xbox" },
+  { value: "itch", label: "itch.io" },
 ];
 
 const PLAY_STATUS_OPTIONS: readonly { value: PlayStatus | "all"; labelKey: string }[] = [

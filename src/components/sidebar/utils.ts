@@ -268,6 +268,10 @@ export function resolvePlatformGroup(gameOrPlatform: Game | string | undefined):
     if (p.includes("rockstar")) return "Rockstar";
     if (p.includes("ubisoft") || p.includes("uplay")) return "Ubisoft";
     if (p.includes("humble")) return "Humble";
+    if (p.includes("battle")) return "Battle.net";
+    if (p === "ea" || p.includes("origin")) return "EA";
+    if (p.includes("xbox") || p.includes("microsoft")) return "Xbox";
+    if (p.includes("itch")) return "itch.io";
     if (p.includes("emulator")) return "Emulators";
     return gameOrPlatform;
   }

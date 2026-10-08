@@ -7,6 +7,7 @@ import { useGogIntegration } from "./useGogIntegration";
 import { useHumbleIntegration } from "./useHumbleIntegration";
 import { useRockstarIntegration } from "./useRockstarIntegration";
 import { useUplayIntegration } from "./useUplayIntegration";
+import { useBetaIntegration } from "./useBetaIntegration";
 
 /**
  * useIntegrations — the single source of truth for every store
@@ -28,21 +29,34 @@ export function useIntegrations() {
   const humble = useHumbleIntegration();
   const rockstar = useRockstarIntegration();
   const uplay = useUplayIntegration();
+  // Beta stores share one hook, parameterized by key + platform label.
+  const battlenet = useBetaIntegration("battlenet", "Battle.net");
+  const ea = useBetaIntegration("ea", "EA");
+  const xbox = useBetaIntegration("xbox", "Xbox");
+  const itch = useBetaIntegration("itch", "itch.io");
 
   // Live count of connected integrations — drives the badge on the
-  // Integrations pill in the sidebar. Lints to 0 when none are
-  // connected and to 4 when Steam + Epic + GOG + Humble are all linked.
+  // Integrations pill in the sidebar. Counts first-party stores plus the
+  // beta ones so a beta-only user still sees a non-zero count.
   const connectedIntegrations =
     (steam.steamAuth.isAuthenticated ? 1 : 0) +
     (epic.epicAuth.isAuthenticated ? 1 : 0) +
     (gog.gogAuth.isAuthenticated ? 1 : 0) +
-    (humble.humbleAuth.isAuthenticated ? 1 : 0);
+    (humble.humbleAuth.isAuthenticated ? 1 : 0) +
+    (battlenet.auth.isAuthenticated ? 1 : 0) +
+    (ea.auth.isAuthenticated ? 1 : 0) +
+    (xbox.auth.isAuthenticated ? 1 : 0) +
+    (itch.auth.isAuthenticated ? 1 : 0);
 
   const connectionStatus: Record<string, boolean> = {
     "integration-steam": steam.steamAuth.isAuthenticated,
     "integration-epic": epic.epicAuth.isAuthenticated,
     "integration-gog": gog.gogAuth.isAuthenticated,
     "integration-humble": humble.humbleAuth.isAuthenticated,
+    "integration-battlenet": battlenet.auth.isAuthenticated,
+    "integration-ea": ea.auth.isAuthenticated,
+    "integration-xbox": xbox.auth.isAuthenticated,
+    "integration-itch": itch.auth.isAuthenticated,
   };
 
   /** Number of library games imported from a given store platform. */
@@ -68,6 +82,10 @@ export function useIntegrations() {
     humble,
     rockstar,
     uplay,
+    battlenet,
+    ea,
+    xbox,
+    itch,
     connectedIntegrations,
     connectionStatus,
     platformGameCount,

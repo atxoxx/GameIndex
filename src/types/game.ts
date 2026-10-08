@@ -1178,7 +1178,7 @@ export const STORE_SOURCES: readonly StoreSource[] = [
  * Library source filter for distinguishing between different game
  * origins (Steam sync, local imports, GOG, etc.).
  */
-export type LibrarySource = "all" | "steam" | "local" | "gog" | "epic" | "humble" | "rockstar" | "ubisoft";
+export type LibrarySource = "all" | "steam" | "local" | "gog" | "epic" | "humble" | "rockstar" | "ubisoft" | "battlenet" | "ea" | "xbox" | "itch";
 
 export type PlayStatus = "backlog" | "playing" | "completed" | "abandoned" | "on_hold";
 

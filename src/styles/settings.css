@@ -27,6 +27,10 @@
   --brand-uplay: #00aae4;
   --brand-gog: #86328a;
   --brand-rockstar: #ffd344;
+  --brand-battlenet: #4381c3;
+  --brand-ea: #ff4747;
+  --brand-xbox: #107c10;
+  --brand-itch: #fa5c5c;
 }
 
 /* Uniform control height for every settings input / select / button.

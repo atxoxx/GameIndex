@@ -32,6 +32,7 @@ mod humble;
 mod steam_game_watcher;
 mod rockstar;
 mod uplay;
+mod beta_stores;
 mod size;
 mod library_health;
 // New modules for the download feature. See each module's
@@ -64,6 +65,16 @@ use humble::{
 use rockstar::sync::{rockstar_launch_game, rockstar_sync_library};
 use uplay::{
     uplay_get_settings, uplay_launch_game, uplay_save_settings, uplay_sync_library,
+};
+use beta_stores::{
+    battlenet_get_settings, battlenet_is_authenticated, battlenet_logout,
+    battlenet_save_settings, battlenet_start_login, battlenet_sync_library,
+    ea_get_settings, ea_is_authenticated, ea_logout, ea_save_settings, ea_start_login,
+    ea_sync_library,
+    itch_get_settings, itch_is_authenticated, itch_logout, itch_save_settings,
+    itch_start_login, itch_sync_library,
+    xbox_get_settings, xbox_is_authenticated, xbox_logout, xbox_save_settings,
+    xbox_start_login, xbox_sync_library,
 };
 use steam::auth::{steam_connect, steam_logout, steam_get_session};
 use steam::sync::steam_sync_games;
@@ -154,6 +165,16 @@ pub fn run() {
             // scan + client actions (uplay:// protocol).
             uplay_sync_library, uplay_launch_game, uplay_get_settings,
             uplay_save_settings,
+            // Beta store integrations (experimental, WebView login):
+            // Battle.net, EA app, Xbox / Microsoft Store and itch.io.
+            battlenet_start_login, battlenet_sync_library, battlenet_is_authenticated,
+            battlenet_logout, battlenet_get_settings, battlenet_save_settings,
+            ea_start_login, ea_sync_library, ea_is_authenticated, ea_logout,
+            ea_get_settings, ea_save_settings,
+            xbox_start_login, xbox_sync_library, xbox_is_authenticated, xbox_logout,
+            xbox_get_settings, xbox_save_settings,
+            itch_start_login, itch_sync_library, itch_is_authenticated, itch_logout,
+            itch_get_settings, itch_save_settings,
             // Download-feature commands. The torrent engine manages
             // its own global session; the source manager and store
             // checker are passed through `tauri::State`.

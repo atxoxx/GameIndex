@@ -251,6 +251,10 @@ export function gameMatchesFilters(game: Game, filters: LibraryFilters): boolean
     if (filters.source === "humble" && game.platform !== "Humble") return false;
     if (filters.source === "rockstar" && game.platform !== "Rockstar") return false;
     if (filters.source === "ubisoft" && game.platform !== "Ubisoft") return false;
+    if (filters.source === "battlenet" && game.platform !== "Battle.net") return false;
+    if (filters.source === "ea" && game.platform !== "EA") return false;
+    if (filters.source === "xbox" && game.platform !== "Xbox") return false;
+    if (filters.source === "itch" && game.platform !== "itch.io") return false;
   }
 
   // Genres (OR — game must have at least one selected genre)

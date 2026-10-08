@@ -33,6 +33,10 @@ const sourceLabel: Record<LibrarySource, string | { key: string }> = {
   humble: "Humble",
   rockstar: "Rockstar",
   ubisoft: "Ubisoft",
+  battlenet: "Battle.net",
+  ea: "EA",
+  xbox: "Xbox",
+  itch: "itch.io",
 };
 
 const CloseIcon = (
