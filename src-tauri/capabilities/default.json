@@ -6,6 +6,8 @@
     "main",
     "source-fetcher-*",
     "gog-login",
+    "ea-login",
+    "ea-token",
     "news-preview-*",
     "weblinks-preview-*",
     "download-resolver-*"

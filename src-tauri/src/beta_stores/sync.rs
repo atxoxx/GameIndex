@@ -50,7 +50,7 @@ fn result(games: Vec<BetaSyncedGame>) -> BetaSyncResult {
 }
 
 /// Lowercase slug used inside the generated game id.
-fn slug(s: &str) -> String {
+pub(super) fn slug(s: &str) -> String {
     s.chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() {
@@ -148,120 +148,77 @@ async fn battlenet_sync(app: &AppHandle) -> Result<BetaSyncResult, String> {
     Ok(result(games))
 }
 
-// ── EA app / Origin ────────────────────────────────────────────────────
+// ── EA app (Juno GraphQL) ──────────────────────────────────────────────
 
-/// EA's web stack hands out a bearer token to a client carrying the
-/// session cookies (`ORIGIN_JS_SDK`, `prompt=none`, `nucleus:rest`). We
-/// then resolve the account pid and read the consolidated entitlements —
-/// the same sequence GOG Galaxy's Origin integration uses.
+/// EA moved off the Origin REST API. We capture the site's bearer token
+/// from a hidden WebView (see `beta_stores::ea`) and page through the
+/// persisted `getPreloadedOwnedGames` GraphQL query.
 async fn ea_sync(app: &AppHandle) -> Result<BetaSyncResult, String> {
-    let cookies = load_cookies(app, EA)?;
-    let client = cookie_client(&cookies, "accounts.ea.com")?;
+    let token = super::ea::capture_auth_token(app).await?;
+    let client = reqwest::Client::builder()
+        .user_agent(user_agent())
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("http client: {e}"))?;
+    let bearer = format!("Bearer {token}");
 
-    let token_resp = client
-        .get("https://accounts.ea.com/connect/auth")
-        .query(&[
-            ("client_id", "ORIGIN_JS_SDK"),
-            ("response_type", "token"),
-            ("redirect_uri", "nucleus:rest"),
-            ("prompt", "none"),
-        ])
-        .send()
-        .await
-        .map_err(|e| format!("EA token request failed: {e}"))?;
+    let mut games: Vec<BetaSyncedGame> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut offset = "0".to_string();
+    let mut pages = 0usize;
 
-    let token_json: Value = token_resp
-        .json()
-        .await
-        .map_err(|e| format!("EA token parse failed: {e}"))?;
-
-    let access_token = token_json
-        .get("access_token")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            token_json
-                .get("error")
-                .and_then(|v| v.as_str())
-                .map(|e| format!("EA sign-in expired ({e}) — reconnect the account"))
-                .unwrap_or_else(|| "EA did not return an access token — reconnect the account".to_string())
-        })?;
-    let bearer = format!("Bearer {access_token}");
-
-    let pid_resp = client
-        .get("https://gateway.ea.com/proxy/identity/pids/me")
-        .header("Authorization", &bearer)
-        .send()
-        .await
-        .map_err(|e| format!("EA identity request failed: {e}"))?;
-    let pid_json: Value = pid_resp
-        .json()
-        .await
-        .map_err(|e| format!("EA identity parse failed: {e}"))?;
-    let pid = pid_json
-        .pointer("/pid/pidId")
-        .and_then(|v| {
-            v.as_str()
-                .map(str::to_string)
-                .or_else(|| v.as_i64().map(|n| n.to_string()))
-        })
-        .ok_or_else(|| "EA identity response did not contain a pid".to_string())?;
-
-    let ent_resp = client
-        .get(format!(
-            "https://api1.origin.com/ecommerce2/consolidatedentitlements/{pid}?machine_hash=1"
-        ))
-        .header("Authorization", &bearer)
-        .header(
-            "Accept",
-            "application/vnd.origin.v3+json; x-cache/force-write",
-        )
-        .send()
-        .await
-        .map_err(|e| format!("EA entitlements request failed: {e}"))?;
-
-    if !ent_resp.status().is_success() {
-        return Err(format!(
-            "EA returned HTTP {} for entitlements — reconnect the account",
-            ent_resp.status().as_u16()
-        ));
-    }
-
-    let ent_json: Value = ent_resp
-        .json()
-        .await
-        .map_err(|e| format!("EA entitlements parse failed: {e}"))?;
-
-    let empty = Vec::new();
-    let entitlements = ent_json
-        .get("entitlements")
-        .and_then(|v| v.as_array())
-        .unwrap_or(&empty);
-
-    let mut games = Vec::new();
-    for ent in entitlements {
-        if ent.get("offerType").and_then(|v| v.as_str()) != Some("basegame") {
-            continue;
+    loop {
+        pages += 1;
+        // Safety stop so a bogus `next` value can never loop forever.
+        if pages > 25 {
+            break;
         }
-        let Some(offer_id) = ent.get("offerId").and_then(|v| v.as_str()) else {
-            continue;
-        };
-        let title = ent
-            .get("displayName")
+
+        let url = super::ea::owned_games_url(&offset);
+        let resp = client
+            .get(&url)
+            .header("Authorization", &bearer)
+            .send()
+            .await
+            .map_err(|e| format!("EA library request failed: {e}"))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(format!(
+                "EA returned HTTP {} for the library — reconnect the account",
+                status.as_u16()
+            ));
+        }
+
+        let json: Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("EA library response parse failed: {e}"))?;
+
+        let items = json
+            .pointer("/data/me/ownedGameProducts/items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+
+        for item in &items {
+            if let Some(game) = super::ea::owned_game_to_synced(item) {
+                if seen.insert(game.id.clone()) {
+                    games.push(game);
+                }
+            }
+        }
+
+        match json
+            .pointer("/data/me/ownedGameProducts/next")
             .and_then(|v| v.as_str())
-            .or_else(|| ent.get("productName").and_then(|v| v.as_str()))
-            .unwrap_or(offer_id);
-        games.push(BetaSyncedGame {
-            id: format!("ea-{}", slug(offer_id)),
-            title: title.to_string(),
-            store_game_id: Some(offer_id.to_string()),
-            is_installed: false,
-            install_path: None,
-            cover_url: None,
-            playtime_minutes: None,
-            last_played: None,
-        });
+        {
+            Some(next) if !next.is_empty() && next != offset => offset = next.to_string(),
+            _ => break,
+        }
     }
 
+    eprintln!("[beta-stores] EA imported {} games", games.len());
     Ok(result(games))
 }
 

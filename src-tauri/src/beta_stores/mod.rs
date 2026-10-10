@@ -12,10 +12,12 @@
 //! success navigation and sync endpoints differ (see `login.rs` and
 //! `sync.rs`).
 
+mod ea;
 mod login;
 mod sync;
 mod types;
 
+pub use ea::ea_callback;
 pub use types::{BetaSession, BetaSettings, BetaSyncResult};
 
 use tauri::{AppHandle, Manager};
@@ -59,15 +61,15 @@ fn login_spec(key: &str) -> Result<StoreLogin, String> {
             cookie_domains: &["battle.net", "blizzard.com"],
         }),
         EA => Ok(StoreLogin {
-            window_label: "ea-login",
+            window_label: ea::window_label(),
             title: "EA Sign In",
-            // Mirrors GOG Galaxy's Origin integration: the web login
-            // redirects to origin.com once the EA session is established.
-            url: "https://accounts.ea.com/connect/auth?response_type=code&client_id=ORIGIN_SPA_ID&display=originXWeb/login&locale=en_US&release_type=prod&redirect_uri=https%3A%2F%2Fwww.origin.com%2Fviews%2Flogin.html"
-                .to_string(),
+            // EA's own site login. The old accounts.ea.com ORIGIN_SPA_ID
+            // flow now lands on an EA "Service limitations apply" error;
+            // the website login is what the current EA app/Playnite use.
+            url: ea::EA_LOGIN_URL.to_string(),
             width: 500.0,
             height: 740.0,
-            success: login::SuccessMatch::UrlPrefix("https://www.origin.com/views/login.html"),
+            success: login::SuccessMatch::UrlEquals(ea::EA_HOME_URL),
             cookie_domains: &["ea.com"],
         }),
         XBOX => Ok(StoreLogin {
@@ -129,6 +131,25 @@ async fn begin_login(app: AppHandle, key: &str) -> Result<BetaSession, String> {
 
     if key == XBOX {
         return xbox_finish_login(&app, &outcome.callback_url).await;
+    }
+
+    if key == EA {
+        persist_cookies(&app, key, &outcome.cookies)?;
+        // EA's session is only useful if we can mint the Juno bearer token
+        // the GraphQL backend expects. Validate it now so a partial login
+        // (or EA's "service limitations" page) fails with a clear message
+        // instead of silently on the first sync.
+        if let Err(e) = ea::capture_auth_token(&app).await {
+            logout(&app, key);
+            return Err(e);
+        }
+        let session = BetaSession {
+            username: String::new(),
+            logged_in_at: now(),
+            beta: true,
+        };
+        persist_session(&app, key, &session)?;
+        return Ok(session);
     }
 
     persist_cookies(&app, key, &outcome.cookies)?;
