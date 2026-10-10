@@ -3,6 +3,7 @@ import { detectVr, gameIsVr, type Game } from "./game";
 
 function makeGame(overrides: Partial<Game> & { name: string }): Game {
   return {
+    ...overrides,
     id: overrides.id ?? `id-${overrides.name}`,
     name: overrides.name,
     path: overrides.path ?? `C:\\Games\\${overrides.name}\\game.exe`,
@@ -10,7 +11,6 @@ function makeGame(overrides: Partial<Game> & { name: string }): Game {
     installed: overrides.installed ?? true,
     playTime: overrides.playTime ?? "0h",
     addedAt: overrides.addedAt ?? 0,
-    ...overrides,
   };
 }
 
