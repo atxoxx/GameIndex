@@ -50,6 +50,7 @@ interface LibraryFilterSidebarProps {
   availablePlatforms: string[];
   source: LibrarySource;
   sort: LibrarySort;
+  vrOnly: boolean;
   onSearchChange: (q: string) => void;
   onGenresChange: (g: string[]) => void;
   onPlatformsChange: (p: string[]) => void;
@@ -59,6 +60,7 @@ interface LibraryFilterSidebarProps {
   onPlayStatusChange: (ps: PlayStatus | "all") => void;
   onSourceChange: (s: LibrarySource) => void;
   onSortChange: (s: LibrarySort) => void;
+  onVrOnlyChange: (v: boolean) => void;
   onReset: () => void;
 }
 
@@ -81,6 +83,7 @@ export default function LibraryFilterSidebar({
   availablePlatforms,
   source,
   sort,
+  vrOnly,
   onSearchChange,
   onGenresChange,
   onPlatformsChange,
@@ -90,6 +93,7 @@ export default function LibraryFilterSidebar({
   onPlayStatusChange,
   onSourceChange,
   onSortChange,
+  onVrOnlyChange,
   onReset,
 }: LibraryFilterSidebarProps) {
   const { t } = useLanguage();
@@ -162,6 +166,29 @@ export default function LibraryFilterSidebar({
           </select>
         </FilterSection>
       </PageWidget>
+
+      <FilterSection
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12a9 9 0 0 1 18 0v3a3 3 0 0 1-3 3h-1a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h2" />
+            <path d="M3 12v3a3 3 0 0 0 3 3h1a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2H5" />
+            <circle cx="8" cy="12" r="1" />
+            <circle cx="16" cy="12" r="1" />
+          </svg>
+        }
+        title={t("library.filter.vr")}
+      >
+        <div className="lib-segment">
+          <button
+            type="button"
+            className={`lib-segment-option${vrOnly ? " active" : ""}`}
+            onClick={() => onVrOnlyChange(!vrOnly)}
+            aria-pressed={vrOnly}
+          >
+            {t("library.filter.vrOnly")}
+          </button>
+        </div>
+      </FilterSection>
 
       <PageWidget page="library" widget="filters">
         <FilterSection

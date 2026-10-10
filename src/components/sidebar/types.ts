@@ -12,7 +12,8 @@ export type SidebarGroupBy =
   | "genre"
   | "letter"
   | "installed"
-  | "decade";
+  | "decade"
+  | "vr";
 
 /** Row visual density levels. */
 export type SidebarDensity = "compact" | "standard" | "detailed";
@@ -128,6 +129,7 @@ export interface SidebarActiveFiltersProps {
     yearMin: number | null;
     yearMax: number | null;
     ratingMin: number | null;
+    vrOnly: boolean;
   };
   onRemoveStatus: () => void;
   onRemoveSource: () => void;
@@ -136,6 +138,7 @@ export interface SidebarActiveFiltersProps {
   onRemovePlatform: (platform: string) => void;
   onRemoveYear: () => void;
   onRemoveRating: () => void;
+  onRemoveVrOnly: () => void;
   onReset: () => void;
 }
 

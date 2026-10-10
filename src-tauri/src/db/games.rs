@@ -232,6 +232,11 @@ pub struct GameRow {
     pub version: Option<String>,
     #[serde(rename = "compatibility", default, skip_serializing_if = "Option::is_none")]
     pub compatibility_json: Option<serde_json::Value>,
+    /// VR flag: `Some(true)` marks a virtual-reality title, `Some(false)`
+    /// an explicit "not VR" override, `None` when never detected. Set by
+    /// metadata sync or the user; drives the VR badge/filter/group.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_vr: Option<bool>,
 }
 
 /// Outcome of a batch upsert: how many rows were actually rewritten and
@@ -366,7 +371,8 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                  collection_id,
                   display_name,
                   content_hash,
-                  logo_source_url
+                  logo_source_url,
+                  is_vr
               ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -390,7 +396,7 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                  ?65,?66,?67,?68,?69,
                  ?70,?71,?72,?73,?74,
                   ?75,?76,
-                  ?77,?78
+                  ?77,?78,?79
               )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -490,6 +496,8 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
             // columns, matching the list above.
             hash,
             r.logo_source_url,
+            // v14 VR flag.
+            r.is_vr.map(|b| b as i32),
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -558,7 +566,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             collection_id,
             display_name,
             content_hash,
-            logo_source_url
+            logo_source_url,
+            is_vr
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -582,7 +591,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?65,?66,?67,?68,?69,
             ?70,?71,?72,?73,?74,
             ?75,?76,
-            ?77,?78
+            ?77,?78,?79
         )",
         params![
             r.id,
@@ -665,6 +674,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             r.display_name,
             hash,
             r.logo_source_url,
+            r.is_vr.map(|b| b as i32),
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -877,7 +887,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url, is_vr FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -984,6 +994,9 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // v13 logo_source_url column — read after display_name.
         // NULL rows (pre-v13) read back as `None`.
         logo_source_url: r.get(78)?,
+        // v14 is_vr column — read after logo_source_url.
+        // NULL rows (pre-v14) read back as `None` (unknown).
+        is_vr: r.get::<_, Option<i64>>(79)?.map(|n| n != 0),
         // Compatibility profile is isolated into compatibility.db
         compatibility_json: None,
     })
@@ -1022,7 +1035,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL, GAMES_V12_DDL, GAMES_V13_DDL};
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL, GAMES_V12_DDL, GAMES_V13_DDL, GAMES_V14_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -1043,6 +1056,7 @@ mod tests {
             conn.execute_batch(GAMES_V11_DDL).unwrap();
             conn.execute_batch(GAMES_V12_DDL).unwrap();
             conn.execute_batch(GAMES_V13_DDL).unwrap();
+            conn.execute_batch(GAMES_V14_DDL).unwrap();
         }
         (dir, db)
     }
@@ -1081,6 +1095,7 @@ mod tests {
             "romProfile": {"graphicsBackend": "vulkan", "fullscreen": true},
             "version": "1.0.4",
             "collectionId": 420u64,
+            "isVr": true,
         }))
         .unwrap()
     }
@@ -1120,6 +1135,7 @@ mod tests {
         assert_eq!(got.collection_id, Some(420));
         assert_eq!(got.display_name.as_deref(), Some("My Custom Label"));
         assert_eq!(got.logo_source_url.as_deref(), Some("https://images.igdb.com/igdb/image/upload/t_original/logo.png"));
+        assert_eq!(got.is_vr, Some(true));
     }
 
     /// Repro: the exact payload the edit modal sends after the user

@@ -246,6 +246,11 @@ pub(crate) struct GameData {
     /// Wine / Proton compatibility profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) compatibility: Option<serde_json::Value>,
+    /// VR flag persisted per game. `Some(true)` marks a virtual-reality
+    /// title, `Some(false)` an explicit "not VR" override, `None` when
+    /// never detected. Mirrors `db::games::GameRow::is_vr`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) is_vr: Option<bool>,
 }
 
 /// Per-ROM emulator launch profile. Every field is optional — an
@@ -429,6 +434,7 @@ impl From<GameData> for db::games::GameRow {
             release_status: g.release_status,
             version: g.version,
             compatibility_json: g.compatibility,
+            is_vr: g.is_vr,
         }
     }
 }
@@ -528,6 +534,7 @@ impl From<db::games::GameRow> for GameData {
             rom_profile: r.rom_profile.and_then(|v| serde_json::from_value(v).ok()),
             version: r.version,
             compatibility: r.compatibility_json,
+            is_vr: r.is_vr,
         }
     }
 }

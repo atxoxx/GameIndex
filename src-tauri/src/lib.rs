@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 
 mod config;
 mod util;
+mod vr;
 mod crashlog;
 mod backup;
 mod backup_raw;

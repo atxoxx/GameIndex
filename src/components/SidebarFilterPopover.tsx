@@ -63,6 +63,8 @@ interface SidebarFilterPopoverProps {
    *  so the same source of truth powers the LibraryPage filter
    *  rail, chip strip, and this popover chip. */
   playStatus: PlayStatus | "all";
+  /** When true the sidebar list is narrowed to VR games only. */
+  vrOnly: boolean;
   /** Currently selected genres (OR). */
   selectedGenres: string[];
   /** Currently selected platforms (exact match). */
@@ -85,6 +87,7 @@ interface SidebarFilterPopoverProps {
   filteredCount: number;
   onStatusChange: (s: LibraryStatus) => void;
   onPlayStatusChange: (ps: PlayStatus | "all") => void;
+  onVrOnlyChange: (v: boolean) => void;
   onGenresChange: (g: string[]) => void;
   onPlatformsChange: (p: string[]) => void;
   onYearRangeChange: (min: number | null, max: number | null) => void;
@@ -150,6 +153,7 @@ export default function SidebarFilterPopover({
   anchorRef,
   status,
   playStatus,
+  vrOnly,
   selectedGenres,
   selectedPlatforms,
   yearMin,
@@ -162,6 +166,7 @@ export default function SidebarFilterPopover({
   filteredCount,
   onStatusChange,
   onPlayStatusChange,
+  onVrOnlyChange,
   onGenresChange,
   onPlatformsChange,
   onYearRangeChange,
@@ -464,6 +469,21 @@ export default function SidebarFilterPopover({
               </option>
             ))}
           </select>
+        </section>
+
+        {/* ── VR only: toggle ── */}
+        <section className="sidebar-filter-popover-section">
+          <h4 className="sidebar-filter-popover-heading">{t("library.filter.vr")}</h4>
+          <div className="sidebar-filter-popover-segmented">
+            <button
+              type="button"
+              className={`sidebar-filter-popover-segment${vrOnly ? " active" : ""}`}
+              aria-pressed={vrOnly}
+              onClick={() => onVrOnlyChange(!vrOnly)}
+            >
+              {t("library.filter.vrOnly")}
+            </button>
+          </div>
         </section>
 
         {/* ── Sort: compact dropdown ── */}

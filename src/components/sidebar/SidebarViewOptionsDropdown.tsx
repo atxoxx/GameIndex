@@ -72,6 +72,7 @@ export default function SidebarViewOptionsDropdown({
     { id: "letter", labelKey: "sidebar.groupBy.letter" },
     { id: "installed", labelKey: "sidebar.groupBy.installed" },
     { id: "decade", labelKey: "sidebar.groupBy.decade" },
+    { id: "vr", labelKey: "sidebar.groupBy.vr" },
   ];
 
   const DENSITY_OPTIONS: { id: SidebarDensity; labelKey: string }[] = [

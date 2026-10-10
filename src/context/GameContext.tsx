@@ -664,6 +664,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       gameCategory: metadata.gameCategory ?? undefined,
       releaseStatus: metadata.releaseStatus ?? undefined,
       languageSupports: metadata.languageSupports ?? undefined,
+      isVr: metadata.isVr,
       metadataSource: metadata.sourceName,
       metadataUrl: metadata.sourceUrl,
     };
@@ -753,6 +754,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           gameCategory: item.metadata.gameCategory ?? undefined,
           releaseStatus: item.metadata.releaseStatus ?? undefined,
           languageSupports: item.metadata.languageSupports ?? undefined,
+          isVr: item.metadata.isVr,
           metadataSource: item.metadata.sourceName,
           metadataUrl: item.metadata.sourceUrl,
         };

@@ -250,6 +250,7 @@ mod title_match_tests {
             game_category: category.map(|s| s.to_string()),
             release_status: status.map(|s| s.to_string()),
             language_supports: None,
+            is_vr: None,
         }
     }
 
@@ -361,6 +362,12 @@ pub struct GameMetadataResult {
     pub release_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language_supports: Option<Vec<LanguageSupportInfo>>,
+    /// VR flag detected from the source metadata: a Steam category/tag
+    /// that mentions VR, an IGDB platform that is a headset/runtime, or a
+    /// standalone "VR" token in the title. `None` when the source can't
+    /// tell — the frontend then falls back to its own heuristic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_vr: Option<bool>,
 }
 
 /// Time-to-beat data now comes from HowLongToBeat (see `crate::hltb`).
@@ -959,8 +966,11 @@ pub async fn fetch_steam_game_by_appid(app_id: u32) -> Option<GameMetadataResult
         )),
     };
 
+    let title = data.name.clone().unwrap_or_default();
+    let is_vr = Some(crate::vr::detect_vr(&title, &genres, &[]));
+
     Some(GameMetadataResult {
-        title: data.name.clone().unwrap_or_default(),
+        title,
         description: data.short_description.clone(),
         developer: data.developers.first().cloned(),
         publisher: data.publishers.first().cloned(),
@@ -993,6 +1003,7 @@ pub async fn fetch_steam_game_by_appid(app_id: u32) -> Option<GameMetadataResult
         game_category: None,
         release_status: None,
         language_supports: None,
+        is_vr,
     })
 }
 
@@ -2575,6 +2586,8 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
         )),
     };
 
+    let is_vr = Some(crate::vr::detect_vr(&title, &genres, &[]));
+
     Some(GameMetadataResult {
         title,
         description: data.short_description.clone(),
@@ -2615,6 +2628,7 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
         game_category: None,
         release_status: None,
         language_supports: None,
+        is_vr,
     })
 }
 
@@ -2814,6 +2828,8 @@ async fn search_launchbox(game_name: &str) -> Option<GameMetadataResult> {
             )
         });
 
+    let is_vr = Some(crate::vr::detect_vr(&best.title, &genres, &[]));
+
     Some(GameMetadataResult {
         title: best.title.clone(),
         description,
@@ -2850,6 +2866,7 @@ async fn search_launchbox(game_name: &str) -> Option<GameMetadataResult> {
         game_category: None,
         release_status: None,
         language_supports: None,
+        is_vr,
     })
 }
 
@@ -3384,6 +3401,9 @@ struct IgdbGame {
     franchises: Option<Vec<IgdbName>>,
     alternative_names: Option<Vec<IgdbName>>,
     language_supports: Option<Vec<IgdbLanguageSupport>>,
+    /// IGDB platforms the game shipped on. Used only for VR detection —
+    /// the list is not persisted on the game itself.
+    platforms: Option<Vec<IgdbName>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -3543,7 +3563,7 @@ fn map_release_status(status: u32) -> String {
 /// by-id lookup so both paths return identically-shaped results.
 const IGDB_GAME_FIELDS: &str = "name, slug, summary, storyline, first_release_date, rating, aggregated_rating, \
        cover.url, screenshots.url, artworks.url, videos.video_id, videos.name, \
-       genres.name, themes.name, game_modes.name, player_perspectives.name, \
+       genres.name, themes.name, game_modes.name, player_perspectives.name, platforms.name, \
        involved_companies.developer, involved_companies.publisher, involved_companies.company.name, \
        websites.url, websites.category, \
        similar_games.name, similar_games.cover.url, \
@@ -3671,6 +3691,12 @@ fn map_igdb_game(game: IgdbGame) -> GameMetadataResult {
         .into_iter()
         .map(|g| g.name)
         .collect::<Vec<_>>();
+
+    let platform_names = game.platforms
+        .as_ref()
+        .map(|list| list.iter().map(|p| p.name.clone()).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let is_vr = Some(crate::vr::detect_vr(&game.name, &genres, &platform_names));
 
     let themes = game.themes
         .map(|list| list.into_iter().map(|item| item.name).collect::<Vec<_>>());
@@ -3888,6 +3914,7 @@ fn map_igdb_game(game: IgdbGame) -> GameMetadataResult {
         game_category,
         release_status,
         language_supports,
+        is_vr,
     }
 }
 
@@ -5503,6 +5530,7 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
  fields name, slug, summary, storyline, first_release_date, rating, aggregated_rating,
        cover.url, screenshots.url, artworks.url, videos.video_id, videos.name,
        genres.name, themes.name, game_modes.name, player_perspectives.name,
+       platforms.name,
        involved_companies.developer, involved_companies.publisher, involved_companies.company.name,
        websites.url, websites.category,
        similar_games.name, similar_games.cover.url,
@@ -5593,6 +5621,13 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
         .into_iter()
         .map(|g| g.name)
         .collect();
+
+    let platform_names: Vec<String> = game
+        .platforms
+        .as_ref()
+        .map(|list| list.iter().map(|p| p.name.clone()).collect())
+        .unwrap_or_default();
+    let is_vr = Some(crate::vr::detect_vr(&game.name, &genres, &platform_names));
 
     let themes = game
         .themes
@@ -5838,6 +5873,7 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
         game_category,
         release_status,
         language_supports,
+        is_vr,
     })
 }
 

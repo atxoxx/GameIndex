@@ -1,5 +1,5 @@
 import type { Game, PlayStatus } from "../../types/game";
-import { gameDisplayName, PLAY_STATUS_DETAILS, parsePlayTime } from "../../types/game";
+import { gameDisplayName, gameIsVr, PLAY_STATUS_DETAILS, parsePlayTime } from "../../types/game";
 import type {
   SidebarGroup,
   SidebarGroupBy,
@@ -140,7 +140,8 @@ export function loadSidebarGroupBy(): SidebarGroupBy {
       raw === "genre" ||
       raw === "letter" ||
       raw === "installed" ||
-      raw === "decade"
+      raw === "decade" ||
+      raw === "vr"
     ) {
       return raw;
     }
@@ -390,6 +391,13 @@ export function groupGames(
       } else {
         map.set(decade, { title: decade, games: [game] });
       }
+    }
+  } else if (groupBy === "vr") {
+    map.set("vr", { title: t("sidebar.groupBy.vr"), games: [], badgeColor: "var(--color-accent)" });
+    map.set("non_vr", { title: t("sidebar.groupBy.nonVr"), games: [] });
+    for (const game of games) {
+      const bucket = gameIsVr(game) ? "vr" : "non_vr";
+      map.get(bucket)!.games.push(game);
     }
   }
 

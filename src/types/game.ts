@@ -31,6 +31,39 @@ export function gameDisplayName(game: { name: string; displayName?: string }): s
   return display ? display : game.name;
 }
 
+/**
+ * Best-effort VR detection from the fields a library game carries: a
+ * standalone "VR" token in the real name, or a genre/tag that mentions VR
+ * (Steam VR categories and community tags already land in `genres`).
+ *
+ * Mirrors the backend heuristic in `src-tauri/src/vr.rs`. Used as a
+ * fallback for games with no persisted `isVr` flag — e.g. rows imported
+ * before VR detection existed, or sources that don't report VR.
+ */
+export function detectVr(game: { name: string; genres?: string[] }): boolean {
+  const name = game.name?.toLowerCase() ?? "";
+  if (name.includes("virtual reality")) return true;
+  if (name.split(/[^a-z0-9]+/).includes("vr")) return true;
+  if (game.genres) {
+    for (const genre of game.genres) {
+      const lower = genre.toLowerCase();
+      if (lower.includes("virtual reality")) return true;
+      if (lower.split(/[^a-z0-9]+/).some((t) => t === "vr" || t === "vr2")) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolve whether a game is VR. The persisted `isVr` flag wins when
+ * present (metadata detection or an explicit user override); otherwise
+ * fall back to {@link detectVr}. Use this everywhere the VR badge,
+ * filter or grouping is derived so the sources can't drift.
+ */
+export function gameIsVr(game: Game): boolean {
+  return game.isVr ?? detectVr(game);
+}
+
 export interface Game {
   id: string;
   name: string;
@@ -214,6 +247,15 @@ export interface Game {
    *  GameContext.enrichGameMetadata after an IGDB enrichment and copied
    *  by GameContext.addStoreGame. */
   igdbId?: number;
+  /**
+   * Virtual-reality flag. Persisted (games v14 `is_vr` column) and set
+   * by metadata sync (Steam VR categories/tags, IGDB VR platforms, or a
+   * standalone "VR" title token) or by the user's manual override.
+   * `true` = VR, `false` = explicitly not VR, `undefined` = never
+   * detected/decided — callers should fall back to `gameIsVr(game)`,
+   * which also derives from `genres`/`name`.
+   */
+  isVr?: boolean;
   launchArguments?: string;
   runAsAdmin?: boolean;
   /** When true, Steam games launch through Steam's own executable/action
@@ -1247,6 +1289,10 @@ export interface GameMetadataResult {
   gameCategory?: string;
   releaseStatus?: string;
   languageSupports?: LanguageSupportInfo[];
+  /** VR flag detected by the backend source (Steam VR categories/tags,
+   *  IGDB VR platforms, or a standalone "VR" title token). `undefined`
+   *  when the source can't tell. */
+  isVr?: boolean;
 }
 
 /** Image URLs from a metadata source. */

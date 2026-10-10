@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Badge } from "../ui";
 import type { Game } from "../../types/game";
-import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game";
 import { useGameCardActions, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useCardDisplaySettings } from "../../context/SettingsContext";
@@ -97,6 +97,7 @@ function LibraryGameCardBase({
   };
 
   const rating = game.igdbRating ?? game.criticRating;
+  const isVr = gameIsVr(game);
   const playStatus = game.playStatus || "backlog";
   const statusMeta = PLAY_STATUS_DETAILS[playStatus];
 
@@ -176,6 +177,11 @@ function LibraryGameCardBase({
             {game.emulatorId && game.romPath && (
               <Badge variant="default" size="sm" className="lib-card-platform lib-card-rom-badge">
                 🕹️ {t("library.romBadge")}
+              </Badge>
+            )}
+            {isVr && (
+              <Badge variant="accent" size="sm" className="lib-card-platform lib-card-vr-badge">
+                🥽 {t("library.vrBadge")}
               </Badge>
             )}
           </div>
@@ -348,11 +354,17 @@ function LibraryGameCardBase({
         {showCardBadges &&
           (badgePlatform ||
             badgeInstall ||
-            badgeRating) && (
+            badgeRating ||
+            isVr) && (
           <div className="lib-card-meta">
             {badgePlatform && (
               <Badge variant="info" size="sm" className="lib-card-platform">
                 {game.platform}
+              </Badge>
+            )}
+            {isVr && (
+              <Badge variant="accent" size="sm" className="lib-card-vr-badge">
+                🥽 {t("library.vrBadge")}
               </Badge>
             )}
             {badgeInstall && !isSimpleUi && (

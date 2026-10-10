@@ -22,6 +22,7 @@ import {
   PLAY_STATUS_DETAILS,
   extractSteamAppIdFromWebsites,
   gameDisplayName,
+  gameIsVr,
 } from "../../types/game";
 import type { Mo2Instance } from "../../types/mo2";
 import { getGameMo2Config, saveGameMo2Config } from "../../utils/mo2Storage";
@@ -159,6 +160,10 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
   const [editFranchise, setEditFranchise] = useState(game.franchise || "");
   const [editGameCategory, setEditGameCategory] = useState(game.gameCategory || "");
   const [editReleaseStatus, setEditReleaseStatus] = useState(game.releaseStatus || "");
+  // VR flag: seed from the effective state (persisted flag or heuristic) so
+  // the checkbox reflects what the badge already shows, and write an
+  // explicit value on save to make the user's choice sticky.
+  const [editIsVr, setEditIsVr] = useState(() => gameIsVr(game));
   const [editAlternativeNames, setEditAlternativeNames] = useState<string[]>(game.alternativeNames || []);
 
   const [editIcon, setEditIcon] = useState(game.iconUrl || "");
@@ -789,6 +794,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
       setEditThemes(result.themes || []);
       setEditGameModes(result.gameModes || []);
       setEditPlayerPerspectives(result.playerPerspectives || []);
+      if (result.isVr != null) setEditIsVr(result.isVr);
 
       if (iconUrl) setEditIcon(iconUrl);
       if (coverUrl) setEditCover(coverUrl);
@@ -1126,6 +1132,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
       franchise: editFranchise.trim() || undefined,
       gameCategory: editGameCategory.trim() || undefined,
       releaseStatus: editReleaseStatus.trim() || undefined,
+      isVr: editIsVr,
       languageSupports: newLanguageSupports,
       metadataSource: editMetadataSource ? editMetadataSource : undefined,
       metadataUrl: editMetadataUrl ? editMetadataUrl : undefined,
@@ -1790,6 +1797,17 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                       <div className="edit-field">
                         <label className="edit-label" htmlFor="edit-release-status">{t("edit.label.releaseStatus")}</label>
                         <input id="edit-release-status" className="edit-input" type="text" value={editReleaseStatus} onChange={(e) => setEditReleaseStatus(e.target.value)} placeholder="e.g. Released, Early Access" />
+                      </div>
+                      <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
+                        <label className="edit-checkbox-row" htmlFor="edit-is-vr">
+                          <input
+                            id="edit-is-vr"
+                            type="checkbox"
+                            checked={editIsVr}
+                            onChange={(e) => setEditIsVr(e.target.checked)}
+                          />
+                          <span>{t("edit.label.isVr")}</span>
+                        </label>
                       </div>
                     </div>
                     <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>

@@ -1,5 +1,5 @@
 import type { Game, LibrarySource, PlayStatus } from "../types/game";
-import { gameDisplayName, parsePlayTime } from "../types/game";
+import { gameDisplayName, gameIsVr, parsePlayTime } from "../types/game";
 
 /** Status facets for the library filter sidebar. */
 export type LibraryStatus = "all" | "installed" | "not_installed";
@@ -55,6 +55,8 @@ export interface LibraryFilters {
   source: LibrarySource;
   /** Play gameplay status filter (all | backlog | playing | completed | abandoned | on_hold). */
   playStatus: PlayStatus | "all";
+  /** When true, only virtual-reality games are shown. */
+  vrOnly: boolean;
   /** Sort order for the filtered list. */
   sort: LibrarySort;
 }
@@ -70,6 +72,7 @@ export const EMPTY_LIBRARY_FILTERS: LibraryFilters = {
   status: "all",
   source: "all",
   playStatus: "all",
+  vrOnly: false,
   sort: "alphabetical",
 };
 
@@ -286,6 +289,9 @@ export function gameMatchesFilters(game: Game, filters: LibraryFilters): boolean
     if (rating == null || rating < filters.ratingMin) return false;
   }
 
+  // VR games only
+  if (filters.vrOnly && !gameIsVr(game)) return false;
+
   return true;
 }
 
@@ -300,7 +306,8 @@ export function hasActiveFilters(filters: LibraryFilters): boolean {
     filters.ratingMin != null ||
     filters.status !== "all" ||
     filters.source !== "all" ||
-    filters.playStatus !== "all"
+    filters.playStatus !== "all" ||
+    filters.vrOnly
   );
 }
 
@@ -341,6 +348,7 @@ export function parseStoredFilters(raw: unknown): LibraryFilters {
       obj.playStatus === "on_hold"
         ? (obj.playStatus as PlayStatus)
         : "all",
+    vrOnly: obj.vrOnly === true,
     sort:
       obj.sort === "date_added" ||
       obj.sort === "most_played" ||
@@ -458,6 +466,7 @@ export function parseStoredPreset(raw: unknown): FilterPreset | null {
       f.playStatus === "on_hold"
         ? (f.playStatus as PlayStatus)
         : "all",
+    vrOnly: f.vrOnly === true,
     sort: filtersSort,
   };
 

@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useSteamGridArt } from "../../context/SteamGridDbContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game";
 import { accentForPlatform } from "../../types/emulator";
 import { preloadGameDetail } from "../../utils/routePreload";
 import { toWebviewAssetUrl } from "../../utils/artworkUrl";
@@ -45,6 +45,7 @@ function SidebarGameItemBase({
   const { t } = useLanguage();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const displayName = gameDisplayName(game);
+  const isVr = gameIsVr(game);
 
   const [isNearViewport, setIsNearViewport] = useState(false);
   const sgdb = useSteamGridArt(
@@ -234,6 +235,11 @@ function SidebarGameItemBase({
               title={t("emulators.consoleBadge")}
             >
               {game.platform}
+            </span>
+          )}
+          {isVr && (
+            <span className="sidebar-game-vr-badge" title={t("library.vrBadge")}>
+              {t("library.vrBadge")}
             </span>
           )}
           <HighlightedName name={displayName} query={searchQuery} />

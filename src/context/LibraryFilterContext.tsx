@@ -45,6 +45,7 @@ interface LibraryFilterContextValue {
   setStatus: (s: LibraryStatus) => void;
   setSource: (s: LibrarySource) => void;
   setPlayStatus: (ps: PlayStatus | "all") => void;
+  setVrOnly: (v: boolean) => void;
   setSort: (s: LibrarySort) => void;
   removeGenre: (g: string) => void;
   removePlatform: (p: string) => void;
@@ -54,6 +55,7 @@ interface LibraryFilterContextValue {
   removePlayStatus: () => void;
   removeSearch: () => void;
   removeSource: () => void;
+  removeVrOnly: () => void;
   reset: () => void;
 }
 
@@ -142,6 +144,10 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
     (ps: PlayStatus | "all") => setFilters((f) => ({ ...f, playStatus: ps })),
     []
   );
+  const setVrOnly = useCallback(
+    (v: boolean) => setFilters((f) => ({ ...f, vrOnly: v })),
+    []
+  );
   const setSort = useCallback(
     (s: LibrarySort) => setFilters((f) => ({ ...f, sort: s })),
     []
@@ -185,6 +191,10 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
     () => setFilters((f) => ({ ...f, source: "all" })),
     []
   );
+  const removeVrOnly = useCallback(
+    () => setFilters((f) => ({ ...f, vrOnly: false })),
+    []
+  );
   const reset = useCallback(() => setFilters(EMPTY_LIBRARY_FILTERS), []);
 
   const value = useMemo<LibraryFilterContextValue>(
@@ -198,6 +208,7 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
       setStatus,
       setSource,
       setPlayStatus,
+      setVrOnly,
       setSort,
       removeGenre,
       removePlatform,
@@ -207,6 +218,7 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
       removePlayStatus,
       removeSearch,
       removeSource,
+      removeVrOnly,
       reset,
     }),
     [
@@ -219,6 +231,7 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
       setStatus,
       setSource,
       setPlayStatus,
+      setVrOnly,
       setSort,
       removeGenre,
       removePlatform,
@@ -228,6 +241,7 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
       removePlayStatus,
       removeSearch,
       removeSource,
+      removeVrOnly,
       reset,
     ]
   );

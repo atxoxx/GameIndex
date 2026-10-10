@@ -352,6 +352,10 @@ export function useEnrich(options: {
         igdbId: setIfEmptyFrom(latest, "igdbId", meta.igdbId ?? undefined),
         metadataSource: meta.sourceName,
         metadataUrl: meta.sourceUrl,
+        // Adopt the source's VR flag only when the user hasn't set an
+        // explicit override. A bare `undefined` here would clobber an
+        // existing value once the patch is spread over `latest`.
+        ...(latest.isVr == null && meta.isVr != null ? { isVr: meta.isVr } : {}),
       };
 
       updateGame(gameId, enrichPatch);

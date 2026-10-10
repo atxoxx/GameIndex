@@ -48,6 +48,7 @@ export default function LibraryPage() {
     setStatus,
     setSource,
     setPlayStatus,
+    setVrOnly,
     setSort,
     removeGenre,
     removePlatform,
@@ -57,6 +58,7 @@ export default function LibraryPage() {
     removePlayStatus,
     removeSearch,
     removeSource,
+    removeVrOnly,
     reset,
     hasFilters,
   } = useLibraryFilters(games);
@@ -77,7 +79,8 @@ export default function LibraryPage() {
     (filters.ratingMin != null ? 1 : 0) +
     (filters.status !== "all" ? 1 : 0) +
     (filters.playStatus !== "all" ? 1 : 0) +
-    (filters.source !== "all" ? 1 : 0);
+    (filters.source !== "all" ? 1 : 0) +
+    (filters.vrOnly ? 1 : 0);
   // Pending destructive removals, gated behind ConfirmModal (same
   // pattern as GamePage's remove flow). `null`/`false` = no prompt.
   const [removeConfirmGame, setRemoveConfirmGame] = useState<Game | null>(null);
@@ -293,6 +296,7 @@ export default function LibraryPage() {
     availablePlatforms,
     source: filters.source,
     sort: filters.sort,
+    vrOnly: filters.vrOnly,
     onSearchChange: setSearch,
     onGenresChange: setGenres,
     onPlatformsChange: setPlatforms,
@@ -302,6 +306,7 @@ export default function LibraryPage() {
     onPlayStatusChange: setPlayStatus,
     onSourceChange: setSource,
     onSortChange: setSort,
+    onVrOnlyChange: setVrOnly,
     onReset: reset,
   };
 
@@ -317,6 +322,7 @@ export default function LibraryPage() {
         filters.status,
         filters.source,
         filters.playStatus,
+        filters.vrOnly,
         filters.sort,
         groupBy,
       ]),
@@ -405,6 +411,7 @@ export default function LibraryPage() {
             onRemoveStatus={removeStatus}
             onRemovePlayStatus={removePlayStatus}
             onRemoveSource={removeSource}
+            onRemoveVrOnly={removeVrOnly}
             onResetAll={reset}
           />
           </div>

@@ -77,6 +77,7 @@ export function useFilterPresets() {
       status: preset.filters.status,
       source: preset.filters.source,
       playStatus: preset.filters.playStatus,
+      vrOnly: preset.filters.vrOnly,
       sort: preset.sort,
     };
   }, []);

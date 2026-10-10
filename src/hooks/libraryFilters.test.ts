@@ -170,3 +170,18 @@ describe("game display name", () => {
     ).toBe(false);
   });
 });
+
+describe("vrOnly filter", () => {
+  it("keeps detected VR games and drops the rest", () => {
+    const vr = makeGame({ name: "Skyrim VR" });
+    const flat = makeGame({ name: "Hades", genres: ["Roguelike"] });
+    const filters = { ...EMPTY_LIBRARY_FILTERS, vrOnly: true };
+    expect(gameMatchesFilters(vr, filters)).toBe(true);
+    expect(gameMatchesFilters(flat, filters)).toBe(false);
+  });
+
+  it("honours an explicit non-VR override", () => {
+    const cleared = makeGame({ name: "Skyrim VR", isVr: false });
+    expect(gameMatchesFilters(cleared, { ...EMPTY_LIBRARY_FILTERS, vrOnly: true })).toBe(false);
+  });
+});

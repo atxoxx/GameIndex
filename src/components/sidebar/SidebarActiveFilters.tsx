@@ -23,6 +23,7 @@ function SidebarActiveFiltersBase({
   onRemovePlatform,
   onRemoveYear,
   onRemoveRating,
+  onRemoveVrOnly,
   onReset,
 }: SidebarActiveFiltersProps) {
   const { t } = useLanguage();
@@ -77,6 +78,14 @@ function SidebarActiveFiltersBase({
       key: "rating",
       label: `≥${filterState.ratingMin}%`,
       remove: onRemoveRating,
+    });
+  }
+
+  if (filterState.vrOnly) {
+    chips.push({
+      key: "vr-only",
+      label: t("library.filter.vrOnly"),
+      remove: onRemoveVrOnly,
     });
   }
 

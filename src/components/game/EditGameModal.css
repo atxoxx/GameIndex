@@ -557,6 +557,25 @@
   gap: var(--space-md);
 }
 
+/* Boolean flag row (e.g. "Virtual Reality (VR) game") that spans both
+   grid columns and aligns a checkbox with its label. */
+.edit-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.edit-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
 @media (max-width: 640px) {
   .edit-modal-preview {
     flex-wrap: wrap;
