@@ -396,65 +396,225 @@ async fn fetch_xbox_title_history(tokens: &XboxAuthTokens) -> Result<Value, Stri
         .map_err(|e| format!("Xbox title history parse failed: {e}"))
 }
 
-async fn xbox_sync(app: &AppHandle) -> Result<BetaSyncResult, String> {
-    let mut tokens = load_xbox_tokens(app)?;
+/// Map one TitleHub `titles[]` entry to a library game. Only PC games
+/// (`type == "Game"`) are kept.
+fn xbox_title_to_game(title: &Value) -> Option<BetaSyncedGame> {
+    if title.get("type").and_then(|v| v.as_str()) != Some("Game") {
+        return None;
+    }
+    let pfn = title.get("pfn").and_then(|v| v.as_str()).unwrap_or("");
+    let title_id = title.get("titleId").and_then(|v| v.as_str()).unwrap_or("");
+    let stable_id = if !pfn.is_empty() { pfn } else { title_id };
+    if stable_id.is_empty() {
+        return None;
+    }
+    let name = title.get("name").and_then(|v| v.as_str()).unwrap_or(stable_id);
+    let clean_name = name
+        .replace("(PC)", "")
+        .replace("(Windows)", "")
+        .replace("for Windows 10", "")
+        .replace("- Windows 10", "");
+    let playtime_minutes = title
+        .get("minutesPlayed")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<u64>().ok());
+    let last_played = title
+        .pointer("/titleHistory/lastTimePlayed")
+        .and_then(|v| v.as_str())
+        .and_then(parse_rfc3339_secs);
 
-    let payload = match fetch_xbox_title_history(&tokens).await {
-        Ok(v) => v,
-        Err(e) if e == "UNAUTHORIZED" => {
-            tokens = refresh_xbox(app, &tokens).await?;
-            fetch_xbox_title_history(&tokens).await?
-        }
-        Err(e) => return Err(e),
-    };
+    Some(BetaSyncedGame {
+        id: format!("xbox-{}", slug(stable_id)),
+        title: clean_name.trim().to_string(),
+        store_game_id: Some(stable_id.to_string()),
+        is_installed: false,
+        install_path: None,
+        cover_url: None,
+        playtime_minutes,
+        last_played,
+    })
+}
 
-    let empty = Vec::new();
-    let titles = payload
+/// Resolve a batch of package family names to their Xbox titles. The
+/// service omits unknown / non-game packages, so the caller just filters
+/// the returned titles.
+#[cfg(windows)]
+async fn fetch_xbox_title_info(
+    tokens: &XboxAuthTokens,
+    pfns: &[String],
+) -> Result<Vec<Value>, String> {
+    let client = reqwest::Client::builder()
+        .user_agent(user_agent())
+        .timeout(Duration::from_secs(25))
+        .build()
+        .map_err(|e| format!("http client: {e}"))?;
+    let resp = client
+        .post("https://titlehub.xboxlive.com/titles/batch/decoration/detail")
+        .header("x-xbl-contract-version", "2")
+        .header(
+            "Authorization",
+            format!("XBL3.0 x={};{}", tokens.user_hash, tokens.token),
+        )
+        .header("Accept-Language", "en-US")
+        .json(&serde_json::json!({ "pfns": pfns, "windowsPhoneProductIds": [] }))
+        .send()
+        .await
+        .map_err(|e| format!("Xbox title info request failed: {e}"))?;
+
+    let status = resp.status().as_u16();
+    if status == 401 || status == 403 {
+        return Err("UNAUTHORIZED".to_string());
+    }
+    if !resp.status().is_success() {
+        return Err(format!("Xbox title info returned HTTP {status}"));
+    }
+    let json: Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("Xbox title info parse failed: {e}"))?;
+    Ok(json
         .get("titles")
         .and_then(|v| v.as_array())
-        .unwrap_or(&empty);
+        .cloned()
+        .unwrap_or_default())
+}
 
-    let mut games = Vec::new();
-    for title in titles {
-        if title.get("type").and_then(|v| v.as_str()) != Some("Game") {
+/// Package family names of the Store / UWP packages installed for this
+/// user. The registry lists every package (system apps included); the
+/// TitleHub lookup later discards anything that isn't a game.
+#[cfg(windows)]
+fn installed_uwp_pfns() -> Vec<String> {
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    use winreg::RegKey;
+
+    const REPO: &str = r"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
+
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for hive in [HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE] {
+        let Ok(base) = RegKey::predef(hive).open_subkey(REPO) else {
             continue;
+        };
+        for full_name in base.enum_keys().flatten() {
+            let Ok(key) = base.open_subkey(&full_name) else {
+                continue;
+            };
+            let family: Option<String> = key
+                .get_value("PackageFamilyName")
+                .ok()
+                .or_else(|| key.get_value("PackageID").ok())
+                .or_else(|| family_from_full_name(&full_name));
+            if let Some(f) = family {
+                if !f.is_empty() && seen.insert(f.clone()) {
+                    out.push(f);
+                }
+            }
         }
-        let pfn = title.get("pfn").and_then(|v| v.as_str()).unwrap_or("");
-        let title_id = title.get("titleId").and_then(|v| v.as_str()).unwrap_or("");
-        let stable_id = if !pfn.is_empty() { pfn } else { title_id };
-        if stable_id.is_empty() {
-            continue;
+    }
+    out
+}
+
+/// Derive `Name_PublisherId` from a `PackageFullName`
+/// (`Name_Version_Arch__PublisherId`).
+#[cfg(windows)]
+fn family_from_full_name(full_name: &str) -> Option<String> {
+    let (left, publisher) = full_name.rsplit_once("__")?;
+    let name = left.split('_').next()?;
+    if name.is_empty() || publisher.is_empty() {
+        return None;
+    }
+    Some(format!("{name}_{publisher}"))
+}
+
+async fn xbox_sync(app: &AppHandle) -> Result<BetaSyncResult, String> {
+    let mut tokens = load_xbox_tokens(app)?;
+    let mut games: std::collections::HashMap<String, BetaSyncedGame> =
+        std::collections::HashMap::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    // 1) Titles the account has launched — covers uninstalled games, but
+    //    only after they've been played at least once.
+    match fetch_xbox_title_history(&tokens).await {
+        Ok(payload) => {
+            let titles = payload
+                .get("titles")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            eprintln!("[beta-stores] Xbox title history: {} titles", titles.len());
+            for title in &titles {
+                if let Some(game) = xbox_title_to_game(title) {
+                    games.entry(game.id.clone()).or_insert(game);
+                }
+            }
         }
-        let name = title.get("name").and_then(|v| v.as_str()).unwrap_or(stable_id);
-        let clean_name = name
-            .replace("(PC)", "")
-            .replace("(Windows)", "")
-            .replace("for Windows 10", "")
-            .replace("- Windows 10", "");
-        let clean_name = clean_name.trim();
-
-        let playtime_minutes = title
-            .get("minutesPlayed")
-            .and_then(|v| v.as_str())
-            .and_then(|s| s.parse::<u64>().ok());
-        let last_played = title
-            .pointer("/titleHistory/lastTimePlayed")
-            .and_then(|v| v.as_str())
-            .and_then(parse_rfc3339_secs);
-
-        games.push(BetaSyncedGame {
-            id: format!("xbox-{}", slug(stable_id)),
-            title: clean_name.to_string(),
-            store_game_id: Some(stable_id.to_string()),
-            is_installed: false,
-            install_path: None,
-            cover_url: None,
-            playtime_minutes,
-            last_played,
-        });
+        Err(e) if e == "UNAUTHORIZED" => {
+            tokens = refresh_xbox(app, &tokens).await?;
+            let payload = fetch_xbox_title_history(&tokens).await?;
+            let titles = payload
+                .get("titles")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            for title in &titles {
+                if let Some(game) = xbox_title_to_game(title) {
+                    games.entry(game.id.clone()).or_insert(game);
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("[beta-stores] Xbox title history failed: {e}");
+            errors.push(format!("title history: {e}"));
+        }
     }
 
-    Ok(result(games))
+    // 2) Installed Store games — these never appear in the title history
+    //    until launched, which is why accounts with unplayed libraries
+    //    imported nothing before.
+    #[cfg(windows)]
+    {
+        let pfns = installed_uwp_pfns();
+        eprintln!("[beta-stores] Xbox installed UWP packages: {}", pfns.len());
+        for chunk in pfns.chunks(80) {
+            match fetch_xbox_title_info(&tokens, chunk).await {
+                Ok(titles) => {
+                    for title in &titles {
+                        if let Some(game) = xbox_title_to_game(title) {
+                            games.entry(game.id.clone()).or_insert(game);
+                        }
+                    }
+                }
+                Err(e) if e == "UNAUTHORIZED" => {
+                    errors.push("installed games: not authorized".to_string());
+                    break;
+                }
+                Err(e) => {
+                    errors.push(format!("installed games: {e}"));
+                    break;
+                }
+            }
+        }
+    }
+
+    let games: Vec<BetaSyncedGame> = games.into_values().collect();
+
+    if games.is_empty() {
+        if !errors.is_empty() {
+            return Err(errors.join("; "));
+        }
+        let mut res = result(games);
+        res.note = Some(
+            "No Xbox PC games found. Xbox only reports games this account has launched at least once, plus Store games installed on this PC."
+                .to_string(),
+        );
+        return Ok(res);
+    }
+
+    let mut res = result(games);
+    if !errors.is_empty() {
+        res.note = Some(format!("Some sources failed: {}", errors.join("; ")));
+    }
+    Ok(res)
 }
 
 /// Minimal RFC-3339 → Unix seconds converter for the `lastTimePlayed`
@@ -656,5 +816,32 @@ mod tests {
         assert!(r.success);
         assert_eq!(r.games_imported, 1);
         assert_eq!(r.synced_games.len(), 1);
+    }
+
+    #[test]
+    fn xbox_title_maps_pc_game_and_skips_non_games() {
+        let title = serde_json::json!({
+            "type": "Game",
+            "pfn": "Microsoft.HaloInfinite_8wekyb3d8bbwe",
+            "name": "Halo Infinite (PC)",
+            "minutesPlayed": "120"
+        });
+        let game = xbox_title_to_game(&title).expect("should map");
+        assert_eq!(game.id, "xbox-microsoft-haloinfinite-8wekyb3d8bbwe");
+        assert_eq!(game.title, "Halo Infinite");
+        assert_eq!(game.playtime_minutes, Some(120));
+
+        let app = serde_json::json!({ "type": "Application", "pfn": "Some.App", "name": "App" });
+        assert!(xbox_title_to_game(&app).is_none());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn family_name_is_derived_from_full_name() {
+        assert_eq!(
+            family_from_full_name("Microsoft.HaloInfinite_1.2.3.0_x64__8wekyb3d8bbwe").as_deref(),
+            Some("Microsoft.HaloInfinite_8wekyb3d8bbwe")
+        );
+        assert!(family_from_full_name("no-separator").is_none());
     }
 }
