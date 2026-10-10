@@ -3,12 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   Activity,
   Bell,
+  Camera,
   Clock,
   Cpu,
   Download,
   Gauge,
   Monitor,
+  Sliders,
   StickyNote,
+  Timer,
   Trophy,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
@@ -40,6 +43,9 @@ const PANEL_LABELS: Record<string, string> = {
   downloads: "overlay.widget.downloads",
   notifications: "overlay.widget.notifications",
   notes: "overlay.widget.notes",
+  captures: "overlay.widget.captures",
+  timer: "overlay.widget.timer",
+  settings: "overlay.widget.settings",
 };
 
 function tickerIcon(key: string) {
@@ -67,6 +73,12 @@ function panelIcon(key: string) {
       return <Bell />;
     case "notes":
       return <StickyNote />;
+    case "captures":
+      return <Camera />;
+    case "timer":
+      return <Timer />;
+    case "settings":
+      return <Sliders />;
     default:
       return <Clock />;
   }

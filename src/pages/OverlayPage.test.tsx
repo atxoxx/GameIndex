@@ -54,6 +54,14 @@ function overlayValue(
     history: [],
     session: null,
     providerReady: true,
+    captureScreenshot: vi.fn().mockResolvedValue(null),
+    recentScreenshots: [],
+    isCapturing: false,
+    lastCapturedScreenshot: null,
+    openScreenshotsFolder: vi.fn().mockResolvedValue(undefined),
+    refreshScreenshots: vi.fn().mockResolvedValue(undefined),
+    flashScreen: false,
+    updateSettings: vi.fn().mockResolvedValue(undefined),
   };
 }
 

@@ -12,10 +12,12 @@ import { SettingsProvider } from "../context/SettingsContext";
 import { OverlayProvider } from "../context/OverlayContext";
 import OverlayPage from "../pages/OverlayPage";
 import ResizeHandles from "./ResizeHandles";
+import { GameAccentSync } from "./GameAccentSync";
 // Only the styles the overlay actually needs — the full App.css barrel
 // would drag every page stylesheet into this short-lived window.
 import "../styles/theme.css";
 import "../styles/themes.css";
+import "../styles/ui.css";
 import "../styles/ui-styles/index.css";
 import "../styles/overlay.css";
 
@@ -47,6 +49,7 @@ export default function OverlayWindow() {
                   <SessionNotesProvider>
                     <DownloadProvider>
                       <SettingsProvider>
+                        <GameAccentSync />
                         <OverlayProvider>
                           <OverlayPage />
                           <ResizeHandles />

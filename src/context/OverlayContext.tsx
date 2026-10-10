@@ -69,6 +69,15 @@ export interface OverlaySession {
   pid?: number;
 }
 
+export interface ScreenshotCaptureInfo {
+  filePath: string;
+  fileName: string;
+  gameTitle: string;
+  timestamp: number;
+  width: number;
+  height: number;
+}
+
 /** Ticker widget keys, in fixed display order. */
 export const TICKER_WIDGETS = ["fps", "cpu", "gpu", "session"] as const;
 
@@ -76,10 +85,13 @@ export const TICKER_WIDGETS = ["fps", "cpu", "gpu", "session"] as const;
 export const PANEL_WIDGETS = [
   "session",
   "performance",
+  "notes",
+  "captures",
+  "timer",
   "achievements",
   "downloads",
   "notifications",
-  "notes",
+  "settings",
 ] as const;
 
 /** How many live telemetry samples the sparklines retain. */
@@ -94,10 +106,13 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   panelWidgets: [
     "session",
     "performance",
+    "notes",
+    "captures",
+    "timer",
     "achievements",
     "downloads",
     "notifications",
-    "notes",
+    "settings",
   ],
   pollIntervalMs: 1000,
   showTemps: true,
@@ -106,8 +121,8 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   posY: null,
   tickerWidth: 360,
   tickerHeight: 56,
-  panelWidth: 480,
-  panelHeight: 540,
+  panelWidth: 500,
+  panelHeight: 560,
 };
 
 export function normalizeOverlaySettings(
@@ -132,6 +147,22 @@ export interface OverlayContextValue {
   session: OverlaySession | null;
   /** True once the initial settings load has settled. */
   providerReady: boolean;
+  /** Take a game screenshot via native capture into Windows Captures folder */
+  captureScreenshot: (gameTitle?: string) => Promise<ScreenshotCaptureInfo | null>;
+  /** Recent screenshot filepaths for this game */
+  recentScreenshots: string[];
+  /** Whether a capture is currently in flight */
+  isCapturing: boolean;
+  /** Last successfully captured screenshot info */
+  lastCapturedScreenshot: ScreenshotCaptureInfo | null;
+  /** Open folder or reveal file in File Explorer */
+  openScreenshotsFolder: (path?: string) => Promise<void>;
+  /** Refresh recent screenshots list */
+  refreshScreenshots: (gameTitle?: string) => Promise<void>;
+  /** Flash effect trigger for camera snaps */
+  flashScreen: boolean;
+  /** Discrete update of overlay settings persisted directly to backend */
+  updateSettings: (patch: Partial<OverlaySettings>) => Promise<void>;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -144,6 +175,30 @@ const OverlayContext =
   (globalOverlayObj.__gamelib_overlay_context__ =
     createContext<OverlayContextValue | null>(null));
 
+function playShutterSound() {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.09);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.09);
+  } catch {
+    // Audio unsupported or not permitted
+  }
+}
+
 export function OverlayProvider({ children }: { children: ReactNode }) {
   // The ticker is the always-on minimal readout, so the overlay boots
   // collapsed and the global hotkey expands it.
@@ -155,6 +210,11 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<OverlayMetrics[]>([]);
   const [session, setSession] = useState<OverlaySession | null>(null);
   const [providerReady, setProviderReady] = useState(false);
+  const [recentScreenshots, setRecentScreenshots] = useState<string[]>([]);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [lastCapturedScreenshot, setLastCapturedScreenshot] =
+    useState<ScreenshotCaptureInfo | null>(null);
+  const [flashScreen, setFlashScreen] = useState(false);
 
   // Persist the window position/size after the user drags or resizes it.
   useOverlayBounds();
@@ -162,6 +222,16 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
   const expand = useCallback(() => setCollapsed(false), []);
   const collapse = useCallback(() => setCollapsed(true), []);
+
+  // Sync opacity directly into CSS variable for immediate feedback
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty(
+        "--overlay-opacity",
+        String(settings.opacity),
+      );
+    }
+  }, [settings.opacity]);
 
   // Load persisted settings once; fall back to defaults when the backend is
   // unreachable (frontend-only dev, or a transient first-boot race).
@@ -182,6 +252,74 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Update settings in memory and persist
+  const updateSettings = useCallback(
+    async (patch: Partial<OverlaySettings>) => {
+      setSettings((prev) => {
+        const next = { ...prev, ...patch };
+        void invoke("overlay_save_settings", { settings: next }).catch(() => {
+          /* no-op */
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const refreshScreenshots = useCallback(async (gameTitle?: string) => {
+    try {
+      const list = await invoke<string[]>("overlay_get_recent_screenshots", {
+        gameTitle,
+      });
+      if (Array.isArray(list)) {
+        setRecentScreenshots(list);
+      }
+    } catch {
+      /* no-op */
+    }
+  }, []);
+
+  const openScreenshotsFolder = useCallback(async (path?: string) => {
+    try {
+      await invoke("overlay_open_screenshot_folder", {
+        fileOrDirPath: path ?? null,
+      });
+    } catch {
+      /* no-op */
+    }
+  }, []);
+
+  const captureScreenshot = useCallback(
+    async (gameTitle?: string): Promise<ScreenshotCaptureInfo | null> => {
+      if (isCapturing) return null;
+      setIsCapturing(true);
+      try {
+        const result = await invoke<ScreenshotCaptureInfo>(
+          "overlay_capture_screenshot",
+          { gameTitle: gameTitle ?? null },
+        );
+        if (result) {
+          playShutterSound();
+          setFlashScreen(true);
+          setTimeout(() => setFlashScreen(false), 260);
+          setLastCapturedScreenshot(result);
+          setRecentScreenshots((prev) => [
+            result.filePath,
+            ...prev.filter((p) => p !== result.filePath),
+          ]);
+          return result;
+        }
+        return null;
+      } catch (err) {
+        console.error("Screenshot capture failed:", err);
+        return null;
+      } finally {
+        setIsCapturing(false);
+      }
+    },
+    [isCapturing],
+  );
+
   // The backend emits `overlay:session` once, when the game launches — but the
   // overlay webview usually mounts after that, so the event is already gone.
   // Fetch the live session directly on mount so the panel isn't stuck empty.
@@ -199,6 +337,23 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Refresh recent screenshots on session change
+  useEffect(() => {
+    void refreshScreenshots();
+  }, [session, refreshScreenshots]);
+
+  // Global F12 capture handler inside overlay
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F12") {
+        e.preventDefault();
+        void captureScreenshot();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [captureScreenshot]);
+
   // Resize the HUD window to match the presentation: the compact ticker vs the
   // expanded panel. The backend re-anchors it to the configured corner so the
   // interactive area always matches the visible content.
@@ -208,7 +363,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     });
   }, [collapsed]);
 
-  // Backend events: hotkey show/hide, session lifecycle, live metrics.
+  // Backend events: hotkey show/hide, session lifecycle, live metrics, screenshots.
   useEffect(() => {
     const toggleUnlisten = listen<{ collapsed?: boolean }>(
       "overlay:toggle",
@@ -233,10 +388,23 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
           : next;
       });
     });
+    const screenshotUnlisten = listen<ScreenshotCaptureInfo>(
+      "overlay:screenshot-captured",
+      (event) => {
+        if (event.payload) {
+          setLastCapturedScreenshot(event.payload);
+          setRecentScreenshots((prev) => [
+            event.payload.filePath,
+            ...prev.filter((p) => p !== event.payload.filePath),
+          ]);
+        }
+      },
+    );
     return () => {
       void toggleUnlisten.then((unlisten) => unlisten());
       void sessionUnlisten.then((unlisten) => unlisten());
       void metricsUnlisten.then((unlisten) => unlisten());
+      void screenshotUnlisten.then((unlisten) => unlisten());
     };
   }, []);
 
@@ -254,6 +422,14 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       history,
       session,
       providerReady,
+      captureScreenshot,
+      recentScreenshots,
+      isCapturing,
+      lastCapturedScreenshot,
+      openScreenshotsFolder,
+      refreshScreenshots,
+      flashScreen,
+      updateSettings,
     }),
     [
       collapsed,
@@ -266,6 +442,14 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       history,
       session,
       providerReady,
+      captureScreenshot,
+      recentScreenshots,
+      isCapturing,
+      lastCapturedScreenshot,
+      openScreenshotsFolder,
+      refreshScreenshots,
+      flashScreen,
+      updateSettings,
     ],
   );
 

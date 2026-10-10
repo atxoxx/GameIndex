@@ -30,6 +30,15 @@ vi.mock("./widgets/NotificationsWidget", () => ({
 vi.mock("./widgets/NotesWidget", () => ({
   default: () => <div data-testid="widget-notes" />,
 }));
+vi.mock("./widgets/ScreenshotsWidget", () => ({
+  default: () => <div data-testid="widget-captures" />,
+}));
+vi.mock("./widgets/TimerWidget", () => ({
+  default: () => <div data-testid="widget-timer" />,
+}));
+vi.mock("./widgets/SettingsWidget", () => ({
+  default: () => <div data-testid="widget-settings" />,
+}));
 
 const mockOverlay = vi.mocked(useOverlay);
 const mockLanguage = vi.mocked(useLanguage);
@@ -60,6 +69,14 @@ function overlayValue(panelWidgets: string[]): OverlayContextValue {
     history: [],
     session: null,
     providerReady: true,
+    captureScreenshot: vi.fn().mockResolvedValue(null),
+    recentScreenshots: [],
+    isCapturing: false,
+    lastCapturedScreenshot: null,
+    openScreenshotsFolder: vi.fn().mockResolvedValue(undefined),
+    refreshScreenshots: vi.fn().mockResolvedValue(undefined),
+    flashScreen: false,
+    updateSettings: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -70,6 +87,9 @@ const ALL_WIDGETS = [
   "downloads",
   "notifications",
   "notes",
+  "captures",
+  "timer",
+  "settings",
 ];
 
 describe("OverlayPanel", () => {
@@ -115,8 +135,24 @@ describe("OverlayPanel", () => {
     expect(screen.getByTestId("widget-achievements")).toBeInTheDocument();
     expect(screen.getByTestId("widget-downloads")).toBeInTheDocument();
     expect(screen.getByTestId("widget-notifications")).toBeInTheDocument();
-    expect(screen.getByTestId("widget-notes")).toBeInTheDocument();
     expect(screen.queryByTestId("widget-session")).toBeNull();
+  });
+
+  it("switches to notes, captures, timer, and settings tabs", () => {
+    mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
+    render(<OverlayPanel />);
+
+    fireEvent.click(screen.getByTestId("overlay-panel-tab-notes"));
+    expect(screen.getByTestId("widget-notes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("overlay-panel-tab-captures"));
+    expect(screen.getByTestId("widget-captures")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("overlay-panel-tab-timer"));
+    expect(screen.getByTestId("widget-timer")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("overlay-panel-tab-settings"));
+    expect(screen.getByTestId("widget-settings")).toBeInTheDocument();
   });
 
   it("drops tabs for groups with no enabled widgets", () => {

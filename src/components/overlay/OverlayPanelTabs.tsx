@@ -1,7 +1,10 @@
+import type { ReactNode } from "react";
+
 /** One selectable section in the expanded overlay panel. */
 export interface OverlayPanelTab {
   id: string;
   label: string;
+  icon?: ReactNode;
 }
 
 export interface OverlayPanelTabsProps {
@@ -50,7 +53,8 @@ export default function OverlayPanelTabs({
             data-testid={`overlay-panel-tab-${tab.id}`}
             onClick={() => onSelect(tab.id)}
           >
-            {tab.label}
+            {tab.icon && <span className="overlay-panel__tab-icon">{tab.icon}</span>}
+            <span className="overlay-panel__tab-text">{tab.label}</span>
           </button>
         );
       })}

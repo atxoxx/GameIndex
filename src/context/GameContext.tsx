@@ -902,6 +902,10 @@ export function useGames(): GameContextType {
   return ctx;
 }
 
+export function useOptionalGames(): GameContextType | null {
+  return useContext(GameContext);
+}
+
 /** Narrow selector: returns the list of running game ids without subscribing to full games array changes. */
 export function useRunningGames(): string[] {
   const { runningGameIds } = useGames();

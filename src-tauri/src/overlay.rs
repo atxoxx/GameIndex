@@ -99,10 +99,13 @@ impl Default for OverlaySettings {
             panel_widgets: [
                 "session",
                 "performance",
+                "notes",
+                "captures",
+                "timer",
                 "achievements",
                 "downloads",
                 "notifications",
-                "notes",
+                "settings",
             ]
             .iter()
             .map(|s| s.to_string())
@@ -868,6 +871,453 @@ pub fn register_listeners(app: &AppHandle) {
     });
 }
 
+pub const EVENT_SCREENSHOT: &str = "overlay:screenshot-captured";
+
+/// Result of an in-game screen capture.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScreenshotResult {
+    pub file_path: String,
+    pub file_name: String,
+    pub game_title: String,
+    pub timestamp: u64,
+    pub width: u32,
+    pub height: u32,
+}
+
+fn adler32(data: &[u8]) -> u32 {
+    let mut s1 = 1u32;
+    let mut s2 = 0u32;
+    for &b in data {
+        s1 = (s1 + b as u32) % 65521;
+        s2 = (s2 + s1) % 65521;
+    }
+    (s2 << 16) | s1
+}
+
+fn crc32(data: &[u8]) -> u32 {
+    let mut crc = 0xFFFF_FFFFu32;
+    for &b in data {
+        crc ^= b as u32;
+        for _ in 0..8 {
+            if crc & 1 != 0 {
+                crc = (crc >> 1) ^ 0xEDB8_8320;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    !crc
+}
+
+fn write_png_chunk(out: &mut Vec<u8>, chunk_type: &[u8; 4], data: &[u8]) {
+    out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+    let crc_start = out.len();
+    out.extend_from_slice(chunk_type);
+    out.extend_from_slice(data);
+    let crc = crc32(&out[crc_start..]);
+    out.extend_from_slice(&crc.to_be_bytes());
+}
+
+/// Standalone, dependency-free uncompressed PNG encoder (RFC 2083 / RFC 1950).
+pub fn encode_uncompressed_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(b"\x89PNG\r\n\x1a\n");
+
+    let mut ihdr = Vec::with_capacity(13);
+    ihdr.extend_from_slice(&width.to_be_bytes());
+    ihdr.extend_from_slice(&height.to_be_bytes());
+    ihdr.push(8); // bit depth 8
+    ihdr.push(6); // color type RGBA
+    ihdr.push(0); // compression
+    ihdr.push(0); // filter
+    ihdr.push(0); // interlace
+    write_png_chunk(&mut out, b"IHDR", &ihdr);
+
+    let stride = (width * 4) as usize;
+    let mut raw_data = Vec::with_capacity((height as usize) * (stride + 1));
+    for y in 0..(height as usize) {
+        raw_data.push(0); // filter type 0 (None)
+        let start = y * stride;
+        let end = start + stride;
+        if end <= rgba.len() {
+            raw_data.extend_from_slice(&rgba[start..end]);
+        }
+    }
+
+    let checksum = adler32(&raw_data);
+    let mut idat = Vec::new();
+    idat.push(0x78); // zlib header
+    idat.push(0x01);
+
+    const MAX_BLOCK: usize = 65535;
+    let total_len = raw_data.len();
+    let mut offset = 0;
+    while offset < total_len {
+        let chunk_len = (total_len - offset).min(MAX_BLOCK);
+        let is_last = (offset + chunk_len) == total_len;
+        idat.push(if is_last { 0x01 } else { 0x00 });
+        let len_u16 = chunk_len as u16;
+        let nlen_u16 = !len_u16;
+        idat.extend_from_slice(&len_u16.to_le_bytes());
+        idat.extend_from_slice(&nlen_u16.to_le_bytes());
+        idat.extend_from_slice(&raw_data[offset..offset + chunk_len]);
+        offset += chunk_len;
+    }
+    idat.extend_from_slice(&checksum.to_be_bytes());
+    write_png_chunk(&mut out, b"IDAT", &idat);
+    write_png_chunk(&mut out, b"IEND", &[]);
+
+    out
+}
+
+#[cfg(windows)]
+mod gdi_capture {
+    use std::path::Path;
+
+    #[link(name = "gdi32")]
+    #[link(name = "user32")]
+    extern "system" {
+        fn GetDC(hwnd: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+        fn ReleaseDC(hwnd: *mut std::ffi::c_void, hdc: *mut std::ffi::c_void) -> i32;
+        fn CreateCompatibleDC(hdc: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+        fn CreateCompatibleBitmap(hdc: *mut std::ffi::c_void, cx: i32, cy: i32) -> *mut std::ffi::c_void;
+        fn SelectObject(hdc: *mut std::ffi::c_void, hgdiobj: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+        fn BitBlt(
+            hdc_dst: *mut std::ffi::c_void,
+            x: i32,
+            y: i32,
+            cx: i32,
+            cy: i32,
+            hdc_src: *mut std::ffi::c_void,
+            x1: i32,
+            y1: i32,
+            rop: u32,
+        ) -> i32;
+        fn DeleteDC(hdc: *mut std::ffi::c_void) -> i32;
+        fn DeleteObject(hover: *mut std::ffi::c_void) -> i32;
+        fn GetDIBits(
+            hdc: *mut std::ffi::c_void,
+            hbm: *mut std::ffi::c_void,
+            start: u32,
+            lines: u32,
+            bits: *mut std::ffi::c_void,
+            bmi: *mut std::ffi::c_void,
+            usage: u32,
+        ) -> i32;
+        fn GetSystemMetrics(n_index: i32) -> i32;
+    }
+
+    const SM_CXSCREEN: i32 = 0;
+    const SM_CYSCREEN: i32 = 1;
+    const SRCCOPY: u32 = 0x00CC0020;
+    const DIB_RGB_COLORS: u32 = 0;
+    const BI_RGB: u32 = 0;
+
+    #[repr(C)]
+    struct BitmapInfoHeader {
+        bi_size: u32,
+        bi_width: i32,
+        bi_height: i32,
+        bi_planes: u16,
+        bi_bit_count: u16,
+        bi_compression: u32,
+        bi_size_image: u32,
+        bi_xpels_per_meter: i32,
+        bi_ypels_per_meter: i32,
+        bi_clr_used: u32,
+        bi_clr_important: u32,
+    }
+
+    #[repr(C)]
+    struct BitmapInfo {
+        bmi_header: BitmapInfoHeader,
+        bmi_colors: [u32; 1],
+    }
+
+    pub fn capture_desktop(destination_path: &Path) -> Result<(u32, u32), String> {
+        unsafe {
+            let width = GetSystemMetrics(SM_CXSCREEN);
+            let height = GetSystemMetrics(SM_CYSCREEN);
+            if width <= 0 || height <= 0 {
+                return Err("Invalid desktop screen dimensions".into());
+            }
+
+            let null_hwnd = std::ptr::null_mut();
+            let hdc_screen = GetDC(null_hwnd);
+            if hdc_screen.is_null() {
+                return Err("Failed to obtain desktop DC".into());
+            }
+
+            let hdc_mem = CreateCompatibleDC(hdc_screen);
+            if hdc_mem.is_null() {
+                ReleaseDC(null_hwnd, hdc_screen);
+                return Err("Failed to create memory DC".into());
+            }
+
+            let hbitmap = CreateCompatibleBitmap(hdc_screen, width, height);
+            if hbitmap.is_null() {
+                DeleteDC(hdc_mem);
+                ReleaseDC(null_hwnd, hdc_screen);
+                return Err("Failed to allocate compatible bitmap".into());
+            }
+
+            let prev_obj = SelectObject(hdc_mem, hbitmap);
+            let blt_res = BitBlt(hdc_mem, 0, 0, width, height, hdc_screen, 0, 0, SRCCOPY);
+
+            SelectObject(hdc_mem, prev_obj);
+            DeleteDC(hdc_mem);
+            ReleaseDC(null_hwnd, hdc_screen);
+
+            if blt_res == 0 {
+                DeleteObject(hbitmap);
+                return Err("BitBlt screen copy failed".into());
+            }
+
+            let mut bmi = BitmapInfo {
+                bmi_header: BitmapInfoHeader {
+                    bi_size: std::mem::size_of::<BitmapInfoHeader>() as u32,
+                    bi_width: width,
+                    bi_height: -height, // top-down
+                    bi_planes: 1,
+                    bi_bit_count: 32,
+                    bi_compression: BI_RGB,
+                    bi_size_image: (width * height * 4) as u32,
+                    bi_xpels_per_meter: 0,
+                    bi_ypels_per_meter: 0,
+                    bi_clr_used: 0,
+                    bi_clr_important: 0,
+                },
+                bmi_colors: [0],
+            };
+
+            let mut raw_pixels = vec![0u8; (width * height * 4) as usize];
+            let hdc_screen2 = GetDC(null_hwnd);
+            let lines = GetDIBits(
+                hdc_screen2,
+                hbitmap,
+                0,
+                height as u32,
+                raw_pixels.as_mut_ptr() as *mut _,
+                &mut bmi as *mut _ as *mut _,
+                DIB_RGB_COLORS,
+            );
+            ReleaseDC(null_hwnd, hdc_screen2);
+            DeleteObject(hbitmap);
+
+            if lines == 0 {
+                return Err("GetDIBits failed to extract screen pixels".into());
+            }
+
+            // Convert BGRA to RGBA and ensure alpha is 255
+            for chunk in raw_pixels.chunks_exact_mut(4) {
+                let b = chunk[0];
+                let r = chunk[2];
+                chunk[0] = r;
+                chunk[2] = b;
+                chunk[3] = 255;
+            }
+
+            let png_bytes = super::encode_uncompressed_png(width as u32, height as u32, &raw_pixels);
+            std::fs::write(destination_path, png_bytes)
+                .map_err(|e| format!("Failed to write screenshot file: {e}"))?;
+
+            Ok((width as u32, height as u32))
+        }
+    }
+}
+
+#[cfg(not(windows))]
+mod gdi_capture {
+    use std::path::Path;
+    pub fn capture_desktop(_dest: &Path) -> Result<(u32, u32), String> {
+        Err("In-game screen capture is currently supported on Windows".into())
+    }
+}
+
+pub fn get_captures_dir(game_title: &str) -> std::path::PathBuf {
+    let sanitized: String = game_title
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            other => other,
+        })
+        .collect();
+    let sanitized = sanitized.trim();
+    let folder_name = if sanitized.is_empty() {
+        "GameIndex"
+    } else {
+        sanitized
+    };
+
+    #[cfg(windows)]
+    {
+        if let Ok(userprofile) = std::env::var("USERPROFILE") {
+            return std::path::PathBuf::from(userprofile)
+                .join("Videos")
+                .join("Captures")
+                .join(folder_name);
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            return std::path::PathBuf::from(home)
+                .join("Videos")
+                .join("Captures")
+                .join(folder_name);
+        }
+    }
+
+    std::path::PathBuf::from("Captures").join(folder_name)
+}
+
+/// Capture the desktop/game screen to the Windows Captures folder, auto-indexed by GameIndex.
+#[tauri::command]
+pub async fn overlay_capture_screenshot(
+    app: AppHandle,
+    game_title: Option<String>,
+) -> Result<ScreenshotResult, String> {
+    // 1. Temporarily hide the overlay so it doesn't photograph itself
+    if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        let _ = win.hide();
+    }
+    tokio::time::sleep(Duration::from_millis(60)).await;
+
+    let title = game_title.unwrap_or_else(|| {
+        if let Some(state) = app.try_state::<OverlayState>() {
+            let rt = lock(state.inner());
+            if let Some(ref session) = rt.session {
+                let db = app.state::<db::Db>().inner().clone();
+                if let Ok(Some(g)) = db::games::get(&db, &session.game_id) {
+                    return g.name;
+                }
+            }
+        }
+        "GameIndex".to_string()
+    });
+
+    let dir = get_captures_dir(&title);
+    if !dir.exists() {
+        let _ = std::fs::create_dir_all(&dir);
+    }
+
+    let timestamp = now_ms();
+    let date_str = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+    let file_name = format!("Capture_{}_{}.png", date_str, timestamp % 1000);
+    let dest_path = dir.join(&file_name);
+
+    let capture_result = gdi_capture::capture_desktop(&dest_path);
+
+    // 2. Restore overlay window
+    if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        let _ = win.show();
+    }
+
+    let (width, height) = capture_result?;
+
+    let result = ScreenshotResult {
+        file_path: dest_path.to_string_lossy().to_string(),
+        file_name,
+        game_title: title,
+        timestamp,
+        width,
+        height,
+    };
+
+    let _ = app.emit(EVENT_SCREENSHOT, &result);
+    let _ = app.emit_to(OVERLAY_WINDOW_LABEL, EVENT_SCREENSHOT, &result);
+    let _ = app.emit_to(MAIN_WINDOW_LABEL, EVENT_SCREENSHOT, &result);
+
+    Ok(result)
+}
+
+/// Return recent screenshots saved for the specified game in the Captures folder.
+#[tauri::command]
+pub fn overlay_get_recent_screenshots(
+    app: AppHandle,
+    game_title: Option<String>,
+) -> Result<Vec<String>, String> {
+    let title = game_title.unwrap_or_else(|| {
+        if let Some(state) = app.try_state::<OverlayState>() {
+            let rt = lock(state.inner());
+            if let Some(ref session) = rt.session {
+                let db = app.state::<db::Db>().inner().clone();
+                if let Ok(Some(g)) = db::games::get(&db, &session.game_id) {
+                    return g.name;
+                }
+            }
+        }
+        "GameIndex".to_string()
+    });
+
+    let dir = get_captures_dir(&title);
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut entries = Vec::new();
+    if let Ok(read) = std::fs::read_dir(&dir) {
+        for entry in read.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    let ext_lower = ext.to_lowercase();
+                    if matches!(ext_lower.as_str(), "png" | "jpg" | "jpeg" | "bmp" | "webp") {
+                        let mtime = entry.metadata().and_then(|m| m.modified()).ok();
+                        entries.push((path.to_string_lossy().to_string(), mtime));
+                    }
+                }
+            }
+        }
+    }
+
+    entries.sort_by(|a, b| b.1.cmp(&a.1));
+    Ok(entries.into_iter().map(|(p, _)| p).collect())
+}
+
+/// Open the screenshots folder or select the specific file in File Explorer.
+#[tauri::command]
+pub fn overlay_open_screenshot_folder(file_or_dir_path: Option<String>) -> Result<(), String> {
+    let target = if let Some(path) = file_or_dir_path {
+        std::path::PathBuf::from(path)
+    } else {
+        #[cfg(windows)]
+        {
+            if let Ok(profile) = std::env::var("USERPROFILE") {
+                std::path::PathBuf::from(profile).join("Videos").join("Captures")
+            } else {
+                std::path::PathBuf::from(".")
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            std::path::PathBuf::from(".")
+        }
+    };
+
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+        if target.is_file() {
+            let _ = Command::new("explorer")
+                .arg(format!("/select,{}", target.to_string_lossy()))
+                .spawn();
+        } else {
+            let _ = Command::new("explorer")
+                .arg(target.to_string_lossy().as_ref())
+                .spawn();
+        }
+        Ok(())
+    }
+
+    #[cfg(not(windows))]
+    {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -927,7 +1377,7 @@ mod tests {
         assert!((settings.opacity - 0.9).abs() < f64::EPSILON);
         assert_eq!(settings.ticker_widgets, vec!["fps", "cpu", "gpu", "session"]);
         assert_eq!(settings.poll_interval_ms, 1000);
-        assert_eq!(settings.panel_widgets.len(), 6);
+        assert_eq!(settings.panel_widgets.len(), 9);
     }
 
     #[test]
@@ -957,4 +1407,18 @@ mod tests {
         let err = parse_accelerator("NotAKey").unwrap_err();
         assert!(err.contains("NotAKey"));
     }
+
+    #[test]
+    fn test_encode_uncompressed_png_header_and_structure() {
+        let width = 2u32;
+        let height = 2u32;
+        let rgba = vec![
+            255, 0, 0, 255,   0, 255, 0, 255,
+            0, 0, 255, 255,   255, 255, 0, 255,
+        ];
+        let bytes = encode_uncompressed_png(width, height, &rgba);
+        assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
+        assert!(bytes.len() > 30);
+    }
 }
+
