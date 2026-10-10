@@ -36,6 +36,19 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "create": false
+      },
+      {
+        "label": "overlay",
+        "title": "GameIndex Overlay",
+        "width": 560,
+        "height": 420,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "visible": false,
+        "create": false
       }
     ],
     "security": {

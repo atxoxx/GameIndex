@@ -26,6 +26,7 @@ import {
   CompatibilityIcon,
   SettingsGearIcon,
   DiagnosticsIcon,
+  OverlayIcon,
 } from "./settingsIcons";
 
 /**
@@ -66,6 +67,7 @@ const TAB_ORDER: SettingsTab[] = [
   "backup",
   "saves",
   "diagnostics",
+  "overlay",
   "compatibility",
 ];
 
@@ -502,6 +504,28 @@ export function buildSettingsCatalog(
         },
       ],
     },
+    overlay: {
+      tab: "overlay",
+      labelKey: "settings.tab.overlay",
+      descKey: "settings.overlay.desc",
+      keywords:
+        "overlay hud in-game ticker panel hotkey fps cpu gpu telemetry click-through corner opacity widgets notes achievements downloads notifications",
+      icon: <OverlayIcon />,
+      sections: [
+        {
+          id: "overlay-general",
+          labelKey: "settings.overlay.sectionGeneral",
+          keywords:
+            "enable hotkey shortcut toggle corner position opacity transparent click-through always on top",
+        },
+        {
+          id: "overlay-widgets",
+          labelKey: "settings.overlay.sectionWidgets",
+          keywords:
+            "ticker panel widgets fps cpu gpu session achievements downloads notifications notes",
+        },
+      ],
+    },
     compatibility: {
       tab: "compatibility",
       labelKey: "settings.tab.compatibility",
@@ -564,6 +588,7 @@ export function buildSettingsCatalog(
         { tab: "appearance", label: t("settings.appearance"), icon: <PaletteIcon /> },
         { tab: "interface", label: t("settings.interface"), icon: <ListIcon /> },
         { tab: "hardware", label: t("settings.tab.hardware"), icon: <HardwareIcon /> },
+        { tab: "overlay", label: t("settings.tab.overlay"), icon: <OverlayIcon /> },
       ],
     },
     {
@@ -657,7 +682,8 @@ export function getCategoryForTab(tab: SettingsTab): string {
     tab === "general" ||
     tab === "appearance" ||
     tab === "interface" ||
-    tab === "hardware"
+    tab === "hardware" ||
+    tab === "overlay"
   ) {
     return "personalize";
   }

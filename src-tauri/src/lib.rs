@@ -93,6 +93,7 @@ mod roms;
 mod system;
 mod launcher;
 mod launch_splash;
+mod overlay;
 mod media;
 mod store;
 mod sessions;
@@ -128,6 +129,15 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // Global hotkey for the in-game overlay. The handler toggles the
+        // overlay's click-through state in Rust and notifies its window; the
+        // binding itself is registered from `.setup` and re-registered by
+        // `overlay_set_hotkey`.
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(overlay::handle_hotkey)
+                .build(),
+        )
         // L4: autostart-on-boot. Pass an empty args vec — we don't
         // currently ship a `--minimized` flag, so the binary just
         // launches into the regular window. The plugin also writes
@@ -465,7 +475,21 @@ pub fn run() {
             saves::saves_get_backup_manifest,
             saves::saves_open_path,
             saves::saves_open_backup,
-            saves::saves_open_location])
+            saves::saves_open_location,
+            // In-game overlay — window lifecycle, settings, hotkey and the
+            // live telemetry bridge.
+            overlay::overlay_show,
+            overlay::overlay_hide,
+            overlay::overlay_set_interactive,
+            overlay::overlay_set_collapsed,
+            overlay::overlay_save_bounds,
+            overlay::overlay_set_corner,
+            overlay::overlay_get_settings,
+            overlay::overlay_get_session,
+            overlay::overlay_save_settings,
+            overlay::overlay_set_hotkey,
+            overlay::overlay_start_live_metrics,
+            overlay::overlay_stop_live_metrics])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since
@@ -614,6 +638,20 @@ pub fn run() {
             // (see `launch_splash`). Managed here so the commands can read
             // it through `tauri::State`.
             app.manage(launch_splash::LaunchSplashState::default());
+
+            // ── In-game overlay ────────────────────────────────────────
+            // Read the persisted settings into the managed runtime mirror,
+            // forward game lifecycle events to the overlay window, and bind
+            // the global toggle hotkey. The window itself is built lazily on
+            // the first `overlay_show`.
+            let overlay_settings = overlay::load_settings(&db);
+            let overlay_state: overlay::OverlayState =
+                Arc::new(std::sync::Mutex::new(overlay::OverlayRuntime::new(
+                    overlay_settings,
+                )));
+            app.manage(overlay_state.clone());
+            overlay::register_listeners(app.handle());
+            overlay::register_default_hotkey(app.handle(), &overlay_state);
 
             // â”€â”€ Initialize the GameWatcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             // Long-lived background service that polls WMI for running
@@ -888,8 +926,12 @@ pub fn run() {
 fn create_config_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     // `create` is the exact flag Tauri's own setup pass filters on, so build
     // the ones it skipped and only those — a window left at the default
-    // (`create: true`) is never built twice.
+    // (`create: true`) is never built twice. The overlay is exempt: it is
+    // built lazily by `overlay_show` the first time the HUD is needed.
     for window_config in app.config().app.windows.iter().filter(|w| !w.create) {
+        if window_config.label == overlay::OVERLAY_WINDOW_LABEL {
+            continue;
+        }
         WebviewWindowBuilder::from_config(app, window_config)?.build()?;
     }
     Ok(())

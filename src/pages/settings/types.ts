@@ -15,6 +15,7 @@ export type SettingsTab =
   | "backup"
   | "saves"
   | "diagnostics"
+  | "overlay"
   | "compatibility";
 
 /** One destination in the sidebar (always a whole tab — never an in-tab anchor). */

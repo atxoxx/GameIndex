@@ -598,3 +598,23 @@ export function DiagnosticsIcon() {
     </svg>
   );
 }
+
+/** Monitor with a floating HUD card — the In-Game Overlay settings tab. */
+export function OverlayIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="4" width="20" height="14" rx="2" />
+      <path d="M8 21h8" />
+      <path d="M12 18v3" />
+      <rect x="12" y="8" width="7" height="5" rx="1" />
+    </svg>
+  );
+}

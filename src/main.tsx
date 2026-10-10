@@ -41,17 +41,17 @@ recordBreadcrumb("app", "frontend boot");
 
 const root = document.getElementById("root") as HTMLElement;
 
-/** Window discriminator set on the Tauri URL by the Rust window builder. */
+/** Window discriminators set on the Tauri URL by the Rust window builder. */
 const LAUNCH_SPLASH_PARAM = "launch-splash";
+const OVERLAY_PARAM = "overlay";
 
 async function bootstrap() {
+  const windowParam = new URLSearchParams(window.location.search).get("window");
+
   // The standalone launch splash lives in its own `launch-splash` webview.
   // Boot only the splash entry there — skipping the App chunk keeps the
   // window's first paint (and therefore the reveal) fast.
-  if (
-    new URLSearchParams(window.location.search).get("window") ===
-    LAUNCH_SPLASH_PARAM
-  ) {
+  if (windowParam === LAUNCH_SPLASH_PARAM) {
     const { default: LaunchSplashWindow } = await import(
       "./components/LaunchSplashWindow"
     );
@@ -59,6 +59,22 @@ async function bootstrap() {
       <React.StrictMode>
         <BootstrapErrorBoundary>
           <LaunchSplashWindow />
+        </BootstrapErrorBoundary>
+      </React.StrictMode>,
+    );
+    return;
+  }
+
+  // The in-game overlay is its own transparent webview. It mounts a reduced
+  // provider tree, so never pull the full App chunk into the overlay window.
+  if (windowParam === OVERLAY_PARAM) {
+    const { default: OverlayWindow } = await import(
+      "./components/OverlayWindow"
+    );
+    ReactDOM.createRoot(root).render(
+      <React.StrictMode>
+        <BootstrapErrorBoundary>
+          <OverlayWindow />
         </BootstrapErrorBoundary>
       </React.StrictMode>,
     );

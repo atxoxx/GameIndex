@@ -184,6 +184,173 @@ pub fn start_metrics_collection(
     (stop_tx, result_rx)
 }
 
+/// One live telemetry sample for the in-game overlay. Mirrors the persisted
+/// `MetricsSamplePoint` but drops the elapsed-time field the HUD does not use
+/// (the overlay keeps its own session clock).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveMetricsSample {
+    pub cpu: f32,
+    pub gpu: f32,
+    pub ram: f32,
+    pub cpu_temp: f32,
+    pub gpu_temp: f32,
+    /// Instantaneous FPS from a real source (RTSS / Afterburner) when one
+    /// reported this poll, else `None`. Never fabricated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fps: Option<f64>,
+}
+
+/// Handle to a running live-metrics sampler. Dropping it does not stop the
+/// thread; call [`LiveMetricsHandle::stop`] to signal and join it.
+pub struct LiveMetricsHandle {
+    stop_tx: mpsc::Sender<()>,
+    join: Option<std::thread::JoinHandle<()>>,
+}
+
+impl LiveMetricsHandle {
+    /// Signal the sampler to stop and block until the thread has joined.
+    /// Taking `self` makes the handle single-use, so a stale handle can never
+    /// leave a second sampler running in the background.
+    pub fn stop(mut self) {
+        let _ = self.stop_tx.send(());
+        if let Some(join) = self.join.take() {
+            let _ = join.join();
+        }
+    }
+}
+
+/// Start a lightweight live telemetry sampler for the overlay.
+///
+/// Reuses the same single-sample reader and `MetricsConfig` gating as the
+/// session collector — no PresentMon, no second sampling implementation — but
+/// pushes each raw sample through `on_sample` instead of aggregating. The
+/// caller decides where samples go (the overlay emits them to its window) and
+/// stops the sampler via [`LiveMetricsHandle::stop`].
+///
+/// `interval` is clamped to a 200 ms floor and the master `config.enabled`
+/// toggle short-circuits the thread entirely. On non-Windows targets the
+/// thread simply parks until stopped so the lifecycle is identical.
+pub fn start_live_collection<F>(
+    config: MetricsConfig,
+    game_pid: u32,
+    gpu_id: Option<String>,
+    gpu_name: Option<String>,
+    interval: Duration,
+    on_sample: F,
+) -> LiveMetricsHandle
+where
+    F: Fn(LiveMetricsSample) + Send + 'static,
+{
+    let (stop_tx, stop_rx) = mpsc::channel::<()>();
+    let interval = interval.max(Duration::from_millis(200));
+    let join = std::thread::spawn(move || {
+        live_collect_loop(
+            config, stop_rx, game_pid, gpu_id, gpu_name, interval, &on_sample,
+        );
+    });
+    LiveMetricsHandle {
+        stop_tx,
+        join: Some(join),
+    }
+}
+
+/// Windows live sampler: open one WMI/COM session, then read a single sample
+/// per interval through the shared `collect_single_sample` path.
+#[cfg(windows)]
+fn live_collect_loop<F: Fn(LiveMetricsSample)>(
+    config: MetricsConfig,
+    stop_rx: mpsc::Receiver<()>,
+    game_pid: u32,
+    gpu_id: Option<String>,
+    gpu_name: Option<String>,
+    interval: Duration,
+    on_sample: &F,
+) {
+    if !config.enabled {
+        return;
+    }
+
+    let gpu_idx = gpu_id
+        .as_ref()
+        .and_then(|id| id.strip_prefix("gpu-"))
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+
+    // Same COM bootstrap as the session collector: `COMLibrary::new()` can
+    // fail with RPC_E_TOO_LATE once another thread has set security, so fall
+    // back to `without_security()`. No COM/WMI means no samples, not a hang.
+    let com_lib = match COMLibrary::new() {
+        Ok(lib) => lib,
+        Err(_) => match COMLibrary::without_security() {
+            Ok(lib) => lib,
+            Err(_) => return,
+        },
+    };
+    let wmi_con = match WMIConnection::new(com_lib) {
+        Ok(con) => con,
+        Err(_) => return,
+    };
+    let total_ram_mb = get_total_ram_mb(&wmi_con);
+
+    let mut lhm_con = None;
+    let mut ohm_con = None;
+    if config.capture_cpu_temp || config.capture_gpu_temp {
+        lhm_con = open_hwmon("ROOT\\LibreHardwareMonitor");
+        if lhm_con.is_none() {
+            ohm_con = open_hwmon("ROOT\\OpenHardwareMonitor");
+        }
+    }
+
+    let start = Instant::now();
+    loop {
+        let sample = collect_single_sample(
+            &wmi_con,
+            lhm_con.as_ref(),
+            ohm_con.as_ref(),
+            game_pid,
+            gpu_idx,
+            gpu_name.as_deref(),
+            total_ram_mb,
+            config.capture_fps,
+            config.capture_cpu,
+            config.capture_gpu,
+            config.capture_ram,
+            config.capture_cpu_temp,
+            config.capture_gpu_temp,
+            start,
+        );
+        on_sample(LiveMetricsSample {
+            cpu: sample.cpu_usage as f32,
+            gpu: sample.gpu_usage as f32,
+            ram: sample.ram_usage as f32,
+            cpu_temp: sample.cpu_temp as f32,
+            gpu_temp: sample.gpu_temp as f32,
+            fps: if config.capture_fps { sample.rtss_fps } else { None },
+        });
+
+        match stop_rx.recv_timeout(interval) {
+            Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+        }
+    }
+}
+
+/// Non-Windows live sampler: the overlay targets Windows, so there is nothing
+/// to read here. Park until the caller stops us so start/stop semantics match.
+#[cfg(not(windows))]
+fn live_collect_loop<F: Fn(LiveMetricsSample)>(
+    _config: MetricsConfig,
+    stop_rx: mpsc::Receiver<()>,
+    _game_pid: u32,
+    _gpu_id: Option<String>,
+    _gpu_name: Option<String>,
+    _interval: Duration,
+    _on_sample: &F,
+) {
+    let _ = stop_rx.recv();
+}
+
 /// Linux per-second sampler: `/proc/stat` CPU, `/proc/meminfo` RAM, sysfs
 /// GPU load (amdgpu `gpu_busy_percent`) + temperatures (hwmon with an
 /// nvidia-smi fallback), and best-effort FPS from an active MangoHud log.
@@ -1882,5 +2049,64 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
         assert_eq!(parse_gamescope_stats_fps(""), None);
         // Rejects absurd values rather than poisoning the session metrics.
         assert_eq!(parse_gamescope_stats_fps("fps=123456789.0\n"), None);
+    }
+
+    // ─────────── tests for the overlay live sampler ───────────
+
+    #[test]
+    fn live_sample_serialises_camel_case_and_omits_missing_fps() {
+        let sample = LiveMetricsSample {
+            cpu: 42.0,
+            gpu: 88.0,
+            ram: 55.0,
+            cpu_temp: 61.0,
+            gpu_temp: 70.0,
+            fps: None,
+        };
+        let value = serde_json::to_value(&sample).unwrap();
+        assert_eq!(value["cpu"], serde_json::json!(42.0));
+        assert_eq!(value["cpuTemp"], serde_json::json!(61.0));
+        assert_eq!(value["gpuTemp"], serde_json::json!(70.0));
+        // No real FPS source → the key is absent, never fabricated.
+        assert!(value.get("fps").is_none());
+
+        let with_fps = LiveMetricsSample { fps: Some(143.7), ..sample };
+        let value = serde_json::to_value(&with_fps).unwrap();
+        assert_eq!(value["fps"], serde_json::json!(143.7));
+    }
+
+    #[test]
+    fn live_collection_disabled_emits_nothing_and_stops_cleanly() {
+        // Master toggle off: the thread returns immediately, so the handle
+        // must still stop + join without blocking and emit zero samples.
+        let config = MetricsConfig {
+            enabled: false,
+            ..MetricsConfig::default()
+        };
+        let samples = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+        let counter = samples.clone();
+        let handle = start_live_collection(
+            config,
+            0,
+            None,
+            None,
+            Duration::from_millis(1000),
+            move |_| {
+                *counter.lock().unwrap() += 1;
+            },
+        );
+        handle.stop();
+        assert_eq!(*samples.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn live_handle_stop_is_idempotent_across_threads() {
+        // A parked (non-Windows) or disabled sampler must join promptly even
+        // when stopped right after start — no lost wake-up, no hang.
+        let config = MetricsConfig {
+            enabled: false,
+            ..MetricsConfig::default()
+        };
+        start_live_collection(config, 0, None, None, Duration::from_millis(5), |_| {}).stop();
     }
 }

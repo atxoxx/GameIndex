@@ -1276,6 +1276,7 @@ pub fn launch_with_mo2(
             game_id: game_id.to_string(),
             game_name: game_name.to_string(),
             detected_exe: real_exe_path.clone(),
+            pid: 0,
         },
     );
 

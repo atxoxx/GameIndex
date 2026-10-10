@@ -645,6 +645,16 @@ impl GameWatcher {
         self.metrics_config.clone()
     }
 
+    /// PID of a tracked session's process, or `None` while it is still
+    /// pending (no process captured yet). Lets the overlay resolve a game's
+    /// PID for RTSS/Afterburner FPS without waiting on the next event.
+    pub fn active_pid(&self, game_id: &str) -> Option<u32> {
+        self.active_sessions
+            .get(game_id)
+            .map(|session| session.last_pid)
+            .filter(|pid| *pid != 0)
+    }
+
     /// Register a session launched explicitly through the app.
     pub fn register_launched_session(
         &mut self,
@@ -720,6 +730,7 @@ impl GameWatcher {
                     game_id: game_id.to_string(),
                     game_name: game_name.to_string(),
                     detected_exe: exe_path.map(|s| s.to_string()),
+                    pid: initial_pid,
                 },
             );
         }
@@ -1007,6 +1018,7 @@ impl GameWatcher {
                             game_id: session.game_id.clone(),
                             game_name: session.game_name.clone(),
                             detected_exe: Some(proc.exe_path),
+                            pid: proc.pid,
                         },
                     );
                 }
@@ -1151,6 +1163,7 @@ impl GameWatcher {
                 game_id: game.game_id.clone(),
                 game_name: game.game_name.clone(),
                 detected_exe: Some(proc.exe_path.clone()),
+                pid: proc.pid,
             },
         );
     }
@@ -1952,6 +1965,12 @@ pub struct GameStartedPayload {
     pub game_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detected_exe: Option<String>,
+    /// OS process id of the game process, or `0` while a launch is still
+    /// pending (the real PID isn't known yet). Carried on the event because
+    /// `game-started` is emitted while the watcher mutex is held, so listeners
+    /// (the in-game overlay) must not re-lock the watcher to resolve it.
+    #[serde(default)]
+    pub pid: u32,
 }
 
 /// Payload for the periodic "game-progress" heartbeat emitted by the poll

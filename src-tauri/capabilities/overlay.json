@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "overlay",
+  "description": "Capability for the in-game overlay window. It listens for the metrics/toggle/session events pushed by Rust and toggles its own visibility/focus; the control commands (show/hide/settings/live metrics) are application commands, which are not ACL-gated for local origins. Global-shortcut registration happens in Rust, so no global-shortcut permission is needed here.",
+  "windows": ["overlay"],
+  "permissions": [
+    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging",
+    "core:window:allow-start-resize-dragging"
+  ]
+}
