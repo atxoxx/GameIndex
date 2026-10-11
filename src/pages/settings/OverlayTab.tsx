@@ -4,13 +4,18 @@ import {
   Activity,
   Bell,
   Camera,
+  Circle,
+  Clapperboard,
   Clock,
   Cpu,
   Download,
   Gauge,
+  MemoryStick,
+  Mic,
   Monitor,
   Sliders,
   StickyNote,
+  Thermometer,
   Timer,
   Trophy,
   Video,
@@ -35,7 +40,15 @@ const TICKER_LABELS: Record<string, string> = {
   fps: "overlay.metric.fps",
   cpu: "overlay.metric.cpu",
   gpu: "overlay.metric.gpu",
+  cpuTemp: "overlay.metric.cpuTemp",
+  gpuTemp: "overlay.metric.gpuTemp",
+  ram: "overlay.metric.ram",
+  sparkline: "overlay.ticker.sparkline",
   session: "overlay.widget.session",
+  mic: "overlay.ticker.mic",
+  record: "overlay.ticker.record",
+  replay: "overlay.ticker.replay",
+  screenshot: "overlay.action.screenshot",
 };
 
 const PANEL_LABELS: Record<string, string> = {
@@ -59,6 +72,21 @@ function tickerIcon(key: string) {
       return <Cpu />;
     case "gpu":
       return <Monitor />;
+    case "cpuTemp":
+    case "gpuTemp":
+      return <Thermometer />;
+    case "ram":
+      return <MemoryStick />;
+    case "sparkline":
+      return <Activity />;
+    case "mic":
+      return <Mic />;
+    case "record":
+      return <Circle />;
+    case "replay":
+      return <Clapperboard />;
+    case "screenshot":
+      return <Camera />;
     default:
       return <Clock />;
   }

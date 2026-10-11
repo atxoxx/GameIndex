@@ -38,8 +38,8 @@ const SETTINGS_KEY: &str = "overlay.settings.v1";
 /// Default window footprints in physical pixels. The user can drag/resize the
 /// HUD; the resulting bounds are persisted per presentation (see
 /// `overlay_save_bounds`).
-const DEFAULT_TICKER_WIDTH: f64 = 380.0;
-const DEFAULT_TICKER_HEIGHT: f64 = 56.0;
+const DEFAULT_TICKER_WIDTH: f64 = 480.0;
+const DEFAULT_TICKER_HEIGHT: f64 = 72.0;
 const DEFAULT_PANEL_WIDTH: f64 = 540.0;
 const DEFAULT_PANEL_HEIGHT: f64 = 620.0;
 /// Clamps so a bad persisted size can't produce an unusable window.
@@ -151,10 +151,23 @@ impl Default for OverlaySettings {
             hotkey: "Shift+F1".to_string(),
             corner: "bottom-right".to_string(),
             opacity: 0.9,
-            ticker_widgets: ["fps", "cpu", "gpu", "session"]
-                .iter()
-                .map(|s| s.to_string())
-                .collect(),
+            ticker_widgets: [
+                "fps",
+                "cpu",
+                "gpu",
+                "cpuTemp",
+                "gpuTemp",
+                "ram",
+                "sparkline",
+                "session",
+                "mic",
+                "record",
+                "replay",
+                "screenshot",
+            ]
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
             panel_widgets: [
                 "session",
                 "performance",
@@ -634,6 +647,40 @@ pub fn overlay_save_bounds(
         rt.settings.clone()
     };
     persist_settings(&app, &settings)
+}
+
+/// Resize the ticker window to fit its measured content. The frontend measures
+/// the HUD and calls this whenever the element set changes; the window is
+/// re-anchored to its corner (or kept at a dragged position) and the new
+/// footprint is persisted by the usual `overlay_save_bounds` round-trip.
+#[tauri::command]
+pub fn overlay_fit_ticker(
+    app: AppHandle,
+    state: tauri::State<'_, OverlayState>,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    let settings = {
+        let mut rt = lock(state.inner());
+        if !rt.collapsed {
+            return Ok(());
+        }
+        let w = width.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM);
+        let h = height.clamp(MIN_OVERLAY_HEIGHT, MAX_OVERLAY_DIM);
+        // Ignore sub-pixel churn so the ResizeObserver can't ping-pong.
+        if (rt.settings.ticker_width - w).abs() < 1.0
+            && (rt.settings.ticker_height - h).abs() < 1.0
+        {
+            return Ok(());
+        }
+        rt.settings.ticker_width = w;
+        rt.settings.ticker_height = h;
+        rt.settings.clone()
+    };
+    if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        apply_geometry(&window, &app, &settings, true)?;
+    }
+    Ok(())
 }
 
 /// Reposition the overlay to a new corner and persist the choice.
@@ -1699,7 +1746,13 @@ mod tests {
         assert_eq!(settings.hotkey, "Shift+F1");
         assert_eq!(settings.corner, "bottom-right");
         assert!((settings.opacity - 0.9).abs() < f64::EPSILON);
-        assert_eq!(settings.ticker_widgets, vec!["fps", "cpu", "gpu", "session"]);
+        assert_eq!(
+            settings.ticker_widgets,
+            vec![
+                "fps", "cpu", "gpu", "cpuTemp", "gpuTemp", "ram", "sparkline", "session", "mic",
+                "record", "replay", "screenshot"
+            ]
+        );
         assert_eq!(settings.poll_interval_ms, 1000);
         assert_eq!(settings.panel_widgets.len(), 10);
         // Capture defaults
@@ -1723,7 +1776,7 @@ mod tests {
         assert_eq!(parsed.hotkey, "Ctrl+F8");
         assert_eq!(parsed.corner, "bottom-right");
         assert_eq!(parsed.poll_interval_ms, 1000);
-        assert_eq!(parsed.ticker_widgets, vec!["fps", "cpu", "gpu", "session"]);
+        assert_eq!(parsed.ticker_widgets.len(), 12);
     }
 
     #[test]

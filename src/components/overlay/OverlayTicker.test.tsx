@@ -7,7 +7,7 @@ import {
 } from "../../context/OverlayContext";
 import { useDownloads } from "../../context/DownloadContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { makeOverlayValue } from "./overlayTestValue";
+import { baseOverlaySettings, makeOverlayValue } from "./overlayTestValue";
 
 // `TICKER_WIDGETS` is read by the component, so the mock must carry it.
 vi.mock("../../context/OverlayContext", () => ({
@@ -65,6 +65,43 @@ describe("OverlayTicker", () => {
 
     expect(screen.getByTestId("overlay-ticker")).toHaveTextContent(
       "overlay.metric.fps —",
+    );
+  });
+
+  it("toggles recording from the ticker record button", () => {
+    const toggleRecording = vi.fn().mockResolvedValue(undefined);
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        captureSupported: true,
+        toggleRecording,
+        settings: { ...baseOverlaySettings, tickerWidgets: ["fps", "record"] },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    fireEvent.click(screen.getByTestId("overlay-ticker-record"));
+    expect(toggleRecording).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a live REC chip while recording", () => {
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        captureSupported: true,
+        isRecording: true,
+        recordingState: {
+          recording: true,
+          replayBuffering: false,
+          startedAt: Date.now() - 5000,
+          durationMs: 5000,
+          error: null,
+        },
+        settings: { ...baseOverlaySettings, tickerWidgets: ["fps", "record"] },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker-rec-timer")).toHaveTextContent(
+      "overlay.ticker.rec",
     );
   });
 });

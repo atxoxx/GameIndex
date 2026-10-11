@@ -12,6 +12,11 @@ import {
   Layers,
   Camera,
   Video,
+  Circle,
+  Clapperboard,
+  MemoryStick,
+  Mic,
+  Thermometer,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -33,6 +38,49 @@ const CORNERS: { id: OverlayCorner; labelKey: string }[] = [
 ];
 
 const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta", "OS"]);
+
+const TICKER_LABELS: Record<string, string> = {
+  fps: "overlay.metric.fps",
+  cpu: "overlay.metric.cpu",
+  gpu: "overlay.metric.gpu",
+  cpuTemp: "overlay.metric.cpuTemp",
+  gpuTemp: "overlay.metric.gpuTemp",
+  ram: "overlay.metric.ram",
+  sparkline: "overlay.ticker.sparkline",
+  session: "overlay.widget.session",
+  mic: "overlay.ticker.mic",
+  record: "overlay.ticker.record",
+  replay: "overlay.ticker.replay",
+  screenshot: "overlay.action.screenshot",
+};
+
+function tickerIcon(key: string) {
+  switch (key) {
+    case "fps":
+      return <Gauge size={12} />;
+    case "cpu":
+      return <Cpu size={12} />;
+    case "gpu":
+      return <Monitor size={12} />;
+    case "cpuTemp":
+    case "gpuTemp":
+      return <Thermometer size={12} />;
+    case "ram":
+      return <MemoryStick size={12} />;
+    case "sparkline":
+      return <Activity size={12} />;
+    case "mic":
+      return <Mic size={12} />;
+    case "record":
+      return <Circle size={12} />;
+    case "replay":
+      return <Clapperboard size={12} />;
+    case "screenshot":
+      return <Camera size={12} />;
+    default:
+      return <Clock size={12} />;
+  }
+}
 
 function acceleratorFromEvent(event: KeyboardEvent): string | null {
   if (MODIFIER_KEYS.has(event.key)) return null;
@@ -560,12 +608,10 @@ export default function SettingsWidget() {
                     onClick={() =>
                       handleToggleWidget("tickerWidgets", key, !active)
                     }
+                    title={t(TICKER_LABELS[key] ?? key)}
                   >
-                    {key === "fps" && <Gauge size={12} />}
-                    {key === "cpu" && <Cpu size={12} />}
-                    {key === "gpu" && <Monitor size={12} />}
-                    {key === "session" && <Clock size={12} />}
-                    <span>{key.toUpperCase()}</span>
+                    {tickerIcon(key)}
+                    <span>{t(TICKER_LABELS[key] ?? key)}</span>
                   </button>
                 );
               })}

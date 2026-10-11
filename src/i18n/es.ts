@@ -8400,4 +8400,12 @@ export const es: TranslationDict = {
   "overlay.settings.audioDevice": "Dispositivo de audio",
   "overlay.settings.micDevice": "Micrófono",
   "overlay.settings.deviceDefault": "Predeterminado del sistema",
+  "overlay.ticker.sparkline": "Gráfico",
+  "overlay.ticker.mic": "Micrófono",
+  "overlay.ticker.record": "Botón de grabación",
+  "overlay.ticker.replay": "Controles de repetición",
+  "overlay.ticker.rec": "REC",
+  "overlay.ticker.replayArmed": "REPLAY",
+  "overlay.ticker.micOn": "Micrófono activado",
+  "overlay.ticker.micOff": "Micrófono desactivado",
 };

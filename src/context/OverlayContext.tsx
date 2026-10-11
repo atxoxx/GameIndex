@@ -163,7 +163,23 @@ export interface AudioDeviceList {
 export const EMPTY_AUDIO_DEVICES: AudioDeviceList = { output: [], input: [] };
 
 /** Ticker widget keys, in fixed display order. */
-export const TICKER_WIDGETS = ["fps", "cpu", "gpu", "session"] as const;
+export const TICKER_WIDGETS = [
+  "fps",
+  "cpu",
+  "gpu",
+  "cpuTemp",
+  "gpuTemp",
+  "ram",
+  "sparkline",
+  "session",
+  "mic",
+  "record",
+  "replay",
+  "screenshot",
+] as const;
+
+/** Ticker elements enabled out of the box. */
+export const DEFAULT_TICKER_WIDGETS: string[] = [...TICKER_WIDGETS];
 
 /** Panel widget keys, in fixed display order. */
 export const PANEL_WIDGETS = [
@@ -187,7 +203,7 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   hotkey: "Shift+F1",
   corner: "bottom-right",
   opacity: 0.9,
-  tickerWidgets: ["fps", "cpu", "gpu", "session"],
+  tickerWidgets: DEFAULT_TICKER_WIDGETS,
   panelWidgets: [
     "session",
     "performance",
@@ -205,8 +221,8 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   showGraphs: true,
   posX: null,
   posY: null,
-  tickerWidth: 380,
-  tickerHeight: 56,
+  tickerWidth: 480,
+  tickerHeight: 72,
   panelWidth: 540,
   panelHeight: 620,
   screenshotFormat: "png",

@@ -484,6 +484,7 @@ pub fn run() {
             overlay::overlay_set_interactive,
             overlay::overlay_set_collapsed,
             overlay::overlay_save_bounds,
+            overlay::overlay_fit_ticker,
             overlay::overlay_set_corner,
             overlay::overlay_get_settings,
             overlay::overlay_get_session,

@@ -8400,4 +8400,12 @@ export const ru: TranslationDict = {
   "overlay.settings.audioDevice": "Устройство звука",
   "overlay.settings.micDevice": "Микрофон",
   "overlay.settings.deviceDefault": "По умолчанию",
+  "overlay.ticker.sparkline": "График",
+  "overlay.ticker.mic": "Микрофон",
+  "overlay.ticker.record": "Кнопка записи",
+  "overlay.ticker.replay": "Управление реплеем",
+  "overlay.ticker.rec": "ЗАПИСЬ",
+  "overlay.ticker.replayArmed": "РЕПЛЕЙ",
+  "overlay.ticker.micOn": "Микрофон включён",
+  "overlay.ticker.micOff": "Микрофон выключен",
 };

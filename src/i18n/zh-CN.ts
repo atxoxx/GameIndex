@@ -8399,4 +8399,12 @@ export const zhCN: TranslationDict = {
   "overlay.settings.audioDevice": "音频设备",
   "overlay.settings.micDevice": "麦克风",
   "overlay.settings.deviceDefault": "系统默认",
+  "overlay.ticker.sparkline": "图表",
+  "overlay.ticker.mic": "麦克风",
+  "overlay.ticker.record": "录制按钮",
+  "overlay.ticker.replay": "回放控制",
+  "overlay.ticker.rec": "录制",
+  "overlay.ticker.replayArmed": "回放就绪",
+  "overlay.ticker.micOn": "麦克风已开启",
+  "overlay.ticker.micOff": "麦克风已关闭",
 };

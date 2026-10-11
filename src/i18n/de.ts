@@ -8399,4 +8399,12 @@ export const de: TranslationDict = {
   "overlay.settings.audioDevice": "Audiogerät",
   "overlay.settings.micDevice": "Mikrofon",
   "overlay.settings.deviceDefault": "Systemstandard",
+  "overlay.ticker.sparkline": "Diagramm",
+  "overlay.ticker.mic": "Mikrofon",
+  "overlay.ticker.record": "Aufnahmetaste",
+  "overlay.ticker.replay": "Replay-Steuerung",
+  "overlay.ticker.rec": "REC",
+  "overlay.ticker.replayArmed": "REPLAY",
+  "overlay.ticker.micOn": "Mikrofon an",
+  "overlay.ticker.micOff": "Mikrofon aus",
 };

@@ -8392,4 +8392,12 @@ export const en: TranslationDict = {
   "overlay.settings.audioDevice": "Audio device",
   "overlay.settings.micDevice": "Microphone",
   "overlay.settings.deviceDefault": "System default",
+  "overlay.ticker.sparkline": "Graph",
+  "overlay.ticker.mic": "Microphone",
+  "overlay.ticker.record": "Record button",
+  "overlay.ticker.replay": "Replay controls",
+  "overlay.ticker.rec": "REC",
+  "overlay.ticker.replayArmed": "REPLAY",
+  "overlay.ticker.micOn": "Microphone on",
+  "overlay.ticker.micOff": "Microphone off",
 };
