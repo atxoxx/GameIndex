@@ -266,8 +266,9 @@ impl LiveMetricsHandle {
 /// stops the sampler via [`LiveMetricsHandle::stop`].
 ///
 /// `interval` is clamped to a 200 ms floor and the master `config.enabled`
-/// toggle short-circuits the thread entirely. On non-Windows targets the
-/// thread simply parks until stopped so the lifecycle is identical.
+/// toggle short-circuits the thread entirely. On Windows and Linux the thread
+/// samples real telemetry; on other targets it simply parks until stopped so
+/// the lifecycle is identical.
 pub fn start_live_collection<F>(
     config: MetricsConfig,
     game_pid: u32,
@@ -324,7 +325,8 @@ fn game_is_foreground(game_pid: u32) -> bool {
     }
 }
 
-/// Non-Windows stub: the overlay is Windows-only, so never gate collection.
+/// Non-Windows stub: Linux keeps collecting (its sources are cheap file reads),
+/// and other targets have no overlay at all, so never gate collection here.
 #[cfg(not(windows))]
 fn game_is_foreground(_game_pid: u32) -> bool {
     true
@@ -438,9 +440,119 @@ fn live_collect_loop<F: Fn(LiveMetricsSample)>(
     }
 }
 
-/// Non-Windows live sampler: the overlay targets Windows, so there is nothing
-/// to read here. Park until the caller stops us so start/stop semantics match.
-#[cfg(not(windows))]
+/// Linux live sampler: the same `/proc`, sysfs and MangoHud sources the session
+/// collector uses, sampled into `LiveMetricsSample` for the HUD. There is no
+/// focus gate here — every source is a cheap file read, so there is nothing
+/// expensive to skip while the game is backgrounded.
+#[cfg(target_os = "linux")]
+fn live_collect_loop<F: Fn(LiveMetricsSample)>(
+    config: MetricsConfig,
+    stop_rx: mpsc::Receiver<()>,
+    _game_pid: u32,
+    gpu_id: Option<String>,
+    _gpu_name: Option<String>,
+    interval: Duration,
+    on_sample: &F,
+) {
+    if !config.enabled {
+        return;
+    }
+
+    // Resolve the stable sensor sources once, exactly like the session loop.
+    let mut gpu_source = LinuxGpuSource::detect(gpu_id.as_deref());
+    let cpu_temp_source = CpuTempSource::detect();
+
+    let mut mangohud_known: Vec<std::path::PathBuf> = Vec::new();
+    let mut mangohud_checked: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::new();
+    let mut mangohud_last_list: Option<Instant> = None;
+
+    // Seed the CPU delta counters so the first sample already has a real
+    // interval instead of reading 0%.
+    let mut prev_total: u64 = 0;
+    let mut prev_idle: u64 = 0;
+    if config.capture_cpu {
+        if let Some((total, idle)) = read_proc_stat_cpu() {
+            prev_total = total;
+            prev_idle = idle;
+        }
+    }
+
+    loop {
+        let mut cpu_usage = 0.0f32;
+        if config.capture_cpu {
+            if let Some((total, idle)) = read_proc_stat_cpu() {
+                if prev_total > 0 && total > prev_total {
+                    let idle_delta = idle.saturating_sub(prev_idle);
+                    let total_delta = total - prev_total;
+                    cpu_usage = ((total_delta - idle_delta) as f32 / total_delta as f32) * 100.0;
+                }
+                prev_total = total;
+                prev_idle = idle;
+            }
+        }
+
+        let ram = if config.capture_ram {
+            read_meminfo_usage_pct().unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
+        let mut gpu_usage = 0.0f32;
+        let mut gpu_temp = 0.0f32;
+        if config.capture_gpu || config.capture_gpu_temp {
+            let (u, t) = gpu_source.sample();
+            if config.capture_gpu {
+                gpu_usage = u;
+            }
+            if config.capture_gpu_temp {
+                gpu_temp = t;
+            }
+        }
+
+        let cpu_temp = if config.capture_cpu_temp {
+            cpu_temp_source.sample().unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
+        let fps = if config.capture_fps {
+            read_mangohud_fps(
+                &mut mangohud_known,
+                &mut mangohud_checked,
+                &mut mangohud_last_list,
+            )
+            .or_else(read_gamescope_stats_fps)
+        } else {
+            None
+        };
+
+        on_sample(LiveMetricsSample {
+            cpu: cpu_usage.clamp(0.0, 100.0),
+            gpu: gpu_usage.clamp(0.0, 100.0),
+            ram: ram.clamp(0.0, 100.0),
+            cpu_temp,
+            gpu_temp,
+            fps,
+            frametime: None,
+            vram_used_mb: None,
+            vram_total_mb: None,
+            gpu_power: None,
+            cpu_power: None,
+            gpu_core_clock: None,
+            gpu_mem_clock: None,
+        });
+
+        match stop_rx.recv_timeout(interval) {
+            Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
+    }
+}
+
+/// Non-Windows, non-Linux live sampler: park until the caller stops us so the
+/// start/stop lifecycle matches everywhere.
+#[cfg(not(any(windows, target_os = "linux")))]
 fn live_collect_loop<F: Fn(LiveMetricsSample)>(
     _config: MetricsConfig,
     stop_rx: mpsc::Receiver<()>,
