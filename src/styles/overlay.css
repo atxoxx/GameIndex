@@ -3137,3 +3137,144 @@ body.overlay-window #root {
 :root[data-overlay-contrast="high"] .overlay-gauge__track {
   opacity: 1;
 }
+
+/* ── Guides (in-HUD browser) ─────────────────────────────────────────── */
+/* A compact mini-browser for the current game's wikis, guides and maps. The
+   page itself renders in a native child webview glued to `.overlay-guides__frame`,
+   so the frame is a sized placeholder with no visible chrome of its own. */
+
+.overlay-guides-widget {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.overlay-guides-widget .ui-card__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: var(--space-sm);
+}
+
+.overlay-guides__back {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px 2px 4px;
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.overlay-guides__back:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.overlay-guides__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--space-2xs);
+}
+
+.overlay-guides__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 7px 8px;
+  min-width: 0;
+  font-size: 0.72rem;
+  text-align: left;
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.overlay-guides__link:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.overlay-guides__link-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.overlay-guides__link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-guides__browser {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: var(--space-2xs);
+}
+
+.overlay-guides__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.overlay-guides__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.overlay-guides__external {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.overlay-guides__external:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.overlay-guides__frame {
+  position: relative;
+  flex: 1;
+  min-height: 220px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.overlay-guides__loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+}

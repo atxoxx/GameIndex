@@ -122,14 +122,18 @@ pub async fn create_preview_webview(
     width: f64,
     height: f64,
     content_filter: Option<bool>,
+    // Window to host the child webview. Defaults to `"main"`; the in-game
+    // overlay passes `"overlay"` so its Guides browser embeds in the HUD.
+    window: Option<String>,
 ) -> Result<(), String> {
     use tauri::webview::{NewWindowResponse, WebviewBuilder};
     use tauri::{LogicalPosition, LogicalSize, Position, Size, WebviewUrl};
 
     let parsed: tauri::Url = url.parse().map_err(|e| format!("invalid webview url '{url}': {e}"))?;
+    let window_label = window.unwrap_or_else(|| "main".to_string());
     let main = app
-        .get_window("main")
-        .ok_or_else(|| "main window not found".to_string())?;
+        .get_window(&window_label)
+        .ok_or_else(|| format!("{window_label} window not found"))?;
 
     let builder = WebviewBuilder::new(&label, WebviewUrl::External(parsed))
         .initialization_script(WEBLINKS_PREVIEW_INIT_SCRIPT)

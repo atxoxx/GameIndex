@@ -45,6 +45,9 @@ vi.mock("./widgets/TimerWidget", () => ({
 vi.mock("./widgets/SettingsWidget", () => ({
   default: () => <div data-testid="widget-settings" />,
 }));
+vi.mock("./widgets/GuidesWidget", () => ({
+  default: () => <div data-testid="widget-guides" />,
+}));
 
 const mockOverlay = vi.mocked(useOverlay);
 const mockLanguage = vi.mocked(useLanguage);
@@ -151,12 +154,13 @@ describe("OverlayPanel", () => {
     expect(await screen.findByTestId("widget-performance")).toBeInTheDocument();
   });
 
-  it("renders no tab bar when every widget is disabled", () => {
+  it("keeps the always-on Guides tab when every toggleable widget is disabled", () => {
     mockOverlay.mockReturnValue(overlayValue([]));
     render(<OverlayPanel />);
 
-    expect(screen.queryByTestId("overlay-panel-tabs")).toBeNull();
-    expect(screen.queryByTestId("overlay-panel-tabbody")).toBeNull();
+    // Guides is not user-toggleable, so the bar stays even with nothing else.
+    expect(screen.getByTestId("overlay-panel-tab-guides")).toBeInTheDocument();
+    expect(screen.queryByTestId("overlay-panel-tab-performance")).toBeNull();
   });
 
   it("renders game logo and thumbnail in the header when an active game is running", () => {

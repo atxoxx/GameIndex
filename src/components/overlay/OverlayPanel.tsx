@@ -21,6 +21,7 @@ import {
   Eye,
   Check,
   Loader2,
+  BookOpen,
 } from "lucide-react";
 import { safeArtworkUrl, resolveGameLogo } from "../../utils/artworkUrl";
 import { useOverlay } from "../../context/OverlayContext";
@@ -34,6 +35,7 @@ import { Skeleton } from "../ui";
 // itself stays cheap to mount.
 const SessionWidget = lazy(() => import("./widgets/SessionWidget"));
 const PerformanceWidget = lazy(() => import("./widgets/PerformanceWidget"));
+const GuidesWidget = lazy(() => import("./widgets/GuidesWidget"));
 const AchievementsWidget = lazy(() => import("./widgets/AchievementsWidget"));
 const DownloadsWidget = lazy(() => import("./widgets/DownloadsWidget"));
 const NotificationsWidget = lazy(() => import("./widgets/NotificationsWidget"));
@@ -62,6 +64,14 @@ const GROUPS: OverlayGroup[] = [
     labelKey: "overlay.group.performance",
     icon: <Activity size={13} />,
     widgets: { performance: PerformanceWidget },
+  },
+  {
+    // Always available: the browser is the reason to open the panel mid-game,
+    // so it stays out of the widget on/off list.
+    id: "guides",
+    labelKey: "overlay.group.guides",
+    icon: <BookOpen size={13} />,
+    widgets: { guides: GuidesWidget },
   },
   {
     id: "notes",
@@ -179,7 +189,11 @@ export default function OverlayPanel() {
   const enabled = new Set(settings.panelWidgets);
   const groups = GROUPS.map((group) => ({
     ...group,
-    items: Object.entries(group.widgets).filter(([key]) => enabled.has(key)),
+    // The Guides browser is not user-toggleable — it is always on.
+    items:
+      group.id === "guides"
+        ? Object.entries(group.widgets)
+        : Object.entries(group.widgets).filter(([key]) => enabled.has(key)),
   })).filter((group) => group.items.length > 0);
 
   const active = groups.find((group) => group.id === activeId) ?? groups[0];

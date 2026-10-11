@@ -8,6 +8,11 @@
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "core:event:allow-emit",
+    "opener:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://**" }, { "url": "http://**" }]
+    },
     "core:window:allow-show",
     "core:window:allow-hide",
     "core:window:allow-set-focus",
