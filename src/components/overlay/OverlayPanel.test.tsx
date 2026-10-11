@@ -84,7 +84,7 @@ describe("OverlayPanel", () => {
     } as unknown as ReturnType<typeof useLanguage>);
   });
 
-  it("defaults to the first enabled tab and shows only its content", () => {
+  it("defaults to the first enabled tab and shows only its content", async () => {
     mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
     render(<OverlayPanel />);
 
@@ -92,12 +92,12 @@ describe("OverlayPanel", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByTestId("widget-session")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-session")).toBeInTheDocument();
     expect(screen.queryByTestId("widget-performance")).toBeNull();
     expect(screen.queryByTestId("widget-achievements")).toBeNull();
   });
 
-  it("switches the visible widgets when another tab is clicked", () => {
+  it("switches the visible widgets when another tab is clicked", async () => {
     mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
     render(<OverlayPanel />);
 
@@ -106,47 +106,49 @@ describe("OverlayPanel", () => {
     expect(
       screen.getByTestId("overlay-panel-tab-performance"),
     ).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("widget-performance")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-performance")).toBeInTheDocument();
     expect(screen.queryByTestId("widget-session")).toBeNull();
   });
 
-  it("groups the activity widgets under a single tab", () => {
+  it("groups the activity widgets under a single tab", async () => {
     mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
     render(<OverlayPanel />);
 
     fireEvent.click(screen.getByTestId("overlay-panel-tab-activity"));
 
-    expect(screen.getByTestId("widget-achievements")).toBeInTheDocument();
-    expect(screen.getByTestId("widget-downloads")).toBeInTheDocument();
-    expect(screen.getByTestId("widget-notifications")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-achievements")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-downloads")).toBeInTheDocument();
+    expect(
+      await screen.findByTestId("widget-notifications"),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("widget-session")).toBeNull();
   });
 
-  it("switches to notes, captures, timer, and settings tabs", () => {
+  it("switches to notes, captures, timer, and settings tabs", async () => {
     mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
     render(<OverlayPanel />);
 
     fireEvent.click(screen.getByTestId("overlay-panel-tab-notes"));
-    expect(screen.getByTestId("widget-notes")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-notes")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("overlay-panel-tab-captures"));
-    expect(screen.getByTestId("widget-captures")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-captures")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("overlay-panel-tab-timer"));
-    expect(screen.getByTestId("widget-timer")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-timer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("overlay-panel-tab-settings"));
-    expect(screen.getByTestId("widget-settings")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-settings")).toBeInTheDocument();
   });
 
-  it("drops tabs for groups with no enabled widgets", () => {
+  it("drops tabs for groups with no enabled widgets", async () => {
     mockOverlay.mockReturnValue(overlayValue(["performance"]));
     render(<OverlayPanel />);
 
     expect(screen.getByTestId("overlay-panel-tab-performance")).toBeInTheDocument();
     expect(screen.queryByTestId("overlay-panel-tab-session")).toBeNull();
     expect(screen.queryByTestId("overlay-panel-tab-activity")).toBeNull();
-    expect(screen.getByTestId("widget-performance")).toBeInTheDocument();
+    expect(await screen.findByTestId("widget-performance")).toBeInTheDocument();
   });
 
   it("renders no tab bar when every widget is disabled", () => {

@@ -1,4 +1,12 @@
-import { useState, useMemo, useEffect, type ComponentType, type ReactNode } from "react";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  lazy,
+  Suspense,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import {
   ChevronDown,
   Camera,
@@ -19,16 +27,21 @@ import { useOverlay } from "../../context/OverlayContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useOptionalGames } from "../../context/GameContext";
 import OverlayPanelTabs from "./OverlayPanelTabs";
-import SessionWidget from "./widgets/SessionWidget";
-import PerformanceWidget from "./widgets/PerformanceWidget";
-import AchievementsWidget from "./widgets/AchievementsWidget";
-import DownloadsWidget from "./widgets/DownloadsWidget";
-import NotificationsWidget from "./widgets/NotificationsWidget";
-import NotesWidget from "./widgets/NotesWidget";
-import ScreenshotsWidget from "./widgets/ScreenshotsWidget";
-import RecordingWidget from "./widgets/RecordingWidget";
-import TimerWidget from "./widgets/TimerWidget";
-import SettingsWidget from "./widgets/SettingsWidget";
+import { Skeleton } from "../ui";
+
+// Every panel widget is its own Vite chunk: a tab's code (and whatever it
+// pulls in) is only fetched the first time that tab is opened, so the panel
+// itself stays cheap to mount.
+const SessionWidget = lazy(() => import("./widgets/SessionWidget"));
+const PerformanceWidget = lazy(() => import("./widgets/PerformanceWidget"));
+const AchievementsWidget = lazy(() => import("./widgets/AchievementsWidget"));
+const DownloadsWidget = lazy(() => import("./widgets/DownloadsWidget"));
+const NotificationsWidget = lazy(() => import("./widgets/NotificationsWidget"));
+const NotesWidget = lazy(() => import("./widgets/NotesWidget"));
+const ScreenshotsWidget = lazy(() => import("./widgets/ScreenshotsWidget"));
+const RecordingWidget = lazy(() => import("./widgets/RecordingWidget"));
+const TimerWidget = lazy(() => import("./widgets/TimerWidget"));
+const SettingsWidget = lazy(() => import("./widgets/SettingsWidget"));
 
 interface OverlayGroup {
   id: string;
@@ -85,6 +98,11 @@ const GROUPS: OverlayGroup[] = [
     widgets: { settings: SettingsWidget },
   },
 ];
+
+/** Placeholder shown for the moment a widget's chunk is still downloading. */
+function WidgetFallback() {
+  return <Skeleton shape="rect" width="100%" height="140px" />;
+}
 
 export default function OverlayPanel() {
   const {
@@ -346,9 +364,11 @@ export default function OverlayPanel() {
             data-testid="overlay-panel-tabbody"
           >
             <div className="overlay-group__grid">
-              {active.items.map(([key, Widget]) => (
-                <Widget key={key} />
-              ))}
+              <Suspense fallback={<WidgetFallback />}>
+                {active.items.map(([key, Widget]) => (
+                  <Widget key={key} />
+                ))}
+              </Suspense>
             </div>
           </div>
         </>
