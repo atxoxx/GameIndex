@@ -204,4 +204,31 @@ describe("OverlayProvider background sync", () => {
     expect(contextRef.current?.settings.opacity).toBe(0.42);
     expect(contextRef.current?.settings.tickerLayout).toBe("gauges");
   });
+
+  it("bails out of the settings echo when nothing changed", async () => {
+    mockedInvoke.mockResolvedValue(null);
+
+    render(
+      <OverlayProvider>
+        <Probe />
+      </OverlayProvider>,
+    );
+    await flush();
+
+    const before = contextRef.current!.settings;
+
+    act(() => {
+      handlers.get("overlay:settings")?.({ payload: before });
+    });
+
+    expect(contextRef.current!.settings).toBe(before);
+
+    act(() => {
+      handlers.get("overlay:settings")?.({
+        payload: { ...before, opacity: 0.33 },
+      });
+    });
+
+    expect(contextRef.current!.settings.opacity).toBe(0.33);
+  });
 });

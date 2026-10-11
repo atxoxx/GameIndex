@@ -144,6 +144,46 @@ describe("OverlayTicker", () => {
     );
   });
 
+  it("swaps the expand affordance for a click-through hint when click-through is on", () => {
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        settings: { ...baseOverlaySettings, tickerClickThrough: true },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker-clickthrough")).toBeInTheDocument();
+    expect(screen.queryByTestId("overlay-ticker-expand")).toBeNull();
+  });
+
+  it("keeps the expand button and hides the hint when click-through is off", () => {
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        settings: { ...baseOverlaySettings, tickerClickThrough: false },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker-expand")).toBeInTheDocument();
+    expect(screen.queryByTestId("overlay-ticker-clickthrough")).toBeNull();
+  });
+
+  it("renders a dash for an unknown temperature rather than a fabricated 0°", () => {
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        metrics: { cpu: 10, gpu: 20, ram: 30, cpuTemp: 0, gpuTemp: 67, fps: 60 },
+        settings: {
+          ...baseOverlaySettings,
+          tickerWidgets: ["cpuTemp", "gpuTemp"],
+        },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker-cpuTemp")).toHaveTextContent("—");
+    expect(screen.getByTestId("overlay-ticker-gpuTemp")).toHaveTextContent("67°");
+  });
+
   it("tags usage and temperature pills so CPU and GPU are distinguishable", () => {
     mockOverlay.mockReturnValue(
       makeOverlayValue({
