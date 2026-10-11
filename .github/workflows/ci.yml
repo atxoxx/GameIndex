@@ -48,6 +48,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `tauri build` refuses to compile when the `tauri` crate and
+      # `@tauri-apps/api` disagree on their major/minor version. Compare the
+      # lockfiles here so a dependency bump fails the PR instead of the
+      # release job on both platforms.
+      - name: Check Tauri version alignment
+        run: npm run audit:tauri
+
       - name: Typecheck
         run: npm run typecheck
 

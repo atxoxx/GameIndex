@@ -10,6 +10,7 @@
     "tauri": "tauri",
     "build:appimage": "tauri build && bash scripts/patch-appimage.sh",
     "audit:i18n": "node scripts/audit-i18n.mjs",
+    "audit:tauri": "node scripts/check-tauri-versions.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -17,7 +18,7 @@
     "lint:plugins": "node scripts/lint-plugins.mjs"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2",
+    "@tauri-apps/api": "^2.12.3",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.0.0",

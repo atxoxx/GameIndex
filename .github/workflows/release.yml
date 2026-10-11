@@ -51,6 +51,11 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+      # Tag pushes don't run ci.yml, so re-check here too: `tauri build` aborts
+      # before compiling when the `tauri` crate and @tauri-apps/api drift apart.
+      - name: check Tauri version alignment
+        run: npm run audit:tauri
+
       - name: build and publish tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -77,10 +82,11 @@ jobs:
           # latest.json is assembled once by finalize-release after both
           # platforms uploaded their artifacts - letting both jobs merge it
           # concurrently would drop whichever platform wrote first.
-          uploadUpdaterJson: false
-          # Signatures must stay on the release until finalize-release embeds
-          # them in latest.json, which then strips the .sig assets.
-          uploadUpdaterSignatures: true
+          includeUpdaterJson: false
+
+      # tauri-action always uploads the .sig files next to the bundles. They
+      # stay on the release until finalize-release embeds them in latest.json,
+      # which then strips the standalone assets.
 
       # Tauri v2 has no post-bundle hook, so the AppImage display-stack patch
       # is applied here, after tauri-action built+uploaded the bundle. The
