@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   Activity,
   Bell,
@@ -36,6 +37,13 @@ import { TICKER_LAYOUTS } from "../../components/overlay/overlayLayout";
 import { OverlayIcon } from "./settingsIcons";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
+
+/** Explicit i18n keys per background mode (kept static so audit:i18n sees them). */
+const BG_KEYS: Record<"glass" | "solid" | "dim", string> = {
+  glass: "overlay.settings.bgGlass",
+  solid: "overlay.settings.bgSolid",
+  dim: "overlay.settings.bgDim",
+};
 
 const TICKER_LABELS: Record<string, string> = {
   fps: "overlay.metric.fps",
@@ -235,6 +243,39 @@ export default function OverlayTab() {
       disposed = true;
     };
   }, []);
+
+  // Capture-hotkey bindings are best-effort in the backend; surface a failure
+  // instead of leaving the user wondering why the key does nothing.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    try {
+      listen<{ accelerator?: string }>("overlay:hotkey-error", (event) => {
+        showToast(
+          t("settings.overlay.captureHotkeyFailed", {
+            accelerator: event.payload?.accelerator ?? "",
+          }),
+          "error",
+        );
+      })
+        .then((fn) => {
+          if (cancelled) {
+            fn();
+            return;
+          }
+          unlisten = fn;
+        })
+        .catch(() => {
+          /* no Tauri runtime */
+        });
+    } catch {
+      /* no Tauri runtime */
+    }
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [showToast, t]);
 
   // Debounced autosave for every discrete edit (skip the initial hydrate).
   useEffect(() => {
@@ -460,9 +501,7 @@ export default function OverlayTab() {
                 }
                 onClick={() => update({ backgroundStyle: mode })}
               >
-                {t(
-                  `overlay.settings.bg${mode[0].toUpperCase()}${mode.slice(1)}`,
-                )}
+                {t(BG_KEYS[mode])}
               </button>
             ))}
           </div>
@@ -544,6 +583,38 @@ export default function OverlayTab() {
           checked={settings.reduceEffects ?? false}
           onChange={(on) => update({ reduceEffects: on })}
         />
+
+        <SettingsToggleCard
+          title={t("overlay.settings.clickThrough")}
+          desc={t("overlay.settings.clickThroughDesc")}
+          checked={settings.tickerClickThrough ?? false}
+          onChange={(on) => update({ tickerClickThrough: on })}
+        />
+
+        <div className="hw-card" style={{ marginTop: "1rem" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">
+              {t("overlay.settings.resetSize")}
+            </label>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              update({
+                tickerWidth: DEFAULT_OVERLAY_SETTINGS.tickerWidth,
+                tickerHeight: DEFAULT_OVERLAY_SETTINGS.tickerHeight,
+                panelWidth: DEFAULT_OVERLAY_SETTINGS.panelWidth,
+                panelHeight: DEFAULT_OVERLAY_SETTINGS.panelHeight,
+                posX: null,
+                posY: null,
+              });
+              void invoke("overlay_set_corner", { corner: settings.corner });
+            }}
+          >
+            {t("overlay.settings.resetSize")}
+          </Button>
+        </div>
 
         <SettingsToggleCard
           title={t("settings.overlay.showTemps")}

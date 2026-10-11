@@ -32,6 +32,13 @@ import { useLanguage } from "../../../context/LanguageContext";
 import { Card, Button } from "../../ui";
 import { TICKER_LAYOUTS } from "../overlayLayout";
 
+/** Explicit i18n keys per background mode (kept static so audit:i18n sees them). */
+const BG_KEYS: Record<"glass" | "solid" | "dim", string> = {
+  glass: "overlay.settings.bgGlass",
+  solid: "overlay.settings.bgSolid",
+  dim: "overlay.settings.bgDim",
+};
+
 const CORNERS: { id: OverlayCorner; labelKey: string }[] = [
   { id: "top-left", labelKey: "settings.overlay.corner.topLeft" },
   { id: "top-right", labelKey: "settings.overlay.corner.topRight" },
@@ -183,6 +190,20 @@ export default function SettingsWidget() {
     void invoke("overlay_set_hotkey", { accelerator: DEFAULT_OVERLAY_SETTINGS.hotkey });
   };
 
+  // Restore the default footprint and re-anchor to the configured corner
+  // (which also clears any dragged position).
+  const handleResetSize = () => {
+    void updateSettings({
+      tickerWidth: DEFAULT_OVERLAY_SETTINGS.tickerWidth,
+      tickerHeight: DEFAULT_OVERLAY_SETTINGS.tickerHeight,
+      panelWidth: DEFAULT_OVERLAY_SETTINGS.panelWidth,
+      panelHeight: DEFAULT_OVERLAY_SETTINGS.panelHeight,
+      posX: null,
+      posY: null,
+    });
+    void invoke("overlay_set_corner", { corner: settings.corner });
+  };
+
   return (
     <Card variant="glass" className="overlay-widget overlay-settings-widget">
       <div className="overlay-widget__head">
@@ -275,6 +296,15 @@ export default function SettingsWidget() {
               })}
             </div>
           </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleResetSize}
+          >
+            <RotateCcw size={12} />
+            <span>{t("overlay.settings.resetSize")}</span>
+          </Button>
         </div>
 
         {/* Section: Background treatment */}
@@ -297,7 +327,7 @@ export default function SettingsWidget() {
                     void updateSettings({ backgroundStyle: mode })
                   }
                 >
-                  <span>{t(`overlay.settings.bg${mode[0].toUpperCase()}${mode.slice(1)}`)}</span>
+                  <span>{t(BG_KEYS[mode])}</span>
                 </button>
               ))}
             </div>
@@ -377,6 +407,17 @@ export default function SettingsWidget() {
               }
             />
             <span>{t("overlay.settings.reduceEffects")}</span>
+          </label>
+
+          <label className="overlay-toggle-item">
+            <input
+              type="checkbox"
+              checked={settings.tickerClickThrough ?? false}
+              onChange={(e) =>
+                void updateSettings({ tickerClickThrough: e.target.checked })
+              }
+            />
+            <span>{t("overlay.settings.clickThrough")}</span>
           </label>
         </div>
 
