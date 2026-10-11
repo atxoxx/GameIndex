@@ -285,6 +285,44 @@ where
     }
 }
 
+#[cfg(windows)]
+#[link(name = "user32")]
+extern "system" {
+    fn GetForegroundWindow() -> *mut std::ffi::c_void;
+    fn GetWindowThreadProcessId(hwnd: *mut std::ffi::c_void, process_id: *mut u32) -> u32;
+}
+
+/// Whether the foreground window belongs to the game we are sampling (or our
+/// own process). The live overlay sampler skips its expensive WMI / LHM / MAHM
+/// fan-out while the game is in the background — an alt-tabbed windowed game
+/// would otherwise keep burning CPU on GPU-engine counters for a HUD nobody
+/// can see.
+///
+/// A null foreground (desktop locked, session switch) returns `true` so
+/// telemetry keeps flowing rather than freezing on a transient state. Our own
+/// pid counts as foreground because the expanded panel lives in this process
+/// and still wants live values.
+#[cfg(windows)]
+fn game_is_foreground(game_pid: u32) -> bool {
+    // SAFETY: both calls take/return plain window handles and a pointer to a
+    // stack `u32`; no ownership is transferred.
+    unsafe {
+        let fg = GetForegroundWindow();
+        if fg.is_null() {
+            return true;
+        }
+        let mut fg_pid: u32 = 0;
+        GetWindowThreadProcessId(fg, &mut fg_pid);
+        fg_pid == game_pid || fg_pid == std::process::id()
+    }
+}
+
+/// Non-Windows stub: the overlay is Windows-only, so never gate collection.
+#[cfg(not(windows))]
+fn game_is_foreground(_game_pid: u32) -> bool {
+    true
+}
+
 /// Windows live sampler: open one WMI/COM session, then read a single sample
 /// per interval through the shared `collect_single_sample` path.
 #[cfg(windows)]
@@ -333,38 +371,58 @@ fn live_collect_loop<F: Fn(LiveMetricsSample)>(
     }
 
     let start = Instant::now();
+    // Most recent reading, replayed while the game is backgrounded so the HUD
+    // keeps its values instead of developing a gap. Always a value a real
+    // source produced — never fabricated.
+    let mut last: Option<LiveMetricsSample> = None;
     loop {
-        let sample = collect_single_sample(
-            &wmi_con,
-            lhm_con.as_ref(),
-            ohm_con.as_ref(),
-            game_pid,
-            gpu_idx,
-            gpu_name.as_deref(),
-            total_ram_mb,
-            config.capture_fps,
-            config.capture_cpu,
-            config.capture_gpu,
-            config.capture_ram,
-            config.capture_cpu_temp,
-            config.capture_gpu_temp,
-            start,
-        );
-        on_sample(LiveMetricsSample {
-            cpu: sample.cpu_usage as f32,
-            gpu: sample.gpu_usage as f32,
-            ram: sample.ram_usage as f32,
-            cpu_temp: sample.cpu_temp as f32,
-            gpu_temp: sample.gpu_temp as f32,
-            fps: if config.capture_fps { sample.rtss_fps } else { None },
-            frametime: sample.frametime_ms,
-            vram_used_mb: sample.vram_used_mb,
-            vram_total_mb: sample.vram_total_mb,
-            gpu_power: sample.gpu_power_w,
-            cpu_power: sample.cpu_power_w,
-            gpu_core_clock: sample.gpu_core_clock_mhz,
-            gpu_mem_clock: sample.gpu_mem_clock_mhz,
-        });
+        // Focus gate: while the game is in the background, skip the expensive
+        // per-tick collection and re-emit the last reading. Falls through to a
+        // real collection when no reading exists yet (the game was already
+        // backgrounded when sampling started), so the HUD seeds itself.
+        let live = if !game_is_foreground(game_pid) {
+            last.clone()
+        } else {
+            None
+        };
+        let live = match live {
+            Some(prev) => prev,
+            None => {
+                let sample = collect_single_sample(
+                    &wmi_con,
+                    lhm_con.as_ref(),
+                    ohm_con.as_ref(),
+                    game_pid,
+                    gpu_idx,
+                    gpu_name.as_deref(),
+                    total_ram_mb,
+                    config.capture_fps,
+                    config.capture_cpu,
+                    config.capture_gpu,
+                    config.capture_ram,
+                    config.capture_cpu_temp,
+                    config.capture_gpu_temp,
+                    start,
+                );
+                LiveMetricsSample {
+                    cpu: sample.cpu_usage as f32,
+                    gpu: sample.gpu_usage as f32,
+                    ram: sample.ram_usage as f32,
+                    cpu_temp: sample.cpu_temp as f32,
+                    gpu_temp: sample.gpu_temp as f32,
+                    fps: if config.capture_fps { sample.rtss_fps } else { None },
+                    frametime: sample.frametime_ms,
+                    vram_used_mb: sample.vram_used_mb,
+                    vram_total_mb: sample.vram_total_mb,
+                    gpu_power: sample.gpu_power_w,
+                    cpu_power: sample.cpu_power_w,
+                    gpu_core_clock: sample.gpu_core_clock_mhz,
+                    gpu_mem_clock: sample.gpu_mem_clock_mhz,
+                }
+            }
+        };
+        last = Some(live.clone());
+        on_sample(live);
 
         match stop_rx.recv_timeout(interval) {
             Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return,
