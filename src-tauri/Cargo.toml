@@ -247,5 +247,21 @@ windows = { version = "0.58", features = [
 procfs = "0.17"
 libc = "0.2"
 gtk = { version = "0.18" }
+# X11 overlay support: screen capture (GetImage/XShm), EWMH always-on-top
+# (_NET_WM_STATE_ABOVE), and click-through via an empty XFixes/SHAPE input
+# region. Pure-Rust bindings — no libX11 headers required at build time.
+x11rb = { version = "0.14", features = ["shm", "shape", "xfixes"] }
+# wlr-layer-shell: the only way to pin a window above a fullscreen game on
+# Wayland (sway/Hyprland/KWin). No-op on X11 and unsupported on GNOME.
+# `v0_6` chains v0_5/v0_4 and gates `set_keyboard_mode` + `is_supported`;
+# the crate enables nothing by default.
+gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
+# XDG Desktop Portal client (zbus-backed). Used on Wayland for screenshots
+# (org.freedesktop.portal.Screenshot) and global hotkeys
+# (org.freedesktop.portal.GlobalShortcuts), which have no X11 equivalent.
+ashpd = { version = "0.13", features = ["screencast", "screenshot", "global_shortcuts"] }
+# Decode the PNG the Wayland Screenshot portal writes to disk before we
+# re-encode it in the user's chosen format. Pure-Rust, light.
+png = "0.17"
 
 

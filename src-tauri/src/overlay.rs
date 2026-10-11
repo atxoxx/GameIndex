@@ -7,9 +7,10 @@
 //!
 //! The overlay is a pure view: this module owns the window lifecycle, the
 //! toggle hotkey, the corner geometry, the settings persistence and the live
-//! telemetry bridge. Windows is the only supported platform for the HUD, but
-//! nothing here is Windows-gated, so macOS/Linux builds stay green (the
-//! telemetry source itself no-ops off Windows — see `metrics_collector`).
+//! telemetry bridge. Windows and Linux are both supported; macOS builds stay
+//! green but the HUD is inert there. On Linux the platform-specific work lives
+//! in the `linux` child module (window traits) and the `linux_desktop` display
+//! server probe, because X11 and Wayland need different mechanisms.
 
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -26,6 +27,15 @@ use tauri_plugin_global_shortcut::ShortcutEvent;
 use crate::db;
 use crate::game_watcher::GameWatcher;
 use crate::metrics_collector;
+
+/// Linux-only window helpers (X11 focus hints + Wayland layer-shell).
+#[cfg(target_os = "linux")]
+mod linux;
+/// Wayland global shortcuts via the XDG portal — the global-shortcut plugin
+/// cannot bind on Wayland.
+#[cfg(target_os = "linux")]
+#[path = "overlay/hotkeys_linux.rs"]
+pub(crate) mod hotkeys_linux;
 
 /// Window label of the overlay webview. Mirrored in `tauri.conf.json` and
 /// `capabilities/overlay.json`.
@@ -312,6 +322,9 @@ pub struct OverlayRuntime {
     /// `None` when the CSS background is in charge. Replayed on every show so
     /// a rebuilt window keeps its glass even before the frontend re-syncs.
     pub effect_color: Option<[u8; 4]>,
+    /// Wayland-only: the running XDG GlobalShortcuts portal session, if any.
+    #[cfg(target_os = "linux")]
+    pub portal_hotkeys: Option<hotkeys_linux::PortalHotkeys>,
 }
 
 impl OverlayRuntime {
@@ -326,6 +339,8 @@ impl OverlayRuntime {
             session: None,
             collapsed: true,
             effect_color: None,
+            #[cfg(target_os = "linux")]
+            portal_hotkeys: None,
         }
     }
 }
@@ -465,7 +480,12 @@ fn make_non_activating(window: &WebviewWindow) {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+fn make_non_activating(window: &WebviewWindow) {
+    linux::make_non_activating(window);
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn make_non_activating(_window: &WebviewWindow) {}
 
 /// Toggle the `WS_EX_NOACTIVATE` extended style so the expanded panel can take
@@ -496,7 +516,12 @@ fn set_activation_style(window: &WebviewWindow, activating: bool) {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+fn set_activation_style(window: &WebviewWindow, activating: bool) {
+    linux::set_activation_style(window, activating);
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn set_activation_style(_window: &WebviewWindow, _activating: bool) {}
 
 /// Apply (or clear) the native window backdrop that gives the HUD real,
@@ -531,8 +556,23 @@ fn apply_native_effect(window: &WebviewWindow, color: Option<[u8; 4]>) {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+fn apply_native_effect(window: &WebviewWindow, color: Option<[u8; 4]>) {
+    linux::apply_native_effect(window, color);
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn apply_native_effect(_window: &WebviewWindow, _color: Option<[u8; 4]>) {}
+
+/// Apply platform-specific window traits right after the overlay window is
+/// built. Wayland's layer-shell must be initialised before the first show.
+#[cfg(target_os = "linux")]
+fn configure_platform_window(window: &WebviewWindow) {
+    linux::configure_window(window);
+}
+
+#[cfg(not(target_os = "linux"))]
+fn configure_platform_window(_window: &WebviewWindow) {}
 
 /// Move + size the overlay window for `settings.corner` on the target monitor.
 /// `collapsed` picks the ticker vs panel footprint so the interactive window
@@ -575,6 +615,14 @@ fn apply_geometry(
         _ => corner_rect(&settings.corner, work_area, phys_size, phys_margin)?,
     };
 
+    // Wayland layer-shell positions by anchor + margin, not by pixel origin, so
+    // hand it the corner + size instead of the computed (x, y).
+    #[cfg(target_os = "linux")]
+    if crate::linux_desktop::is_wayland() {
+        linux::set_geometry(window, &settings.corner, phys_size.0, phys_size.1, phys_margin);
+        return Ok(());
+    }
+
     window
         .set_size(PhysicalSize::new(
             phys_size.0.round() as u32,
@@ -613,6 +661,10 @@ fn ensure_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     .visible(false)
     .build()
     .map_err(|e| format!("failed to create overlay window: {e}"))?;
+
+    // Wayland layer-shell (and any future platform traits) must be applied
+    // before the window is first shown.
+    configure_platform_window(&window);
 
     // Never steal focus from the running game: a NOACTIVATE tool window can be
     // shown and clicked without the game losing foreground (which makes many
@@ -1088,6 +1140,23 @@ fn register_binding(
     let previous = which.get(&lock(state));
     let trimmed = accelerator.trim().to_string();
 
+    // The global-shortcut plugin cannot bind on Wayland (there is no protocol);
+    // the XDG GlobalShortcuts portal is the only supported path there. Validate
+    // the accelerator, record it, then reconcile the whole set through the
+    // portal (it registers all bindings in one session).
+    #[cfg(target_os = "linux")]
+    if hotkeys_linux::is_supported() {
+        if !trimmed.is_empty() {
+            parse_accelerator(&trimmed)?;
+        }
+        which.set(
+            &mut lock(state),
+            if trimmed.is_empty() { None } else { Some(trimmed) },
+        );
+        reconcile_portal_hotkeys(app, state);
+        return Ok(());
+    }
+
     let global = app.global_shortcut();
     if let Some(ref previous) = previous {
         if let Ok(old) = Shortcut::from_str(previous) {
@@ -1174,6 +1243,41 @@ pub fn register_default_hotkey(app: &AppHandle, state: &OverlayState) {
     register_capture_hotkeys(app, state);
 }
 
+/// Rebuild the Wayland GlobalShortcuts portal session from the current
+/// bindings. The portal registers the whole set in one session, so any change
+/// replaces the previous one.
+#[cfg(target_os = "linux")]
+fn reconcile_portal_hotkeys(app: &AppHandle, state: &OverlayState) {
+    let bindings = {
+        let rt = lock(state);
+        [
+            ("toggle", &rt.accelerator),
+            ("screenshot", &rt.screenshot_accelerator),
+            ("record", &rt.record_accelerator),
+            ("replay", &rt.replay_accelerator),
+        ]
+        .into_iter()
+        .filter_map(|(id, accel)| {
+            accel
+                .as_ref()
+                .filter(|a| !a.is_empty())
+                .map(|a| (id.to_string(), a.clone()))
+        })
+        .collect::<Vec<_>>()
+    };
+
+    if let Some(previous) = lock(state).portal_hotkeys.take() {
+        previous.stop();
+    }
+    if bindings.is_empty() {
+        return;
+    }
+    match hotkeys_linux::start(app.clone(), bindings) {
+        Ok(service) => lock(state).portal_hotkeys = Some(service),
+        Err(e) => eprintln!("[overlay] wayland global shortcuts unavailable: {e}"),
+    }
+}
+
 /// Global-shortcut handler. Dispatches the overlay toggle, a screenshot, a
 /// record toggle or a replay dump depending on which binding fired.
 pub fn handle_hotkey(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
@@ -1238,6 +1342,42 @@ pub fn handle_hotkey(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent)
             eprintln!("[overlay] hotkey toggle failed: {e}");
         }
     });
+}
+
+/// Dispatch an action triggered by a Wayland GlobalShortcuts portal binding.
+/// `id` is one of `toggle` | `screenshot` | `record` | `replay` — the same
+/// actions [`handle_hotkey`] maps accelerators to.
+#[cfg(target_os = "linux")]
+pub(crate) fn dispatch_portal_binding(app: &AppHandle, id: &str) {
+    match id {
+        "screenshot" => {
+            let handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = overlay_capture_screenshot(handle, None).await;
+            });
+        }
+        "record" => {
+            let handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = crate::capture::capture_toggle_recording(handle);
+            });
+        }
+        "replay" => {
+            let handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = crate::capture::save_replay_impl(&handle);
+            });
+        }
+        "toggle" => {
+            let handle = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                if let Err(e) = show_or_toggle(&handle) {
+                    eprintln!("[overlay] hotkey toggle failed: {e}");
+                }
+            });
+        }
+        other => eprintln!("[overlay] unknown portal binding: {other}"),
+    }
 }
 
 /// Hotkey behaviour: a three-state cycle over the HUD — hidden → compact
@@ -1662,16 +1802,20 @@ mod gdi_capture {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+#[path = "overlay/screenshot_linux.rs"]
+mod gdi_capture;
+
+#[cfg(not(any(windows, target_os = "linux")))]
 mod gdi_capture {
     use std::path::Path;
 
     pub fn capture_rgba() -> Result<(u32, u32, Vec<u8>), String> {
-        Err("In-game screen capture is currently supported on Windows".into())
+        Err("In-game screen capture is currently supported on Windows and Linux".into())
     }
 
     pub fn capture_desktop(_dest: &Path) -> Result<(u32, u32), String> {
-        Err("In-game screen capture is currently supported on Windows".into())
+        Err("In-game screen capture is currently supported on Windows and Linux".into())
     }
 }
 
@@ -1811,7 +1955,14 @@ pub async fn overlay_capture_screenshot(
     let date_str = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
     let stem = format!("Capture_{}_{}", date_str, timestamp % 1000);
 
-    let capture_result = gdi_capture::capture_rgba();
+    // Grab the frame off the async worker: the Wayland path drives a portal
+    // round-trip (and possibly an interactive user prompt) that must not stall
+    // the runtime.
+    let capture_result =
+        match tauri::async_runtime::spawn_blocking(gdi_capture::capture_rgba).await {
+            Ok(result) => result,
+            Err(e) => Err(format!("screen capture task failed: {e}")),
+        };
     let (width, height, rgba) = match capture_result {
         Ok(frame) => frame,
         Err(e) => {
