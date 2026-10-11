@@ -106,6 +106,11 @@ pub struct XboxAuthTokens {
     /// The XSTS token itself.
     #[serde(default)]
     pub token: String,
+    /// The Xbox Live user token (`user.auth.xboxlive.com`). Kept so the
+    /// Store (`mp.microsoft.com`) XSTS the Collections API needs can be
+    /// minted on demand without a fresh sign-in.
+    #[serde(default)]
+    pub xbl_token: String,
     /// Gamertag, when we could resolve it (best-effort).
     #[serde(default)]
     pub gamertag: Option<String>,

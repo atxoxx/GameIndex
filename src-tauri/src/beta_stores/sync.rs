@@ -19,6 +19,27 @@ const CLIENT_ID_XBOX: &str = "38cd2fa8-66fd-4760-afb2-405eb65d5b0c";
 const REDIRECT_XBOX: &str = "https://login.live.com/oauth20_desktop.srf";
 const SCOPE_XBOX: &str = "Xboxlive.signin Xboxlive.offline_access";
 
+/// Xbox Live RelyingParty the Microsoft Store's services (Collections)
+/// expect — as opposed to `http://xboxlive.com`, which the profile and
+/// title-history APIs use.
+const XSTS_MARKETPLACE_RELYING_PARTY: &str = "http://mp.microsoft.com/";
+
+/// The Microsoft Store collection of the signed-in account: the products it
+/// actually holds. This is the ownership source — the Xbox Live
+/// title-history endpoint is a *played* list (Game Pass, borrowed and
+/// aggregated other-store titles all appear there) and must not be used.
+const COLLECTIONS_URL: &str = "https://collections.mp.microsoft.com/v7.0/collections/query";
+const COLLECTIONS_PAGE_SIZE: usize = 100;
+const COLLECTIONS_MAX_PAGES: usize = 30;
+/// Every Game Pass / Gold pass product id starts with this; it is never a
+/// game the account owns.
+const SUBSCRIPTION_ID_PREFIX: &str = "CFQ7TTC0";
+
+/// Public Store catalog that turns product ids into titles and cover art.
+const DISPLAY_CATALOG_URL: &str = "https://displaycatalog.mp.microsoft.com/v7.0/products";
+const DISPLAY_CATALOG_BATCH: usize = 40;
+const DISPLAY_CATALOG_MARKET: &str = "US";
+
 /// Dispatch the sync for one store key.
 pub async fn sync_store(app: &AppHandle, key: &str) -> Result<BetaSyncResult, String> {
     match key {
@@ -315,6 +336,7 @@ pub async fn xbox_authenticate(access_token: &str) -> Result<XboxAuthTokens, Str
         xuid,
         user_hash,
         token: token.to_string(),
+        xbl_token: xbl_token.to_string(),
         logged_in_at: now(),
         ..Default::default()
     })
@@ -362,6 +384,296 @@ async fn refresh_xbox(app: &AppHandle, tokens: &XboxAuthTokens) -> Result<XboxAu
     Ok(fresh)
 }
 
+/// Exchange the XBL user token for an XSTS token the Store's services
+/// (`collections.mp.microsoft.com`) accept. Kept separate from the
+/// `http://xboxlive.com` XSTS used for profile/title calls, since the two
+/// rely on different relying parties.
+async fn fetch_xbox_marketplace_xsts(xbl_token: &str) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent(user_agent())
+        .timeout(Duration::from_secs(25))
+        .build()
+        .map_err(|e| format!("http client: {e}"))?;
+    let resp = client
+        .post("https://xsts.auth.xboxlive.com/xsts/authorize")
+        .header("x-xbl-contract-version", "1")
+        .json(&serde_json::json!({
+            "Properties": { "UserTokens": [xbl_token], "SandboxId": "RETAIL" },
+            "RelyingParty": XSTS_MARKETPLACE_RELYING_PARTY,
+            "TokenType": "JWT"
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Xbox Store authorize failed: {e}"))?;
+
+    // An expired or rejected XBL token answers 400 with an `XErr` body, not
+    // a 401 — both must trigger a chain refresh, not a hard failure.
+    let status = resp.status().as_u16();
+    let body: Value = resp.json().await.unwrap_or(Value::Null);
+    if let Some(token) = body.get("Token").and_then(|v| v.as_str()) {
+        return Ok(token.to_string());
+    }
+    if body.get("XErr").is_some() || matches!(status, 400 | 401 | 403) {
+        return Err("UNAUTHORIZED".to_string());
+    }
+    Err(format!("Xbox Store authorize returned no token (HTTP {status})"))
+}
+
+/// A Store correlation vector. The service only logs `MS-CV`, but sending a
+/// well-formed one keeps its request shaping happy. A fresh value per sync
+/// is enough — uniqueness within a run is not required.
+fn xbox_ms_cv() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("{nanos:032X}.0")
+}
+
+/// True when a Collections item is a game the account owns: `productKind`
+/// Game, active, and not a trial, pass or subscription. Games with Gold
+/// grants count as owned (they play while the subscription lasts), which is
+/// exactly what xbox.com's own "Owned games" list shows.
+fn xbox_owned_item(item: &Value) -> bool {
+    let pid = item.get("productId").and_then(|v| v.as_str()).unwrap_or("");
+    if pid.is_empty() {
+        return false;
+    }
+    if pid.to_ascii_uppercase().starts_with(SUBSCRIPTION_ID_PREFIX)
+        || item.get("productKind").and_then(|v| v.as_str()) == Some("Pass")
+    {
+        return false;
+    }
+    if item.get("productKind").and_then(|v| v.as_str()) != Some("Game") {
+        return false;
+    }
+    if item.get("status").and_then(|v| v.as_str()) != Some("Active") {
+        return false;
+    }
+    if item.get("isTrial").and_then(|v| v.as_bool()) == Some(true)
+        || item.get("skuType").and_then(|v| v.as_str()) == Some("Trial")
+    {
+        return false;
+    }
+    true
+}
+
+/// Page through the signed-in account's Store collection and return the
+/// product ids of the games it owns. A partial list is never returned: any
+/// failed page fails the whole read so the caller keeps its last good
+/// library rather than acting on half of one.
+async fn fetch_xbox_owned_product_ids(
+    tokens: &XboxAuthTokens,
+    store_token: &str,
+) -> Result<(Vec<String>, Value), String> {
+    let client = reqwest::Client::builder()
+        .user_agent(user_agent())
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("http client: {e}"))?;
+
+    let mut ids: Vec<String> = Vec::new();
+    let mut raw_items: Vec<Value> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut continuation: Option<String> = None;
+
+    for page in 1..=COLLECTIONS_MAX_PAGES {
+        let mut body = serde_json::json!({
+            "maxPageSize": COLLECTIONS_PAGE_SIZE,
+            "excludeDuplicates": true,
+            "market": DISPLAY_CATALOG_MARKET,
+            "validityType": "All",
+            "beneficiaries": [{
+                "identityType": "xuid",
+                "identityValue": tokens.xuid,
+                "localTicketReference": "gameindex",
+            }],
+        });
+        if let Some(token) = &continuation {
+            body["continuationToken"] = Value::String(token.clone());
+        }
+
+        let resp = client
+            .post(COLLECTIONS_URL)
+            .header(
+                "Authorization",
+                format!("XBL3.0 x={};{}", tokens.user_hash, store_token),
+            )
+            .header("MS-CV", xbox_ms_cv())
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Xbox owned-games request failed: {e}"))?;
+
+        let status = resp.status().as_u16();
+        if status == 401 || status == 403 {
+            return Err("UNAUTHORIZED".to_string());
+        }
+        if !resp.status().is_success() {
+            return Err(format!(
+                "Xbox owned-games lookup returned HTTP {status} (page {page})"
+            ));
+        }
+
+        let json: Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("Xbox owned-games parse failed: {e}"))?;
+        let items = json
+            .get("items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        raw_items.extend(items.iter().cloned());
+
+        for item in &items {
+            if !xbox_owned_item(item) {
+                continue;
+            }
+            if let Some(pid) = item.get("productId").and_then(|v| v.as_str()) {
+                let pid = pid.to_ascii_uppercase();
+                if seen.insert(pid.clone()) {
+                    ids.push(pid);
+                }
+            }
+        }
+
+        match json.get("continuationToken").and_then(|v| v.as_str()) {
+            Some(next) if !next.is_empty() && !items.is_empty() && Some(next) != continuation.as_deref() => {
+                continuation = Some(next.to_string());
+            }
+            _ => return Ok((ids, Value::Array(raw_items))),
+        }
+    }
+
+    Err(format!(
+        "Xbox owned-games lookup returned more than {COLLECTIONS_MAX_PAGES} pages"
+    ))
+}
+
+/// Titles and cover art for a batch of Store product ids, keyed by
+/// upper-case product id. Ids the public catalog does not know are simply
+/// absent from the map.
+async fn fetch_xbox_product_titles(
+    client: &reqwest::Client,
+    ids: &[String],
+) -> Result<std::collections::HashMap<String, (String, Option<String>)>, String> {
+    let mut out = std::collections::HashMap::new();
+    for chunk in ids.chunks(DISPLAY_CATALOG_BATCH) {
+        let big_ids = chunk.join(",");
+        let url = format!(
+            "{DISPLAY_CATALOG_URL}?bigIds={}&market={}&languages=en-US&MS-CV=F.1",
+            urlencoding::encode(&big_ids),
+            DISPLAY_CATALOG_MARKET,
+        );
+        let resp = client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| format!("Xbox catalog request failed: {e}"))?;
+        if !resp.status().is_success() {
+            return Err(format!(
+                "Xbox catalog returned HTTP {}",
+                resp.status().as_u16()
+            ));
+        }
+        let json: Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("Xbox catalog parse failed: {e}"))?;
+        let products = json
+            .get("Products")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        for product in &products {
+            let Some(pid) = product.get("ProductId").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            let title = product
+                .pointer("/LocalizedProperties/0/ProductTitle")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            out.insert(pid.to_ascii_uppercase(), (title, xbox_cover(product)));
+        }
+    }
+    Ok(out)
+}
+
+/// Best available cover for a displaycatalog product.
+fn xbox_cover(product: &Value) -> Option<String> {
+    const PREFERRED: &[&str] = &[
+        "Poster",
+        "BoxArt",
+        "Tile",
+        "TitledHeroArt",
+        "HeroArt",
+        "Screenshot",
+    ];
+    let images = product.pointer("/LocalizedProperties/0/Images")?.as_array()?;
+    for purpose in PREFERRED {
+        if let Some(img) = images.iter().find(|i| {
+            i.get("ImagePurpose")
+                .and_then(|v| v.as_str())
+                .map(|p| p.eq_ignore_ascii_case(purpose))
+                .unwrap_or(false)
+        }) {
+            if let Some(uri) = img.get("Uri").and_then(|v| v.as_str()) {
+                return xbox_normalize_image(uri);
+            }
+        }
+    }
+    images
+        .iter()
+        .find_map(|i| i.get("Uri").and_then(|v| v.as_str()).and_then(xbox_normalize_image))
+}
+
+/// Microsoft returns naked paths like `//store-images.s-microsoft.com/...`;
+/// prefix a scheme so the WebView can load them.
+fn xbox_normalize_image(raw: &str) -> Option<String> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    Some(if raw.starts_with("//") {
+        format!("https:{raw}")
+    } else if raw.starts_with("http://") || raw.starts_with("https://") {
+        raw.to_string()
+    } else if raw.starts_with('/') {
+        format!("https://store-images.s-microsoft.com{raw}")
+    } else {
+        format!("https://{raw}")
+    })
+}
+
+/// One owned Store product → a library game. Products the catalog cannot
+/// name are skipped rather than imported as bare ids.
+fn xbox_owned_game(
+    product_id: &str,
+    catalog: &std::collections::HashMap<String, (String, Option<String>)>,
+) -> Option<BetaSyncedGame> {
+    let (title, cover_url) = catalog.get(product_id)?;
+    let title = title.trim();
+    if title.is_empty() {
+        return None;
+    }
+    Some(BetaSyncedGame {
+        id: format!("xbox-{}", slug(product_id)),
+        title: title.to_string(),
+        store_game_id: Some(product_id.to_string()),
+        is_installed: false,
+        install_path: None,
+        cover_url: cover_url.clone(),
+        playtime_minutes: None,
+        last_played: None,
+    })
+}
+
+/// Xbox Live title history. Used only as a fallback: its titles include the
+/// other-store games the Xbox app aggregates, so entries are kept only when
+/// they are genuine Microsoft Store PC packages (see
+/// [`xbox_store_title_to_game`]).
 async fn fetch_xbox_title_history(tokens: &XboxAuthTokens) -> Result<Value, String> {
     let client = reqwest::Client::builder()
         .user_agent(user_agent())
@@ -389,26 +701,27 @@ async fn fetch_xbox_title_history(tokens: &XboxAuthTokens) -> Result<Value, Stri
         return Err("UNAUTHORIZED".to_string());
     }
     if !resp.status().is_success() {
-        return Err(format!("Xbox returned HTTP {status}"));
+        return Err(format!("Xbox title history returned HTTP {status}"));
     }
     resp.json()
         .await
         .map_err(|e| format!("Xbox title history parse failed: {e}"))
 }
 
-/// Map one TitleHub `titles[]` entry to a library game. Only PC games
-/// (`type == "Game"`) are kept.
-fn xbox_title_to_game(title: &Value) -> Option<BetaSyncedGame> {
+/// One played Xbox title → a library game, but only when it is a real
+/// Microsoft Store PC package (it has a `pfn`). Titles the Xbox app surfaced
+/// from Steam, Epic, Ubisoft or Battle.net have no Store package and are
+/// dropped — which is exactly what keeps other-store games out of the Xbox
+/// integration.
+fn xbox_store_title_to_game(title: &Value) -> Option<BetaSyncedGame> {
     if title.get("type").and_then(|v| v.as_str()) != Some("Game") {
         return None;
     }
     let pfn = title.get("pfn").and_then(|v| v.as_str()).unwrap_or("");
-    let title_id = title.get("titleId").and_then(|v| v.as_str()).unwrap_or("");
-    let stable_id = if !pfn.is_empty() { pfn } else { title_id };
-    if stable_id.is_empty() {
+    if pfn.is_empty() {
         return None;
     }
-    let name = title.get("name").and_then(|v| v.as_str()).unwrap_or(stable_id);
+    let name = title.get("name").and_then(|v| v.as_str()).unwrap_or(pfn);
     let clean_name = name
         .replace("(PC)", "")
         .replace("(Windows)", "")
@@ -424,9 +737,9 @@ fn xbox_title_to_game(title: &Value) -> Option<BetaSyncedGame> {
         .and_then(parse_rfc3339_secs);
 
     Some(BetaSyncedGame {
-        id: format!("xbox-{}", slug(stable_id)),
+        id: format!("xbox-{}", slug(pfn)),
         title: clean_name.trim().to_string(),
-        store_game_id: Some(stable_id.to_string()),
+        store_game_id: Some(pfn.to_string()),
         is_installed: false,
         install_path: None,
         cover_url: None,
@@ -435,186 +748,29 @@ fn xbox_title_to_game(title: &Value) -> Option<BetaSyncedGame> {
     })
 }
 
-/// Resolve a batch of package family names to their Xbox titles. The
-/// service omits unknown / non-game packages, so the caller just filters
-/// the returned titles.
-#[cfg(windows)]
-async fn fetch_xbox_title_info(
+/// Fallback source: the played Xbox titles that are Microsoft Store PC
+/// packages. Used when the Store collection cannot be read (for example a
+/// sign-in client the Store does not recognise), so the integration imports
+/// the account's Xbox games instead of nothing.
+async fn fetch_xbox_store_titles(
     tokens: &XboxAuthTokens,
-    pfns: &[String],
-) -> Result<Vec<Value>, String> {
-    let client = reqwest::Client::builder()
-        .user_agent(user_agent())
-        .timeout(Duration::from_secs(25))
-        .build()
-        .map_err(|e| format!("http client: {e}"))?;
-    let resp = client
-        .post("https://titlehub.xboxlive.com/titles/batch/decoration/detail")
-        .header("x-xbl-contract-version", "2")
-        .header(
-            "Authorization",
-            format!("XBL3.0 x={};{}", tokens.user_hash, tokens.token),
-        )
-        .header("Accept-Language", "en-US")
-        .json(&serde_json::json!({ "pfns": pfns, "windowsPhoneProductIds": [] }))
-        .send()
-        .await
-        .map_err(|e| format!("Xbox title info request failed: {e}"))?;
-
-    let status = resp.status().as_u16();
-    if status == 401 || status == 403 {
-        return Err("UNAUTHORIZED".to_string());
-    }
-    if !resp.status().is_success() {
-        return Err(format!("Xbox title info returned HTTP {status}"));
-    }
-    let json: Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Xbox title info parse failed: {e}"))?;
-    Ok(json
+) -> Result<(Vec<BetaSyncedGame>, Value), String> {
+    let payload = fetch_xbox_title_history(tokens).await?;
+    let titles = payload
         .get("titles")
         .and_then(|v| v.as_array())
         .cloned()
-        .unwrap_or_default())
-}
-
-/// Package family names of the Store / UWP packages installed for this
-/// user. The registry lists every package (system apps included); the
-/// TitleHub lookup later discards anything that isn't a game.
-#[cfg(windows)]
-fn installed_uwp_pfns() -> Vec<String> {
-    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
-    use winreg::RegKey;
-
-    const REPO: &str = r"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
-
+        .unwrap_or_default();
+    let mut games = Vec::new();
     let mut seen = std::collections::HashSet::new();
-    let mut out = Vec::new();
-    for hive in [HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE] {
-        let Ok(base) = RegKey::predef(hive).open_subkey(REPO) else {
-            continue;
-        };
-        for full_name in base.enum_keys().flatten() {
-            let Ok(key) = base.open_subkey(&full_name) else {
-                continue;
-            };
-            let family: Option<String> = key
-                .get_value("PackageFamilyName")
-                .ok()
-                .or_else(|| key.get_value("PackageID").ok())
-                .or_else(|| family_from_full_name(&full_name));
-            if let Some(f) = family {
-                if !f.is_empty() && seen.insert(f.clone()) {
-                    out.push(f);
-                }
+    for title in &titles {
+        if let Some(game) = xbox_store_title_to_game(title) {
+            if seen.insert(game.id.clone()) {
+                games.push(game);
             }
         }
     }
-    out
-}
-
-/// Derive `Name_PublisherId` from a `PackageFullName`
-/// (`Name_Version_Arch__PublisherId`).
-#[cfg(windows)]
-fn family_from_full_name(full_name: &str) -> Option<String> {
-    let (left, publisher) = full_name.rsplit_once("__")?;
-    let name = left.split('_').next()?;
-    if name.is_empty() || publisher.is_empty() {
-        return None;
-    }
-    Some(format!("{name}_{publisher}"))
-}
-
-async fn xbox_sync(app: &AppHandle) -> Result<BetaSyncResult, String> {
-    let mut tokens = load_xbox_tokens(app)?;
-    let mut games: std::collections::HashMap<String, BetaSyncedGame> =
-        std::collections::HashMap::new();
-    let mut errors: Vec<String> = Vec::new();
-
-    // 1) Titles the account has launched — covers uninstalled games, but
-    //    only after they've been played at least once.
-    match fetch_xbox_title_history(&tokens).await {
-        Ok(payload) => {
-            let titles = payload
-                .get("titles")
-                .and_then(|v| v.as_array())
-                .cloned()
-                .unwrap_or_default();
-            eprintln!("[beta-stores] Xbox title history: {} titles", titles.len());
-            for title in &titles {
-                if let Some(game) = xbox_title_to_game(title) {
-                    games.entry(game.id.clone()).or_insert(game);
-                }
-            }
-        }
-        Err(e) if e == "UNAUTHORIZED" => {
-            tokens = refresh_xbox(app, &tokens).await?;
-            let payload = fetch_xbox_title_history(&tokens).await?;
-            let titles = payload
-                .get("titles")
-                .and_then(|v| v.as_array())
-                .cloned()
-                .unwrap_or_default();
-            for title in &titles {
-                if let Some(game) = xbox_title_to_game(title) {
-                    games.entry(game.id.clone()).or_insert(game);
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("[beta-stores] Xbox title history failed: {e}");
-            errors.push(format!("title history: {e}"));
-        }
-    }
-
-    // 2) Installed Store games — these never appear in the title history
-    //    until launched, which is why accounts with unplayed libraries
-    //    imported nothing before.
-    #[cfg(windows)]
-    {
-        let pfns = installed_uwp_pfns();
-        eprintln!("[beta-stores] Xbox installed UWP packages: {}", pfns.len());
-        for chunk in pfns.chunks(80) {
-            match fetch_xbox_title_info(&tokens, chunk).await {
-                Ok(titles) => {
-                    for title in &titles {
-                        if let Some(game) = xbox_title_to_game(title) {
-                            games.entry(game.id.clone()).or_insert(game);
-                        }
-                    }
-                }
-                Err(e) if e == "UNAUTHORIZED" => {
-                    errors.push("installed games: not authorized".to_string());
-                    break;
-                }
-                Err(e) => {
-                    errors.push(format!("installed games: {e}"));
-                    break;
-                }
-            }
-        }
-    }
-
-    let games: Vec<BetaSyncedGame> = games.into_values().collect();
-
-    if games.is_empty() {
-        if !errors.is_empty() {
-            return Err(errors.join("; "));
-        }
-        let mut res = result(games);
-        res.note = Some(
-            "No Xbox PC games found. Xbox only reports games this account has launched at least once, plus Store games installed on this PC."
-                .to_string(),
-        );
-        return Ok(res);
-    }
-
-    let mut res = result(games);
-    if !errors.is_empty() {
-        res.note = Some(format!("Some sources failed: {}", errors.join("; ")));
-    }
-    Ok(res)
+    Ok((games, payload))
 }
 
 /// Minimal RFC-3339 → Unix seconds converter for the `lastTimePlayed`
@@ -639,6 +795,129 @@ fn parse_rfc3339_secs(s: &str) -> Option<u64> {
     let days = era * 146097 + doe - 719468;
 
     Some((days * 86400 + h * 3600 + mi * 60 + se).max(0) as u64)
+}
+
+/// Read the games the signed-in Microsoft account owns from the Store.
+async fn fetch_xbox_owned(tokens: &XboxAuthTokens) -> Result<(Vec<String>, Value), String> {
+    let store_token = fetch_xbox_marketplace_xsts(&tokens.xbl_token).await?;
+    fetch_xbox_owned_product_ids(tokens, &store_token).await
+}
+
+/// Best-effort dump of the raw Xbox responses so a failed import can be
+/// diagnosed. Written into the app data dir; returns the path when it works.
+fn write_xbox_debug(app: &AppHandle, collections: &Value, titles: &Value) -> Option<String> {
+    let dir = app.path().app_data_dir().ok()?;
+    std::fs::create_dir_all(&dir).ok()?;
+    let path = dir.join("xbox-debug.json");
+    let payload = serde_json::json!({
+        "collections": collections,
+        "titleHistory": titles,
+    });
+    std::fs::write(&path, serde_json::to_string_pretty(&payload).ok()?).ok()?;
+    Some(path.display().to_string())
+}
+
+async fn xbox_sync(app: &AppHandle) -> Result<BetaSyncResult, String> {
+    let mut tokens = load_xbox_tokens(app)?;
+
+    // Sessions captured before the Store token was kept cannot mint the
+    // marketplace XSTS; rebuild the whole chain once.
+    if tokens.xbl_token.is_empty() {
+        tokens = refresh_xbox(app, &tokens).await?;
+    }
+
+    // Ownership, not play history: the Xbox app aggregates Steam, Epic,
+    // Ubisoft and Battle.net libraries, and those titles land in the
+    // account's *played* list. The Microsoft Store collection is the
+    // account's actual Xbox library, so it is the primary source.
+    let mut collections_raw = Value::Null;
+    let mut owned_ids: Vec<String> = Vec::new();
+    match fetch_xbox_owned(&tokens).await {
+        Ok((ids, raw)) => {
+            owned_ids = ids;
+            collections_raw = raw;
+        }
+        Err(e) if e == "UNAUTHORIZED" => {
+            tokens = refresh_xbox(app, &tokens).await?;
+            if let Ok((ids, raw)) = fetch_xbox_owned(&tokens).await {
+                owned_ids = ids;
+                collections_raw = raw;
+            }
+        }
+        Err(e) => eprintln!("[beta-stores] Xbox ownership lookup failed: {e}"),
+    }
+    eprintln!("[beta-stores] Xbox owned products: {}", owned_ids.len());
+
+    let mut games: Vec<BetaSyncedGame> = Vec::new();
+    if !owned_ids.is_empty() {
+        let client = reqwest::Client::builder()
+            .user_agent(user_agent())
+            .timeout(Duration::from_secs(30))
+            .build()
+            .map_err(|e| format!("http client: {e}"))?;
+        if let Ok(catalog) = fetch_xbox_product_titles(&client, &owned_ids).await {
+            let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for pid in &owned_ids {
+                if let Some(game) = xbox_owned_game(pid, &catalog) {
+                    if seen.insert(game.id.clone()) {
+                        games.push(game);
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: the Store collection is empty or unreadable — the sign-in
+    // client may be one the Store does not recognise. Import the Store PC
+    // titles from the played list instead so the integration is not silently
+    // empty; the mapping still requires a Microsoft Store package, so
+    // other-store entries stay out.
+    let mut titles_raw = Value::Null;
+    let mut titles_total = 0usize;
+    if games.is_empty() {
+        match fetch_xbox_store_titles(&tokens).await {
+            Ok((fallback, raw)) => {
+                titles_total = raw
+                    .get("titles")
+                    .and_then(|v| v.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                titles_raw = raw;
+                if !fallback.is_empty() {
+                    games = fallback;
+                }
+            }
+            Err(e) if e == "UNAUTHORIZED" => {
+                tokens = refresh_xbox(app, &tokens).await?;
+                if let Ok((fallback, raw)) = fetch_xbox_store_titles(&tokens).await {
+                    titles_total = raw
+                        .get("titles")
+                        .and_then(|v| v.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0);
+                    titles_raw = raw;
+                    games = fallback;
+                }
+            }
+            Err(e) => eprintln!("[beta-stores] Xbox title history failed: {e}"),
+        }
+    }
+
+    eprintln!("[beta-stores] Xbox games: {}", games.len());
+
+    let mut res = result(games);
+    if res.synced_games.is_empty() {
+        let mut note = format!(
+            "No Xbox games imported. Store collection: {} owned product(s). Xbox title history: {} title(s).",
+            owned_ids.len(),
+            titles_total,
+        );
+        if let Some(path) = write_xbox_debug(app, &collections_raw, &titles_raw) {
+            note.push_str(&format!(" Debug data: {path}"));
+        }
+        res.note = Some(note);
+    }
+    Ok(res)
 }
 
 // ── itch.io ────────────────────────────────────────────────────────────
@@ -788,19 +1067,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_rfc3339_parses_known_timestamp() {
-        // 2021-01-01T00:00:00Z
-        assert_eq!(parse_rfc3339_secs("2021-01-01T00:00:00Z"), Some(1609459200));
-        assert_eq!(parse_rfc3339_secs("2021-01-01T00:00:00.123Z"), Some(1609459200));
-    }
-
-    #[test]
-    fn parse_rfc3339_rejects_garbage() {
-        assert_eq!(parse_rfc3339_secs("not-a-date"), None);
-        assert_eq!(parse_rfc3339_secs(""), None);
-    }
-
-    #[test]
     fn result_marks_success_and_counts() {
         let games = vec![BetaSyncedGame {
             id: "xbox-1".into(),
@@ -819,29 +1085,93 @@ mod tests {
     }
 
     #[test]
-    fn xbox_title_maps_pc_game_and_skips_non_games() {
-        let title = serde_json::json!({
+    fn xbox_owned_item_keeps_purchases_and_gold_only() {
+        let owned = |v: serde_json::Value| xbox_owned_item(&v);
+        assert!(owned(
+            serde_json::json!({ "productId": "9N1", "productKind": "Game", "status": "Active" })
+        ));
+        // Games with Gold: playable while subscribed, still "owned".
+        assert!(owned(serde_json::json!({
+            "productId": "9N2", "productKind": "Game", "status": "Active", "licensingRequired": true
+        })));
+        // Subscriptions, add-ons, expired and trial items are not games.
+        assert!(!owned(
+            serde_json::json!({ "productId": "CFQ7TTC0KHS0", "productKind": "Pass" })
+        ));
+        assert!(!owned(serde_json::json!({
+            "productId": "9N3", "productKind": "Durable", "status": "Active"
+        })));
+        assert!(!owned(serde_json::json!({
+            "productId": "9N4", "productKind": "Game", "status": "Expired"
+        })));
+        assert!(!owned(serde_json::json!({
+            "productId": "9N5", "productKind": "Game", "status": "Active", "skuType": "Trial"
+        })));
+        assert!(!owned(
+            serde_json::json!({ "productId": "", "productKind": "Game", "status": "Active" })
+        ));
+    }
+
+    #[test]
+    fn xbox_owned_game_needs_a_catalog_title() {
+        let mut catalog = std::collections::HashMap::new();
+        catalog.insert(
+            "9N1".to_string(),
+            ("Forza Horizon 4".to_string(), Some("https://img/cover.jpg".to_string())),
+        );
+        let game = xbox_owned_game("9N1", &catalog).expect("should map");
+        assert_eq!(game.id, "xbox-9n1");
+        assert_eq!(game.title, "Forza Horizon 4");
+        assert_eq!(game.store_game_id.as_deref(), Some("9N1"));
+        assert_eq!(game.cover_url.as_deref(), Some("https://img/cover.jpg"));
+
+        assert!(xbox_owned_game("missing", &catalog).is_none());
+    }
+
+    #[test]
+    fn xbox_normalize_image_adds_a_scheme() {
+        assert_eq!(
+            xbox_normalize_image("//store-images.s-microsoft.com/a.jpg").as_deref(),
+            Some("https://store-images.s-microsoft.com/a.jpg")
+        );
+        assert_eq!(
+            xbox_normalize_image("/image/apps.1/a.jpg").as_deref(),
+            Some("https://store-images.s-microsoft.com/image/apps.1/a.jpg")
+        );
+        assert_eq!(xbox_normalize_image("   "), None);
+    }
+
+    #[test]
+    fn parse_rfc3339_parses_known_timestamp() {
+        // 2021-01-01T00:00:00Z
+        assert_eq!(parse_rfc3339_secs("2021-01-01T00:00:00Z"), Some(1609459200));
+        assert_eq!(parse_rfc3339_secs("2021-01-01T00:00:00.123Z"), Some(1609459200));
+    }
+
+    #[test]
+    fn parse_rfc3339_rejects_garbage() {
+        assert_eq!(parse_rfc3339_secs("not-a-date"), None);
+        assert_eq!(parse_rfc3339_secs(""), None);
+    }
+
+    #[test]
+    fn xbox_store_title_keeps_only_store_packages() {
+        let store = serde_json::json!({
             "type": "Game",
             "pfn": "Microsoft.HaloInfinite_8wekyb3d8bbwe",
             "name": "Halo Infinite (PC)",
             "minutesPlayed": "120"
         });
-        let game = xbox_title_to_game(&title).expect("should map");
+        let game = xbox_store_title_to_game(&store).expect("should map");
         assert_eq!(game.id, "xbox-microsoft-haloinfinite-8wekyb3d8bbwe");
         assert_eq!(game.title, "Halo Infinite");
         assert_eq!(game.playtime_minutes, Some(120));
 
-        let app = serde_json::json!({ "type": "Application", "pfn": "Some.App", "name": "App" });
-        assert!(xbox_title_to_game(&app).is_none());
-    }
+        // A Steam/Ubisoft game the Xbox app surfaced has no Store package.
+        let aggregated = serde_json::json!({ "type": "Game", "name": "Some Steam Game" });
+        assert!(xbox_store_title_to_game(&aggregated).is_none());
 
-    #[cfg(windows)]
-    #[test]
-    fn family_name_is_derived_from_full_name() {
-        assert_eq!(
-            family_from_full_name("Microsoft.HaloInfinite_1.2.3.0_x64__8wekyb3d8bbwe").as_deref(),
-            Some("Microsoft.HaloInfinite_8wekyb3d8bbwe")
-        );
-        assert!(family_from_full_name("no-separator").is_none());
+        let app = serde_json::json!({ "type": "Application", "pfn": "Some.App", "name": "App" });
+        assert!(xbox_store_title_to_game(&app).is_none());
     }
 }
