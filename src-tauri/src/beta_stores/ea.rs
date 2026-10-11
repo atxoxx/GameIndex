@@ -11,11 +11,13 @@
 //! Because that token never appears in a cookie, we capture it the same
 //! way Playnite's EA plugin does: load the site in a WebView with an
 //! injected hook that mirrors the `authorization` header off the app's
-//! own GraphQL request, then hand it back to Rust. The captured bearer
+//! own GraphQL request. The hook hands the bearer back by navigating to a
+//! sentinel URL that the login runner watches, so the handoff does not
+//! depend on the remote page having Tauri IPC access. The captured bearer
 //! is then replayed against the persisted "owned games" query.
 
 use std::sync::mpsc;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde_json::Value;
@@ -38,48 +40,51 @@ const EA_GRAPHQL_URL: &str = "https://service-aggregation-layer.juno.ea.com/grap
 const OWNED_GAMES_HASH: &str =
     "779f1cd1355699752e20c0b3877847f4e3010ef5de131c248e98f8eff84f0718";
 
-/// Single-slot handoff for the injected script's captured token.
-static TOKEN_SLOT: OnceLock<Mutex<Option<mpsc::Sender<String>>>> = OnceLock::new();
+/// URL the injected script navigates to once it has the bearer token. The
+/// token rides in the path and the navigation is cancelled, so the handoff
+/// never depends on the remote page being able to reach Tauri's IPC.
+const EA_TOKEN_SENTINEL: &str = "https://www.ea.com/__gi_ea_token__/";
+/// URL the script navigates to with a short summary if it never finds a
+/// token, so a failed capture reports what it actually saw.
+const EA_DEBUG_SENTINEL: &str = "https://www.ea.com/__gi_ea_debug__/";
 
-fn slot() -> &'static Mutex<Option<mpsc::Sender<String>>> {
-    TOKEN_SLOT.get_or_init(|| Mutex::new(None))
-}
+/// How long we wait for the page to surface a bearer token.
+const EA_CAPTURE_TIMEOUT_SECS: u64 = 25;
 
-/// Invoked by the injected script when the EA web app attaches an
-/// `authorization` header to a Juno GraphQL request. Stores the raw
-/// bearer value for the awaiting `capture_auth_token` call.
-#[tauri::command]
-pub fn ea_callback(token: String) -> Result<(), String> {
-    let sender = slot()
-        .lock()
-        .map_err(|e| format!("EA token slot mutex: {e}"))?
-        .take();
-    match sender {
-        Some(tx) => tx
-            .send(token)
-            .map_err(|_| "EA token receiver already dropped".to_string()),
-        None => Err("No pending EA token capture".to_string()),
-    }
-}
-
-/// Mirror the `authorization` header off the page's own fetch/XHR calls
-/// to the Juno GraphQL endpoint.
+/// Mirror the `authorization` header off the page's own fetch/XHR calls to
+/// the Juno GraphQL endpoint, then hand the token back by navigating to a
+/// sentinel URL (see [`EA_TOKEN_SENTINEL`]). Navigating works even though the
+/// page is remote and cannot use Tauri's IPC.
 fn init_script() -> String {
     r#"
 (function () {
     if (window.__GI_EA_HOOKED__) return;
     window.__GI_EA_HOOKED__ = true;
-    var TARGET = 'service-aggregation-layer.juno.ea.com/graphql';
+
+    var GRAPHQL = 'service-aggregation-layer.juno.ea.com';
+    var TOKEN_URL = 'https://www.ea.com/__gi_ea_token__/';
+    var DEBUG_URL = 'https://www.ea.com/__gi_ea_debug__/';
+
+    var seen = 0, withAuth = 0, reported = false, hosts = {};
+
+    function isGraphql(url) {
+        return url && String(url).indexOf(GRAPHQL) >= 0;
+    }
+
+    function note(url) {
+        seen++;
+        try {
+            var h = String(url).split('/')[2] || '';
+            hosts[h] = (hosts[h] || 0) + 1;
+        } catch (e) {}
+    }
 
     function report(header) {
-        if (!header) return;
-        var token = String(header).replace(/^Bearer\s+/i, '').trim();
+        if (reported) return;
+        var token = header ? String(header).replace(/^Bearer\s+/i, '').trim() : '';
         if (!token) return;
-        try {
-            var invoke = (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke)
-                || window.__TAURI_INTERNALS__.invoke;
-            invoke('ea_callback', { token: token });
-        } catch (e) {}
+        reported = true;
+        try { window.location.href = TOKEN_URL + token; } catch (e) {}
     }
 
     function pick(headers) {
@@ -106,7 +111,11 @@ fn init_script() -> String {
         window.fetch = function (input, init) {
             try {
                 var url = typeof input === 'string' ? input : (input && input.url);
-                if (url && String(url).indexOf(TARGET) >= 0) report(pick(init && init.headers));
+                if (isGraphql(url)) {
+                    note(url);
+                    var header = pick((init && init.headers) || (input && input.headers));
+                    if (header) { withAuth++; report(header); }
+                }
             } catch (e) {}
             return origFetch.apply(this, arguments);
         };
@@ -125,10 +134,22 @@ fn init_script() -> String {
     };
     XMLHttpRequest.prototype.send = function () {
         try {
-            if (this.__giUrl && String(this.__giUrl).indexOf(TARGET) >= 0) report(this.__giAuth);
+            if (isGraphql(this.__giUrl)) {
+                note(this.__giUrl);
+                if (this.__giAuth) { withAuth++; report(this.__giAuth); }
+            }
         } catch (e) {}
         return origSend.apply(this, arguments);
     };
+
+    setTimeout(function () {
+        if (reported) return;
+        try {
+            window.location.href = DEBUG_URL + encodeURIComponent(
+                'graphql requests=' + seen + ', with auth=' + withAuth + ', hosts=' + JSON.stringify(hosts)
+            );
+        } catch (e) {}
+    }, 15000);
 })();
 "#
     .to_string()
@@ -140,10 +161,8 @@ fn init_script() -> String {
 /// reused.
 pub async fn capture_auth_token(app: &AppHandle) -> Result<String, String> {
     let (tx, rx) = mpsc::channel::<String>();
-    {
-        let mut guard = slot().lock().map_err(|e| format!("EA token slot mutex: {e}"))?;
-        *guard = Some(tx);
-    }
+    let debug: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let debug_slot = Arc::clone(&debug);
 
     let url: url::Url = EA_TOKEN_URL
         .parse()
@@ -153,26 +172,65 @@ pub async fn capture_auth_token(app: &AppHandle) -> Result<String, String> {
         .inner_size(640.0, 480.0)
         .visible(false)
         .initialization_script(&init_script())
+        .on_navigation(move |url| {
+            let current = url.as_str();
+            if let Some(token) = token_from_sentinel(current) {
+                let _ = tx.send(token.to_string());
+                return false;
+            }
+            if let Some(report) = debug_from_sentinel(current) {
+                if let Ok(mut guard) = debug_slot.lock() {
+                    *guard = Some(report);
+                }
+                return false;
+            }
+            true
+        })
         .build()
         .map_err(|e| format!("Failed to open EA session window: {e}"))?;
 
-    let result = tokio::task::spawn_blocking(move || rx.recv_timeout(Duration::from_secs(25)))
-        .await
-        .map_err(|e| format!("join error: {e}"))?;
+    let result = tokio::task::spawn_blocking(move || {
+        rx.recv_timeout(Duration::from_secs(EA_CAPTURE_TIMEOUT_SECS))
+    })
+    .await
+    .map_err(|e| format!("join error: {e}"))?;
 
     let _ = webview.close();
-    // Ensure a late callback can't leak into a future capture.
-    if let Ok(mut guard) = slot().lock() {
-        *guard = None;
-    }
 
     match result {
         Ok(token) if !token.is_empty() => Ok(token),
-        _ => Err(
-            "Could not read an EA session token. Sign in to ea.com in the login window, then try again."
-                .to_string(),
-        ),
+        _ => {
+            let detail = debug.lock().ok().and_then(|guard| guard.clone());
+            Err(match detail {
+                Some(d) if !d.is_empty() => format!(
+                    "Could not read an EA session token ({d}). Sign in to ea.com in the login window, then try again."
+                ),
+                _ => "Could not read an EA session token. Sign in to ea.com in the login window, then try again."
+                    .to_string(),
+            })
+        }
     }
+}
+
+/// The bearer token carried by an [`EA_TOKEN_SENTINEL`] navigation, if any.
+fn token_from_sentinel(url: &str) -> Option<&str> {
+    url.strip_prefix(EA_TOKEN_SENTINEL).filter(|t| !t.is_empty())
+}
+
+/// The decoded diagnostic summary carried by an [`EA_DEBUG_SENTINEL`]
+/// navigation, if any.
+fn debug_from_sentinel(url: &str) -> Option<String> {
+    url.strip_prefix(EA_DEBUG_SENTINEL)
+        .filter(|report| !report.is_empty())
+        .map(percent_decode)
+}
+
+/// Percent-decode a sentinel payload (the injected script URL-encodes the
+/// debug summary).
+fn percent_decode(raw: &str) -> String {
+    urlencoding::decode(raw)
+        .map(|cow| cow.into_owned())
+        .unwrap_or_else(|_| raw.to_string())
 }
 
 /// Build the persisted "owned games" GraphQL URL for one page of results.
@@ -267,5 +325,22 @@ mod tests {
         assert!(url.starts_with("https://service-aggregation-layer.juno.ea.com/graphql?"));
         assert!(url.contains("operationName=getPreloadedOwnedGames"));
         assert!(url.contains(OWNED_GAMES_HASH));
+    }
+
+    #[test]
+    fn sentinel_urls_carry_the_token_and_diagnostics() {
+        assert_eq!(
+            token_from_sentinel("https://www.ea.com/__gi_ea_token__/eyJhbGciOiJIUzI1NiJ9"),
+            Some("eyJhbGciOiJIUzI1NiJ9")
+        );
+        assert_eq!(token_from_sentinel("https://www.ea.com/sales/deals"), None);
+        assert_eq!(token_from_sentinel("https://www.ea.com/__gi_ea_token__/"), None);
+
+        assert_eq!(
+            debug_from_sentinel("https://www.ea.com/__gi_ea_debug__/requests%3D3%2C%20with%20auth%3D1")
+                .as_deref(),
+            Some("requests=3, with auth=1")
+        );
+        assert_eq!(debug_from_sentinel("https://www.ea.com/"), None);
     }
 }

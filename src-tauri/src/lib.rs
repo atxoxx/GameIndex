@@ -72,7 +72,6 @@ use uplay::{
 use beta_stores::{
     battlenet_get_settings, battlenet_is_authenticated, battlenet_logout,
     battlenet_save_settings, battlenet_start_login, battlenet_sync_library,
-    ea_callback,
     ea_get_settings, ea_is_authenticated, ea_logout, ea_save_settings, ea_start_login,
     ea_sync_library,
     itch_get_settings, itch_is_authenticated, itch_logout, itch_save_settings,
@@ -185,7 +184,7 @@ pub fn run() {
             battlenet_start_login, battlenet_sync_library, battlenet_is_authenticated,
             battlenet_logout, battlenet_get_settings, battlenet_save_settings,
             ea_start_login, ea_sync_library, ea_is_authenticated, ea_logout,
-            ea_get_settings, ea_save_settings, ea_callback,
+            ea_get_settings, ea_save_settings,
             xbox_start_login, xbox_sync_library, xbox_is_authenticated, xbox_logout,
             xbox_get_settings, xbox_save_settings,
             itch_start_login, itch_sync_library, itch_is_authenticated, itch_logout,

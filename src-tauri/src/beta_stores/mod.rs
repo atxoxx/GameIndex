@@ -17,7 +17,6 @@ mod login;
 mod sync;
 mod types;
 
-pub use ea::ea_callback;
 pub use types::{BetaSession, BetaSettings, BetaSyncResult};
 
 use tauri::{AppHandle, Manager};
