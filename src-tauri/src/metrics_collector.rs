@@ -92,7 +92,7 @@ impl Default for MetricsConfig {
 }
 
 /// A single metrics sample collected at a point in time.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct MetricsSample {
     cpu_usage: u32,
     gpu_usage: u32,
@@ -100,6 +100,17 @@ struct MetricsSample {
     cpu_temp: u32,
     gpu_temp: u32,
     rtss_fps: Option<f64>,
+    /// Instantaneous frame time (ms) when a real source reported it.
+    frametime_ms: Option<f64>,
+    /// GPU dedicated memory in use / total (MB).
+    vram_used_mb: Option<f32>,
+    vram_total_mb: Option<f32>,
+    /// Power draw in watts.
+    gpu_power_w: Option<f32>,
+    cpu_power_w: Option<f32>,
+    /// Clocks in MHz.
+    gpu_core_clock_mhz: Option<f32>,
+    gpu_mem_clock_mhz: Option<f32>,
     /// Elapsed seconds since collection started (set by the loop, not the
     /// single-sample reader).
     t: f64,
@@ -199,6 +210,25 @@ pub struct LiveMetricsSample {
     /// reported this poll, else `None`. Never fabricated.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fps: Option<f64>,
+    /// Instantaneous frame time in milliseconds (RTSS / Afterburner), else
+    /// `None`. The frontend derives it from FPS when no sensor reports it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frametime: Option<f64>,
+    /// GPU dedicated memory in use / total, in megabytes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vram_used_mb: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vram_total_mb: Option<f32>,
+    /// Power draw in watts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gpu_power: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpu_power: Option<f32>,
+    /// Clocks in MHz.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gpu_core_clock: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gpu_mem_clock: Option<f32>,
 }
 
 /// Handle to a running live-metrics sampler. Dropping it does not stop the
@@ -327,6 +357,13 @@ fn live_collect_loop<F: Fn(LiveMetricsSample)>(
             cpu_temp: sample.cpu_temp as f32,
             gpu_temp: sample.gpu_temp as f32,
             fps: if config.capture_fps { sample.rtss_fps } else { None },
+            frametime: sample.frametime_ms,
+            vram_used_mb: sample.vram_used_mb,
+            vram_total_mb: sample.vram_total_mb,
+            gpu_power: sample.gpu_power_w,
+            cpu_power: sample.cpu_power_w,
+            gpu_core_clock: sample.gpu_core_clock_mhz,
+            gpu_mem_clock: sample.gpu_mem_clock_mhz,
         });
 
         match stop_rx.recv_timeout(interval) {
@@ -464,7 +501,7 @@ fn collect_metrics_loop(
             cpu_temp: cpu_temp.round() as u32,
             gpu_temp: gpu_temp.round() as u32,
             rtss_fps: fps,
-            t: 0.0,
+            ..Default::default()
         };
         sample.t = loop_start.elapsed().as_secs_f64();
 
@@ -1136,6 +1173,13 @@ fn collect_single_sample(
     let mut cpu_temp_val: f32 = 0.0;
     let mut gpu_temp_val: f32 = 0.0;
     let mut fps_val: Option<f64> = None;
+    let mut frametime_val: Option<f64> = None;
+    let mut vram_used_mb: Option<f32> = None;
+    let mut vram_total_mb: Option<f32> = None;
+    let mut gpu_power_w: Option<f32> = None;
+    let mut cpu_power_w: Option<f32> = None;
+    let mut gpu_core_clock_mhz: Option<f32> = None;
+    let mut gpu_mem_clock_mhz: Option<f32> = None;
 
     let mut used_mahm = false;
     let mut mahm_gave_ram = false;
@@ -1210,6 +1254,13 @@ fn collect_single_sample(
             cpu_temp_val = m.cpu_temp.unwrap_or(0.0);
             gpu_temp_val = m.gpu_temp.unwrap_or(0.0);
             fps_val = m.fps.map(|f| f as f64);
+            frametime_val = m.frametime.map(|f| f as f64);
+            vram_used_mb = m.vram_used_mb;
+            vram_total_mb = m.vram_total_mb;
+            gpu_power_w = m.gpu_power;
+            cpu_power_w = m.cpu_power;
+            gpu_core_clock_mhz = m.gpu_core_clock;
+            gpu_mem_clock_mhz = m.gpu_mem_clock;
         }
     }
 
@@ -1267,6 +1318,15 @@ fn collect_single_sample(
         fps_val = rtss.as_ref().map(|r| r.fps);
     }
 
+    // 6. Derive frame time from FPS when no dedicated frametime sensor exists.
+    if frametime_val.is_none() {
+        if let Some(fps) = fps_val {
+            if fps > 0.0 {
+                frametime_val = Some(1000.0 / fps);
+            }
+        }
+    }
+
     // Clamp percentage values to [0, 100]
     MetricsSample {
         cpu_usage: cpu_usage_val.clamp(0.0, 100.0).round() as u32,
@@ -1275,6 +1335,13 @@ fn collect_single_sample(
         cpu_temp: cpu_temp_val.max(0.0).round() as u32,
         gpu_temp: gpu_temp_val.max(0.0).round() as u32,
         rtss_fps: fps_val,
+        frametime_ms: frametime_val,
+        vram_used_mb,
+        vram_total_mb,
+        gpu_power_w,
+        cpu_power_w,
+        gpu_core_clock_mhz,
+        gpu_mem_clock_mhz,
         t: 0.0,
     }
 }
@@ -1955,6 +2022,7 @@ mod tests {
             gpu_temp: (40 + i % 40) as u32,
             rtss_fps: Some(60.0 + (i % 30) as f64),
             t: i as f64,
+            ..Default::default()
         }
     }
 
@@ -2062,6 +2130,13 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
             cpu_temp: 61.0,
             gpu_temp: 70.0,
             fps: None,
+            frametime: None,
+            vram_used_mb: None,
+            vram_total_mb: None,
+            gpu_power: None,
+            cpu_power: None,
+            gpu_core_clock: None,
+            gpu_mem_clock: None,
         };
         let value = serde_json::to_value(&sample).unwrap();
         assert_eq!(value["cpu"], serde_json::json!(42.0));
@@ -2069,10 +2144,26 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
         assert_eq!(value["gpuTemp"], serde_json::json!(70.0));
         // No real FPS source → the key is absent, never fabricated.
         assert!(value.get("fps").is_none());
+        // Deep-dive sensors are omitted entirely when unavailable.
+        assert!(value.get("vramUsedMb").is_none());
+        assert!(value.get("gpuPower").is_none());
 
         let with_fps = LiveMetricsSample { fps: Some(143.7), ..sample };
         let value = serde_json::to_value(&with_fps).unwrap();
         assert_eq!(value["fps"], serde_json::json!(143.7));
+
+        let deep = LiveMetricsSample {
+            vram_used_mb: Some(6144.0),
+            vram_total_mb: Some(8192.0),
+            gpu_power: Some(210.0),
+            frametime: Some(8.4),
+            ..with_fps
+        };
+        let value = serde_json::to_value(&deep).unwrap();
+        assert_eq!(value["vramUsedMb"], serde_json::json!(6144.0));
+        assert_eq!(value["vramTotalMb"], serde_json::json!(8192.0));
+        assert_eq!(value["gpuPower"], serde_json::json!(210.0));
+        assert_eq!(value["frametime"], serde_json::json!(8.4));
     }
 
     #[test]

@@ -104,4 +104,62 @@ describe("OverlayTicker", () => {
       "overlay.ticker.rec",
     );
   });
+
+  it("renders the gauge cluster when the gauges layout is selected", () => {
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        metrics: { cpu: 10, gpu: 20, ram: 30, cpuTemp: 40, gpuTemp: 50, fps: 60 },
+        settings: {
+          ...baseOverlaySettings,
+          tickerLayout: "gauges",
+          tickerWidgets: ["fps", "cpu", "gpu", "ram"],
+        },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker")).toHaveAttribute(
+      "data-layout",
+      "gauges",
+    );
+    expect(screen.getByTestId("overlay-ticker-gauges")).toBeInTheDocument();
+    expect(screen.getByTestId("overlay-gauge-fps")).toBeInTheDocument();
+    expect(screen.getByTestId("overlay-gauge-cpu")).toBeInTheDocument();
+  });
+
+  it("falls back to the strip layout for an unknown persisted preset", () => {
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        settings: {
+          ...baseOverlaySettings,
+          tickerLayout: "nonsense" as never,
+        },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker")).toHaveAttribute(
+      "data-layout",
+      "strip",
+    );
+  });
+
+  it("tags usage and temperature pills so CPU and GPU are distinguishable", () => {
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        metrics: { cpu: 14, gpu: 13, ram: 40, cpuTemp: 67, gpuTemp: 41, fps: 60 },
+        settings: {
+          ...baseOverlaySettings,
+          tickerWidgets: ["fps", "cpu", "gpu", "cpuTemp", "gpuTemp", "ram"],
+        },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker-cpu")).toHaveTextContent("CPU");
+    expect(screen.getByTestId("overlay-ticker-gpu")).toHaveTextContent("GPU");
+    expect(screen.getByTestId("overlay-ticker-cpuTemp")).toHaveTextContent("CPU");
+    expect(screen.getByTestId("overlay-ticker-gpuTemp")).toHaveTextContent("GPU");
+    expect(screen.getByTestId("overlay-ticker-ram")).toHaveTextContent("RAM");
+  });
 });

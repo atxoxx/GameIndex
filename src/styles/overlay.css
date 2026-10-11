@@ -439,7 +439,7 @@ body.overlay-window #root {
 
 .overlay-capture-toast {
   position: absolute;
-  top: 52px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -455,12 +455,12 @@ body.overlay-window #root {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--color-text-primary);
-  animation: overlaySlideDown 0.25s ease-out;
+  animation: overlaySlideUp 0.25s ease-out;
 }
 
-@keyframes overlaySlideDown {
+@keyframes overlaySlideUp {
   from {
-    transform: translate(-50%, -10px);
+    transform: translate(-50%, 10px);
     opacity: 0;
   }
   to {
@@ -2601,4 +2601,393 @@ body.overlay-window #root {
 .overlay-device-select:focus {
   outline: none;
   border-color: var(--color-accent);
+}
+
+
+/* =============================================================================
+   Visual refresh — modern glass with a game-accent edge.
+   Appended so later rules refine the base HUD without disturbing the widgets
+   that already opt into the shared design tokens.
+   ============================================================================= */
+
+/* ── Reduced HUD: shell + telemetry polish ────────────────────────────── */
+
+.overlay-ticker {
+  gap: 5px;
+  padding: 6px 9px;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--color-surface-glass) 82%, var(--color-accent) 18%) 0%,
+      var(--color-surface-glass) 55%
+    );
+  border: 1px solid var(--color-border-light);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 8%, transparent);
+  backdrop-filter: blur(14px) saturate(1.25);
+}
+
+.overlay-ticker::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 45%, transparent),
+    transparent 45%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.overlay-ticker:hover {
+  border-color: var(--color-accent-border);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    0 12px 34px rgba(0, 0, 0, 0.5),
+    0 0 18px var(--color-accent-glow);
+}
+
+.overlay-ticker__pill {
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-tertiary) 70%, var(--color-bg-secondary)) 0%,
+      var(--color-bg-secondary) 100%
+    );
+  border: 1px solid var(--color-border-faint);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.overlay-ticker__pill:hover {
+  border-color: var(--color-accent-border);
+  transform: translateY(-1px);
+}
+
+/* Short uppercase device tag ("CPU"/"GPU"/"RAM") that disambiguates otherwise
+   identical-looking metric pills at a glance. */
+.overlay-ticker__pill-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+}
+
+.overlay-ticker__fps {
+  font-weight: 700;
+}
+
+.overlay-ticker__fps.overlay-fps--good {
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-bg-secondary));
+}
+
+.overlay-ticker__fps.overlay-fps--fair {
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg-secondary));
+}
+
+.overlay-ticker__fps.overlay-fps--low {
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-bg-secondary));
+}
+
+.overlay-ticker__action-btn {
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+}
+
+.overlay-ticker__action-btn:hover {
+  box-shadow: 0 0 10px var(--color-accent-glow), inset 0 1px 0 var(--color-border-highlight);
+}
+
+.overlay-ticker__expand:hover {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+/* ── Reduced HUD: layout variants ─────────────────────────────────────── */
+
+.overlay-ticker__row--single {
+  flex-wrap: nowrap;
+  gap: var(--space-sm);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.overlay-ticker__row--single .overlay-ticker__actions {
+  margin-left: auto;
+}
+
+.overlay-ticker__row--minimal {
+  gap: var(--space-sm);
+}
+
+.overlay-ticker__row--gauges {
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.overlay-ticker__gauges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* ── Circular gauge ───────────────────────────────────────────────────── */
+
+.overlay-gauge {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  --overlay-gauge-color: var(--color-accent);
+}
+
+.overlay-gauge--accent { --overlay-gauge-color: var(--color-accent); }
+.overlay-gauge--good { --overlay-gauge-color: var(--color-success); }
+.overlay-gauge--fair { --overlay-gauge-color: var(--color-warning); }
+.overlay-gauge--low { --overlay-gauge-color: var(--color-danger); }
+.overlay-gauge--default { --overlay-gauge-color: var(--color-text-secondary); }
+
+.overlay-gauge__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay-gauge__track {
+  stroke: var(--color-border-light);
+  opacity: 0.6;
+}
+
+.overlay-gauge__value {
+  stroke: var(--overlay-gauge-color);
+  transition: stroke-dasharray 0.4s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s ease;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--overlay-gauge-color) 55%, transparent));
+}
+
+.overlay-gauge--empty .overlay-gauge__value {
+  stroke: transparent;
+  filter: none;
+}
+
+.overlay-gauge__reading {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.overlay-gauge__label {
+  position: absolute;
+  left: 50%;
+  top: 64%;
+  transform: translate(-50%, -50%);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.overlay-gauge--empty .overlay-gauge__reading {
+  color: var(--color-text-tertiary);
+}
+
+/* ── Expanded panel: header, tabs and section polish ──────────────────── */
+
+.overlay-panel {
+  background:
+    radial-gradient(
+      120% 80% at 100% 0%,
+      color-mix(in srgb, var(--color-accent) 9%, transparent) 0%,
+      transparent 55%
+    ),
+    var(--color-surface-overlay);
+  border: 1px solid var(--color-border-light);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.overlay-panel__head {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-bg-tertiary) 55%, transparent) 0%,
+    transparent 100%
+  );
+}
+
+.overlay-panel__game-thumb {
+  box-shadow: 0 0 0 1px var(--color-accent-border), var(--shadow-sm);
+}
+
+.overlay-panel__fps-badge {
+  background: color-mix(in srgb, var(--color-bg-tertiary) 80%, var(--color-accent) 20%);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+}
+
+.overlay-panel__tabs {
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-md) 0;
+}
+
+.overlay-panel__tab {
+  border-radius: var(--radius-sm);
+  margin-bottom: 1px;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.overlay-panel__tab--active {
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent-border);
+}
+
+.overlay-panel__tab--active::after {
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+
+.overlay-widget__icon {
+  filter: drop-shadow(0 0 6px var(--color-accent-glow));
+}
+
+/* ── Performance deep-dive ────────────────────────────────────────────── */
+
+.overlay-deep-dive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+  min-width: 0;
+}
+
+.overlay-deep-dive__hint {
+  margin: calc(-1 * var(--space-xs)) 0 0;
+  font-size: 0.68rem;
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+}
+
+.overlay-stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: var(--space-2xs);
+  margin-top: var(--space-sm);
+}
+
+.overlay-stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: var(--space-xs) var(--space-2xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-faint);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.overlay-stat-chip:hover {
+  border-color: var(--color-accent-border);
+  transform: translateY(-1px);
+}
+
+.overlay-stat-chip__value {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+
+.overlay-stat-chip__label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+
+.overlay-stat-chip--accent .overlay-stat-chip__value { color: var(--color-accent); }
+.overlay-stat-chip--good .overlay-stat-chip__value { color: var(--color-success); }
+.overlay-stat-chip--warn .overlay-stat-chip__value { color: var(--color-warning); }
+
+.overlay-sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.overlay-sensor-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent) 0%,
+      var(--color-bg-secondary) 100%
+    );
+  border: 1px solid var(--color-border-faint);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.overlay-sensor-tile:hover {
+  border-color: var(--color-accent-border);
+  transform: translateY(-1px);
+}
+
+.overlay-sensor-tile__icon {
+  color: var(--color-accent);
+}
+
+.overlay-sensor-tile__value {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.overlay-sensor-tile__label {
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-gauge__value,
+  .overlay-ticker__pill,
+  .overlay-stat-chip,
+  .overlay-sensor-tile {
+    transition: none;
+  }
 }

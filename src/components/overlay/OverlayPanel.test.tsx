@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import OverlayPanel from "./OverlayPanel";
 import {
   useOverlay,
@@ -184,6 +184,40 @@ describe("OverlayPanel", () => {
     const logoImg = screen.getByAltText("Hades II");
     expect(logoImg).toHaveAttribute("src", "https://example.com/hades2-logo.png");
     expect(logoImg).toHaveClass("overlay-panel__game-logo");
+  });
+
+  it("does not render the capture toast before anything is captured", () => {
+    mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
+    render(<OverlayPanel />);
+
+    expect(screen.queryByText("overlay.screenshot.captured")).toBeNull();
+  });
+
+  it("shows the capture toast and auto-dismisses it", () => {
+    vi.useFakeTimers();
+    try {
+      const val = overlayValue(ALL_WIDGETS);
+      val.lastCapturedScreenshot = {
+        filePath: "C:/Videos/Captures/Hades II/shot.png",
+        fileName: "shot.png",
+        gameTitle: "Hades II",
+        timestamp: Date.now(),
+        width: 1920,
+        height: 1080,
+      };
+      mockOverlay.mockReturnValue(val);
+      render(<OverlayPanel />);
+
+      expect(screen.getByText("overlay.screenshot.captured")).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(6000);
+      });
+
+      expect(screen.queryByText("overlay.screenshot.captured")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

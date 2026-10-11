@@ -78,6 +78,20 @@ pub struct MahmMetrics {
     pub ram_usage: Option<f32>,
     pub ram_units: String,   // e.g. "%", "MB", "GB"
     pub fps: Option<f32>,
+    /// Instantaneous frame time in milliseconds, when Afterburner exposes it.
+    pub frametime: Option<f32>,
+    /// GPU dedicated memory in use, in megabytes.
+    pub vram_used_mb: Option<f32>,
+    /// Total GPU dedicated memory, in megabytes (parsed from the GPU list).
+    pub vram_total_mb: Option<f32>,
+    /// GPU board power draw in watts.
+    pub gpu_power: Option<f32>,
+    /// CPU package power draw in watts.
+    pub cpu_power: Option<f32>,
+    /// GPU core clock in MHz.
+    pub gpu_core_clock: Option<f32>,
+    /// GPU memory clock in MHz.
+    pub gpu_mem_clock: Option<f32>,
 }
 
 #[cfg(windows)]
@@ -209,6 +223,84 @@ fn matches_system_ram(name: &str) -> bool {
     SYSTEM_RAM_NAMES.contains(&name_lower.as_str())
 }
 
+/// True iff `name` names a GPU dedicated-memory *usage* sensor (VRAM), as
+/// opposed to system RAM, shared GPU memory or a capacity reading. Used to
+/// surface the deep-dive VRAM tile without colliding with the system-RAM
+/// matcher (which excludes every VRAM hint).
+#[cfg(any(windows, test))]
+fn matches_gpu_memory_used(name: &str) -> bool {
+    let n = name.to_lowercase();
+    if n.is_empty() {
+        return false;
+    }
+    let dedicated = n.contains("vram")
+        || n.contains("video memory")
+        || n.contains("gpu memory")
+        || n.contains("dedicated memory");
+    dedicated && (n.contains("usage") || n.contains("used") || n.contains("allocated"))
+}
+
+/// GPU board power draw (e.g. "GPU power", "GPU1 power").
+#[cfg(any(windows, test))]
+fn matches_gpu_power(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n.contains("gpu") && n.contains("power")
+}
+
+/// CPU package power draw (e.g. "CPU package power", "CPU power").
+#[cfg(any(windows, test))]
+fn matches_cpu_power(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n.contains("cpu") && n.contains("power") && !n.contains("gpu")
+}
+
+/// GPU core clock (e.g. "GPU clock", "GPU1 core clock").
+#[cfg(any(windows, test))]
+fn matches_gpu_core_clock(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n.contains("gpu") && n.contains("clock") && !n.contains("mem")
+}
+
+/// GPU memory clock (e.g. "GPU memory clock", "GPU1 mem clock").
+#[cfg(any(windows, test))]
+fn matches_gpu_mem_clock(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n.contains("gpu") && n.contains("clock") && (n.contains("mem") || n.contains("memory"))
+}
+
+/// Instantaneous frame time sensor ("Frametime" / "Frame time").
+#[cfg(any(windows, test))]
+fn matches_frametime(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n == "frametime" || n == "frame time" || n.contains("frametime")
+}
+
+/// Parse Afterburner's GPU `mem_amount` field (e.g. "8192 MB", "12 GB",
+/// "4096MB") into megabytes. Returns `None` for an unparseable value.
+#[cfg(any(windows, test))]
+fn parse_mem_amount_mb(raw: &str) -> Option<f32> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let mut parts = trimmed.split_whitespace();
+    let value: f32 = parts.next()?.replace(',', "").parse().ok()?;
+    if !value.is_finite() || value <= 0.0 {
+        return None;
+    }
+    let unit = parts.next().unwrap_or("MB").to_lowercase();
+    let mb = if unit.starts_with('g') {
+        value * 1024.0
+    } else if unit.starts_with('k') {
+        value / 1024.0
+    } else if unit.starts_with('b') {
+        value / (1024.0 * 1024.0)
+    } else {
+        value
+    };
+    Some(mb)
+}
+
 /// Parse MSI Afterburner Shared Memory metrics.
 ///
 /// Uses **exact sensor name matching** following the reference Playnite GameActivity plugin:
@@ -261,6 +353,7 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
 
         // Resolve which GPU index to use in Afterburner by looking up GPU list in shared memory.
         let mut resolved_gpu_idx = gpu_idx;
+        let mut vram_total_mb: Option<f32> = None;
         if let Some(name_filter) = gpu_name {
             let gpus_offset = header.header_size + header.entry_count * header.entry_size;
             let gpu_base = base.add(gpus_offset as usize);
@@ -276,6 +369,10 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
                     let filter_lower = name_filter.to_lowercase();
                     if !cleaned_device.is_empty() && (cleaned_device.contains(&filter_lower) || filter_lower.contains(&cleaned_device)) {
                         resolved_gpu_idx = i;
+                        let mem_bytes = (*gpu_ptr).mem_amount;
+                        if let Ok(mem_str) = std::str::from_utf8(&mem_bytes) {
+                            vram_total_mb = parse_mem_amount_mb(mem_str.split('\0').next().unwrap_or(""));
+                        }
                         break;
                     }
                 }
@@ -295,6 +392,12 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
         let mut ram_usage: Option<f32> = None;
         let mut ram_units = String::new();
         let mut fps: Option<f32> = None;
+        let mut frametime: Option<f32> = None;
+        let mut vram_used_mb: Option<f32> = None;
+        let mut gpu_power: Option<f32> = None;
+        let mut cpu_power: Option<f32> = None;
+        let mut gpu_core_clock: Option<f32> = None;
+        let mut gpu_mem_clock: Option<f32> = None;
 
         let entries_base = (base as *const u8).add(header.header_size as usize);
 
@@ -358,6 +461,30 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
                     let units = read_str_at(entry.add(ENTRY_UNITS_OFFSET), ENTRY_UNITS_SIZE);
                     ram_units = units;
                 }
+            } else if frametime.is_none() && matches_frametime(&name) {
+                if data.is_finite() && data > 0.0 && data <= 1000.0 {
+                    frametime = Some(data);
+                }
+            } else if vram_used_mb.is_none() && matches_gpu_memory_used(&name) {
+                if data.is_finite() && data > 0.0 && data <= 1_048_576.0 {
+                    vram_used_mb = Some(data);
+                }
+            } else if gpu_power.is_none() && matches_gpu_power(&name) {
+                if data.is_finite() && data > 0.0 && data <= 2000.0 {
+                    gpu_power = Some(data);
+                }
+            } else if cpu_power.is_none() && matches_cpu_power(&name) {
+                if data.is_finite() && data > 0.0 && data <= 2000.0 {
+                    cpu_power = Some(data);
+                }
+            } else if gpu_core_clock.is_none() && matches_gpu_core_clock(&name) {
+                if data.is_finite() && data > 0.0 && data <= 20_000.0 {
+                    gpu_core_clock = Some(data);
+                }
+            } else if gpu_mem_clock.is_none() && matches_gpu_mem_clock(&name) {
+                if data.is_finite() && data > 0.0 && data <= 20_000.0 {
+                    gpu_mem_clock = Some(data);
+                }
             } else if name_lower == "framerate" || name_lower == "fps" {
                 // Bound the Framerate sensor reading. MAHM stores data as
                 // a raw f32 from the entry's `data` field; if the entry is
@@ -393,6 +520,13 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
             ram_usage,
             ram_units,
             fps,
+            frametime,
+            vram_used_mb,
+            vram_total_mb,
+            gpu_power,
+            cpu_power,
+            gpu_core_clock,
+            gpu_mem_clock,
         })
     }
 }
@@ -480,5 +614,56 @@ mod tests {
         assert!(!matches_system_ram("Virtual memory usage"));
         assert!(!matches_system_ram("RAM pagefile usage"));
         assert!(!matches_system_ram("Committed memory"));
+    }
+
+    #[test]
+    fn gpu_memory_used_matches_vram_sensors_but_not_system_ram() {
+        assert!(matches_gpu_memory_used("VRAM usage"));
+        assert!(matches_gpu_memory_used("GPU memory usage"));
+        assert!(matches_gpu_memory_used("Dedicated memory used"));
+        assert!(matches_gpu_memory_used("GPU1 memory allocated"));
+        // Capacity readings and system RAM must not be treated as GPU usage.
+        assert!(!matches_gpu_memory_used("RAM usage"));
+        assert!(!matches_gpu_memory_used("Memory usage"));
+        assert!(!matches_gpu_memory_used("VRAM"));
+        assert!(!matches_gpu_memory_used(""));
+    }
+
+    #[test]
+    fn power_and_clock_matchers_disambiguate_cpu_gpu_and_core_mem() {
+        assert!(matches_gpu_power("GPU power"));
+        assert!(matches_gpu_power("GPU1 power"));
+        assert!(!matches_gpu_power("CPU package power"));
+
+        assert!(matches_cpu_power("CPU package power"));
+        assert!(matches_cpu_power("CPU power"));
+        assert!(!matches_cpu_power("GPU power"));
+
+        assert!(matches_gpu_core_clock("GPU clock"));
+        assert!(matches_gpu_core_clock("GPU1 core clock"));
+        assert!(!matches_gpu_core_clock("GPU memory clock"));
+
+        assert!(matches_gpu_mem_clock("GPU memory clock"));
+        assert!(matches_gpu_mem_clock("GPU1 mem clock"));
+        assert!(!matches_gpu_mem_clock("GPU core clock"));
+    }
+
+    #[test]
+    fn frametime_matcher_accepts_afterburner_names() {
+        assert!(matches_frametime("Frametime"));
+        assert!(matches_frametime("frame time"));
+        assert!(matches_frametime("FrameTime"));
+        assert!(!matches_frametime("framerate"));
+        assert!(!matches_frametime("fps"));
+    }
+
+    #[test]
+    fn mem_amount_parses_common_afterburner_units() {
+        assert_eq!(parse_mem_amount_mb("8192 MB"), Some(8192.0));
+        assert_eq!(parse_mem_amount_mb("12 GB"), Some(12.0 * 1024.0));
+        assert_eq!(parse_mem_amount_mb("4096MB"), Some(4096.0));
+        assert_eq!(parse_mem_amount_mb(""), None);
+        assert_eq!(parse_mem_amount_mb("garbage"), None);
+        assert_eq!(parse_mem_amount_mb("0 MB"), None);
     }
 }

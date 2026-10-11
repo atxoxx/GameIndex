@@ -68,6 +68,8 @@ pub struct OverlaySettings {
     pub opacity: f64,
     pub ticker_widgets: Vec<String>,
     pub panel_widgets: Vec<String>,
+    /// Reduced-HUD presentation preset: `strip` | `single` | `gauges` | `minimal`.
+    pub ticker_layout: String,
     pub poll_interval_ms: u64,
     /// Show CPU/GPU temperatures in the performance widget.
     pub show_temps: bool,
@@ -183,6 +185,7 @@ impl Default for OverlaySettings {
             .iter()
             .map(|s| s.to_string())
             .collect(),
+            ticker_layout: "strip".to_string(),
             poll_interval_ms: 1000,
             show_temps: true,
             show_graphs: true,

@@ -130,6 +130,19 @@ export default function OverlayPanel() {
   const [thumbFailed, setThumbFailed] = useState(false);
   const [headerLogoFailed, setHeaderLogoFailed] = useState(false);
 
+  // The capture banner is a transient snackbar: show it when a capture lands,
+  // then auto-dismiss so it can never linger over the panel content.
+  const [toastVisible, setToastVisible] = useState(false);
+  useEffect(() => {
+    if (!lastCapturedScreenshot) {
+      setToastVisible(false);
+      return;
+    }
+    setToastVisible(true);
+    const timer = window.setTimeout(() => setToastVisible(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [lastCapturedScreenshot]);
+
   useEffect(() => {
     setThumbFailed(false);
     setHeaderLogoFailed(false);
@@ -280,7 +293,7 @@ export default function OverlayPanel() {
       </header>
 
       {/* Floating Capture Notification Banner */}
-      {lastCapturedScreenshot && (
+      {toastVisible && lastCapturedScreenshot && (
         <div className="overlay-capture-toast" role="status">
           <div className="overlay-capture-toast__left">
             <Check size={14} className="text-success" />
@@ -290,7 +303,10 @@ export default function OverlayPanel() {
             <button
               type="button"
               className="overlay-toast-btn"
-              onClick={() => setActiveId("captures")}
+              onClick={() => {
+                setActiveId("captures");
+                setToastVisible(false);
+              }}
             >
               <Eye size={12} />
               <span>{t("overlay.screenshot.view")}</span>
@@ -298,7 +314,10 @@ export default function OverlayPanel() {
             <button
               type="button"
               className="overlay-toast-btn"
-              onClick={() => void openScreenshotsFolder(lastCapturedScreenshot.filePath)}
+              onClick={() => {
+                void openScreenshotsFolder(lastCapturedScreenshot.filePath);
+                setToastVisible(false);
+              }}
             >
               <FolderOpen size={12} />
             </button>

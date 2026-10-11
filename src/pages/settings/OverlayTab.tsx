@@ -32,6 +32,7 @@ import {
   type OverlaySettings,
 } from "../../context/OverlayContext";
 import { Button, Skeleton } from "../../components/ui";
+import { TICKER_LAYOUTS } from "../../components/overlay/overlayLayout";
 import { OverlayIcon } from "./settingsIcons";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -392,6 +393,34 @@ export default function OverlayTab() {
             onChange={(event) => update({ opacity: Number(event.target.value) })}
             aria-label={t("settings.overlay.aria.opacity")}
           />
+        </div>
+
+        <div className="hw-card" style={{ marginTop: "1rem" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">
+              {t("settings.overlay.layout")}
+            </label>
+          </div>
+          <p className="hw-card-help">{t("settings.overlay.layoutDesc")}</p>
+          <div
+            className="settings-segmented hw-seg"
+            role="group"
+            aria-label={t("settings.overlay.aria.layout")}
+          >
+            {TICKER_LAYOUTS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={
+                  (settings.tickerLayout ?? "strip") === option.id ? "active" : ""
+                }
+                onClick={() => update({ tickerLayout: option.id })}
+                title={t(option.hintKey)}
+              >
+                {t(option.labelKey)}
+              </button>
+            ))}
+          </div>
         </div>
 
         <SettingsToggleCard

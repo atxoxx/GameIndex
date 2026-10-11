@@ -2,6 +2,7 @@ import { useOverlay } from "../../../context/OverlayContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { KpiTile, Tooltip } from "../../ui";
 import OverlaySparkline from "../OverlaySparkline";
+import PerformanceDeepDive from "./PerformanceDeepDive";
 
 function formatPercent(value: number | undefined): string {
   return typeof value === "number" && Number.isFinite(value)
@@ -182,6 +183,8 @@ export default function PerformanceWidget() {
           <div className="overlay-sparkline-grid">{temps.map(renderGraph)}</div>
         </section>
       )}
+
+      <PerformanceDeepDive />
     </div>
   );
 }

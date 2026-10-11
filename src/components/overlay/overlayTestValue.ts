@@ -19,6 +19,7 @@ export const baseOverlaySettings: OverlaySettings = {
   opacity: 0.9,
   tickerWidgets: ["fps"],
   panelWidgets: ["session"],
+  tickerLayout: "strip",
   pollIntervalMs: 1000,
   showTemps: true,
   showGraphs: false,

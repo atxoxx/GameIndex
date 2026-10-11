@@ -29,6 +29,13 @@ export type OverlayCorner =
   | "bottom-left"
   | "bottom-right";
 
+/** Presentation presets for the reduced (collapsed) ticker HUD. */
+export type OverlayTickerLayout =
+  | "strip"
+  | "single"
+  | "gauges"
+  | "minimal";
+
 /** Mirrors the backend `OverlaySettings` serde shape (camelCase). */
 export interface OverlaySettings {
   enabled: boolean;
@@ -37,6 +44,8 @@ export interface OverlaySettings {
   opacity: number;
   tickerWidgets: string[];
   panelWidgets: string[];
+  /** Reduced-HUD presentation preset (see `OverlayTickerLayout`). */
+  tickerLayout?: OverlayTickerLayout;
   pollIntervalMs: number;
   /** Render CPU/GPU temperature tiles in the performance widget. */
   showTemps: boolean;
@@ -99,6 +108,17 @@ export interface OverlayMetrics {
   cpuTemp: number;
   gpuTemp: number;
   fps?: number;
+  /** Instantaneous frame time in milliseconds (ms). Derived from FPS when absent. */
+  frametime?: number;
+  /** GPU dedicated memory in use / total, in megabytes. */
+  vramUsedMb?: number;
+  vramTotalMb?: number;
+  /** Power draw in watts. */
+  gpuPower?: number;
+  cpuPower?: number;
+  /** GPU clocks in MHz. */
+  gpuCoreClock?: number;
+  gpuMemClock?: number;
 }
 
 /** Current running session, mirrored from `overlay:session`. */
@@ -216,6 +236,7 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
     "notifications",
     "settings",
   ],
+  tickerLayout: "strip",
   pollIntervalMs: 1000,
   showTemps: true,
   showGraphs: true,

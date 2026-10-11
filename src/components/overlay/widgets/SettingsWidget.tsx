@@ -29,6 +29,7 @@ import {
 } from "../../../context/OverlayContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Card, Button } from "../../ui";
+import { TICKER_LAYOUTS } from "../overlayLayout";
 
 const CORNERS: { id: OverlayCorner; labelKey: string }[] = [
   { id: "top-left", labelKey: "settings.overlay.corner.topLeft" },
@@ -248,6 +249,29 @@ export default function SettingsWidget() {
                   <span>{t(c.labelKey)}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="overlay-setting-block">
+            <span className="overlay-setting-block__label">
+              {t("overlay.settings.layout")}
+            </span>
+            <div className="overlay-chips-list">
+              {TICKER_LAYOUTS.map((option) => {
+                const active =
+                  (settings.tickerLayout ?? "strip") === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`overlay-chip${active ? " active" : ""}`}
+                    onClick={() => void updateSettings({ tickerLayout: option.id })}
+                    title={t(option.hintKey)}
+                  >
+                    <span>{t(option.labelKey)}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
