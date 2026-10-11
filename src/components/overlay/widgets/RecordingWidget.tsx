@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useOverlay } from "../../../context/OverlayContext";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useIncrementalList } from "../useIncrementalList";
 import { Card, Button } from "../../ui";
 
 function formatDuration(ms: number): string {
@@ -42,6 +43,12 @@ export default function RecordingWidget() {
     settings,
   } = useOverlay();
   const { t } = useLanguage();
+
+  const {
+    visible: visibleClips,
+    hasMore,
+    showMore,
+  } = useIncrementalList(recentClips);
 
   const [busy, setBusy] = useState(false);
   const [confirmDeletePath, setConfirmDeletePath] = useState<string | null>(null);
@@ -233,7 +240,7 @@ export default function RecordingWidget() {
             </div>
           ) : (
             <div className="overlay-clips-list">
-              {recentClips.map((path) => {
+              {visibleClips.map((path) => {
                 const fileName = path.split(/[/\\]/).pop() ?? "Clip";
                 const isConfirming = confirmDeletePath === path;
                 return (
@@ -270,6 +277,17 @@ export default function RecordingWidget() {
                 );
               })}
             </div>
+          )}
+
+          {clipCount > 0 && hasMore && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="overlay-list-more"
+              onClick={showMore}
+            >
+              {t("overlay.list.showMore")}
+            </Button>
           )}
         </>
       )}

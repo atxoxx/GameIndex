@@ -14,6 +14,7 @@ import { useOverlay } from "../../../context/OverlayContext";
 import { useOptionalGames } from "../../../context/GameContext";
 import { useGameNotes, type GameNoteDraft } from "../../../hooks/useGameNotes";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useIncrementalList } from "../useIncrementalList";
 import type { GameNote } from "../../../types/gameNote";
 import { Card, Button, Skeleton } from "../../ui";
 import Markdown from "../../game/notes/markdown";
@@ -133,6 +134,11 @@ export default function NotesWidget() {
 function NotesManager({ gameId, gameTitle }: { gameId: string; gameTitle: string }) {
   const { t } = useLanguage();
   const { notes, loading, createNote, updateNote, deleteNote } = useGameNotes(gameId);
+  const {
+    visible: visibleNotes,
+    hasMore,
+    showMore,
+  } = useIncrementalList(notes);
 
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
@@ -293,7 +299,7 @@ function NotesManager({ gameId, gameTitle }: { gameId: string; gameTitle: string
           {/* Note Tabs & Actions */}
           <div className="overlay-notes-nav">
             <div className="overlay-notes-tabs-scroll">
-              {notes.map((n) => {
+              {visibleNotes.map((n) => {
                 const isSelected = n.id === activeNoteId;
                 return (
                   <button
@@ -307,6 +313,16 @@ function NotesManager({ gameId, gameTitle }: { gameId: string; gameTitle: string
                   </button>
                 );
               })}
+              {hasMore && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="overlay-list-more"
+                  onClick={showMore}
+                >
+                  {t("overlay.list.showMore")}
+                </Button>
+              )}
             </div>
 
             <div className="overlay-notes-actions-bar">

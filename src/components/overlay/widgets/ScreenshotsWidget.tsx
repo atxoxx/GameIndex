@@ -14,6 +14,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { useOverlay } from "../../../context/OverlayContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useOptionalGames } from "../../../context/GameContext";
+import { useIncrementalList } from "../useIncrementalList";
 import { Card, Button } from "../../ui";
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -96,6 +97,12 @@ export default function ScreenshotsWidget() {
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [confirmDeletePath, setConfirmDeletePath] = useState<string | null>(null);
+
+  const {
+    visible: visibleScreenshots,
+    hasMore,
+    showMore,
+  } = useIncrementalList(recentScreenshots);
 
   const activeGame = useMemo(() => {
     if (!session?.gameId) return null;
@@ -190,7 +197,7 @@ export default function ScreenshotsWidget() {
         </div>
       ) : (
         <div className="overlay-screenshots-grid">
-          {recentScreenshots.map((path) => {
+          {visibleScreenshots.map((path) => {
             const fileName = path.split(/[/\\]/).pop() ?? "Capture";
             const isConfirmingDelete = confirmDeletePath === path;
             return (
@@ -255,6 +262,17 @@ export default function ScreenshotsWidget() {
             );
           })}
         </div>
+      )}
+
+      {recentScreenshots.length > 0 && hasMore && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="overlay-list-more"
+          onClick={showMore}
+        >
+          {t("overlay.list.showMore")}
+        </Button>
       )}
 
       {/* In-overlay full preview lightbox */}
