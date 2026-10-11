@@ -240,7 +240,7 @@ export const PANEL_WIDGETS = [
 export const OVERLAY_HISTORY_LIMIT = 60;
 
 export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
-  enabled: true,
+  enabled: false,
   hotkey: "Shift+F1",
   corner: "bottom-right",
   opacity: 0.9,

@@ -197,7 +197,7 @@ pub struct OverlaySettings {
 impl Default for OverlaySettings {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             hotkey: "Shift+F1".to_string(),
             corner: "bottom-right".to_string(),
             opacity: 0.9,
@@ -2168,7 +2168,7 @@ mod tests {
     #[test]
     fn settings_default_matches_the_design_contract() {
         let settings = OverlaySettings::default();
-        assert!(settings.enabled);
+        assert!(!settings.enabled);
         assert_eq!(settings.hotkey, "Shift+F1");
         assert_eq!(settings.corner, "bottom-right");
         assert!((settings.opacity - 0.9).abs() < f64::EPSILON);

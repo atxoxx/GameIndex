@@ -13,7 +13,7 @@ import type {
  * base value (types only) so every stub stays in sync with the interface.
  */
 export const baseOverlaySettings: OverlaySettings = {
-  enabled: true,
+  enabled: false,
   hotkey: "Shift+F1",
   corner: "bottom-right",
   opacity: 0.9,
