@@ -96,6 +96,8 @@ mod launcher;
 mod launch_splash;
 mod overlay;
 mod overlay_detect;
+#[cfg(target_os = "linux")]
+mod linux_desktop;
 mod capture;
 mod media;
 mod store;
