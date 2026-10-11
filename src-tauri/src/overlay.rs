@@ -1300,14 +1300,20 @@ pub fn register_listeners(app: &AppHandle) {
             }),
         );
 
-        // This listener runs while the GameWatcher mutex is held, so telemetry
-        // must be (re)started off this thread. By the time the main-thread
-        // closure runs the lock is released and `resolve_pid` is safe.
+        // This listener runs synchronously on the emitting thread while the
+        // GameWatcher mutex is held — `launch_game` emits `game-started`
+        // before releasing its lock. `run_on_main_thread` must NOT be used
+        // here: when the emit already happens on the main thread, Tauri runs
+        // the closure INLINE (see `send_user_message`), so the moment it calls
+        // `resolve_pid`/`start_live` it re-locks the same non-reentrant watcher
+        // mutex and deadlocks the whole app. Spawn onto the async runtime
+        // instead — it simply waits until the lock is released, matching the
+        // downloads `game-started` listener.
         let handle = started.clone();
-        let _ = started.run_on_main_thread(move || {
-            let Some(state) = handle.try_state::<OverlayState>() else {
+        tauri::async_runtime::spawn(async move {
+            if handle.try_state::<OverlayState>().is_none() {
                 return;
-            };
+            }
             let visible = handle
                 .get_webview_window(OVERLAY_WINDOW_LABEL)
                 .and_then(|w| w.is_visible().ok())
@@ -1315,7 +1321,10 @@ pub fn register_listeners(app: &AppHandle) {
             if !visible {
                 return;
             }
-            if let Some(session) = lock(state.inner()).session.clone() {
+            let session = handle
+                .try_state::<OverlayState>()
+                .and_then(|state| lock(state.inner()).session.clone());
+            if let Some(session) = session {
                 let pid = resolve_pid(&handle, &session);
                 if pid != 0 {
                     let _ = start_live(&handle, pid);

@@ -239,13 +239,20 @@ pub struct LiveMetricsHandle {
 }
 
 impl LiveMetricsHandle {
-    /// Signal the sampler to stop and block until the thread has joined.
+    /// Signal the sampler to stop and join it **off the caller's thread**.
     /// Taking `self` makes the handle single-use, so a stale handle can never
     /// leave a second sampler running in the background.
+    ///
+    /// The join is deliberately detached: `stop()` is called from the UI thread
+    /// (hotkey toggle, overlay hide, sampler replacement), and the collector
+    /// ticks through WMI, which can block for seconds under load / "Connection
+    /// timed out". Joining inline would freeze the whole app behind that wait.
     pub fn stop(mut self) {
         let _ = self.stop_tx.send(());
         if let Some(join) = self.join.take() {
-            let _ = join.join();
+            std::thread::spawn(move || {
+                let _ = join.join();
+            });
         }
     }
 }
@@ -2247,8 +2254,9 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
 
     #[test]
     fn live_handle_stop_is_idempotent_across_threads() {
-        // A parked (non-Windows) or disabled sampler must join promptly even
-        // when stopped right after start — no lost wake-up, no hang.
+        // A parked (non-Windows) or disabled sampler must stop without the
+        // caller ever blocking on a join (the join is detached), so stopping
+        // right after start can't hang the UI thread.
         let config = MetricsConfig {
             enabled: false,
             ..MetricsConfig::default()
