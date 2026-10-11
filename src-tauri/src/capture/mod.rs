@@ -32,6 +32,11 @@ pub const EVENT_CAPTURE_STATE: &str = "capture:state";
 /// Emitted once a clip has been written to disk.
 pub const EVENT_CLIP_SAVED: &str = "capture:clip-saved";
 
+/// Ceiling on the recent-clips list returned to the frontend. The gallery only
+/// renders the newest handful, so a folder full of recordings must not push its
+/// whole listing through IPC.
+const MAX_RECENT_CLIPS: usize = 500;
+
 /// Everything the platform recorder needs to start a capture. Built from
 /// `OverlaySettings` by the commands so the encoder stays settings-agnostic.
 #[derive(Clone, Debug)]
@@ -275,7 +280,10 @@ pub fn capture_save_replay(app: AppHandle) -> Result<Option<ClipResult>, String>
 pub fn capture_get_recent_clips(app: AppHandle, game_title: Option<String>) -> Result<Vec<String>, String> {
     let title = game_title.unwrap_or_else(|| config_from_settings(&app).game_title);
     let dir = capture_folder(&app, &title);
-    Ok(listing::list_clips(&dir))
+    let mut clips = listing::list_clips(&dir);
+    // Newest-first already; cap so an unbounded folder can't flood IPC.
+    clips.truncate(MAX_RECENT_CLIPS);
+    Ok(clips)
 }
 
 /// Delete a clip from disk.

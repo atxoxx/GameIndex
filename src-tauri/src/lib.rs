@@ -489,6 +489,8 @@ pub fn run() {
             overlay::overlay_set_corner,
             overlay::overlay_get_settings,
             overlay::overlay_get_session,
+            overlay::overlay_save_history,
+            overlay::overlay_load_history,
             overlay::overlay_save_settings,
             overlay::overlay_set_hotkey,
             overlay::overlay_set_window_effect,

@@ -35,6 +35,11 @@ const MAIN_WINDOW_LABEL: &str = "main";
 /// Single `kv_store` row holding the serialized [`OverlaySettings`].
 const SETTINGS_KEY: &str = "overlay.settings.v1";
 
+/// Single `kv_store` row holding the overlay's persisted telemetry history as
+/// an opaque JSON blob. The backend never interprets it — the frontend owns the
+/// shape and only round-trips it so the HUD's history survives a restart.
+const HISTORY_KEY: &str = "overlay.history.v1";
+
 /// Default window footprints in physical pixels. The user can drag/resize the
 /// HUD; the resulting bounds are persisted per presentation (see
 /// `overlay_save_bounds`).
@@ -48,6 +53,11 @@ const MIN_OVERLAY_HEIGHT: f64 = 44.0;
 const MAX_OVERLAY_DIM: f64 = 4000.0;
 /// Gap between the overlay edge and the monitor work-area edge.
 const OVERLAY_MARGIN: f64 = 16.0;
+
+/// Ceiling on the recent-captures list returned to the frontend. The gallery
+/// only ever renders the newest handful, so an unbounded folder (hundreds of
+/// captures) must not ship its whole listing over IPC on every poll.
+const MAX_RECENT_CAPTURES: usize = 500;
 
 /// Events (kept as consts so the frontend contract has one source of truth).
 pub const EVENT_METRICS: &str = "overlay:metrics";
@@ -88,6 +98,10 @@ pub struct OverlaySettings {
     pub background_opacity: f64,
     /// Drop the costly backdrop-filter and animated glows for performance.
     pub reduce_effects: bool,
+    /// Accessibility: force the high-contrast HUD palette.
+    pub high_contrast: bool,
+    /// Accessibility: text/UI scale multiplier (`1.0` = default).
+    pub text_scale: f64,
     /// Let clicks pass through the collapsed ticker so it never steals input
     /// from the game. The global hotkey still expands it to the panel.
     pub ticker_click_through: bool,
@@ -211,6 +225,8 @@ impl Default for OverlaySettings {
             background_blur: 14.0,
             background_opacity: 0.72,
             reduce_effects: false,
+            high_contrast: false,
+            text_scale: 1.0,
             ticker_click_through: false,
             poll_interval_ms: 1000,
             show_temps: true,
@@ -876,6 +892,23 @@ pub fn overlay_get_session(
     state: tauri::State<'_, OverlayState>,
 ) -> Result<Option<OverlaySession>, String> {
     Ok(lock(state.inner()).session.clone())
+}
+
+/// Persist the overlay's telemetry history. The payload is an opaque JSON blob
+/// owned by the frontend; the backend only stores it in the kv table so the
+/// HUD's graphs survive a restart.
+#[tauri::command]
+pub fn overlay_save_history(app: AppHandle, json: String) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    db::kv::set(&db, HISTORY_KEY, &json)
+}
+
+/// Load the persisted overlay telemetry history, or `None` when nothing has
+/// been saved yet (first run / fresh install).
+#[tauri::command]
+pub fn overlay_load_history(app: AppHandle) -> Result<Option<String>, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    db::kv::get(&db, HISTORY_KEY)
 }
 
 /// Persist a full settings payload and apply the parts the backend owns: the
@@ -1854,6 +1887,9 @@ pub fn overlay_get_recent_screenshots(
     }
 
     entries.sort_by(|a, b| b.1.cmp(&a.1));
+    // Newest-first, capped: a folder that has accumulated thousands of
+    // captures must not push its whole listing through IPC.
+    entries.truncate(MAX_RECENT_CAPTURES);
     Ok(entries.into_iter().map(|(p, _)| p).collect())
 }
 
