@@ -33,6 +33,7 @@ const SUBTYPE_IEEE_FLOAT: GUID = GUID::from_u128(0x00000003_0000_0010_8000_00aa0
 enum SampleKind {
     F32,
     I16,
+    I24,
     I32,
 }
 
@@ -40,6 +41,7 @@ impl SampleKind {
     fn bytes(self) -> usize {
         match self {
             SampleKind::I16 => 2,
+            SampleKind::I24 => 3,
             _ => 4,
         }
     }
@@ -131,8 +133,9 @@ impl AudioClient {
                 client,
                 capture,
                 format: AudioFormat {
-                    // The encoder muxes at most stereo; wider devices are downmixed.
-                    channels: device_channels.min(2),
+                    // Always encode stereo: mono is duplicated and wider
+                    // devices are reduced to their first stereo pair.
+                    channels: 2,
                     sample_rate,
                 },
                 kind,
@@ -178,10 +181,10 @@ impl AudioClient {
         Ok(())
     }
 
-    /// Convert one device packet to interleaved stereo/mono PCM16.
+    /// Convert one device packet to interleaved stereo PCM16.
     fn convert(&self, bytes: &[u8], frames: u32) -> Vec<u8> {
         let device = self.device_channels as usize;
-        let out = self.format.channels as usize;
+        let out = 2usize;
         let sb = self.kind.bytes();
         let mut out_bytes = Vec::with_capacity(frames as usize * out * 2);
         for frame in 0..frames as usize {
@@ -204,6 +207,13 @@ impl AudioClient {
                         (v * 32767.0) as i16
                     }
                     SampleKind::I16 => i16::from_le_bytes([bytes[off], bytes[off + 1]]),
+                    SampleKind::I24 => {
+                        let raw = (bytes[off] as i32)
+                            | ((bytes[off + 1] as i32) << 8)
+                            | ((bytes[off + 2] as i32) << 16);
+                        // Sign-extend the 24-bit value, then take the high 16.
+                        ((raw << 8) >> 8 >> 8) as i16
+                    }
                     SampleKind::I32 => {
                         let v = i32::from_le_bytes([
                             bytes[off],
@@ -244,6 +254,7 @@ fn detect_sample_kind(mix: *const WAVEFORMATEX) -> Option<SampleKind> {
         match (bits, is_float) {
             (32, true) => Some(SampleKind::F32),
             (16, false) => Some(SampleKind::I16),
+            (24, false) => Some(SampleKind::I24),
             (32, false) => Some(SampleKind::I32),
             _ => None,
         }

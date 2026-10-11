@@ -16,6 +16,7 @@
 //! Audio muxing (WASAPI game-audio / microphone) is intentionally not wired yet
 //! — the settings are persisted and the encoder is structured to add streams.
 
+use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
@@ -231,22 +232,33 @@ fn run_capture(
     };
     let buffer_path = folder.join(format!(".buffer_{date_str}.mp4"));
 
-    // Optional audio tracks (game audio + microphone), each as its own AAC
-    // stream. A failure degrades to video-only rather than aborting.
-    let mut audio_clients: Vec<AudioClient> = Vec::new();
+    // Audio sources. Game audio (render loopback) and the microphone are mixed
+    // into a single AAC track so players that ignore extra tracks still hear
+    // both; a lone source is written straight through.
+    let mut tracks: Vec<AudioTrack> = Vec::new();
     if config.game_audio {
         match AudioClient::open(config.audio_device.as_deref(), true) {
-            Ok(client) => audio_clients.push(client),
+            Ok(client) => tracks.push(AudioTrack::new(client)),
             Err(e) => eprintln!("[capture] game audio unavailable: {e}"),
         }
     }
     if config.microphone {
         match AudioClient::open(config.mic_device.as_deref(), false) {
-            Ok(client) => audio_clients.push(client),
+            Ok(client) => tracks.push(AudioTrack::new(client)),
             Err(e) => eprintln!("[capture] microphone unavailable: {e}"),
         }
     }
-    let audio_formats: Vec<AudioFormat> = audio_clients.iter().map(|c| c.format()).collect();
+
+    let mixing = tracks.len() > 1;
+    let target_rate = tracks.first().map(|t| t.src_rate).unwrap_or(48_000);
+    let writer_audio: Vec<AudioFormat> = if mixing {
+        vec![AudioFormat {
+            channels: 2,
+            sample_rate: target_rate,
+        }]
+    } else {
+        tracks.iter().map(|t| t.client.format()).collect()
+    };
 
     let mut writer = Mp4Writer::create(
         if kind == "replay" { &buffer_path } else { &final_path },
@@ -256,13 +268,14 @@ fn run_capture(
         out_h,
         fps,
         bitrate,
-        &audio_formats,
+        &writer_audio,
     )?;
     let mut audio_streams = writer.audio_streams().to_vec();
-    let mut audio_time: Vec<i64> = vec![0; audio_formats.len()];
-    let mut audio_logged: Vec<bool> = vec![false; audio_formats.len()];
-    let mut audio_seen: Vec<bool> = vec![false; audio_formats.len()];
-    let mut audio_warned: Vec<bool> = vec![false; audio_formats.len()];
+    // Timeline for the single-source (direct) path.
+    let mut direct_time: i64 = 0;
+    // Wall-clock pacing for the mixed path.
+    let mut mix_emitted: i64 = 0;
+    let mut mix_time: i64 = 0;
 
     let start = Instant::now();
     let frame_dur_100ns = 10_000_000i64 / fps as i64;
@@ -290,37 +303,58 @@ fn run_capture(
             Err(RecvTimeoutError::Disconnected) => break,
         }
 
-        // Drain each audio track into its stream.
-        for (index, client) in audio_clients.iter_mut().enumerate() {
-            if let Some(&stream) = audio_streams.get(index) {
-                let rate = audio_formats[index].sample_rate.max(1) as i64;
-                let mut pending: Vec<(Vec<u8>, u32)> = Vec::new();
-                if let Err(e) = client.poll(|data, frames| pending.push((data.to_vec(), frames))) {
-                    if !audio_logged[index] {
-                        eprintln!("[capture] audio capture error: {e}");
-                        audio_logged[index] = true;
+        // Pump the audio sources.
+        if mixing {
+            for track in tracks.iter_mut() {
+                track.pull(target_rate);
+            }
+            if let Some(&stream) = audio_streams.first() {
+                pump_mixed(
+                    &mut tracks,
+                    target_rate,
+                    stream,
+                    &mut writer,
+                    start.elapsed().as_secs_f64(),
+                    &mut mix_emitted,
+                    &mut mix_time,
+                );
+            }
+        } else if let (Some(track), Some(&stream)) = (tracks.first_mut(), audio_streams.first()) {
+            let rate = track.src_rate.max(1) as i64;
+            let mut pending: Vec<(Vec<u8>, u32)> = Vec::new();
+            if let Err(e) = track
+                .client
+                .poll(|data, frames| pending.push((data.to_vec(), frames)))
+            {
+                if !track.logged {
+                    eprintln!("[capture] audio capture error: {e}");
+                    track.logged = true;
+                }
+            }
+            for (data, frames) in pending {
+                if !track.seen {
+                    track.seen = true;
+                    eprintln!("[capture] audio source streaming ({frames} frames/packet)");
+                }
+                let dur = (frames as i64 * 10_000_000 / rate).max(1);
+                if let Err(e) = writer.write_audio(stream, &data, frames, direct_time, rate as u32) {
+                    if !track.logged {
+                        eprintln!("[capture] audio encode error: {e}");
+                        track.logged = true;
                     }
                 }
-                for (data, frames) in pending {
-                    if !audio_seen[index] {
-                        audio_seen[index] = true;
-                        eprintln!("[capture] audio track {index} is streaming ({frames} frames/packet)");
-                    }
-                    let ts = audio_time[index];
-                    let dur = (frames as i64 * 10_000_000 / rate).max(1);
-                    if let Err(e) = writer.write_audio(stream, &data, frames, ts, rate as u32) {
-                        if !audio_logged[index] {
-                            eprintln!("[capture] audio encode error: {e}");
-                            audio_logged[index] = true;
-                        }
-                    }
-                    audio_time[index] = ts + dur;
-                }
-                if !audio_seen[index] && !audio_warned[index] && start.elapsed().as_secs() >= 5 {
-                    audio_warned[index] = true;
+                direct_time += dur;
+            }
+        }
+
+        // Warn once per source that never produced any data.
+        if start.elapsed().as_secs() >= 5 {
+            for (index, track) in tracks.iter_mut().enumerate() {
+                if !track.seen && !track.warned {
+                    track.warned = true;
                     eprintln!(
-                        "[capture] warning: no audio captured on track {index} after 5s \
-                         (check the selected device and that game audio is playing)"
+                        "[capture] warning: audio source {index} produced no data after 5s \
+                         (check the selected device, mic mute, and that audio is playing)"
                     );
                 }
             }
@@ -348,10 +382,12 @@ fn run_capture(
                     out_h,
                     fps,
                     bitrate,
-                    &audio_formats,
+                    &writer_audio,
                 )?;
                 audio_streams = writer.audio_streams().to_vec();
-                audio_time.iter_mut().for_each(|t| *t = 0);
+                direct_time = 0;
+                mix_emitted = 0;
+                mix_time = 0;
                 last_ts = 0;
             } else if start.elapsed().as_secs() >= segment_cap {
                 // Roll the rolling buffer: drop the oldest window.
@@ -365,10 +401,12 @@ fn run_capture(
                     out_h,
                     fps,
                     bitrate,
-                    &audio_formats,
+                    &writer_audio,
                 )?;
                 audio_streams = writer.audio_streams().to_vec();
-                audio_time.iter_mut().for_each(|t| *t = 0);
+                direct_time = 0;
+                mix_emitted = 0;
+                mix_time = 0;
                 last_ts = 0;
             }
         }
@@ -621,6 +659,130 @@ fn copy_frame(
 
         Some(Frame { data })
     }
+}
+
+/// One live audio source feeding the recorder.
+struct AudioTrack {
+    client: AudioClient,
+    /// Interleaved stereo PCM at the mixer's target rate, awaiting the mix.
+    pending: VecDeque<i16>,
+    src_rate: u32,
+    seen: bool,
+    warned: bool,
+    logged: bool,
+}
+
+impl AudioTrack {
+    fn new(client: AudioClient) -> Self {
+        let src_rate = client.format().sample_rate;
+        Self {
+            client,
+            pending: VecDeque::new(),
+            src_rate,
+            seen: false,
+            warned: false,
+            logged: false,
+        }
+    }
+
+    /// Drain the endpoint, resampling to `target_rate` and queueing stereo PCM.
+    fn pull(&mut self, target_rate: u32) {
+        let mut chunks: Vec<(Vec<u8>, u32)> = Vec::new();
+        if let Err(e) = self
+            .client
+            .poll(|data, frames| chunks.push((data.to_vec(), frames)))
+        {
+            if !self.logged {
+                eprintln!("[capture] audio capture error: {e}");
+                self.logged = true;
+            }
+        }
+        for (data, _frames) in chunks {
+            if !self.seen {
+                self.seen = true;
+                eprintln!("[capture] audio source streaming");
+            }
+            let samples = bytes_to_i16(&data);
+            if self.src_rate == target_rate {
+                self.pending.extend(samples);
+            } else {
+                self.pending
+                    .extend(resample_stereo(&samples, self.src_rate, target_rate));
+            }
+        }
+        // Bound drift: never queue more than ~1s of audio.
+        let cap = target_rate as usize * 2;
+        while self.pending.len() > cap {
+            self.pending.pop_front();
+        }
+    }
+}
+
+/// Sum every track into one stereo AAC sample, paced by wall-clock time so a
+/// silent or lagging source contributes silence instead of stalling the mix.
+fn pump_mixed(
+    tracks: &mut [AudioTrack],
+    target_rate: u32,
+    stream: u32,
+    writer: &mut Mp4Writer,
+    elapsed_secs: f64,
+    emitted: &mut i64,
+    time_100ns: &mut i64,
+) {
+    let desired = (elapsed_secs * target_rate as f64) as i64;
+    let to_emit = (desired - *emitted).clamp(0, target_rate as i64);
+    if to_emit == 0 {
+        return;
+    }
+    let mut out: Vec<u8> = Vec::with_capacity(to_emit as usize * 4);
+    for _ in 0..to_emit {
+        let (mut left, mut right) = (0i32, 0i32);
+        for track in tracks.iter_mut() {
+            if track.pending.len() >= 2 {
+                let l = track.pending.pop_front().unwrap_or(0);
+                let r = track.pending.pop_front().unwrap_or(0);
+                left += l as i32;
+                right += r as i32;
+            }
+        }
+        out.extend_from_slice(&(left.clamp(-32768, 32767) as i16).to_le_bytes());
+        out.extend_from_slice(&(right.clamp(-32768, 32767) as i16).to_le_bytes());
+    }
+    let duration = (to_emit * 10_000_000 / target_rate as i64).max(1);
+    let _ = writer.write_audio(stream, &out, to_emit as u32, *time_100ns, target_rate);
+    *time_100ns += duration;
+    *emitted += to_emit;
+}
+
+fn bytes_to_i16(bytes: &[u8]) -> Vec<i16> {
+    bytes
+        .chunks_exact(2)
+        .map(|c| i16::from_le_bytes([c[0], c[1]]))
+        .collect()
+}
+
+/// Linear-resample interleaved stereo PCM16 between two sample rates.
+fn resample_stereo(input: &[i16], src_rate: u32, dst_rate: u32) -> Vec<i16> {
+    if src_rate == dst_rate || input.len() < 4 {
+        return input.to_vec();
+    }
+    let in_frames = input.len() / 2;
+    let out_frames = ((in_frames as f64) * dst_rate as f64 / src_rate as f64).round() as usize;
+    let step = src_rate as f64 / dst_rate as f64;
+    let mut out = Vec::with_capacity(out_frames * 2);
+    for i in 0..out_frames {
+        let pos = i as f64 * step;
+        let i0 = (pos.floor() as usize).min(in_frames - 1);
+        let i1 = (i0 + 1).min(in_frames - 1);
+        let frac = pos - i0 as f64;
+        for ch in 0..2 {
+            let a = input[i0 * 2 + ch] as f64;
+            let b = input[i1 * 2 + ch] as f64;
+            let v = a + (b - a) * frac;
+            out.push(v.round().clamp(-32768.0, 32767.0) as i16);
+        }
+    }
+    out
 }
 
 /// Thin wrapper over a Media Foundation `IMFSinkWriter` encoding H.264/MP4
