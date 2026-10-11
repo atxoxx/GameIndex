@@ -21,8 +21,9 @@
 //! * Installed-games scan off the registry key
 //!   `SOFTWARE\ubisoft\Launcher\Installs\` — `GetInstalledGames`.
 //! * Library scan of the local product cache — `GetLibraryGames`.
-//!   We drop addons (DLC), third-party-platform re-skins, and
-//!   `is_ulc` entries, exactly like Playnite.
+//!   We keep base games and ignore the DLC ids referenced by each
+//!   product's `addons`, then drop third-party-platform re-skins,
+//!   `is_ulc` entries, and products without a `start_game` block.
 //! * Client detection (`Ubisoft Connect` uninstall entry) + launch
 //!   via `uplay://launch/<id>`, install/uninstall via
 //!   `uplay://install|uninstall/<id>` — `UplayClient` /

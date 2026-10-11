@@ -4,7 +4,8 @@
 //! 1. (optional) Scan installed games from the registry
 //!    (`SOFTWARE\ubisoft\Launcher\Installs\`).
 //! 2. (optional) Read the local product cache for the full owned
-//!    library, dropping addons / third-party / ULC entries.
+//!    library, keeping base games while ignoring addon (DLC) ids and
+//!    dropping third-party / ULC entries.
 //! 3. Merge: installed games get their metadata (cover/icon/background)
 //!    from the library scan; uninstalled library entries are appended.
 //! 4. Emit a [`UplaySyncResult`] the frontend Settings tile renders +
@@ -19,7 +20,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 use super::{cache, client_install_path, is_client_installed};
-use super::types::{UplaySettings, UplaySyncResult, UplaySyncedGame};
+use super::types::{ProductInformation, UplaySettings, UplaySyncResult, UplaySyncedGame};
 use crate::game_watcher::GameWatcher;
 use crate::metrics_collector;
 use crate::size;
@@ -72,24 +73,19 @@ pub fn sync_library_inner(settings: &UplaySettings) -> UplaySyncResult {
     // ── Library games (cache) ──
     if settings.import_uninstalled_games {
         let products = cache::get_local_product_cache();
-        for prod in &products {
-            let Some(uplay_id) = prod.uplay_id else { continue };
+        if products.is_empty() {
+            errors.push("Ubisoft Connect library cache is missing, empty or unreadable. Start Ubisoft Connect, log in, then sync again.".to_string());
+        }
 
-            // Mirror Playnite's filters:
-            // drop addons (DLC), third-party re-skins, ULC entries,
-            // and anything without a `start_game` block.
-            if !prod.root.addon_ids.is_empty() {
-                continue;
-            }
-            if prod.root.third_party_platform {
-                continue;
-            }
-            if prod.root.is_ulc {
-                continue;
-            }
-            if !prod.root.has_start_game {
-                continue;
-            }
+        // Playnite treats an entry's `addons` as the set of DLC ids to
+        // ignore, keeping the base game that references them.
+        let dlc_ids: std::collections::HashSet<u64> = products
+            .iter()
+            .flat_map(|p| p.root.addon_ids.iter().copied())
+            .collect();
+
+        for prod in filter_library_products(&products, &dlc_ids) {
+            let Some(uplay_id) = prod.uplay_id else { continue };
 
             let uplay_id_str = uplay_id.to_string();
             let name = prod
@@ -168,6 +164,32 @@ struct UplayInstalledGameLite {
     icon_image: Option<String>,
 }
 
+/// Pure Playnite-parity filter over the parsed product cache: keeps base
+/// games, drops DLC entries whose id is referenced by another product's
+/// `addons`, plus third-party-platform re-skins, `is_ulc` entries,
+/// products without a `start_game` block, and anything lacking a
+/// `uplay_id` (nothing to launch).
+fn filter_library_products<'a>(
+    products: &'a [ProductInformation],
+    dlc_ids: &std::collections::HashSet<u64>,
+) -> Vec<&'a ProductInformation> {
+    products
+        .iter()
+        .filter(|p| {
+            let Some(uplay_id) = p.uplay_id else {
+                return false;
+            };
+            if dlc_ids.contains(&uplay_id) {
+                return false;
+            }
+            if p.root.third_party_platform || p.root.is_ulc || !p.root.has_start_game {
+                return false;
+            }
+            true
+        })
+        .collect()
+}
+
 /// Launch a specific Ubisoft Connect game via the `uplay://launch/<id>`
 /// protocol. Returns the spawned PID (`0` when the protocol handler
 /// (UbisoftConnect.exe) takes over). Mirrors Playnite's
@@ -220,5 +242,66 @@ pub async fn uplay_launch_game(
     );
 
     Ok(initial_pid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::uplay::types::Product;
+    use std::collections::HashSet;
+
+    fn product(uplay_id: u64, addon_ids: Vec<u64>) -> ProductInformation {
+        ProductInformation {
+            root: Product {
+                name: Some(format!("Game {uplay_id}")),
+                background_image: None,
+                thumb_image: None,
+                logo_image: None,
+                dialog_image: None,
+                icon_image: None,
+                third_party_platform: false,
+                is_ulc: false,
+                has_start_game: true,
+                addon_ids,
+            },
+            uplay_id: Some(uplay_id),
+            install_id: None,
+        }
+    }
+
+    /// The regression this fix targets: a base game that has DLC must be
+    /// kept, while the DLC's own cache entry is dropped.
+    #[test]
+    fn base_game_with_dlc_is_kept_and_dlc_entries_dropped() {
+        let products = vec![product(100, vec![200, 300]), product(200, vec![])];
+        let dlc_ids: HashSet<u64> = products
+            .iter()
+            .flat_map(|p| p.root.addon_ids.iter().copied())
+            .collect();
+
+        let kept = filter_library_products(&products, &dlc_ids);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].uplay_id, Some(100));
+    }
+
+    /// Third-party re-skins, ULC entries, missing `start_game` and
+    /// missing ids are all filtered out; an ordinary base game survives.
+    #[test]
+    fn playnite_filters_drop_non_base_entries() {
+        let mut third_party = product(1, vec![]);
+        third_party.root.third_party_platform = true;
+        let mut ulc = product(2, vec![]);
+        ulc.root.is_ulc = true;
+        let mut no_start = product(3, vec![]);
+        no_start.root.has_start_game = false;
+        let mut no_id = product(4, vec![]);
+        no_id.uplay_id = None;
+
+        let products = vec![third_party, ulc, no_start, no_id, product(5, vec![])];
+
+        let kept = filter_library_products(&products, &HashSet::new());
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].uplay_id, Some(5));
+    }
 }
 
