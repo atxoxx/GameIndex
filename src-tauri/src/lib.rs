@@ -95,6 +95,7 @@ mod system;
 mod launcher;
 mod launch_splash;
 mod overlay;
+mod overlay_detect;
 mod capture;
 mod media;
 mod store;
@@ -497,6 +498,7 @@ pub fn run() {
             overlay::overlay_native_blur_supported,
             overlay::overlay_start_live_metrics,
             overlay::overlay_stop_live_metrics,
+            overlay_detect::overlay_detect_game,
             overlay::overlay_capture_screenshot,
             overlay::overlay_get_recent_screenshots,
             overlay::overlay_open_screenshot_folder,

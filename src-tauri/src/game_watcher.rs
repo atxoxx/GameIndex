@@ -2826,6 +2826,17 @@ where
 
 // ─── Background Poll Thread ───────────────────────────────────────────────────
 
+/// Read-only snapshot of every running process as `(pid, exe path)`, for the
+/// overlay's "current game" detection (`overlay_detect`). Uses the same
+/// enumeration the poll loop relies on, with no working-set scoring because
+/// detection never needs to rank candidates.
+pub(crate) fn snapshot_processes() -> Vec<(u32, String)> {
+    query_running_processes(&MemoryScanFilter::default())
+        .into_iter()
+        .map(|p| (p.pid, p.exe_path))
+        .collect()
+}
+
 pub fn start_background_poll(
     watcher: Arc<Mutex<GameWatcher>>,
     app_handle: AppHandle,

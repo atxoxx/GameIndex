@@ -70,6 +70,8 @@ export interface OverlaySettings {
   showTemps: boolean;
   /** Render sparkline graphs for FPS/CPU/GPU in the performance widget. */
   showGraphs: boolean;
+  /** Adopt a library game running outside GameIndex as the HUD's session. */
+  detectCurrentGame?: boolean;
   /** Saved window X, or null while the overlay stays corner-anchored. */
   posX?: number | null;
   /** Saved window Y, or null while the overlay stays corner-anchored. */
@@ -267,6 +269,7 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   pollIntervalMs: 1000,
   showTemps: true,
   showGraphs: true,
+  detectCurrentGame: true,
   posX: null,
   posY: null,
   tickerWidth: 480,
@@ -459,6 +462,11 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const [metrics, setMetrics] = useState<OverlayMetrics | null>(null);
   const [history, setHistory] = useState<OverlayMetrics[]>([]);
   const [session, setSession] = useState<OverlaySession | null>(null);
+  // A library game detected as running outside GameIndex (see
+  // `overlay_detect_game`). Used only when the watcher has no tracked
+  // session, so a game started from Steam/a desktop shortcut still lights up
+  // the HUD. Never records playtime — it is a view-only session.
+  const [detectedSession, setDetectedSession] = useState<OverlaySession | null>(null);
   const [providerReady, setProviderReady] = useState(false);
   const [recentScreenshots, setRecentScreenshots] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -476,6 +484,50 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const prevRecordingRef = useRef(false);
   // Throttle clock for the persisted telemetry window (I6).
   const historySaveRef = useRef(0);
+
+  // Merged session the widgets read: a watcher-tracked session always wins;
+  // otherwise a detected (untracked) game stands in.
+  const effectiveSession = session ?? detectedSession;
+
+  // Live mirror of the watcher-tracked session, so the detection callback can
+  // bail without capturing a stale closure.
+  const sessionRef = useRef<OverlaySession | null>(null);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  // Best-effort: ask the backend whether a library game is running outside
+  // GameIndex, and adopt it as the view-only session. Event-driven — runs on
+  // mount and on every HUD show (`overlay:toggle`), so a hidden overlay never
+  // keeps sampling.
+  const runDetection = useCallback(async () => {
+    if (!settings.detectCurrentGame) {
+      setDetectedSession(null);
+      return;
+    }
+    if (sessionRef.current) return; // the watcher already owns a session
+    try {
+      const found = await invoke<OverlaySession | null>("overlay_detect_game");
+      if (found && found.gameId) {
+        setDetectedSession((prev) =>
+          prev && prev.gameId === found.gameId && prev.pid === found.pid
+            ? prev
+            : { gameId: found.gameId, startedAt: Date.now(), pid: found.pid },
+        );
+        if (found.pid) {
+          void invoke("overlay_start_live_metrics", { pid: found.pid }).catch(() => {
+            /* no Tauri runtime */
+          });
+        }
+      } else {
+        setDetectedSession(null);
+      }
+    } catch {
+      /* no Tauri runtime or unsupported platform */
+    }
+  }, [settings.detectCurrentGame]);
+  const runDetectionRef = useRef(runDetection);
+  runDetectionRef.current = runDetection;
 
   // Persist the window position/size after the user drags or resizes it.
   useOverlayBounds();
@@ -805,7 +857,9 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     let disposed = false;
     invoke<OverlaySession | null>("overlay_get_session")
       .then((value) => {
-        if (!disposed) setSession(value ?? null);
+        if (disposed) return;
+        if (value) setDetectedSession(null);
+        setSession(value ?? null);
       })
       .catch(() => {
         /* no Tauri runtime */
@@ -815,10 +869,22 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Once settings have loaded, adopt an already-running library game (the
+  // cold-start case: game launched, then GameIndex/overlay opened).
+  useEffect(() => {
+    if (!providerReady) return;
+    void runDetectionRef.current();
+  }, [providerReady]);
+
+  // Turning the feature off drops any detected session immediately.
+  useEffect(() => {
+    if (!settings.detectCurrentGame) setDetectedSession(null);
+  }, [settings.detectCurrentGame]);
+
   // Refresh recent screenshots on session change
   useEffect(() => {
     void refreshScreenshots();
-  }, [session, refreshScreenshots]);
+  }, [effectiveSession, refreshScreenshots]);
 
   // Probe capture support and seed the recorder state once.
   useEffect(() => {
@@ -840,7 +906,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   // Refresh the clip list whenever the active game changes.
   useEffect(() => {
     void refreshClips();
-  }, [session, refreshClips]);
+  }, [effectiveSession, refreshClips]);
 
   // Optional start/stop chime when a manual recording toggles.
   useEffect(() => {
@@ -880,11 +946,17 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
         // The backend tells us which presentation the HUD was shown in.
         const next = event.payload?.collapsed;
         setCollapsed((c) => (typeof next === "boolean" ? next : !c));
+        // Every show is a chance the running game wasn't tracked by the
+        // watcher; re-check for one outside GameIndex.
+        void runDetectionRef.current();
       },
     );
     const sessionUnlisten = listen<OverlaySession | null>(
       "overlay:session",
       (event) => {
+        // A tracked session supersedes any detected one; a null (game ended)
+        // drops both — detection re-adopts it if it is somehow still running.
+        setDetectedSession(null);
         setSession(event.payload ?? null);
       },
     );
@@ -953,7 +1025,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   // an overlay reopen for the same game. On a game change the window starts
   // empty and is seeded from the stored snapshot when it matches.
   useEffect(() => {
-    const gameId = session?.gameId ?? null;
+    const gameId = effectiveSession?.gameId ?? null;
     setHistory([]);
     historySaveRef.current = 0;
     let disposed = false;
@@ -979,7 +1051,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     return () => {
       disposed = true;
     };
-  }, [session?.gameId]);
+  }, [effectiveSession?.gameId]);
 
   useEffect(() => {
     // Throttle to ~8 s so a 1 Hz telemetry feed does not hammer the database.
@@ -987,13 +1059,13 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     if (now - historySaveRef.current < 8000) return;
     historySaveRef.current = now;
     const payload = JSON.stringify({
-      gameId: session?.gameId ?? null,
+      gameId: effectiveSession?.gameId ?? null,
       samples: history,
     });
     void invoke("overlay_save_history", { json: payload }).catch(() => {
       /* no Tauri runtime / command unavailable */
     });
-  }, [history, session?.gameId]);
+  }, [history, effectiveSession?.gameId]);
 
   const corner = settings.corner;
 
@@ -1007,7 +1079,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       settings,
       metrics,
       history,
-      session,
+      session: effectiveSession,
       providerReady,
       nativeBlurSupported,
       captureScreenshot,
@@ -1046,7 +1118,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       settings,
       metrics,
       history,
-      session,
+      effectiveSession,
       providerReady,
       nativeBlurSupported,
       captureScreenshot,

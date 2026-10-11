@@ -108,6 +108,9 @@ pub struct OverlaySettings {
     pub poll_interval_ms: u64,
     /// Show CPU/GPU temperatures in the performance widget.
     pub show_temps: bool,
+    /// Adopt a library game that is running but wasn't launched through
+    /// GameIndex (detected from live processes) as the HUD's current session.
+    pub detect_current_game: bool,
     /// Show the rolling FPS/CPU/GPU sparkline graphs.
     pub show_graphs: bool,
     /// Last user-dragged window position. `None` re-anchors to `corner`.
@@ -230,6 +233,7 @@ impl Default for OverlaySettings {
             ticker_click_through: false,
             poll_interval_ms: 1000,
             show_temps: true,
+            detect_current_game: true,
             show_graphs: true,
             pos_x: None,
             pos_y: None,

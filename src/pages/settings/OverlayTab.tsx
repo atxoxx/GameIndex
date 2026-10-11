@@ -597,6 +597,13 @@ export default function OverlayTab() {
           checked={settings.showGraphs}
           onChange={(on) => update({ showGraphs: on })}
         />
+
+        <SettingsToggleCard
+          title={t("overlay.settings.detectCurrentGame")}
+          desc={t("settings.overlay.detectCurrentGameDesc")}
+          checked={settings.detectCurrentGame ?? true}
+          onChange={(on) => update({ detectCurrentGame: on })}
+        />
       </SettingsSection>
 
       <SettingsSection

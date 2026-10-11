@@ -458,6 +458,12 @@ export default function SettingsWidget() {
                 checked={settings.showGraphs}
                 onChange={(on) => void updateSettings({ showGraphs: on })}
               />
+              <OverlayFieldToggle
+                className="overlay-toggle-item"
+                label={t("overlay.settings.detectCurrentGame")}
+                checked={settings.detectCurrentGame ?? true}
+                onChange={(on) => void updateSettings({ detectCurrentGame: on })}
+              />
             </div>
           </div>
         </div>

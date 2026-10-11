@@ -778,6 +778,44 @@ pub fn list_watch_targets(db: &Db) -> Result<Vec<GameWatchTarget>, String> {
     Ok(out)
 }
 
+/// Minimal game row for the overlay's running-game detection: identity, the
+/// launch exe path and the ROM linkage. Deliberately avoids `list_all`, which
+/// would decode every game's full artwork/metadata JSON for a lookup that only
+/// needs five columns.
+#[derive(Debug, Clone)]
+pub struct GameDetectTarget {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub rom_path: Option<String>,
+    pub emulator_id: Option<String>,
+}
+
+/// Every game reduced to what detection needs. Cheap enough to run on each
+/// overlay show.
+pub fn list_detect_targets(db: &Db) -> Result<Vec<GameDetectTarget>, String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, name, path, rom_path, emulator_id FROM games")
+        .map_err(|e| format!("games detect targets prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(GameDetectTarget {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                path: r.get(2)?,
+                rom_path: r.get(3)?,
+                emulator_id: r.get(4)?,
+            })
+        })
+        .map_err(|e| format!("games detect targets query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("games detect target: {e}"))?);
+    }
+    Ok(out)
+}
+
 /// Names for a small set of ids — enough to label the tray's Recent
 /// Games submenu without reading a single artwork column. Prefers the
 /// user's `display_name` override (empty/whitespace falls back to `name`).
