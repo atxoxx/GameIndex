@@ -21,6 +21,30 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # GTK/WebKit plus the `-sys` crates the Tauri shell links against
+      # (webkit2gtk, gtk3, gdkx11, gtk-layer-shell, libdbus via keyring).
+      # Without these the Cargo build dies inside a pkg-config build script,
+      # which is why the old Cargo step could never actually compile anything.
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libgtk-layer-shell-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            libdbus-1-dev \
+            build-essential \
+            pkg-config
+
       - name: Install dependencies
         run: npm ci
 
@@ -33,12 +57,19 @@ jobs:
       - name: Tests
         run: npm run test
 
-      - name: Cargo test
-        run: cargo test --manifest-path src-tauri/Cargo.toml --verbose
-        continue-on-error: true
-
+      # `tauri::generate_context!` embeds `frontendDist` (`../dist`) at compile
+      # time, so the web build has to exist before any Cargo command runs.
       - name: Build
         run: npm run build
+
+      # Compile gate for the Linux-only code paths (X11/Wayland overlay, portal
+      # screenshots/hotkeys, the gpu-screen-recorder backend). `--all-targets`
+      # also typechecks the in-module unit tests.
+      - name: Cargo check (Linux)
+        run: cargo check --manifest-path src-tauri/Cargo.toml --locked --all-targets
+
+      - name: Cargo test (Linux)
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
 
       - name: Bundle size check
         run: node scripts/check-bundle.mjs
