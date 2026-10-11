@@ -172,6 +172,10 @@ discord-rich-presence = "1.1.0"
 # binary doesn't reveal them. Extraction-bar only — not real secrecy; the
 # decryption material lives in the binary too.
 obfstr = "0.4"
+# Pure-Rust, dependency-free JPEG encoder for the overlay's `jpg` screenshot
+# format. The PNG path stays hand-rolled (no decoder/encoder dep); this only
+# covers the optional lossy format so screenshots can be a fraction of the size.
+jpeg-encoder = "0.6"
 
 # Dev builds previously ran this crate and every bundled C dependency
 # (SQLite, QuickJS, serde_json) at `opt-level = 0`, which made a large
@@ -218,6 +222,24 @@ windows = { version = "0.58", features = [
   "Win32_System_LibraryLoader",
   "Win32_System_ProcessStatus",
   "Win32_Storage_FileSystem",
+  # In-game video capture (capture/windows.rs): Windows Graphics Capture +
+  # Direct3D11 + Media Foundation.
+  "Win32_Graphics_Direct3D",
+  "Win32_Graphics_Direct3D11",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Graphics_Gdi",
+  "Win32_Media_MediaFoundation",
+  "Win32_Media_Audio",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_System_WinRT_Direct3D11",
+  "Win32_System_WinRT_Graphics_Capture",
+  "Graphics_Capture",
+  "Graphics_DirectX",
+  "Graphics_DirectX_Direct3D11",
+  "Foundation",
 ] }
 
 # ── Linux-only dependencies ────────────────────────────────────────

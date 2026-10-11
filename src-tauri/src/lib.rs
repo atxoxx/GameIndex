@@ -94,6 +94,7 @@ mod system;
 mod launcher;
 mod launch_splash;
 mod overlay;
+mod capture;
 mod media;
 mod store;
 mod sessions;
@@ -493,7 +494,20 @@ pub fn run() {
             overlay::overlay_capture_screenshot,
             overlay::overlay_get_recent_screenshots,
             overlay::overlay_open_screenshot_folder,
-            overlay::overlay_delete_screenshot])
+            overlay::overlay_delete_screenshot,
+            // In-game video capture — WGC + Media Foundation recorder.
+            capture::capture_get_state,
+            capture::capture_is_supported,
+            capture::capture_list_audio_devices,
+            capture::capture_start_recording,
+            capture::capture_stop_recording,
+            capture::capture_toggle_recording,
+            capture::capture_start_replay,
+            capture::capture_stop_replay,
+            capture::capture_save_replay,
+            capture::capture_get_recent_clips,
+            capture::capture_delete_clip,
+            capture::capture_open_clip_folder])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since
@@ -656,6 +670,13 @@ pub fn run() {
             app.manage(overlay_state.clone());
             overlay::register_listeners(app.handle());
             overlay::register_default_hotkey(app.handle(), &overlay_state);
+
+            // ── In-game video capture ──────────────────────────────────
+            // WGC + Media Foundation recorder. Sessions are started on demand
+            // (global hotkey or the overlay UI); nothing runs until then.
+            let capture_state: capture::CaptureState =
+                Arc::new(std::sync::Mutex::new(capture::CaptureController::new()));
+            app.manage(capture_state.clone());
 
             // â”€â”€ Initialize the GameWatcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             // Long-lived background service that polls WMI for running

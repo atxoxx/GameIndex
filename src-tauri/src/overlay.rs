@@ -83,6 +83,65 @@ pub struct OverlaySettings {
     pub ticker_height: f64,
     pub panel_width: f64,
     pub panel_height: f64,
+
+    // ── Screenshot capture ─────────────────────────────────────────────
+    /// `png` (lossless, default) or `jpg` (smaller).
+    pub screenshot_format: String,
+    /// Custom output folder. `None` uses `Videos\Captures\<Game>`.
+    #[serde(default)]
+    pub screenshot_folder: Option<String>,
+    /// Global shortcut that fires a screenshot, or empty to disable.
+    pub screenshot_hotkey: String,
+    pub screenshot_sound: bool,
+    pub screenshot_flash: bool,
+    pub screenshot_copy_to_clipboard: bool,
+    /// Keep the HUD visible in the capture instead of hiding it first.
+    pub screenshot_include_overlay: bool,
+    /// Delay (ms) between hiding the HUD and grabbing the frame.
+    pub screenshot_delay_ms: u64,
+
+    // ── Video capture ──────────────────────────────────────────────────
+    pub video_enabled: bool,
+    /// Global shortcut that starts/stops a recording, or empty to disable.
+    pub video_hotkey: String,
+    /// Global shortcut that dumps the replay buffer, or empty to disable.
+    pub replay_hotkey: String,
+    pub video_fps: u32,
+    pub video_bitrate_kbps: u32,
+    /// 1.0 = native, down to 0.25 for lower-cost captures.
+    pub video_resolution_scale: f64,
+    /// Container/codec id; currently `mp4` (H.264 + AAC).
+    pub video_format: String,
+    /// Custom output folder. `None` uses `Videos\Captures\<Game>`.
+    #[serde(default)]
+    pub video_folder: Option<String>,
+    pub video_game_audio: bool,
+    pub video_microphone: bool,
+    /// Output (render) device id used for game-audio loopback. `None` uses the
+    /// system default render device.
+    #[serde(default)]
+    pub video_audio_device: Option<String>,
+    /// Microphone device id. `None` uses the system default.
+    #[serde(default)]
+    pub video_mic_device: Option<String>,
+    /// Rolling replay length in seconds.
+    pub replay_buffer_seconds: u32,
+    /// Hard stop for a recording in seconds. `0` = unlimited.
+    pub video_max_clip_seconds: u32,
+    /// Include the mouse cursor in the capture.
+    pub video_show_cursor: bool,
+    pub video_sound: bool,
+    /// Pre-roll countdown before recording starts (ms).
+    pub video_countdown_ms: u64,
+    /// Hide the HUD while recording so it stays out of the clip.
+    pub video_hide_overlay: bool,
+
+    /// Session-scoped: true while the record toggle has a capture running.
+    #[serde(default)]
+    pub video_recording: bool,
+    /// Session-scoped: true while the replay buffer is armed.
+    #[serde(default)]
+    pub replay_buffer_active: bool,
 }
 
 impl Default for OverlaySettings {
@@ -99,8 +158,9 @@ impl Default for OverlaySettings {
             panel_widgets: [
                 "session",
                 "performance",
-                "notes",
                 "captures",
+                "recording",
+                "notes",
                 "timer",
                 "achievements",
                 "downloads",
@@ -119,6 +179,37 @@ impl Default for OverlaySettings {
             ticker_height: DEFAULT_TICKER_HEIGHT,
             panel_width: DEFAULT_PANEL_WIDTH,
             panel_height: DEFAULT_PANEL_HEIGHT,
+
+            screenshot_format: "png".to_string(),
+            screenshot_folder: None,
+            screenshot_hotkey: "F12".to_string(),
+            screenshot_sound: true,
+            screenshot_flash: true,
+            screenshot_copy_to_clipboard: true,
+            screenshot_include_overlay: false,
+            screenshot_delay_ms: 60,
+
+            video_enabled: true,
+            video_hotkey: "Shift+F2".to_string(),
+            replay_hotkey: "Shift+F3".to_string(),
+            video_fps: 60,
+            video_bitrate_kbps: 12_000,
+            video_resolution_scale: 1.0,
+            video_format: "mp4".to_string(),
+            video_folder: None,
+            video_game_audio: true,
+            video_microphone: false,
+            video_audio_device: None,
+            video_mic_device: None,
+            replay_buffer_seconds: 60,
+            video_max_clip_seconds: 0,
+            video_show_cursor: false,
+            video_sound: true,
+            video_countdown_ms: 0,
+            video_hide_overlay: true,
+
+            video_recording: false,
+            replay_buffer_active: false,
         }
     }
 }
@@ -143,6 +234,12 @@ pub struct OverlayRuntime {
     /// The accelerator currently bound, or `None` when registration failed
     /// (or the overlay is disabled).
     pub accelerator: Option<String>,
+    /// Global screenshot binding, or `None` when unset/registration failed.
+    pub screenshot_accelerator: Option<String>,
+    /// Global start/stop-recording binding.
+    pub record_accelerator: Option<String>,
+    /// Global save-replay binding.
+    pub replay_accelerator: Option<String>,
     /// The running live-telemetry sampler, if any.
     pub live: Option<metrics_collector::LiveMetricsHandle>,
     /// The game the overlay is currently showing, or `None` when idle.
@@ -156,6 +253,9 @@ impl OverlayRuntime {
         Self {
             settings,
             accelerator: None,
+            screenshot_accelerator: None,
+            record_accelerator: None,
+            replay_accelerator: None,
             live: None,
             session: None,
             collapsed: true,
@@ -594,6 +694,8 @@ pub fn overlay_save_settings(
     // Surfaces an invalid/conflicting binding as an error and keeps the
     // previous one, so a bad save never leaves the overlay unreachable.
     register_hotkey(&app, state.inner(), &settings.hotkey)?;
+    // Capture bindings are best-effort; a conflict there is logged, not fatal.
+    register_capture_hotkeys(&app, state.inner());
 
     {
         let mut rt = lock(state.inner());
@@ -703,15 +805,46 @@ pub fn overlay_stop_live_metrics(state: tauri::State<'_, OverlayState>) -> Resul
     Ok(())
 }
 
-/// Register `accelerator` as the global toggle hotkey, replacing any previous
-/// binding. On failure the previous binding is restored and the error returned.
-fn register_hotkey(
+/// Which global binding a registration targets.
+#[derive(Clone, Copy)]
+enum Binding {
+    Toggle,
+    Screenshot,
+    Record,
+    Replay,
+}
+
+impl Binding {
+    fn get(self, rt: &OverlayRuntime) -> Option<String> {
+        match self {
+            Binding::Toggle => rt.accelerator.clone(),
+            Binding::Screenshot => rt.screenshot_accelerator.clone(),
+            Binding::Record => rt.record_accelerator.clone(),
+            Binding::Replay => rt.replay_accelerator.clone(),
+        }
+    }
+
+    fn set(self, rt: &mut OverlayRuntime, value: Option<String>) {
+        match self {
+            Binding::Toggle => rt.accelerator = value,
+            Binding::Screenshot => rt.screenshot_accelerator = value,
+            Binding::Record => rt.record_accelerator = value,
+            Binding::Replay => rt.replay_accelerator = value,
+        }
+    }
+}
+
+/// Register `accelerator` for `which`, replacing any previous binding. An
+/// empty accelerator unbinds; an invalid/conflicting one restores the previous
+/// binding and returns an error.
+fn register_binding(
     app: &AppHandle,
     state: &OverlayState,
+    which: Binding,
     accelerator: &str,
 ) -> Result<(), String> {
-    let previous = lock(state).accelerator.clone();
-    let shortcut = parse_accelerator(accelerator)?;
+    let previous = which.get(&lock(state));
+    let trimmed = accelerator.trim().to_string();
 
     let global = app.global_shortcut();
     if let Some(ref previous) = previous {
@@ -720,6 +853,12 @@ fn register_hotkey(
         }
     }
 
+    if trimmed.is_empty() {
+        which.set(&mut lock(state), None);
+        return Ok(());
+    }
+
+    let shortcut = parse_accelerator(&trimmed)?;
     if let Err(e) = global.register(shortcut) {
         // Roll back to the binding that was working before.
         if let Some(ref previous) = previous {
@@ -727,14 +866,46 @@ fn register_hotkey(
                 let _ = global.register(old);
             }
         }
-        return Err(format!("failed to register '{accelerator}': {e}"));
+        return Err(format!("failed to register '{trimmed}': {e}"));
     }
 
-    lock(state).accelerator = Some(accelerator.to_string());
+    which.set(&mut lock(state), Some(trimmed));
     Ok(())
 }
 
-/// Register the persisted default hotkey at boot. Failures are logged, never
+/// Register `accelerator` as the global toggle hotkey, replacing any previous
+/// binding. On failure the previous binding is restored and the error returned.
+fn register_hotkey(
+    app: &AppHandle,
+    state: &OverlayState,
+    accelerator: &str,
+) -> Result<(), String> {
+    register_binding(app, state, Binding::Toggle, accelerator)
+}
+
+/// (Re)register every global capture binding (screenshot / record / replay).
+/// Best-effort: a bad or conflicting capture binding is logged, never fatal.
+fn register_capture_hotkeys(app: &AppHandle, state: &OverlayState) {
+    let (screenshot, record, replay) = {
+        let rt = lock(state);
+        (
+            rt.settings.screenshot_hotkey.clone(),
+            rt.settings.video_hotkey.clone(),
+            rt.settings.replay_hotkey.clone(),
+        )
+    };
+    for (which, accel) in [
+        (Binding::Screenshot, screenshot),
+        (Binding::Record, record),
+        (Binding::Replay, replay),
+    ] {
+        if let Err(e) = register_binding(app, state, which, &accel) {
+            eprintln!("[overlay] capture hotkey registration failed: {e}");
+        }
+    }
+}
+
+/// Register the persisted default hotkeys at boot. Failures are logged, never
 /// fatal — the overlay stays usable from the frontend even without a hotkey.
 pub fn register_default_hotkey(app: &AppHandle, state: &OverlayState) {
     let (enabled, hotkey) = {
@@ -747,11 +918,11 @@ pub fn register_default_hotkey(app: &AppHandle, state: &OverlayState) {
     if let Err(e) = register_hotkey(app, state, &hotkey) {
         eprintln!("[overlay] default hotkey registration failed: {e}");
     }
+    register_capture_hotkeys(app, state);
 }
 
-/// Global-shortcut handler. Toggles the HUD on/off: it reveals the compact
-/// ticker when hidden and hides the overlay when visible. Runs on the main
-/// thread so the window can be built/repositioned safely.
+/// Global-shortcut handler. Dispatches the overlay toggle, a screenshot, a
+/// record toggle or a replay dump depending on which binding fired.
 pub fn handle_hotkey(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state != ShortcutState::Pressed {
         return;
@@ -760,15 +931,49 @@ pub fn handle_hotkey(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent)
         return;
     };
 
-    // Ignore any shortcut that is not the overlay's current binding.
-    let bound = lock(state.inner()).accelerator.clone();
-    let Some(bound) = bound else {
-        return;
+    let matches = |accel: &Option<String>| {
+        accel
+            .as_ref()
+            .and_then(|a| Shortcut::from_str(a).ok())
+            .map(|s| s.id() == shortcut.id())
+            .unwrap_or(false)
     };
-    if Shortcut::from_str(&bound)
-        .map(|s| s.id() != shortcut.id())
-        .unwrap_or(true)
-    {
+
+    let (is_toggle, is_shot, is_rec, is_replay) = {
+        let rt = lock(state.inner());
+        (
+            matches(&rt.accelerator),
+            matches(&rt.screenshot_accelerator),
+            matches(&rt.record_accelerator),
+            matches(&rt.replay_accelerator),
+        )
+    };
+
+    if is_shot {
+        let handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = overlay_capture_screenshot(handle, None).await;
+        });
+        return;
+    }
+
+    if is_rec {
+        let handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = crate::capture::capture_toggle_recording(handle);
+        });
+        return;
+    }
+
+    if is_replay {
+        let handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = crate::capture::save_replay_impl(&handle);
+        });
+        return;
+    }
+
+    if !is_toggle {
         return;
     }
 
@@ -875,6 +1080,8 @@ pub fn register_listeners(app: &AppHandle) {
             .unwrap_or(true);
         if clear {
             set_session(&exited, None);
+            // A recording/replay buffer makes no sense once the game is gone.
+            crate::capture::stop_all(&exited);
             // Tear the HUD down when the last game exits; the Destroyed
             // handler stops telemetry and emits `overlay:closed`.
             if let Some(window) = exited.get_webview_window(OVERLAY_WINDOW_LABEL) {
@@ -986,8 +1193,6 @@ pub fn encode_uncompressed_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> 
 
 #[cfg(windows)]
 mod gdi_capture {
-    use std::path::Path;
-
     #[link(name = "gdi32")]
     #[link(name = "user32")]
     extern "system" {
@@ -1048,7 +1253,7 @@ mod gdi_capture {
         bmi_colors: [u32; 1],
     }
 
-    pub fn capture_desktop(destination_path: &Path) -> Result<(u32, u32), String> {
+    pub fn capture_rgba() -> Result<(u32, u32, Vec<u8>), String> {
         unsafe {
             let width = GetSystemMetrics(SM_CXSCREEN);
             let height = GetSystemMetrics(SM_CYSCREEN);
@@ -1131,12 +1336,15 @@ mod gdi_capture {
                 chunk[3] = 255;
             }
 
-            let png_bytes = super::encode_uncompressed_png(width as u32, height as u32, &raw_pixels);
-            std::fs::write(destination_path, png_bytes)
-                .map_err(|e| format!("Failed to write screenshot file: {e}"))?;
-
-            Ok((width as u32, height as u32))
+            Ok((width as u32, height as u32, raw_pixels))
         }
+    }
+}
+
+#[cfg(not(windows))]
+mod gdi_capture {
+    pub fn capture_rgba() -> Result<(u32, u32, Vec<u8>), String> {
+        Err("In-game screen capture is currently supported on Windows".into())
     }
 }
 
@@ -1186,17 +1394,81 @@ pub fn get_captures_dir(game_title: &str) -> std::path::PathBuf {
     std::path::PathBuf::from("Captures").join(folder_name)
 }
 
+/// Resolve the folder a screenshot or clip should be written to. A custom
+/// `folder` (from settings) wins and is used verbatim; otherwise it falls back
+/// to the per-game `Videos\Captures\<Game>` tree.
+pub fn resolve_capture_dir(folder: Option<&str>, game_title: &str) -> std::path::PathBuf {
+    match folder.map(str::trim).filter(|f| !f.is_empty()) {
+        Some(folder) => std::path::PathBuf::from(folder),
+        None => get_captures_dir(game_title),
+    }
+}
+
+/// Encode raw top-down RGBA pixels as a baseline JPEG. `quality` is 1..=100.
+pub fn encode_jpeg(width: u32, height: u32, rgba: &[u8], quality: u8) -> Result<Vec<u8>, String> {
+    let mut out = Vec::new();
+    let encoder = jpeg_encoder::Encoder::new(&mut out, quality.clamp(1, 100));
+    // `rgba` is RGBA8; jpeg-encoder wants RGB8.
+    let mut rgb = Vec::with_capacity((width * height * 3) as usize);
+    for px in rgba.chunks_exact(4) {
+        rgb.push(px[0]);
+        rgb.push(px[1]);
+        rgb.push(px[2]);
+    }
+    encoder
+        .encode(&rgb, width as u16, height as u16, jpeg_encoder::ColorType::Rgb)
+        .map_err(|e| format!("jpeg encode failed: {e}"))?;
+    Ok(out)
+}
+
+/// Encode a captured frame in the requested format. Unknown formats fall back
+/// to PNG so a bad persisted value can never fail a capture.
+pub fn encode_capture(
+    format: &str,
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+) -> (Vec<u8>, &'static str) {
+    if format.eq_ignore_ascii_case("jpg") || format.eq_ignore_ascii_case("jpeg") {
+        match encode_jpeg(width, height, rgba, 92) {
+            Ok(bytes) => (bytes, "jpg"),
+            // Fall back to PNG rather than losing the capture.
+            Err(_) => (encode_uncompressed_png(width, height, rgba), "png"),
+        }
+    } else {
+        (encode_uncompressed_png(width, height, rgba), "png")
+    }
+}
+
 /// Capture the desktop/game screen to the Windows Captures folder, auto-indexed by GameIndex.
 #[tauri::command]
 pub async fn overlay_capture_screenshot(
     app: AppHandle,
     game_title: Option<String>,
 ) -> Result<ScreenshotResult, String> {
-    // 1. Temporarily hide the overlay so it doesn't photograph itself
-    if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
-        let _ = win.hide();
+    // Snapshot the capture-relevant settings up front so the hot path doesn't
+    // hold the runtime lock while the capture runs.
+    let (hide_overlay, delay_ms, format, folder) = match app.try_state::<OverlayState>() {
+        Some(state) => {
+            let rt = lock(state.inner());
+            (
+                !rt.settings.screenshot_include_overlay,
+                rt.settings.screenshot_delay_ms,
+                rt.settings.screenshot_format.clone(),
+                rt.settings.screenshot_folder.clone(),
+            )
+        }
+        None => (true, 60, "png".to_string(), None),
+    };
+
+    // 1. Temporarily hide the overlay so it doesn't photograph itself, unless
+    //    the user asked for the HUD to appear in their captures.
+    if hide_overlay {
+        if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+            let _ = win.hide();
+        }
+        tokio::time::sleep(Duration::from_millis(delay_ms.max(20))).await;
     }
-    tokio::time::sleep(Duration::from_millis(60)).await;
 
     let title = game_title.unwrap_or_else(|| {
         if let Some(state) = app.try_state::<OverlayState>() {
@@ -1211,24 +1483,46 @@ pub async fn overlay_capture_screenshot(
         "GameIndex".to_string()
     });
 
-    let dir = get_captures_dir(&title);
+    let dir = resolve_capture_dir(folder.as_deref(), &title);
     if !dir.exists() {
         let _ = std::fs::create_dir_all(&dir);
     }
 
     let timestamp = now_ms();
     let date_str = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
-    let file_name = format!("Capture_{}_{}.png", date_str, timestamp % 1000);
+    let stem = format!("Capture_{}_{}", date_str, timestamp % 1000);
+
+    let capture_result = gdi_capture::capture_rgba();
+    let (width, height, rgba) = match capture_result {
+        Ok(frame) => frame,
+        Err(e) => {
+            if hide_overlay {
+                if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+                    let _ = win.show();
+                }
+            }
+            return Err(e);
+        }
+    };
+
+    let (bytes, ext) = encode_capture(&format, width, height, &rgba);
+    let file_name = format!("{stem}.{ext}");
     let dest_path = dir.join(&file_name);
-
-    let capture_result = gdi_capture::capture_desktop(&dest_path);
-
-    // 2. Restore overlay window
-    if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
-        let _ = win.show();
+    if let Err(e) = std::fs::write(&dest_path, bytes) {
+        if hide_overlay {
+            if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+                let _ = win.show();
+            }
+        }
+        return Err(format!("Failed to write screenshot file: {e}"));
     }
 
-    let (width, height) = capture_result?;
+    // 2. Restore overlay window
+    if hide_overlay {
+        if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+            let _ = win.show();
+        }
+    }
 
     let result = ScreenshotResult {
         file_path: dest_path.to_string_lossy().to_string(),
@@ -1407,7 +1701,18 @@ mod tests {
         assert!((settings.opacity - 0.9).abs() < f64::EPSILON);
         assert_eq!(settings.ticker_widgets, vec!["fps", "cpu", "gpu", "session"]);
         assert_eq!(settings.poll_interval_ms, 1000);
-        assert_eq!(settings.panel_widgets.len(), 9);
+        assert_eq!(settings.panel_widgets.len(), 10);
+        // Capture defaults
+        assert_eq!(settings.screenshot_format, "png");
+        assert_eq!(settings.screenshot_hotkey, "F12");
+        assert!(settings.screenshot_copy_to_clipboard);
+        assert_eq!(settings.video_hotkey, "Shift+F2");
+        assert_eq!(settings.replay_hotkey, "Shift+F3");
+        assert_eq!(settings.video_fps, 60);
+        assert_eq!(settings.video_bitrate_kbps, 12_000);
+        assert_eq!(settings.replay_buffer_seconds, 60);
+        assert!(settings.video_game_audio);
+        assert!(!settings.video_microphone);
     }
 
     #[test]
@@ -1428,6 +1733,21 @@ mod tests {
         assert!(value.get("panelWidgets").is_some());
         assert!(value.get("pollIntervalMs").is_some());
         assert!(value.get("ticker_widgets").is_none());
+        // Capture fields round-trip as camelCase too.
+        assert!(value.get("screenshotFormat").is_some());
+        assert!(value.get("replayBufferSeconds").is_some());
+        assert!(value.get("videoBitrateKbps").is_some());
+    }
+
+    #[test]
+    fn settings_partial_capture_payload_keeps_defaults() {
+        // A payload saved before capture settings existed must still load.
+        let parsed: OverlaySettings =
+            serde_json::from_str(r#"{"videoFps":30}"#).unwrap();
+        assert_eq!(parsed.video_fps, 30);
+        assert_eq!(parsed.screenshot_format, "png");
+        assert_eq!(parsed.video_bitrate_kbps, 12_000);
+        assert!(parsed.video_enabled);
     }
 
     #[test]
@@ -1449,6 +1769,34 @@ mod tests {
         let bytes = encode_uncompressed_png(width, height, &rgba);
         assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
         assert!(bytes.len() > 30);
+    }
+
+    #[test]
+    fn resolve_capture_dir_prefers_a_custom_folder() {
+        let custom = resolve_capture_dir(Some("D:/clips"), "Hollow Knight");
+        assert_eq!(custom, std::path::PathBuf::from("D:/clips"));
+
+        // Blank/whitespace folds back to the per-game Captures tree.
+        let blank = resolve_capture_dir(Some("   "), "Hollow Knight");
+        assert!(blank.ends_with("Hollow Knight"));
+    }
+
+    #[test]
+    fn encode_capture_emits_a_jpeg_signature_for_jpg() {
+        let rgba = vec![
+            255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 10, 10, 10, 255,
+        ];
+        let (bytes, ext) = encode_capture("jpg", 2, 2, &rgba);
+        assert_eq!(ext, "jpg");
+        assert_eq!(&bytes[..2], &[0xFF, 0xD8]);
+    }
+
+    #[test]
+    fn encode_capture_falls_back_to_png_for_unknown_formats() {
+        let rgba = vec![0u8; 2 * 2 * 4];
+        let (bytes, ext) = encode_capture("tiff", 2, 2, &rgba);
+        assert_eq!(ext, "png");
+        assert!(bytes.starts_with(b"\x89PNG"));
     }
 }
 
