@@ -46,6 +46,7 @@ pub fn capture_desktop(dest: &Path) -> Result<(u32, u32), String> {
 /// X11 root-window grab. The root depth is almost always 24 (or 32 with a
 /// compositor alpha channel); both are 4 bytes/pixel BGRA/X on little-endian.
 fn capture_x11() -> Result<(u32, u32, Vec<u8>), String> {
+    use x11rb::connection::Connection;
     use x11rb::protocol::xproto::{get_image, ImageFormat};
 
     let (conn, screen_num) = x11rb::connect(None).map_err(|e| e.to_string())?;

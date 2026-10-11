@@ -25,11 +25,11 @@ pub fn configure_window(window: &WebviewWindow) {
     if !crate::linux_desktop::is_wayland() {
         return;
     }
-    let window = window.clone();
+    let window_handle = window.clone();
     let _ = window.run_on_main_thread(move || {
         // A panic here (already-realized window, or a compositor with no
         // layer-shell) must not take down the app.
-        let _ = catch_unwind(AssertUnwindSafe(|| init_layer_shell(&window)));
+        let _ = catch_unwind(AssertUnwindSafe(|| init_layer_shell(&window_handle)));
     });
 }
 
@@ -64,7 +64,7 @@ pub fn set_geometry(window: &WebviewWindow, corner: &str, width: f64, height: f6
         return;
     }
     let corner = corner.to_string();
-    let window = window.clone();
+    let window_handle = window.clone();
     let _ = window.run_on_main_thread(move || {
         let _ = catch_unwind(AssertUnwindSafe(|| {
             use gtk::prelude::*;
@@ -73,7 +73,7 @@ pub fn set_geometry(window: &WebviewWindow, corner: &str, width: f64, height: f6
             if !gtk_layer_shell::is_supported() {
                 return;
             }
-            let Ok(gtk_window) = window.gtk_window() else {
+            let Ok(gtk_window) = window_handle.gtk_window() else {
                 return;
             };
             // Anchor to the configured corner. The two un-anchored edges let
@@ -115,10 +115,10 @@ pub fn set_activation_style(window: &WebviewWindow, activating: bool) {
 }
 
 fn set_accept_focus(window: &WebviewWindow, accept: bool) {
-    let window = window.clone();
+    let window_handle = window.clone();
     let _ = window.run_on_main_thread(move || {
         use gtk::prelude::*;
-        if let Ok(gtk_window) = window.gtk_window() {
+        if let Ok(gtk_window) = window_handle.gtk_window() {
             gtk_window.set_accept_focus(accept);
             gtk_window.set_focus_on_map(accept);
         }
@@ -129,14 +129,14 @@ fn set_accept_focus(window: &WebviewWindow, accept: bool) {
 /// collapsed ticker takes none (so the game keeps the keyboard), the expanded
 /// panel takes it on demand (so Notes and the hotkey recorder can be typed in).
 fn set_layer_keyboard_mode(window: &WebviewWindow, activating: bool) {
-    let window = window.clone();
+    let window_handle = window.clone();
     let _ = window.run_on_main_thread(move || {
         let _ = catch_unwind(AssertUnwindSafe(|| {
             use gtk_layer_shell::{KeyboardMode, LayerShell};
             if !gtk_layer_shell::is_supported() {
                 return;
             }
-            let Ok(gtk_window) = window.gtk_window() else {
+            let Ok(gtk_window) = window_handle.gtk_window() else {
                 return;
             };
             gtk_window.set_keyboard_mode(if activating {

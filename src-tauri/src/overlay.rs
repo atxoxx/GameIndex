@@ -2060,21 +2060,13 @@ pub fn overlay_get_recent_screenshots(
 /// Open the screenshots folder or select the specific file in File Explorer.
 #[tauri::command]
 pub fn overlay_open_screenshot_folder(file_or_dir_path: Option<String>) -> Result<(), String> {
+    #[cfg(windows)]
     let target = if let Some(path) = file_or_dir_path {
         std::path::PathBuf::from(path)
+    } else if let Ok(profile) = std::env::var("USERPROFILE") {
+        std::path::PathBuf::from(profile).join("Videos").join("Captures")
     } else {
-        #[cfg(windows)]
-        {
-            if let Ok(profile) = std::env::var("USERPROFILE") {
-                std::path::PathBuf::from(profile).join("Videos").join("Captures")
-            } else {
-                std::path::PathBuf::from(".")
-            }
-        }
-        #[cfg(not(windows))]
-        {
-            std::path::PathBuf::from(".")
-        }
+        std::path::PathBuf::from(".")
     };
 
     #[cfg(windows)]
@@ -2094,6 +2086,7 @@ pub fn overlay_open_screenshot_folder(file_or_dir_path: Option<String>) -> Resul
 
     #[cfg(not(windows))]
     {
+        let _ = file_or_dir_path;
         Ok(())
     }
 }

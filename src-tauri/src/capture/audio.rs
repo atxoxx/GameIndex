@@ -70,4 +70,8 @@ mod imp;
 #[path = "audio_linux.rs"]
 mod imp;
 
-pub use imp::{list_devices, AudioClient};
+pub use imp::list_devices;
+// Only the Windows recorder opens an endpoint; the Linux arm shells out to
+// `gpu-screen-recorder`, so its `AudioClient` stub is never constructed.
+#[cfg(windows)]
+pub use imp::AudioClient;
