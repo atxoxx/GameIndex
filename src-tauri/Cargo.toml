@@ -177,6 +177,19 @@ obfstr = "0.4"
 # covers the optional lossy format so screenshots can be a fraction of the size.
 jpeg-encoder = "0.6"
 
+# === Security patches ===
+# `librqbit` 9.0.1 (the newest release) depends on `librqbit-utp` 0.7.0,
+# which pins `ringbuf ^0.4`. ringbuf 0.4.8 has a double-free /
+# use-after-free in `Consumer::skip` and `Consumer::clear` when an
+# element's `Drop` panics (RUSTSEC-2026-0293); the fix is >= 0.5.2 and no
+# 0.4.x release carries it. librqbit-utp 0.7.0 is also the newest
+# published version, so we pin the crate to the upstream commit that
+# adopts ringbuf 0.5.2 - the ring buffer API it uses is unchanged there,
+# so no source edits are needed. Remove this patch (and re-run
+# `cargo update`) once a released librqbit-utp depends on ringbuf 0.5+.
+[patch.crates-io]
+librqbit-utp = { git = "https://github.com/ikatson/librqbit-utp", rev = "f119a999657d66fe2c2322613428241ce8a69f23" }
+
 # Dev builds previously ran this crate and every bundled C dependency
 # (SQLite, QuickJS, serde_json) at `opt-level = 0`, which made a large
 # library boot several times slower in `tauri dev` than in release.
