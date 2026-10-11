@@ -6,7 +6,7 @@ use windows::core::{GUID, PCWSTR, PWSTR};
 use windows::Win32::Media::Audio::{
     eCapture, eConsole, eRender, IAudioCaptureClient, IAudioClient, IMMDevice, IMMDeviceCollection,
     IMMDeviceEnumerator, MMDeviceEnumerator, AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_SHARED,
-    AUDCLNT_STREAMFLAGS_LOOPBACK, DEVICE_STATE_ACTIVE, WAVEFORMATEX,
+    AUDCLNT_STREAMFLAGS_LOOPBACK, DEVICE_STATE_ACTIVE, WAVEFORMATEX, WAVEFORMATEXTENSIBLE,
 };
 use windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc;
 use windows::Win32::System::Com::{
@@ -23,14 +23,37 @@ const PKEY_DEVICE_FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY {
     pid: 14,
 };
 
+const WAVE_FORMAT_IEEE_FLOAT: u16 = 0x0003;
+const WAVE_FORMAT_EXTENSIBLE: u16 = 0xFFFE;
+/// `KSDATAFORMAT_SUBTYPE_IEEE_FLOAT`.
+const SUBTYPE_IEEE_FLOAT: GUID = GUID::from_u128(0x00000003_0000_0010_8000_00aa00389b71);
+
+/// How a device's mix format stores one sample.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum SampleKind {
+    F32,
+    I16,
+    I32,
+}
+
+impl SampleKind {
+    fn bytes(self) -> usize {
+        match self {
+            SampleKind::I16 => 2,
+            _ => 4,
+        }
+    }
+}
+
 /// Capture client for one endpoint. Owns the WASAPI interfaces; safe to poll
 /// from the encoder thread.
 pub struct AudioClient {
     client: IAudioClient,
     capture: IAudioCaptureClient,
     format: AudioFormat,
-    /// 4 bytes/sample for float32, 2 for PCM16.
-    is_float: bool,
+    kind: SampleKind,
+    /// Channels as delivered by the device (may exceed the 2 we encode).
+    device_channels: u16,
 }
 
 impl AudioClient {
@@ -63,19 +86,23 @@ impl AudioClient {
                 return Err("GetMixFormat returned no format".to_string());
             }
             let wave: WAVEFORMATEX = *mix;
-            let channels = wave.nChannels.max(1);
+            let device_channels = wave.nChannels.max(1);
             let sample_rate = if wave.nSamplesPerSec == 0 {
                 48_000
             } else {
                 wave.nSamplesPerSec
             };
-            let bits = wave.wBitsPerSample;
-            let is_float = bits == 32;
-
-            if bits != 16 && bits != 32 {
-                CoTaskMemFree(Some(mix as *const c_void));
-                return Err(format!("unsupported audio sample size: {bits}-bit"));
-            }
+            let kind = match detect_sample_kind(mix) {
+                Some(kind) => kind,
+                None => {
+                    let bits = wave.wBitsPerSample;
+                    let tag = wave.wFormatTag;
+                    CoTaskMemFree(Some(mix as *const c_void));
+                    return Err(format!(
+                        "unsupported audio mix format: {bits} bits, tag {tag:#06x}"
+                    ));
+                }
+            };
 
             let flags = if loopback {
                 AUDCLNT_STREAMFLAGS_LOOPBACK
@@ -104,10 +131,12 @@ impl AudioClient {
                 client,
                 capture,
                 format: AudioFormat {
-                    channels,
+                    // The encoder muxes at most stereo; wider devices are downmixed.
+                    channels: device_channels.min(2),
                     sample_rate,
                 },
-                is_float,
+                kind,
+                device_channels,
             })
         }
     }
@@ -137,14 +166,9 @@ impl AudioClient {
 
                 let silent = (flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32) != 0;
                 if !silent && frames > 0 && !data.is_null() {
-                    let bytes_per_sample = if self.is_float { 4 } else { 2 };
-                    let len = frames as usize * self.format.channels as usize * bytes_per_sample;
+                    let len = frames as usize * self.device_channels as usize * self.kind.bytes();
                     let slice = std::slice::from_raw_parts(data, len);
-                    let pcm = if self.is_float {
-                        float_to_pcm16(slice)
-                    } else {
-                        slice.to_vec()
-                    };
+                    let pcm = self.convert(slice, frames);
                     on_data(&pcm, frames);
                 }
 
@@ -152,6 +176,48 @@ impl AudioClient {
             }
         }
         Ok(())
+    }
+
+    /// Convert one device packet to interleaved stereo/mono PCM16.
+    fn convert(&self, bytes: &[u8], frames: u32) -> Vec<u8> {
+        let device = self.device_channels as usize;
+        let out = self.format.channels as usize;
+        let sb = self.kind.bytes();
+        let mut out_bytes = Vec::with_capacity(frames as usize * out * 2);
+        for frame in 0..frames as usize {
+            for oc in 0..out {
+                // Mono is duplicated; >2 channels keep the first stereo pair.
+                let dc = if device == 1 { 0 } else { oc.min(device - 1) };
+                let off = (frame * device + dc) * sb;
+                if off + sb > bytes.len() {
+                    break;
+                }
+                let sample = match self.kind {
+                    SampleKind::F32 => {
+                        let v = f32::from_le_bytes([
+                            bytes[off],
+                            bytes[off + 1],
+                            bytes[off + 2],
+                            bytes[off + 3],
+                        ]);
+                        let v = if v.is_finite() { v.clamp(-1.0, 1.0) } else { 0.0 };
+                        (v * 32767.0) as i16
+                    }
+                    SampleKind::I16 => i16::from_le_bytes([bytes[off], bytes[off + 1]]),
+                    SampleKind::I32 => {
+                        let v = i32::from_le_bytes([
+                            bytes[off],
+                            bytes[off + 1],
+                            bytes[off + 2],
+                            bytes[off + 3],
+                        ]);
+                        (v >> 16) as i16
+                    }
+                };
+                out_bytes.extend_from_slice(&sample.to_le_bytes());
+            }
+        }
+        out_bytes
     }
 }
 
@@ -163,6 +229,27 @@ impl Drop for AudioClient {
     }
 }
 
+fn detect_sample_kind(mix: *const WAVEFORMATEX) -> Option<SampleKind> {
+    unsafe {
+        let wave = *mix;
+        let bits = wave.wBitsPerSample;
+        let is_float = if wave.wFormatTag == WAVE_FORMAT_IEEE_FLOAT {
+            true
+        } else if wave.wFormatTag == WAVE_FORMAT_EXTENSIBLE {
+            let sub_format = (*(mix as *const WAVEFORMATEXTENSIBLE)).SubFormat;
+            sub_format == SUBTYPE_IEEE_FLOAT
+        } else {
+            false
+        };
+        match (bits, is_float) {
+            (32, true) => Some(SampleKind::F32),
+            (16, false) => Some(SampleKind::I16),
+            (32, false) => Some(SampleKind::I32),
+            _ => None,
+        }
+    }
+}
+
 fn get_device_by_id(enumerator: &IMMDeviceEnumerator, id: &str) -> Result<IMMDevice, String> {
     let wide: Vec<u16> = id.encode_utf16().chain(std::iter::once(0)).collect();
     unsafe {
@@ -170,23 +257,6 @@ fn get_device_by_id(enumerator: &IMMDeviceEnumerator, id: &str) -> Result<IMMDev
             .GetDevice(PCWSTR(wide.as_ptr()))
             .map_err(|e| format!("GetDevice('{id}'): {e}"))
     }
-}
-
-fn float_to_pcm16(bytes: &[u8]) -> Vec<u8> {
-    let samples = bytes.len() / 4;
-    let mut out = Vec::with_capacity(samples * 2);
-    for i in 0..samples {
-        let f = f32::from_le_bytes([
-            bytes[i * 4],
-            bytes[i * 4 + 1],
-            bytes[i * 4 + 2],
-            bytes[i * 4 + 3],
-        ]);
-        let clamped = if f.is_finite() { f.clamp(-1.0, 1.0) } else { 0.0 };
-        let s = (clamped * 32767.0) as i16;
-        out.extend_from_slice(&s.to_le_bytes());
-    }
-    out
 }
 
 fn pwstr_to_string(p: PWSTR) -> String {

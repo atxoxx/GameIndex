@@ -46,6 +46,7 @@ use windows::Win32::Media::MediaFoundation::{
     MF_MT_AUDIO_BITS_PER_SAMPLE, MF_MT_AUDIO_BLOCK_ALIGNMENT, MF_MT_AUDIO_NUM_CHANNELS,
     MF_MT_AUDIO_SAMPLES_PER_SECOND, MF_MT_AVG_BITRATE, MF_MT_DEFAULT_STRIDE, MF_MT_FRAME_RATE,
     MF_MT_FRAME_SIZE, MF_MT_INTERLACE_MODE, MF_MT_MAJOR_TYPE, MF_MT_SUBTYPE,
+    MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION, MF_MT_AAC_PAYLOAD_TYPE,
     MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, MF_SINK_WRITER_DISABLE_THROTTLING, MF_VERSION,
     MFVideoInterlace_Progressive,
 };
@@ -259,6 +260,9 @@ fn run_capture(
     )?;
     let mut audio_streams = writer.audio_streams().to_vec();
     let mut audio_time: Vec<i64> = vec![0; audio_formats.len()];
+    let mut audio_logged: Vec<bool> = vec![false; audio_formats.len()];
+    let mut audio_seen: Vec<bool> = vec![false; audio_formats.len()];
+    let mut audio_warned: Vec<bool> = vec![false; audio_formats.len()];
 
     let start = Instant::now();
     let frame_dur_100ns = 10_000_000i64 / fps as i64;
@@ -291,12 +295,33 @@ fn run_capture(
             if let Some(&stream) = audio_streams.get(index) {
                 let rate = audio_formats[index].sample_rate.max(1) as i64;
                 let mut pending: Vec<(Vec<u8>, u32)> = Vec::new();
-                let _ = client.poll(|data, frames| pending.push((data.to_vec(), frames)));
+                if let Err(e) = client.poll(|data, frames| pending.push((data.to_vec(), frames))) {
+                    if !audio_logged[index] {
+                        eprintln!("[capture] audio capture error: {e}");
+                        audio_logged[index] = true;
+                    }
+                }
                 for (data, frames) in pending {
+                    if !audio_seen[index] {
+                        audio_seen[index] = true;
+                        eprintln!("[capture] audio track {index} is streaming ({frames} frames/packet)");
+                    }
                     let ts = audio_time[index];
                     let dur = (frames as i64 * 10_000_000 / rate).max(1);
-                    let _ = writer.write_audio(stream, &data, frames, ts, rate as u32);
+                    if let Err(e) = writer.write_audio(stream, &data, frames, ts, rate as u32) {
+                        if !audio_logged[index] {
+                            eprintln!("[capture] audio encode error: {e}");
+                            audio_logged[index] = true;
+                        }
+                    }
                     audio_time[index] = ts + dur;
+                }
+                if !audio_seen[index] && !audio_warned[index] && start.elapsed().as_secs() >= 5 {
+                    audio_warned[index] = true;
+                    eprintln!(
+                        "[capture] warning: no audio captured on track {index} after 5s \
+                         (check the selected device and that game audio is playing)"
+                    );
                 }
             }
         }
@@ -811,6 +836,12 @@ fn add_audio_stream(writer: &IMFSinkWriter, format: AudioFormat) -> Result<u32, 
             .SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 16_000)
             .ok();
         out_type.SetUINT32(&MF_MT_AUDIO_BLOCK_ALIGNMENT, 1).ok();
+        // The MP4 muxer expects raw AAC frames, not the encoder's default ADTS
+        // payload; without this the audio track lands unplayable/silent.
+        out_type.SetUINT32(&MF_MT_AAC_PAYLOAD_TYPE, 0).ok();
+        out_type
+            .SetUINT32(&MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION, 0x29)
+            .ok();
 
         let index = writer
             .AddStream(&out_type)
