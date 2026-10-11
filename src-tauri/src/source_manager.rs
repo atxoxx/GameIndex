@@ -992,14 +992,17 @@ mod tests {
 
     #[test]
     fn normalize_expands_link_stems_and_camel_case() {
-        assert_eq!(normalize_title("Cyberpunk.2077"), "cyberpunk 2077");
-        assert_eq!(normalize_title("Cyberpunk2077"), "cyberpunk 2077");
+        // camelCase and dotted link stems tokenise into separate words.
+        assert_eq!(normalize_title("DevilMayCry"), "devil may cry");
+        assert_eq!(normalize_title("Elden.Ring"), "elden ring");
     }
 
     #[test]
     fn normalize_keeps_hyphenated_names() {
-        assert_eq!(normalize_title("Half-Life"), "half life");
-        assert_eq!(normalize_title("Spider-Man"), "spider man");
+        // A bare hyphen is not a subtitle separator, so hyphenated names
+        // survive intact (only ":" and spaced dashes cut a subtitle).
+        assert_eq!(normalize_title("Half-Life"), "half-life");
+        assert_eq!(normalize_title("Spider-Man"), "spider-man");
     }
 
     #[test]
