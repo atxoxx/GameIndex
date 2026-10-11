@@ -26,6 +26,8 @@ export const baseOverlaySettings: OverlaySettings = {
   nativeBlur: true,
   reduceEffects: false,
   tickerClickThrough: false,
+  highContrast: false,
+  textScale: 1,
   pollIntervalMs: 1000,
   showTemps: true,
   showGraphs: false,

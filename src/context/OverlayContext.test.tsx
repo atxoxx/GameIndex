@@ -231,4 +231,24 @@ describe("OverlayProvider background sync", () => {
 
     expect(contextRef.current!.settings.opacity).toBe(0.33);
   });
+
+  it("applies accessibility settings to the root element", async () => {
+    mockedInvoke.mockImplementation((command: string) => {
+      if (command === "overlay_get_settings") {
+        return Promise.resolve({ highContrast: true, textScale: 1.25 });
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <OverlayProvider>
+        <Probe />
+      </OverlayProvider>,
+    );
+    await flush();
+
+    const root = document.documentElement;
+    expect(root.dataset.overlayContrast).toBe("high");
+    expect(root.style.fontSize).toBe("125%");
+  });
 });

@@ -3089,3 +3089,51 @@ body.overlay-window #root {
     transition: none;
   }
 }
+
+/* ── Bounded lists (incremental "show more") ─────────────────────────── */
+.overlay-list-more {
+  width: 100%;
+  margin-top: 0.5rem;
+  justify-content: center;
+}
+
+/* ── High-contrast accessibility ─────────────────────────────────────── */
+/* Opaque surfaces, stronger borders and brighter labels take precedence over
+   glass/dim/native so the HUD stays legible on any backdrop. */
+:root[data-overlay-contrast="high"] {
+  --overlay-bg-base: var(--color-bg-secondary);
+  --overlay-backdrop: none;
+}
+
+:root[data-overlay-contrast="high"] .overlay-ticker,
+:root[data-overlay-contrast="high"] .overlay-panel {
+  background: var(--color-bg-secondary);
+  border: 1.5px solid var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-text-primary), 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-overlay-contrast="high"] .overlay-panel {
+  background: var(--color-surface-overlay);
+}
+
+:root[data-overlay-contrast="high"] .overlay-ticker__pill,
+:root[data-overlay-contrast="high"] .overlay-stat-chip,
+:root[data-overlay-contrast="high"] .overlay-sensor-tile,
+:root[data-overlay-contrast="high"] .overlay-corner-cell,
+:root[data-overlay-contrast="high"] .overlay-chip,
+:root[data-overlay-contrast="high"] .overlay-settings-section {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-light);
+}
+
+:root[data-overlay-contrast="high"] .overlay-ticker__pill-tag,
+:root[data-overlay-contrast="high"] .overlay-stat-chip__label,
+:root[data-overlay-contrast="high"] .overlay-sensor-tile__label,
+:root[data-overlay-contrast="high"] .overlay-graph-section__title,
+:root[data-overlay-contrast="high"] .overlay-setting-block__label {
+  color: var(--color-text-primary);
+}
+
+:root[data-overlay-contrast="high"] .overlay-gauge__track {
+  opacity: 1;
+}

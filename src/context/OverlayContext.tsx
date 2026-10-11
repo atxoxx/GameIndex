@@ -61,6 +61,10 @@ export interface OverlaySettings {
   reduceEffects?: boolean;
   /** Collapsed ticker ignores the mouse so clicks reach the game. */
   tickerClickThrough?: boolean;
+  /** Force opaque surfaces and stronger borders for readability. */
+  highContrast?: boolean;
+  /** Overlay text/control scale (0.9–1.4). */
+  textScale?: number;
   pollIntervalMs: number;
   /** Render CPU/GPU temperature tiles in the performance widget. */
   showTemps: boolean;
@@ -258,6 +262,8 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   nativeBlur: true,
   reduceEffects: false,
   tickerClickThrough: false,
+  highContrast: false,
+  textScale: 1,
   pollIntervalMs: 1000,
   showTemps: true,
   showGraphs: true,
@@ -468,6 +474,8 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const [audioDevices, setAudioDevices] =
     useState<AudioDeviceList>(EMPTY_AUDIO_DEVICES);
   const prevRecordingRef = useRef(false);
+  // Throttle clock for the persisted telemetry window (I6).
+  const historySaveRef = useRef(0);
 
   // Persist the window position/size after the user drags or resizes it.
   useOverlayBounds();
@@ -501,6 +509,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     const native =
       glass &&
       !settings.reduceEffects &&
+      !settings.highContrast &&
       (settings.nativeBlur ?? true) &&
       nativeBlurSupported;
 
@@ -535,8 +544,20 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     settings.backgroundOpacity,
     settings.nativeBlur,
     settings.reduceEffects,
+    settings.highContrast,
     nativeBlurSupported,
   ]);
+
+  // Accessibility: high contrast forces opaque surfaces (a root data attribute
+  // consumed by overlay.css) and text scale drives the root font size, which
+  // every rem-based dimension in the HUD follows.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.dataset.overlayContrast = settings.highContrast ? "high" : "normal";
+    const scale = Math.min(1.4, Math.max(0.9, settings.textScale ?? 1));
+    root.style.fontSize = `${Math.round(scale * 100)}%`;
+  }, [settings.highContrast, settings.textScale]);
 
   // Probe whether the platform offers a native window backdrop.
   useEffect(() => {
@@ -927,6 +948,52 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       void clipUnlisten.then((unlisten) => unlisten());
     };
   }, []);
+
+  // Persist the rolling telemetry window so the performance deep-dive survives
+  // an overlay reopen for the same game. On a game change the window starts
+  // empty and is seeded from the stored snapshot when it matches.
+  useEffect(() => {
+    const gameId = session?.gameId ?? null;
+    setHistory([]);
+    historySaveRef.current = 0;
+    let disposed = false;
+    invoke<string | null>("overlay_load_history")
+      .then((raw) => {
+        if (disposed || !raw) return;
+        try {
+          const parsed = JSON.parse(raw) as {
+            gameId?: string | null;
+            samples?: OverlayMetrics[];
+          };
+          if ((parsed.gameId ?? null) !== gameId) return;
+          if (Array.isArray(parsed.samples)) {
+            setHistory(parsed.samples.slice(-OVERLAY_HISTORY_LIMIT));
+          }
+        } catch {
+          /* ignore malformed snapshots */
+        }
+      })
+      .catch(() => {
+        /* no Tauri runtime / command unavailable */
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [session?.gameId]);
+
+  useEffect(() => {
+    // Throttle to ~8 s so a 1 Hz telemetry feed does not hammer the database.
+    const now = Date.now();
+    if (now - historySaveRef.current < 8000) return;
+    historySaveRef.current = now;
+    const payload = JSON.stringify({
+      gameId: session?.gameId ?? null,
+      samples: history,
+    });
+    void invoke("overlay_save_history", { json: payload }).catch(() => {
+      /* no Tauri runtime / command unavailable */
+    });
+  }, [history, session?.gameId]);
 
   const corner = settings.corner;
 
