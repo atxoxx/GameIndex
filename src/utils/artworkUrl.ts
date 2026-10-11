@@ -1,5 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { Game } from "../types/game";
+import { type Game, resolveSteamAppId } from "../types/game";
 
 /**
  * True iff a stored artwork URL can actually be rendered by the webview:
@@ -60,4 +60,54 @@ export function normalizeGameArtworkUrls(game: Game): Game {
     }
   }
   return changed ? next : game;
+}
+
+/**
+ * Safely resolve any stored artwork URL or local filesystem path into
+ * a URL loadable by the Tauri webview.
+ * - Leaves http(s), data:, and asset-protocol URLs untouched.
+ * - Converts file:// URLs via `toWebviewAssetUrl`.
+ * - Converts bare absolute filesystem paths via `convertFileSrc`.
+ * - Returns null for falsy / whitespace-only inputs.
+ */
+export function safeArtworkUrl(u: string | undefined | null): string | null {
+  if (!u || typeof u !== "string") return null;
+  const trimmed = u.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("file://")) {
+    return toWebviewAssetUrl(trimmed);
+  }
+  if (
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("asset:") ||
+    trimmed.startsWith("asset.localhost/") ||
+    trimmed.startsWith("http://asset.localhost/") ||
+    trimmed.startsWith("https://asset.localhost/") ||
+    /^https?:\/\//i.test(trimmed)
+  ) {
+    return trimmed;
+  }
+  try {
+    return convertFileSrc(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+/**
+ * Resolve an official clear logo URL for a game, checking `game.logoUrl`
+ * first, and falling back to the canonical Steam CDN logo if the game
+ * has a known Steam AppID.
+ */
+export function resolveGameLogo(game?: Game | null): string | null {
+  if (!game) return null;
+  if (game.logoUrl) {
+    const safe = safeArtworkUrl(game.logoUrl);
+    if (safe) return safe;
+  }
+  const steamAppId = resolveSteamAppId(game);
+  if (steamAppId) {
+    return `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png`;
+  }
+  return null;
 }

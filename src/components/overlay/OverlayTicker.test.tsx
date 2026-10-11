@@ -55,6 +55,7 @@ function overlayValue(expand = vi.fn()): OverlayContextValue {
     providerReady: true,
     captureScreenshot: vi.fn().mockResolvedValue(null),
     recentScreenshots: [],
+    deleteScreenshot: vi.fn().mockResolvedValue(true),
     isCapturing: false,
     lastCapturedScreenshot: null,
     openScreenshotsFolder: vi.fn().mockResolvedValue(undefined),

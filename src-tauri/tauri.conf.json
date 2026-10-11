@@ -55,7 +55,9 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$APPDATA/**/*"
+          "$APPDATA/**/*",
+          "$VIDEO/**/*",
+          "$PICTURES/**/*"
         ]
       },
       "csp": null

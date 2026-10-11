@@ -6,9 +6,14 @@ import {
   type OverlayContextValue,
 } from "../../context/OverlayContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useOptionalGames } from "../../context/GameContext";
 
 vi.mock("../../context/OverlayContext", () => ({ useOverlay: vi.fn() }));
 vi.mock("../../context/LanguageContext", () => ({ useLanguage: vi.fn() }));
+vi.mock("../../context/GameContext", () => ({ useOptionalGames: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({
+  convertFileSrc: (p: string) => `asset://localhost/${encodeURIComponent(p)}`,
+}));
 
 // Stub each widget so the panel's tab switching can be asserted without
 // dragging the whole overlay provider tree in.
@@ -42,6 +47,7 @@ vi.mock("./widgets/SettingsWidget", () => ({
 
 const mockOverlay = vi.mocked(useOverlay);
 const mockLanguage = vi.mocked(useLanguage);
+const mockOptionalGames = vi.mocked(useOptionalGames);
 
 function overlayValue(panelWidgets: string[]): OverlayContextValue {
   return {
@@ -71,6 +77,7 @@ function overlayValue(panelWidgets: string[]): OverlayContextValue {
     providerReady: true,
     captureScreenshot: vi.fn().mockResolvedValue(null),
     recentScreenshots: [],
+    deleteScreenshot: vi.fn().mockResolvedValue(true),
     isCapturing: false,
     lastCapturedScreenshot: null,
     openScreenshotsFolder: vi.fn().mockResolvedValue(undefined),
@@ -95,6 +102,10 @@ const ALL_WIDGETS = [
 describe("OverlayPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockOptionalGames.mockReturnValue({
+      games: [],
+      runningGameIds: [],
+    } as any);
     mockLanguage.mockReturnValue({
       t: (key: string) => key,
     } as unknown as ReturnType<typeof useLanguage>);
@@ -172,4 +183,34 @@ describe("OverlayPanel", () => {
     expect(screen.queryByTestId("overlay-panel-tabs")).toBeNull();
     expect(screen.queryByTestId("overlay-panel-tabbody")).toBeNull();
   });
+
+  it("renders game logo and thumbnail in the header when an active game is running", () => {
+    const val = overlayValue(ALL_WIDGETS);
+    val.session = {
+      gameId: "game-10",
+      startedAt: Date.now(),
+      pid: 1234,
+    };
+    mockOverlay.mockReturnValue(val);
+    mockOptionalGames.mockReturnValue({
+      games: [
+        {
+          id: "game-10",
+          name: "Hades II",
+          coverArtUrl: "https://example.com/hades2-cover.jpg",
+          logoUrl: "https://example.com/hades2-logo.png",
+          installed: true,
+          addedAt: 0,
+        },
+      ],
+      runningGameIds: ["game-10"],
+    } as any);
+
+    render(<OverlayPanel />);
+
+    const logoImg = screen.getByAltText("Hades II");
+    expect(logoImg).toHaveAttribute("src", "https://example.com/hades2-logo.png");
+    expect(logoImg).toHaveClass("overlay-panel__game-logo");
+  });
 });
+

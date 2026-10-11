@@ -1,4 +1,4 @@
-import { useState, useMemo, type ComponentType, type ReactNode } from "react";
+import { useState, useMemo, useEffect, type ComponentType, type ReactNode } from "react";
 import {
   ChevronDown,
   Camera,
@@ -13,7 +13,7 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { safeArtworkUrl, resolveGameLogo } from "../../utils/artworkUrl";
 import { useOverlay } from "../../context/OverlayContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useOptionalGames } from "../../context/GameContext";
@@ -99,13 +99,46 @@ export default function OverlayPanel() {
   } = useOverlay();
   const gameCtx = useOptionalGames();
   const games = gameCtx?.games ?? [];
+  const runningGameIds = gameCtx?.runningGameIds ?? [];
   const { t } = useLanguage();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const activeGame = useMemo(() => {
-    if (!session?.gameId) return null;
-    return games.find((g) => g.id === session.gameId);
-  }, [session, games]);
+    if (session?.gameId) {
+      const match = games.find(
+        (g) => g.id === session.gameId || String(g.id) === String(session.gameId),
+      );
+      if (match) return match;
+    }
+    if (runningGameIds.length > 0) {
+      return (
+        games.find(
+          (g) =>
+            g.id === runningGameIds[0] ||
+            String(g.id) === String(runningGameIds[0]),
+        ) ?? null
+      );
+    }
+    return null;
+  }, [session, games, runningGameIds]);
+
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const [headerLogoFailed, setHeaderLogoFailed] = useState(false);
+
+  useEffect(() => {
+    setThumbFailed(false);
+    setHeaderLogoFailed(false);
+  }, [activeGame?.id]);
+
+  const effectiveThumb = useMemo(() => {
+    if (!activeGame || thumbFailed) return null;
+    return safeArtworkUrl(activeGame.iconUrl || activeGame.coverArtUrl);
+  }, [activeGame, thumbFailed]);
+
+  const effectiveHeaderLogo = useMemo(() => {
+    if (!activeGame || headerLogoFailed) return null;
+    return resolveGameLogo(activeGame);
+  }, [activeGame, headerLogoFailed]);
 
   const enabled = new Set(settings.panelWidgets);
   const groups = GROUPS.map((group) => ({
@@ -134,11 +167,12 @@ export default function OverlayPanel() {
       {/* Panel Draggable Header */}
       <header className="overlay-panel__head" data-tauri-drag-region="deep">
         <div className="overlay-panel__title-wrap" data-tauri-drag-region="deep">
-          {activeGame?.coverArtUrl ? (
+          {effectiveThumb ? (
             <img
-              src={convertFileSrc(activeGame.coverArtUrl)}
+              src={effectiveThumb}
               alt=""
               className="overlay-panel__game-thumb"
+              onError={() => setThumbFailed(true)}
             />
           ) : (
             <div className="overlay-panel__game-icon-fallback">
@@ -146,9 +180,18 @@ export default function OverlayPanel() {
             </div>
           )}
           <div className="overlay-panel__game-meta">
-            <span className="overlay-panel__title">
-              {activeGame?.name || t("overlay.title")}
-            </span>
+            {effectiveHeaderLogo ? (
+              <img
+                src={effectiveHeaderLogo}
+                alt={activeGame?.name || ""}
+                className="overlay-panel__game-logo"
+                onError={() => setHeaderLogoFailed(true)}
+              />
+            ) : (
+              <span className="overlay-panel__title">
+                {activeGame?.name || t("overlay.title")}
+              </span>
+            )}
             <span className="overlay-panel__hint">{t("overlay.escapeHint")}</span>
           </div>
         </div>

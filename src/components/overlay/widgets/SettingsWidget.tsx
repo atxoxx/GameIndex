@@ -7,6 +7,9 @@ import {
   Monitor,
   Clock,
   Keyboard,
+  Compass,
+  Activity,
+  Layers,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -111,155 +114,174 @@ export default function SettingsWidget() {
           title={t("overlay.settings.resetDefaults")}
           className="overlay-reset-btn"
         >
-          <RotateCcw size={13} />
+          <RotateCcw size={12} />
           <span>{t("overlay.settings.resetDefaults")}</span>
         </Button>
       </div>
 
       <div className="overlay-settings-list">
-        {/* Opacity slider */}
-        <div className="overlay-setting-row">
-          <div className="overlay-setting-row__info">
-            <span className="overlay-setting-row__label">
-              {t("overlay.settings.opacity")}
+        {/* Section 1: Appearance & Position */}
+        <div className="overlay-settings-section">
+          <div className="overlay-settings-section__title">
+            <Compass size={13} />
+            <span>{t("overlay.settings.opacity")} & {t("overlay.settings.corner")}</span>
+          </div>
+
+          <div className="overlay-setting-row">
+            <div className="overlay-setting-row__info">
+              <span className="overlay-setting-row__label">
+                {t("overlay.settings.opacity")}
+              </span>
+              <span className="overlay-setting-row__val">
+                {Math.round(settings.opacity * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.3"
+              max="1.0"
+              step="0.05"
+              value={settings.opacity}
+              onChange={(e) =>
+                void updateSettings({ opacity: parseFloat(e.target.value) })
+              }
+              className="overlay-slider"
+            />
+          </div>
+
+          <div className="overlay-setting-block">
+            <span className="overlay-setting-block__label">
+              {t("overlay.settings.corner")}
             </span>
-            <span className="overlay-setting-row__val">
-              {Math.round(settings.opacity * 100)}%
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0.3"
-            max="1.0"
-            step="0.05"
-            value={settings.opacity}
-            onChange={(e) =>
-              void updateSettings({ opacity: parseFloat(e.target.value) })
-            }
-            className="overlay-slider"
-          />
-        </div>
-
-        {/* Screen Corner Grid */}
-        <div className="overlay-setting-block">
-          <span className="overlay-setting-block__label">
-            {t("overlay.settings.corner")}
-          </span>
-          <div className="overlay-corner-grid">
-            {CORNERS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className={`overlay-corner-cell${
-                  settings.corner === c.id ? " active" : ""
-                }`}
-                onClick={() => handleCornerSelect(c.id)}
-              >
-                <div className={`corner-dot corner-dot--${c.id}`} />
-                <span>{t(c.labelKey)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Global Hotkey */}
-        <div className="overlay-setting-row">
-          <div className="overlay-setting-row__info">
-            <span className="overlay-setting-row__label">
-              <Keyboard size={14} className="mr-1 inline-block" />
-              {t("overlay.settings.hotkey")}
-            </span>
-            <span className="overlay-hotkey-badge">{settings.hotkey}</span>
-          </div>
-          <Button
-            variant={recording ? "primary" : "secondary"}
-            size="sm"
-            onClick={() => setRecording(!recording)}
-          >
-            {recording
-              ? t("overlay.settings.hotkeyRecording")
-              : t("overlay.settings.hotkeyRecord")}
-          </Button>
-        </div>
-
-        {/* Telemetry Toggles */}
-        <div className="overlay-setting-block">
-          <span className="overlay-setting-block__label">
-            {t("overlay.settings.telemetry")}
-          </span>
-          <div className="overlay-toggles-duo">
-            <label className="overlay-toggle-item">
-              <input
-                type="checkbox"
-                checked={settings.showTemps}
-                onChange={(e) =>
-                  void updateSettings({ showTemps: e.target.checked })
-                }
-              />
-              <span>{t("overlay.settings.showTemps")}</span>
-            </label>
-            <label className="overlay-toggle-item">
-              <input
-                type="checkbox"
-                checked={settings.showGraphs}
-                onChange={(e) =>
-                  void updateSettings({ showGraphs: e.target.checked })
-                }
-              />
-              <span>{t("overlay.settings.showGraphs")}</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Ticker Widgets Selection */}
-        <div className="overlay-setting-block">
-          <span className="overlay-setting-block__label">
-            {t("overlay.settings.tickerWidgets")}
-          </span>
-          <div className="overlay-chips-list">
-            {TICKER_WIDGETS.map((key) => {
-              const active = settings.tickerWidgets.includes(key);
-              return (
+            <div className="overlay-corner-grid">
+              {CORNERS.map((c) => (
                 <button
-                  key={key}
+                  key={c.id}
                   type="button"
-                  className={`overlay-chip${active ? " active" : ""}`}
-                  onClick={() =>
-                    handleToggleWidget("tickerWidgets", key, !active)
-                  }
+                  className={`overlay-corner-cell${
+                    settings.corner === c.id ? " active" : ""
+                  }`}
+                  onClick={() => handleCornerSelect(c.id)}
                 >
-                  {key === "fps" && <Gauge size={12} />}
-                  {key === "cpu" && <Cpu size={12} />}
-                  {key === "gpu" && <Monitor size={12} />}
-                  {key === "session" && <Clock size={12} />}
-                  <span>{key.toUpperCase()}</span>
+                  <div className={`corner-dot corner-dot--${c.id}`} />
+                  <span>{t(c.labelKey)}</span>
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Panel Widgets Selection */}
-        <div className="overlay-setting-block">
-          <span className="overlay-setting-block__label">
-            {t("overlay.settings.panelWidgets")}
-          </span>
-          <div className="overlay-chips-list">
-            {PANEL_WIDGETS.map((key) => {
-              const active = settings.panelWidgets.includes(key);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`overlay-chip${active ? " active" : ""}`}
-                  onClick={() =>
-                    handleToggleWidget("panelWidgets", key, !active)
+        {/* Section 2: Shortcuts & Telemetry */}
+        <div className="overlay-settings-section">
+          <div className="overlay-settings-section__title">
+            <Activity size={13} />
+            <span>{t("overlay.settings.hotkey")} & {t("overlay.settings.telemetry")}</span>
+          </div>
+
+          <div className="overlay-setting-row overlay-setting-row--hotkey">
+            <div className="overlay-setting-row__info">
+              <span className="overlay-setting-row__label">
+                <Keyboard size={14} className="mr-1 inline-block" />
+                {t("overlay.settings.hotkey")}
+              </span>
+              <span className="overlay-hotkey-badge">{settings.hotkey}</span>
+            </div>
+            <Button
+              variant={recording ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setRecording(!recording)}
+              className="overlay-hotkey-record-btn"
+            >
+              {recording
+                ? t("overlay.settings.hotkeyRecording")
+                : t("overlay.settings.hotkeyRecord")}
+            </Button>
+          </div>
+
+          <div className="overlay-setting-block">
+            <span className="overlay-setting-block__label">
+              {t("overlay.settings.telemetry")}
+            </span>
+            <div className="overlay-toggles-duo">
+              <label className="overlay-toggle-item">
+                <input
+                  type="checkbox"
+                  checked={settings.showTemps}
+                  onChange={(e) =>
+                    void updateSettings({ showTemps: e.target.checked })
                   }
-                >
-                  <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                </button>
-              );
-            })}
+                />
+                <span>{t("overlay.settings.showTemps")}</span>
+              </label>
+              <label className="overlay-toggle-item">
+                <input
+                  type="checkbox"
+                  checked={settings.showGraphs}
+                  onChange={(e) =>
+                    void updateSettings({ showGraphs: e.target.checked })
+                  }
+                />
+                <span>{t("overlay.settings.showGraphs")}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Visible Widgets */}
+        <div className="overlay-settings-section">
+          <div className="overlay-settings-section__title">
+            <Layers size={13} />
+            <span>{t("overlay.settings.widgets")}</span>
+          </div>
+
+          <div className="overlay-setting-block">
+            <span className="overlay-setting-block__label">
+              {t("overlay.settings.tickerWidgets")}
+            </span>
+            <div className="overlay-chips-list">
+              {TICKER_WIDGETS.map((key) => {
+                const active = settings.tickerWidgets.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`overlay-chip${active ? " active" : ""}`}
+                    onClick={() =>
+                      handleToggleWidget("tickerWidgets", key, !active)
+                    }
+                  >
+                    {key === "fps" && <Gauge size={12} />}
+                    {key === "cpu" && <Cpu size={12} />}
+                    {key === "gpu" && <Monitor size={12} />}
+                    {key === "session" && <Clock size={12} />}
+                    <span>{key.toUpperCase()}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="overlay-setting-block">
+            <span className="overlay-setting-block__label">
+              {t("overlay.settings.panelWidgets")}
+            </span>
+            <div className="overlay-chips-list">
+              {PANEL_WIDGETS.map((key) => {
+                const active = settings.panelWidgets.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`overlay-chip${active ? " active" : ""}`}
+                    onClick={() =>
+                      handleToggleWidget("panelWidgets", key, !active)
+                    }
+                  >
+                    <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

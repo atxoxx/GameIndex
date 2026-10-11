@@ -38,10 +38,10 @@ const SETTINGS_KEY: &str = "overlay.settings.v1";
 /// Default window footprints in physical pixels. The user can drag/resize the
 /// HUD; the resulting bounds are persisted per presentation (see
 /// `overlay_save_bounds`).
-const DEFAULT_TICKER_WIDTH: f64 = 360.0;
+const DEFAULT_TICKER_WIDTH: f64 = 380.0;
 const DEFAULT_TICKER_HEIGHT: f64 = 56.0;
-const DEFAULT_PANEL_WIDTH: f64 = 480.0;
-const DEFAULT_PANEL_HEIGHT: f64 = 540.0;
+const DEFAULT_PANEL_WIDTH: f64 = 540.0;
+const DEFAULT_PANEL_HEIGHT: f64 = 620.0;
 /// Clamps so a bad persisted size can't produce an unusable window.
 const MIN_OVERLAY_WIDTH: f64 = 180.0;
 const MIN_OVERLAY_HEIGHT: f64 = 44.0;
@@ -229,7 +229,10 @@ fn overlay_size(settings: &OverlaySettings, collapsed: bool) -> (f64, f64) {
     let (w, h) = if collapsed {
         (settings.ticker_width, settings.ticker_height)
     } else {
-        (settings.panel_width, settings.panel_height)
+        (
+            settings.panel_width.max(DEFAULT_PANEL_WIDTH),
+            settings.panel_height.max(DEFAULT_PANEL_HEIGHT),
+        )
     };
     (
         w.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM),
@@ -296,33 +299,42 @@ fn apply_geometry(
     collapsed: bool,
 ) -> Result<(), String> {
     let size = overlay_size(settings, collapsed);
-    let work_area = match target_monitor(app) {
+    let (work_area, scale_factor) = match target_monitor(app) {
         Some(monitor) => {
+            let scale = monitor.scale_factor();
             let pos = monitor.position();
             let msize = monitor.size();
             (
-                pos.x as f64,
-                pos.y as f64,
-                msize.width as f64,
-                msize.height as f64,
+                (
+                    pos.x as f64,
+                    pos.y as f64,
+                    msize.width as f64,
+                    msize.height as f64,
+                ),
+                scale,
             )
         }
-        None => (0.0, 0.0, 1920.0, 1080.0),
+        None => ((0.0, 0.0, 1920.0, 1080.0), 1.0),
     };
     let (ax, ay, aw, ah) = work_area;
+    let phys_size = (size.0 * scale_factor, size.1 * scale_factor);
+    let phys_margin = OVERLAY_MARGIN * scale_factor;
 
     // An explicit user position (from dragging) wins, clamped so the window
     // always stays on the monitor; otherwise anchor to the configured corner.
     let (x, y) = match (settings.pos_x, settings.pos_y) {
         (Some(x), Some(y)) => (
-            (x as f64).clamp(ax, (ax + aw - size.0).max(ax)),
-            (y as f64).clamp(ay, (ay + ah - size.1).max(ay)),
+            (x as f64).clamp(ax, (ax + aw - phys_size.0).max(ax)),
+            (y as f64).clamp(ay, (ay + ah - phys_size.1).max(ay)),
         ),
-        _ => corner_rect(&settings.corner, work_area, size, OVERLAY_MARGIN)?,
+        _ => corner_rect(&settings.corner, work_area, phys_size, phys_margin)?,
     };
 
     window
-        .set_size(PhysicalSize::new(size.0 as u32, size.1 as u32))
+        .set_size(PhysicalSize::new(
+            phys_size.0.round() as u32,
+            phys_size.1.round() as u32,
+        ))
         .map_err(|e| e.to_string())?;
     window
         .set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
@@ -505,6 +517,7 @@ pub fn overlay_save_bounds(
     };
     let pos = window.outer_position().map_err(|e| e.to_string())?;
     let size = window.inner_size().map_err(|e| e.to_string())?;
+    let scale = window.scale_factor().unwrap_or(1.0);
     let collapsed = lock(state.inner()).collapsed;
 
     let settings = {
@@ -512,11 +525,11 @@ pub fn overlay_save_bounds(
         rt.settings.pos_x = Some(pos.x);
         rt.settings.pos_y = Some(pos.y);
         if collapsed {
-            rt.settings.ticker_width = size.width as f64;
-            rt.settings.ticker_height = size.height as f64;
+            rt.settings.ticker_width = ((size.width as f64) / scale).round();
+            rt.settings.ticker_height = ((size.height as f64) / scale).round();
         } else {
-            rt.settings.panel_width = size.width as f64;
-            rt.settings.panel_height = size.height as f64;
+            rt.settings.panel_width = ((size.width as f64) / scale).round();
+            rt.settings.panel_height = ((size.height as f64) / scale).round();
         }
         rt.settings.clone()
     };
@@ -1316,6 +1329,23 @@ pub fn overlay_open_screenshot_folder(file_or_dir_path: Option<String>) -> Resul
     {
         Ok(())
     }
+}
+
+/// Delete a screenshot file from the filesystem.
+#[tauri::command]
+pub fn overlay_delete_screenshot(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        return Ok(());
+    }
+    if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+        let ext_lower = ext.to_lowercase();
+        if matches!(ext_lower.as_str(), "png" | "jpg" | "jpeg" | "bmp" | "webp") {
+            std::fs::remove_file(p).map_err(|e| format!("failed to delete screenshot: {e}"))?;
+            return Ok(());
+        }
+    }
+    Err("Invalid file type to delete".to_string())
 }
 
 #[cfg(test)]

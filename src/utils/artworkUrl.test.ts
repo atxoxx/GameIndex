@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Game } from "../types/game";
-import { isUsableImageUrl, toWebviewAssetUrl, normalizeGameArtworkUrls } from "./artworkUrl";
+import {
+  isUsableImageUrl,
+  toWebviewAssetUrl,
+  normalizeGameArtworkUrls,
+  safeArtworkUrl,
+  resolveGameLogo,
+} from "./artworkUrl";
 
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string) => `asset://localhost/${encodeURIComponent(path)}`,
@@ -78,5 +84,66 @@ describe("normalizeGameArtworkUrls", () => {
   it("returns the same object when nothing needs repair", () => {
     const game: Game = { ...baseGame, coverArtUrl: "asset://localhost/x.png" };
     expect(normalizeGameArtworkUrls(game)).toBe(game);
+  });
+});
+
+describe("safeArtworkUrl", () => {
+  it("returns null for falsy or empty inputs", () => {
+    expect(safeArtworkUrl(undefined)).toBeNull();
+    expect(safeArtworkUrl(null)).toBeNull();
+    expect(safeArtworkUrl("")).toBeNull();
+    expect(safeArtworkUrl("   ")).toBeNull();
+  });
+
+  it("converts file:// URLs via toWebviewAssetUrl", () => {
+    expect(safeArtworkUrl("file:///C:/Users/a/cover.png")).toBe(
+      "asset://localhost/" + encodeURIComponent("C:/Users/a/cover.png")
+    );
+  });
+
+  it("leaves http, https, data, and asset URLs untouched", () => {
+    expect(safeArtworkUrl("https://images.example.com/art.jpg")).toBe("https://images.example.com/art.jpg");
+    expect(safeArtworkUrl("http://asset.localhost/art.jpg")).toBe("http://asset.localhost/art.jpg");
+    expect(safeArtworkUrl("data:image/png;base64,123")).toBe("data:image/png;base64,123");
+  });
+
+  it("converts raw local file paths via convertFileSrc", () => {
+    expect(safeArtworkUrl("C:\\games\\icon.png")).toBe(
+      "asset://localhost/" + encodeURIComponent("C:\\games\\icon.png")
+    );
+  });
+});
+
+describe("resolveGameLogo", () => {
+  it("returns null when game is undefined or null", () => {
+    expect(resolveGameLogo(undefined)).toBeNull();
+    expect(resolveGameLogo(null)).toBeNull();
+  });
+
+  it("prefers explicit logoUrl when present", () => {
+    const game: Game = {
+      ...baseGame,
+      logoUrl: "https://example.com/logo.png",
+      steamAppId: 1234,
+    };
+    expect(resolveGameLogo(game)).toBe("https://example.com/logo.png");
+  });
+
+  it("falls back to Steam CDN logo when steamAppId is present", () => {
+    const game: Game = {
+      ...baseGame,
+      logoUrl: undefined,
+      steamAppId: 105600,
+    };
+    expect(resolveGameLogo(game)).toBe("https://cdn.cloudflare.steamstatic.com/steam/apps/105600/logo.png");
+  });
+
+  it("returns null when neither logoUrl nor steamAppId are present", () => {
+    const game: Game = {
+      ...baseGame,
+      logoUrl: undefined,
+      steamAppId: undefined,
+    };
+    expect(resolveGameLogo(game)).toBeNull();
   });
 });

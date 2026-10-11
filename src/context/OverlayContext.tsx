@@ -119,10 +119,10 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   showGraphs: true,
   posX: null,
   posY: null,
-  tickerWidth: 360,
+  tickerWidth: 380,
   tickerHeight: 56,
-  panelWidth: 500,
-  panelHeight: 560,
+  panelWidth: 540,
+  panelHeight: 620,
 };
 
 export function normalizeOverlaySettings(
@@ -151,6 +151,8 @@ export interface OverlayContextValue {
   captureScreenshot: (gameTitle?: string) => Promise<ScreenshotCaptureInfo | null>;
   /** Recent screenshot filepaths for this game */
   recentScreenshots: string[];
+  /** Delete a captured screenshot */
+  deleteScreenshot: (path: string) => Promise<boolean>;
   /** Whether a capture is currently in flight */
   isCapturing: boolean;
   /** Last successfully captured screenshot info */
@@ -289,6 +291,20 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const deleteScreenshot = useCallback(
+    async (path: string): Promise<boolean> => {
+      try {
+        await invoke("overlay_delete_screenshot", { path });
+        setRecentScreenshots((prev) => prev.filter((p) => p !== path));
+        return true;
+      } catch (err) {
+        console.error("Failed to delete screenshot:", err);
+        return false;
+      }
+    },
+    [],
+  );
+
   const captureScreenshot = useCallback(
     async (gameTitle?: string): Promise<ScreenshotCaptureInfo | null> => {
       if (isCapturing) return null;
@@ -424,6 +440,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       providerReady,
       captureScreenshot,
       recentScreenshots,
+      deleteScreenshot,
       isCapturing,
       lastCapturedScreenshot,
       openScreenshotsFolder,
@@ -444,6 +461,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       providerReady,
       captureScreenshot,
       recentScreenshots,
+      deleteScreenshot,
       isCapturing,
       lastCapturedScreenshot,
       openScreenshotsFolder,

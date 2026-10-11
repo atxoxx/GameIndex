@@ -492,7 +492,8 @@ pub fn run() {
             overlay::overlay_stop_live_metrics,
             overlay::overlay_capture_screenshot,
             overlay::overlay_get_recent_screenshots,
-            overlay::overlay_open_screenshot_folder])
+            overlay::overlay_open_screenshot_folder,
+            overlay::overlay_delete_screenshot])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since
