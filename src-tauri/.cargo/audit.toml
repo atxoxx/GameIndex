@@ -1,0 +1,32 @@
+# cargo-audit configuration.
+#
+# Everything listed in `ignore` is an informational advisory (unmaintained /
+# unsound) that cannot be resolved with the dependency set we deliberately
+# pin - all of them are either Linux-only or pulled in transitively by a
+# crate that ships no patched release. Listing them here (instead of leaving
+# them to scroll past) keeps `cargo audit` a clean pass/fail gate, so a NEW
+# advisory still fails the run.
+#
+# Re-check this list whenever the pinned majors move; drop entries as soon as
+# a fixed release becomes reachable.
+
+[advisories]
+ignore = [
+    # crypto-hash is unmaintained. Transitive via librqbit-sha1-wrapper
+    # (librqbit 9) - no replacement has been published upstream.
+    "RUSTSEC-2025-0060",
+    # fxhash is unmaintained. Transitive via selectors <- scraper 0.22.
+    # Not a security defect; selectors still uses it.
+    "RUSTSEC-2025-0057",
+    # gtk-layer-shell / -sys are unmaintained and remain the only way to
+    # pin the overlay above a fullscreen game on Wayland (Linux only).
+    "RUSTSEC-2024-0422",
+    "RUSTSEC-2024-0423",
+    # proc-macro-error is unmaintained. Transitive Linux build dependency
+    # (GTK bindings); not compiled on Windows/macOS.
+    "RUSTSEC-2024-0370",
+    # glib 0.18 unsoundness in VariantStrIter. Patched only in glib >= 0.20
+    # (gtk4); the Linux overlay uses the GTK3 bindings (gtk 0.18), which cap
+    # at glib 0.18/0.19 - unreachable unless that API is used.
+    "RUSTSEC-2024-0429",
+]
