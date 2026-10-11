@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   buildCustomThemeCss,
   detectMode,
@@ -362,6 +363,43 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       /* non-fatal */
     });
   }, [currentTheme]);
+
+  // The overlay is a separate webview, so a theme switch made in the main
+  // window is broadcast through the backend. The main window never receives
+  // its own echo (the event is targeted at the overlay), and a matching value
+  // bails out here, so the round-trip terminates in one hop.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    try {
+      listen<string>("theme:changed", (event) => {
+        const theme = event.payload;
+        if (!theme || typeof theme !== "string" || !isValidThemeId(theme)) return;
+        setCurrentThemeState((prev) => (prev === theme ? prev : theme));
+        try {
+          localStorage.setItem(STORAGE_KEY, theme);
+        } catch {
+          /* ignore */
+        }
+      })
+        .then((fn) => {
+          if (cancelled) {
+            fn();
+            return;
+          }
+          unlisten = fn;
+        })
+        .catch(() => {
+          /* no Tauri runtime */
+        });
+    } catch {
+      /* no Tauri runtime */
+    }
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   // Listen for OS color-scheme changes when systemSync is on
   useEffect(() => {

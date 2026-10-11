@@ -54,6 +54,12 @@ pub const EVENT_METRICS: &str = "overlay:metrics";
 pub const EVENT_TOGGLE: &str = "overlay:toggle";
 pub const EVENT_SESSION: &str = "overlay:session";
 pub const EVENT_CLOSED: &str = "overlay:closed";
+/// Full settings payload broadcast to the overlay window whenever the main
+/// window (or the overlay itself) persists a change, so an already-open HUD
+/// updates live instead of on next show.
+pub const EVENT_SETTINGS: &str = "overlay:settings";
+/// Theme id broadcast to the overlay window when the app theme changes.
+pub const EVENT_THEME: &str = "theme:changed";
 
 /// Persisted overlay configuration. Every field is optional at the wire level
 /// (the container `default` fills missing keys from [`Default`]) and unknown
@@ -317,6 +323,12 @@ fn persist_settings(app: &AppHandle, settings: &OverlaySettings) -> Result<(), S
     let db = app.state::<db::Db>().inner().clone();
     let json = serde_json::to_string(settings).map_err(|e| format!("overlay settings: {e}"))?;
     db::kv::set(&db, SETTINGS_KEY, &json)
+}
+
+/// Mirror the current settings to the overlay window so a live HUD picks up
+/// edits made in the main window (or from its own controls) without a reopen.
+fn emit_settings(app: &AppHandle, settings: &OverlaySettings) {
+    let _ = app.emit_to(OVERLAY_WINDOW_LABEL, EVENT_SETTINGS, settings);
 }
 
 /// Parse a user-supplied accelerator into a `Shortcut`, surfacing a readable
@@ -793,6 +805,7 @@ pub fn overlay_set_corner(
         (rt.settings.clone(), rt.collapsed)
     };
     persist_settings(&app, &settings)?;
+    emit_settings(&app, &settings);
     if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
         apply_geometry(&window, &app, &settings, collapsed)?;
     }
@@ -840,6 +853,7 @@ pub fn overlay_save_settings(
         rt.settings = settings.clone();
     }
     persist_settings(&app, &settings)?;
+    emit_settings(&app, &settings);
 
     if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
         let collapsed = lock(state.inner()).collapsed;
@@ -867,6 +881,7 @@ pub fn overlay_set_hotkey(
         rt.settings.clone()
     };
     persist_settings(&app, &settings)?;
+    emit_settings(&app, &settings);
     Ok(settings)
 }
 

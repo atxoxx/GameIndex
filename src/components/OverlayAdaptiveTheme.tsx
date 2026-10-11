@@ -27,13 +27,21 @@ export function OverlayAdaptiveTheme() {
   const isAdaptive = currentTheme === "adaptive";
   const activeArtworkUrl = useActiveGameArtwork();
 
+  // The running game is the authoritative source for the HUD: it must win over
+  // the "last browsed" artwork (which the main window publishes and which can
+  // be stale), otherwise launching a different game would leave the palette
+  // frozen on whatever page was open last. `runningGameIds` is kept live by the
+  // shared `game-started`/`game-exited` events, which reach this webview too.
+  const runningArtworkUrl = useMemo<string | null>(() => {
+    if (!isAdaptive || runningGameIds.length === 0) return null;
+    const running = getGame(runningGameIds[0]);
+    if (!running) return null;
+    return running.coverArtUrl || running.bannerUrl || null;
+  }, [isAdaptive, runningGameIds, getGame]);
+
   const fallbackArtworkUrl = useMemo<string | null>(() => {
     if (!isAdaptive) return null;
 
-    if (runningGameIds.length > 0) {
-      const running = getGame(runningGameIds[0]);
-      if (running) return running.coverArtUrl || running.bannerUrl || null;
-    }
     if (selectedGameId) {
       const selected = getGame(selectedGameId);
       if (selected) return selected.coverArtUrl || selected.bannerUrl || null;
@@ -52,9 +60,10 @@ export function OverlayAdaptiveTheme() {
       return topGame.coverArtUrl || topGame.bannerUrl || null;
     }
     return null;
-  }, [isAdaptive, runningGameIds, selectedGameId, games, getGame]);
+  }, [isAdaptive, selectedGameId, games, getGame]);
 
-  const targetArtworkUrl = activeArtworkUrl || fallbackArtworkUrl;
+  const targetArtworkUrl =
+    runningArtworkUrl || activeArtworkUrl || fallbackArtworkUrl;
 
   const lastAppliedTokensRef = useRef<Record<string, string> | null>(null);
   const lastSampledUrlRef = useRef<string | null>(null);

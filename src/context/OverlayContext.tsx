@@ -873,6 +873,14 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
           : next;
       });
     });
+    // The main window (or the in-overlay controls) persist settings through
+    // the backend, which broadcasts them here so an open HUD updates live.
+    const settingsUnlisten = listen<OverlaySettings>(
+      "overlay:settings",
+      (event) => {
+        if (event.payload) setSettings(normalizeOverlaySettings(event.payload));
+      },
+    );
     const screenshotUnlisten = listen<ScreenshotCaptureInfo>(
       "overlay:screenshot-captured",
       (event) => {
@@ -904,6 +912,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       void toggleUnlisten.then((unlisten) => unlisten());
       void sessionUnlisten.then((unlisten) => unlisten());
       void metricsUnlisten.then((unlisten) => unlisten());
+      void settingsUnlisten.then((unlisten) => unlisten());
       void screenshotUnlisten.then((unlisten) => unlisten());
       void captureStateUnlisten.then((unlisten) => unlisten());
       void clipUnlisten.then((unlisten) => unlisten());

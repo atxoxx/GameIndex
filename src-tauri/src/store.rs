@@ -1,6 +1,7 @@
 //! Store catalogue, wishlist, source-cache and language commands.
 
 use tauri::Manager;
+use tauri::Emitter;
 use crate::db;
 use crate::game_scraper;
 use crate::game_scraper::{GameMetadataResult, GameRelationsResult, IgdbPlatformInfo, IgdbReview, PcRequirementsPayload, ReviewFetchResult, StoreGameSummary};
@@ -368,7 +369,15 @@ pub fn get_theme(app: tauri::AppHandle) -> Option<String> {
 #[tauri::command]
 pub fn set_theme(app: tauri::AppHandle, theme: String) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
-    db::kv::set(db_state.inner(), "theme", &theme)
+    db::kv::set(db_state.inner(), "theme", &theme)?;
+    // Mirror to the overlay window so an open HUD follows live theme and
+    // adaptive-palette changes. Harmless when the overlay isn't open.
+    let _ = app.emit_to(
+        crate::overlay::OVERLAY_WINDOW_LABEL,
+        crate::overlay::EVENT_THEME,
+        theme,
+    );
+    Ok(())
 }
 
 /// Read the user's accent-color override. Returns `None` when unset.
