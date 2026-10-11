@@ -491,6 +491,8 @@ pub fn run() {
             overlay::overlay_get_session,
             overlay::overlay_save_settings,
             overlay::overlay_set_hotkey,
+            overlay::overlay_set_window_effect,
+            overlay::overlay_native_blur_supported,
             overlay::overlay_start_live_metrics,
             overlay::overlay_stop_live_metrics,
             overlay::overlay_capture_screenshot,

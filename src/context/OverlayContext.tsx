@@ -36,6 +36,9 @@ export type OverlayTickerLayout =
   | "gauges"
   | "minimal";
 
+/** Background treatment shared by the ticker and the expanded panel. */
+export type OverlayBackground = "glass" | "solid" | "dim";
+
 /** Mirrors the backend `OverlaySettings` serde shape (camelCase). */
 export interface OverlaySettings {
   enabled: boolean;
@@ -46,6 +49,16 @@ export interface OverlaySettings {
   panelWidgets: string[];
   /** Reduced-HUD presentation preset (see `OverlayTickerLayout`). */
   tickerLayout?: OverlayTickerLayout;
+  /** Background treatment: blurry glass, opaque solid, or dim translucent. */
+  backgroundStyle?: OverlayBackground;
+  /** Backdrop blur radius in px (glass only, CSS fallback). */
+  backgroundBlur?: number;
+  /** Background tint opacity (0.2–1). */
+  backgroundOpacity?: number;
+  /** Use the native OS backdrop (real behind-the-game blur) when glass. */
+  nativeBlur?: boolean;
+  /** Drop the costly backdrop-filter and animated glows for performance. */
+  reduceEffects?: boolean;
   pollIntervalMs: number;
   /** Render CPU/GPU temperature tiles in the performance widget. */
   showTemps: boolean;
@@ -237,6 +250,11 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
     "settings",
   ],
   tickerLayout: "strip",
+  backgroundStyle: "glass",
+  backgroundBlur: 14,
+  backgroundOpacity: 0.72,
+  nativeBlur: true,
+  reduceEffects: false,
   pollIntervalMs: 1000,
   showTemps: true,
   showGraphs: true,
@@ -298,6 +316,8 @@ export interface OverlayContextValue {
   session: OverlaySession | null;
   /** True once the initial settings load has settled. */
   providerReady: boolean;
+  /** True when the platform supports a native window backdrop (real blur). */
+  nativeBlurSupported: boolean;
   /** Take a game screenshot via native capture into Windows Captures folder */
   captureScreenshot: (gameTitle?: string) => Promise<ScreenshotCaptureInfo | null>;
   /** Recent screenshot filepaths for this game */
@@ -377,6 +397,22 @@ function playShutterSound() {
   }
 }
 
+/** Resolve the current theme surface colour to an RGB triple for the native
+ * window backdrop tint. Reads the computed value so it follows every theme. */
+function resolveSurfaceRgb(): [number, number, number] {
+  if (typeof document === "undefined") return [14, 16, 23];
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;opacity:0;pointer-events:none;background:var(--color-surface)";
+  document.body.appendChild(probe);
+  const computed = getComputedStyle(probe).backgroundColor;
+  probe.remove();
+  const match = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(computed);
+  return match
+    ? [Number(match[1]), Number(match[2]), Number(match[3])]
+    : [14, 16, 23];
+}
+
 /** Short rising (start) or falling (stop) tone for the recorder. */
 function playRecordTone(start: boolean) {
   try {
@@ -421,6 +457,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     useState<ScreenshotCaptureInfo | null>(null);
   const [flashScreen, setFlashScreen] = useState(false);
   const [captureSupported, setCaptureSupported] = useState(false);
+  const [nativeBlurSupported, setNativeBlurSupported] = useState(false);
   const [recordingState, setRecordingState] =
     useState<RecordingState>(EMPTY_RECORDING_STATE);
   const [recentClips, setRecentClips] = useState<string[]>([]);
@@ -445,6 +482,73 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       );
     }
   }, [settings.opacity]);
+
+  // Background treatment is driven by two CSS variables plus mode attributes
+  // on the root, so toggling glass/blur/solid never rewrites the stylesheets.
+  // On Windows the "glass" mode additionally asks DWM for a native acrylic
+  // backdrop — CSS backdrop-filter can't sample the desktop behind a
+  // transparent webview, so that is the only way to get a real behind-the-game
+  // blur. The tint colour is read from the live theme.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const style = settings.backgroundStyle ?? "glass";
+    const glass = style === "glass";
+    const opacity = Math.min(1, Math.max(0, settings.backgroundOpacity ?? 0.72));
+    const native =
+      glass &&
+      !settings.reduceEffects &&
+      (settings.nativeBlur ?? true) &&
+      nativeBlurSupported;
+
+    root.dataset.overlayBg = style;
+    root.dataset.overlayEffects = settings.reduceEffects ? "reduced" : "full";
+    root.dataset.overlayNative = native ? "true" : "false";
+    root.style.setProperty(
+      "--overlay-bg-blur",
+      `${Math.max(0, settings.backgroundBlur ?? 14)}px`,
+    );
+    root.style.setProperty("--overlay-bg-opacity", String(opacity));
+
+    if (native) {
+      const [r, g, b] = resolveSurfaceRgb();
+      void invoke("overlay_set_window_effect", {
+        enabled: true,
+        color: [r, g, b, Math.round(opacity * 255)],
+      }).catch(() => {
+        /* no Tauri runtime */
+      });
+    } else {
+      void invoke("overlay_set_window_effect", {
+        enabled: false,
+        color: [],
+      }).catch(() => {
+        /* no Tauri runtime */
+      });
+    }
+  }, [
+    settings.backgroundStyle,
+    settings.backgroundBlur,
+    settings.backgroundOpacity,
+    settings.nativeBlur,
+    settings.reduceEffects,
+    nativeBlurSupported,
+  ]);
+
+  // Probe whether the platform offers a native window backdrop.
+  useEffect(() => {
+    let disposed = false;
+    invoke<boolean>("overlay_native_blur_supported")
+      .then((value) => {
+        if (!disposed) setNativeBlurSupported(Boolean(value));
+      })
+      .catch(() => {
+        /* no Tauri runtime */
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
 
   // Load persisted settings once; fall back to defaults when the backend is
   // unreachable (frontend-only dev, or a transient first-boot race).
@@ -820,6 +924,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       history,
       session,
       providerReady,
+      nativeBlurSupported,
       captureScreenshot,
       recentScreenshots,
       deleteScreenshot,
@@ -858,6 +963,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       history,
       session,
       providerReady,
+      nativeBlurSupported,
       captureScreenshot,
       recentScreenshots,
       deleteScreenshot,

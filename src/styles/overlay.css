@@ -2610,6 +2610,81 @@ body.overlay-window #root {
    that already opt into the shared design tokens.
    ============================================================================= */
 
+/* ── Background treatment (glass / solid / dim) ───────────────────────── */
+/* `--overlay-bg-blur` and `--overlay-bg-opacity` are written on <html> by the
+   context; the data attribute below decides whether the (costly) backdrop
+   filter is emitted at all. Solid and dim never pay for a blur. */
+:root {
+  --overlay-bg-base: color-mix(
+    in srgb,
+    var(--color-surface) calc(var(--overlay-bg-opacity, 0.72) * 100%),
+    transparent
+  );
+  --overlay-backdrop: blur(var(--overlay-bg-blur, 14px)) saturate(1.25);
+}
+
+:root[data-overlay-bg="solid"] {
+  --overlay-bg-base: var(--color-surface-overlay);
+  --overlay-backdrop: none;
+}
+
+:root[data-overlay-bg="dim"] {
+  --overlay-bg-base: color-mix(
+    in srgb,
+    var(--color-surface) calc(var(--overlay-bg-opacity, 0.72) * 62%),
+    transparent
+  );
+  --overlay-backdrop: none;
+}
+
+/* Native backdrop (Windows acrylic) supplies the tint + real blur, so the
+   surfaces drop their own fill and let the material show through. */
+:root[data-overlay-native="true"] {
+  --overlay-bg-base: transparent;
+  --overlay-backdrop: none;
+}
+
+:root[data-overlay-native="true"] .overlay-ticker {
+  background: transparent;
+}
+
+:root[data-overlay-native="true"] .overlay-panel {
+  background: radial-gradient(
+    120% 80% at 100% 0%,
+    color-mix(in srgb, var(--color-accent) 9%, transparent) 0%,
+    transparent 55%
+  );
+}
+
+/* Performance mode: no blur, no animated glows/pulses, no gradient hairline. */
+:root[data-overlay-effects="reduced"] {
+  --overlay-backdrop: none;
+}
+
+:root[data-overlay-effects="reduced"] .overlay-ticker,
+:root[data-overlay-effects="reduced"] .overlay-panel,
+:root[data-overlay-effects="reduced"] .overlay-capture-toast,
+:root[data-overlay-effects="reduced"] .overlay-screenshot-lightbox {
+  backdrop-filter: none;
+}
+
+:root[data-overlay-effects="reduced"] .overlay-ticker::before {
+  display: none;
+}
+
+:root[data-overlay-effects="reduced"] .overlay-ticker,
+:root[data-overlay-effects="reduced"] .overlay-ticker *,
+:root[data-overlay-effects="reduced"] .overlay-panel,
+:root[data-overlay-effects="reduced"] .overlay-panel * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* The capture spinner is tiny feedback the user waits on; keep it turning. */
+:root[data-overlay-effects="reduced"] .overlay-spin {
+  animation: overlaySpin 0.9s linear infinite !important;
+}
+
 /* ── Reduced HUD: shell + telemetry polish ────────────────────────────── */
 
 .overlay-ticker {
@@ -2619,15 +2694,15 @@ body.overlay-window #root {
   background:
     linear-gradient(
       160deg,
-      color-mix(in srgb, var(--color-surface-glass) 82%, var(--color-accent) 18%) 0%,
-      var(--color-surface-glass) 55%
+      color-mix(in srgb, var(--overlay-bg-base) 82%, var(--color-accent) 18%) 0%,
+      var(--overlay-bg-base) 55%
     );
   border: 1px solid var(--color-border-light);
   box-shadow:
     inset 0 1px 0 var(--color-border-highlight),
     0 10px 30px rgba(0, 0, 0, 0.45),
     0 0 0 1px color-mix(in srgb, var(--color-accent) 8%, transparent);
-  backdrop-filter: blur(14px) saturate(1.25);
+  backdrop-filter: var(--overlay-backdrop, blur(14px) saturate(1.25));
 }
 
 .overlay-ticker::before {
@@ -2822,11 +2897,12 @@ body.overlay-window #root {
       color-mix(in srgb, var(--color-accent) 9%, transparent) 0%,
       transparent 55%
     ),
-    var(--color-surface-overlay);
+    var(--overlay-bg-base);
   border: 1px solid var(--color-border-light);
   box-shadow:
     inset 0 1px 0 var(--color-border-highlight),
     0 18px 48px rgba(0, 0, 0, 0.55);
+  backdrop-filter: var(--overlay-backdrop, blur(20px));
 }
 
 .overlay-panel__head {

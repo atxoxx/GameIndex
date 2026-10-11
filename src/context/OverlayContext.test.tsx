@@ -107,3 +107,81 @@ describe("OverlayProvider session seeding", () => {
     expect(contextRef.current?.session?.gameId).toBe("g2");
   });
 });
+
+describe("OverlayProvider background sync", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    handlers.clear();
+    contextRef.current = null;
+    mockedListen.mockImplementation(((
+      event: string,
+      cb: EventHandler,
+    ) => {
+      handlers.set(event, cb);
+      return Promise.resolve(() => {});
+    }) as typeof listen);
+  });
+
+  it("mirrors the background settings onto the root element", async () => {
+    mockedInvoke.mockImplementation((command: string) => {
+      if (command === "overlay_get_settings") {
+        return Promise.resolve({
+          backgroundStyle: "dim",
+          backgroundBlur: 6,
+          backgroundOpacity: 0.5,
+          reduceEffects: true,
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <OverlayProvider>
+        <Probe />
+      </OverlayProvider>,
+    );
+    await flush();
+
+    const root = document.documentElement;
+    expect(root.dataset.overlayBg).toBe("dim");
+    expect(root.dataset.overlayEffects).toBe("reduced");
+    expect(root.dataset.overlayNative).toBe("false");
+    expect(root.style.getPropertyValue("--overlay-bg-blur")).toBe("6px");
+    expect(root.style.getPropertyValue("--overlay-bg-opacity")).toBe("0.5");
+  });
+
+  it("activates the native backdrop for glass when supported", async () => {
+    mockedInvoke.mockImplementation((command: string) => {
+      if (command === "overlay_get_settings") {
+        return Promise.resolve({
+          backgroundStyle: "glass",
+          backgroundOpacity: 0.6,
+          nativeBlur: true,
+          reduceEffects: false,
+        });
+      }
+      if (command === "overlay_native_blur_supported") {
+        return Promise.resolve(true);
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <OverlayProvider>
+        <Probe />
+      </OverlayProvider>,
+    );
+    await flush();
+    await flush();
+
+    expect(document.documentElement.dataset.overlayNative).toBe("true");
+    const calls = mockedInvoke.mock.calls.filter(
+      (entry) => entry[0] === "overlay_set_window_effect",
+    );
+    expect(
+      calls.some(
+        (entry) => (entry[1] as { enabled?: boolean }).enabled === true,
+      ),
+    ).toBe(true);
+  });
+});

@@ -156,6 +156,7 @@ export default function OverlayTab() {
     output: [],
     input: [],
   });
+  const [nativeBlurSupported, setNativeBlurSupported] = useState(false);
   const [recordingField, setRecordingField] = useState<
     "toggle" | "screenshot" | "video" | "replay" | null
   >(null);
@@ -214,6 +215,21 @@ export default function OverlayTab() {
       })
       .catch(() => {
         /* unsupported platform */
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  // Whether the platform offers a native window backdrop (real blur).
+  useEffect(() => {
+    let disposed = false;
+    invoke<boolean>("overlay_native_blur_supported")
+      .then((value) => {
+        if (!disposed) setNativeBlurSupported(Boolean(value));
+      })
+      .catch(() => {
+        /* no Tauri runtime */
       });
     return () => {
       disposed = true;
@@ -422,6 +438,112 @@ export default function OverlayTab() {
             ))}
           </div>
         </div>
+
+        <div className="hw-card" style={{ marginTop: "1rem" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">
+              {t("settings.overlay.background")}
+            </label>
+          </div>
+          <p className="hw-card-help">{t("settings.overlay.backgroundDesc")}</p>
+          <div
+            className="settings-segmented hw-seg"
+            role="group"
+            aria-label={t("settings.overlay.aria.background")}
+          >
+            {(["glass", "solid", "dim"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={
+                  (settings.backgroundStyle ?? "glass") === mode ? "active" : ""
+                }
+                onClick={() => update({ backgroundStyle: mode })}
+              >
+                {t(
+                  `overlay.settings.bg${mode[0].toUpperCase()}${mode.slice(1)}`,
+                )}
+              </button>
+            ))}
+          </div>
+
+          {(settings.backgroundStyle ?? "glass") === "glass" &&
+            nativeBlurSupported && (
+              <label
+                className="overlay-toggle-item"
+                style={{ marginTop: "0.75rem" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={settings.nativeBlur ?? true}
+                  onChange={(event) =>
+                    update({ nativeBlur: event.target.checked })
+                  }
+                />
+                <span>{t("overlay.settings.nativeBlur")}</span>
+              </label>
+            )}
+
+          {(settings.backgroundStyle ?? "glass") === "glass" &&
+            !(
+              nativeBlurSupported &&
+              (settings.nativeBlur ?? true) &&
+              !settings.reduceEffects
+            ) && (
+              <div style={{ marginTop: "0.75rem" }}>
+                <div className="hw-card-head">
+                  <label className="hw-card-label">
+                    {t("overlay.settings.bgBlur")}
+                  </label>
+                  <span className="hw-card-value">
+                    {Math.round(settings.backgroundBlur ?? 14)}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  className="hw-range"
+                  min={0}
+                  max={30}
+                  step={1}
+                  value={settings.backgroundBlur ?? 14}
+                  onChange={(event) =>
+                    update({ backgroundBlur: Number(event.target.value) })
+                  }
+                  aria-label={t("overlay.settings.bgBlur")}
+                />
+              </div>
+            )}
+
+          <div style={{ marginTop: "0.75rem" }}>
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("overlay.settings.bgOpacity")}
+              </label>
+              <span className="hw-card-value">
+                {Math.round((settings.backgroundOpacity ?? 0.72) * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              className="hw-range"
+              min={0.2}
+              max={1}
+              step={0.02}
+              value={settings.backgroundOpacity ?? 0.72}
+              onChange={(event) =>
+                update({ backgroundOpacity: Number(event.target.value) })
+              }
+              aria-label={t("overlay.settings.bgOpacity")}
+            />
+          </div>
+        </div>
+
+        <SettingsToggleCard
+          title={t("overlay.settings.reduceEffects")}
+          desc={t("settings.overlay.reduceEffectsDesc")}
+          checked={settings.reduceEffects ?? false}
+          onChange={(on) => update({ reduceEffects: on })}
+        />
 
         <SettingsToggleCard
           title={t("settings.overlay.showTemps")}

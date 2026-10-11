@@ -10,6 +10,7 @@ import {
   Compass,
   Activity,
   Layers,
+  Blend,
   Camera,
   Video,
   Circle,
@@ -97,7 +98,7 @@ function acceleratorFromEvent(event: KeyboardEvent): string | null {
 }
 
 export default function SettingsWidget() {
-  const { settings, updateSettings, audioDevices } = useOverlay();
+  const { settings, updateSettings, audioDevices, nativeBlurSupported } = useOverlay();
   const { t } = useLanguage();
   const [recording, setRecording] = useState(false);
   const [captureField, setCaptureField] = useState<
@@ -274,6 +275,109 @@ export default function SettingsWidget() {
               })}
             </div>
           </div>
+        </div>
+
+        {/* Section: Background treatment */}
+        <div className="overlay-settings-section">
+          <div className="overlay-settings-section__title">
+            <Blend size={13} />
+            <span>{t("overlay.settings.background")}</span>
+          </div>
+
+          <div className="overlay-setting-block">
+            <div className="overlay-chips-list">
+              {(["glass", "solid", "dim"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`overlay-chip${
+                    (settings.backgroundStyle ?? "glass") === mode ? " active" : ""
+                  }`}
+                  onClick={() =>
+                    void updateSettings({ backgroundStyle: mode })
+                  }
+                >
+                  <span>{t(`overlay.settings.bg${mode[0].toUpperCase()}${mode.slice(1)}`)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {(settings.backgroundStyle ?? "glass") === "glass" &&
+            nativeBlurSupported && (
+              <label className="overlay-toggle-item">
+                <input
+                  type="checkbox"
+                  checked={settings.nativeBlur ?? true}
+                  onChange={(e) =>
+                    void updateSettings({ nativeBlur: e.target.checked })
+                  }
+                />
+                <span>{t("overlay.settings.nativeBlur")}</span>
+              </label>
+            )}
+
+          {(settings.backgroundStyle ?? "glass") === "glass" &&
+            !(
+              nativeBlurSupported &&
+              (settings.nativeBlur ?? true) &&
+              !settings.reduceEffects
+            ) && (
+              <div className="overlay-setting-row">
+                <div className="overlay-setting-row__info">
+                  <span className="overlay-setting-row__label">
+                    {t("overlay.settings.bgBlur")}
+                  </span>
+                  <span className="overlay-setting-row__val">
+                    {Math.round(settings.backgroundBlur ?? 14)}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="1"
+                  value={settings.backgroundBlur ?? 14}
+                  onChange={(e) =>
+                    void updateSettings({ backgroundBlur: Number(e.target.value) })
+                  }
+                  className="overlay-slider"
+                />
+              </div>
+            )}
+
+          <div className="overlay-setting-row">
+            <div className="overlay-setting-row__info">
+              <span className="overlay-setting-row__label">
+                {t("overlay.settings.bgOpacity")}
+              </span>
+              <span className="overlay-setting-row__val">
+                {Math.round((settings.backgroundOpacity ?? 0.72) * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.2"
+              max="1"
+              step="0.02"
+              value={settings.backgroundOpacity ?? 0.72}
+              onChange={(e) =>
+                void updateSettings({ backgroundOpacity: Number(e.target.value) })
+              }
+              className="overlay-slider"
+            />
+          </div>
+
+          <label className="overlay-toggle-item">
+            <input
+              type="checkbox"
+              checked={settings.reduceEffects ?? false}
+              onChange={(e) =>
+                void updateSettings({ reduceEffects: e.target.checked })
+              }
+            />
+            <span>{t("overlay.settings.reduceEffects")}</span>
+          </label>
         </div>
 
         {/* Section 2: Shortcuts & Telemetry */}

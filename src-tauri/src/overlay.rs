@@ -70,6 +70,14 @@ pub struct OverlaySettings {
     pub panel_widgets: Vec<String>,
     /// Reduced-HUD presentation preset: `strip` | `single` | `gauges` | `minimal`.
     pub ticker_layout: String,
+    /// Surface background: `glass` (blurred), `solid` (opaque) or `dim`.
+    pub background_style: String,
+    /// Backdrop blur radius in px (glass only).
+    pub background_blur: f64,
+    /// Background tint opacity, 0.2–1.0.
+    pub background_opacity: f64,
+    /// Drop the costly backdrop-filter and animated glows for performance.
+    pub reduce_effects: bool,
     pub poll_interval_ms: u64,
     /// Show CPU/GPU temperatures in the performance widget.
     pub show_temps: bool,
@@ -186,6 +194,10 @@ impl Default for OverlaySettings {
             .map(|s| s.to_string())
             .collect(),
             ticker_layout: "strip".to_string(),
+            background_style: "glass".to_string(),
+            background_blur: 14.0,
+            background_opacity: 0.72,
+            reduce_effects: false,
             poll_interval_ms: 1000,
             show_temps: true,
             show_graphs: true,
@@ -262,6 +274,10 @@ pub struct OverlayRuntime {
     pub session: Option<OverlaySession>,
     /// Ticker (`true`) vs interactive panel (`false`).
     pub collapsed: bool,
+    /// Native window backdrop currently applied (Windows acrylic tint), or
+    /// `None` when the CSS background is in charge. Replayed on every show so
+    /// a rebuilt window keeps its glass even before the frontend re-syncs.
+    pub effect_color: Option<[u8; 4]>,
 }
 
 impl OverlayRuntime {
@@ -275,6 +291,7 @@ impl OverlayRuntime {
             live: None,
             session: None,
             collapsed: true,
+            effect_color: None,
         }
     }
 }
@@ -404,6 +421,41 @@ fn make_non_activating(window: &WebviewWindow) {
 
 #[cfg(not(windows))]
 fn make_non_activating(_window: &WebviewWindow) {}
+
+/// Apply (or clear) the native window backdrop that gives the HUD real,
+/// behind-the-game blur. CSS `backdrop-filter` cannot sample the desktop from a
+/// transparent webview, so on Windows we ask DWM for an acrylic material and
+/// tint it with the frontend-computed surface colour + opacity. `None` clears
+/// the effect (solid / dim / performance mode).
+#[cfg(windows)]
+fn apply_native_effect(window: &WebviewWindow, color: Option<[u8; 4]>) {
+    use tauri::window::{Color, Effect, EffectsBuilder};
+    use tauri::utils::config::WindowEffectsConfig;
+
+    match color {
+        Some([r, g, b, a]) => {
+            let acrylic = EffectsBuilder::new()
+                .effect(Effect::Acrylic)
+                .color(Color(r, g, b, a))
+                .build();
+            if window.set_effects(acrylic).is_err() {
+                // Older Windows builds reject acrylic; the legacy Aero blur is
+                // a reasonable fallback (also tinted).
+                let blur = EffectsBuilder::new()
+                    .effect(Effect::Blur)
+                    .color(Color(r, g, b, a))
+                    .build();
+                let _ = window.set_effects(blur);
+            }
+        }
+        None => {
+            let _ = window.set_effects(None::<WindowEffectsConfig>);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn apply_native_effect(_window: &WebviewWindow, _color: Option<[u8; 4]>) {}
 
 /// Move + size the overlay window for `settings.corner` on the target monitor.
 /// `collapsed` picks the ticker vs panel footprint so the interactive window
@@ -538,6 +590,11 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
         .set_ignore_cursor_events(false)
         .map_err(|e| e.to_string())?;
 
+    // Replay the native backdrop so a freshly rebuilt window keeps its glass
+    // even before the frontend re-syncs its background settings.
+    let effect = lock(state.inner()).effect_color;
+    apply_native_effect(&window, effect);
+
     // Replay the current session so a freshly built overlay renders the
     // session widget without waiting for the next game lifecycle event, and
     // spin up telemetry for the running game.
@@ -595,6 +652,37 @@ pub fn overlay_set_interactive(app: AppHandle, interactive: bool) -> Result<(), 
         window
             .set_ignore_cursor_events(!interactive)
             .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Whether the platform supports a native window backdrop (real behind-the-
+/// window blur). Windows only; the frontend falls back to the CSS glass
+/// otherwise.
+#[tauri::command]
+pub fn overlay_native_blur_supported() -> bool {
+    cfg!(windows)
+}
+
+/// Enable/disable the native window backdrop and set its tint. The frontend
+/// computes `color` (surface RGB + the user's opacity) so the acrylic matches
+/// the active theme. Persisting the choice in the runtime lets a rebuilt
+/// window replay it on the next show.
+#[tauri::command]
+pub fn overlay_set_window_effect(
+    app: AppHandle,
+    state: tauri::State<'_, OverlayState>,
+    enabled: bool,
+    color: Vec<u8>,
+) -> Result<(), String> {
+    let value = if enabled && color.len() == 4 {
+        Some([color[0], color[1], color[2], color[3]])
+    } else {
+        None
+    };
+    lock(state.inner()).effect_color = value;
+    if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        apply_native_effect(&window, value);
     }
     Ok(())
 }
