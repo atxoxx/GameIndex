@@ -57,8 +57,8 @@ pub struct MetricsSamplePoint {
 /// collection thread; `interval_ms` is the poll period; the `capture_*`
 /// flags decide which sensors are read (disabling the temperature flags
 /// skips the expensive LibreHardwareMonitor/OpenHardwareMonitor WMI
-/// namespace queries and the synthetic estimator, which is the main
-/// perf win) and which fields are zeroed in the aggregated result.
+/// namespace queries, which is the main perf win) and which fields are
+/// zeroed in the aggregated result.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetricsConfig {
@@ -1162,7 +1162,9 @@ fn collect_single_sample(
     capture_ram: bool,
     capture_cpu_temp: bool,
     capture_gpu_temp: bool,
-    start: Instant,
+    // Kept for call-site symmetry with the loop start clock; the single-sample
+    // reader no longer needs elapsed time now that temps are never estimated.
+    _start: Instant,
 ) -> MetricsSample {
     // 1. Try to read from MSI Afterburner Shared Memory first (highly reliable)
     let mahm = mahm_reader::read_mahm_metrics(gpu_idx, gpu_name);
@@ -1302,15 +1304,10 @@ fn collect_single_sample(
         if !mahm_gave_ram { ram_usage_pct = wmi_ram_pct as f32; }
     }
 
-    // 4. Fallback to smart temperature estimator if still 0 (ensures data is always present)
-    if capture_cpu_temp && cpu_temp_val == 0.0 {
-        let time_factor = (start.elapsed().as_secs_f64().sin() as f32) * 1.2;
-        cpu_temp_val = 42.0 + (cpu_usage_val * 0.28) + time_factor;
-    }
-    if capture_gpu_temp && gpu_temp_val == 0.0 {
-        let time_factor = ((start.elapsed().as_secs_f64() + 2.0).sin() as f32) * 1.5;
-        gpu_temp_val = 38.0 + (gpu_usage_val * 0.32) + time_factor;
-    }
+    // 4. Temperatures are never fabricated: when none of the real sources
+    // above (MAHM → LHM/OHM → WMI) reported a reading they stay at 0, and the
+    // frontend renders that as "no sensor".
+    //
     // 5. Try to read RTSS FPS if Afterburner did not supply it. Skipped
     // entirely when FPS capture is disabled (a separate shared-memory map).
     if capture_fps && fps_val.is_none() {

@@ -60,6 +60,10 @@ pub const EVENT_CLOSED: &str = "overlay:closed";
 pub const EVENT_SETTINGS: &str = "overlay:settings";
 /// Theme id broadcast to the overlay window when the app theme changes.
 pub const EVENT_THEME: &str = "theme:changed";
+/// Emitted to the main window when a capture hotkey fails to bind, so the
+/// settings UI can surface the conflict. Non-fatal: the previous binding (if
+/// any) stays registered.
+pub const EVENT_HOTKEY_ERROR: &str = "overlay:hotkey-error";
 
 /// Persisted overlay configuration. Every field is optional at the wire level
 /// (the container `default` fills missing keys from [`Default`]) and unknown
@@ -84,6 +88,9 @@ pub struct OverlaySettings {
     pub background_opacity: f64,
     /// Drop the costly backdrop-filter and animated glows for performance.
     pub reduce_effects: bool,
+    /// Let clicks pass through the collapsed ticker so it never steals input
+    /// from the game. The global hotkey still expands it to the panel.
+    pub ticker_click_through: bool,
     pub poll_interval_ms: u64,
     /// Show CPU/GPU temperatures in the performance widget.
     pub show_temps: bool,
@@ -204,6 +211,7 @@ impl Default for OverlaySettings {
             background_blur: 14.0,
             background_opacity: 0.72,
             reduce_effects: false,
+            ticker_click_through: false,
             poll_interval_ms: 1000,
             show_temps: true,
             show_graphs: true,
@@ -368,16 +376,22 @@ fn is_valid_corner(corner: &str) -> bool {
     )
 }
 
+/// Whether the overlay window should pass mouse input through to whatever is
+/// behind it. Only the collapsed ticker can be click-through, and only when the
+/// user opted in — the expanded panel always needs the mouse.
+fn should_ignore_cursor(settings: &OverlaySettings, collapsed: bool) -> bool {
+    collapsed && settings.ticker_click_through
+}
+
 /// Window size for the ticker (`collapsed`) vs the expanded panel, clamped to
 /// a usable range so a stale persisted value can't produce a broken window.
 fn overlay_size(settings: &OverlaySettings, collapsed: bool) -> (f64, f64) {
     let (w, h) = if collapsed {
         (settings.ticker_width, settings.ticker_height)
     } else {
-        (
-            settings.panel_width.max(DEFAULT_PANEL_WIDTH),
-            settings.panel_height.max(DEFAULT_PANEL_HEIGHT),
-        )
+        // Honour a user-saved smaller panel footprint; the outer clamp below
+        // still guards against an unusable persisted size.
+        (settings.panel_width, settings.panel_height)
     };
     (
         w.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM),
@@ -433,6 +447,37 @@ fn make_non_activating(window: &WebviewWindow) {
 
 #[cfg(not(windows))]
 fn make_non_activating(_window: &WebviewWindow) {}
+
+/// Toggle the `WS_EX_NOACTIVATE` extended style so the expanded panel can take
+/// keyboard focus (Notes, the hotkey recorder) while the collapsed ticker stays
+/// non-activating and never steals foreground from the game. `WS_EX_TOOLWINDOW`
+/// is always kept set so the HUD never appears in the taskbar/alt-tab list.
+#[cfg(windows)]
+fn set_activation_style(window: &WebviewWindow, activating: bool) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    };
+
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    let raw = hwnd.0 as isize;
+    unsafe {
+        let hwnd = HWND(raw as *mut std::ffi::c_void);
+        let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        let mut next = ex | (WS_EX_TOOLWINDOW.0 as isize);
+        if activating {
+            next &= !(WS_EX_NOACTIVATE.0 as isize);
+        } else {
+            next |= WS_EX_NOACTIVATE.0 as isize;
+        }
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next);
+    }
+}
+
+#[cfg(not(windows))]
+fn set_activation_style(_window: &WebviewWindow, _activating: bool) {}
 
 /// Apply (or clear) the native window backdrop that gives the HUD real,
 /// behind-the-game blur. CSS `backdrop-filter` cannot sample the desktop from a
@@ -594,13 +639,16 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     // Deliberately no `set_focus()`: yanking focus from a running game can drop
     // its input. The HUD is always-on-top; clicking the ticker focuses and
     // expands it.
-    // The HUD is interactive whenever it is visible: the compact ticker is
-    // click-to-expand and the panel is fully interactive. The window is sized
-    // to its content so the game stays clickable everywhere else, and the
-    // user hides the HUD (hotkey) when they want to play undisturbed.
+    // The collapsed ticker is click-through only when the user opted in (so it
+    // never steals input from the game); the expanded panel always takes the
+    // mouse. The window is sized to its content so the game stays clickable
+    // everywhere else.
     window
-        .set_ignore_cursor_events(false)
+        .set_ignore_cursor_events(should_ignore_cursor(&settings, collapsed))
         .map_err(|e| e.to_string())?;
+    // The panel needs keyboard focus for its inputs; the ticker stays
+    // non-activating so it never steals foreground from the game.
+    set_activation_style(&window, !collapsed);
 
     // Replay the native backdrop so a freshly rebuilt window keeps its glass
     // even before the frontend re-syncs its background settings.
@@ -715,7 +763,8 @@ pub fn overlay_set_collapsed(
     };
     if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
         apply_geometry(&window, &app, &settings, collapsed)?;
-        let _ = window.set_ignore_cursor_events(false);
+        let _ = window.set_ignore_cursor_events(should_ignore_cursor(&settings, collapsed));
+        set_activation_style(&window, !collapsed);
     }
     Ok(())
 }
@@ -858,6 +907,9 @@ pub fn overlay_save_settings(
     if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
         let collapsed = lock(state.inner()).collapsed;
         apply_geometry(&window, &app, &settings, collapsed)?;
+        // A click-through preference change must take effect immediately for
+        // the currently displayed presentation.
+        let _ = window.set_ignore_cursor_events(should_ignore_cursor(&settings, collapsed));
     }
     Ok(())
 }
@@ -1047,13 +1099,24 @@ fn register_capture_hotkeys(app: &AppHandle, state: &OverlayState) {
             rt.settings.replay_hotkey.clone(),
         )
     };
-    for (which, accel) in [
-        (Binding::Screenshot, screenshot),
-        (Binding::Record, record),
-        (Binding::Replay, replay),
+    for (which, name, accel) in [
+        (Binding::Screenshot, "screenshot", screenshot),
+        (Binding::Record, "record", record),
+        (Binding::Replay, "replay", replay),
     ] {
         if let Err(e) = register_binding(app, state, which, &accel) {
             eprintln!("[overlay] capture hotkey registration failed: {e}");
+            // Non-fatal, but the settings UI should know the binding was
+            // rejected (conflict/invalid accelerator) so it can warn the user.
+            let _ = app.emit_to(
+                MAIN_WINDOW_LABEL,
+                EVENT_HOTKEY_ERROR,
+                serde_json::json!({
+                    "binding": name,
+                    "accelerator": accel,
+                    "error": e,
+                }),
+            );
         }
     }
 }
@@ -1140,8 +1203,10 @@ pub fn handle_hotkey(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent)
     });
 }
 
-/// Hotkey behaviour: show the compact ticker when the HUD is hidden, hide it
-/// when visible. Clicking the ticker expands it to the panel.
+/// Hotkey behaviour: a three-state cycle over the HUD — hidden → compact
+/// ticker → expanded panel → hidden. Stepping through the ticker lets a
+/// click-through ticker (which ignores the mouse) still be expanded, since the
+/// hotkey is the only way in.
 fn show_or_toggle(app: &AppHandle) -> Result<(), String> {
     let Some(state) = app.try_state::<OverlayState>() else {
         return Ok(());
@@ -1154,9 +1219,12 @@ fn show_or_toggle(app: &AppHandle) -> Result<(), String> {
     if !visible {
         return present(app, true);
     }
+    if lock(state.inner()).collapsed {
+        return present(app, false);
+    }
 
-    // Hotkey off → hide the HUD and stop telemetry. The window is kept warm so
-    // the next show is instant.
+    // Visible panel → hide the HUD and stop telemetry. The window is kept warm
+    // so the next show is instant.
     if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
         let _ = window.hide();
     }
@@ -1377,6 +1445,9 @@ mod gdi_capture {
             usage: u32,
         ) -> i32;
         fn GetSystemMetrics(n_index: i32) -> i32;
+        fn GetForegroundWindow() -> *mut std::ffi::c_void;
+        fn MonitorFromWindow(hwnd: *mut std::ffi::c_void, dw_flags: u32) -> *mut std::ffi::c_void;
+        fn GetMonitorInfoW(hmonitor: *mut std::ffi::c_void, lpmi: *mut MonitorInfo) -> i32;
     }
 
     const SM_CXSCREEN: i32 = 0;
@@ -1384,6 +1455,24 @@ mod gdi_capture {
     const SRCCOPY: u32 = 0x00CC0020;
     const DIB_RGB_COLORS: u32 = 0;
     const BI_RGB: u32 = 0;
+    const MONITOR_DEFAULTTOPRIMARY: u32 = 0x1;
+
+    #[repr(C)]
+    #[derive(Clone, Copy, Default)]
+    struct Rect {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+
+    #[repr(C)]
+    struct MonitorInfo {
+        cb_size: u32,
+        rc_monitor: Rect,
+        rc_work: Rect,
+        dw_flags: u32,
+    }
 
     #[repr(C)]
     struct BitmapInfoHeader {
@@ -1408,13 +1497,46 @@ mod gdi_capture {
 
     pub fn capture_rgba() -> Result<(u32, u32, Vec<u8>), String> {
         unsafe {
-            let width = GetSystemMetrics(SM_CXSCREEN);
-            let height = GetSystemMetrics(SM_CYSCREEN);
+            let null_hwnd = std::ptr::null_mut();
+
+            // Target the monitor the foreground (game) window lives on so a
+            // game on a secondary display is grabbed from the right origin
+            // instead of the primary monitor's (0, 0). Any failure along the
+            // way falls back to the primary monitor, matching the old
+            // behaviour.
+            let mut left = 0i32;
+            let mut top = 0i32;
+            let mut width = GetSystemMetrics(SM_CXSCREEN);
+            let mut height = GetSystemMetrics(SM_CYSCREEN);
+
+            let foreground = GetForegroundWindow();
+            if !foreground.is_null() {
+                let monitor = MonitorFromWindow(foreground, MONITOR_DEFAULTTOPRIMARY);
+                if !monitor.is_null() {
+                    let mut info = MonitorInfo {
+                        cb_size: std::mem::size_of::<MonitorInfo>() as u32,
+                        rc_monitor: Rect::default(),
+                        rc_work: Rect::default(),
+                        dw_flags: 0,
+                    };
+                    if GetMonitorInfoW(monitor, &mut info) != 0 {
+                        let rc = info.rc_monitor;
+                        let w = rc.right - rc.left;
+                        let h = rc.bottom - rc.top;
+                        if w > 0 && h > 0 {
+                            left = rc.left;
+                            top = rc.top;
+                            width = w;
+                            height = h;
+                        }
+                    }
+                }
+            }
+
             if width <= 0 || height <= 0 {
                 return Err("Invalid desktop screen dimensions".into());
             }
 
-            let null_hwnd = std::ptr::null_mut();
             let hdc_screen = GetDC(null_hwnd);
             if hdc_screen.is_null() {
                 return Err("Failed to obtain desktop DC".into());
@@ -1434,7 +1556,7 @@ mod gdi_capture {
             }
 
             let prev_obj = SelectObject(hdc_mem, hbitmap);
-            let blt_res = BitBlt(hdc_mem, 0, 0, width, height, hdc_screen, 0, 0, SRCCOPY);
+            let blt_res = BitBlt(hdc_mem, 0, 0, width, height, hdc_screen, left, top, SRCCOPY);
 
             SelectObject(hdc_mem, prev_obj);
             DeleteDC(hdc_mem);
@@ -1496,14 +1618,12 @@ mod gdi_capture {
 
 #[cfg(not(windows))]
 mod gdi_capture {
+    use std::path::Path;
+
     pub fn capture_rgba() -> Result<(u32, u32, Vec<u8>), String> {
         Err("In-game screen capture is currently supported on Windows".into())
     }
-}
 
-#[cfg(not(windows))]
-mod gdi_capture {
-    use std::path::Path;
     pub fn capture_desktop(_dest: &Path) -> Result<(u32, u32), String> {
         Err("In-game screen capture is currently supported on Windows".into())
     }
@@ -1852,6 +1972,7 @@ mod tests {
         assert_eq!(settings.hotkey, "Shift+F1");
         assert_eq!(settings.corner, "bottom-right");
         assert!((settings.opacity - 0.9).abs() < f64::EPSILON);
+        assert!(!settings.ticker_click_through);
         assert_eq!(
             settings.ticker_widgets,
             vec![
@@ -1875,6 +1996,19 @@ mod tests {
     }
 
     #[test]
+    fn should_ignore_cursor_only_for_a_click_through_ticker() {
+        let mut settings = OverlaySettings::default();
+        // The expanded panel is always interactive; the ticker only passes
+        // clicks through when the user opted in.
+        assert!(!should_ignore_cursor(&settings, false));
+        assert!(!should_ignore_cursor(&settings, true));
+
+        settings.ticker_click_through = true;
+        assert!(!should_ignore_cursor(&settings, false));
+        assert!(should_ignore_cursor(&settings, true));
+    }
+
+    #[test]
     fn settings_deserialize_partial_payload_keeps_defaults() {
         // Missing fields fall back to defaults; unknown fields are ignored.
         let parsed: OverlaySettings =
@@ -1891,6 +2025,7 @@ mod tests {
         assert!(value.get("tickerWidgets").is_some());
         assert!(value.get("panelWidgets").is_some());
         assert!(value.get("pollIntervalMs").is_some());
+        assert!(value.get("tickerClickThrough").is_some());
         assert!(value.get("ticker_widgets").is_none());
         // Capture fields round-trip as camelCase too.
         assert!(value.get("screenshotFormat").is_some());
