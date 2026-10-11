@@ -213,8 +213,8 @@ export default function IntegrationsTab({
     { id: "integration-epic", icon: <EpicIcon />, name: t("settings.integration.epicGames"), connected: epic.epicAuth.isAuthenticated },
     { id: "integration-gog", icon: <GogIcon />, name: t("settings.integration.gogGalaxy"), connected: gog.gogAuth.isAuthenticated },
     { id: "integration-humble", icon: <HumbleIcon />, name: t("settings.integration.humbleBundle"), connected: humble.humbleAuth.isAuthenticated },
-    { id: "integration-rockstar", icon: <RockstarIcon />, name: t("settings.integration.rockstarGamesLauncher"), connected: !!rockstar.rockstarSyncResult?.clientInstalled },
-    { id: "integration-uplay", icon: <UplayIcon />, name: t("settings.integration.ubisoftConnect"), connected: !!uplay.uplaySyncResult?.clientInstalled },
+    { id: "integration-rockstar", icon: <RockstarIcon />, name: t("settings.integration.rockstarGamesLauncher"), connected: rockstar.rockstarClient.clientInstalled },
+    { id: "integration-uplay", icon: <UplayIcon />, name: t("settings.integration.ubisoftConnect"), connected: uplay.uplayClient.clientInstalled },
     { id: "integration-battlenet", icon: <BattleNetIcon />, name: t("settings.integration.battleNet"), connected: battlenet.auth.isAuthenticated },
     { id: "integration-ea", icon: <EAIcon />, name: t("settings.integration.ea"), connected: ea.auth.isAuthenticated },
     { id: "integration-xbox", icon: <XboxIcon />, name: t("settings.integration.xbox"), connected: xbox.auth.isAuthenticated },
@@ -873,14 +873,14 @@ export default function IntegrationsTab({
           icon={<RockstarIcon />}
           name={t("settings.integration.rockstarGamesLauncher")}
           description={t("settings.rockstar.desc")}
-          connected={!!rockstar.rockstarSyncResult?.clientInstalled}
+          connected={rockstar.rockstarClient.clientInstalled}
           badgeLabel={t("settings.integration.detected")}
           status={
-            rockstar.rockstarSyncResult?.clientInstalled ? (
+            rockstar.rockstarClient.clientInstalled ? (
               <div className="auth-status">
                 {t("settings.rockstar.detected")}
-                {rockstar.rockstarSyncResult.clientPath
-                  ? ` at ${rockstar.rockstarSyncResult.clientPath}`
+                {rockstar.rockstarClient.clientPath
+                  ? ` at ${rockstar.rockstarClient.clientPath}`
                   : ""}
               </div>
             ) : (
@@ -932,14 +932,14 @@ export default function IntegrationsTab({
           icon={<UplayIcon />}
           name={t("settings.integration.ubisoftConnect")}
           description={t("settings.ubisoft.desc")}
-          connected={!!uplay.uplaySyncResult?.clientInstalled}
+          connected={uplay.uplayClient.clientInstalled}
           badgeLabel={t("settings.integration.detected")}
           status={
-            uplay.uplaySyncResult?.clientInstalled ? (
+            uplay.uplayClient.clientInstalled ? (
               <div className="auth-status">
                 {t("settings.ubisoft.detected")}
-                {uplay.uplaySyncResult.clientPath
-                  ? ` at ${uplay.uplaySyncResult.clientPath}`
+                {uplay.uplayClient.clientPath
+                  ? ` at ${uplay.uplayClient.clientPath}`
                   : ""}
               </div>
             ) : (

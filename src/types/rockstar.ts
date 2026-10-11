@@ -45,3 +45,11 @@ export interface RockstarSyncResult {
   clientPath: string;
   syncedGames: RockstarSyncedGame[];
 }
+
+/** Lightweight client probe (no library scan) — what
+ *  `rockstar_detect_client` returns so the Settings tile can show its
+ *  detected state immediately after an app restart. */
+export interface RockstarClientInfo {
+  clientInstalled: boolean;
+  clientPath: string;
+}

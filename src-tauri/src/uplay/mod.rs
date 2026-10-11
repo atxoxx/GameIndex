@@ -152,3 +152,23 @@ pub fn uplay_get_settings(app: AppHandle) -> UplaySettings {
 pub fn uplay_save_settings(app: AppHandle, settings: UplaySettings) -> Result<(), String> {
     save_settings(&app, &settings)
 }
+
+/// Cheap "is Ubisoft Connect installed?" payload for the Settings tile.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UplayClientInfo {
+    pub client_installed: bool,
+    pub client_path: String,
+}
+
+/// Probe the Ubisoft Connect client without running a library scan.
+/// The Settings tile calls this on mount so its detected/connected state
+/// survives an app restart — `uplay_sync_library` folds the same probe
+/// into its result, but that result only lives in memory.
+#[tauri::command]
+pub fn uplay_detect_client() -> UplayClientInfo {
+    UplayClientInfo {
+        client_installed: is_client_installed(),
+        client_path: client_install_path(),
+    }
+}

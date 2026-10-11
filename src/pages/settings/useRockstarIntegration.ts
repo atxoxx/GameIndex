@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { useToast } from "../../context/ToastContext";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
-import type { RockstarSyncResult } from "../../types/rockstar";
+import type { RockstarClientInfo, RockstarSyncResult } from "../../types/rockstar";
 
 /**
  * useRockstarIntegration — Rockstar Games Launcher is a pure
- * installed-games scan (no account/auth), so the only state here is
- * the last scan result + the in-flight flag.
+ * installed-games scan (no account/auth), so the state here is the
+ * last scan result, the in-flight flag, and a mount-time client
+ * detection probe so the tile reads "detected" across restarts.
  */
 export function useRockstarIntegration() {
   const { showToast } = useToast();
@@ -19,6 +20,29 @@ export function useRockstarIntegration() {
 
   const [rockstarSyncResult, setRockstarSyncResult] = useState<RockstarSyncResult | null>(null);
   const [isRockstarSyncing, setIsRockstarSyncing] = useState(false);
+  // Client detection is seeded on mount so the tile shows its
+  // detected/connected state right away, before (and independent of) a
+  // scan.
+  const [rockstarClient, setRockstarClient] = useState<RockstarClientInfo>({
+    clientInstalled: false,
+    clientPath: "",
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const info = await invoke<RockstarClientInfo>("rockstar_detect_client");
+        if (!cancelled && info) setRockstarClient(info);
+      } catch (e) {
+        console.error("Failed to detect Rockstar Games Launcher:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleRockstarSync() {
     setIsRockstarSyncing(true);
@@ -26,6 +50,7 @@ export function useRockstarIntegration() {
     try {
       const result: RockstarSyncResult = await invoke("rockstar_sync_library");
       setRockstarSyncResult(result);
+      setRockstarClient({ clientInstalled: result.clientInstalled, clientPath: result.clientPath });
       if (result.success) {
         const existingRockstarIds = new Set(
           games.filter((gm) => gm.rockstarTitleId).map((gm) => gm.id)
@@ -92,5 +117,5 @@ export function useRockstarIntegration() {
     }
   }
 
-  return { rockstarSyncResult, isRockstarSyncing, handleRockstarSync };
+  return { rockstarSyncResult, rockstarClient, isRockstarSyncing, handleRockstarSync };
 }

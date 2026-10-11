@@ -63,9 +63,11 @@ use humble::{
     humble_get_settings, humble_is_authenticated, humble_logout, humble_save_settings,
     humble_start_login, humble_sync_library,
 };
+use rockstar::rockstar_detect_client;
 use rockstar::sync::{rockstar_launch_game, rockstar_sync_library};
 use uplay::{
-    uplay_get_settings, uplay_launch_game, uplay_save_settings, uplay_sync_library,
+    uplay_detect_client, uplay_get_settings, uplay_launch_game, uplay_save_settings,
+    uplay_sync_library,
 };
 use beta_stores::{
     battlenet_get_settings, battlenet_is_authenticated, battlenet_logout,
@@ -173,11 +175,11 @@ pub fn run() {
             humble_get_settings, humble_save_settings,
             // Rockstar Games Launcher integration — installed-games scan
             // + launcher client actions (no cloud auth).
-            rockstar_sync_library, rockstar_launch_game,
+            rockstar_sync_library, rockstar_launch_game, rockstar_detect_client,
             // Ubisoft Connect (Uplay) integration — installed + library
             // scan + client actions (uplay:// protocol).
             uplay_sync_library, uplay_launch_game, uplay_get_settings,
-            uplay_save_settings,
+            uplay_save_settings, uplay_detect_client,
             // Beta store integrations (experimental, WebView login):
             // Battle.net, EA app, Xbox / Microsoft Store and itch.io.
             battlenet_start_login, battlenet_sync_library, battlenet_is_authenticated,

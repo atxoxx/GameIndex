@@ -5,7 +5,7 @@ import { useToast } from "../../context/ToastContext";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
-import type { UplaySettings, UplaySyncResult } from "../../types/uplay";
+import type { UplayClientInfo, UplaySettings, UplaySyncResult } from "../../types/uplay";
 
 /**
  * useUplayIntegration — Ubisoft Connect is a pure installed-games +
@@ -19,6 +19,13 @@ export function useUplayIntegration() {
 
   const [uplaySyncResult, setUplaySyncResult] = useState<UplaySyncResult | null>(null);
   const [isUplaySyncing, setIsUplaySyncing] = useState(false);
+  // Client detection is seeded on mount so the tile shows its
+  // detected/connected state right away, before (and independent of) a
+  // full library scan.
+  const [uplayClient, setUplayClient] = useState<UplayClientInfo>({
+    clientInstalled: false,
+    clientPath: "",
+  });
   const [uplaySettings, setUplaySettings] = useState<UplaySettings>({
     importInstalledGames: true,
     importUninstalledGames: false,
@@ -32,6 +39,22 @@ export function useUplayIntegration() {
         if (!cancelled && s) setUplaySettings(s);
       } catch (e) {
         console.error("Failed to load Uplay settings:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const info = await invoke<UplayClientInfo>("uplay_detect_client");
+        if (!cancelled && info) setUplayClient(info);
+      } catch (e) {
+        console.error("Failed to detect Ubisoft Connect:", e);
       }
     })();
 
@@ -59,6 +82,7 @@ export function useUplayIntegration() {
     try {
       const result: UplaySyncResult = await invoke("uplay_sync_library");
       setUplaySyncResult(result);
+      setUplayClient({ clientInstalled: result.clientInstalled, clientPath: result.clientPath });
       if (result.success) {
         const existingUplayIds = new Set(
           games.filter((gm) => gm.uplayGameId).map((gm) => gm.id)
@@ -129,6 +153,7 @@ export function useUplayIntegration() {
 
   return {
     uplaySyncResult,
+    uplayClient,
     isUplaySyncing,
     uplaySettings,
     updateUplaySetting,

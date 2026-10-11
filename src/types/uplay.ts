@@ -57,3 +57,11 @@ export interface UplaySyncResult {
   clientPath: string;
   syncedGames: UplaySyncedGame[];
 }
+
+/** Lightweight client probe (no library scan) — what
+ *  `uplay_detect_client` returns so the Settings tile can show its
+ *  detected state immediately after an app restart. */
+export interface UplayClientInfo {
+  clientInstalled: boolean;
+  clientPath: string;
+}

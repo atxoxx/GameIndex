@@ -416,3 +416,24 @@ pub struct RockstarSyncResult {
     pub client_path: String,
     pub synced_games: Vec<RockstarSyncedGame>,
 }
+
+/// Cheap "is the Rockstar Games Launcher installed?" payload for the
+/// Settings tile.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RockstarClientInfo {
+    pub client_installed: bool,
+    pub client_path: String,
+}
+
+/// Probe the Rockstar Games Launcher without scanning the library. The
+/// Settings tile calls this on mount so its detected/connected state
+/// survives an app restart — `rockstar_sync_library` folds the same
+/// probe into its result, but that result only lives in memory.
+#[tauri::command]
+pub fn rockstar_detect_client() -> RockstarClientInfo {
+    RockstarClientInfo {
+        client_installed: is_client_installed(),
+        client_path: client_install_path(),
+    }
+}
