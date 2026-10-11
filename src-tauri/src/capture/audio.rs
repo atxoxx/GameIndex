@@ -34,7 +34,7 @@ pub struct AudioFormat {
     pub sample_rate: u32,
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 mod imp {
     use super::{AudioDeviceList, AudioFormat};
 
@@ -64,6 +64,10 @@ mod imp {
 
 #[cfg(windows)]
 #[path = "audio_windows.rs"]
+mod imp;
+
+#[cfg(target_os = "linux")]
+#[path = "audio_linux.rs"]
 mod imp;
 
 pub use imp::{list_devices, AudioClient};

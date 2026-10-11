@@ -21,7 +21,10 @@ pub mod listing;
 #[cfg(windows)]
 #[path = "windows.rs"]
 pub mod platform;
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+#[path = "linux.rs"]
+pub mod platform;
+#[cfg(not(any(windows, target_os = "linux")))]
 #[path = "stub.rs"]
 pub mod platform;
 
