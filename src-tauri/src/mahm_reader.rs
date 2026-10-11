@@ -236,7 +236,10 @@ fn matches_gpu_memory_used(name: &str) -> bool {
     let dedicated = n.contains("vram")
         || n.contains("video memory")
         || n.contains("gpu memory")
-        || n.contains("dedicated memory");
+        || n.contains("dedicated memory")
+        // Afterburner labels per-GPU entries as "GPU1 memory …", so the index
+        // sits between "gpu" and "memory"; accept any gpu-scoped memory name.
+        || (n.contains("gpu") && n.contains("memory"));
     dedicated && (n.contains("usage") || n.contains("used") || n.contains("allocated"))
 }
 
@@ -283,12 +286,17 @@ fn parse_mem_amount_mb(raw: &str) -> Option<f32> {
     if trimmed.is_empty() {
         return None;
     }
-    let mut parts = trimmed.split_whitespace();
-    let value: f32 = parts.next()?.replace(',', "").parse().ok()?;
+    // Split into a leading number and trailing unit, tolerating the missing
+    // space in values like "4096MB".
+    let split = trimmed
+        .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == ','))
+        .unwrap_or(trimmed.len());
+    let (num_part, unit_part) = trimmed.split_at(split);
+    let value: f32 = num_part.replace(',', "").parse().ok()?;
     if !value.is_finite() || value <= 0.0 {
         return None;
     }
-    let unit = parts.next().unwrap_or("MB").to_lowercase();
+    let unit = unit_part.trim().to_lowercase();
     let mb = if unit.starts_with('g') {
         value * 1024.0
     } else if unit.starts_with('k') {
@@ -296,6 +304,7 @@ fn parse_mem_amount_mb(raw: &str) -> Option<f32> {
     } else if unit.starts_with('b') {
         value / (1024.0 * 1024.0)
     } else {
+        // No/unknown unit => the field is already megabytes.
         value
     };
     Some(mb)
