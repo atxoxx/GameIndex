@@ -1,0 +1,109 @@
+import { vi } from "vitest";
+import type {
+  OverlayContextValue,
+  OverlaySettings,
+  RecordingState,
+} from "../../context/OverlayContext";
+
+/**
+ * Shared fixtures for overlay component tests.
+ *
+ * The test files mock the whole `OverlayContext` module, so they can't import
+ * `DEFAULT_OVERLAY_SETTINGS` at runtime — this helper re-declares an equivalent
+ * base value (types only) so every stub stays in sync with the interface.
+ */
+export const baseOverlaySettings: OverlaySettings = {
+  enabled: true,
+  hotkey: "Shift+F1",
+  corner: "bottom-right",
+  opacity: 0.9,
+  tickerWidgets: ["fps"],
+  panelWidgets: ["session"],
+  pollIntervalMs: 1000,
+  showTemps: true,
+  showGraphs: false,
+  tickerWidth: 360,
+  tickerHeight: 56,
+  panelWidth: 480,
+  panelHeight: 540,
+  screenshotFormat: "png",
+  screenshotFolder: null,
+  screenshotHotkey: "F12",
+  screenshotSound: true,
+  screenshotFlash: true,
+  screenshotCopyToClipboard: true,
+  screenshotIncludeOverlay: false,
+  screenshotDelayMs: 60,
+  videoEnabled: true,
+  videoHotkey: "Shift+F2",
+  replayHotkey: "Shift+F3",
+  videoFps: 60,
+  videoBitrateKbps: 12000,
+  videoResolutionScale: 1,
+  videoFormat: "mp4",
+  videoFolder: null,
+  videoGameAudio: true,
+  videoMicrophone: false,
+  videoAudioDevice: null,
+  videoMicDevice: null,
+  replayBufferSeconds: 60,
+  videoMaxClipSeconds: 0,
+  videoShowCursor: false,
+  videoSound: true,
+  videoCountdownMs: 0,
+  videoHideOverlay: true,
+  videoRecording: false,
+  replayBufferActive: false,
+};
+
+export const idleRecordingState: RecordingState = {
+  recording: false,
+  replayBuffering: false,
+  startedAt: null,
+  durationMs: 0,
+  error: null,
+};
+
+export function makeOverlayValue(
+  overrides: Partial<OverlayContextValue> = {},
+): OverlayContextValue {
+  return {
+    collapsed: false,
+    toggle: vi.fn(),
+    expand: vi.fn(),
+    collapse: vi.fn(),
+    corner: "bottom-right",
+    settings: { ...baseOverlaySettings },
+    metrics: null,
+    history: [],
+    session: null,
+    providerReady: true,
+    captureScreenshot: vi.fn().mockResolvedValue(null),
+    recentScreenshots: [],
+    deleteScreenshot: vi.fn().mockResolvedValue(true),
+    isCapturing: false,
+    lastCapturedScreenshot: null,
+    openScreenshotsFolder: vi.fn().mockResolvedValue(undefined),
+    refreshScreenshots: vi.fn().mockResolvedValue(undefined),
+    flashScreen: false,
+    updateSettings: vi.fn().mockResolvedValue(undefined),
+    captureSupported: false,
+    recordingState: { ...idleRecordingState },
+    isRecording: false,
+    isReplayBuffering: false,
+    recentClips: [],
+    lastClip: null,
+    startRecording: vi.fn().mockResolvedValue(undefined),
+    stopRecording: vi.fn().mockResolvedValue(null),
+    toggleRecording: vi.fn().mockResolvedValue(undefined),
+    startReplay: vi.fn().mockResolvedValue(undefined),
+    stopReplay: vi.fn().mockResolvedValue(undefined),
+    saveReplay: vi.fn().mockResolvedValue(null),
+    refreshClips: vi.fn().mockResolvedValue(undefined),
+    deleteClip: vi.fn().mockResolvedValue(true),
+    openClipsFolder: vi.fn().mockResolvedValue(undefined),
+    audioDevices: { output: [], input: [] },
+    refreshAudioDevices: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}

@@ -7,6 +7,7 @@ import {
   type OverlayMetrics,
   type OverlaySettings,
 } from "../../../context/OverlayContext";
+import { baseOverlaySettings, makeOverlayValue } from "../overlayTestValue";
 
 vi.mock("../../../context/OverlayContext", () => ({
   useOverlay: vi.fn(),
@@ -19,42 +20,11 @@ function overlayValue(
   overrides: Partial<OverlaySettings> = {},
   history: OverlayMetrics[] = [],
 ): OverlayContextValue {
-  return {
-    collapsed: false,
-    toggle: vi.fn(),
-    expand: vi.fn(),
-    collapse: vi.fn(),
-    corner: "bottom-right",
-    settings: {
-      enabled: true,
-      hotkey: "Shift+F1",
-      corner: "bottom-right",
-      opacity: 0.9,
-      tickerWidgets: ["fps"],
-      panelWidgets: ["performance"],
-      pollIntervalMs: 1000,
-      showTemps: true,
-      showGraphs: false,
-      tickerWidth: 360,
-      tickerHeight: 56,
-      panelWidth: 480,
-      panelHeight: 540,
-      ...overrides,
-    },
+  return makeOverlayValue({
     metrics,
     history,
-    session: null,
-    providerReady: true,
-    captureScreenshot: vi.fn().mockResolvedValue(null),
-    recentScreenshots: [],
-    deleteScreenshot: vi.fn().mockResolvedValue(true),
-    isCapturing: false,
-    lastCapturedScreenshot: null,
-    openScreenshotsFolder: vi.fn().mockResolvedValue(undefined),
-    refreshScreenshots: vi.fn().mockResolvedValue(undefined),
-    flashScreen: false,
-    updateSettings: vi.fn().mockResolvedValue(undefined),
-  };
+    settings: { ...baseOverlaySettings, ...overrides },
+  });
 }
 
 describe("PerformanceWidget", () => {

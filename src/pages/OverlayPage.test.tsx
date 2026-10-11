@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import OverlayPage from "./OverlayPage";
 import { useOverlay, type OverlayContextValue } from "../context/OverlayContext";
+import {
+  baseOverlaySettings,
+  makeOverlayValue,
+} from "../components/overlay/overlayTestValue";
 
 vi.mock("../context/OverlayContext", () => ({
   useOverlay: vi.fn(),
@@ -22,17 +26,11 @@ function overlayValue(
   collapsed: boolean,
   collapse = vi.fn(),
 ): OverlayContextValue {
-  return {
+  return makeOverlayValue({
     collapsed,
-    toggle: vi.fn(),
-    expand: vi.fn(),
     collapse,
-    corner: "bottom-right",
     settings: {
-      enabled: true,
-      hotkey: "Shift+F1",
-      corner: "bottom-right",
-      opacity: 0.9,
+      ...baseOverlaySettings,
       tickerWidgets: ["fps", "cpu", "gpu", "session"],
       panelWidgets: [
         "session",
@@ -42,28 +40,8 @@ function overlayValue(
         "notifications",
         "notes",
       ],
-      pollIntervalMs: 1000,
-      showTemps: true,
-      showGraphs: false,
-      tickerWidth: 360,
-      tickerHeight: 56,
-      panelWidth: 480,
-      panelHeight: 540,
     },
-    metrics: null,
-    history: [],
-    session: null,
-    providerReady: true,
-    captureScreenshot: vi.fn().mockResolvedValue(null),
-    recentScreenshots: [],
-    deleteScreenshot: vi.fn().mockResolvedValue(true),
-    isCapturing: false,
-    lastCapturedScreenshot: null,
-    openScreenshotsFolder: vi.fn().mockResolvedValue(undefined),
-    refreshScreenshots: vi.fn().mockResolvedValue(undefined),
-    flashScreen: false,
-    updateSettings: vi.fn().mockResolvedValue(undefined),
-  };
+  });
 }
 
 describe("OverlayPage", () => {

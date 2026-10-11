@@ -7,6 +7,7 @@ import {
 } from "../../context/OverlayContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useOptionalGames } from "../../context/GameContext";
+import { baseOverlaySettings, makeOverlayValue } from "./overlayTestValue";
 
 vi.mock("../../context/OverlayContext", () => ({ useOverlay: vi.fn() }));
 vi.mock("../../context/LanguageContext", () => ({ useLanguage: vi.fn() }));
@@ -50,41 +51,13 @@ const mockLanguage = vi.mocked(useLanguage);
 const mockOptionalGames = vi.mocked(useOptionalGames);
 
 function overlayValue(panelWidgets: string[]): OverlayContextValue {
-  return {
-    collapsed: false,
-    toggle: vi.fn(),
-    expand: vi.fn(),
-    collapse: vi.fn(),
-    corner: "bottom-right",
+  return makeOverlayValue({
     settings: {
-      enabled: true,
-      hotkey: "Shift+F1",
-      corner: "bottom-right",
-      opacity: 0.9,
+      ...baseOverlaySettings,
       tickerWidgets: ["fps"],
       panelWidgets,
-      pollIntervalMs: 1000,
-      showTemps: true,
-      showGraphs: false,
-      tickerWidth: 360,
-      tickerHeight: 56,
-      panelWidth: 480,
-      panelHeight: 540,
     },
-    metrics: null,
-    history: [],
-    session: null,
-    providerReady: true,
-    captureScreenshot: vi.fn().mockResolvedValue(null),
-    recentScreenshots: [],
-    deleteScreenshot: vi.fn().mockResolvedValue(true),
-    isCapturing: false,
-    lastCapturedScreenshot: null,
-    openScreenshotsFolder: vi.fn().mockResolvedValue(undefined),
-    refreshScreenshots: vi.fn().mockResolvedValue(undefined),
-    flashScreen: false,
-    updateSettings: vi.fn().mockResolvedValue(undefined),
-  };
+  });
 }
 
 const ALL_WIDGETS = [

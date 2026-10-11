@@ -13,6 +13,7 @@ import {
   StickyNote,
   Timer,
   Trophy,
+  Video,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -21,6 +22,7 @@ import {
   PANEL_WIDGETS,
   TICKER_WIDGETS,
   normalizeOverlaySettings,
+  type AudioDeviceList,
   type OverlayCorner,
   type OverlaySettings,
 } from "../../context/OverlayContext";
@@ -44,6 +46,7 @@ const PANEL_LABELS: Record<string, string> = {
   notifications: "overlay.widget.notifications",
   notes: "overlay.widget.notes",
   captures: "overlay.widget.captures",
+  recording: "overlay.widget.recording",
   timer: "overlay.widget.timer",
   settings: "overlay.widget.settings",
 };
@@ -75,6 +78,8 @@ function panelIcon(key: string) {
       return <StickyNote />;
     case "captures":
       return <Camera />;
+    case "recording":
+      return <Video />;
     case "timer":
       return <Timer />;
     case "settings":
@@ -118,7 +123,13 @@ export default function OverlayTab() {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [settings, setSettings] = useState<OverlaySettings | null>(null);
-  const [recording, setRecording] = useState(false);
+  const [audioDevices, setAudioDevices] = useState<AudioDeviceList>({
+    output: [],
+    input: [],
+  });
+  const [recordingField, setRecordingField] = useState<
+    "toggle" | "screenshot" | "video" | "replay" | null
+  >(null);
   const hydratedRef = useRef(false);
   const applyHotkeyRef = useRef<(accelerator: string) => void>(() => {});
 
@@ -159,6 +170,26 @@ export default function OverlayTab() {
       disposed = true;
     };
   }, [showToast, t]);
+
+  // Enumerate audio endpoints for the device dropdowns.
+  useEffect(() => {
+    let disposed = false;
+    invoke<AudioDeviceList>("capture_list_audio_devices")
+      .then((list) => {
+        if (!disposed && list) {
+          setAudioDevices({
+            output: list.output ?? [],
+            input: list.input ?? [],
+          });
+        }
+      })
+      .catch(() => {
+        /* unsupported platform */
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
 
   // Debounced autosave for every discrete edit (skip the initial hydrate).
   useEffect(() => {
@@ -204,24 +235,37 @@ export default function OverlayTab() {
   );
   applyHotkeyRef.current = applyHotkey;
 
-  // Capture the next key combination while recording.
+  // Capture the next key combination while recording a binding. The overlay
+  // toggle goes through `overlay_set_hotkey` (which validates conflicts); the
+  // capture bindings are plain settings that autosave through
+  // `overlay_save_settings`.
   useEffect(() => {
-    if (!recording) return;
+    if (!recordingField) return;
+    const CAPTURE_FIELDS: Record<string, keyof OverlaySettings> = {
+      screenshot: "screenshotHotkey",
+      video: "videoHotkey",
+      replay: "replayHotkey",
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       event.preventDefault();
       event.stopPropagation();
       if (event.key === "Escape") {
-        setRecording(false);
+        setRecordingField(null);
         return;
       }
       const accelerator = acceleratorFromEvent(event);
       if (!accelerator) return;
-      setRecording(false);
-      applyHotkeyRef.current(accelerator);
+      const field = recordingField;
+      setRecordingField(null);
+      if (field === "toggle") {
+        applyHotkeyRef.current(accelerator);
+      } else {
+        update({ [CAPTURE_FIELDS[field]]: accelerator } as Partial<OverlaySettings>);
+      }
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [recording]);
+  }, [recordingField, update]);
 
   if (!settings) {
     return (
@@ -263,10 +307,12 @@ export default function OverlayTab() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setRecording((r) => !r)}
+              onClick={() =>
+                setRecordingField((f) => (f === "toggle" ? null : "toggle"))
+              }
               aria-label={t("settings.overlay.aria.hotkey")}
             >
-              {recording
+              {recordingField === "toggle"
                 ? t("settings.overlay.hotkeyRecording")
                 : t("settings.overlay.hotkeyRecord")}
             </Button>
@@ -332,6 +378,440 @@ export default function OverlayTab() {
           desc={t("settings.overlay.showGraphsDesc")}
           checked={settings.showGraphs}
           onChange={(on) => update({ showGraphs: on })}
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        id="overlay-capture"
+        icon={<Camera />}
+        title={t("settings.overlay.sectionCapture")}
+        desc={t("settings.overlay.captureDesc")}
+      >
+        {/* Screenshot */}
+        <div className="hw-pane-head">
+          <h3 className="hw-pane-title">
+            {t("settings.overlay.screenshot")}
+          </h3>
+          <p className="hw-pane-desc">
+            {t("settings.overlay.screenshotDesc")}
+          </p>
+        </div>
+
+        <div className="hw-duo">
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.screenshotHotkey")}
+              </label>
+              <span className="hw-card-value">
+                {settings.screenshotHotkey || "—"}
+              </span>
+            </div>
+            <p className="hw-card-help">
+              {t("settings.overlay.screenshotHotkeyDesc")}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setRecordingField((f) =>
+                  f === "screenshot" ? null : "screenshot",
+                )
+              }
+            >
+              {recordingField === "screenshot"
+                ? t("settings.overlay.hotkeyRecording")
+                : t("settings.overlay.hotkeyRecord")}
+            </Button>
+          </div>
+
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.screenshotFormat")}
+              </label>
+            </div>
+            <p className="hw-card-help">
+              {t("settings.overlay.screenshotFormatDesc")}
+            </p>
+            <div className="settings-segmented hw-seg" role="group">
+              {["png", "jpg"].map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  className={settings.screenshotFormat === fmt ? "active" : ""}
+                  onClick={() => update({ screenshotFormat: fmt })}
+                >
+                  {fmt.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="hw-card" style={{ marginTop: "1rem" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">
+              {t("settings.overlay.screenshotFolder")}
+            </label>
+          </div>
+          <p className="hw-card-help">
+            {t("settings.overlay.screenshotFolderDesc")}
+          </p>
+          <input
+            type="text"
+            className="settings-input"
+            value={settings.screenshotFolder ?? ""}
+            placeholder={t("settings.overlay.folderPlaceholder")}
+            onChange={(event) =>
+              update({ screenshotFolder: event.target.value || null })
+            }
+          />
+        </div>
+
+        <div className="hw-card" style={{ marginTop: "1rem" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">
+              {t("settings.overlay.screenshotDelay")}
+            </label>
+            <span className="hw-card-value">{settings.screenshotDelayMs} ms</span>
+          </div>
+          <p className="hw-card-help">
+            {t("settings.overlay.screenshotDelayDesc")}
+          </p>
+          <input
+            type="range"
+            className="hw-range"
+            min={20}
+            max={1000}
+            step={20}
+            value={settings.screenshotDelayMs}
+            onChange={(event) =>
+              update({ screenshotDelayMs: Number(event.target.value) })
+            }
+          />
+        </div>
+
+        <SettingsToggleCard
+          title={t("settings.overlay.screenshotSound")}
+          desc={t("settings.overlay.screenshotSoundDesc")}
+          checked={settings.screenshotSound}
+          onChange={(on) => update({ screenshotSound: on })}
+        />
+        <SettingsToggleCard
+          title={t("settings.overlay.screenshotFlash")}
+          desc={t("settings.overlay.screenshotFlashDesc")}
+          checked={settings.screenshotFlash}
+          onChange={(on) => update({ screenshotFlash: on })}
+        />
+        <SettingsToggleCard
+          title={t("settings.overlay.screenshotClipboard")}
+          desc={t("settings.overlay.screenshotClipboardDesc")}
+          checked={settings.screenshotCopyToClipboard}
+          onChange={(on) => update({ screenshotCopyToClipboard: on })}
+        />
+        <SettingsToggleCard
+          title={t("settings.overlay.screenshotIncludeOverlay")}
+          desc={t("settings.overlay.screenshotIncludeOverlayDesc")}
+          checked={settings.screenshotIncludeOverlay}
+          onChange={(on) => update({ screenshotIncludeOverlay: on })}
+        />
+
+        {/* Video */}
+        <div className="hw-pane-head" style={{ marginTop: "2rem" }}>
+          <h3 className="hw-pane-title">{t("settings.overlay.video")}</h3>
+          <p className="hw-pane-desc">{t("settings.overlay.videoDesc")}</p>
+        </div>
+
+        <SettingsToggleCard
+          title={t("settings.overlay.videoEnable")}
+          desc={t("settings.overlay.videoEnableHint")}
+          checked={settings.videoEnabled}
+          onChange={(on) => update({ videoEnabled: on })}
+        />
+
+        <div className="hw-duo">
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.videoHotkey")}
+              </label>
+              <span className="hw-card-value">
+                {settings.videoHotkey || "—"}
+              </span>
+            </div>
+            <p className="hw-card-help">
+              {t("settings.overlay.videoHotkeyDesc")}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setRecordingField((f) => (f === "video" ? null : "video"))
+              }
+            >
+              {recordingField === "video"
+                ? t("settings.overlay.hotkeyRecording")
+                : t("settings.overlay.hotkeyRecord")}
+            </Button>
+          </div>
+
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.replayHotkey")}
+              </label>
+              <span className="hw-card-value">
+                {settings.replayHotkey || "—"}
+              </span>
+            </div>
+            <p className="hw-card-help">
+              {t("settings.overlay.replayHotkeyDesc")}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setRecordingField((f) => (f === "replay" ? null : "replay"))
+              }
+            >
+              {recordingField === "replay"
+                ? t("settings.overlay.hotkeyRecording")
+                : t("settings.overlay.hotkeyRecord")}
+            </Button>
+          </div>
+        </div>
+
+        <div className="hw-duo" style={{ marginTop: "1rem" }}>
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.videoFps")}
+              </label>
+            </div>
+            <p className="hw-card-help">{t("settings.overlay.videoFpsDesc")}</p>
+            <div className="settings-segmented hw-seg" role="group">
+              {[30, 60, 120].map((fps) => (
+                <button
+                  key={fps}
+                  type="button"
+                  className={settings.videoFps === fps ? "active" : ""}
+                  onClick={() => update({ videoFps: fps })}
+                >
+                  {fps}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.videoBitrate")}
+              </label>
+            </div>
+            <p className="hw-card-help">
+              {t("settings.overlay.videoBitrateDesc")}
+            </p>
+            <div className="settings-segmented hw-seg" role="group">
+              {[
+                { kbps: 6000, label: t("settings.overlay.qualityLow") },
+                { kbps: 12000, label: t("settings.overlay.qualityMedium") },
+                { kbps: 24000, label: t("settings.overlay.qualityHigh") },
+              ].map((opt) => (
+                <button
+                  key={opt.kbps}
+                  type="button"
+                  className={settings.videoBitrateKbps === opt.kbps ? "active" : ""}
+                  onClick={() => update({ videoBitrateKbps: opt.kbps })}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="hw-card" style={{ marginTop: "1rem" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">
+              {t("settings.overlay.videoScale")}
+            </label>
+            <span className="hw-card-value">
+              {Math.round(settings.videoResolutionScale * 100)}%
+            </span>
+          </div>
+          <p className="hw-card-help">{t("settings.overlay.videoScaleDesc")}</p>
+          <div className="settings-segmented hw-seg" role="group">
+            {[
+              { scale: 1, label: "100%" },
+              { scale: 0.75, label: "75%" },
+              { scale: 0.5, label: "50%" },
+            ].map((opt) => (
+              <button
+                key={opt.scale}
+                type="button"
+                className={settings.videoResolutionScale === opt.scale ? "active" : ""}
+                onClick={() => update({ videoResolutionScale: opt.scale })}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="hw-duo" style={{ marginTop: "1rem" }}>
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.replaySeconds")}
+              </label>
+              <span className="hw-card-value">
+                {settings.replayBufferSeconds}s
+              </span>
+            </div>
+            <p className="hw-card-help">
+              {t("settings.overlay.replaySecondsDesc")}
+            </p>
+            <input
+              type="range"
+              className="hw-range"
+              min={15}
+              max={300}
+              step={15}
+              value={settings.replayBufferSeconds}
+              onChange={(event) =>
+                update({ replayBufferSeconds: Number(event.target.value) })
+              }
+            />
+          </div>
+
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.maxClip")}
+              </label>
+              <span className="hw-card-value">
+                {settings.videoMaxClipSeconds === 0
+                  ? t("settings.overlay.unlimited")
+                  : `${settings.videoMaxClipSeconds}s`}
+              </span>
+            </div>
+            <p className="hw-card-help">
+              {t("settings.overlay.maxClipDesc")}
+            </p>
+            <div className="settings-segmented hw-seg" role="group">
+              {[0, 60, 300, 900].map((secs) => (
+                <button
+                  key={secs}
+                  type="button"
+                  className={settings.videoMaxClipSeconds === secs ? "active" : ""}
+                  onClick={() => update({ videoMaxClipSeconds: secs })}
+                >
+                  {secs === 0 ? t("settings.overlay.unlimited") : `${secs}s`}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="hw-card" style={{ marginTop: "1rem" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">
+              {t("settings.overlay.videoFolder")}
+            </label>
+          </div>
+          <p className="hw-card-help">
+            {t("settings.overlay.videoFolderDesc")}
+          </p>
+          <input
+            type="text"
+            className="settings-input"
+            value={settings.videoFolder ?? ""}
+            placeholder={t("settings.overlay.folderPlaceholder")}
+            onChange={(event) =>
+              update({ videoFolder: event.target.value || null })
+            }
+          />
+        </div>
+
+        <SettingsToggleCard
+          title={t("settings.overlay.videoGameAudio")}
+          desc={t("settings.overlay.videoGameAudioDesc")}
+          checked={settings.videoGameAudio}
+          onChange={(on) => update({ videoGameAudio: on })}
+        />
+        <SettingsToggleCard
+          title={t("settings.overlay.videoMicrophone")}
+          desc={t("settings.overlay.videoMicrophoneDesc")}
+          checked={settings.videoMicrophone}
+          onChange={(on) => update({ videoMicrophone: on })}
+        />
+
+        <div className="hw-duo" style={{ marginTop: "1rem" }}>
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.audioDevice")}
+              </label>
+            </div>
+            <p className="hw-card-help">
+              {t("settings.overlay.audioDeviceDesc")}
+            </p>
+            <select
+              className="settings-input"
+              value={settings.videoAudioDevice ?? ""}
+              onChange={(event) =>
+                update({ videoAudioDevice: event.target.value || null })
+              }
+              aria-label={t("settings.overlay.audioDevice")}
+            >
+              <option value="">{t("settings.overlay.deviceDefault")}</option>
+              {audioDevices.output.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.name}
+                  {device.isDefault ? " ★" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">
+                {t("settings.overlay.micDevice")}
+              </label>
+            </div>
+            <p className="hw-card-help">{t("settings.overlay.micDeviceDesc")}</p>
+            <select
+              className="settings-input"
+              value={settings.videoMicDevice ?? ""}
+              onChange={(event) =>
+                update({ videoMicDevice: event.target.value || null })
+              }
+              aria-label={t("settings.overlay.micDevice")}
+            >
+              <option value="">{t("settings.overlay.deviceDefault")}</option>
+              {audioDevices.input.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.name}
+                  {device.isDefault ? " ★" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <SettingsToggleCard
+          title={t("settings.overlay.videoShowCursor")}
+          desc={t("settings.overlay.videoShowCursorDesc")}
+          checked={settings.videoShowCursor}
+          onChange={(on) => update({ videoShowCursor: on })}
+        />
+        <SettingsToggleCard
+          title={t("settings.overlay.videoHideOverlay")}
+          desc={t("settings.overlay.videoHideOverlayDesc")}
+          checked={settings.videoHideOverlay}
+          onChange={(on) => update({ videoHideOverlay: on })}
         />
       </SettingsSection>
 

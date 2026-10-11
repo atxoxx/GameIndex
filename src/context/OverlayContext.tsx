@@ -15,6 +15,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -49,6 +50,45 @@ export interface OverlaySettings {
   tickerHeight: number;
   panelWidth: number;
   panelHeight: number;
+
+  // ── Screenshot capture ─────────────────────────────────────────
+  /** `png` (lossless) or `jpg` (smaller). */
+  screenshotFormat: string;
+  /** Custom output folder, or null for `Videos\Captures\<Game>`. */
+  screenshotFolder?: string | null;
+  screenshotHotkey: string;
+  screenshotSound: boolean;
+  screenshotFlash: boolean;
+  screenshotCopyToClipboard: boolean;
+  /** Keep the HUD in the frame instead of hiding it first. */
+  screenshotIncludeOverlay: boolean;
+  screenshotDelayMs: number;
+
+  // ── Video capture ──────────────────────────────────────────────
+  videoEnabled: boolean;
+  videoHotkey: string;
+  replayHotkey: string;
+  videoFps: number;
+  videoBitrateKbps: number;
+  videoResolutionScale: number;
+  videoFormat: string;
+  /** Custom output folder, or null for `Videos\Captures\<Game>`. */
+  videoFolder?: string | null;
+  videoGameAudio: boolean;
+  videoMicrophone: boolean;
+  /** Output (render) device id for game-audio loopback; null = system default. */
+  videoAudioDevice?: string | null;
+  videoMicDevice?: string | null;
+  replayBufferSeconds: number;
+  /** Hard stop for a recording in seconds; 0 = unlimited. */
+  videoMaxClipSeconds: number;
+  videoShowCursor: boolean;
+  videoSound: boolean;
+  videoCountdownMs: number;
+  videoHideOverlay: boolean;
+  /** Session-scoped mirror of the backend flags. */
+  videoRecording?: boolean;
+  replayBufferActive?: boolean;
 }
 
 /** One live telemetry sample emitted on `overlay:metrics`. */
@@ -78,6 +118,50 @@ export interface ScreenshotCaptureInfo {
   height: number;
 }
 
+/** A finished video clip written by the native recorder. */
+export interface ClipInfo {
+  filePath: string;
+  fileName: string;
+  gameTitle: string;
+  timestamp: number;
+  durationMs: number;
+  width: number;
+  height: number;
+  /** `record` for a manual take, `replay` for a buffered dump. */
+  kind: string;
+}
+
+/** Mirrors the backend `RecordingState` (camelCase). */
+export interface RecordingState {
+  recording: boolean;
+  replayBuffering: boolean;
+  startedAt?: number | null;
+  durationMs: number;
+  error?: string | null;
+}
+
+export const EMPTY_RECORDING_STATE: RecordingState = {
+  recording: false,
+  replayBuffering: false,
+  startedAt: null,
+  durationMs: 0,
+  error: null,
+};
+
+/** One WASAPI endpoint for the recorder's device dropdowns. */
+export interface AudioDeviceInfo {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
+export interface AudioDeviceList {
+  output: AudioDeviceInfo[];
+  input: AudioDeviceInfo[];
+}
+
+export const EMPTY_AUDIO_DEVICES: AudioDeviceList = { output: [], input: [] };
+
 /** Ticker widget keys, in fixed display order. */
 export const TICKER_WIDGETS = ["fps", "cpu", "gpu", "session"] as const;
 
@@ -85,8 +169,9 @@ export const TICKER_WIDGETS = ["fps", "cpu", "gpu", "session"] as const;
 export const PANEL_WIDGETS = [
   "session",
   "performance",
-  "notes",
   "captures",
+  "recording",
+  "notes",
   "timer",
   "achievements",
   "downloads",
@@ -106,8 +191,9 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   panelWidgets: [
     "session",
     "performance",
-    "notes",
     "captures",
+    "recording",
+    "notes",
     "timer",
     "achievements",
     "downloads",
@@ -123,6 +209,34 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   tickerHeight: 56,
   panelWidth: 540,
   panelHeight: 620,
+  screenshotFormat: "png",
+  screenshotFolder: null,
+  screenshotHotkey: "F12",
+  screenshotSound: true,
+  screenshotFlash: true,
+  screenshotCopyToClipboard: true,
+  screenshotIncludeOverlay: false,
+  screenshotDelayMs: 60,
+  videoEnabled: true,
+  videoHotkey: "Shift+F2",
+  replayHotkey: "Shift+F3",
+  videoFps: 60,
+  videoBitrateKbps: 12000,
+  videoResolutionScale: 1,
+  videoFormat: "mp4",
+  videoFolder: null,
+  videoGameAudio: true,
+  videoMicrophone: false,
+  videoAudioDevice: null,
+  videoMicDevice: null,
+  replayBufferSeconds: 60,
+  videoMaxClipSeconds: 0,
+  videoShowCursor: false,
+  videoSound: true,
+  videoCountdownMs: 0,
+  videoHideOverlay: true,
+  videoRecording: false,
+  replayBufferActive: false,
 };
 
 export function normalizeOverlaySettings(
@@ -165,6 +279,31 @@ export interface OverlayContextValue {
   flashScreen: boolean;
   /** Discrete update of overlay settings persisted directly to backend */
   updateSettings: (patch: Partial<OverlaySettings>) => Promise<void>;
+
+  // ── Video capture ──────────────────────────────────────────────
+  /** False on non-Windows platforms (or unsupported hardware). */
+  captureSupported: boolean;
+  /** Live recorder state (recording + replay buffer). */
+  recordingState: RecordingState;
+  isRecording: boolean;
+  isReplayBuffering: boolean;
+  /** Recent clips for the active game. */
+  recentClips: string[];
+  /** The most recently finalized clip. */
+  lastClip: ClipInfo | null;
+  startRecording: () => Promise<void>;
+  stopRecording: () => Promise<ClipInfo | null>;
+  toggleRecording: () => Promise<void>;
+  startReplay: () => Promise<void>;
+  stopReplay: () => Promise<void>;
+  /** Promote the buffered replay window to a clip. */
+  saveReplay: () => Promise<ClipInfo | null>;
+  refreshClips: (gameTitle?: string) => Promise<void>;
+  deleteClip: (path: string) => Promise<boolean>;
+  openClipsFolder: (path?: string) => Promise<void>;
+  /** Available audio endpoints for the capture device dropdowns. */
+  audioDevices: AudioDeviceList;
+  refreshAudioDevices: () => Promise<void>;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -201,6 +340,33 @@ function playShutterSound() {
   }
 }
 
+/** Short rising (start) or falling (stop) tone for the recorder. */
+function playRecordTone(start: boolean) {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    const from = start ? 520 : 780;
+    const to = start ? 780 : 520;
+    osc.frequency.setValueAtTime(from, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(to, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  } catch {
+    // Audio unsupported or not permitted
+  }
+}
+
 export function OverlayProvider({ children }: { children: ReactNode }) {
   // The ticker is the always-on minimal readout, so the overlay boots
   // collapsed and the global hotkey expands it.
@@ -217,6 +383,14 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const [lastCapturedScreenshot, setLastCapturedScreenshot] =
     useState<ScreenshotCaptureInfo | null>(null);
   const [flashScreen, setFlashScreen] = useState(false);
+  const [captureSupported, setCaptureSupported] = useState(false);
+  const [recordingState, setRecordingState] =
+    useState<RecordingState>(EMPTY_RECORDING_STATE);
+  const [recentClips, setRecentClips] = useState<string[]>([]);
+  const [lastClip, setLastClip] = useState<ClipInfo | null>(null);
+  const [audioDevices, setAudioDevices] =
+    useState<AudioDeviceList>(EMPTY_AUDIO_DEVICES);
+  const prevRecordingRef = useRef(false);
 
   // Persist the window position/size after the user drags or resizes it.
   useOverlayBounds();
@@ -315,9 +489,14 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
           { gameTitle: gameTitle ?? null },
         );
         if (result) {
-          playShutterSound();
-          setFlashScreen(true);
-          setTimeout(() => setFlashScreen(false), 260);
+          if (settings.screenshotSound) playShutterSound();
+          if (settings.screenshotFlash) {
+            setFlashScreen(true);
+            setTimeout(() => setFlashScreen(false), 260);
+          }
+          if (settings.screenshotCopyToClipboard) {
+            navigator.clipboard?.writeText(result.filePath).catch(() => {});
+          }
           setLastCapturedScreenshot(result);
           setRecentScreenshots((prev) => [
             result.filePath,
@@ -333,8 +512,126 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
         setIsCapturing(false);
       }
     },
-    [isCapturing],
+    [
+      isCapturing,
+      settings.screenshotSound,
+      settings.screenshotFlash,
+      settings.screenshotCopyToClipboard,
+    ],
   );
+
+  const refreshClips = useCallback(async (gameTitle?: string) => {
+    try {
+      const list = await invoke<string[]>("capture_get_recent_clips", {
+        gameTitle: gameTitle ?? null,
+      });
+      if (Array.isArray(list)) setRecentClips(list);
+    } catch {
+      /* no-op */
+    }
+  }, []);
+
+  const openClipsFolder = useCallback(async (path?: string) => {
+    try {
+      await invoke("capture_open_clip_folder", { path: path ?? null });
+    } catch {
+      /* no-op */
+    }
+  }, []);
+
+  const refreshAudioDevices = useCallback(async () => {
+    try {
+      const list = await invoke<AudioDeviceList>("capture_list_audio_devices");
+      if (list) {
+        setAudioDevices({
+          output: list.output ?? [],
+          input: list.input ?? [],
+        });
+      }
+    } catch {
+      /* no-op */
+    }
+  }, []);
+
+  const deleteClip = useCallback(async (path: string): Promise<boolean> => {
+    try {
+      await invoke("capture_delete_clip", { path });
+      setRecentClips((prev) => prev.filter((p) => p !== path));
+      return true;
+    } catch (err) {
+      console.error("Failed to delete clip:", err);
+      return false;
+    }
+  }, []);
+
+  const applyRecordingState = useCallback((next: RecordingState | null) => {
+    if (next) setRecordingState(next);
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const next = await invoke<RecordingState>("capture_start_recording");
+      applyRecordingState(next);
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+    }
+  }, [applyRecordingState]);
+
+  const stopRecording = useCallback(async (): Promise<ClipInfo | null> => {
+    try {
+      const clip = await invoke<ClipInfo | null>("capture_stop_recording");
+      if (clip) {
+        setLastClip(clip);
+        void refreshClips();
+      }
+      applyRecordingState(EMPTY_RECORDING_STATE);
+      return clip ?? null;
+    } catch (err) {
+      console.error("Failed to stop recording:", err);
+      return null;
+    }
+  }, [applyRecordingState, refreshClips]);
+
+  const toggleRecording = useCallback(async () => {
+    try {
+      const next = await invoke<RecordingState>("capture_toggle_recording");
+      applyRecordingState(next);
+    } catch (err) {
+      console.error("Failed to toggle recording:", err);
+    }
+  }, [applyRecordingState]);
+
+  const startReplay = useCallback(async () => {
+    try {
+      const next = await invoke<RecordingState>("capture_start_replay");
+      applyRecordingState(next);
+    } catch (err) {
+      console.error("Failed to start replay buffer:", err);
+    }
+  }, [applyRecordingState]);
+
+  const stopReplay = useCallback(async () => {
+    try {
+      const next = await invoke<RecordingState>("capture_stop_replay");
+      applyRecordingState(next);
+    } catch (err) {
+      console.error("Failed to stop replay buffer:", err);
+    }
+  }, [applyRecordingState]);
+
+  const saveReplay = useCallback(async (): Promise<ClipInfo | null> => {
+    try {
+      const clip = await invoke<ClipInfo | null>("capture_save_replay");
+      if (clip) {
+        setLastClip(clip);
+        void refreshClips();
+      }
+      return clip ?? null;
+    } catch (err) {
+      console.error("Failed to save replay:", err);
+      return null;
+    }
+  }, [refreshClips]);
 
   // The backend emits `overlay:session` once, when the game launches — but the
   // overlay webview usually mounts after that, so the event is already gone.
@@ -357,6 +654,37 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshScreenshots();
   }, [session, refreshScreenshots]);
+
+  // Probe capture support and seed the recorder state once.
+  useEffect(() => {
+    invoke<boolean>("capture_is_supported")
+      .then((value) => setCaptureSupported(Boolean(value)))
+      .catch(() => {
+        /* no Tauri runtime */
+      });
+    invoke<RecordingState>("capture_get_state")
+      .then((value) => {
+        if (value) setRecordingState(value);
+      })
+      .catch(() => {
+        /* no Tauri runtime */
+      });
+    void refreshAudioDevices();
+  }, [refreshAudioDevices]);
+
+  // Refresh the clip list whenever the active game changes.
+  useEffect(() => {
+    void refreshClips();
+  }, [session, refreshClips]);
+
+  // Optional start/stop chime when a manual recording toggles.
+  useEffect(() => {
+    const now = recordingState.recording;
+    if (now !== prevRecordingRef.current) {
+      prevRecordingRef.current = now;
+      if (settings.videoSound) playRecordTone(now);
+    }
+  }, [recordingState.recording, settings.videoSound]);
 
   // Global F12 capture handler inside overlay
   useEffect(() => {
@@ -416,11 +744,28 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
         }
       },
     );
+    const captureStateUnlisten = listen<RecordingState>(
+      "capture:state",
+      (event) => {
+        if (event.payload) setRecordingState(event.payload);
+      },
+    );
+    const clipUnlisten = listen<ClipInfo>("capture:clip-saved", (event) => {
+      if (event.payload?.filePath) {
+        setLastClip(event.payload);
+        setRecentClips((prev) => [
+          event.payload.filePath,
+          ...prev.filter((p) => p !== event.payload.filePath),
+        ]);
+      }
+    });
     return () => {
       void toggleUnlisten.then((unlisten) => unlisten());
       void sessionUnlisten.then((unlisten) => unlisten());
       void metricsUnlisten.then((unlisten) => unlisten());
       void screenshotUnlisten.then((unlisten) => unlisten());
+      void captureStateUnlisten.then((unlisten) => unlisten());
+      void clipUnlisten.then((unlisten) => unlisten());
     };
   }, []);
 
@@ -447,6 +792,23 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       refreshScreenshots,
       flashScreen,
       updateSettings,
+      captureSupported,
+      recordingState,
+      isRecording: recordingState.recording,
+      isReplayBuffering: recordingState.replayBuffering,
+      recentClips,
+      lastClip,
+      startRecording,
+      stopRecording,
+      toggleRecording,
+      startReplay,
+      stopReplay,
+      saveReplay,
+      refreshClips,
+      deleteClip,
+      openClipsFolder,
+      audioDevices,
+      refreshAudioDevices,
     }),
     [
       collapsed,
@@ -468,6 +830,21 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       refreshScreenshots,
       flashScreen,
       updateSettings,
+      captureSupported,
+      recordingState,
+      recentClips,
+      lastClip,
+      startRecording,
+      stopRecording,
+      toggleRecording,
+      startReplay,
+      stopReplay,
+      saveReplay,
+      refreshClips,
+      deleteClip,
+      openClipsFolder,
+      audioDevices,
+      refreshAudioDevices,
     ],
   );
 

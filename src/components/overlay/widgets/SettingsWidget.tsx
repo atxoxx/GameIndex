@@ -10,11 +10,14 @@ import {
   Compass,
   Activity,
   Layers,
+  Camera,
+  Video,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   useOverlay,
   type OverlayCorner,
+  type OverlaySettings,
   TICKER_WIDGETS,
   PANEL_WIDGETS,
   DEFAULT_OVERLAY_SETTINGS,
@@ -45,9 +48,12 @@ function acceleratorFromEvent(event: KeyboardEvent): string | null {
 }
 
 export default function SettingsWidget() {
-  const { settings, updateSettings } = useOverlay();
+  const { settings, updateSettings, audioDevices } = useOverlay();
   const { t } = useLanguage();
   const [recording, setRecording] = useState(false);
+  const [captureField, setCaptureField] = useState<
+    "screenshot" | "video" | "replay" | null
+  >(null);
 
   // Key combination capture for hotkey recording
   useEffect(() => {
@@ -73,6 +79,33 @@ export default function SettingsWidget() {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [recording, updateSettings]);
+
+  // Capture-binding recording (screenshot / record / replay hotkeys).
+  useEffect(() => {
+    if (!captureField) return;
+    const FIELD_KEY = {
+      screenshot: "screenshotHotkey",
+      video: "videoHotkey",
+      replay: "replayHotkey",
+    } as const;
+    const onKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        setCaptureField(null);
+        return;
+      }
+      const accelerator = acceleratorFromEvent(event);
+      if (!accelerator) return;
+      const field = captureField;
+      setCaptureField(null);
+      void updateSettings({
+        [FIELD_KEY[field]]: accelerator,
+      } as Partial<OverlaySettings>);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [captureField, updateSettings]);
 
   const handleCornerSelect = (corner: OverlayCorner) => {
     void invoke("overlay_set_corner", { corner })
@@ -227,7 +260,285 @@ export default function SettingsWidget() {
           </div>
         </div>
 
-        {/* Section 3: Visible Widgets */}
+        {/* Section 3: Capture (screenshots + video) */}
+        <div className="overlay-settings-section">
+          <div className="overlay-settings-section__title">
+            <Camera size={13} />
+            <span>{t("overlay.settings.capture")}</span>
+          </div>
+
+          <div className="overlay-setting-block">
+            <span className="overlay-setting-block__label">
+              {t("overlay.settings.screenshotFormat")}
+            </span>
+            <div className="overlay-chips-list">
+              {["png", "jpg"].map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  className={`overlay-chip${
+                    settings.screenshotFormat === fmt ? " active" : ""
+                  }`}
+                  onClick={() => void updateSettings({ screenshotFormat: fmt })}
+                >
+                  {fmt.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="overlay-setting-row overlay-setting-row--hotkey">
+            <div className="overlay-setting-row__info">
+              <span className="overlay-setting-row__label">
+                {t("overlay.settings.screenshotHotkey")}
+              </span>
+              <span className="overlay-hotkey-badge">
+                {settings.screenshotHotkey}
+              </span>
+            </div>
+            <Button
+              variant={captureField === "screenshot" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() =>
+                setCaptureField((f) => (f === "screenshot" ? null : "screenshot"))
+              }
+            >
+              {captureField === "screenshot"
+                ? t("overlay.settings.hotkeyRecording")
+                : t("overlay.settings.hotkeyRecord")}
+            </Button>
+          </div>
+
+          <div className="overlay-toggles-duo">
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.screenshotSound}
+                onChange={(e) =>
+                  void updateSettings({ screenshotSound: e.target.checked })
+                }
+              />
+              <span>{t("overlay.settings.screenshotSound")}</span>
+            </label>
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.screenshotFlash}
+                onChange={(e) =>
+                  void updateSettings({ screenshotFlash: e.target.checked })
+                }
+              />
+              <span>{t("overlay.settings.screenshotFlash")}</span>
+            </label>
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.screenshotCopyToClipboard}
+                onChange={(e) =>
+                  void updateSettings({
+                    screenshotCopyToClipboard: e.target.checked,
+                  })
+                }
+              />
+              <span>{t("overlay.settings.screenshotClipboard")}</span>
+            </label>
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.screenshotIncludeOverlay}
+                onChange={(e) =>
+                  void updateSettings({
+                    screenshotIncludeOverlay: e.target.checked,
+                  })
+                }
+              />
+              <span>{t("overlay.settings.screenshotIncludeOverlay")}</span>
+            </label>
+          </div>
+
+          <div className="overlay-setting-block">
+            <span className="overlay-setting-block__label">
+              <Video size={12} className="mr-1 inline-block" />
+              {t("overlay.settings.video")}
+            </span>
+
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.videoEnabled}
+                onChange={(e) =>
+                  void updateSettings({ videoEnabled: e.target.checked })
+                }
+              />
+              <span>{t("overlay.settings.videoEnable")}</span>
+            </label>
+
+            <div className="overlay-corner-grid" style={{ marginTop: "0.4rem" }}>
+              {[30, 60, 120].map((fps) => (
+                <button
+                  key={fps}
+                  type="button"
+                  className={`overlay-corner-cell${
+                    settings.videoFps === fps ? " active" : ""
+                  }`}
+                  onClick={() => void updateSettings({ videoFps: fps })}
+                >
+                  <span>{fps} FPS</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="overlay-chips-list" style={{ marginTop: "0.4rem" }}>
+              {[
+                { kbps: 6000, key: "overlay.settings.qualityLow" },
+                { kbps: 12000, key: "overlay.settings.qualityMedium" },
+                { kbps: 24000, key: "overlay.settings.qualityHigh" },
+              ].map((opt) => (
+                <button
+                  key={opt.kbps}
+                  type="button"
+                  className={`overlay-chip${
+                    settings.videoBitrateKbps === opt.kbps ? " active" : ""
+                  }`}
+                  onClick={() =>
+                    void updateSettings({ videoBitrateKbps: opt.kbps })
+                  }
+                >
+                  {t(opt.key)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="overlay-setting-row overlay-setting-row--hotkey">
+            <div className="overlay-setting-row__info">
+              <span className="overlay-setting-row__label">
+                {t("overlay.settings.videoHotkey")}
+              </span>
+              <span className="overlay-hotkey-badge">{settings.videoHotkey}</span>
+            </div>
+            <Button
+              variant={captureField === "video" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() =>
+                setCaptureField((f) => (f === "video" ? null : "video"))
+              }
+            >
+              {captureField === "video"
+                ? t("overlay.settings.hotkeyRecording")
+                : t("overlay.settings.hotkeyRecord")}
+            </Button>
+          </div>
+
+          <div className="overlay-setting-row overlay-setting-row--hotkey">
+            <div className="overlay-setting-row__info">
+              <span className="overlay-setting-row__label">
+                {t("overlay.settings.replayHotkey")}
+              </span>
+              <span className="overlay-hotkey-badge">
+                {settings.replayHotkey}
+              </span>
+            </div>
+            <Button
+              variant={captureField === "replay" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() =>
+                setCaptureField((f) => (f === "replay" ? null : "replay"))
+              }
+            >
+              {captureField === "replay"
+                ? t("overlay.settings.hotkeyRecording")
+                : t("overlay.settings.hotkeyRecord")}
+            </Button>
+          </div>
+
+          <div className="overlay-toggles-duo">
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.videoGameAudio}
+                onChange={(e) =>
+                  void updateSettings({ videoGameAudio: e.target.checked })
+                }
+              />
+              <span>{t("overlay.settings.videoGameAudio")}</span>
+            </label>
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.videoMicrophone}
+                onChange={(e) =>
+                  void updateSettings({ videoMicrophone: e.target.checked })
+                }
+              />
+              <span>{t("overlay.settings.videoMicrophone")}</span>
+            </label>
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.videoShowCursor}
+                onChange={(e) =>
+                  void updateSettings({ videoShowCursor: e.target.checked })
+                }
+              />
+              <span>{t("overlay.settings.videoShowCursor")}</span>
+            </label>
+            <label className="overlay-toggle-item">
+              <input
+                type="checkbox"
+                checked={settings.videoHideOverlay}
+                onChange={(e) =>
+                  void updateSettings({ videoHideOverlay: e.target.checked })
+                }
+              />
+              <span>{t("overlay.settings.videoHideOverlay")}</span>
+            </label>
+          </div>
+
+          <div className="overlay-setting-block">
+            <span className="overlay-setting-block__label">
+              {t("overlay.settings.audioDevice")}
+            </span>
+            <select
+              className="overlay-device-select"
+              value={settings.videoAudioDevice ?? ""}
+              onChange={(e) =>
+                void updateSettings({ videoAudioDevice: e.target.value || null })
+              }
+              aria-label={t("overlay.settings.audioDevice")}
+            >
+              <option value="">{t("overlay.settings.deviceDefault")}</option>
+              {audioDevices.output.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.name}
+                  {device.isDefault ? " ★" : ""}
+                </option>
+              ))}
+            </select>
+
+            <span className="overlay-setting-block__label">
+              {t("overlay.settings.micDevice")}
+            </span>
+            <select
+              className="overlay-device-select"
+              value={settings.videoMicDevice ?? ""}
+              onChange={(e) =>
+                void updateSettings({ videoMicDevice: e.target.value || null })
+              }
+              aria-label={t("overlay.settings.micDevice")}
+            >
+              <option value="">{t("overlay.settings.deviceDefault")}</option>
+              {audioDevices.input.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.name}
+                  {device.isDefault ? " ★" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Section 4: Visible Widgets */}
         <div className="overlay-settings-section">
           <div className="overlay-settings-section__title">
             <Layers size={13} />

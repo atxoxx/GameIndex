@@ -2381,3 +2381,123 @@ body.overlay-window #root {
     transform: scale(1.3);
   }
 }
+
+/* ── Recording widget (video capture) ──────────────────────────────────── */
+
+.overlay-record-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  margin-bottom: 0.6rem;
+}
+
+.overlay-record-status__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.overlay-record-status--recording {
+  color: var(--color-text-primary);
+  border-color: var(--color-danger, #ef4444);
+}
+
+.overlay-record-status--recording .overlay-record-status__dot {
+  background: var(--color-danger, #ef4444);
+  animation: overlayRecordPulse 1.1s ease-in-out infinite;
+}
+
+.overlay-record-status--replay .overlay-record-status__dot {
+  background: var(--color-accent);
+}
+
+.overlay-record-status--error {
+  border-color: var(--color-danger, #ef4444);
+  color: var(--color-danger, #ef4444);
+}
+
+.overlay-record-status--unsupported {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+@keyframes overlayRecordPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.overlay-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.overlay-clips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.overlay-clip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.overlay-clip-row__icon {
+  color: var(--color-accent);
+  display: flex;
+  flex-shrink: 0;
+}
+
+.overlay-clip-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.overlay-clip-row__actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.overlay-device-select {
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 0.78rem;
+}
+
+.overlay-device-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}

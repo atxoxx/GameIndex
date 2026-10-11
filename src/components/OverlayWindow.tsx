@@ -13,6 +13,7 @@ import { OverlayProvider } from "../context/OverlayContext";
 import OverlayPage from "../pages/OverlayPage";
 import ResizeHandles from "./ResizeHandles";
 import { GameAccentSync } from "./GameAccentSync";
+import { OverlayAdaptiveTheme } from "./OverlayAdaptiveTheme";
 // Only the styles the overlay actually needs — the full App.css barrel
 // would drag every page stylesheet into this short-lived window.
 import "../styles/theme.css";
@@ -50,6 +51,7 @@ export default function OverlayWindow() {
                     <DownloadProvider>
                       <SettingsProvider>
                         <GameAccentSync />
+                        <OverlayAdaptiveTheme />
                         <OverlayProvider>
                           <OverlayPage />
                           <ResizeHandles />

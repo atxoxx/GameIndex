@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, type ComponentType, type ReactNode } from
 import {
   ChevronDown,
   Camera,
+  Video,
   Timer,
   Sliders,
   Gamepad2,
@@ -25,6 +26,7 @@ import DownloadsWidget from "./widgets/DownloadsWidget";
 import NotificationsWidget from "./widgets/NotificationsWidget";
 import NotesWidget from "./widgets/NotesWidget";
 import ScreenshotsWidget from "./widgets/ScreenshotsWidget";
+import RecordingWidget from "./widgets/RecordingWidget";
 import TimerWidget from "./widgets/TimerWidget";
 import SettingsWidget from "./widgets/SettingsWidget";
 
@@ -58,7 +60,7 @@ const GROUPS: OverlayGroup[] = [
     id: "captures",
     labelKey: "overlay.group.captures",
     icon: <Camera size={13} />,
-    widgets: { captures: ScreenshotsWidget },
+    widgets: { captures: ScreenshotsWidget, recording: RecordingWidget },
   },
   {
     id: "timer",
@@ -96,6 +98,9 @@ export default function OverlayPanel() {
     lastCapturedScreenshot,
     openScreenshotsFolder,
     flashScreen,
+    captureSupported,
+    isRecording,
+    toggleRecording,
   } = useOverlay();
   const gameCtx = useOptionalGames();
   const games = gameCtx?.games ?? [];
@@ -223,6 +228,24 @@ export default function OverlayPanel() {
               <Camera size={14} />
             )}
           </button>
+
+          {captureSupported && (
+            <button
+              type="button"
+              className={`overlay-quick-action-btn overlay-record-action${
+                isRecording ? " active" : ""
+              }`}
+              onClick={() => void toggleRecording()}
+              title={
+                isRecording
+                  ? t("overlay.recording.stop")
+                  : t("overlay.recording.start")
+              }
+              aria-label={t("overlay.recording.start")}
+            >
+              <Video size={14} />
+            </button>
+          )}
 
           <button
             type="button"
