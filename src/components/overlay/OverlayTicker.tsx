@@ -18,6 +18,7 @@ import {
   Thermometer,
   ThermometerSun,
   MemoryStick,
+  MousePointerClick,
 } from "lucide-react";
 import { useOverlay } from "../../context/OverlayContext";
 import { useDownloads } from "../../context/DownloadContext";
@@ -37,9 +38,17 @@ function formatPercent(value: number | undefined): string {
 }
 
 function formatTemp(value: number | undefined): string {
-  return typeof value === "number" && Number.isFinite(value)
+  // A non-positive reading means "no sensor reported"; never show a fake 0°.
+  return typeof value === "number" && Number.isFinite(value) && value > 0
     ? `${Math.round(value)}°`
     : "—";
+}
+
+/** Coerce an unknown (non-positive) temperature to `undefined` for gauges. */
+function knownTemp(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
 }
 
 /** Accent ramp shared by the metric pills and the gauge cluster. */
@@ -157,6 +166,7 @@ export default function OverlayTicker() {
   );
 
   const micOn = settings.videoMicrophone && (isRecording || isReplayBuffering);
+  const clickThrough = Boolean(settings.tickerClickThrough);
 
   const handleSnap = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -330,17 +340,30 @@ export default function OverlayTicker() {
         </Badge>
       )}
 
-      <button
-        type="button"
-        className="overlay-ticker__expand"
-        data-testid="overlay-ticker-expand"
-        data-tauri-drag-region="false"
-        onClick={expand}
-        aria-label={t("overlay.ticker.expand")}
-        title={t("overlay.ticker.expand")}
-      >
-        <Maximize2 aria-hidden size={13} />
-      </button>
+      {clickThrough ? (
+        // The ticker ignores the mouse in click-through mode, so the expand
+        // button would be dead; show the toggle hotkey instead.
+        <span
+          className="overlay-ticker__clickthrough-hint"
+          data-testid="overlay-ticker-clickthrough"
+          title={t("overlay.settings.clickThroughDesc")}
+        >
+          <MousePointerClick aria-hidden size={12} />
+          <kbd>{settings.hotkey}</kbd>
+        </span>
+      ) : (
+        <button
+          type="button"
+          className="overlay-ticker__expand"
+          data-testid="overlay-ticker-expand"
+          data-tauri-drag-region="false"
+          onClick={expand}
+          aria-label={t("overlay.ticker.expand")}
+          title={t("overlay.ticker.expand")}
+        >
+          <Maximize2 aria-hidden size={13} />
+        </button>
+      )}
     </div>
   );
 
@@ -389,7 +412,7 @@ export default function OverlayTicker() {
       {show("cpuTemp") && (
         <OverlayGauge
           label={t("overlay.metric.cpuTemp")}
-          value={metrics?.cpuTemp}
+          value={knownTemp(metrics?.cpuTemp)}
           unit="°"
           max={100}
           intent="default"
@@ -401,7 +424,7 @@ export default function OverlayTicker() {
       {show("gpuTemp") && (
         <OverlayGauge
           label={t("overlay.metric.gpuTemp")}
-          value={metrics?.gpuTemp}
+          value={knownTemp(metrics?.gpuTemp)}
           unit="°"
           max={100}
           intent="default"

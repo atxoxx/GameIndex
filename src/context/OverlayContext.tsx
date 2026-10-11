@@ -59,6 +59,8 @@ export interface OverlaySettings {
   nativeBlur?: boolean;
   /** Drop the costly backdrop-filter and animated glows for performance. */
   reduceEffects?: boolean;
+  /** Collapsed ticker ignores the mouse so clicks reach the game. */
+  tickerClickThrough?: boolean;
   pollIntervalMs: number;
   /** Render CPU/GPU temperature tiles in the performance widget. */
   showTemps: boolean;
@@ -255,6 +257,7 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   backgroundOpacity: 0.72,
   nativeBlur: true,
   reduceEffects: false,
+  tickerClickThrough: false,
   pollIntervalMs: 1000,
   showTemps: true,
   showGraphs: true,
@@ -875,10 +878,16 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     });
     // The main window (or the in-overlay controls) persist settings through
     // the backend, which broadcasts them here so an open HUD updates live.
+    // Skip the echo when nothing actually changed, so a burst of edits (e.g.
+    // dragging a slider) doesn't re-render on every round-trip.
     const settingsUnlisten = listen<OverlaySettings>(
       "overlay:settings",
       (event) => {
-        if (event.payload) setSettings(normalizeOverlaySettings(event.payload));
+        if (!event.payload) return;
+        setSettings((prev) => {
+          const next = normalizeOverlaySettings(event.payload);
+          return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+        });
       },
     );
     const screenshotUnlisten = listen<ScreenshotCaptureInfo>(

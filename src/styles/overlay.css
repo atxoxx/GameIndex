@@ -3059,6 +3059,28 @@ body.overlay-window #root {
   color: var(--color-text-tertiary);
 }
 
+/* Click-through mode: the expand button is inert, so we show the toggle hotkey
+   instead of an unclickable control. */
+.overlay-ticker__clickthrough-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-faint);
+  color: var(--color-text-tertiary);
+  font-size: 0.68rem;
+}
+
+.overlay-ticker__clickthrough-hint kbd {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--color-accent);
+  letter-spacing: 0.04em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .overlay-gauge__value,
   .overlay-ticker__pill,

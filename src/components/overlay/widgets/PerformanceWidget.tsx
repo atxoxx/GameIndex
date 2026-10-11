@@ -11,7 +11,8 @@ function formatPercent(value: number | undefined): string {
 }
 
 function formatTemp(value: number | undefined): string {
-  return typeof value === "number" && Number.isFinite(value)
+  // Non-positive => no sensor; never surface a fabricated 0°.
+  return typeof value === "number" && Number.isFinite(value) && value > 0
     ? `${Math.round(value)}°`
     : "—";
 }
@@ -33,7 +34,10 @@ function series(
   const out: number[] = [];
   for (const sample of history) {
     const value = sample[key];
-    if (typeof value === "number" && Number.isFinite(value)) out.push(value);
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    // Temperatures of 0 mean "no sensor reported"; keep them out of the plot.
+    if ((key === "cpuTemp" || key === "gpuTemp") && value <= 0) continue;
+    out.push(value);
   }
   return out;
 }
