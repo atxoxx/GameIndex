@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
+  Accessibility,
   Activity,
   Bell,
   Camera,
@@ -34,6 +35,11 @@ import {
 } from "../../context/OverlayContext";
 import { Button, Skeleton } from "../../components/ui";
 import { TICKER_LAYOUTS } from "../../components/overlay/overlayLayout";
+import {
+  OverlayFieldChips,
+  OverlayFieldSlider,
+  OverlayFieldToggle,
+} from "../../components/overlay/settings/fields";
 import { OverlayIcon } from "./settingsIcons";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -411,46 +417,40 @@ export default function OverlayTab() {
               </label>
             </div>
             <p className="hw-card-help">{t("settings.overlay.cornerDesc")}</p>
-            <div
+            <OverlayFieldChips
               className="settings-segmented hw-seg"
               role="group"
-              aria-label={t("settings.overlay.aria.corner")}
-            >
-              {CORNERS.map((corner) => (
-                <button
-                  key={corner.id}
-                  type="button"
-                  className={settings.corner === corner.id ? "active" : ""}
-                  onClick={() => update({ corner: corner.id })}
-                >
-                  {t(corner.labelKey)}
-                </button>
-              ))}
-            </div>
+              ariaLabel={t("settings.overlay.aria.corner")}
+              options={CORNERS.map((corner) => ({
+                id: corner.id,
+                label: t(corner.labelKey),
+              }))}
+              value={settings.corner}
+              onChange={(corner) => update({ corner })}
+            />
           </div>
         </div>
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
-          <div className="hw-card-head">
-            <label className="hw-card-label">
-              {t("settings.overlay.opacity")}
-            </label>
-            <span className="hw-card-value">
-              {Math.round(settings.opacity * 100)}%
-            </span>
-          </div>
-          <p className="hw-card-help">{t("settings.overlay.opacityDesc")}</p>
-          <input
-            type="range"
-            className="hw-range"
-            min={0.2}
-            max={1}
-            step={0.05}
-            value={settings.opacity}
-            onChange={(event) => update({ opacity: Number(event.target.value) })}
-            aria-label={t("settings.overlay.aria.opacity")}
-          />
-        </div>
+        <OverlayFieldSlider
+          className="hw-card"
+          style={{ marginTop: "1rem" }}
+          infoClassName="hw-card-head"
+          labelAs="label"
+          labelClassName="hw-card-label"
+          valueClassName="hw-card-value"
+          inputClassName="hw-range"
+          ariaLabel={t("settings.overlay.aria.opacity")}
+          help={
+            <p className="hw-card-help">{t("settings.overlay.opacityDesc")}</p>
+          }
+          label={t("settings.overlay.opacity")}
+          display={`${Math.round(settings.opacity * 100)}%`}
+          value={settings.opacity}
+          min={0.2}
+          max={1}
+          step={0.05}
+          onChange={(opacity) => update({ opacity })}
+        />
 
         <div className="hw-card" style={{ marginTop: "1rem" }}>
           <div className="hw-card-head">
@@ -459,25 +459,18 @@ export default function OverlayTab() {
             </label>
           </div>
           <p className="hw-card-help">{t("settings.overlay.layoutDesc")}</p>
-          <div
+          <OverlayFieldChips
             className="settings-segmented hw-seg"
             role="group"
-            aria-label={t("settings.overlay.aria.layout")}
-          >
-            {TICKER_LAYOUTS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={
-                  (settings.tickerLayout ?? "strip") === option.id ? "active" : ""
-                }
-                onClick={() => update({ tickerLayout: option.id })}
-                title={t(option.hintKey)}
-              >
-                {t(option.labelKey)}
-              </button>
-            ))}
-          </div>
+            ariaLabel={t("settings.overlay.aria.layout")}
+            options={TICKER_LAYOUTS.map((option) => ({
+              id: option.id,
+              label: t(option.labelKey),
+              title: t(option.hintKey),
+            }))}
+            value={settings.tickerLayout ?? "strip"}
+            onChange={(tickerLayout) => update({ tickerLayout })}
+          />
         </div>
 
         <div className="hw-card" style={{ marginTop: "1rem" }}>
@@ -487,40 +480,27 @@ export default function OverlayTab() {
             </label>
           </div>
           <p className="hw-card-help">{t("settings.overlay.backgroundDesc")}</p>
-          <div
+          <OverlayFieldChips
             className="settings-segmented hw-seg"
             role="group"
-            aria-label={t("settings.overlay.aria.background")}
-          >
-            {(["glass", "solid", "dim"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                className={
-                  (settings.backgroundStyle ?? "glass") === mode ? "active" : ""
-                }
-                onClick={() => update({ backgroundStyle: mode })}
-              >
-                {t(BG_KEYS[mode])}
-              </button>
-            ))}
-          </div>
+            ariaLabel={t("settings.overlay.aria.background")}
+            options={(["glass", "solid", "dim"] as const).map((mode) => ({
+              id: mode,
+              label: t(BG_KEYS[mode]),
+            }))}
+            value={settings.backgroundStyle ?? "glass"}
+            onChange={(backgroundStyle) => update({ backgroundStyle })}
+          />
 
           {(settings.backgroundStyle ?? "glass") === "glass" &&
             nativeBlurSupported && (
-              <label
+              <OverlayFieldToggle
                 className="overlay-toggle-item"
                 style={{ marginTop: "0.75rem" }}
-              >
-                <input
-                  type="checkbox"
-                  checked={settings.nativeBlur ?? true}
-                  onChange={(event) =>
-                    update({ nativeBlur: event.target.checked })
-                  }
-                />
-                <span>{t("overlay.settings.nativeBlur")}</span>
-              </label>
+                label={t("overlay.settings.nativeBlur")}
+                checked={settings.nativeBlur ?? true}
+                onChange={(nativeBlur) => update({ nativeBlur })}
+              />
             )}
 
           {(settings.backgroundStyle ?? "glass") === "glass" &&
@@ -529,52 +509,40 @@ export default function OverlayTab() {
               (settings.nativeBlur ?? true) &&
               !settings.reduceEffects
             ) && (
-              <div style={{ marginTop: "0.75rem" }}>
-                <div className="hw-card-head">
-                  <label className="hw-card-label">
-                    {t("overlay.settings.bgBlur")}
-                  </label>
-                  <span className="hw-card-value">
-                    {Math.round(settings.backgroundBlur ?? 14)}px
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  className="hw-range"
-                  min={0}
-                  max={30}
-                  step={1}
-                  value={settings.backgroundBlur ?? 14}
-                  onChange={(event) =>
-                    update({ backgroundBlur: Number(event.target.value) })
-                  }
-                  aria-label={t("overlay.settings.bgBlur")}
-                />
-              </div>
+              <OverlayFieldSlider
+                style={{ marginTop: "0.75rem" }}
+                infoClassName="hw-card-head"
+                labelAs="label"
+                labelClassName="hw-card-label"
+                valueClassName="hw-card-value"
+                inputClassName="hw-range"
+                ariaLabel={t("overlay.settings.bgBlur")}
+                label={t("overlay.settings.bgBlur")}
+                display={`${Math.round(settings.backgroundBlur ?? 14)}px`}
+                value={settings.backgroundBlur ?? 14}
+                min={0}
+                max={30}
+                step={1}
+                onChange={(backgroundBlur) => update({ backgroundBlur })}
+              />
             )}
 
-          <div style={{ marginTop: "0.75rem" }}>
-            <div className="hw-card-head">
-              <label className="hw-card-label">
-                {t("overlay.settings.bgOpacity")}
-              </label>
-              <span className="hw-card-value">
-                {Math.round((settings.backgroundOpacity ?? 0.72) * 100)}%
-              </span>
-            </div>
-            <input
-              type="range"
-              className="hw-range"
-              min={0.2}
-              max={1}
-              step={0.02}
-              value={settings.backgroundOpacity ?? 0.72}
-              onChange={(event) =>
-                update({ backgroundOpacity: Number(event.target.value) })
-              }
-              aria-label={t("overlay.settings.bgOpacity")}
-            />
-          </div>
+          <OverlayFieldSlider
+            style={{ marginTop: "0.75rem" }}
+            infoClassName="hw-card-head"
+            labelAs="label"
+            labelClassName="hw-card-label"
+            valueClassName="hw-card-value"
+            inputClassName="hw-range"
+            ariaLabel={t("overlay.settings.bgOpacity")}
+            label={t("overlay.settings.bgOpacity")}
+            display={`${Math.round((settings.backgroundOpacity ?? 0.72) * 100)}%`}
+            value={settings.backgroundOpacity ?? 0.72}
+            min={0.2}
+            max={1}
+            step={0.02}
+            onChange={(backgroundOpacity) => update({ backgroundOpacity })}
+          />
         </div>
 
         <SettingsToggleCard
@@ -632,6 +600,42 @@ export default function OverlayTab() {
       </SettingsSection>
 
       <SettingsSection
+        id="overlay-accessibility"
+        icon={<Accessibility />}
+        title={t("overlay.settings.accessibility")}
+        desc={t("settings.overlay.desc")}
+      >
+        <SettingsToggleCard
+          title={t("overlay.settings.highContrast")}
+          desc={t("settings.overlay.highContrastDesc")}
+          checked={settings.highContrast ?? false}
+          onChange={(on) => update({ highContrast: on })}
+        />
+
+        <OverlayFieldSlider
+          className="hw-card"
+          style={{ marginTop: "1rem" }}
+          infoClassName="hw-card-head"
+          labelAs="label"
+          labelClassName="hw-card-label"
+          valueClassName="hw-card-value"
+          inputClassName="hw-range"
+          help={
+            <p className="hw-card-help">
+              {t("settings.overlay.textScaleDesc")}
+            </p>
+          }
+          label={t("overlay.settings.textScale")}
+          display={`${Math.round((settings.textScale ?? 1) * 100)}%`}
+          value={settings.textScale ?? 1}
+          min={0.9}
+          max={1.4}
+          step={0.05}
+          onChange={(textScale) => update({ textScale })}
+        />
+      </SettingsSection>
+
+      <SettingsSection
         id="overlay-capture"
         icon={<Camera />}
         title={t("settings.overlay.sectionCapture")}
@@ -684,18 +688,16 @@ export default function OverlayTab() {
             <p className="hw-card-help">
               {t("settings.overlay.screenshotFormatDesc")}
             </p>
-            <div className="settings-segmented hw-seg" role="group">
-              {["png", "jpg"].map((fmt) => (
-                <button
-                  key={fmt}
-                  type="button"
-                  className={settings.screenshotFormat === fmt ? "active" : ""}
-                  onClick={() => update({ screenshotFormat: fmt })}
-                >
-                  {fmt.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            <OverlayFieldChips
+              className="settings-segmented hw-seg"
+              role="group"
+              options={["png", "jpg"].map((fmt) => ({
+                id: fmt,
+                label: fmt.toUpperCase(),
+              }))}
+              value={settings.screenshotFormat}
+              onChange={(screenshotFormat) => update({ screenshotFormat })}
+            />
           </div>
         </div>
 
@@ -719,28 +721,27 @@ export default function OverlayTab() {
           />
         </div>
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
-          <div className="hw-card-head">
-            <label className="hw-card-label">
-              {t("settings.overlay.screenshotDelay")}
-            </label>
-            <span className="hw-card-value">{settings.screenshotDelayMs} ms</span>
-          </div>
-          <p className="hw-card-help">
-            {t("settings.overlay.screenshotDelayDesc")}
-          </p>
-          <input
-            type="range"
-            className="hw-range"
-            min={20}
-            max={1000}
-            step={20}
-            value={settings.screenshotDelayMs}
-            onChange={(event) =>
-              update({ screenshotDelayMs: Number(event.target.value) })
-            }
-          />
-        </div>
+        <OverlayFieldSlider
+          className="hw-card"
+          style={{ marginTop: "1rem" }}
+          infoClassName="hw-card-head"
+          labelAs="label"
+          labelClassName="hw-card-label"
+          valueClassName="hw-card-value"
+          inputClassName="hw-range"
+          help={
+            <p className="hw-card-help">
+              {t("settings.overlay.screenshotDelayDesc")}
+            </p>
+          }
+          label={t("settings.overlay.screenshotDelay")}
+          display={`${settings.screenshotDelayMs} ms`}
+          value={settings.screenshotDelayMs}
+          min={20}
+          max={1000}
+          step={20}
+          onChange={(screenshotDelayMs) => update({ screenshotDelayMs })}
+        />
 
         <SettingsToggleCard
           title={t("settings.overlay.screenshotSound")}
@@ -840,18 +841,16 @@ export default function OverlayTab() {
               </label>
             </div>
             <p className="hw-card-help">{t("settings.overlay.videoFpsDesc")}</p>
-            <div className="settings-segmented hw-seg" role="group">
-              {[30, 60, 120].map((fps) => (
-                <button
-                  key={fps}
-                  type="button"
-                  className={settings.videoFps === fps ? "active" : ""}
-                  onClick={() => update({ videoFps: fps })}
-                >
-                  {fps}
-                </button>
-              ))}
-            </div>
+            <OverlayFieldChips
+              className="settings-segmented hw-seg"
+              role="group"
+              options={[30, 60, 120].map((fps) => ({
+                id: fps,
+                label: fps,
+              }))}
+              value={settings.videoFps}
+              onChange={(videoFps) => update({ videoFps })}
+            />
           </div>
 
           <div className="hw-card">
@@ -863,22 +862,20 @@ export default function OverlayTab() {
             <p className="hw-card-help">
               {t("settings.overlay.videoBitrateDesc")}
             </p>
-            <div className="settings-segmented hw-seg" role="group">
-              {[
+            <OverlayFieldChips
+              className="settings-segmented hw-seg"
+              role="group"
+              options={[
                 { kbps: 6000, label: t("settings.overlay.qualityLow") },
                 { kbps: 12000, label: t("settings.overlay.qualityMedium") },
                 { kbps: 24000, label: t("settings.overlay.qualityHigh") },
-              ].map((opt) => (
-                <button
-                  key={opt.kbps}
-                  type="button"
-                  className={settings.videoBitrateKbps === opt.kbps ? "active" : ""}
-                  onClick={() => update({ videoBitrateKbps: opt.kbps })}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+              ].map((opt) => ({
+                id: opt.kbps,
+                label: opt.label,
+              }))}
+              value={settings.videoBitrateKbps}
+              onChange={(videoBitrateKbps) => update({ videoBitrateKbps })}
+            />
           </div>
         </div>
 
@@ -892,49 +889,43 @@ export default function OverlayTab() {
             </span>
           </div>
           <p className="hw-card-help">{t("settings.overlay.videoScaleDesc")}</p>
-          <div className="settings-segmented hw-seg" role="group">
-            {[
+          <OverlayFieldChips
+            className="settings-segmented hw-seg"
+            role="group"
+            options={[
               { scale: 1, label: "100%" },
               { scale: 0.75, label: "75%" },
               { scale: 0.5, label: "50%" },
-            ].map((opt) => (
-              <button
-                key={opt.scale}
-                type="button"
-                className={settings.videoResolutionScale === opt.scale ? "active" : ""}
-                onClick={() => update({ videoResolutionScale: opt.scale })}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+            ].map((opt) => ({
+              id: opt.scale,
+              label: opt.label,
+            }))}
+            value={settings.videoResolutionScale}
+            onChange={(videoResolutionScale) => update({ videoResolutionScale })}
+          />
         </div>
 
         <div className="hw-duo" style={{ marginTop: "1rem" }}>
-          <div className="hw-card">
-            <div className="hw-card-head">
-              <label className="hw-card-label">
-                {t("settings.overlay.replaySeconds")}
-              </label>
-              <span className="hw-card-value">
-                {settings.replayBufferSeconds}s
-              </span>
-            </div>
-            <p className="hw-card-help">
-              {t("settings.overlay.replaySecondsDesc")}
-            </p>
-            <input
-              type="range"
-              className="hw-range"
-              min={15}
-              max={300}
-              step={15}
-              value={settings.replayBufferSeconds}
-              onChange={(event) =>
-                update({ replayBufferSeconds: Number(event.target.value) })
-              }
-            />
-          </div>
+          <OverlayFieldSlider
+            className="hw-card"
+            infoClassName="hw-card-head"
+            labelAs="label"
+            labelClassName="hw-card-label"
+            valueClassName="hw-card-value"
+            inputClassName="hw-range"
+            help={
+              <p className="hw-card-help">
+                {t("settings.overlay.replaySecondsDesc")}
+              </p>
+            }
+            label={t("settings.overlay.replaySeconds")}
+            display={`${settings.replayBufferSeconds}s`}
+            value={settings.replayBufferSeconds}
+            min={15}
+            max={300}
+            step={15}
+            onChange={(replayBufferSeconds) => update({ replayBufferSeconds })}
+          />
 
           <div className="hw-card">
             <div className="hw-card-head">
@@ -950,18 +941,21 @@ export default function OverlayTab() {
             <p className="hw-card-help">
               {t("settings.overlay.maxClipDesc")}
             </p>
-            <div className="settings-segmented hw-seg" role="group">
-              {[0, 60, 300, 900].map((secs) => (
-                <button
-                  key={secs}
-                  type="button"
-                  className={settings.videoMaxClipSeconds === secs ? "active" : ""}
-                  onClick={() => update({ videoMaxClipSeconds: secs })}
-                >
-                  {secs === 0 ? t("settings.overlay.unlimited") : `${secs}s`}
-                </button>
-              ))}
-            </div>
+            <OverlayFieldChips
+              className="settings-segmented hw-seg"
+              role="group"
+              options={[0, 60, 300, 900].map((secs) => ({
+                id: secs,
+                label:
+                  secs === 0
+                    ? t("settings.overlay.unlimited")
+                    : `${secs}s`,
+              }))}
+              value={settings.videoMaxClipSeconds}
+              onChange={(videoMaxClipSeconds) =>
+                update({ videoMaxClipSeconds })
+              }
+            />
           </div>
         </div>
 
