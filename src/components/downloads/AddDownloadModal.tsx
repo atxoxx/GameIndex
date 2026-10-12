@@ -50,7 +50,7 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
   const [autoExtract, setAutoExtract] = useState<boolean>(true);
   const [useDebrid, setUseDebrid] = useState<boolean>(false);
 
-  // AllDebrid cache checking state
+  // Debrid cache checking state
   const [cacheStatus, setCacheStatus] = useState<
     "idle" | "checking" | "cached" | "not_cached" | "error"
   >("idle");
@@ -81,11 +81,26 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
     (trimmed.startsWith("http://") || trimmed.startsWith("https://"));
 
   const debridConfigured = useMemo(() => {
-    return (
-      (debridProvider === "alldebrid" || debridProvider !== "none") &&
-      !!debridApiKey
-    );
+    return debridProvider !== "none" && !!debridApiKey;
   }, [debridProvider, debridApiKey]);
+
+  /**
+   * Display name of the debrid service the user actually configured, so the
+   * modal never names a provider they are not using. Reuses the same labels as
+   * the provider selector in Settings → Downloads.
+   */
+  const debridProviderLabel = useMemo(() => {
+    switch (debridProvider) {
+      case "alldebrid":
+        return t("settings.debrid.allDebrid");
+      case "realdebrid":
+        return t("settings.debrid.realDebrid");
+      case "torbox":
+        return t("settings.debrid.torBox");
+      default:
+        return "";
+    }
+  }, [debridProvider, t]);
 
   // Clean up any temp torrent when modal is closed or unmounted
   const cleanupTempTorrent = useCallback((torrentId: string | null) => {
@@ -120,7 +135,7 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, handleClose]);
 
-  // Check AllDebrid cache whenever magnet changes
+  // Check the configured debrid provider's cache whenever the magnet changes
   useEffect(() => {
     const targetMagnet = isMagnet ? trimmed : extractedMagnetUri;
     if (!targetMagnet || !targetMagnet.startsWith("magnet:")) {
@@ -139,7 +154,10 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
     const timer = window.setTimeout(async () => {
       try {
         const res = await invoke<{ cached: boolean }>("debrid_check_cache", {
-          provider: "alldebrid",
+          // The configured provider, not a hardcoded one: with a TorBox key
+          // an AllDebrid probe can only fail, which left the cache badge
+          // dead for every non-AllDebrid account.
+          provider: debridProvider,
           apikey: debridApiKey,
           magnet: targetMagnet,
         });
@@ -384,11 +402,11 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
         await addDirectDownload(clean, fullPath, null, "Manual Direct Link", autoExtract);
         showToast(t("magnetInput.downloadAdded"), "success");
       }
-      // 2. Magnet or Torrent via AllDebrid
+      // 2. Magnet or Torrent via the configured debrid provider
       else if (useDebrid && debridConfigured) {
         const magnetToUse = isMagnet ? clean : extractedMagnetUri;
         if (!magnetToUse) {
-          throw new Error("Unable to resolve magnet link for AllDebrid download.");
+          throw new Error("Unable to resolve magnet link for debrid download.");
         }
         // If there was an active list-only temp torrent, remove it first
         if (inspectedTorrentId) {
@@ -396,7 +414,7 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
           setInspectedTorrentId(null);
         }
 
-        await addDebridDownload(magnetToUse, finalPath, null, "AllDebrid", autoExtract);
+        await addDebridDownload(magnetToUse, finalPath, null, debridProviderLabel, autoExtract);
         showToast(t("magnetInput.downloadAdded"), "success");
       }
       // 3. Torrent / Magnet via P2P swarm
@@ -645,36 +663,36 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
             )}
           </div>
 
-          {/* AllDebrid Status & Toggle Zone (for Magnets & Torrents) */}
+          {/* Debrid status & toggle zone (for magnets & torrents) */}
           {(isMagnet || isTorrent) && (
             <div className="dl-add-debrid-card">
               <div className="dl-add-debrid-header">
                 <div className="dl-add-debrid-info">
                   <div className="dl-add-debrid-title-row">
-                    <span className="dl-add-debrid-title">{t("addDownloadModal.useAllDebrid")}</span>
+                    <span className="dl-add-debrid-title">{t("addDownloadModal.useDebrid", { provider: debridProviderLabel })}</span>
                     {cacheStatus === "checking" && (
                       <span className="dl-add-cache-badge dl-add-cache-badge--checking">
                         <div className="spinner-tiny" />
-                        <span>{t("addDownloadModal.alldebridChecking")}</span>
+                        <span>{t("addDownloadModal.debridChecking", { provider: debridProviderLabel })}</span>
                       </span>
                     )}
                     {cacheStatus === "cached" && (
                       <span className="dl-add-cache-badge dl-add-cache-badge--cached">
-                        ⚡ {t("addDownloadModal.alldebridCached")}
+                        ⚡ {t("addDownloadModal.debridCached", { provider: debridProviderLabel })}
                       </span>
                     )}
                     {cacheStatus === "not_cached" && (
                       <span className="dl-add-cache-badge dl-add-cache-badge--uncached">
-                        {t("addDownloadModal.alldebridNotCached")}
+                        {t("addDownloadModal.debridNotCached", { provider: debridProviderLabel })}
                       </span>
                     )}
                     {!debridConfigured && (
                       <span className="dl-add-cache-badge dl-add-cache-badge--unconfigured">
-                        {t("addDownloadModal.alldebridNotConfigured")}
+                        {t("addDownloadModal.debridNotConfigured", { provider: debridProviderLabel })}
                       </span>
                     )}
                   </div>
-                  <p className="dl-add-debrid-desc">{t("addDownloadModal.useAllDebridDesc")}</p>
+                  <p className="dl-add-debrid-desc">{t("addDownloadModal.debridDesc", { provider: debridProviderLabel })}</p>
                 </div>
 
                 <label className="dl-add-toggle-label">
