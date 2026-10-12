@@ -412,6 +412,29 @@ Unlike launcher wrappers that are web wrappers or rely on remote servers, GameIn
 
 > **Note:** API keys live in the OS keychain, never in plain-text configuration. Removing a key disables that provider immediately.`,
       },
+      {
+        id: "beta-stores",
+        categoryId: "integrations",
+        title: "Beta Store Integrations",
+        summary: "Connect Battle.net, EA, Xbox and itch.io and import their libraries.",
+        badge: "setup",
+        icon: Store,
+        keywords: ["battle.net", "ea", "xbox", "itch.io", "beta", "integration", "import", "store"],
+        relatedIds: ["other-stores", "metadata-sources", "troubleshooting"],
+        body: `Four extra stores are available as **beta** integrations — **Battle.net**, **EA**, **Xbox** and **itch.io** — each importing its games into the same unified library.
+
+## Connecting
+- Open **Settings → Integrations → Beta integrations** and pick a store.
+- Sign in through the embedded WebView. GameIndex captures the session locally: Xbox uses a Microsoft sign-in, EA captures a Juno token, Battle.net reads your game list, and itch.io reads games installed through the itch desktop app.
+- Every tile carries a **Beta** badge, so expect rough edges and occasional changes.
+
+## Importing
+- Choose whether to import **installed** games, **uninstalled** games, or both.
+- Press **Sync** to pull the library. Results are de-duplicated against games you already have.
+- Imported games join the library with the store's badge and can be filtered like any other source.
+
+> **Note:** these integrations are best-effort and may change as the stores change their APIs. Ownership and install state are only as accurate as each store exposes.`,
+      },
     ],
   },
 
@@ -1617,6 +1640,32 @@ Picking a release opens a rebuilt source browser with ranked results, a filter p
 
 > **Tip:** mod sizes are counted on the Storage page, so a heavily modded game shows its real footprint.`,
       },
+      {
+        id: "mods-discover",
+        categoryId: "emulators-mods",
+        title: "Mods Discover Browser",
+        summary: "Search, browse and install mods from seven sites without leaving GameIndex.",
+        badge: "guide",
+        icon: Compass,
+        keywords: ["mods", "discover", "nexus", "thunderstore", "gamebanana", "curseforge", "mod.io", "workshop", "install"],
+        relatedIds: ["mods", "mod-load-order", "plugins"],
+        body: `The **Discover** browser finds mods across seven sites — Nexus, Thunderstore, GameBanana, ModDB, CurseForge, mod.io and Steam Workshop — and installs them into the game's mod folder.
+
+## Opening Discover
+- On the Mods page switch to the **Discover** tab, or open it from a game's Mods tab. Discover is scoped to the selected game and shows which sites host it.
+
+## Browsing
+- Sort by trending, downloads, updated or latest; filter by source, installed state, category and tags; and pick grid, list or compact views.
+- Results page in as you scroll, with **Load more** and **back to top** always available.
+- **Bookmark** a mod to keep it locally, and check **History** for everything you installed.
+
+## Installing
+- Direct downloads — Thunderstore, GameBanana, ModDB, CurseForge, mod.io and premium Nexus — extract straight into the mod root, then the game rescans.
+- Free Nexus accounts and external files open the mod page instead.
+- Add site API keys in **Settings → Integrations → Mod sites**; they are stored in the OS keychain.
+
+> **Note:** Discover installs mod files, not mod loaders. Install BepInEx or MelonLoader first if a mod needs one.`,
+      },
     ],
   },
 
@@ -1955,6 +2004,59 @@ Configure Valve's micro-compositor directly inside GameIndex:
 - Notes are grouped into collapsible sections — features, fixes, performance and more — with per-category counts and a highlighted \`info:\` callout, so a long changelog stays scannable.
 
 > **Tip:** if a bug you hit is listed as fixed in a newer release, updating is usually faster than working around it.`,
+      },
+      {
+        id: "overlay",
+        categoryId: "customization",
+        title: "In-Game Overlay HUD",
+        summary: "A floating HUD with telemetry, capture controls and an embedded Guides browser.",
+        badge: "guide",
+        icon: MonitorPlay,
+        keywords: ["overlay", "hud", "hotkey", "ticker", "fps", "telemetry", "click-through", "guides"],
+        relatedIds: ["telemetry", "capture", "interface"],
+        body: `The **overlay** is an always-on-top HUD that floats over your game. It is **off by default**; turn it on in **Settings → Overlay**.
+
+## Two presentations
+- The **ticker** is the collapsed HUD — a strip, single row, gauge cluster or minimal chip set with FPS, CPU/GPU, temperatures, RAM and capture controls.
+- Press the toggle hotkey again to open the **panel**, a tabbed HUD for session, performance (frametime and 1% / 0.1% lows), captures, notes, timer, achievements, downloads and settings.
+- The hotkey cycles hidden → ticker → panel → hidden, and \`Escape\` collapses the panel.
+
+## Telemetry & defaults
+- Live sampling runs once a second and reads the same sensors as the Activity page.
+- Default hotkeys: \`Shift+F1\` toggle, \`F12\` screenshot, \`Shift+F2\` record, \`Shift+F3\` replay — all rebindable.
+- **Click-through** lets clicks pass through the collapsed ticker; the expanded panel is always interactive.
+
+## Games started elsewhere
+- **Detect the current game** adopts a library title you launched outside GameIndex as a view-only session — it shows telemetry but never records playtime.
+
+> **Note:** on Wayland the HUD uses wlr-layer-shell (no click-through) and global hotkeys need the XDG Desktop Portal.`,
+      },
+      {
+        id: "capture",
+        categoryId: "customization",
+        title: "Capture: Screenshots & Video",
+        summary: "One-key screenshots plus native video recording and instant replay.",
+        badge: "guide",
+        icon: Monitor,
+        keywords: ["capture", "screenshot", "recording", "replay", "clip", "video", "f12"],
+        relatedIds: ["overlay", "activity", "storage"],
+        body: `The overlay doubles as a capture toolkit for screenshots, video and instant replay.
+
+## Screenshots
+- Press the screenshot hotkey (\`F12\` by default) for an instant capture.
+- Choose PNG or JPEG, toggle sound, flash and clipboard copy, and decide whether to include the HUD.
+- Recent shots appear in the panel's Captures tab, where you can view, copy the path, open the folder or delete them.
+
+## Video & replay
+- **Record** (\`Shift+F2\`) saves a clip; **Replay** (\`Shift+F3\`) saves the last minute from a rolling buffer, so you never miss a moment.
+- Capture game audio (on by default) and optionally your microphone, and tune FPS, bitrate, scale and format.
+- Recording and replay are mutually exclusive, and both stop automatically when the game exits.
+
+## Where clips go
+- Captures are saved to \`Videos/Captures/<Game>\` by default, or to a folder you choose.
+- Windows records with native Windows Graphics Capture; on Linux video needs the external \`gpu-screen-recorder\` tool.
+
+> **Note:** capture hotkeys only work while the overlay is enabled.`,
       },
     ],
   },
