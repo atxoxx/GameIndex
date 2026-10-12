@@ -2,6 +2,22 @@
    Game Page — News & Updates Subtab
    ========================================================================== */
 
+/* Reader-theme palette — defined once, referenced by the in-modal theme
+   switcher and the reader surface below. Values are intentional and must
+   stay exact across themes. */
+:root {
+  --news-reader-oled-bg: #000000;
+  --news-reader-oled-border: #262626;
+  --news-reader-sepia-bg: #fbf0d9;
+  --news-reader-sepia-text: #5f4b32;
+  --news-reader-sepia-strong: #3b2f1f;
+  --news-reader-sepia-border: #d4c5a9;
+  --news-reader-slate-bg: #1e2530;
+  --news-reader-slate-text: #e2e8f0;
+  --news-reader-dark-bg: #1a1a1a;
+  --news-reader-oled-btn-border: #444444;
+}
+
 .game-news-tab {
   display: flex;
   flex-direction: column;
@@ -1267,23 +1283,23 @@
 }
 
 .news-preview-modal.theme-oled {
-  background: #000000;
-  border-color: #262626;
+  background: var(--news-reader-oled-bg);
+  border-color: var(--news-reader-oled-border);
 }
 
 .news-preview-modal.theme-sepia {
-  background: #fbf0d9;
-  color: #5f4b32;
+  background: var(--news-reader-sepia-bg);
+  color: var(--news-reader-sepia-text);
 }
 
 .news-preview-modal.theme-sepia .news-preview-title,
 .news-preview-modal.theme-sepia .news-preview-body {
-  color: #3b2f1f;
+  color: var(--news-reader-sepia-strong);
 }
 
 .news-preview-modal.theme-slate {
-  background: #1e2530;
-  color: #e2e8f0;
+  background: var(--news-reader-slate-bg);
+  color: var(--news-reader-slate-text);
 }
 
 .news-preview-progress-track {
@@ -1557,10 +1573,10 @@
   transform: scale(1.15);
 }
 
-.news-preview-theme-btn.dark { background: #1a1a1a; }
-.news-preview-theme-btn.oled { background: #000000; border: 1px solid #444; }
-.news-preview-theme-btn.sepia { background: #fbf0d9; border: 1px solid #d4c5a9; }
-.news-preview-theme-btn.slate { background: #1e2530; }
+.news-preview-theme-btn.dark { background: var(--news-reader-dark-bg); }
+.news-preview-theme-btn.oled { background: var(--news-reader-oled-bg); border: 1px solid var(--news-reader-oled-btn-border); }
+.news-preview-theme-btn.sepia { background: var(--news-reader-sepia-bg); border: 1px solid var(--news-reader-sepia-border); }
+.news-preview-theme-btn.slate { background: var(--news-reader-slate-bg); }
 
 .news-preview-theme-btn.active {
   border-color: var(--color-accent);

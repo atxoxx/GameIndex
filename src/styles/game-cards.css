@@ -2303,8 +2303,8 @@ button.game-hero-meta-item--btn:hover {
  *     expecting an immediate full reveal, not a slow scroll-down. */
 .about-section__body-clip {
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent 100%);
-          mask-image: linear-gradient(180deg, #000 78%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, var(--color-text-inverse) 78%, transparent 100%);
+          mask-image: linear-gradient(180deg, var(--color-text-inverse) 78%, transparent 100%);
   transition: max-height 380ms var(--ease-standard),
               -webkit-mask-image 200ms var(--ease-standard),
               mask-image 200ms var(--ease-standard);
@@ -2847,7 +2847,7 @@ button.game-hero-meta-item--btn:hover {
 }
 
 .steam-icon-badge {
-  color: #66c0f4;
+  color: var(--brand-steam);
 }
 
 .steam-features-list {

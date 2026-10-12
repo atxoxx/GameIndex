@@ -122,8 +122,8 @@
 }
 
 .activity__icon-btn--primary:hover {
-  background: color-mix(in srgb, var(--color-accent) 85%, #fff);
-  border-color: color-mix(in srgb, var(--color-accent) 85%, #fff);
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
   color: var(--color-accent-contrast);
 }
 
@@ -1561,8 +1561,8 @@
 }
 
 .activity-gantt__visualizer-col.is-peak .activity-gantt__visualizer-fill {
-  background: linear-gradient(180deg, #f59e0b 0%, var(--color-accent) 100%);
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+  background: linear-gradient(180deg, var(--color-warning) 0%, var(--color-accent) 100%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .activity-gantt__visualizer-hour {
@@ -1828,7 +1828,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--scrim-text);
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
 }
 
@@ -3538,7 +3538,7 @@
   height: 18px;
   border-radius: var(--radius-full);
   background: var(--color-brand-teal);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .act-link-modal__empty {
@@ -3682,7 +3682,7 @@
   height: 16px;
   border-radius: var(--radius-full);
   background: var(--color-brand-teal);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .act-add-modal__loading {

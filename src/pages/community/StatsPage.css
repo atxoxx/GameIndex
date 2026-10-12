@@ -3,6 +3,25 @@
    Glassmorphic design, dynamic animations, theme token compliance.
    ============================================================================ */
 
+:root {
+  /* Source-tag chip palette — theme-invariant brand/record marks. */
+  --stats-source-steam-bg: #1b2838;
+  --stats-source-nvidia-bg: #1a3a1a;
+  --stats-source-amd-bg: #3a1a1a;
+  --stats-source-obs-bg: #2a2a3a;
+  --stats-source-obs-fg: #9a9aff;
+  --stats-source-windows-bg: #1a2a3a;
+  --stats-source-custom-bg: #2a2a34;
+  --stats-source-custom-fg: #c9a6ff;
+
+  /* Medal / tier palette — fixed metal + rarity colours. */
+  --stats-medal-gold: #ffd700;
+  --stats-medal-gold-deep: #ffaa00;
+  --stats-medal-silver: #c0c0c0;
+  --stats-medal-bronze: #cd7f32;
+  --stats-medal-diamond: #00d4ff;
+}
+
 .stats-page-container {
   display: flex;
   flex-direction: column;
@@ -810,16 +829,16 @@
 }
 
 .stats-podium-card.stats-podium-gold {
-  border-color: rgba(255, 215, 0, 0.4);
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), var(--color-surface));
+  border-color: color-mix(in srgb, var(--stats-medal-gold) 40%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--stats-medal-gold) 8%, transparent), var(--color-surface));
 }
 .stats-podium-card.stats-podium-silver {
-  border-color: rgba(192, 192, 192, 0.4);
-  background: linear-gradient(135deg, rgba(192, 192, 192, 0.08), var(--color-surface));
+  border-color: color-mix(in srgb, var(--stats-medal-silver) 40%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--stats-medal-silver) 8%, transparent), var(--color-surface));
 }
 .stats-podium-card.stats-podium-bronze {
-  border-color: rgba(205, 127, 50, 0.4);
-  background: linear-gradient(135deg, rgba(205, 127, 50, 0.08), var(--color-surface));
+  border-color: color-mix(in srgb, var(--stats-medal-bronze) 40%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--stats-medal-bronze) 8%, transparent), var(--color-surface));
 }
 
 .stats-podium-rank-badge {
@@ -1448,18 +1467,18 @@
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
-  border: 1px solid rgba(255, 215, 0, 0.35);
+  border: 1px solid color-mix(in srgb, var(--stats-medal-gold) 35%, transparent);
   border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
   transition: all var(--duration-normal) ease;
-  box-shadow: 0 4px 16px rgba(255, 215, 0, 0.05);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--stats-medal-gold) 5%, transparent);
 }
 
 .stats-perfect-game-card:hover {
   transform: translateY(-3px);
-  border-color: gold;
-  box-shadow: 0 8px 24px rgba(255, 215, 0, 0.15);
+  border-color: var(--stats-medal-gold);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--stats-medal-gold) 15%, transparent);
 }
 
 .stats-perfect-card-cover {
@@ -1488,8 +1507,8 @@
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: linear-gradient(135deg, #ffd700, #ffaa00);
-  color: #000000;
+  background: linear-gradient(135deg, var(--stats-medal-gold), var(--stats-medal-gold-deep));
+  color: var(--color-text-inverse);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 2px 6px;
@@ -1629,9 +1648,9 @@
   transition: all var(--duration-fast) ease;
 }
 
-.stats-rarest-card.tier-diamond { border-color: rgba(0, 212, 255, 0.4); }
-.stats-rarest-card.tier-gold { border-color: rgba(255, 215, 0, 0.4); }
-.stats-rarest-card.tier-silver { border-color: rgba(192, 192, 192, 0.4); }
+.stats-rarest-card.tier-diamond { border-color: color-mix(in srgb, var(--stats-medal-diamond) 40%, transparent); }
+.stats-rarest-card.tier-gold { border-color: color-mix(in srgb, var(--stats-medal-gold) 40%, transparent); }
+.stats-rarest-card.tier-silver { border-color: color-mix(in srgb, var(--stats-medal-silver) 40%, transparent); }
 
 .stats-rarest-icon-wrap {
   width: 48px;
@@ -1687,10 +1706,10 @@
   border-radius: var(--radius-sm);
 }
 
-.stats-rarest-pill.tier-diamond { color: #00d4ff; background: rgba(0, 212, 255, 0.15); }
-.stats-rarest-pill.tier-gold { color: #ffd700; background: rgba(255, 215, 0, 0.15); }
-.stats-rarest-pill.tier-silver { color: #c0c0c0; background: rgba(192, 192, 192, 0.15); }
-.stats-rarest-pill.tier-bronze { color: #cd7f32; background: rgba(205, 127, 50, 0.15); }
+.stats-rarest-pill.tier-diamond { color: var(--stats-medal-diamond); background: color-mix(in srgb, var(--stats-medal-diamond) 15%, transparent); }
+.stats-rarest-pill.tier-gold { color: var(--stats-medal-gold); background: color-mix(in srgb, var(--stats-medal-gold) 15%, transparent); }
+.stats-rarest-pill.tier-silver { color: var(--stats-medal-silver); background: color-mix(in srgb, var(--stats-medal-silver) 15%, transparent); }
+.stats-rarest-pill.tier-bronze { color: var(--stats-medal-bronze); background: color-mix(in srgb, var(--stats-medal-bronze) 15%, transparent); }
 
 .stats-rarest-game {
   font-size: 11px;
@@ -2011,12 +2030,12 @@
   text-transform: uppercase;
 }
 
-.stats-source-tag.source-steam { background: #1b2838; color: #66c0f4; }
-.stats-source-tag.source-nvidia { background: #1a3a1a; color: #76b900; }
-.stats-source-tag.source-amd { background: #3a1a1a; color: #ed1c24; }
-.stats-source-tag.source-obs { background: #2a2a3a; color: #9a9aff; }
-.stats-source-tag.source-windows { background: #1a2a3a; color: #107c10; }
-.stats-source-tag.source-custom { background: #2a2a34; color: #c9a6ff; }
+.stats-source-tag.source-steam { background: var(--stats-source-steam-bg); color: var(--brand-steam); }
+.stats-source-tag.source-nvidia { background: var(--stats-source-nvidia-bg); color: var(--brand-nvidia); }
+.stats-source-tag.source-amd { background: var(--stats-source-amd-bg); color: var(--brand-amd); }
+.stats-source-tag.source-obs { background: var(--stats-source-obs-bg); color: var(--stats-source-obs-fg); }
+.stats-source-tag.source-windows { background: var(--stats-source-windows-bg); color: var(--brand-xbox); }
+.stats-source-tag.source-custom { background: var(--stats-source-custom-bg); color: var(--stats-source-custom-fg); }
 
 .stats-platform-tag {
   font-size: 9px;
@@ -2051,7 +2070,7 @@
 
 .stats-capture-group-remove:hover {
   background: var(--color-danger);
-  color: #ffffff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-danger);
 }
 
@@ -2106,7 +2125,7 @@
   left: 6px;
   font-size: 9px;
   font-weight: var(--font-weight-bold);
-  color: #ffffff;
+  color: var(--scrim-text);
   background: rgba(0, 0, 0, 0.65);
   padding: 2px 6px;
   border-radius: 4px;
@@ -2129,7 +2148,7 @@
 
 .stats-thumb-game-name {
   font-size: var(--font-size-2xs);
-  color: #ffffff;
+  color: var(--scrim-text);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
@@ -2143,7 +2162,7 @@
   right: 6px;
   background: rgba(0, 0, 0, 0.5);
   border: none;
-  color: #ffffff;
+  color: var(--scrim-text);
   font-size: 14px;
   width: 24px;
   height: 24px;
@@ -2237,7 +2256,7 @@
 .stats-lightbox-game {
   font-size: var(--font-size-md, 15px);
   font-weight: var(--font-weight-bold);
-  color: #ffffff;
+  color: var(--scrim-text);
 }
 
 .stats-lightbox-actions {
@@ -2251,7 +2270,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-md);
-  color: #ffffff;
+  color: var(--scrim-text);
   font-size: 13px;
   cursor: pointer;
   transition: all var(--duration-fast) ease;
@@ -2283,7 +2302,7 @@
 .stats-lightbox-close-btn:hover {
   background: var(--color-danger);
   border-color: var(--color-danger);
-  color: #ffffff;
+  color: var(--color-accent-contrast);
 }
 
 .stats-lightbox-close-corner {
@@ -2307,7 +2326,7 @@
 .stats-lightbox-nav-arrow {
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  color: var(--scrim-text);
   font-size: 36px;
   width: 48px;
   height: 48px;
@@ -2410,7 +2429,7 @@
   bottom: 3px;
   right: 3px;
   font-size: 9px;
-  color: #ffffff;
+  color: var(--scrim-text);
   background: rgba(0, 0, 0, 0.7);
   border-radius: 3px;
   padding: 1px 4px;

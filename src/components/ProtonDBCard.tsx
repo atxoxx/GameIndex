@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProtonDBStatus, ProtonDBTier } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
@@ -9,6 +9,16 @@ interface ProtonDBCardProps {
   steamAppId?: number;
 }
 
+/** Theme-invariant ProtonDB medal colours, defined once as custom properties
+ *  on the card root (see the `<section>` below) and referenced by name so the
+ *  tier palette has a single source of truth. */
+const TIER_TOKENS = {
+  "--proton-platinum": "#e5e4e2",
+  "--proton-gold": "#ffd24a",
+  "--proton-silver": "#c0c0c8",
+  "--proton-bronze": "#cd7f32",
+} as CSSProperties;
+
 /** Visual + label metadata for each ProtonDB tier. */
 const TIER_META: Record<
   ProtonDBTier,
@@ -16,26 +26,26 @@ const TIER_META: Record<
 > = {
   platinum: {
     labelKey: "protondb.tier.platinum",
-    color: "#e5e4e2",
-    bg: "rgba(229,228,226,0.14)",
+    color: "var(--proton-platinum)",
+    bg: "color-mix(in srgb, var(--proton-platinum) 14%, transparent)",
     helpKey: "protondb.help.platinum",
   },
   gold: {
     labelKey: "protondb.tier.gold",
-    color: "#ffd24a",
-    bg: "rgba(255,210,74,0.14)",
+    color: "var(--proton-gold)",
+    bg: "color-mix(in srgb, var(--proton-gold) 14%, transparent)",
     helpKey: "protondb.help.gold",
   },
   silver: {
     labelKey: "protondb.tier.silver",
-    color: "#c0c0c8",
-    bg: "rgba(192,192,200,0.14)",
+    color: "var(--proton-silver)",
+    bg: "color-mix(in srgb, var(--proton-silver) 14%, transparent)",
     helpKey: "protondb.help.silver",
   },
   bronze: {
     labelKey: "protondb.tier.bronze",
-    color: "#cd7f32",
-    bg: "rgba(205,127,50,0.16)",
+    color: "var(--proton-bronze)",
+    bg: "color-mix(in srgb, var(--proton-bronze) 16%, transparent)",
     helpKey: "protondb.help.bronze",
   },
   borked: {
@@ -47,7 +57,7 @@ const TIER_META: Record<
   pending: {
     labelKey: "protondb.tier.pending",
     color: "var(--color-text-muted)",
-    bg: "rgba(127,127,140,0.12)",
+    bg: "color-mix(in srgb, var(--color-text-muted) 12%, transparent)",
     helpKey: "protondb.help.pending",
   },
 };
@@ -136,7 +146,7 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
   const reportsUrl = `https://www.protondb.com/app/${steamAppId}#reports`;
 
   return (
-    <section className="game-section pdb-card">
+    <section className="game-section pdb-card" style={TIER_TOKENS}>
       <h2 className="game-section-title">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" />

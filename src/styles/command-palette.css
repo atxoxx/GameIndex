@@ -1348,9 +1348,9 @@
   height: 5px;
   border-radius: 50%;
 }
-.cmd-mockup-dot.red { background: #ef4444; }
-.cmd-mockup-dot.yellow { background: #eab308; }
-.cmd-mockup-dot.green { background: #10b981; }
+.cmd-mockup-dot.red { background: var(--color-danger); }
+.cmd-mockup-dot.yellow { background: var(--color-warning); }
+.cmd-mockup-dot.green { background: var(--color-success); }
 
 .cmd-mockup-titlebar {
   font-size: 8px;

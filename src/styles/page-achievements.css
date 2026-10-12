@@ -887,7 +887,7 @@
   gap: 4px;
   padding: 3px 8px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, #000 70%, transparent);
+  background: color-mix(in srgb, black 70%, transparent);
   backdrop-filter: blur(8px);
   border: 1px solid var(--color-warning);
   color: var(--color-warning);

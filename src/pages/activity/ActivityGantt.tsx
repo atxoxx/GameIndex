@@ -424,7 +424,7 @@ export function ActivityGantt({
         filterLabel: t("activity.pngImage"),
         width: fullWidth,
         height: fullHeight,
-        fallbackBackground: "#11131a",
+        fallbackBackground: "var(--color-bg-secondary)",
         prepareClone: (clonedDoc) => {
           const clonedRows = clonedDoc.querySelector<HTMLElement>(".activity-gantt__rows");
           if (clonedRows) clonedRows.style.maxHeight = "none";

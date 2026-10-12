@@ -60,7 +60,7 @@ export default function GameFamilyShareBanner({ game }: GameFamilyShareBannerPro
           ) : (
             <div
               className="family-share-banner__avatar"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#4f46e5" }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "var(--dlc-family-indigo)" }}
             >
               <IconFamily size={16} />
             </div>

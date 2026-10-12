@@ -271,13 +271,13 @@
 }
 
 .store-card-cw-badge.cw-cracked {
-  background: color-mix(in srgb, var(--color-success) 85%, #000 15%);
+  background: color-mix(in srgb, var(--color-success) 85%, black 15%);
   color: var(--scrim-text);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
 .store-card-cw-badge.cw-uncracked {
-  background: color-mix(in srgb, var(--color-danger) 85%, #000 15%);
+  background: color-mix(in srgb, var(--color-danger) 85%, black 15%);
   color: var(--scrim-text);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }

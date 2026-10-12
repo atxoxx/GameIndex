@@ -1018,12 +1018,12 @@
 
 .prefix-health-indicator.is-valid {
   background: var(--color-success, #10b981);
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
 .prefix-health-indicator.is-invalid {
   background: var(--color-warning, #f59e0b);
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .prefix-card-meta {

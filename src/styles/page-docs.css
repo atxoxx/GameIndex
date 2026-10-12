@@ -11,6 +11,14 @@
  * 4. 100% theme-token driven with dark-first design and light-mode parity.
  * ========================================================================== */
 
+/* Module-local callout / badge accents. Green and amber reuse the global
+ * success / warning tokens; the blue and violet marks have no semantic app
+ * token, so they are defined once here and referenced by the rules below. */
+:root {
+  --docs-note: #3b82f6;
+  --docs-pro: #8b5cf6;
+}
+
 /* ── Page Container ──────────────────────────────────────────────────────── */
 
 .docs-page {
@@ -830,23 +838,23 @@
 }
 
 .docs-subitem-badge--setup {
-  color: #10b981;
-  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
 }
 
 .docs-subitem-badge--guide {
-  color: #3b82f6;
-  background: color-mix(in srgb, #3b82f6 14%, transparent);
+  color: var(--docs-note);
+  background: color-mix(in srgb, var(--docs-note) 14%, transparent);
 }
 
 .docs-subitem-badge--proTip {
-  color: #8b5cf6;
-  background: color-mix(in srgb, #8b5cf6 14%, transparent);
+  color: var(--docs-pro);
+  background: color-mix(in srgb, var(--docs-pro) 14%, transparent);
 }
 
 .docs-subitem-badge--linux {
-  color: #f59e0b;
-  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
 }
 
 .docs-subitem-badge--reference {
@@ -992,13 +1000,13 @@
 }
 
 .docs-action-btn--copied {
-  color: var(--color-success, #10b981);
-  background: color-mix(in srgb, var(--color-success, #10b981) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-success, #10b981) 32%, transparent);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 32%, transparent);
 }
 
 .docs-action-btn--copied svg {
-  color: var(--color-success, #10b981);
+  color: var(--color-success);
 }
 
 .docs-article__meta-row {
@@ -1241,14 +1249,14 @@
 /* Callout Variations */
 
 .docs-callout--tip {
-  background: color-mix(in srgb, #10b981 8%, var(--color-surface));
-  border-color: color-mix(in srgb, #10b981 28%, transparent);
-  border-left: 3px solid #10b981;
+  background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-success) 28%, transparent);
+  border-left: 3px solid var(--color-success);
 }
 
 .docs-callout--tip .docs-callout__icon {
-  color: #10b981;
-  background: color-mix(in srgb, #10b981 16%, transparent);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
 }
 
 .docs-callout--tip .docs-callout__text {
@@ -1256,14 +1264,14 @@
 }
 
 .docs-callout--note {
-  background: color-mix(in srgb, #3b82f6 8%, var(--color-surface));
-  border-color: color-mix(in srgb, #3b82f6 28%, transparent);
-  border-left: 3px solid #3b82f6;
+  background: color-mix(in srgb, var(--docs-note) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--docs-note) 28%, transparent);
+  border-left: 3px solid var(--docs-note);
 }
 
 .docs-callout--note .docs-callout__icon {
-  color: #3b82f6;
-  background: color-mix(in srgb, #3b82f6 16%, transparent);
+  color: var(--docs-note);
+  background: color-mix(in srgb, var(--docs-note) 16%, transparent);
 }
 
 .docs-callout--note .docs-callout__text {
@@ -1271,14 +1279,14 @@
 }
 
 .docs-callout--warning {
-  background: color-mix(in srgb, #f59e0b 9%, var(--color-surface));
-  border-color: color-mix(in srgb, #f59e0b 32%, transparent);
-  border-left: 3px solid #f59e0b;
+  background: color-mix(in srgb, var(--color-warning) 9%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning) 32%, transparent);
+  border-left: 3px solid var(--color-warning);
 }
 
 .docs-callout--warning .docs-callout__icon {
-  color: #f59e0b;
-  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
 }
 
 .docs-callout--warning .docs-callout__text {
@@ -1286,14 +1294,14 @@
 }
 
 .docs-callout--pro {
-  background: color-mix(in srgb, #8b5cf6 9%, var(--color-surface));
-  border-color: color-mix(in srgb, #8b5cf6 30%, transparent);
-  border-left: 3px solid #8b5cf6;
+  background: color-mix(in srgb, var(--docs-pro) 9%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--docs-pro) 30%, transparent);
+  border-left: 3px solid var(--docs-pro);
 }
 
 .docs-callout--pro .docs-callout__icon {
-  color: #8b5cf6;
-  background: color-mix(in srgb, #8b5cf6 16%, transparent);
+  color: var(--docs-pro);
+  background: color-mix(in srgb, var(--docs-pro) 16%, transparent);
 }
 
 .docs-callout--pro .docs-callout__text {

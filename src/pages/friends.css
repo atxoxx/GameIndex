@@ -2,6 +2,26 @@
    GameIndex — Modern Friends Page & 10 Subtabs Unified Stylesheet
    ============================================================================= */
 
+/* ── Module palette ──────────────────────────────────────────────────────────
+   Accents that have no global semantic token plus the user-selectable swatches
+   for friend circles. Defined once here and referenced by name so every theme
+   keeps the same fixed colours. */
+:root {
+  --friends-accent-violet: #8b5cf6;
+  --friends-accent-pink: #ec4899;
+  --friends-rank-silver: #94a3b8;
+  --friends-rank-bronze: #b45309;
+  --friends-star-gold: #f5b942;
+
+  --circle-color-blue: #3b82f6;
+  --circle-color-emerald: #10b981;
+  --circle-color-purple: #8b5cf6;
+  --circle-color-amber: #f59e0b;
+  --circle-color-pink: #ec4899;
+  --circle-color-cyan: #06b6d4;
+  --circle-color-rose: #f43f5e;
+}
+
 /* ── 1. Page Root & Animation ──────────────────────────────────────────────── */
 .friends-page {
   padding: var(--page-padding, var(--space-lg) var(--space-2xl) var(--space-3xl));
@@ -279,13 +299,13 @@
 
 .hero-stat-card.in-game .hero-stat-icon,
 .friends-hero-stat-icon--ingame {
-  background: color-mix(in srgb, #9333ea 12%, transparent);
-  color: #a855f7;
+  background: color-mix(in srgb, var(--color-ingame) 12%, transparent);
+  color: var(--color-ingame);
 }
 
 .hero-stat-card.sessions .hero-stat-icon,
 .friends-hero-stat-icon--sessions {
-  background: color-mix(in srgb, #0ea5e9 12%, transparent);
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
   color: var(--color-info);
 }
 
@@ -451,7 +471,7 @@
 }
 
 .filter-pill-dot.in-game {
-  background: #a855f7;
+  background: var(--color-ingame);
 }
 
 .filter-pill-dot.offline {
@@ -561,10 +581,10 @@
 /* Playing Now Rail */
 .playing-now-rail {
   background: var(--color-surface);
-  border: 1px solid color-mix(in srgb, #a855f7 30%, var(--color-border));
+  border: 1px solid color-mix(in srgb, var(--color-ingame) 30%, var(--color-border));
   border-radius: var(--radius-lg);
   padding: 12px 16px;
-  box-shadow: 0 2px 8px color-mix(in srgb, #a855f7 10%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-ingame) 10%, transparent);
 }
 
 .playing-now-head,
@@ -574,7 +594,7 @@
   gap: 8px;
   font-size: var(--font-size-xs);
   font-weight: 700;
-  color: #c084fc;
+  color: color-mix(in srgb, var(--color-ingame) 65%, white 35%);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 10px;
@@ -605,7 +625,7 @@
 .playing-now-card:hover,
 .playing-now-pill:hover {
   background: var(--color-bg-hover);
-  border-color: #a855f7;
+  border-color: var(--color-ingame);
 }
 
 .playing-now-avatar {
@@ -922,8 +942,8 @@
 
 .friend-card-presence-dot.in-game,
 .friend-presence-dot.in-game {
-  background: #a855f7;
-  box-shadow: 0 0 6px color-mix(in srgb, #a855f7 60%, transparent);
+  background: var(--color-ingame);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-ingame) 60%, transparent);
 }
 
 .friend-card-identity,
@@ -976,7 +996,7 @@
   gap: 5px;
   font-size: 11px;
   font-weight: 600;
-  color: #a855f7;
+  color: var(--color-ingame);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1254,13 +1274,13 @@
 
 .activity-timeline-card.type-session,
 .type-session {
-  border-left: 3px solid #0ea5e9;
+  border-left: 3px solid var(--color-info);
 }
 
 .activity-timeline-card.type-session .activity-card-icon-wrapper,
 .activity-timeline-card.type-session .activity-type-icon {
-  background: color-mix(in srgb, #0ea5e9 15%, transparent);
-  color: #0ea5e9;
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
 }
 
 .activity-timeline-card.type-recommendation,
@@ -1276,13 +1296,13 @@
 
 .activity-timeline-card.type-suggestion,
 .type-suggestion {
-  border-left: 3px solid #ec4899;
+  border-left: 3px solid var(--friends-accent-pink);
 }
 
 .activity-timeline-card.type-suggestion .activity-card-icon-wrapper,
 .activity-timeline-card.type-suggestion .activity-type-icon {
-  background: color-mix(in srgb, #ec4899 15%, transparent);
-  color: #ec4899;
+  background: color-mix(in srgb, var(--friends-accent-pink) 15%, transparent);
+  color: var(--friends-accent-pink);
 }
 
 .activity-card-body,
@@ -2198,9 +2218,9 @@
 
 .roster-role.role-cohost,
 .role-cohost {
-  color: #a855f7;
-  background: color-mix(in srgb, #a855f7 15%, transparent);
-  border: 1px solid color-mix(in srgb, #a855f7 40%, transparent);
+  color: var(--color-ingame);
+  background: color-mix(in srgb, var(--color-ingame) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-ingame) 40%, transparent);
 }
 
 .roster-role.role-player,
@@ -2231,9 +2251,9 @@
 }
 
 .roster-role-select.role-cohost {
-  color: #a855f7;
-  border-color: #a855f7;
-  background: color-mix(in srgb, #a855f7 10%, var(--color-surface));
+  color: var(--color-ingame);
+  border-color: var(--color-ingame);
+  background: color-mix(in srgb, var(--color-ingame) 10%, var(--color-surface));
 }
 
 /* Roster RSVP Status Badge */
@@ -3375,7 +3395,7 @@
 
 .genre-progress-fill.friend-fill {
   height: 100%;
-  background: #a855f7;
+  background: var(--color-ingame);
   border-radius: var(--radius-full);
 }
 
@@ -3459,14 +3479,14 @@
 }
 
 .podium-card.rank-silver {
-  border-color: #94a3b8;
-  background: color-mix(in srgb, #94a3b8 6%, var(--color-surface));
+  border-color: var(--friends-rank-silver);
+  background: color-mix(in srgb, var(--friends-rank-silver) 6%, var(--color-surface));
   min-height: 180px;
 }
 
 .podium-card.rank-bronze {
-  border-color: #b45309;
-  background: color-mix(in srgb, #b45309 6%, var(--color-surface));
+  border-color: var(--friends-rank-bronze);
+  background: color-mix(in srgb, var(--friends-rank-bronze) 6%, var(--color-surface));
   min-height: 150px;
 }
 
@@ -3629,13 +3649,13 @@
 
 .rank-badge.rank-2,
 .rank-2 {
-  background: #94a3b8;
+  background: var(--friends-rank-silver);
   color: var(--color-text-on-fill, #fff);
 }
 
 .rank-badge.rank-3,
 .rank-3 {
-  background: #b45309;
+  background: var(--friends-rank-bronze);
   color: var(--color-text-on-fill, #fff);
 }
 
@@ -3782,9 +3802,9 @@
 }
 
 .race-lead-badge.trail {
-  background: color-mix(in srgb, #a855f7 15%, transparent);
-  border: 1px solid #a855f7;
-  color: #a855f7;
+  background: color-mix(in srgb, var(--color-ingame) 15%, transparent);
+  border: 1px solid var(--color-ingame);
+  color: var(--color-ingame);
 }
 
 .race-lead-badge.tied {
@@ -3882,7 +3902,7 @@
 }
 
 .race-progress-bar-fill.friend-fill {
-  background: linear-gradient(90deg, #8b5cf6, #ec4899);
+  background: linear-gradient(90deg, var(--friends-accent-violet), var(--friends-accent-pink));
 }
 
 .race-runner-icon {
@@ -3927,7 +3947,7 @@
 
 .profile-card-banner {
   height: 70px;
-  background: linear-gradient(135deg, var(--color-accent), #8b5cf6);
+  background: linear-gradient(135deg, var(--color-accent), var(--friends-accent-violet));
 }
 
 .profile-card-avatar-wrapper {
@@ -5696,7 +5716,7 @@ textarea.profile-input {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 60%, #000));
+  background: linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 60%, black));
   color: var(--color-accent-contrast, #fff);
   font-size: 9px;
   font-weight: 700;
@@ -5722,7 +5742,7 @@ textarea.profile-input {
 }
 
 .rec-top-star.filled {
-  color: #f5b942;
+  color: var(--friends-star-gold);
 }
 
 .rec-top-avg {

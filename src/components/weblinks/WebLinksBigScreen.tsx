@@ -38,8 +38,8 @@ export default function WebLinksBigScreen({ game }: { game: Game }) {
         url,
         category: "stores",
         icon: sec.icon,
-        accent: "#66c0f4",
-        iconBg: "#1b2838",
+        accent: "var(--brand-steam)",
+        iconBg: "color-mix(in srgb, var(--brand-steam) 20%, var(--color-bg-primary))",
         disabled,
       });
     });

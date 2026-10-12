@@ -1116,7 +1116,7 @@
   height: 26px;
   border-radius: var(--radius-full);
   background: rgba(0, 0, 0, 0.75);
-  color: #ffffff;
+  color: var(--scrim-text);
   display: grid;
   place-items: center;
   font-size: 10px;
@@ -2551,8 +2551,8 @@
 }
 
 .mods-discover-compact-btn.is-bookmarked {
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 .mods-discover-compact-btn--install {
@@ -2599,8 +2599,8 @@
 }
 
 .mods-discover-card-action-btn.is-bookmarked {
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 .mods-discover-card-action-btn--install {
@@ -2982,8 +2982,8 @@
   gap: 4px;
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
   padding: 2px 8px;
   border-radius: var(--radius-full);
 }

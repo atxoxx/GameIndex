@@ -306,7 +306,7 @@
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.3px;
   color: var(--color-accent-contrast);
-  background: color-mix(in srgb, var(--color-accent) 88%, #000 12%);
+  background: color-mix(in srgb, var(--color-accent) 88%, black 12%);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 45%, transparent);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -354,11 +354,11 @@
 }
 
 .store-card-hide:hover {
-  background: color-mix(in srgb, var(--color-danger) 80%, #000);
+  background: color-mix(in srgb, var(--color-danger) 80%, black);
 }
 
 .store-card-compare:hover {
-  background: color-mix(in srgb, var(--color-accent) 80%, #000);
+  background: color-mix(in srgb, var(--color-accent) 80%, black);
 }
 
 /* Pinned state: stay visible and read as "already in the comparison". */
@@ -368,8 +368,8 @@
   opacity: 1;
   transform: translateY(0);
   color: var(--color-accent-contrast);
-  background: color-mix(in srgb, var(--color-accent) 85%, #000);
-  border-color: color-mix(in srgb, var(--color-accent) 60%, #fff 8%);
+  background: color-mix(in srgb, var(--color-accent) 85%, black);
+  border-color: color-mix(in srgb, var(--color-accent) 60%, white 8%);
   box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 

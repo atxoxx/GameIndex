@@ -23,6 +23,13 @@
   --fd-ctl-h: 30px;
 }
 
+/* Theme-invariant white plate for the friend-code QR: the code renders
+   black-on-white and needs a light background to stay scannable in every
+   theme, so the plate is defined once here rather than derived per theme. */
+:root {
+  --fd-qr-plate: #ffffff;
+}
+
 /* ============================================================================
  * COMPARE — selector strip
  * ========================================================================== */
@@ -1466,7 +1473,7 @@
   align-items: center;
   margin: var(--space-xs) 0;
   padding: var(--space-md);
-  background: #fff;
+  background: var(--fd-qr-plate);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }

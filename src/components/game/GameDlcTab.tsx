@@ -303,7 +303,7 @@ export default function GameDlcTab({
                   className="family-share-banner__avatar"
                 />
               ) : (
-                <div className="family-share-banner__avatar" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#4f46e5" }}>
+                <div className="family-share-banner__avatar" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-accent)" }}>
                   <IconFamily size={18} />
                 </div>
               )}
@@ -351,7 +351,7 @@ export default function GameDlcTab({
                 className="family-share-banner__avatar"
               />
             ) : (
-              <div className="family-share-banner__avatar" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#4f46e5" }}>
+              <div className="family-share-banner__avatar" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-accent)" }}>
                 <IconFamily size={18} />
               </div>
             )}

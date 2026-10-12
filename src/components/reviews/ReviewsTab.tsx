@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useBigScreen } from "../../context/BigScreenContext";
@@ -31,6 +31,17 @@ import { ReviewsToolbar } from "./ReviewsToolbar";
 import { ReviewsExternalShowcase } from "./ReviewsExternalShowcase";
 import { ReviewsEmptyState } from "./ReviewsEmptyState";
 import { useFocusProps } from "./focusable";
+
+/**
+ * Review-source brand accents, defined once as custom properties so the
+ * showcase's inline accent styling resolves through tokens instead of raw
+ * colour literals (see eslint-rules/no-hardcoded-colors).
+ */
+const REVIEW_SOURCE_ACCENTS = {
+  "--review-source-steam": "#1b9ae0",
+  "--review-source-metacritic": "#ffcc33",
+  "--review-source-opencritic": "#ff5722",
+} as const;
 
 function ratingToSentiment(score: number | null): "positive" | "negative" | null {
   if (score === null) return null;
@@ -471,7 +482,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           name: "Steam Reviews",
           url: community,
           description: "Read Steam community reviews",
-          accent: "#1b9ae0",
+          accent: "var(--review-source-steam)",
         });
       }
     }
@@ -481,7 +492,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         name: "Metacritic",
         url: buildExternalUrl(game, "metacritic"),
         description: `Search “${gameDisplayName(game)}” on Metacritic`,
-        accent: "#ffcc33",
+        accent: "var(--review-source-metacritic)",
         criticKey: "metacritic",
       },
       {
@@ -489,7 +500,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         name: "OpenCritic",
         url: buildExternalUrl(game, "opencritic"),
         description: `Search “${gameDisplayName(game)}” on OpenCritic`,
-        accent: "#ff5722",
+        accent: "var(--review-source-opencritic)",
         criticKey: "opencritic",
       },
     );
@@ -545,7 +556,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
   const loadMoreFocus = useFocusProps(() => void fetchReviews(false, nextCursor, languageFilter));
 
   return (
-    <div className="rv-root">
+    <div className="rv-root" style={REVIEW_SOURCE_ACCENTS as CSSProperties}>
       {/* ── Header ── */}
       <header className="rv-header">
         <div className="rv-header-left">

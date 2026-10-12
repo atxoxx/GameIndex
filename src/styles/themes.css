@@ -1202,6 +1202,8 @@
   --shadow-md: none;
   --shadow-lg: none;
   --shadow-xl: none;
+
+  --hc-focus-outline: #ffff00;
 }
 
 /* Highcontrast glow removal — use outline instead of box-shadow for focus/highlight */
@@ -1211,7 +1213,7 @@
 [data-theme="highcontrast"] .lib-card:hover,
 [data-theme="highcontrast"] .store-game-card:hover {
   box-shadow: none !important;
-  outline: 3px solid #ffff00 !important;
+  outline: 3px solid var(--hc-focus-outline) !important;
   outline-offset: 2px !important;
 }
 

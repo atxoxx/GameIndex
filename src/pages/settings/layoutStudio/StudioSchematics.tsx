@@ -368,7 +368,7 @@ export function SchematicDonut({
         cy={size / 2}
         r={r}
         fill="none"
-        stroke="var(--color-brand-cyan, #06b6d4)"
+        stroke="var(--color-info)"
         strokeWidth={stroke}
         strokeDasharray={`${c * 0.3} ${c * 0.7}`}
         strokeDashoffset={-c * 0.2}

@@ -325,7 +325,7 @@
 }
 
 .studio-icon-success {
-  color: #10b981;
+  color: var(--color-success);
 }
 
 /* ── Page tabs (top of the studio) ──────────────────────────────────────── */
@@ -461,7 +461,7 @@
 }
 
 .studio-pages__landing-star {
-  color: #fbbf24;
+  color: var(--color-stale);
   margin-left: -2px;
 }
 
@@ -698,10 +698,10 @@
   background: linear-gradient(
     135deg,
     var(--color-accent),
-    color-mix(in srgb, var(--color-accent) 60%, #000)
+    color-mix(in srgb, var(--color-accent) 60%, var(--color-text-inverse))
   );
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 25%, transparent);
   flex-shrink: 0;
   transition: all var(--transition-fast);
 }
@@ -1256,7 +1256,7 @@
   position: relative;
   height: 48px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(145deg, color-mix(in srgb, var(--color-accent) 15%, #18181b), #09090b);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-hover)), var(--color-bg-primary));
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -1285,17 +1285,17 @@
 
 .studio-preview .studio-preview__mini-badge--plat {
   background: rgba(0, 0, 0, 0.6);
-  color: #60a5fa;
+  color: var(--color-info);
 }
 
 .studio-preview .studio-preview__mini-badge--rating {
   background: rgba(0, 0, 0, 0.6);
-  color: #fbbf24;
+  color: var(--color-stale);
 }
 
 .studio-preview .studio-preview__mini-badge--installed {
-  background: color-mix(in srgb, #10b981 30%, transparent);
-  color: #34d399;
+  background: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: var(--color-success);
 }
 
 .studio-preview__mock-card-meta {
@@ -3279,7 +3279,7 @@
   height: 13px;
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 80%, rgba(0, 0, 0, 0.85));
-  color: #fff;
+  color: var(--color-accent-contrast);
   pointer-events: none;
 }
 
@@ -3670,7 +3670,7 @@
   height: 18px;
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--color-accent) 80%, black);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-schematic-card__badge {
@@ -3685,13 +3685,13 @@
 }
 
 .studio-schematic-card__badge--sale {
-  background: var(--color-danger, #ef4444);
-  color: #fff;
+  background: var(--color-danger);
+  color: var(--color-accent-contrast);
 }
 
 .studio-schematic-card__badge--news {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-schematic-card__badge--heart {
@@ -3700,8 +3700,8 @@
 }
 
 .studio-schematic-card__badge--installed {
-  background: var(--color-success, #10b981);
-  color: #fff;
+  background: var(--color-success);
+  color: var(--color-accent-contrast);
 }
 
 .studio-schematic-card__meta {
@@ -4159,7 +4159,7 @@
 .studio-lib-rail-check.is-checked {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-lib-rail-name {
@@ -4261,7 +4261,7 @@
 .studio-store-check.is-checked {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-store-filter-label {
@@ -4285,7 +4285,7 @@
 .studio-store-price-pill.is-active {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-store-main-col {
@@ -4424,7 +4424,7 @@
   height: 12px;
   border-radius: var(--radius-pill);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: 7px;
   font-weight: var(--font-weight-bold);
 }
@@ -4502,8 +4502,8 @@
   font-weight: var(--font-weight-bold);
   padding: 1px 5px;
   border-radius: var(--radius-xs);
-  background: var(--color-success, #10b981);
-  color: #fff;
+  background: var(--color-success);
+  color: var(--color-accent-contrast);
 }
 
 .studio-deals-hero-strike {
@@ -4649,7 +4649,7 @@
   padding: 1px 5px;
   border-radius: var(--radius-xs);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-news-read-time {
@@ -4806,7 +4806,7 @@
   padding: 1px 3px;
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.7);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-news-card-body {
@@ -4875,7 +4875,7 @@
   padding: 3px 6px;
   border-radius: var(--radius-xs);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-dl-hero-cockpit {
@@ -6068,8 +6068,8 @@
   font-weight: var(--font-weight-bold);
   padding: 1px 3px;
   border-radius: 2px;
-  background: var(--color-warning, #f59e0b);
-  color: #000;
+  background: var(--color-warning);
+  color: var(--color-text-inverse);
 }
 
 .studio-ach-row-count {
@@ -6355,7 +6355,7 @@
 
 .studio-friends-count-badge.is-unread {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-friends-header-actions {
@@ -6383,7 +6383,7 @@
   padding: 2px 5px;
   border-radius: var(--radius-xs);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-friends-hero-mock {
@@ -6569,7 +6569,7 @@
 .studio-emu-btn--primary {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-emu-kpi-grid {
@@ -6724,7 +6724,7 @@
 .studio-emu-action-btn--primary {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-emu-roms-table {
@@ -6989,7 +6989,7 @@
 .studio-mods-action-btn--primary {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-mods-table {
@@ -7040,7 +7040,7 @@
 .studio-mods-checkbox.is-checked {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .studio-mods-col-order {

@@ -16,13 +16,13 @@ interface FriendsCirclesModalProps {
 }
 
 const CIRCLE_COLORS = [
-  "#3b82f6", // Blue
-  "#10b981", // Emerald
-  "#8b5cf6", // Purple
-  "#f59e0b", // Amber
-  "#ec4899", // Pink
-  "#06b6d4", // Cyan
-  "#f43f5e", // Rose
+  "var(--circle-color-blue)",
+  "var(--circle-color-emerald)",
+  "var(--circle-color-purple)",
+  "var(--circle-color-amber)",
+  "var(--circle-color-pink)",
+  "var(--circle-color-cyan)",
+  "var(--circle-color-rose)",
 ];
 
 export default function FriendsCirclesModal({

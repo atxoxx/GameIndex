@@ -278,17 +278,17 @@ export function ActivityPagePreview({
               <div className="studio-act-dist-bars">
                 <div className="studio-act-dist-row">
                   <span className="studio-act-dist-name">&gt; 2 Hours</span>
-                  <Track value={48} color="var(--color-brand-cyan, #06b6d4)" />
+                  <Track value={48} color="var(--color-info)" />
                   <span className="studio-act-dist-pct">48%</span>
                 </div>
                 <div className="studio-act-dist-row">
                   <span className="studio-act-dist-name">1 - 2 Hours</span>
-                  <Track value={32} color="var(--color-brand-cyan, #06b6d4)" />
+                  <Track value={32} color="var(--color-info)" />
                   <span className="studio-act-dist-pct">32%</span>
                 </div>
                 <div className="studio-act-dist-row">
                   <span className="studio-act-dist-name">&lt; 1 Hour</span>
-                  <Track value={20} color="var(--color-brand-cyan, #06b6d4)" />
+                  <Track value={20} color="var(--color-info)" />
                   <span className="studio-act-dist-pct">20%</span>
                 </div>
               </div>
@@ -340,7 +340,7 @@ export function ActivityPagePreview({
                   <span>RPG (48%)</span>
                 </span>
                 <span className="studio-act-legend-item">
-                  <i style={{ background: "var(--color-brand-cyan, #06b6d4)" }} />
+                  <i style={{ background: "var(--color-info)" }} />
                   <span>Action (32%)</span>
                 </span>
               </div>

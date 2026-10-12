@@ -166,7 +166,7 @@ export function CommunityPagePreview({
                 <span className="studio-comm-goal-title">Monthly Gaming Goal</span>
                 <span className="studio-comm-goal-count">24h / 30h (80%)</span>
               </div>
-              <Track value={80} color="var(--color-brand-cyan, #06b6d4)" height={5} />
+              <Track value={80} color="var(--color-info)" height={5} />
             </div>
 
             {/* Two-column overview cards */}
@@ -184,7 +184,7 @@ export function CommunityPagePreview({
                       <span>Role-Playing Games (52%)</span>
                     </span>
                     <span className="studio-comm-donut-row">
-                      <i style={{ background: "var(--color-brand-cyan, #06b6d4)" }} />
+                      <i style={{ background: "var(--color-info)" }} />
                       <span>Action Adventure (30%)</span>
                     </span>
                   </div>

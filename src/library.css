@@ -2025,7 +2025,7 @@ select.lib-filter-search option {
   font-weight: var(--font-weight-medium);
   border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.75);
-  color: #fff;
+  color: var(--scrim-text);
   border: 1px solid rgba(255, 255, 255, 0.12);
   line-height: 1.2;
   white-space: nowrap;
@@ -2033,12 +2033,12 @@ select.lib-filter-search option {
 
 .lib-card-badge--running {
   background: color-mix(in srgb, var(--color-success) 85%, black 15%);
-  color: #fff;
+  color: var(--scrim-text);
 }
 
 .lib-card-badge--playtime {
   background: rgba(0, 0, 0, 0.75);
-  color: #fff;
+  color: var(--scrim-text);
 }
 
 /* Quick play FAB — appears on hover */
@@ -2577,8 +2577,8 @@ select.lib-filter-search option {
     linear-gradient(color-mix(in srgb, var(--color-text-muted) 10%, transparent) 1px, transparent 1px),
     linear-gradient(90deg, color-mix(in srgb, var(--color-text-muted) 10%, transparent) 1px, transparent 1px);
   background-size: 26px 26px;
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 40%, transparent 100%);
 }
 
 .lib-empty-icon {

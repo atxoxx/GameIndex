@@ -141,7 +141,7 @@
 }
 
 .ui-btn--danger {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-danger);
   border-color: transparent;
   font-weight: var(--font-weight-semibold);
@@ -771,8 +771,8 @@
 .home-rail-track,
 .store-rail-track,
 .screenshots-rail {
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, var(--color-text-inverse) 36px, var(--color-text-inverse) calc(100% - 36px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, var(--color-text-inverse) 36px, var(--color-text-inverse) calc(100% - 36px), transparent 100%);
 }
 
 /* ── Filter Primitives (P1-6) ─────────────────────────────────────

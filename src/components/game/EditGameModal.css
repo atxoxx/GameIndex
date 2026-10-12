@@ -753,7 +753,7 @@
 .edit-preview-status-pill.status-backlog {
   background: color-mix(in srgb, var(--color-info) 16%, transparent);
   border-color: color-mix(in srgb, var(--color-info) 40%, transparent);
-  color: color-mix(in srgb, var(--color-info) 65%, #fff);
+  color: color-mix(in srgb, var(--color-info) 65%, var(--color-text-primary));
 }
 
 .edit-preview-status-pill.status-abandoned {
@@ -932,6 +932,28 @@
   color: var(--color-accent);
 }
 
+/* ─── Launch icon palette ───────────────────────────────────
+   One hue per launch-option kind. These are category colours (they
+   must stay recognisable across every theme), so they are defined
+   here once as tokens instead of being inlined at each usage. */
+:root {
+  --edit-launch-icon-args-text: #c084fc;
+  --edit-launch-icon-steam: #0284c7;
+  --edit-launch-icon-track: #6366f1;
+  --edit-launch-icon-track-text: #818cf8;
+  --edit-launch-icon-global: #8b5cf6;
+  --edit-launch-icon-global-text: #a78bfa;
+  --edit-launch-icon-env: #06b6d4;
+  --edit-launch-icon-env-text: #22d3ee;
+  --edit-launch-icon-runner: #3b82f6;
+  --edit-launch-icon-runner-text: #60a5fa;
+  --edit-launch-icon-display: #ec4899;
+  --edit-launch-icon-display-text: #f472b6;
+  --edit-launch-icon-audio-text: #34d399;
+  --edit-launch-icon-wine: #e11d48;
+  --edit-launch-icon-wine-text: #fb7185;
+}
+
 /* ─── Launch Subtab Modern Styling ────────────────────────── */
 .edit-launch-form {
   display: flex;
@@ -978,9 +1000,9 @@
 }
 
 .edit-launch-icon-args {
-  background: color-mix(in srgb, #a855f7 15%, transparent);
-  color: #c084fc;
-  border-color: color-mix(in srgb, #a855f7 30%, transparent);
+  background: color-mix(in srgb, var(--color-ingame) 15%, transparent);
+  color: var(--edit-launch-icon-args-text);
+  border-color: color-mix(in srgb, var(--color-ingame) 30%, transparent);
 }
 
 .edit-launch-icon-admin {
@@ -990,27 +1012,27 @@
 }
 
 .edit-launch-icon-steam {
-  background: color-mix(in srgb, #0284c7 18%, transparent);
+  background: color-mix(in srgb, var(--edit-launch-icon-steam) 18%, transparent);
   color: var(--color-info);
-  border-color: color-mix(in srgb, #0284c7 35%, transparent);
+  border-color: color-mix(in srgb, var(--edit-launch-icon-steam) 35%, transparent);
 }
 
 .edit-launch-icon-scripts {
   background: color-mix(in srgb, var(--color-success) 15%, transparent);
-  color: color-mix(in srgb, var(--color-success) 55%, #fff);
+  color: color-mix(in srgb, var(--color-success) 55%, var(--color-text-primary));
   border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .edit-launch-icon-companion {
   background: color-mix(in srgb, var(--color-danger) 15%, transparent);
-  color: color-mix(in srgb, var(--color-danger) 55%, #fff);
+  color: color-mix(in srgb, var(--color-danger) 55%, var(--color-text-primary));
   border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
 .edit-launch-icon-track {
-  background: color-mix(in srgb, #6366f1 15%, transparent);
-  color: #818cf8;
-  border-color: color-mix(in srgb, #6366f1 30%, transparent);
+  background: color-mix(in srgb, var(--edit-launch-icon-track) 15%, transparent);
+  color: var(--edit-launch-icon-track-text);
+  border-color: color-mix(in srgb, var(--edit-launch-icon-track) 30%, transparent);
 }
 
 .edit-launch-icon-secondary {
@@ -1020,45 +1042,45 @@
 }
 
 .edit-launch-icon-global {
-  background: color-mix(in srgb, #8b5cf6 15%, transparent);
-  color: #a78bfa;
-  border-color: color-mix(in srgb, #8b5cf6 30%, transparent);
+  background: color-mix(in srgb, var(--edit-launch-icon-global) 15%, transparent);
+  color: var(--edit-launch-icon-global-text);
+  border-color: color-mix(in srgb, var(--edit-launch-icon-global) 30%, transparent);
 }
 
 .edit-launch-icon-env {
-  background: color-mix(in srgb, #06b6d4 15%, transparent);
-  color: #22d3ee;
-  border-color: color-mix(in srgb, #06b6d4 30%, transparent);
+  background: color-mix(in srgb, var(--edit-launch-icon-env) 15%, transparent);
+  color: var(--edit-launch-icon-env-text);
+  border-color: color-mix(in srgb, var(--edit-launch-icon-env) 30%, transparent);
 }
 
 .edit-launch-icon-dll {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  color: #fbbf24;
-  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-stale);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
 }
 
 .edit-launch-icon-runner {
-  background: color-mix(in srgb, #3b82f6 15%, transparent);
-  color: #60a5fa;
-  border-color: color-mix(in srgb, #3b82f6 30%, transparent);
+  background: color-mix(in srgb, var(--edit-launch-icon-runner) 15%, transparent);
+  color: var(--edit-launch-icon-runner-text);
+  border-color: color-mix(in srgb, var(--edit-launch-icon-runner) 30%, transparent);
 }
 
 .edit-launch-icon-display {
-  background: color-mix(in srgb, #ec4899 15%, transparent);
-  color: #f472b6;
-  border-color: color-mix(in srgb, #ec4899 30%, transparent);
+  background: color-mix(in srgb, var(--edit-launch-icon-display) 15%, transparent);
+  color: var(--edit-launch-icon-display-text);
+  border-color: color-mix(in srgb, var(--edit-launch-icon-display) 30%, transparent);
 }
 
 .edit-launch-icon-audio {
-  background: color-mix(in srgb, #10b981 15%, transparent);
-  color: #34d399;
-  border-color: color-mix(in srgb, #10b981 30%, transparent);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--edit-launch-icon-audio-text);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .edit-launch-icon-wine {
-  background: color-mix(in srgb, #e11d48 15%, transparent);
-  color: #fb7185;
-  border-color: color-mix(in srgb, #e11d48 30%, transparent);
+  background: color-mix(in srgb, var(--edit-launch-icon-wine) 15%, transparent);
+  color: var(--edit-launch-icon-wine-text);
+  border-color: color-mix(in srgb, var(--edit-launch-icon-wine) 30%, transparent);
 }
 
 .edit-launch-card-header-text {
@@ -1356,7 +1378,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--color-accent-contrast);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   transition: transform var(--transition-normal);
 }
@@ -2091,7 +2113,7 @@
 
 .media-fetch-badge.is-playing {
   background: var(--color-success);
-  color: #fff;
+  color: var(--scrim-text);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
 }
 

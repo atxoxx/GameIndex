@@ -257,7 +257,12 @@ export function FriendCodeQR({ code }: { code: string }) {
     }
     import("qrcode").then(({ default: QRCode }) => {
       if (cancelled) return;
-      QRCode.toDataURL(code, { margin: 1, width: 160, color: { dark: "#000000", light: "#ffffff" } })
+      // The encoder needs concrete hex colors — it can't resolve var() — so
+      // read the active theme's text ramp off the root element.
+      const rootStyles = getComputedStyle(document.documentElement);
+      const dark = rootStyles.getPropertyValue("--color-text-inverse").trim();
+      const light = rootStyles.getPropertyValue("--color-text-primary").trim();
+      QRCode.toDataURL(code, { margin: 1, width: 160, color: { dark, light } })
         .then((url: string) => {
           if (!cancelled) setDataUrl(url);
         })

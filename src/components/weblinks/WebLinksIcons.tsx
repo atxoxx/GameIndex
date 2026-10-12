@@ -77,14 +77,14 @@ export const ITADIcon = (
 export const MetacriticIcon = (
   <svg viewBox="0 0 24 24" fill="currentColor">
     <circle cx="12" cy="12" r="10" />
-    <text x="12" y="16.5" fontSize="13" fontWeight="900" textAnchor="middle" fill="var(--color-bg-primary, #000)" fontFamily="sans-serif">M</text>
+    <text x="12" y="16.5" fontSize="13" fontWeight="900" textAnchor="middle" fill="var(--color-bg-primary)" fontFamily="sans-serif">M</text>
   </svg>
 );
 
 export const IGDBIcon = (
   <svg viewBox="0 0 24 24" fill="currentColor">
     <rect x="3" y="4" width="18" height="16" rx="3" />
-    <text x="12" y="16" fontSize="9" fontWeight="900" textAnchor="middle" fill="var(--color-bg-primary, #000)" fontFamily="sans-serif">IGDB</text>
+    <text x="12" y="16" fontSize="9" fontWeight="900" textAnchor="middle" fill="var(--color-bg-primary)" fontFamily="sans-serif">IGDB</text>
   </svg>
 );
 
@@ -106,9 +106,9 @@ export const TwitchIcon = (
 export const RedditIcon = (
   <svg viewBox="0 0 24 24" fill="currentColor">
     <circle cx="12" cy="12" r="10" />
-    <circle cx="9" cy="12" r="1.5" fill="var(--color-bg-primary, #000)" />
-    <circle cx="15" cy="12" r="1.5" fill="var(--color-bg-primary, #000)" />
-    <path d="M9 15c1 1 5 1 6 0" stroke="var(--color-bg-primary, #000)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+    <circle cx="9" cy="12" r="1.5" fill="var(--color-bg-primary)" />
+    <circle cx="15" cy="12" r="1.5" fill="var(--color-bg-primary)" />
+    <path d="M9 15c1 1 5 1 6 0" stroke="var(--color-bg-primary)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
   </svg>
 );
 
@@ -130,7 +130,7 @@ export const SteamGridDBIcon = (
 export const GOGIcon = (
   <svg viewBox="0 0 24 24" fill="currentColor">
     <circle cx="12" cy="12" r="10" />
-    <text x="12" y="15.5" fontSize="8.5" fontWeight="900" textAnchor="middle" fill="var(--color-bg-primary, #000)" fontFamily="sans-serif">GOG</text>
+    <text x="12" y="15.5" fontSize="8.5" fontWeight="900" textAnchor="middle" fill="var(--color-bg-primary)" fontFamily="sans-serif">GOG</text>
   </svg>
 );
 

@@ -541,7 +541,7 @@ export default function CommandPaletteInspector({
             <div className="cmd-inspector-achievement-box">
               <div className="cmd-inspector-achievement-header">
                 <span className="cmd-inspector-achievement-title">
-                  <Trophy size={13} style={{ color: "#f59e0b" }} />
+                  <Trophy size={13} style={{ color: "var(--color-warning)" }} />
                   <span>{t("nav.achievements")}</span>
                 </span>
                 <span className="cmd-inspector-achievement-count">

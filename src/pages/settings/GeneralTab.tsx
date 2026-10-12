@@ -293,7 +293,7 @@ export default function GeneralTab() {
                   marginBottom: "4px",
                   color:
                     status === "error"
-                      ? "rgba(248, 113, 113, 0.85)"
+                      ? "color-mix(in srgb, var(--color-danger) 85%, transparent)"
                       : undefined,
                 }}
               >

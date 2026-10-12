@@ -130,7 +130,7 @@ export function UpdateModal() {
             style={{
               height: "100%",
               width: `${progress.percent}%`,
-              background: "var(--accent-primary, #6366f1)",
+              background: "var(--accent-primary)",
               transition: "width 0.2s ease",
             }}
           />
@@ -357,8 +357,8 @@ export function UpdateModal() {
           <div
             className="modal-header-icon"
             style={{
-              background: "rgba(99, 102, 241, 0.15)",
-              color: "var(--accent-primary, #6366f1)",
+              background: "color-mix(in srgb, var(--accent-primary) 15%, transparent)",
+              color: "var(--accent-primary)",
               borderRadius: "12px",
               padding: "10px",
               display: "flex",
@@ -398,8 +398,8 @@ export function UpdateModal() {
                 {updateInfo?.version && (
                   <span
                     style={{
-                      background: "var(--accent-primary, #6366f1)",
-                      color: "#fff",
+                      background: "var(--accent-primary)",
+                      color: "var(--color-accent-contrast)",
                       fontSize: "12px",
                       fontWeight: 600,
                       padding: "2px 8px",

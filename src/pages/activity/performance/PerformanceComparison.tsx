@@ -23,12 +23,12 @@ function rankOf(index: number): number | null {
 
 function barGradientFor(metric: ComparisonMetric): string {
   if (metric === "fps") {
-    return "linear-gradient(90deg, var(--color-brand-teal) 0%, color-mix(in srgb, var(--color-brand-teal) 70%, #5eead4) 100%)";
+    return "linear-gradient(90deg, var(--color-brand-teal) 0%, color-mix(in srgb, var(--color-brand-teal) 70%, white) 100%)";
   }
   if (metric === "temps") {
     return "linear-gradient(90deg, var(--color-warning) 0%, var(--color-danger) 100%)";
   }
-  return "linear-gradient(90deg, var(--color-brand-blue) 0%, color-mix(in srgb, var(--color-brand-blue) 75%, #93c5fd) 100%)";
+  return "linear-gradient(90deg, var(--color-brand-blue) 0%, color-mix(in srgb, var(--color-brand-blue) 75%, white) 100%)";
 }
 
 export function PerformanceComparison({

@@ -2558,7 +2558,7 @@
 .act-tod__slot-bar {
   height: 100%;
   border-radius: var(--radius-full);
-  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, #fff));
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, white));
   transition: width var(--transition-normal) var(--ease-standard);
 }
 
@@ -4179,7 +4179,7 @@
   display: block;
   height: 100%;
   border-radius: var(--radius-full);
-  background: linear-gradient(90deg, var(--color-accent), #06d6a0);
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 60%, var(--color-success)));
   transition: width var(--transition-normal);
 }
 
@@ -4660,23 +4660,23 @@
 }
 
 .act-session-dist__fill--quick {
-  background: linear-gradient(90deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 70%, #fff));
+  background: linear-gradient(90deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 70%, white));
 }
 
 .act-session-dist__fill--short {
-  background: linear-gradient(90deg, var(--color-info), color-mix(in srgb, var(--color-info) 70%, #fff));
+  background: linear-gradient(90deg, var(--color-info), color-mix(in srgb, var(--color-info) 70%, white));
 }
 
 .act-session-dist__fill--medium {
-  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, #fff));
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, white));
 }
 
 .act-session-dist__fill--long {
-  background: linear-gradient(90deg, var(--color-brand-blue, var(--color-info)), color-mix(in srgb, var(--color-brand-blue, var(--color-info)) 70%, #fff));
+  background: linear-gradient(90deg, var(--color-brand-blue, var(--color-info)), color-mix(in srgb, var(--color-brand-blue, var(--color-info)) 70%, white));
 }
 
 .act-session-dist__fill--marathon {
-  background: linear-gradient(90deg, var(--color-success), color-mix(in srgb, var(--color-success) 70%, #fff));
+  background: linear-gradient(90deg, var(--color-success), color-mix(in srgb, var(--color-success) 70%, white));
 }
 
 .act-session-dist__meta {
@@ -5385,12 +5385,12 @@
 .act-dow-bar-fill {
   width: 100%;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 85%, #fff), var(--color-accent));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 85%, white), var(--color-accent));
   transition: height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .act-dow-col--weekend .act-dow-bar-fill {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--color-info) 85%, #fff), var(--color-info));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-info) 85%, white), var(--color-info));
 }
 
 .act-dow-col--peak .act-dow-bar-fill {

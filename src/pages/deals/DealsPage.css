@@ -8,6 +8,19 @@
  - Theme tokens only (--color-*, --space-*, --radius-*, --font-*, --shadow-*)
  ============================================================================ */
 
+:root {
+  /* Theme-invariant "hot deal" gradient pair. */
+  --deal-mega-from: #e53935;
+  --deal-mega-to: #ff5722;
+  --deal-large-from: #ff9800;
+
+  /* Dark glass controls layered over deal artwork. */
+  --deal-glass-bg: rgba(18, 20, 24, 0.85);
+  --deal-glass-bg-hover: rgba(30, 34, 42, 0.95);
+  --deal-glass-border: rgba(255, 255, 255, 0.15);
+  --deal-glass-border-hover: rgba(255, 255, 255, 0.3);
+}
+
 .deals-page {
   display: flex;
   flex-direction: column;
@@ -102,9 +115,9 @@
 }
 
 .deals-spotlight-badge--gamepass {
-  background: color-mix(in srgb, #107c10 20%, transparent);
-  color: #107c10;
-  border: 1px solid color-mix(in srgb, #107c10 40%, transparent);
+  background: color-mix(in srgb, var(--brand-xbox) 20%, transparent);
+  color: var(--brand-xbox);
+  border: 1px solid color-mix(in srgb, var(--brand-xbox) 40%, transparent);
 }
 
 .deals-spotlight-store {
@@ -143,14 +156,14 @@
   padding: 3px var(--space-md);
   border-radius: var(--radius-sm);
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #fff);
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
 }
 
 .deals-spotlight-cut.mega {
-  background: linear-gradient(135deg, #e53935, #ff5722);
-  box-shadow: 0 0 14px rgba(229, 57, 53, 0.4);
+  background: linear-gradient(135deg, var(--deal-mega-from), var(--deal-mega-to));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--deal-mega-from) 40%, transparent);
 }
 
 .deals-spotlight-current {
@@ -168,7 +181,7 @@
 .deals-spotlight-free-tag {
   padding: 4px var(--space-md);
   background: var(--color-success);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-radius: var(--radius-sm);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
@@ -504,7 +517,7 @@
 
 .deals-category-chip.active {
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #fff);
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -647,7 +660,7 @@
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #fff);
+  color: var(--color-accent-contrast);
   font-size: 11px;
   font-weight: var(--font-weight-bold);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -655,12 +668,12 @@
 }
 
 .deals-deal-card-discount-corner.mega {
-  background: linear-gradient(135deg, #e53935, #ff5722);
-  box-shadow: 0 0 8px rgba(229, 57, 53, 0.5);
+  background: linear-gradient(135deg, var(--deal-mega-from), var(--deal-mega-to));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--deal-mega-from) 50%, transparent);
 }
 
 .deals-deal-card-discount-corner.large {
-  background: linear-gradient(135deg, #ff9800, #ff5722);
+  background: linear-gradient(135deg, var(--deal-large-from), var(--deal-mega-to));
 }
 
 .deals-card-top-badges {
@@ -684,12 +697,12 @@
 
 .deals-card-badge--owned {
   background: var(--color-success);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .deals-card-badge--wishlist {
   background: var(--color-warning);
-  color: #1a1a1a;
+  color: var(--color-text-inverse);
 }
 
 .deals-card-badge svg {
@@ -721,8 +734,8 @@
   width: 26px;
   height: 26px;
   border-radius: var(--radius-full);
-  background: rgba(18, 20, 24, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--deal-glass-bg);
+  border: 1px solid var(--deal-glass-border);
   color: var(--color-text-secondary);
   display: flex;
   align-items: center;
@@ -734,9 +747,9 @@
 }
 
 .deals-card-action-btn:hover {
-  background: rgba(30, 34, 42, 0.95);
+  background: var(--deal-glass-bg-hover);
   color: var(--color-text-primary);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: var(--deal-glass-border-hover);
   transform: scale(1.08);
 }
 
@@ -827,7 +840,7 @@
 
 .deals-gamepass-card:hover {
   transform: translateY(-4px);
-  border-color: color-mix(in srgb, #107c10 60%, transparent);
+  border-color: color-mix(in srgb, var(--brand-xbox) 60%, transparent);
   box-shadow: var(--shadow-lg);
 }
 
@@ -858,7 +871,7 @@
   justify-content: center;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, #107c10 10%, var(--color-bg-tertiary)),
+    color-mix(in srgb, var(--brand-xbox) 10%, var(--color-bg-tertiary)),
     var(--color-bg-secondary)
   );
 }
@@ -866,7 +879,7 @@
 .deals-gamepass-card-image-fallback svg {
   width: 36px;
   height: 36px;
-  color: #107c10;
+  color: var(--brand-xbox);
   opacity: 0.4;
   flex-shrink: 0;
 }
@@ -884,7 +897,7 @@
   padding: 1px var(--space-xs);
   border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.7);
-  color: #fff;
+  color: var(--scrim-text);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
 }
@@ -946,9 +959,9 @@
   margin-top: auto;
   padding: 6px var(--space-md);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, #107c10 15%, transparent);
-  border: 1px solid color-mix(in srgb, #107c10 35%, transparent);
-  color: #107c10;
+  background: color-mix(in srgb, var(--brand-xbox) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-xbox) 35%, transparent);
+  color: var(--brand-xbox);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
@@ -963,9 +976,9 @@
 }
 
 .deals-gamepass-card-link:hover {
-  background: #107c10;
-  color: #fff;
-  border-color: #107c10;
+  background: var(--brand-xbox);
+  color: var(--color-accent-contrast);
+  border-color: var(--brand-xbox);
 }
 
 /* ─── Giveaway Card ─── */
@@ -1034,7 +1047,7 @@
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   background: var(--color-success);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
@@ -1049,7 +1062,7 @@
   padding: 2px var(--space-sm);
   border-radius: var(--radius-full);
   background: rgba(0, 0, 0, 0.75);
-  color: #fff;
+  color: var(--scrim-text);
   font-size: 11px;
   font-weight: var(--font-weight-medium);
   z-index: 2;
@@ -1057,7 +1070,7 @@
 
 .deals-giveaway-card-timer-badge.urgent {
   background: var(--color-warning);
-  color: #1a1a1a;
+  color: var(--color-text-inverse);
   font-weight: var(--font-weight-bold);
 }
 
@@ -1113,7 +1126,7 @@
   padding: 6px var(--space-md);
   border-radius: var(--radius-md);
   background: var(--color-success);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: none;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -1270,13 +1283,13 @@
   padding: 3px var(--space-sm);
   border-radius: var(--radius-sm);
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #fff);
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
 }
 
 .deals-detail-discount-badge.mega {
-  background: linear-gradient(135deg, #e53935, #ff5722);
+  background: linear-gradient(135deg, var(--deal-mega-from), var(--deal-mega-to));
 }
 
 .deals-detail-current-price {
@@ -1309,11 +1322,11 @@
   gap: var(--space-xs);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  color: #107c10;
+  color: var(--brand-xbox);
   padding: 4px 10px;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, #107c10 12%, transparent);
-  border: 1px solid color-mix(in srgb, #107c10 30%, transparent);
+  background: color-mix(in srgb, var(--brand-xbox) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-xbox) 30%, transparent);
   width: fit-content;
 }
 
@@ -1327,7 +1340,7 @@
   padding: 3px 8px;
   border-radius: var(--radius-sm);
   background: var(--color-success);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: 11px;
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.02em;
@@ -1529,7 +1542,7 @@
   padding: 1px var(--space-xs);
   border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.7);
-  color: #fff;
+  color: var(--scrim-text);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   z-index: 2;

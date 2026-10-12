@@ -163,12 +163,12 @@ export function AchievementsPagePreview({
                 </div>
                 <div className="studio-ach-rarity-row">
                   <span className="studio-ach-rarity-name">Rare</span>
-                  <Track value={22} color="var(--color-brand-cyan, #06b6d4)" />
+                  <Track value={22} color="var(--color-info)" />
                   <span className="studio-ach-rarity-val">22%</span>
                 </div>
                 <div className="studio-ach-rarity-row">
                   <span className="studio-ach-rarity-name">Ultra-Rare</span>
-                  <Track value={3} color="var(--color-warning, #f59e0b)" />
+                  <Track value={3} color="var(--color-warning)" />
                   <span className="studio-ach-rarity-val">3%</span>
                 </div>
               </div>
@@ -189,8 +189,8 @@ export function AchievementsPagePreview({
           <div className="studio-ach-sources-mock">
             <div className="studio-ach-source-bar" aria-hidden="true">
               <span style={{ width: "68%", background: "var(--color-accent)" }} />
-              <span style={{ width: "18%", background: "var(--color-brand-cyan, #06b6d4)" }} />
-              <span style={{ width: "14%", background: "var(--color-warning, #f59e0b)" }} />
+              <span style={{ width: "18%", background: "var(--color-info)" }} />
+              <span style={{ width: "14%", background: "var(--color-warning)" }} />
             </div>
             <div className="studio-ach-source-legend">
               <span className="studio-ach-legend-tag">Steam (965)</span>

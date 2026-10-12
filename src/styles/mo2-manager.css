@@ -1,5 +1,11 @@
 /* Mod Organizer 2 Management Styles */
 
+/* Nexus Mods brand mark — module-invariant orange, defined once here so the
+   rules below reference it by name instead of inlining the literal. */
+:root {
+  --mo2-nexus: #de6d1c;
+}
+
 .mo2-manager-container {
   display: flex;
   flex-direction: column;
@@ -41,7 +47,7 @@
   width: 44px;
   height: 44px;
   border-radius: var(--radius-md, 8px);
-  background: var(--accent-gradient, linear-gradient(135deg, var(--accent, #6366f1), var(--accent-hover, #4f46e5)));
+  background: var(--accent-gradient, linear-gradient(135deg, var(--accent), var(--accent-hover)));
   color: var(--accent-contrast, #ffffff);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
@@ -69,7 +75,7 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
 }
 
 /* Launch Group */
@@ -83,7 +89,7 @@
 .mo2-profile-select,
 .mo2-instance-switch {
   background: var(--bg-surface, rgba(0, 0, 0, 0.3));
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
   border-radius: var(--radius-md, 6px);
   padding: 0.45rem 0.75rem;
@@ -96,7 +102,7 @@
 .mo2-exec-select:hover,
 .mo2-profile-select:hover,
 .mo2-instance-switch:hover {
-  border-color: var(--accent, #6366f1);
+  border-color: var(--accent);
 }
 
 .mo2-default-toggle-btn {
@@ -117,26 +123,26 @@
 .mo2-default-toggle-btn:hover {
   background: var(--bg-surface-hover, rgba(255, 255, 255, 0.08));
   border-color: var(--border-color-hover, rgba(255, 255, 255, 0.25));
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
 }
 
 .mo2-default-toggle-btn.active {
-  background: color-mix(in srgb, var(--accent, #6366f1) 16%, var(--bg-surface, rgba(0, 0, 0, 0.3)));
-  border-color: color-mix(in srgb, var(--accent, #6366f1) 50%, var(--border-color));
-  color: var(--text-primary, #ffffff);
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-surface, rgba(0, 0, 0, 0.3)));
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-color));
+  color: var(--text-primary);
 }
 
 .mo2-default-toggle-btn .mo2-toggle-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--text-muted, #71717a);
+  background: var(--text-muted);
   transition: background 0.15s ease;
 }
 
 .mo2-default-toggle-btn.active .mo2-toggle-dot {
-  background: var(--color-success, #10b981);
-  box-shadow: 0 0 6px var(--color-success, #10b981);
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
 }
 
 .mo2-toggle-state-badge {
@@ -148,8 +154,8 @@
 }
 
 .mo2-toggle-state-badge.on {
-  background: color-mix(in srgb, var(--color-success, #10b981) 20%, transparent);
-  color: var(--color-success, #10b981);
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
 }
 
 .mo2-toggle-state-badge.off {
@@ -180,7 +186,7 @@
 }
 
 .mo2-icon-action-btn:hover {
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   background: var(--bg-card-hover, rgba(255, 255, 255, 0.08));
   border-color: var(--border-color-hover, rgba(255, 255, 255, 0.2));
 }
@@ -223,7 +229,7 @@
 }
 
 .mo2-stat-chip strong {
-  color: var(--accent, #6366f1);
+  color: var(--accent);
 }
 
 /* Controls Bar */
@@ -260,7 +266,7 @@
 }
 
 .mo2-tab-btn.active {
-  background: var(--accent, #6366f1);
+  background: var(--accent);
   color: var(--accent-contrast, #ffffff);
 }
 
@@ -295,7 +301,7 @@
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   font-size: 0.85rem;
   width: 100%;
 }
@@ -321,8 +327,8 @@
 
 .mo2-pill-btn.active {
   background: var(--accent-subtle, rgba(99, 102, 241, 0.2));
-  border-color: var(--accent, #6366f1);
-  color: var(--text-primary, #ffffff);
+  border-color: var(--accent);
+  color: var(--text-primary);
 }
 
 /* Mod & Plugin Rows */
@@ -384,7 +390,7 @@
 }
 
 .mo2-arrow-btn:hover {
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   background: var(--bg-surface, rgba(255, 255, 255, 0.1));
 }
 
@@ -392,7 +398,7 @@
   font-family: monospace;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--accent, #6366f1);
+  color: var(--accent);
   min-width: 28px;
   text-align: center;
 }
@@ -428,12 +434,12 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--color-accent-contrast);
   transition: transform 0.2s ease;
 }
 
 .mo2-toggle-checkbox:checked + .mo2-toggle-switch {
-  background: var(--accent, #6366f1);
+  background: var(--accent);
 }
 
 .mo2-toggle-checkbox:checked + .mo2-toggle-switch::after {
@@ -460,7 +466,7 @@
 .mo2-plugin-name {
   font-size: 0.88rem;
   font-weight: 500;
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -478,12 +484,12 @@
 
 .mo2-category-tag {
   background: var(--accent-subtle, rgba(99, 102, 241, 0.12));
-  color: var(--accent, #6366f1);
+  color: var(--accent);
 }
 
 .mo2-unmanaged-tag {
-  background: rgba(234, 179, 8, 0.15);
-  color: #eab308;
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
 }
 
 .mo2-author-line {
@@ -503,9 +509,9 @@
 }
 
 .mo2-nexus-btn {
-  background: rgba(222, 109, 28, 0.15);
-  border: 1px solid rgba(222, 109, 28, 0.35);
-  color: #de6d1c;
+  background: color-mix(in srgb, var(--mo2-nexus) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mo2-nexus) 35%, transparent);
+  color: var(--mo2-nexus);
   font-size: 0.72rem;
   font-weight: 600;
   padding: 0.2rem 0.5rem;
@@ -515,7 +521,7 @@
 }
 
 .mo2-nexus-btn:hover {
-  background: rgba(222, 109, 28, 0.3);
+  background: color-mix(in srgb, var(--mo2-nexus) 30%, transparent);
 }
 
 /* Collapsible Categories */
@@ -550,7 +556,7 @@
   border-top-right-radius: var(--radius-md, 7px);
   border-bottom-left-radius: var(--radius-md, 7px);
   border-bottom-right-radius: var(--radius-md, 7px);
-  border-left: 3px solid var(--accent, #6366f1);
+  border-left: 3px solid var(--accent);
   cursor: pointer;
   user-select: none;
   flex-shrink: 0;
@@ -590,7 +596,7 @@
 }
 
 .mo2-category-header:hover .mo2-category-chevron {
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
 }
 
 .mo2-category-icon {
@@ -601,7 +607,7 @@
   height: 22px;
   border-radius: var(--radius-sm, 4px);
   background: var(--accent-subtle, rgba(99, 102, 241, 0.15));
-  color: var(--accent, #6366f1);
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -609,7 +615,7 @@
   margin: 0;
   font-size: 0.88rem;
   font-weight: 600;
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -651,20 +657,20 @@
 
 .mo2-category-toggle-btn:hover {
   background: var(--bg-card-hover, rgba(255, 255, 255, 0.12));
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   border-color: var(--border-color-hover, rgba(255, 255, 255, 0.2));
 }
 
 .mo2-category-toggle-btn.all-active {
   background: var(--accent-subtle, rgba(99, 102, 241, 0.18));
-  border-color: var(--accent, #6366f1);
-  color: var(--accent, #6366f1);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .mo2-category-toggle-btn.partial {
-  background: rgba(234, 179, 8, 0.15);
-  border-color: rgba(234, 179, 8, 0.4);
-  color: #eab308;
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+  color: var(--color-warning);
 }
 
 .mo2-category-toggle-dot {
@@ -712,7 +718,7 @@
 
 .mo2-collapse-all-btn:hover {
   background: var(--bg-card-hover, rgba(255, 255, 255, 0.08));
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   border-color: var(--border-color-hover, rgba(255, 255, 255, 0.18));
 }
 
@@ -745,7 +751,7 @@
 .mo2-empty-title {
   margin: 0;
   font-size: 1.15rem;
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
 }
 
 .mo2-empty-desc {
@@ -794,12 +800,12 @@
 }
 
 .mods-engine-tab-btn:hover {
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   background: var(--bg-card-hover, rgba(255, 255, 255, 0.06));
 }
 
 .mods-engine-tab-btn.active {
-  background: var(--accent, #6366f1);
+  background: var(--accent);
   color: var(--accent-contrast, #ffffff);
 }
 
@@ -840,8 +846,8 @@
 
 .mo2-manage-profiles-btn:hover {
   background: var(--bg-card-hover, rgba(255, 255, 255, 0.1));
-  color: var(--text-primary, #ffffff);
-  border-color: var(--accent, #6366f1);
+  color: var(--text-primary);
+  border-color: var(--accent);
 }
 
 

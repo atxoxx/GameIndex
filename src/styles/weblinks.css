@@ -2,6 +2,12 @@
    Game Page — Web Links Tab Stylesheet
    ========================================================================== */
 
+:root {
+  /* Pinned web-link gold — the theme-invariant colour of the pin/star
+     affordance in the URL bar. */
+  --wl-pin-gold: #f5c518;
+}
+
 .wl-tab {
   display: flex;
   flex-direction: column;
@@ -550,9 +556,9 @@
 }
 
 .wl-urlbar-btn.active-pin {
-  color: #f5c518;
-  background: rgba(245, 197, 24, 0.12);
-  border-color: rgba(245, 197, 24, 0.4);
+  color: var(--wl-pin-gold);
+  background: color-mix(in srgb, var(--wl-pin-gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--wl-pin-gold) 40%, transparent);
 }
 
 .wl-urlbar-btn.copied {
@@ -1053,7 +1059,7 @@
 
 .wl-mylink-btn-icon.danger:hover {
   color: var(--color-danger);
-  background: rgba(248, 81, 73, 0.12);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
   border-color: var(--color-danger);
 }
 

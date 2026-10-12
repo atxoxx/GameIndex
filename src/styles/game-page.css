@@ -1822,7 +1822,7 @@
 .image-lightbox__close-btn:hover {
   background: var(--color-danger);
   border-color: var(--color-danger);
-  color: #ffffff;
+  color: var(--scrim-text);
 }
 
 .image-lightbox__stage {
@@ -1906,7 +1906,7 @@
   gap: var(--space-sm);
   padding: 6px var(--space-md);
   border-radius: var(--radius-full);
-  background: rgba(18, 18, 22, 0.7);
+  background: var(--scrim-dark);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(16px);
   max-width: 100%;
@@ -2783,7 +2783,7 @@
 .media-spotlight__video-container {
   width: 100%;
   height: 100%;
-  background: #000;
+  background: var(--color-scrim-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2793,14 +2793,14 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #000;
+  background: var(--color-scrim-strong);
 }
 
 .media-spotlight__iframe {
   width: 100%;
   height: 100%;
   border: none;
-  background: #000;
+  background: var(--color-scrim-strong);
 }
 
 .media-spotlight__image-container {
@@ -2812,7 +2812,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: #000;
+  background: var(--color-scrim-strong);
 }
 
 .media-spotlight__image {
@@ -2940,7 +2940,7 @@
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.2px;
   background: rgba(0, 0, 0, 0.75);
-  color: #fff;
+  color: var(--scrim-text);
   backdrop-filter: blur(4px);
 }
 

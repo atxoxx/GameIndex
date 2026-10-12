@@ -1912,7 +1912,7 @@
 
 .mods-presets-tab.active {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-accent-contrast);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -1945,14 +1945,14 @@
   letter-spacing: 0.5px;
   padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .active-mo2-profile {
-  border-color: rgba(16, 185, 129, 0.35);
-  background: rgba(16, 185, 129, 0.04);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+  background: color-mix(in srgb, var(--color-success) 4%, transparent);
 }
 
 .mo2-instance-subtext {
@@ -1965,7 +1965,7 @@
 .mo2-current-tag {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: #10b981;
+  color: var(--color-success);
   padding: 4px 8px;
 }
 

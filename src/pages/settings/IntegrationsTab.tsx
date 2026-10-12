@@ -535,7 +535,7 @@ export default function IntegrationsTab({
                             className="steam-family-member-card__avatar"
                           />
                         ) : (
-                          <div className="steam-family-member-card__avatar" style={{ background: "#4f46e5" }} />
+                          <div className="steam-family-member-card__avatar" style={{ background: "var(--color-accent)" }} />
                         )}
                         <div className="steam-family-member-card__info">
                           <span className="steam-family-member-card__name">

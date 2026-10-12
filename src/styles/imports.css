@@ -329,8 +329,8 @@
   padding: var(--space-sm) var(--space-md);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  background: rgba(225, 177, 44, 0.12);
-  border: 1px solid rgba(225, 177, 44, 0.35);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
   border-radius: var(--radius-sm);
 }
 
