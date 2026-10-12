@@ -363,13 +363,25 @@ export default function GameMediaSpotlight({
 
         {activeItem.kind === "video" && (
           <div className="media-spotlight__video-container">
-            <iframe
-              src={getVideoEmbedUrl(activeItem.url) || undefined}
-              title={activeItem.label}
-              className="media-spotlight__iframe"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+            {/* Unmount the embed when the section scrolls away or the window
+                is hidden — a YouTube iframe keeps its media pipeline and
+                buffers alive in the background otherwise. */}
+            {isInView ? (
+              <iframe
+                src={getVideoEmbedUrl(activeItem.url) || undefined}
+                title={activeItem.label}
+                className="media-spotlight__iframe"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : activeItem.thumbUrl ? (
+              <img
+                src={activeItem.thumbUrl}
+                alt={activeItem.label}
+                className="media-spotlight__image"
+                loading="lazy"
+              />
+            ) : null}
           </div>
         )}
 
