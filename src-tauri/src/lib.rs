@@ -562,10 +562,33 @@ pub fn run() {
             if let WindowEvent::Resized(_) = event {
                 if window.label() == "main" {
                     if let Some(webview) = window.app_handle().get_webview("main") {
-                        std::thread::spawn(move || {
-                            std::thread::sleep(std::time::Duration::from_millis(100));
-                            let _ = webview.eval("window.dispatchEvent(new Event('resize'))");
-                        });
+                        // A window drag emits a Resized event per frame. Spawning a
+                        // fresh thread + JS eval for each one floods the web process
+                        // and keeps the compositor awake. Coalesce the storm into a
+                        // single worker that re-evals only while resizes keep
+                        // arriving, then goes idle.
+                        use std::sync::atomic::{AtomicBool, Ordering};
+                        static RESIZE_WORKER_RUNNING: AtomicBool = AtomicBool::new(false);
+                        static RESIZE_DIRTY: AtomicBool = AtomicBool::new(false);
+                        RESIZE_DIRTY.store(true, Ordering::SeqCst);
+                        if !RESIZE_WORKER_RUNNING.swap(true, Ordering::SeqCst) {
+                            std::thread::spawn(move || loop {
+                                std::thread::sleep(std::time::Duration::from_millis(120));
+                                if !RESIZE_DIRTY.swap(false, Ordering::SeqCst) {
+                                    RESIZE_WORKER_RUNNING.store(false, Ordering::SeqCst);
+                                    // Re-arm if a resize landed between the swap
+                                    // and clearing the running flag.
+                                    if RESIZE_DIRTY.load(Ordering::SeqCst)
+                                        && !RESIZE_WORKER_RUNNING.swap(true, Ordering::SeqCst)
+                                    {
+                                        continue;
+                                    }
+                                    break;
+                                }
+                                let _ =
+                                    webview.eval("window.dispatchEvent(new Event('resize'))");
+                            });
+                        }
                     }
                 }
             }
