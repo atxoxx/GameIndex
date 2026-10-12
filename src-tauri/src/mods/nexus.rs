@@ -15,11 +15,21 @@
 
 use serde::Serialize;
 use serde_json::Value;
+use std::sync::{Mutex, OnceLock};
 
 use crate::db::secrets::SecretStore;
 
 pub const NEXUS_KEY_ACCOUNT: &str = "nexus_api_key";
 const API: &str = "https://api.nexusmods.com/v1";
+
+/// `is_premium` is stable for the life of a key, and `validate` is a
+/// network round-trip — cache the answer so browsing a mod's files and
+/// then downloading it doesn't validate twice.
+static PREMIUM_CACHE: OnceLock<Mutex<Option<bool>>> = OnceLock::new();
+
+fn premium_cache() -> &'static Mutex<Option<bool>> {
+    PREMIUM_CACHE.get_or_init(|| Mutex::new(None))
+}
 
 fn client() -> reqwest::Client {
     reqwest::Client::builder()
@@ -30,6 +40,29 @@ fn client() -> reqwest::Client {
 
 pub fn get_api_key() -> Result<Option<String>, String> {
     SecretStore::new().get(NEXUS_KEY_ACCOUNT)
+}
+
+/// Cached `is_premium` for the stored key. Validates at most once per
+/// process; `None` when no key is stored or the check failed.
+pub async fn is_premium_cached() -> Option<bool> {
+    if let Some(cached) = premium_cache().lock().ok().and_then(|g| *g) {
+        return Some(cached);
+    }
+    let key = get_api_key().ok().flatten().filter(|k| !k.is_empty())?;
+    let status = validate(&key).await;
+    if let Some(premium) = status.is_premium {
+        if let Ok(mut guard) = premium_cache().lock() {
+            *guard = Some(premium);
+        }
+    }
+    status.is_premium
+}
+
+/// Drop the cached premium flag after the key is changed or cleared.
+pub fn clear_premium_cache() {
+    if let Ok(mut guard) = premium_cache().lock() {
+        *guard = None;
+    }
 }
 
 /// Connection status surfaced to the frontend settings popover.

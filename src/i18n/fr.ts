@@ -3493,6 +3493,7 @@ export const fr: TranslationDict = {
   "mods.discover.updated": "Mis à jour {date}",
   "mods.discover.openPage": "Ouvrir la page",
   "mods.discover.install": "Télécharger et installer",
+  "mods.discover.premiumNotice": "Les téléchargements directs depuis Nexus Mods nécessitent un compte Premium — utilisez « Ouvrir la page » ou ajoutez une clé API Premium dans Sources.",
   "mods.discover.files": "Fichiers",
   "mods.discover.noFiles": "Aucun fichier téléchargeable répertorié.",
   "mods.discover.description": "À propos",

@@ -356,6 +356,7 @@ export default function ModsDiscoverView({
       } else if (res.status === "manual") {
         showToast(res.message ?? t("mods.discover.manualNeeded"), "info");
       } else if (res.status === "steam" || res.status === "external") {
+        if (res.message) showToast(res.message, "info");
         if (res.url) void openUrl(res.url);
       }
     } catch (err) {

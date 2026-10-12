@@ -129,6 +129,14 @@ zip = { version = "4", default-features = false, features = ["deflate"] }
 # (RUSTSEC-2026-0245); `sevenz-rust2` rejects escaping entry names in
 # `safe_join`. `util` only — the old crate defaulted to LZMA decode too.
 sevenz-rust2 = { version = "0.23", default-features = false, features = ["util"] }
+# RAR extraction for the mod installer — Nexus Mods (and friends) ship a
+# meaningful share of archives as `.rar`, which previously fell back to the
+# manual install modal. `unrar-ng` is the maintained MIT/Apache-2.0 fork of
+# `unrar`; it wraps libunrar (extraction only — the unRAR restriction forbids
+# re-creating the compressor) rather than the pure-Rust `unrar-rs`, which is
+# GPL-3.0-or-later and would relicense this MIT app. The trade-off is a
+# vendored C++ compile via `cc`, which MSVC handles on Windows.
+unrar-ng = "0.7"
 # Steam `appcache/appinfo.vdf` binary parsing — counts a Steam game's
 # launch actions so the edit modal can hint about the launch-picker
 # option (`steam://launch/<appid>/dialog`). Pure-Rust, no binary deps.

@@ -552,11 +552,15 @@ pub fn set_credential_for(source: &str, key: &str) -> Result<(), String> {
     let account = credential_account(source)
         .ok_or_else(|| format!("{} does not use an API key", display_name(source)))?;
     let store = crate::db::secrets::SecretStore::new();
-    if key.trim().is_empty() {
+    let result = if key.trim().is_empty() {
         store.delete(account)
     } else {
         store.set(account, key.trim())
+    };
+    if source == SOURCE_NEXUS {
+        crate::mods::nexus::clear_premium_cache();
     }
+    result
 }
 
 /// Steam Web API key from the library-sync session (Workshop browsing).
@@ -840,6 +844,13 @@ pub fn mods_source_set_credential(source: String, key: String) -> Result<(), Str
     set_credential_for(&source, &key)
 }
 
+/// Cached Nexus Premium flag (validates at most once per session).
+/// `None` when no API key is stored or the check failed.
+#[tauri::command]
+pub async fn nexus_premium_status() -> Option<bool> {
+    crate::mods::nexus::is_premium_cached().await
+}
+
 /// Manually pin a game to an external id on a site (overrides detection).
 #[tauri::command]
 pub fn mods_source_set_link(
@@ -1099,11 +1110,20 @@ mod install {
     }
 
     fn archive_name(plan: &RemoteDownload, fallback: &str) -> String {
-        if let Some(f) = &plan.filename {
-            return sanitize_filename(f);
+        // Prefer a candidate that actually carries an extension: some sites
+        // hand back an extension-less "short name", which would leave the
+        // temp archive untyped and skip the installer's format dispatch.
+        let from_url = filename_from_url(&plan.url);
+        for candidate in [plan.filename.as_deref(), from_url.as_deref()]
+            .into_iter()
+            .flatten()
+        {
+            if candidate.contains('.') {
+                return sanitize_filename(candidate);
+            }
         }
-        if let Some(f) = filename_from_url(&plan.url) {
-            return sanitize_filename(&f);
+        if let Some(name) = plan.filename.as_deref() {
+            return sanitize_filename(name);
         }
         sanitize_filename(fallback)
     }
@@ -1240,19 +1260,10 @@ mod install {
             },
         );
 
-        let ext = archive
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_ascii_lowercase();
         let dest_for_extract = target.clone();
         let archive_for_extract = archive.clone();
-        let result = tokio::task::spawn_blocking(move || match ext.as_str() {
-            "zip" => crate::mods::install_zip_archive(&archive_for_extract, &dest_for_extract)
-                .map(|n| (n, None)),
-            _ => Err(
-                "unsupported_archive: this archive isn't a ZIP — install it manually".to_string(),
-            ),
+        let result = tokio::task::spawn_blocking(move || {
+            crate::mods::install_archive(&archive_for_extract, &dest_for_extract).map(|n| (n, None))
         })
         .await
         .map_err(|e| format!("install task: {e}"))?;
@@ -1260,8 +1271,8 @@ mod install {
         let (installed_files, manual_note) = match result {
             Ok((n, note)) => (n, note),
             Err(e) => {
-                // Non-zip or a conflict: keep the archive so the user can
-                // install it through the existing manual modal.
+                // Unsupported format or a conflict: keep the archive so the
+                // user can install it through the existing manual modal.
                 return Ok(RemoteInstallResult {
                     status: "manual".into(),
                     installed_path: Some(archive.to_string_lossy().to_string()),
@@ -1310,5 +1321,38 @@ mod install {
             url: Some(plan.url),
             message: manual_note,
         })
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn plan(filename: Option<&str>, url: &str) -> RemoteDownload {
+            RemoteDownload {
+                kind: "direct".into(),
+                url: url.into(),
+                filename: filename.map(str::to_string),
+                referer: None,
+                headers: Vec::new(),
+                message: None,
+            }
+        }
+
+        #[test]
+        fn archive_name_keeps_the_filename_extension() {
+            let p = plan(Some("Cool Mod-1.2.rar"), "https://cdn/files/x");
+            assert_eq!(archive_name(&p, "mod"), "Cool Mod-1.2.rar");
+        }
+
+        // Nexus hands back an extension-less `short_name`; the download URL
+        // carries the real one, which the installer needs to pick a format.
+        #[test]
+        fn archive_name_falls_back_to_the_url_extension() {
+            let p = plan(
+                Some("Cool Mod-1-2"),
+                "https://cdn/files/Cool Mod-1.2.7z?md5=abc",
+            );
+            assert_eq!(archive_name(&p, "mod"), "Cool Mod-1.2.7z");
+        }
     }
 }

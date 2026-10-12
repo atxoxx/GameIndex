@@ -3498,6 +3498,7 @@ export const de: TranslationDict = {
   "mods.discover.updated": "Aktualisiert {date}",
   "mods.discover.openPage": "Seite öffnen",
   "mods.discover.install": "Herunterladen & installieren",
+  "mods.discover.premiumNotice": "Direkte Downloads von Nexus Mods erfordern ein Premium-Konto — nutze ‚Seite öffnen‘ oder hinterlege einen Premium-API-Schlüssel unter Quellen.",
   "mods.discover.files": "Dateien",
   "mods.discover.noFiles": "Keine herunterladbaren Dateien aufgeführt.",
   "mods.discover.description": "Über",

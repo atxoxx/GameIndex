@@ -3498,6 +3498,7 @@ export const zhCN: TranslationDict = {
   "mods.discover.updated": "更新于 {date}",
   "mods.discover.openPage": "打开页面",
   "mods.discover.install": "下载并安装",
+  "mods.discover.premiumNotice": "Nexus Mods 的直接下载需要高级会员 — 请使用「打开页面」，或在「来源」中添加高级会员 API 密钥。",
   "mods.discover.files": "文件",
   "mods.discover.noFiles": "没有可下载的文件。",
   "mods.discover.description": "关于",

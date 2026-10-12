@@ -361,7 +361,7 @@ async fn browse_feeds(
     })
 }
 
-async fn mod_files(domain: &str, mod_id: &str, key: &str) -> Vec<RemoteModFile> {
+async fn mod_files(domain: &str, mod_id: &str, key: &str, premium: bool) -> Vec<RemoteModFile> {
     let url = format!("{API}/games/{domain}/mods/{mod_id}/files.json");
     let Ok(resp) = http_client().get(&url).header("apikey", key).send().await else {
         return Vec::new();
@@ -385,8 +385,9 @@ async fn mod_files(domain: &str, mod_id: &str, key: &str) -> Vec<RemoteModFile> 
                 uploaded_at: timestamp_string(f.get("uploaded_timestamp")),
                 category: val_str(f, &["category_name"]),
                 is_primary: i == 0,
-                // Upgraded to `direct` at download time for Premium.
-                download_kind: "external".to_string(),
+                // Premium accounts get a direct link at download time; free
+                // accounts are pointed at the mod page instead.
+                download_kind: if premium { "direct".to_string() } else { "external".to_string() },
                 download_url: Some(format!("https://www.nexusmods.com/{domain}/mods/{mod_id}")),
                 file_name: val_str(f, &["file_name"]),
             }
@@ -413,7 +414,8 @@ pub async fn detail(external_id: &str, mod_id: &str) -> Result<RemoteModDetail, 
     let summary = summary_from_item(external_id, &v).ok_or("nexus: empty mod")?;
     let description = val_str(&v, &["description"]);
     let gallery = val_str(&v, &["picture_url"]).into_iter().collect();
-    let files = mod_files(external_id, mod_id, &key).await;
+    let premium = crate::mods::nexus::is_premium_cached().await.unwrap_or(false);
+    let files = mod_files(external_id, mod_id, &key, premium).await;
     Ok(RemoteModDetail {
         summary,
         description,
@@ -429,21 +431,9 @@ pub async fn download(
     file_id: Option<&str>,
 ) -> Result<RemoteDownload, String> {
     let key = key()?;
-    // Direct links are Premium-only; check before asking for one.
-    let premium = match http_client()
-        .get(format!("{API}/users/validate.json"))
-        .header("apikey", &key)
-        .send()
-        .await
-    {
-        Ok(r) => r
-            .json::<Value>()
-            .await
-            .ok()
-            .and_then(|v| v.get("is_premium").and_then(|p| p.as_bool()))
-            .unwrap_or(false),
-        Err(_) => false,
-    };
+    // Direct links are Premium-only; the cached check avoids re-validating
+    // on every file when a Premium user installs several.
+    let premium = crate::mods::nexus::is_premium_cached().await.unwrap_or(false);
 
     let mod_page = format!("https://www.nexusmods.com/{external_id}/mods/{mod_id}");
     if !premium {
@@ -458,7 +448,7 @@ pub async fn download(
     }
     let fid = match file_id {
         Some(id) if !id.is_empty() => id.to_string(),
-        _ => mod_files(external_id, mod_id, &key)
+        _ => mod_files(external_id, mod_id, &key, premium)
             .await
             .into_iter()
             .next()
@@ -493,7 +483,7 @@ pub async fn download(
         .ok_or("nexus: empty download link")?;
     let filename = arr
         .first()
-        .and_then(|l| val_str(l, &["short_name", "name"]));
+        .and_then(|l| val_str(l, &["name", "short_name"]));
     Ok(RemoteDownload {
         kind: "direct".to_string(),
         url: link,

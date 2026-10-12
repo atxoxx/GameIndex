@@ -218,6 +218,132 @@ pub(crate) fn install_zip_archive(archive: &Path, destination: &Path) -> Result<
     Ok(installed)
 }
 
+/// Extract a mod archive into `destination`, returning the file count.
+/// ZIP is streamed entry-by-entry; 7z and RAR are unpacked to a scratch
+/// directory first (their libraries don't expose a streaming writer) and
+/// then merged, so conflict handling and counting stay identical.
+pub(crate) fn install_archive(archive: &Path, destination: &Path) -> Result<u64, String> {
+    let ext = archive
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "zip" => install_zip_archive(archive, destination),
+        "7z" => install_staged_archive(archive, destination, |src, staging| {
+            sevenz_rust2::decompress_file(src, staging).map_err(|e| format!("7z extract: {e}"))
+        }),
+        "rar" => install_staged_archive(archive, destination, |src, staging| {
+            validate_rar_archive(src)?;
+            unrar_ng::Archive::new(src)
+                .open_for_processing()
+                .map_err(|e| format!("rar open: {e}"))?
+                .extract_all(staging)
+                .map_err(|e| format!("rar extract: {e}"))
+        }),
+        _ => Err(format!(
+            "unsupported_archive: .{ext} archives aren't supported — use zip, 7z or rar"
+        )),
+    }
+}
+
+/// Reject RAR entries that would escape the extraction root before any
+/// bytes are written. libunrar sanitises most names itself, but the
+/// listing is cheap and makes the guarantee explicit rather than implied.
+fn validate_rar_archive(archive: &Path) -> Result<(), String> {
+    let listing = unrar_ng::Archive::new(archive)
+        .open_for_listing()
+        .map_err(|e| format!("rar open: {e}"))?;
+    for header in listing {
+        let header = header.map_err(|e| format!("rar list: {e}"))?;
+        let name = header.filename.to_string_lossy().replace('\\', "/");
+        if !archive_entry_is_safe(&name) {
+            return Err("unsafe_archive: archive contains a path traversal entry".into());
+        }
+    }
+    Ok(())
+}
+
+/// Run `extract` into a scratch directory, then merge the tree into
+/// `destination`. The scratch dir is always removed, success or not.
+fn install_staged_archive(
+    archive: &Path,
+    destination: &Path,
+    extract: impl FnOnce(&Path, &Path) -> Result<(), String>,
+) -> Result<u64, String> {
+    let staging = staging_dir()?;
+    let extracted = extract(archive, &staging);
+    let outcome = match extracted {
+        Ok(()) => merge_dir_into(&staging, destination),
+        Err(e) => Err(e),
+    };
+    let _ = fs::remove_dir_all(&staging);
+    outcome
+}
+
+fn staging_dir() -> Result<PathBuf, String> {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let dir = std::env::temp_dir().join(format!(
+        "gameindex-mod-extract-{}-{nanos}",
+        std::process::id()
+    ));
+    if dir.exists() {
+        let _ = fs::remove_dir_all(&dir);
+    }
+    fs::create_dir_all(&dir).map_err(|e| format!("install staging: {e}"))?;
+    Ok(dir)
+}
+
+/// Copy every file under `src` into `dest`, preserving the relative
+/// layout. Fails (and rolls back what it wrote) when a destination file
+/// already exists, matching the ZIP installer's conflict rule.
+fn merge_dir_into(src: &Path, dest: &Path) -> Result<u64, String> {
+    let mut created: Vec<PathBuf> = Vec::new();
+    let mut count = 0u64;
+    let result = merge_walk(src, src, dest, &mut created, &mut count);
+    if let Err(e) = result {
+        for path in created.iter().rev() {
+            let _ = fs::remove_file(path);
+        }
+        return Err(e);
+    }
+    Ok(count)
+}
+
+fn merge_walk(
+    src: &Path,
+    current: &Path,
+    dest: &Path,
+    created: &mut Vec<PathBuf>,
+    count: &mut u64,
+) -> Result<(), String> {
+    let rd = fs::read_dir(current).map_err(|e| format!("install read: {e}"))?;
+    for entry in rd {
+        let entry = entry.map_err(|e| format!("install entry: {e}"))?;
+        let path = entry.path();
+        let rel = path.strip_prefix(src).map_err(|e| format!("install rel: {e}"))?;
+        let target = dest.join(rel);
+        if path.is_dir() {
+            fs::create_dir_all(&target).map_err(|e| format!("install directory: {e}"))?;
+            merge_walk(src, &path, dest, created, count)?;
+        } else {
+            if target.exists() {
+                return Err(format!("install_conflict: '{}' already exists", target.display()));
+            }
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent).map_err(|e| format!("install parent: {e}"))?;
+            }
+            fs::copy(&path, &target).map_err(|e| format!("install file: {e}"))?;
+            created.push(target);
+            *count += 1;
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn mods_install_archive(app: tauri::AppHandle, game_id: String, archive_path: String, destination: Option<String>) -> Result<u64, String> {
     let db = app.state::<db::Db>().inner().clone();
@@ -227,9 +353,7 @@ pub async fn mods_install_archive(app: tauri::AppHandle, game_id: String, archiv
     let target = PathBuf::from(&root);
     if !archive.is_file() { return Err("archive_missing: archive file was not found".into()); }
     if !target.is_dir() { return Err("install_target_missing: destination folder was not found".into()); }
-    let extension = archive.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
-    if extension != "zip" { return Err("unsupported_archive: only ZIP archives are supported in this build".into()); }
-    tokio::task::spawn_blocking(move || install_zip_archive(&archive, &target)).await.map_err(|e| format!("install task: {e}"))?
+    tokio::task::spawn_blocking(move || install_archive(&archive, &target)).await.map_err(|e| format!("install task: {e}"))?
 }
 
 #[tauri::command]
@@ -648,11 +772,13 @@ pub fn mods_set_custom_root(
 #[tauri::command]
 pub fn nexus_set_api_key(key: String) -> Result<(), String> {
     let store = crate::db::secrets::SecretStore::new();
-    if key.trim().is_empty() {
+    let result = if key.trim().is_empty() {
         store.delete(nexus::NEXUS_KEY_ACCOUNT)
     } else {
         store.set(nexus::NEXUS_KEY_ACCOUNT, key.trim())
-    }
+    };
+    nexus::clear_premium_cache();
+    result
 }
 
 /// Validate the stored key against `/users/validate.json`.
@@ -877,5 +1003,85 @@ pub fn mo2_launch_game(
         &executable,
         run_as_admin.unwrap_or(false),
     )
+}
+
+#[cfg(test)]
+mod install_tests {
+    use super::*;
+
+    fn unique_dir(tag: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "gameindex-mod-test-{tag}-{}-{nanos}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn write_zip(path: &Path, entries: &[(&str, &[u8])]) {
+        let file = fs::File::create(path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        for (name, data) in entries {
+            zip.start_file(*name, options).unwrap();
+            std::io::Write::write_all(&mut zip, data).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    // Happy path: a ZIP installs into the target with its folder layout.
+    #[test]
+    fn install_archive_extracts_zip_and_counts_files() {
+        let root = unique_dir("zip-ok");
+        let archive = root.join("mod.zip");
+        write_zip(&archive, &[("Textures/a.dds", b"abc"), ("readme.txt", b"hi")]);
+        let dest = root.join("mods");
+        fs::create_dir_all(&dest).unwrap();
+
+        let count = install_archive(&archive, &dest).unwrap();
+
+        assert_eq!(count, 2);
+        assert_eq!(fs::read(dest.join("Textures/a.dds")).unwrap(), b"abc");
+        assert!(dest.join("readme.txt").is_file());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    // Error path: an archive we don't handle is rejected, not silently ignored.
+    #[test]
+    fn install_archive_rejects_unknown_extension() {
+        let root = unique_dir("bad-ext");
+        let archive = root.join("mod.weird");
+        fs::write(&archive, b"x").unwrap();
+        let dest = root.join("mods");
+        fs::create_dir_all(&dest).unwrap();
+
+        let err = install_archive(&archive, &dest).unwrap_err();
+
+        assert!(err.contains("unsupported_archive"), "got: {err}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    // Error path: an existing target file aborts the install and is left
+    // untouched, matching the ZIP installer's conflict rule.
+    #[test]
+    fn install_archive_aborts_on_existing_file() {
+        let root = unique_dir("conflict");
+        let archive = root.join("mod.zip");
+        write_zip(&archive, &[("readme.txt", b"hi")]);
+        let dest = root.join("mods");
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(dest.join("readme.txt"), b"existing").unwrap();
+
+        let err = install_archive(&archive, &dest).unwrap_err();
+
+        assert!(err.contains("install_conflict"), "got: {err}");
+        assert_eq!(fs::read(dest.join("readme.txt")).unwrap(), b"existing");
+        let _ = fs::remove_dir_all(&root);
+    }
 }
 

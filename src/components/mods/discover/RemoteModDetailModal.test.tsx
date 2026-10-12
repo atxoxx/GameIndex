@@ -94,4 +94,33 @@ describe("RemoteModDetailModal Steam action", () => {
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());
     expect(screen.queryByLabelText("mods.discover.openInSteam")).toBeNull();
   });
+
+  it("shows the Premium hint to a free Nexus account", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "nexus_premium_status") return Promise.resolve(false);
+      return Promise.resolve(
+        detail({ summary: summary({ source: "nexus" }), files: [file({ downloadKind: "external" })] }),
+      );
+    });
+    renderModal("nexus", summary({ source: "nexus" }));
+
+    fireEvent.click(await screen.findByText("mods.discover.tabFiles"));
+    expect(await screen.findByText("mods.discover.premiumNotice")).toBeTruthy();
+  });
+
+  it("hides the Premium hint from a Premium account", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "nexus_premium_status") return Promise.resolve(true);
+      return Promise.resolve(
+        detail({ summary: summary({ source: "nexus" }), files: [file({ downloadKind: "direct" })] }),
+      );
+    });
+    renderModal("nexus", summary({ source: "nexus" }));
+
+    fireEvent.click(await screen.findByText("mods.discover.tabFiles"));
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("nexus_premium_status"),
+    );
+    expect(screen.queryByText("mods.discover.premiumNotice")).toBeNull();
+  });
 });

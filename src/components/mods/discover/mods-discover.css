@@ -972,6 +972,26 @@
   gap: var(--space-md);
 }
 
+/* Nexus Premium hint shown to free accounts in the Files tab. */
+.mods-discover-premium-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.mods-discover-premium-notice svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
 .mods-discover-files-list,
 .mods-remote-modal-files {
   list-style: none;

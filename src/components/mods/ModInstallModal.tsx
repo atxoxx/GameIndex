@@ -53,7 +53,7 @@ export default function ModInstallModal({
       const files = typeof picked === "string" ? [picked] : picked;
       for (const file of files) {
         const lower = file.toLowerCase();
-        if (lower.endsWith(".zip")) {
+        if (lower.endsWith(".zip") || lower.endsWith(".7z") || lower.endsWith(".rar")) {
           const count = await invoke<number>("mods_install_archive", {
             gameId: game.id,
             archivePath: file,

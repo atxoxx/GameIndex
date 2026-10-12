@@ -428,6 +428,7 @@ pub fn run() {
             mods::sources::mods_sources_detect,
             mods::sources::mods_source_status,
             mods::sources::mods_source_set_credential,
+            mods::sources::nexus_premium_status,
             mods::sources::mods_source_set_link,
             mods::sources::mods_source_clear_link,
             mods::sources::mods_source_browse,

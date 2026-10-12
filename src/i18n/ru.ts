@@ -3498,6 +3498,7 @@ export const ru: TranslationDict = {
   "mods.discover.updated": "Обновлено {date}",
   "mods.discover.openPage": "Открыть страницу",
   "mods.discover.install": "Скачать и установить",
+  "mods.discover.premiumNotice": "Прямые загрузки с Nexus Mods требуют Premium-аккаунта — нажмите «Открыть страницу» или добавьте Premium API-ключ в разделе «Источники».",
   "mods.discover.files": "Файлы",
   "mods.discover.noFiles": "Доступных для скачивания файлов нет.",
   "mods.discover.description": "О моде",

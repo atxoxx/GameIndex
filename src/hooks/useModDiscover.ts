@@ -301,6 +301,30 @@ export function useRemoteProgress(active: boolean) {
   return progress;
 }
 
+/** Cached Nexus Premium flag. The backend validates at most once per
+ *  session, so this is cheap to call when a Nexus mod page opens. `null`
+ *  means unknown (no key, or the check hasn't resolved yet). */
+export function useNexusPremium(enabled: boolean) {
+  const [premium, setPremium] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    invoke<boolean | null>("nexus_premium_status")
+      .then((v) => {
+        if (!cancelled) setPremium(v);
+      })
+      .catch(() => {
+        if (!cancelled) setPremium(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  return premium;
+}
+
 /** Recent Discover installs for a game. */
 export function useRemoteInstalls(gameId: string | null) {
   const [installs, setInstalls] = useState<ModRemoteInstall[]>([]);

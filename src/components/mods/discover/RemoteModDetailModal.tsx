@@ -20,7 +20,7 @@ import {
 import { Button, Skeleton } from "../../ui";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
-import { useRemoteInstall, useRemoteModDetail } from "../../../hooks/useModDiscover";
+import { useRemoteInstall, useRemoteModDetail, useNexusPremium } from "../../../hooks/useModDiscover";
 import type { RemoteModFile, RemoteModSummary } from "../../../types/mods";
 import {
   formatBytes,
@@ -79,6 +79,7 @@ export default function RemoteModDetailModal({
   const { showToast } = useToast();
   const { detail, loading, error, load } = useRemoteModDetail();
   const { busy, install } = useRemoteInstall();
+  const nexusPremium = useNexusPremium(source === "nexus");
   const [installingFile, setInstallingFile] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [tab, setTab] = useState<DetailTab>("overview");
@@ -191,6 +192,7 @@ export default function RemoteModDetailModal({
         if (steamUrl) void openUrl(steamUrl);
         else if (res.url) void openUrl(res.url);
       } else if (res.status === "external") {
+        if (res.message) showToast(res.message, "info");
         if (res.url) void openUrl(res.url);
       }
     } catch (err) {
@@ -446,6 +448,12 @@ export default function RemoteModDetailModal({
 
               {tab === "files" && (
                 <div className="mods-discover-files">
+                  {source === "nexus" && nexusPremium === false && (
+                    <div className="mods-discover-premium-notice">
+                      <Info size={14} />
+                      <span>{t("mods.discover.premiumNotice")}</span>
+                    </div>
+                  )}
                   {files.length === 0 ? (
                     <p className="mods-discover-hint">{t("mods.discover.noFiles")}</p>
                   ) : (
