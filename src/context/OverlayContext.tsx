@@ -239,6 +239,16 @@ export const PANEL_WIDGETS = [
 /** How many live telemetry samples the sparklines retain. */
 export const OVERLAY_HISTORY_LIMIT = 60;
 
+/** How many recent screenshot / clip paths the HUD keeps in memory. */
+export const RECENT_CAPTURE_LIMIT = 60;
+
+/** Prepend `value` to `list` (moving it to the front when already present),
+ *  capped at `limit` so a long play session can't grow the array forever. */
+function prependCapped(list: string[], value: string, limit: number): string[] {
+  const next = [value, ...list.filter((p) => p !== value)];
+  return next.length > limit ? next.slice(0, limit) : next;
+}
+
 export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   enabled: false,
   hotkey: "Shift+F1",
@@ -665,7 +675,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
         gameTitle,
       });
       if (Array.isArray(list)) {
-        setRecentScreenshots(list);
+        setRecentScreenshots(list.slice(0, RECENT_CAPTURE_LIMIT));
       }
     } catch {
       /* no-op */
@@ -988,10 +998,9 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       (event) => {
         if (event.payload) {
           setLastCapturedScreenshot(event.payload);
-          setRecentScreenshots((prev) => [
-            event.payload.filePath,
-            ...prev.filter((p) => p !== event.payload.filePath),
-          ]);
+          setRecentScreenshots((prev) =>
+            prependCapped(prev, event.payload.filePath, RECENT_CAPTURE_LIMIT)
+          );
         }
       },
     );
@@ -1004,10 +1013,9 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     const clipUnlisten = listen<ClipInfo>("capture:clip-saved", (event) => {
       if (event.payload?.filePath) {
         setLastClip(event.payload);
-        setRecentClips((prev) => [
-          event.payload.filePath,
-          ...prev.filter((p) => p !== event.payload.filePath),
-        ]);
+        setRecentClips((prev) =>
+          prependCapped(prev, event.payload.filePath, RECENT_CAPTURE_LIMIT)
+        );
       }
     });
     return () => {

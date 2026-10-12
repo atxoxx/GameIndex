@@ -282,13 +282,18 @@ export function useRemoteProgress(active: boolean) {
       setProgress(null);
       return;
     }
+    let disposed = false;
     let unlisten: (() => void) | undefined;
     void listen<ModRemoteProgress>("mods-remote-progress", (e) => {
       setProgress(e.payload);
     }).then((fn) => {
-      unlisten = fn;
+      // `active` can flip back before the async listen() resolves; dispose on
+      // arrival instead of leaving the handler subscribed.
+      if (disposed) fn();
+      else unlisten = fn;
     });
     return () => {
+      disposed = true;
       unlisten?.();
     };
   }, [active]);

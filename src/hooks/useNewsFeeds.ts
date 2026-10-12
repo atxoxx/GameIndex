@@ -323,10 +323,20 @@ function loadReadLinks(): Set<string> {
   try {
     const raw = localStorage.getItem(READ_KEY);
     if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as string[]);
+    return capReadLinks(new Set(JSON.parse(raw) as string[]));
   } catch {
     return new Set();
   }
+}
+
+/** Upper bound on remembered read links. The set only ever gains entries, so
+ *  without a cap it grows for the life of the profile. A Set preserves
+ *  insertion order, so trimming keeps the most recently read articles. */
+const READ_LINKS_LIMIT = 2000;
+
+function capReadLinks(links: Set<string>): Set<string> {
+  if (links.size <= READ_LINKS_LIMIT) return links;
+  return new Set(Array.from(links).slice(-READ_LINKS_LIMIT));
 }
 
 /** Persist the set of read article links to localStorage. */
@@ -938,8 +948,7 @@ export function useNewsFeeds() {
   const markRead = useCallback((articleLink: string) => {
     setReadLinks((prev) => {
       if (prev.has(articleLink)) return prev;
-      const updated = new Set(prev);
-      updated.add(articleLink);
+      const updated = capReadLinks(new Set(prev).add(articleLink));
       saveReadLinks(updated);
       return updated;
     });
@@ -949,8 +958,9 @@ export function useNewsFeeds() {
     setReadLinks((prev) => {
       const updated = new Set(prev);
       for (const a of articles) updated.add(a.link);
-      saveReadLinks(updated);
-      return updated;
+      const capped = capReadLinks(updated);
+      saveReadLinks(capped);
+      return capped;
     });
   }, [articles]);
 
@@ -962,8 +972,9 @@ export function useNewsFeeds() {
       } else {
         updated.add(articleLink);
       }
-      saveReadLinks(updated);
-      return updated;
+      const capped = capReadLinks(updated);
+      saveReadLinks(capped);
+      return capped;
     });
   }, []);
 

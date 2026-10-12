@@ -2007,7 +2007,7 @@ Configure Valve's micro-compositor directly inside GameIndex:
         summary: "Store sync failures, games failing to start, missing FPS metrics, and storage permissions.",
         badge: "guide",
         icon: AlertTriangle,
-        keywords: ["troubleshooting", "error", "crash", "sync failed", "permissions", "faq"],
+        keywords: ["troubleshooting", "error", "crash", "sync failed", "permissions", "faq", "memory", "ram", "high memory"],
         relatedIds: ["shortcuts", "database-internals"],
         body: `Solutions to frequently encountered issues and troubleshooting steps.
 
@@ -2047,6 +2047,16 @@ Configure Valve's micro-compositor directly inside GameIndex:
 - **The app seems to close when I hit X**: close-to-tray is on, so it hides in the tray instead of quitting. Reopen it from the tray icon.
 - **The window disappeared after launching a game**: minimize-on-launch hid it; restore from the tray or enable restore-on-exit.
 - **Hotkeys do nothing in-game**: exclusive fullscreen can swallow global hotkeys — use borderless windowed mode or a controller.
+
+## High Memory Usage (Linux)
+If the WebKit render process (\`WebKitWebProcess\`) grows into multiple gigabytes, the accelerated DMA-BUF renderer is the usual cause — a known WebKitGTK issue on some Mesa/NVIDIA and compositor combinations, not a GameIndex library problem. Relaunch with the lighter renderer:
+
+\`\`\`
+GAMEINDEX_WEBKIT_RENDERER=dmabuf-off ./GameIndex-*.AppImage
+\`\`\`
+
+- \`dmabuf-off\` disables the DMA-BUF renderer; \`compositing-off\` also disables accelerated compositing (slightly softer scrolling, lowest memory).
+- Any \`WEBKIT_*\` variable you export yourself always wins, so the app never fights a manual override.
 
 ## Collecting diagnostics\n- Crash reports live in **Settings → Diagnostics**; preview or export them before restarting, because a restart can rotate the newest evidence away.\n- Try once with plugins and overlays disabled, then re-enable them one by one to find the culprit.\n- **Reset settings** restores defaults without touching your library, notes or playtime.\n- If the library itself misbehaves, back up first and run a database integrity check before any manual edit.\n- Game-specific hook output and Wine/Proton logs are kept per launch, so export the newest one when reporting a launch problem.`,
       },

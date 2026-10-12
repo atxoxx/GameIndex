@@ -39,10 +39,18 @@ export function useGameMods(game: Game | null) {
     }
     const gameId = game.id;
     let cancelled = false;
+    let disposed = false;
     let unlisten: (() => void) | undefined;
     void listen<{ gameId: string; phase: string; filesExamined: number; modsFound: number; complete: boolean }>("mods-scan-progress", (event) => {
       if (event.payload.gameId === gameId && !cancelled) setScanProgress(event.payload);
-    }).then((dispose) => { unlisten = dispose; });
+    }).then((dispose) => {
+      // The game can switch (or the page unmount) before the async listener
+      // registration resolves. In that case `unlisten` is still undefined at
+      // cleanup, so dispose the moment it lands rather than leaking a handler
+      // that keeps this closure alive for the rest of the process.
+      if (disposed) dispose();
+      else unlisten = dispose;
+    });
     setLoading(true);
     setError(null);
     setConflicts([]);
@@ -64,6 +72,7 @@ export function useGameMods(game: Game | null) {
       });
     return () => {
       cancelled = true;
+      disposed = true;
       unlisten?.();
     };
   }, [game?.id]); // eslint-disable-line react-hooks/exhaustive-deps

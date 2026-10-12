@@ -11,6 +11,11 @@ export interface ImageLightboxProps {
   title?: string;
 }
 
+/** How many thumbnails either side of the active slide are actually decoded.
+ *  The rest keep their button (for layout/scroll position) but no <img>, so
+ *  opening a large gallery doesn't rasterise every screenshot at once. */
+const THUMB_DECODE_WINDOW = 8;
+
 export default function ImageLightbox({
   images,
   currentIndex,
@@ -328,7 +333,13 @@ export default function ImageLightbox({
                 aria-label={t("screenshots.openAria", { n: idx + 1 })}
                 aria-pressed={idx === safeIndex}
               >
-                <img src={src} alt="" loading="lazy" />
+                {/* Only decode thumbnails near the active slide. Rendering a
+                    full-resolution <img> for every screenshot pins one decoded
+                    bitmap each in WebKit's image cache; a 40-shot gallery was
+                    ~40 full-res decodes the moment the lightbox opened. */}
+                {Math.abs(idx - safeIndex) <= THUMB_DECODE_WINDOW ? (
+                  <img src={src} alt="" loading="lazy" decoding="async" />
+                ) : null}
               </button>
             ))}
           </div>

@@ -17,6 +17,11 @@ type SpotlightItem =
   | { id: string; kind: "video"; url: string; label: string; thumbUrl: string | null }
   | { id: string; kind: "screenshot"; src: string; label: string; index: number };
 
+/** Only thumbnails within this many items of the active one mount an <img>.
+ *  A game can carry dozens of full-resolution screenshots; decoding them all
+ *  at once is a large, avoidable bite of WebKit's render-process memory. */
+const THUMB_DECODE_WINDOW = 8;
+
 function HlsPlayer({ movie, isInView }: { movie: MovieEntry; isInView?: boolean }) {
   const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -398,6 +403,7 @@ export default function GameMediaSpotlight({
           <div className="media-spotlight__filmstrip" ref={filmstripRef}>
             {items.map((item, idx) => {
               const isActive = idx === safeIndex;
+              const decode = Math.abs(idx - safeIndex) <= THUMB_DECODE_WINDOW;
               return (
                 <button
                   key={item.id}
@@ -408,19 +414,25 @@ export default function GameMediaSpotlight({
                   aria-pressed={isActive}
                 >
                   {item.kind === "screenshot" ? (
-                    <img
-                      src={item.src}
-                      alt=""
-                      className="media-spotlight__thumb-img"
-                      loading="lazy"
-                    />
+                    decode ? (
+                      <img
+                        src={item.src}
+                        alt=""
+                        className="media-spotlight__thumb-img"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : null
                   ) : item.thumbUrl ? (
-                    <img
-                      src={item.thumbUrl}
-                      alt=""
-                      className="media-spotlight__thumb-img"
-                      loading="lazy"
-                    />
+                    decode ? (
+                      <img
+                        src={item.thumbUrl}
+                        alt=""
+                        className="media-spotlight__thumb-img"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : null
                   ) : (
                     <div className="media-spotlight__thumb-fallback">
                       <IconVideo size={20} />
