@@ -102,11 +102,26 @@ pub async fn gog_start_login(
     eprintln!("[gog-auth] got auth code (len={}), exchanging for tokens...", auth_code.len());
 
     // ── 2. Exchange auth code for tokens ──────────────────────
-    let tokens = exchange_code_for_tokens(&auth_code).await?;
-    eprintln!("[gog-auth] token exchange OK — user_id={}, expires_at={}", tokens.user_id, tokens.expires_at);
+    // From here on, any early return must close the login window; a failed
+    // exchange or save would otherwise leave a full GOG storefront page
+    // alive in the web process for the rest of the session.
+    let outcome = async {
+        let tokens = exchange_code_for_tokens(&auth_code).await?;
+        save_tokens(&app, &tokens)?;
+        Ok::<_, String>(tokens)
+    }
+    .await;
 
-    // ── 3. Persist tokens to SQLite kv_store ─────────────────
-    save_tokens(&app, &tokens)?;
+    let tokens = match outcome {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            if let Some(wv) = app.get_webview_window("gog-login") {
+                let _ = wv.close();
+            }
+            return Err(e);
+        }
+    };
+    eprintln!("[gog-auth] token exchange OK — user_id={}, expires_at={}", tokens.user_id, tokens.expires_at);
     eprintln!("[gog-auth] tokens saved to kv_store under '{}'", GOG_TOKENS_KV_KEY);
 
     // ── 3b. Capture cookies for embed.gog.com requests ──────

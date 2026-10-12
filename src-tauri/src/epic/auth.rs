@@ -81,7 +81,7 @@ pub async fn epic_start_login(app: AppHandle) -> Result<String, String> {
     .build()
     .map_err(|e| format!("Failed to create login window: {e}"))?;
 
-    let code = tokio::task::spawn_blocking(move || {
+    let result = tokio::task::spawn_blocking(move || {
         match rx.recv_timeout(std::time::Duration::from_secs(300)) {
             Ok(Some(code)) => Ok(code),
             Ok(None) => Err("Login failed — no authorization code received".to_string()),
@@ -89,10 +89,13 @@ pub async fn epic_start_login(app: AppHandle) -> Result<String, String> {
         }
     })
     .await
-    .map_err(|e| format!("Join error: {e}"))??;
+    .map_err(|e| format!("Join error: {e}"))?;
 
+    // Always tear down the login window: on success it is done with, and on
+    // failure or timeout leaving it open pins a full Epic storefront page in
+    // the web process for the rest of the session.
     let _ = webview.close();
-    Ok(code)
+    result
 }
 
 #[tauri::command]

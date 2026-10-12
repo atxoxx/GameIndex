@@ -160,7 +160,9 @@ pub(crate) async fn capture_via_webview(
         Ok(b) => b,
         Err(_) => {
             // Best-effort close on timeout so we don't leak the
-            // WebView surface.
+            // WebView surface, and drop the callback slot so the
+            // HashMap entry + sender don't linger for the session.
+            let _ = slot.take(&req_id);
             let _ = webview.close();
             return Err(format!(
                 "GOG login timed out after {timeout_secs} seconds"
