@@ -219,3 +219,30 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* Fifth pass: full-screen image layers whose blur survives the earlier
+   animation stop. A blurred, scaled, screen-sized bitmap is a large offscreen
+   surface the compositor retains for as long as the layer is mounted (the Big
+   Screen dashboard / deals backdrops, the download modal's ambient glow and
+   the store hero backdrop). The gradient/dim overlays stacked above each one
+   already do the softening, so the filter is dropped outright on WebKitGTK to
+   release the surface, and the remaining drift/shimmer keyframes are stopped. */
+[data-platform="linux"] .bigscreen-dashboard-backdrop-img,
+[data-platform="linux"] .bigscreen-dashboard-backdrop-animated,
+[data-platform="linux"] .bigscreen-hero-bg-img,
+[data-platform="linux"] .dl-modal-backdrop-glow,
+[data-platform="linux"] .store-hero-bg {
+  filter: none;
+}
+
+[data-platform="linux"] .bigscreen-dashboard-backdrop-animated,
+[data-platform="linux"] .bigscreen-hero-bg-img,
+[data-platform="linux"] .store-hero-bg,
+[data-platform="linux"] .store-hero-accent-line::after {
+  animation: none;
+}
+
+[data-platform="linux"] .store-hero-bg {
+  transform: none;
+  will-change: auto;
+}
