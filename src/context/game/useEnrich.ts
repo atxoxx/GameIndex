@@ -79,7 +79,11 @@ async function downloadArtworkSafe(gameId: string, slot: string, url: string | u
     const assetUrl = await invoke<string>("artwork_asset_url", { relativePath: relative });
     return toWebviewAssetUrl(assetUrl);
   } catch {
-    return downloadImageSafe(url);
+    // Never fall back to a base64 data URL here: `download_image` returns the
+    // full image as a `data:` string, and each one pins a multi-MB blob in the
+    // JS heap (plus its decoded bitmap) for the whole session. The remote URL
+    // is a tiny string the webview fetches and caches itself.
+    return url;
   }
 }
 
@@ -282,11 +286,11 @@ export function useEnrich(options: {
           });
           if (sgdb) {
             if (!images.logoUrl && sgdb.logoUrl) {
-              sgdbLogoUrl = await downloadImageSafe(sgdb.logoUrl);
+              sgdbLogoUrl = await downloadArtworkSafe(gameId, "logo", sgdb.logoUrl);
               sgdbLogoSourceUrl = discordAsset(sgdb.logoUrl);
             }
             if (!isFrontendUsableImage(current.iconUrl) && sgdb.iconUrl) {
-              sgdbIconUrl = await downloadImageSafe(sgdb.iconUrl);
+              sgdbIconUrl = await downloadArtworkSafe(gameId, "icon", sgdb.iconUrl);
             }
           }
         } catch (err) {

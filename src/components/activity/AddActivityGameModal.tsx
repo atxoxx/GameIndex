@@ -99,11 +99,15 @@ export function AddActivityGameModal({
       const unlinkedSessions = sessions.filter((s) => s.gameId === unlinkedGameId);
       const { playTime, lastPlayed } = calculateNewGamePlaytime(unlinkedSessions);
 
-      // Fetch and download artwork to local cache / base64
-      const images = selectedMetadata?.images || {};
-      const imageData = await fetchAllImages(images);
-
       const newId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      // Download artwork to disk under the new id. Passing the id routes
+      // through `download_artwork` (an asset URL) instead of `download_image`,
+      // which would embed each image as a base64 data URL — megabytes per game
+      // pinned in the JS heap for the whole session.
+      const images = selectedMetadata?.images || {};
+      const imageData = await fetchAllImages(images, newId);
+
       const newGame: Game = {
         id: newId,
         name: finalTitle,
