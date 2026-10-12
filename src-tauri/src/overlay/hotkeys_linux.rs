@@ -14,18 +14,26 @@
 //! X11 keeps using the existing plugin path; [`is_supported`] reports whether
 //! this portal path applies.
 
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
+use ashpd::zbus::Connection;
+use ashpd::AppID;
 use futures::StreamExt;
 use tauri::AppHandle;
 
 /// Poll interval for the activation stream, so the stop flag is observed even
 /// when no shortcut fires.
 const POLL_MS: u64 = 500;
+
+/// How many times to retry the host app-id registration while the portal picks
+/// up the freshly written desktop entry, and how long to wait between tries.
+const PORTAL_REGISTER_ATTEMPTS: u32 = 5;
+const PORTAL_REGISTER_RETRY: Duration = Duration::from_millis(250);
 
 /// Whether the portal global-shortcuts backend applies to this session.
 pub fn is_supported() -> bool {
@@ -99,7 +107,16 @@ async fn listen(
         return Ok(());
     }
 
-    let proxy = GlobalShortcuts::new().await.map_err(|e| e.to_string())?;
+    // The portal refuses a global-shortcuts session from a process without an
+    // app id, and keys the id by D-Bus sender/connection. Register ours on the
+    // very connection the session will use, before any other portal call.
+    let connection = Connection::session().await.map_err(|e| e.to_string())?;
+    crate::linux_desktop::ensure_portal_desktop_entry();
+    register_portal_app_id(&connection).await;
+
+    let proxy = GlobalShortcuts::with_connection(connection)
+        .await
+        .map_err(|e| e.to_string())?;
     let session = proxy
         .create_session(Default::default())
         .await
@@ -125,6 +142,31 @@ async fn listen(
     }
 
     Ok(())
+}
+
+/// Register this process's app id with the portal on `connection`.
+///
+/// `xdg-desktop-portal` only accepts the registration once the matching desktop
+/// entry is visible to it, and [`ensure_portal_desktop_entry`] may have just
+/// written it, so retry briefly before giving up.
+async fn register_portal_app_id(connection: &Connection) {
+    let app_id = match AppID::from_str(crate::linux_desktop::PORTAL_APP_ID) {
+        Ok(app_id) => app_id,
+        Err(e) => {
+            eprintln!("[overlay] invalid portal app id: {e}");
+            return;
+        }
+    };
+
+    for attempt in 1..=PORTAL_REGISTER_ATTEMPTS {
+        match ashpd::register_host_app_with_connection(connection.clone(), app_id.clone()).await {
+            Ok(()) => return,
+            Err(e) if attempt == PORTAL_REGISTER_ATTEMPTS => {
+                eprintln!("[overlay] portal app id registration failed: {e}");
+            }
+            Err(_) => tokio::time::sleep(PORTAL_REGISTER_RETRY).await,
+        }
+    }
 }
 
 /// Convert the overlay's `(id, accelerator)` pairs into portal shortcuts,

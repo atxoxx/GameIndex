@@ -322,9 +322,17 @@ pub struct OverlayRuntime {
     /// `None` when the CSS background is in charge. Replayed on every show so
     /// a rebuilt window keeps its glass even before the frontend re-syncs.
     pub effect_color: Option<[u8; 4]>,
+    /// Whether the collapsed ticker still resizes itself to its content. A
+    /// manual resize turns it off so the user's size sticks; a settings change
+    /// turns it back on (the widget set is what the auto-fit follows).
+    pub ticker_auto_fit: bool,
     /// Wayland-only: the running XDG GlobalShortcuts portal session, if any.
     #[cfg(target_os = "linux")]
     pub portal_hotkeys: Option<hotkeys_linux::PortalHotkeys>,
+    /// Wayland-only: whether a portal-session refresh is already queued, so a
+    /// burst of binding registrations rebuilds the session just once.
+    #[cfg(target_os = "linux")]
+    pub portal_refresh_pending: bool,
 }
 
 impl OverlayRuntime {
@@ -339,8 +347,11 @@ impl OverlayRuntime {
             session: None,
             collapsed: true,
             effect_color: None,
+            ticker_auto_fit: true,
             #[cfg(target_os = "linux")]
             portal_hotkeys: None,
+            #[cfg(target_os = "linux")]
+            portal_refresh_pending: false,
         }
     }
 }
@@ -574,6 +585,55 @@ fn configure_platform_window(window: &WebviewWindow) {
 #[cfg(not(target_os = "linux"))]
 fn configure_platform_window(_window: &WebviewWindow) {}
 
+/// Kick the layer surface after a show.
+///
+/// gtk-layer-shell can leave a surface configured but never presented when its
+/// synchronous wait for the initial configure times out on a busy compositor —
+/// the HUD then reports visible but draws nothing. Queue a resize/redraw and
+/// force a commit once control returns to the main loop.
+#[cfg(target_os = "linux")]
+fn commit_layer_surface(window: &WebviewWindow, app: &AppHandle) {
+    let kick = window.clone();
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let _ = handle.run_on_main_thread(move || {
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if let Ok(gtk_window) = kick.gtk_window() {
+                    use gtk::prelude::*;
+                    gtk_window.queue_resize();
+                    gtk_window.queue_draw();
+                    linux::try_force_commit(&gtk_window);
+                }
+            }));
+        });
+    });
+}
+
+#[cfg(not(target_os = "linux"))]
+fn commit_layer_surface(_window: &WebviewWindow, _app: &AppHandle) {}
+
+/// The target monitor's work area `(x, y, width, height)` in physical pixels
+/// and its scale factor, with a 1920×1080 fallback when none is available.
+fn monitor_geometry(app: &AppHandle) -> ((f64, f64, f64, f64), f64) {
+    match target_monitor(app) {
+        Some(monitor) => {
+            let pos = monitor.position();
+            let size = monitor.size();
+            (
+                (
+                    pos.x as f64,
+                    pos.y as f64,
+                    size.width as f64,
+                    size.height as f64,
+                ),
+                monitor.scale_factor(),
+            )
+        }
+        None => ((0.0, 0.0, 1920.0, 1080.0), 1.0),
+    }
+}
+
 /// Move + size the overlay window for `settings.corner` on the target monitor.
 /// `collapsed` picks the ticker vs panel footprint so the interactive window
 /// always matches the visible content.
@@ -584,23 +644,7 @@ fn apply_geometry(
     collapsed: bool,
 ) -> Result<(), String> {
     let size = overlay_size(settings, collapsed);
-    let (work_area, scale_factor) = match target_monitor(app) {
-        Some(monitor) => {
-            let scale = monitor.scale_factor();
-            let pos = monitor.position();
-            let msize = monitor.size();
-            (
-                (
-                    pos.x as f64,
-                    pos.y as f64,
-                    msize.width as f64,
-                    msize.height as f64,
-                ),
-                scale,
-            )
-        }
-        None => ((0.0, 0.0, 1920.0, 1080.0), 1.0),
-    };
+    let (work_area, scale_factor) = monitor_geometry(app);
     let (ax, ay, aw, ah) = work_area;
     let phys_size = (size.0 * scale_factor, size.1 * scale_factor);
     let phys_margin = OVERLAY_MARGIN * scale_factor;
@@ -616,10 +660,21 @@ fn apply_geometry(
     };
 
     // Wayland layer-shell positions by anchor + margin, not by pixel origin, so
-    // hand it the corner + size instead of the computed (x, y).
+    // hand it the corner + size, or a monitor-local free position after a drag.
     #[cfg(target_os = "linux")]
     if crate::linux_desktop::is_wayland() {
-        linux::set_geometry(window, &settings.corner, phys_size.0, phys_size.1, phys_margin);
+        let free_pos = match (settings.pos_x, settings.pos_y) {
+            (Some(_), Some(_)) => Some((x - ax, y - ay)),
+            _ => None,
+        };
+        linux::set_geometry(
+            window,
+            &settings.corner,
+            phys_size.0,
+            phys_size.1,
+            phys_margin,
+            free_pos,
+        );
         return Ok(());
     }
 
@@ -711,7 +766,8 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
 
     let window = ensure_window(app)?;
     apply_geometry(&window, app, &settings, collapsed)?;
-    let _ = window.show();
+    window.show().map_err(|e| format!("failed to show overlay: {e}"))?;
+    commit_layer_surface(&window, app);
     // Deliberately no `set_focus()`: yanking focus from a running game can drop
     // its input. The HUD is always-on-top; clicking the ticker focuses and
     // expands it.
@@ -853,6 +909,15 @@ pub fn overlay_save_bounds(
     app: AppHandle,
     state: tauri::State<'_, OverlayState>,
 ) -> Result<(), String> {
+    // On Wayland the layer surface exposes no client-readable position/size;
+    // move/resize already recorded the result in the runtime mirror, so persist
+    // that directly.
+    #[cfg(target_os = "linux")]
+    if crate::linux_desktop::is_wayland() {
+        let settings = lock(state.inner()).settings.clone();
+        return persist_settings(&app, &settings);
+    }
+
     let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) else {
         return Ok(());
     };
@@ -890,7 +955,7 @@ pub fn overlay_fit_ticker(
 ) -> Result<(), String> {
     let settings = {
         let mut rt = lock(state.inner());
-        if !rt.collapsed {
+        if !rt.collapsed || !rt.ticker_auto_fit {
             return Ok(());
         }
         let w = width.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM);
@@ -909,6 +974,90 @@ pub fn overlay_fit_ticker(
         apply_geometry(&window, &app, &settings, true)?;
     }
     Ok(())
+}
+
+/// Move the overlay by a physical-pixel delta (a drag on Wayland, where layer
+/// surfaces cannot use the native move path). The first move seeds an explicit
+/// position from the current corner; later moves are clamped to the monitor and
+/// the window is re-anchored there.
+#[tauri::command]
+pub fn overlay_move_by(
+    app: AppHandle,
+    state: tauri::State<'_, OverlayState>,
+    dx: f64,
+    dy: f64,
+) -> Result<(), String> {
+    let (settings, collapsed) = {
+        let rt = lock(state.inner());
+        (rt.settings.clone(), rt.collapsed)
+    };
+    let (work_area, scale) = monitor_geometry(&app);
+    let (ax, ay, aw, ah) = work_area;
+    let size = overlay_size(&settings, collapsed);
+    let phys_size = (size.0 * scale, size.1 * scale);
+
+    let (cx, cy) = match (settings.pos_x, settings.pos_y) {
+        (Some(x), Some(y)) => (x as f64, y as f64),
+        _ => corner_rect(&settings.corner, work_area, phys_size, OVERLAY_MARGIN * scale)?,
+    };
+    let nx = (cx + dx).clamp(ax, (ax + aw - phys_size.0).max(ax));
+    let ny = (cy + dy).clamp(ay, (ay + ah - phys_size.1).max(ay));
+
+    let settings = {
+        let mut rt = lock(state.inner());
+        rt.settings.pos_x = Some(nx.round() as i32);
+        rt.settings.pos_y = Some(ny.round() as i32);
+        rt.settings.clone()
+    };
+    if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        apply_geometry(&window, &app, &settings, collapsed)?;
+    }
+    Ok(())
+}
+
+/// Resize the overlay to `width` × `height` logical pixels (a drag on the
+/// resize handles under Wayland). Applies to the active presentation.
+#[tauri::command]
+pub fn overlay_resize_to(
+    app: AppHandle,
+    state: tauri::State<'_, OverlayState>,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    let (settings, collapsed) = {
+        let mut rt = lock(state.inner());
+        let w = width.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM);
+        let h = height.clamp(MIN_OVERLAY_HEIGHT, MAX_OVERLAY_DIM);
+        if rt.collapsed {
+            rt.settings.ticker_width = w;
+            rt.settings.ticker_height = h;
+            // The user sized the ticker directly; stop the content auto-fit
+            // from snapping it back until the widget set changes again.
+            rt.ticker_auto_fit = false;
+        } else {
+            rt.settings.panel_width = w;
+            rt.settings.panel_height = h;
+        }
+        (rt.settings.clone(), rt.collapsed)
+    };
+    if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        apply_geometry(&window, &app, &settings, collapsed)?;
+    }
+    Ok(())
+}
+
+/// The display-server token ("wayland" / "x11" / "other") so the frontend can
+/// pick its window drag/resize strategy.
+#[tauri::command]
+pub fn overlay_desktop_server() -> String {
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux_desktop::server().to_string()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        "other".to_string()
+    }
 }
 
 /// Reposition the overlay to a new corner and persist the choice.
@@ -993,6 +1142,9 @@ pub fn overlay_save_settings(
     {
         let mut rt = lock(state.inner());
         rt.settings = settings.clone();
+        // A settings change alters the ticker's widget set, so let the content
+        // auto-fit take over again even if the user had resized manually.
+        rt.ticker_auto_fit = true;
     }
     persist_settings(&app, &settings)?;
     emit_settings(&app, &settings);
@@ -1247,11 +1399,38 @@ pub fn register_default_hotkey(app: &AppHandle, state: &OverlayState) {
     register_capture_hotkeys(app, state);
 }
 
+/// Queue a rebuild of the Wayland GlobalShortcuts portal session.
+///
+/// On boot and on each settings save the toggle and the three capture bindings
+/// are registered in quick succession. Each registration would rebuild the
+/// whole session, opening several KDE shortcut prompts back to back, so the
+/// rebuild is deferred and coalesced: the first call schedules it and the rest
+/// in the same burst are no-ops.
+#[cfg(target_os = "linux")]
+fn reconcile_portal_hotkeys(app: &AppHandle, state: &OverlayState) {
+    {
+        let mut rt = lock(state);
+        if rt.portal_refresh_pending {
+            return;
+        }
+        rt.portal_refresh_pending = true;
+    }
+
+    let app = app.clone();
+    let state = state.clone();
+    tauri::async_runtime::spawn(async move {
+        // Give the other registrations in this batch time to land first.
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        lock(&state).portal_refresh_pending = false;
+        rebuild_portal_hotkeys(&app, &state);
+    });
+}
+
 /// Rebuild the Wayland GlobalShortcuts portal session from the current
 /// bindings. The portal registers the whole set in one session, so any change
 /// replaces the previous one.
 #[cfg(target_os = "linux")]
-fn reconcile_portal_hotkeys(app: &AppHandle, state: &OverlayState) {
+fn rebuild_portal_hotkeys(app: &AppHandle, state: &OverlayState) {
     let bindings = {
         let rt = lock(state);
         [

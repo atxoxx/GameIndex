@@ -22,6 +22,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useOverlayBounds } from "../hooks/useOverlayBounds";
+import { useOverlayWindowControls } from "../hooks/useOverlayWindowControls";
 
 export type OverlayCorner =
   | "top-left"
@@ -541,6 +542,9 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
 
   // Persist the window position/size after the user drags or resizes it.
   useOverlayBounds();
+  // Wayland: drive drag/resize through the backend (native move/resize is a
+  // no-op on a layer-shell surface).
+  useOverlayWindowControls();
 
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
   const expand = useCallback(() => setCollapsed(false), []);

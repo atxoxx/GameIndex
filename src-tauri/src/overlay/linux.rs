@@ -18,6 +18,26 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use tauri::WebviewWindow;
 
+/// Force a layer-surface commit.
+///
+/// gtk-layer-shell commits on the next GTK frame, which a busy or fully
+/// occluded surface can miss — leaving a resize or reposition configured but
+/// never painted. The Rust binding does not expose this entry point, so it is
+/// declared directly.
+pub(crate) fn try_force_commit<W: gtk::prelude::IsA<gtk::Window>>(gtk_window: &W) {
+    use gtk::glib::translate::ToGlibPtr;
+    use gtk::prelude::Cast;
+
+    extern "C" {
+        fn gtk_layer_try_force_commit(window: *mut gtk::ffi::GtkWindow);
+    }
+
+    let window: &gtk::Window = gtk_window.upcast_ref();
+    unsafe {
+        gtk_layer_try_force_commit(window.to_glib_none().0);
+    }
+}
+
 /// Apply the Linux-only window traits once, right after the overlay window is
 /// built and before its first show. Wayland needs layer-shell initialised
 /// before the surface is mapped, so this must run before `show()`.
@@ -57,9 +77,21 @@ fn init_layer_shell(window: &WebviewWindow) {
 }
 
 /// Position and size the overlay on Wayland by anchoring the layer surface to
-/// the configured corner. Called from `overlay::apply_geometry` in place of the
-/// pixel-origin `set_position`/`set_size`, which layer-shell ignores.
-pub fn set_geometry(window: &WebviewWindow, corner: &str, width: f64, height: f64, margin: f64) {
+/// the configured corner, or to an explicit free position. Called from
+/// `overlay::apply_geometry` in place of the pixel-origin `set_position`/
+/// `set_size`, which layer-shell ignores.
+///
+/// `free_pos` is the monitor-local physical top-left from a user drag; when
+/// present the surface is anchored top-left and positioned via margins, since
+/// layer surfaces expose no move request of their own.
+pub fn set_geometry(
+    window: &WebviewWindow,
+    corner: &str,
+    width: f64,
+    height: f64,
+    margin: f64,
+    free_pos: Option<(f64, f64)>,
+) {
     if !crate::linux_desktop::is_wayland() {
         return;
     }
@@ -76,24 +108,46 @@ pub fn set_geometry(window: &WebviewWindow, corner: &str, width: f64, height: f6
             let Ok(gtk_window) = window_handle.gtk_window() else {
                 return;
             };
-            // Anchor to the configured corner. The two un-anchored edges let
-            // the requested size win instead of stretching to the whole screen.
-            let (top, bottom, left, right) = match corner.as_str() {
-                "top-right" => (true, false, false, true),
-                "bottom-left" => (false, true, true, false),
-                "bottom-right" => (false, true, false, true),
-                _ => (true, false, true, false),
-            };
+            let (w, h) = (width.round() as i32, height.round() as i32);
             let m = margin.round() as i32;
-            gtk_window.set_anchor(Edge::Top, top);
-            gtk_window.set_anchor(Edge::Bottom, bottom);
-            gtk_window.set_anchor(Edge::Left, left);
-            gtk_window.set_anchor(Edge::Right, right);
-            gtk_window.set_layer_shell_margin(Edge::Top, if top { m } else { 0 });
-            gtk_window.set_layer_shell_margin(Edge::Bottom, if bottom { m } else { 0 });
-            gtk_window.set_layer_shell_margin(Edge::Left, if left { m } else { 0 });
-            gtk_window.set_layer_shell_margin(Edge::Right, if right { m } else { 0 });
-            gtk_window.resize(width.round() as i32, height.round() as i32);
+
+            match free_pos {
+                Some((x, y)) => {
+                    gtk_window.set_anchor(Edge::Top, true);
+                    gtk_window.set_anchor(Edge::Bottom, false);
+                    gtk_window.set_anchor(Edge::Left, true);
+                    gtk_window.set_anchor(Edge::Right, false);
+                    gtk_window.set_layer_shell_margin(Edge::Top, y.round() as i32);
+                    gtk_window.set_layer_shell_margin(Edge::Left, x.round() as i32);
+                    gtk_window.set_layer_shell_margin(Edge::Bottom, 0);
+                    gtk_window.set_layer_shell_margin(Edge::Right, 0);
+                }
+                None => {
+                    // Anchor to the configured corner. The two un-anchored edges
+                    // let the requested size win instead of stretching.
+                    let (top, bottom, left, right) = match corner.as_str() {
+                        "top-right" => (true, false, false, true),
+                        "bottom-left" => (false, true, true, false),
+                        "bottom-right" => (false, true, false, true),
+                        _ => (true, false, true, false),
+                    };
+                    gtk_window.set_anchor(Edge::Top, top);
+                    gtk_window.set_anchor(Edge::Bottom, bottom);
+                    gtk_window.set_anchor(Edge::Left, left);
+                    gtk_window.set_anchor(Edge::Right, right);
+                    gtk_window.set_layer_shell_margin(Edge::Top, if top { m } else { 0 });
+                    gtk_window.set_layer_shell_margin(Edge::Bottom, if bottom { m } else { 0 });
+                    gtk_window.set_layer_shell_margin(Edge::Left, if left { m } else { 0 });
+                    gtk_window.set_layer_shell_margin(Edge::Right, if right { m } else { 0 });
+                }
+            }
+
+            // gtk-layer-shell derives the surface size from the widget's size
+            // request; `gtk_window_resize` alone leaves it unconfigured (and so
+            // invisible) on several compositors.
+            gtk_window.set_size_request(w, h);
+            gtk_window.resize(w, h);
+            try_force_commit(&gtk_window);
         }));
     });
 }

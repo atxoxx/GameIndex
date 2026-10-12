@@ -490,6 +490,9 @@ pub fn run() {
             overlay::overlay_set_collapsed,
             overlay::overlay_save_bounds,
             overlay::overlay_fit_ticker,
+            overlay::overlay_move_by,
+            overlay::overlay_resize_to,
+            overlay::overlay_desktop_server,
             overlay::overlay_set_corner,
             overlay::overlay_get_settings,
             overlay::overlay_get_session,
@@ -704,6 +707,11 @@ pub fn run() {
                 )));
             app.manage(overlay_state.clone());
             overlay::register_listeners(app.handle());
+            // Wayland's GlobalShortcuts portal rejects a session from a process
+            // with no app id; publish our desktop entry before binding so the
+            // portal can resolve it.
+            #[cfg(target_os = "linux")]
+            linux_desktop::ensure_portal_desktop_entry();
             overlay::register_default_hotkey(app.handle(), &overlay_state);
 
             // ── In-game video capture ──────────────────────────────────
