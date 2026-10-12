@@ -20,10 +20,15 @@ fn main() {
 
         // WebKitGTK's accelerated (DMA-BUF) renderer is a well-documented source
         // of sustained WebKitWebProcess memory growth on Mesa/NVIDIA + compositor
-        // combinations — the render process can climb into multiple gigabytes even
-        // while idle, and the AppImage's filtered display-stack libraries make it
-        // more likely, not less. Linux therefore defaults to the lighter renderer
-        // path. `GAMEINDEX_WEBKIT_RENDERER` lets a user trade memory for the
+        // combinations: while the app is being used the render process climbs into
+        // multiple gigabytes, its main thread stalls, and WebKit's watchdog then
+        // kills it — which the user sees as "the whole app froze". The AppImage's
+        // filtered display-stack libraries make that more likely, not less, so
+        // every Linux path defaults to the lighter renderer. Keep it that way on
+        // Wayland too: the HUD's transparency is kept painted by the layer-surface
+        // commit path in `overlay::commit_layer_surface`, not by the renderer.
+        //
+        // `GAMEINDEX_WEBKIT_RENDERER` lets a user trade memory back for the
         // zero-copy DMA-BUF path without hand-editing WebKit's variables:
         //   (unset) / dmabuf-off - disable the DMA-BUF renderer (default)
         //   compositing-off      - also disable accelerated compositing (lowest VRAM)
@@ -32,11 +37,13 @@ fn main() {
         let renderer = std::env::var("GAMEINDEX_WEBKIT_RENDERER").unwrap_or_default();
         match renderer.as_str() {
             "accelerated" => {}
-            "compositing-off" => {
+            "compositing-off" | "dmabuf-off" => {
                 if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
                     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
                 }
-                if std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err() {
+                if renderer == "compositing-off"
+                    && std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err()
+                {
                     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
                 }
             }
