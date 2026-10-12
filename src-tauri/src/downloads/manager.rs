@@ -1791,7 +1791,17 @@ async fn run_debrid_flow(
                     sanitize_rel_path(f.name.clone())
                 };
                 name = uniquify(name, &mut used);
-                files.push((name, f.size, link, f.link.clone()));
+                // The 4th element is the "original" URL the URL refresher
+                // re-resolves from when a link expires mid-download. TorBox
+                // mints its links per file (`requestdl?file_id=…`), so the
+                // refresher needs the ids — passing the expiring CDN URL
+                // would send TorBox its own CDN link. AllDebrid and
+                // Real-Debrid re-unlock the original link instead.
+                let orig_url = match (provider.as_str(), f.file_id) {
+                    ("torbox", Some(file_id)) => format!("torbox:{}:{}", status.id, file_id),
+                    _ => f.link.clone(),
+                };
+                files.push((name, f.size, link, orig_url));
             }
 
             // Apply the file selection chosen in the modal ("Choose
@@ -2050,6 +2060,23 @@ fn debrid_worker_options(
         "torbox" => Arc::new(move |_url: String, orig_url: String| {
             let apikey = apikey.clone();
             Box::pin(async move {
+                // TorBox CDN links are minted per file and expire. For a
+                // debrid download the orig_url is `torbox:<torrent id>:<file id>`
+                // (see run_debrid_flow), so mint a fresh link from the ids.
+                // Anything else — a hoster URL the frontend unrestricted —
+                // keeps using the webdl unlock path.
+                let client = reqwest::Client::new();
+                if let Some(rest) = orig_url.strip_prefix("torbox:") {
+                    let mut parts = rest.split(':');
+                    let tid = parts.next().and_then(|s| s.parse::<u64>().ok());
+                    let fid = parts.next().and_then(|s| s.parse::<u64>().ok());
+                    if let (Some(tid), Some(fid)) = (tid, fid) {
+                        return super::debrid::TorBoxClient::request_file_link(
+                            &client, &apikey, tid, fid,
+                        )
+                        .await;
+                    }
+                }
                 super::debrid::TorBoxClient::unrestrict_link(&apikey, &orig_url)
                     .await
                     .ok()
