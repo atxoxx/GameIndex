@@ -1797,28 +1797,35 @@ pub async fn debrid_check_cache(
     apikey: String,
     magnet: String,
 ) -> Result<debrid::DebridCacheResult, String> {
-    if provider == "alldebrid" {
+    let p = provider.trim().to_ascii_lowercase();
+    if p == "alldebrid" {
         debrid::AllDebridClient::check_cache(&apikey, &magnet).await
+    } else if p == "torbox" {
+        debrid::TorBoxClient::check_cache(&apikey, &magnet).await
     } else {
-        Err("Cache check is only supported for AllDebrid".to_string())
+        Err("Cache check is not supported for this debrid provider".to_string())
     }
 }
 
 /// List the files of a magnet through the configured debrid provider
-/// (AllDebrid only today) WITHOUT enqueuing a download — the fast,
-/// swarm-free file listing behind the modal's "Choose files" flow. The
-/// probe magnet is cleaned up from the account after listing, exactly
-/// like the cache probe, so repeated listings never exhaust slots.
+/// (AllDebrid and TorBox today) WITHOUT enqueuing a download — the fast,
+/// swarm-free file listing behind the modal's "Choose files" flow. For
+/// AllDebrid the probe magnet is cleaned up from the account after listing,
+/// exactly like the cache probe, so repeated listings never exhaust slots;
+/// TorBox's listing is hash-addressed and never touches the account.
 #[tauri::command]
 pub async fn debrid_list_files(
     provider: String,
     apikey: String,
     magnet: String,
 ) -> Result<debrid::DebridFileListResult, String> {
-    if provider.trim().eq_ignore_ascii_case("alldebrid") {
+    let p = provider.trim().to_ascii_lowercase();
+    if p == "alldebrid" {
         debrid::AllDebridClient::list_magnet_files(&apikey, &magnet).await
+    } else if p == "torbox" {
+        debrid::TorBoxClient::list_magnet_files(&apikey, &magnet).await
     } else {
-        Err("File listing over debrid is only supported for AllDebrid".to_string())
+        Err("File listing over debrid is not supported for this provider".to_string())
     }
 }
 
