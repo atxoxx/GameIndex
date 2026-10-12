@@ -2049,13 +2049,13 @@ Configure Valve's micro-compositor directly inside GameIndex:
 - **Hotkeys do nothing in-game**: exclusive fullscreen can swallow global hotkeys — use borderless windowed mode or a controller.
 
 ## High Memory Usage (Linux)
-If the WebKit render process (\`WebKitWebProcess\`) grows into multiple gigabytes, the accelerated DMA-BUF renderer is the usual cause — a known WebKitGTK issue on some Mesa/NVIDIA and compositor combinations, not a GameIndex library problem. Relaunch with the lighter renderer:
+The WebKit render process (\`WebKitWebProcess\`) is the app's largest memory consumer. The accelerated DMA-BUF renderer is a known WebKitGTK memory-growth source on some Mesa/NVIDIA and compositor combinations, not a GameIndex library problem, so GameIndex runs the lighter renderer on Linux by default. If your machine is stable on the accelerated path and you would rather have the zero-copy speed back:
 
 \`\`\`
-GAMEINDEX_WEBKIT_RENDERER=dmabuf-off ./GameIndex-*.AppImage
+GAMEINDEX_WEBKIT_RENDERER=accelerated ./GameIndex-*.AppImage
 \`\`\`
 
-- \`dmabuf-off\` disables the DMA-BUF renderer; \`compositing-off\` also disables accelerated compositing (slightly softer scrolling, lowest memory).
+- The default (unset) disables the DMA-BUF renderer; \`compositing-off\` also disables accelerated compositing (softest scrolling, lowest memory); \`accelerated\` restores WebKit's default.
 - Any \`WEBKIT_*\` variable you export yourself always wins, so the app never fights a manual override.
 
 ## Collecting diagnostics\n- Crash reports live in **Settings → Diagnostics**; preview or export them before restarting, because a restart can rotate the newest evidence away.\n- Try once with plugins and overlays disabled, then re-enable them one by one to find the culprit.\n- **Reset settings** restores defaults without touching your library, notes or playtime.\n- If the library itself misbehaves, back up first and run a database integrity check before any manual edit.\n- Game-specific hook output and Wine/Proton logs are kept per launch, so export the newest one when reporting a launch problem.`,

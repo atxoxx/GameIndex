@@ -18,37 +18,33 @@ fn main() {
             std::env::set_var("GDK_BACKEND", "wayland,x11");
         }
 
-        // WebKitGTK's DMA-BUF renderer commonly fails with NVIDIA's GBM path.
-        // AppImages retain DMA-BUF acceleration because their display-stack libraries
-        // are filtered during packaging instead of disabling acceleration globally.
-        let is_appimage = std::env::var_os("APPIMAGE").is_some();
-        if !is_appimage
-            && std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err()
-            && gameindex_lib::gpu_detector::has_nvidia_drm_device()
-        {
-            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        }
-
         // WebKitGTK's accelerated (DMA-BUF) renderer is a well-documented source
-        // of sustained WebKitWebProcess memory growth on some Mesa/NVIDIA +
-        // compositor combinations — the render process can climb into multiple
-        // gigabytes even while idle. `GAMEINDEX_WEBKIT_RENDERER` lets a user opt
-        // onto a lighter path without hand-editing WebKit's variables:
-        //   dmabuf-off       - disable the DMA-BUF renderer
-        //   compositing-off  - also disable accelerated compositing
+        // of sustained WebKitWebProcess memory growth on Mesa/NVIDIA + compositor
+        // combinations — the render process can climb into multiple gigabytes even
+        // while idle, and the AppImage's filtered display-stack libraries make it
+        // more likely, not less. Linux therefore defaults to the lighter renderer
+        // path. `GAMEINDEX_WEBKIT_RENDERER` lets a user trade memory for the
+        // zero-copy DMA-BUF path without hand-editing WebKit's variables:
+        //   (unset) / dmabuf-off - disable the DMA-BUF renderer (default)
+        //   compositing-off      - also disable accelerated compositing (lowest VRAM)
+        //   accelerated          - keep WebKit's default accelerated renderer
         // Any WEBKIT_* variable the user exports explicitly always wins.
-        match std::env::var("GAMEINDEX_WEBKIT_RENDERER").as_deref() {
-            Ok(mode @ ("dmabuf-off" | "compositing-off")) => {
+        let renderer = std::env::var("GAMEINDEX_WEBKIT_RENDERER").unwrap_or_default();
+        match renderer.as_str() {
+            "accelerated" => {}
+            "compositing-off" => {
                 if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
                     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
                 }
-                if mode == "compositing-off"
-                    && std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err()
-                {
+                if std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE").is_err() {
                     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
                 }
             }
-            _ => {}
+            _ => {
+                if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
+                    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+                }
+            }
         }
     }
 
