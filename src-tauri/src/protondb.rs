@@ -130,7 +130,14 @@ pub async fn fetch_protondb_status(app_id: u32) -> Result<ProtonDBStatus, String
 mod tests {
     use super::*;
 
+    /// Live summary lookup for CS2 (Steam appid 730).
+    ///
+    /// Ignored: it hits `protondb.com` over the network, so it fails
+    /// whenever the runner has no egress or the site throttles it (a unit
+    /// suite should not depend on a third party being up). Run it with
+    /// `cargo test -- --ignored`.
     #[tokio::test]
+    #[ignore]
     async fn test_protondb_cs2() {
         let result = fetch_protondb_status(730).await.unwrap();
         assert!(result.found);

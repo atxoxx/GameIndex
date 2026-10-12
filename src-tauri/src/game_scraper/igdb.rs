@@ -990,7 +990,15 @@ pub(crate) async fn igdb_games_post(token: &str, body: &str) -> Result<String, S
 mod tests {
     use super::*;
 
+    /// Full IGDB round-trip: OAuth token + Apicalypse search.
+    ///
+    /// Ignored: it needs `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` and
+    /// outbound network. A CI runner has neither — `get_twitch_token` bails
+    /// out on the missing credentials and the search degrades to an empty
+    /// vec — so this only ever passes on a machine with a populated `.env`.
+    /// Run it with `cargo test -- --ignored`.
     #[tokio::test]
+    #[ignore]
     async fn test_search_igdb() {
         // The app loads .env at startup; tests don't get that path, so
         // load the credentials here (no-op when .env is absent).
