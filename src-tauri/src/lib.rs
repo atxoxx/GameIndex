@@ -35,6 +35,7 @@ mod rockstar;
 mod uplay;
 mod beta_stores;
 mod size;
+mod scan;
 mod library_health;
 // New modules for the download feature. See each module's
 // top-of-file doc comment for the design rationale.

@@ -15,6 +15,8 @@
 
 use std::path::{Path, PathBuf};
 
+use rayon::prelude::*;
+
 use crate::db::games::GameRow;
 use crate::db::Db;
 
@@ -293,8 +295,24 @@ pub fn detect_for_game(
                 scan_roots.push(r.clone());
             }
         }
-        for root in scan_roots {
-            scan_children_for_names(&root, &variants, 2, &mut found);
+        // Each standard root is independent, so scan them in parallel and
+        // merge the hits with the same case-insensitive path de-dup the
+        // serial pass used.
+        let per_root: Vec<Vec<DetectedLocation>> = scan_roots
+            .par_iter()
+            .map(|root| {
+                let mut local = Vec::new();
+                scan_children_for_names(root, &variants, 2, &mut local);
+                local
+            })
+            .collect();
+        for local in per_root {
+            for loc in local {
+                let key = loc.path.to_lowercase();
+                if !found.iter().any(|l| l.path.to_lowercase() == key) {
+                    found.push(loc);
+                }
+            }
         }
     }
 

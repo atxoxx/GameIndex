@@ -112,60 +112,52 @@ pub fn resolve_game_exe(install_dir: &Path, game_name: &str) -> Option<String> {
 }
 
 pub(crate) fn scan_for_exe_candidates(dir: &Path) -> Vec<ExeCandidate> {
-    let mut candidates = Vec::new();
-    scan_dir_for_candidates(dir, &mut candidates, 0);
-    candidates
-}
+    // The walk fans one install tree across rayon's pool; results are
+    // collected under a mutex (the caller re-sorts them by score anyway).
+    let candidates = std::sync::Mutex::new(Vec::new());
 
-pub(crate) fn scan_dir_for_candidates(dir: &Path, candidates: &mut Vec<ExeCandidate>, depth: u32) {
-    if depth > 4 {
-        return;
-    }
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                let lower = name.to_lowercase();
-                if lower.starts_with('.')
-                    || lower.starts_with('_')
-                    || lower == "redist"
-                    || lower == "redistributables"
-                    || lower == "__installer"
-                    || lower == "support"
-                    || lower == "directx"
-                    || lower == "dotnet"
-                    || lower == "vcredist"
-                {
-                    continue;
-                }
-            }
-            scan_dir_for_candidates(&path, candidates, depth + 1);
-        } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-            if !ext.eq_ignore_ascii_case("exe") {
-                continue;
-            }
-
-            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                let lower = stem.to_lowercase();
-                if SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
-                    continue;
-                }
-            }
-
-            if let Ok(meta) = entry.metadata() {
-                candidates.push(ExeCandidate {
-                    path: path.to_string_lossy().to_string(),
-                    size_bytes: meta.len(),
-                    name_score: 0.0,
-                    depth,
-                });
+    let visit = |_dir: &Path, entry: &Path, depth: u32, meta: &std::fs::Metadata| {
+        if !meta.is_file() {
+            return;
+        }
+        let Some(ext) = entry.extension().and_then(|e| e.to_str()) else {
+            return;
+        };
+        if !ext.eq_ignore_ascii_case("exe") {
+            return;
+        }
+        if let Some(stem) = entry.file_stem().and_then(|s| s.to_str()) {
+            let lower = stem.to_lowercase();
+            if SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
+                return;
             }
         }
-    }
+        if let Ok(mut guard) = candidates.lock() {
+            guard.push(ExeCandidate {
+                path: entry.to_string_lossy().to_string(),
+                size_bytes: meta.len(),
+                name_score: 0.0,
+                depth,
+            });
+        }
+    };
+
+    let descend = |_dir: &Path, name: &str, _depth: u32| -> bool {
+        let lower = name.to_lowercase();
+        !(lower.starts_with('.')
+            || lower.starts_with('_')
+            || lower == "redist"
+            || lower == "redistributables"
+            || lower == "__installer"
+            || lower == "support"
+            || lower == "directx"
+            || lower == "dotnet"
+            || lower == "vcredist")
+    };
+
+    crate::scan::walk_parallel(dir, 4, None, &visit, &descend);
+
+    candidates.into_inner().unwrap_or_default()
 }
 
 /// Convenience wrapper: resolve the exe for a Steam AppID.

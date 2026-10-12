@@ -61,6 +61,13 @@ urlencoding = "2"
 unicode-normalization = "0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 futures = "0.3"
+# Work-stealing pool for the CPU/IO-bound directory scans (folder import,
+# store-sync size measurement, ROM folders, exe resolution). These loops
+# were single-threaded and made large imports stall on multi-core
+# machines; rayon spreads one tree walk across every core. The size
+# walker shares this same global pool, so a store sync that measures
+# many installs doesn't spawn a second thread pool per folder.
+rayon = "1"
 # === Phase 0–4 storage layer ===
 # Atomic write helper: writes to a sibling .tmp file then fs::rename for
 # crash-safe persistence. Used by every legacy JSON write until the

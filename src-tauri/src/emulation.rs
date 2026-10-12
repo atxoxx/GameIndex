@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::time::SystemTime;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use crate::db;
@@ -280,8 +281,10 @@ fn scan_emulator_roms_blocking(
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
 
-    let mut out: Vec<GameData> = Vec::new();
-    let mut rows: Vec<db::games::GameRow> = Vec::new();
+    // Pick the candidate ROM files first (cheap), then build each game's
+    // metadata in parallel: `build_rom_game` stats the file and runs the
+    // JSON round-trip, which is the dominant cost on a large set.
+    let mut rom_files: Vec<(std::path::PathBuf, String)> = Vec::new();
     let entries = std::fs::read_dir(folder).map_err(|e| format!("read ROM folder: {e}"))?;
     for entry in entries {
         let entry = entry.map_err(|e| format!("read ROM entry: {e}"))?;
@@ -289,39 +292,50 @@ fn scan_emulator_roms_blocking(
         if !path.is_file() {
             continue;
         }
-        let ext = match path.extension().and_then(|e| e.to_str()) {
-            Some(e) => e.to_lowercase(),
-            None => continue,
+        let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+            continue;
         };
+        let ext = ext.to_lowercase();
         if !exts.iter().any(|x| x.eq_ignore_ascii_case(&ext)) {
             continue;
         }
-        let rom_path = path.to_string_lossy().to_string();
-        let mut game = build_rom_game(&emu, &rom_path, now_ms);
-
-        // Archive support: zip/7z ROMs stay as-is in the folder; the
-        // launch path extracts them into the managed cache on demand.
-        // Emulators that consume archives natively (MAME sets, Neo Geo
-        // zips, RetroArch) are excluded — extracting those would break
-        // the launch.
-        if (ext == "zip" || ext == "7z") && !platform_reads_archives_directly(&emu.platform) {
-            game.rom_archived = Some(true);
-        }
-
-        // Preserve progress / metadata if this ROM was scanned before.
-        if let Some(existing) = existing.get(&game.id) {
-            let value = serde_json::to_value(existing).map_err(|e| format!("to_value: {e}"))?;
-            if let Ok(prev) = serde_json::from_value::<GameData>(value) {
-                apply_existing_rom(&prev, &mut game);
-            }
-        }
-
-        let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
-        let row: db::games::GameRow = serde_json::from_value(value)
-            .map_err(|e| format!("to GameRow: {e}"))?;
-        rows.push(row);
-        out.push(game);
+        rom_files.push((path, ext));
     }
+
+    // `par_iter` preserves order on an indexed slice, so the returned
+    // list matches the serial scan's read_dir order.
+    let built: Result<Vec<(GameData, db::games::GameRow)>, String> = rom_files
+        .par_iter()
+        .map(|(path, ext)| {
+            let rom_path = path.to_string_lossy().to_string();
+            let mut game = build_rom_game(&emu, &rom_path, now_ms);
+
+            // Archive support: zip/7z ROMs stay as-is in the folder; the
+            // launch path extracts them into the managed cache on demand.
+            // Emulators that consume archives natively (MAME sets, Neo Geo
+            // zips, RetroArch) are excluded — extracting those would break
+            // the launch.
+            if (ext == "zip" || ext == "7z") && !platform_reads_archives_directly(&emu.platform) {
+                game.rom_archived = Some(true);
+            }
+
+            // Preserve progress / metadata if this ROM was scanned before.
+            if let Some(existing) = existing.get(&game.id) {
+                let value = serde_json::to_value(existing).map_err(|e| format!("to_value: {e}"))?;
+                if let Ok(prev) = serde_json::from_value::<GameData>(value) {
+                    apply_existing_rom(&prev, &mut game);
+                }
+            }
+
+            let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
+            let row: db::games::GameRow = serde_json::from_value(value)
+                .map_err(|e| format!("to GameRow: {e}"))?;
+            Ok((game, row))
+        })
+        .collect();
+
+    let (out, rows): (Vec<GameData>, Vec<db::games::GameRow>) =
+        built?.into_iter().unzip();
 
     db::games::upsert_batch(db, &rows, false)?;
 

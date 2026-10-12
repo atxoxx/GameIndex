@@ -12,6 +12,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use rayon::prelude::*;
 use tauri::AppHandle;
 
 use super::auth::load_cookies;
@@ -77,14 +78,55 @@ pub async fn humble_sync_library(app: AppHandle) -> Result<HumbleSyncResult, Str
     let installed_by_id: HashMap<&str, &super::types::HumbleInstalledGame> =
         installed.iter().map(|i| (i.game_id.as_str(), i)).collect();
 
-    // 4. Build the synced-game list.
-    let mut synced: Vec<HumbleSyncedGame> = Vec::new();
-
-    if settings.import_general_library {
+    // 4. Build the synced-game list. Measuring an install walks its
+    //    folder tree, so each product (plus its extras) is built on rayon
+    //    and the per-product vectors are flattened in order.
+    let mut synced: Vec<HumbleSyncedGame> = if settings.import_general_library {
         let selected = select_library_subproducts(&orders, &settings);
-        for product in selected {
-            let game_id = format!("{}_{}", product.machine_name, product.human_name);
-            let inst = installed_by_id.get(product.machine_name.as_str()).copied();
+        selected
+            .par_iter()
+            .flat_map_iter(|product| {
+                let mut entries: Vec<HumbleSyncedGame> = Vec::new();
+                let game_id = format!("{}_{}", product.machine_name, product.human_name);
+                let inst = installed_by_id.get(product.machine_name.as_str()).copied();
+                let (is_installed, install_dir, install_path) = match inst {
+                    Some(i) => (true, Some(i.install_dir.clone()), Some(i.executable.clone())),
+                    None => (false, None, None),
+                };
+                let size_info = install_dir
+                    .as_deref()
+                    .map(std::path::Path::new)
+                    .and_then(size::measure_folder_size);
+                entries.push(HumbleSyncedGame {
+                    id: format!("humble-{}", slug(&game_id)),
+                    title: strip_trademarks(&product.human_name),
+                    humble_game_id: game_id,
+                    is_trove: false,
+                    is_installed,
+                    install_path,
+                    install_dir,
+                    cover_url: product.icon.clone(),
+                    size_bytes: size_info.as_ref().map(|s| s.size_bytes),
+                    size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
+                    is_extra: false,
+                });
+
+                // 5. Extras (soundtracks / artbooks / asm.js / …).
+                if settings.import_game_extras {
+                    entries.extend(collect_extras(&orders, product));
+                }
+                entries
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    // 6. Trove games.
+    let trove_entries: Vec<HumbleSyncedGame> = trove
+        .par_iter()
+        .map(|trove_game| {
+            let inst = installed_by_id.get(trove_game.machine_name.as_str()).copied();
             let (is_installed, install_dir, install_path) = match inst {
                 Some(i) => (true, Some(i.install_dir.clone()), Some(i.executable.clone())),
                 None => (false, None, None),
@@ -93,54 +135,22 @@ pub async fn humble_sync_library(app: AppHandle) -> Result<HumbleSyncResult, Str
                 .as_deref()
                 .map(std::path::Path::new)
                 .and_then(size::measure_folder_size);
-            synced.push(HumbleSyncedGame {
-                id: format!("humble-{}", slug(&game_id)),
-                title: strip_trademarks(&product.human_name),
-                humble_game_id: game_id,
-                is_trove: false,
+            HumbleSyncedGame {
+                id: format!("humble-{}", slug(&trove_game.machine_name)),
+                title: strip_trademarks(&trove_game.human_name),
+                humble_game_id: trove_game.machine_name.clone(),
+                is_trove: true,
                 is_installed,
                 install_path,
                 install_dir,
-                cover_url: product.icon.clone(),
+                cover_url: None,
                 size_bytes: size_info.as_ref().map(|s| s.size_bytes),
                 size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
                 is_extra: false,
-            });
-
-            // 5. Extras (soundtracks / artbooks / asm.js / …).
-            if settings.import_game_extras {
-                for extra in collect_extras(&orders, &product) {
-                    synced.push(extra);
-                }
             }
-        }
-    }
-
-    // 6. Trove games.
-    for trove_game in &trove {
-        let inst = installed_by_id.get(trove_game.machine_name.as_str()).copied();
-        let (is_installed, install_dir, install_path) = match inst {
-            Some(i) => (true, Some(i.install_dir.clone()), Some(i.executable.clone())),
-            None => (false, None, None),
-        };
-        let size_info = install_dir
-            .as_deref()
-            .map(std::path::Path::new)
-            .and_then(size::measure_folder_size);
-        synced.push(HumbleSyncedGame {
-            id: format!("humble-{}", slug(&trove_game.machine_name)),
-            title: strip_trademarks(&trove_game.human_name),
-            humble_game_id: trove_game.machine_name.clone(),
-            is_trove: true,
-            is_installed,
-            install_path,
-            install_dir,
-            cover_url: None,
-            size_bytes: size_info.as_ref().map(|s| s.size_bytes),
-            size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
-            is_extra: false,
-        });
-    }
+        })
+        .collect();
+    synced.extend(trove_entries);
 
     if trove.is_empty() && settings.import_trove_games {
         errors.push(

@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
+use rayon::prelude::*;
 use tauri::AppHandle;
 
 use super::auth::refresh_tokens_if_needed;
@@ -98,9 +99,11 @@ pub async fn epic_sync_library(app: AppHandle) -> Result<EpicSyncResult, String>
     // 5. Merge installed data into library entries
     let merged = merge_game_data(owned_games, &installed_games);
 
-    // 6. Convert to synced game entries (cover_url comes from EpicGame now)
+    // 6. Convert to synced game entries (cover_url comes from EpicGame now).
+    //    Measuring an install walks its folder tree, so the per-game work
+    //    runs on rayon rather than serially on the runtime thread.
     let synced_games: Vec<EpicSyncedGame> = merged
-        .iter()
+        .par_iter()
         .map(|g| {
             // Measure the install dir for games Epic reports as installed.
             // We use `g.install_dir` (the canonical InstallLocation from

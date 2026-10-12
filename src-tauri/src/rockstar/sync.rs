@@ -7,6 +7,7 @@
 //!    renders + the library import path consumes.
 
 use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 use tauri::{AppHandle, Manager};
 
 use super::{
@@ -28,45 +29,49 @@ pub async fn rockstar_sync_library(_app: AppHandle) -> Result<RockstarSyncResult
 
     let installed = scan_installed_rockstar_games();
     let mut errors: Vec<String> = Vec::new();
-    let mut synced: Vec<RockstarSyncedGame> = Vec::with_capacity(installed.len());
-    let mut games_imported = 0usize;
 
+    // Measuring an install walks its folder tree, so build the DTOs on
+    // rayon; the installed/error bookkeeping below stays serial.
+    let synced: Vec<RockstarSyncedGame> = installed
+        .par_iter()
+        .map(|g| {
+            let install_dir_opt = if g.install_dir.is_empty() {
+                None
+            } else {
+                Some(std::path::Path::new(&g.install_dir))
+            };
+            let size_info = install_dir_opt.and_then(size::measure_folder_size);
+
+            RockstarSyncedGame {
+                id: format!("rockstar-{}", g.title_id),
+                title: g.name.clone(),
+                title_id: g.title_id.clone(),
+                is_installed: g.is_installed,
+                install_path: if g.path.is_empty() {
+                    None
+                } else {
+                    Some(g.path.clone())
+                },
+                install_dir: if g.install_dir.is_empty() {
+                    None
+                } else {
+                    Some(g.install_dir.clone())
+                },
+                icon_path: g.icon_path.clone(),
+                size_bytes: size_info.as_ref().map(|s| s.size_bytes),
+                size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
+            }
+        })
+        .collect();
+
+    let games_imported = installed.iter().filter(|g| g.is_installed).count();
     for g in &installed {
-        let install_dir_opt = if g.install_dir.is_empty() {
-            None
-        } else {
-            Some(std::path::Path::new(&g.install_dir))
-        };
-        let size_info = install_dir_opt.and_then(size::measure_folder_size);
-
-        if g.is_installed {
-            games_imported += 1;
-        } else {
+        if !g.is_installed {
             errors.push(format!(
                 "Rockstar game {} installation directory {} not detected.",
                 g.name, g.install_dir
             ));
         }
-
-        synced.push(RockstarSyncedGame {
-            id: format!("rockstar-{}", g.title_id),
-            title: g.name.clone(),
-            title_id: g.title_id.clone(),
-            is_installed: g.is_installed,
-            install_path: if g.path.is_empty() {
-                None
-            } else {
-                Some(g.path.clone())
-            },
-            install_dir: if g.install_dir.is_empty() {
-                None
-            } else {
-                Some(g.install_dir.clone())
-            },
-            icon_path: g.icon_path.clone(),
-            size_bytes: size_info.as_ref().map(|s| s.size_bytes),
-            size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
-        });
     }
 
     Ok(RockstarSyncResult {

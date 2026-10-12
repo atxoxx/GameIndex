@@ -16,6 +16,7 @@
 //! opening the Ubisoft Connect client.
 
 use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
@@ -42,7 +43,6 @@ pub fn sync_library_inner(settings: &UplaySettings) -> UplaySyncResult {
     let client_path = client_install_path();
 
     let mut errors: Vec<String> = Vec::new();
-    let mut synced: Vec<UplaySyncedGame> = Vec::new();
     let mut games_imported = 0usize;
 
     // ── Installed games (registry) ──
@@ -115,31 +115,36 @@ pub fn sync_library_inner(settings: &UplaySettings) -> UplaySyncResult {
     }
 
     // ── Materialize DTOs ──
-    for g in &installed {
-        let install_dir_opt = if g.install_dir.is_empty() {
-            None
-        } else {
-            Some(std::path::Path::new(&g.install_dir))
-        };
-        let size_info = install_dir_opt.and_then(size::measure_folder_size);
-
-        synced.push(UplaySyncedGame {
-            id: format!("uplay-{}", g.uplay_id),
-            title: g.name.clone(),
-            uplay_id: g.uplay_id.clone(),
-            is_installed: g.is_installed,
-            install_dir: if g.install_dir.is_empty() {
+    // Measuring a Ubisoft install walks its folder tree, so the per-game
+    // work runs on rayon rather than serially.
+    let synced: Vec<UplaySyncedGame> = installed
+        .par_iter()
+        .map(|g| {
+            let install_dir_opt = if g.install_dir.is_empty() {
                 None
             } else {
-                Some(g.install_dir.clone())
-            },
-            background_image: g.background_image.clone(),
-            cover_image: g.cover_image.clone(),
-            icon_image: g.icon_image.clone(),
-            size_bytes: size_info.as_ref().map(|s| s.size_bytes),
-            size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
-        });
-    }
+                Some(std::path::Path::new(&g.install_dir))
+            };
+            let size_info = install_dir_opt.and_then(size::measure_folder_size);
+
+            UplaySyncedGame {
+                id: format!("uplay-{}", g.uplay_id),
+                title: g.name.clone(),
+                uplay_id: g.uplay_id.clone(),
+                is_installed: g.is_installed,
+                install_dir: if g.install_dir.is_empty() {
+                    None
+                } else {
+                    Some(g.install_dir.clone())
+                },
+                background_image: g.background_image.clone(),
+                cover_image: g.cover_image.clone(),
+                icon_image: g.icon_image.clone(),
+                size_bytes: size_info.as_ref().map(|s| s.size_bytes),
+                size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
+            }
+        })
+        .collect();
 
     UplaySyncResult {
         success: true,

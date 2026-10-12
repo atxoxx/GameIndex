@@ -251,7 +251,7 @@
   - ⏳ No `react-window` elsewhere (custom `LibraryVirtualGrid` covers the library).
   - ⏳ Activity chart render tuning and broader large-list virtualization remain to be revisited.
 - **Backend (Rust):**
-  - ⏳ Parallelize game scanning with `rayon` or `tokio::spawn`.
+  - ✅ Parallelized local scanning with `rayon` on one shared pool: folder-import walk (`media.rs` + `scan.rs`), store-sync size measurement (steam/gog/epic/humble/rockstar/uplay), Steam appmanifest parsing, ROM folder scan (`emulation.rs`), exe resolution (`game_watcher/resolve.rs`), saves heuristic roots, and the artwork orphan sweep. Network metadata fan-out stays on the existing bounded tokio semaphores.
   - ✅ Scraped metadata cached in SQLite (store cache, player-count caches, Crackwatch KV, plugin result cache).
   - ⏳ Stream large file operations instead of loading into memory.
 - Measure: use Lighthouse, Chrome DevTools Performance tab, and Rust `perf`/`flamegraph`.

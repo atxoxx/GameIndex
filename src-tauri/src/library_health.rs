@@ -13,8 +13,9 @@
 //! scan can never remove anything on its own.
 
 use std::collections::HashMap;
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
@@ -111,60 +112,80 @@ pub(crate) fn is_artwork_referenced(
 /// Walk every file under `<app_data_dir>/artwork` and return the ones not
 /// referenced by the library rows. Pure against the passed-in reference
 /// map so it can be unit-tested without a database.
+///
+/// Each game's artwork folder is independent, so the folders are swept in
+/// parallel; the final sort restores a stable, size-descending order.
 pub(crate) fn scan_artwork(
     artwork_root: &Path,
     referenced: &HashMap<String, Vec<String>>,
 ) -> Vec<OrphanArtwork> {
-    let mut out = Vec::new();
     let Ok(entries) = std::fs::read_dir(artwork_root) else {
+        return Vec::new();
+    };
+    let dirs: Vec<(PathBuf, String)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let dir_path = entry.path();
+            if !dir_path.is_dir() {
+                return None;
+            }
+            Some((dir_path, entry.file_name().to_string_lossy().to_string()))
+        })
+        .collect();
+
+    let mut out: Vec<OrphanArtwork> = dirs
+        .par_iter()
+        .flat_map_iter(|(dir_path, dir)| scan_artwork_dir(dir_path, dir, referenced))
+        .collect();
+    out.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+    out
+}
+
+/// Collect the unreferenced files inside one `artwork/<dir>` folder.
+fn scan_artwork_dir(
+    dir_path: &Path,
+    dir: &str,
+    referenced: &HashMap<String, Vec<String>>,
+) -> Vec<OrphanArtwork> {
+    let mut out = Vec::new();
+    let dir_known = referenced.contains_key(dir);
+    let Ok(files) = std::fs::read_dir(dir_path) else {
         return out;
     };
-    for entry in entries.flatten() {
-        let dir_path = entry.path();
-        if !dir_path.is_dir() {
+    for file in files.flatten() {
+        let file_path = file.path();
+        if !file_path.is_file() {
             continue;
         }
-        let dir = entry.file_name().to_string_lossy().to_string();
-        let dir_known = referenced.contains_key(&dir);
-        let Ok(files) = std::fs::read_dir(&dir_path) else {
+        let file_name = file.file_name().to_string_lossy().to_string();
+        let relative_path = format!("{ARTWORK_DIR}/{dir}/{file_name}");
+        if is_artwork_referenced(&relative_path, referenced) {
             continue;
-        };
-        for file in files.flatten() {
-            let file_path = file.path();
-            if !file_path.is_file() {
-                continue;
-            }
-            let file_name = file.file_name().to_string_lossy().to_string();
-            let relative_path = format!("{ARTWORK_DIR}/{dir}/{file_name}");
-            if is_artwork_referenced(&relative_path, referenced) {
-                continue;
-            }
-            let meta = file.metadata().ok();
-            let size_bytes = meta.as_ref().map(|m| m.len()).unwrap_or(0);
-            let modified_at = meta
-                .as_ref()
-                .and_then(|m| m.modified().ok())
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map(|d| d.as_secs());
-            let slot = file_name
-                .rsplit_once('.')
-                .map(|(stem, _)| stem.to_string())
-                .unwrap_or_else(|| file_name.clone());
-            out.push(OrphanArtwork {
-                relative_path,
-                game_id: dir.clone(),
-                slot,
-                size_bytes,
-                reason: if dir_known {
-                    "unreferenced_slot".into()
-                } else {
-                    "unreferenced_game".into()
-                },
-                modified_at,
-            });
         }
+        let meta = file.metadata().ok();
+        let size_bytes = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+        let modified_at = meta
+            .as_ref()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+        let slot = file_name
+            .rsplit_once('.')
+            .map(|(stem, _)| stem.to_string())
+            .unwrap_or_else(|| file_name.clone());
+        out.push(OrphanArtwork {
+            relative_path,
+            game_id: dir.to_string(),
+            slot,
+            size_bytes,
+            reason: if dir_known {
+                "unreferenced_slot".into()
+            } else {
+                "unreferenced_game".into()
+            },
+            modified_at,
+        });
     }
-    out.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
     out
 }
 

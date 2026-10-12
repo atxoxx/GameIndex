@@ -5,6 +5,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use crate::game_scraper;
@@ -457,216 +458,248 @@ fn scan_folders_inner(
     scan_id: &str,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Vec<ExeInfo>, String> {
-    let mut exes = Vec::new();
-    let mut folders_scanned = 0usize;
-    let mut files_examined = 0usize;
-    let mut last_emit = Instant::now();
     let total_folders = folder_paths.len();
+    let accum = ScanAccum::default();
 
-    // Initial emit
-    let _ = app.emit(
-        "exe-scan-progress",
-        ExeScanProgress {
-            scan_id: scan_id.to_string(),
-            current_folder: folder_paths.first().cloned().unwrap_or_default(),
-            folder_index: if total_folders > 0 { 1 } else { 0 },
-            total_folders,
-            folders_scanned: 0,
-            files_examined: 0,
-            exes_found: 0,
-            last_found_exe: None,
-            done: false,
-            cancelled: false,
-        },
+    emit_scan_event(
+        app,
+        scan_id,
+        folder_paths.first().cloned().unwrap_or_default(),
+        if total_folders > 0 { 1 } else { 0 },
+        total_folders,
+        0,
+        0,
+        0,
+        None,
+        false,
+        false,
     );
 
-    let mut is_cancelled = false;
-
-    for (idx, root_str) in folder_paths.iter().enumerate() {
+    // Each root folder is walked independently, and `walk_parallel` fans
+    // the subdirectories of a single root out over rayon too — so one
+    // huge folder parallelises just as well as many roots.
+    folder_paths.par_iter().enumerate().for_each(|(idx, root_str)| {
         if cancel.load(Ordering::Relaxed) {
-            is_cancelled = true;
-            break;
+            accum.cancelled.store(true, Ordering::Relaxed);
+            return;
         }
         let root_path = Path::new(root_str);
         if !root_path.is_dir() {
-            continue;
+            return;
         }
+        let folder_index = idx + 1;
+        // The root counts as an entered folder, mirroring the old walk.
+        accum.folders_scanned.fetch_add(1, Ordering::Relaxed);
 
-        walk_scan_dir(
-            app,
-            scan_id,
-            root_path,
-            0,
-            idx + 1,
-            total_folders,
-            &mut exes,
-            &mut folders_scanned,
-            &mut files_examined,
-            &mut last_emit,
-            cancel,
-        );
+        let descend = |_dir: &Path, name: &str, _depth: u32| -> bool {
+            let keep = !(name.starts_with('.') || name.starts_with('_') || name.starts_with('$'));
+            if keep {
+                accum.folders_scanned.fetch_add(1, Ordering::Relaxed);
+            }
+            keep
+        };
 
-        if cancel.load(Ordering::Relaxed) {
-            is_cancelled = true;
-            break;
-        }
-    }
+        let visit = |dir: &Path, entry: &Path, _depth: u32, meta: &std::fs::Metadata| {
+            if cancel.load(Ordering::Relaxed) {
+                accum.cancelled.store(true, Ordering::Relaxed);
+                return;
+            }
+            if meta.is_dir() {
+                maybe_emit_scan_progress(app, scan_id, &accum, dir, folder_index, total_folders);
+                return;
+            }
+            if !meta.is_file() {
+                return;
+            }
+            accum.files_examined.fetch_add(1, Ordering::Relaxed);
 
-    // Final emit
-    let _ = app.emit(
-        "exe-scan-progress",
-        ExeScanProgress {
-            scan_id: scan_id.to_string(),
-            current_folder: String::new(),
-            folder_index: total_folders,
-            total_folders,
-            folders_scanned,
-            files_examined,
-            exes_found: exes.len(),
-            last_found_exe: exes.last().map(|e| e.path.clone()),
-            done: true,
-            cancelled: is_cancelled,
-        },
+            let is_exe = entry
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| e.eq_ignore_ascii_case("exe"));
+            let is_skipped = is_exe
+                && entry
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|stem| {
+                        let lower = stem.to_lowercase();
+                        SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw))
+                    });
+
+            if !is_exe || is_skipped {
+                maybe_emit_scan_progress(app, scan_id, &accum, dir, folder_index, total_folders);
+                return;
+            }
+
+            let modified_at = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let found_path = entry.to_string_lossy().to_string();
+            accum.push_exe(ExeInfo {
+                path: found_path.clone(),
+                size: meta.len(),
+                modified_at,
+            });
+            accum.mark_emitted();
+            emit_scan_event(
+                app,
+                scan_id,
+                dir.to_string_lossy().to_string(),
+                folder_index,
+                total_folders,
+                accum.folders_scanned.load(Ordering::Relaxed),
+                accum.files_examined.load(Ordering::Relaxed),
+                accum.exes_found(),
+                Some(found_path),
+                false,
+                false,
+            );
+        };
+
+        crate::scan::walk_parallel(root_path, 25, Some(cancel.as_ref()), &visit, &descend);
+    });
+
+    let cancelled = accum.cancelled.load(Ordering::Relaxed);
+    let mut exes = accum.take_exes();
+    // Discovery order is nondeterministic across workers; sort so the
+    // returned list (and the modal's feed) is stable run to run.
+    exes.sort_by(|a, b| a.path.cmp(&b.path));
+
+    emit_scan_event(
+        app,
+        scan_id,
+        String::new(),
+        total_folders,
+        total_folders,
+        accum.folders_scanned.load(Ordering::Relaxed),
+        accum.files_examined.load(Ordering::Relaxed),
+        exes.len(),
+        exes.last().map(|e| e.path.clone()),
+        true,
+        cancelled,
     );
 
     Ok(exes)
 }
 
-fn walk_scan_dir(
+/// Shared counters for a parallel executable scan. The walker runs the
+/// visitor on many rayon workers at once, so every mutable bit of state
+/// here is an atomic or a mutex.
+#[derive(Default)]
+struct ScanAccum {
+    exes: std::sync::Mutex<Vec<ExeInfo>>,
+    folders_scanned: std::sync::atomic::AtomicUsize,
+    files_examined: std::sync::atomic::AtomicUsize,
+    /// `Some` once a throttle window has started; `None` lets the first
+    /// progress tick through immediately.
+    last_emit: std::sync::Mutex<Option<Instant>>,
+    cancelled: AtomicBool,
+}
+
+impl ScanAccum {
+    fn push_exe(&self, info: ExeInfo) {
+        if let Ok(mut guard) = self.exes.lock() {
+            guard.push(info);
+        }
+    }
+
+    fn take_exes(&self) -> Vec<ExeInfo> {
+        self.exes
+            .lock()
+            .map(|mut guard| std::mem::take(&mut *guard))
+            .unwrap_or_default()
+    }
+
+    fn exes_found(&self) -> usize {
+        self.exes.lock().map(|guard| guard.len()).unwrap_or(0)
+    }
+
+    fn last_exe_path(&self) -> Option<String> {
+        self.exes
+            .lock()
+            .ok()
+            .and_then(|guard| guard.last().map(|e| e.path.clone()))
+    }
+
+    /// Restart the progress-throttle window after an immediate emit.
+    fn mark_emitted(&self) {
+        if let Ok(mut last) = self.last_emit.lock() {
+            *last = Some(Instant::now());
+        }
+    }
+}
+
+/// Emit a throttled `exe-scan-progress` event (at most one per 80 ms)
+/// while the walk is in flight, so a folder full of non-executables can't
+/// flood the webview with IPC.
+fn maybe_emit_scan_progress(
     app: &tauri::AppHandle,
     scan_id: &str,
+    accum: &ScanAccum,
     dir: &Path,
-    depth: usize,
     folder_index: usize,
     total_folders: usize,
-    exes: &mut Vec<ExeInfo>,
-    folders_scanned: &mut usize,
-    files_examined: &mut usize,
-    last_emit: &mut Instant,
-    cancel: &Arc<AtomicBool>,
 ) {
-    if cancel.load(Ordering::Relaxed) || depth > 25 {
+    let due = match accum.last_emit.lock() {
+        Ok(mut last) => match *last {
+            Some(at) if at.elapsed() < Duration::from_millis(80) => false,
+            _ => {
+                *last = Some(Instant::now());
+                true
+            }
+        },
+        Err(_) => false,
+    };
+    if !due {
         return;
     }
+    emit_scan_event(
+        app,
+        scan_id,
+        dir.to_string_lossy().to_string(),
+        folder_index,
+        total_folders,
+        accum.folders_scanned.load(Ordering::Relaxed),
+        accum.files_examined.load(Ordering::Relaxed),
+        accum.exes_found(),
+        accum.last_exe_path(),
+        false,
+        false,
+    );
+}
 
-    *folders_scanned += 1;
-
-    // Periodic progress emit while walking folders
-    if last_emit.elapsed() >= Duration::from_millis(80) {
-        *last_emit = Instant::now();
-        let _ = app.emit(
-            "exe-scan-progress",
-            ExeScanProgress {
-                scan_id: scan_id.to_string(),
-                current_folder: dir.to_string_lossy().to_string(),
-                folder_index,
-                total_folders,
-                folders_scanned: *folders_scanned,
-                files_examined: *files_examined,
-                exes_found: exes.len(),
-                last_found_exe: exes.last().map(|e| e.path.clone()),
-                done: false,
-                cancelled: false,
-            },
-        );
-    }
-
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
-    };
-
-    for entry in entries.flatten() {
-        if cancel.load(Ordering::Relaxed) {
-            return;
-        }
-        let entry_path = entry.path();
-        let is_symlink = entry.file_type().map(|ft| ft.is_symlink()).unwrap_or(false);
-        if is_symlink {
-            continue;
-        }
-
-        if entry_path.is_dir() {
-            if let Some(name) = entry_path.file_name().and_then(|n| n.to_str()) {
-                // Skip hidden folders, system volume information, recycle bins
-                if name.starts_with('.') || name.starts_with('_') || name.starts_with('$') {
-                    continue;
-                }
-            }
-            walk_scan_dir(
-                app,
-                scan_id,
-                &entry_path,
-                depth + 1,
-                folder_index,
-                total_folders,
-                exes,
-                folders_scanned,
-                files_examined,
-                last_emit,
-                cancel,
-            );
-        } else if let Some(ext) = entry_path.extension().and_then(|e| e.to_str()) {
-            *files_examined += 1;
-            if ext.eq_ignore_ascii_case("exe") {
-                if let Some(stem) = entry_path.file_stem().and_then(|s| s.to_str()) {
-                    if SKIP_KEYWORDS.iter().any(|kw| stem.to_lowercase().contains(kw)) {
-                        continue;
-                    }
-                }
-                if let Ok(meta) = entry.metadata() {
-                    let size = meta.len();
-                    let modified_at = meta
-                        .modified()
-                        .ok()
-                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                        .map(|d| d.as_secs())
-                        .unwrap_or(0);
-                    let found_path = entry_path.to_string_lossy().to_string();
-                    exes.push(ExeInfo {
-                        path: found_path.clone(),
-                        size,
-                        modified_at,
-                    });
-
-                    // Emit progress immediately on exe found
-                    *last_emit = Instant::now();
-                    let _ = app.emit(
-                        "exe-scan-progress",
-                        ExeScanProgress {
-                            scan_id: scan_id.to_string(),
-                            current_folder: dir.to_string_lossy().to_string(),
-                            folder_index,
-                            total_folders,
-                            folders_scanned: *folders_scanned,
-                            files_examined: *files_examined,
-                            exes_found: exes.len(),
-                            last_found_exe: Some(found_path),
-                            done: false,
-                            cancelled: false,
-                        },
-                    );
-                }
-            } else if last_emit.elapsed() >= Duration::from_millis(100) {
-                *last_emit = Instant::now();
-                let _ = app.emit(
-                    "exe-scan-progress",
-                    ExeScanProgress {
-                        scan_id: scan_id.to_string(),
-                        current_folder: dir.to_string_lossy().to_string(),
-                        folder_index,
-                        total_folders,
-                        folders_scanned: *folders_scanned,
-                        files_examined: *files_examined,
-                        exes_found: exes.len(),
-                        last_found_exe: exes.last().map(|e| e.path.clone()),
-                        done: false,
-                        cancelled: false,
-                    },
-                );
-            }
-        }
-    }
+#[allow(clippy::too_many_arguments)]
+fn emit_scan_event(
+    app: &tauri::AppHandle,
+    scan_id: &str,
+    current_folder: String,
+    folder_index: usize,
+    total_folders: usize,
+    folders_scanned: usize,
+    files_examined: usize,
+    exes_found: usize,
+    last_found_exe: Option<String>,
+    done: bool,
+    cancelled: bool,
+) {
+    let _ = app.emit(
+        "exe-scan-progress",
+        ExeScanProgress {
+            scan_id: scan_id.to_string(),
+            current_folder,
+            folder_index,
+            total_folders,
+            folders_scanned,
+            files_examined,
+            exes_found,
+            last_found_exe,
+            done,
+            cancelled,
+        },
+    );
 }
 
 #[cfg(test)]

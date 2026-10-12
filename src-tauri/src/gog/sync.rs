@@ -18,6 +18,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use rayon::prelude::*;
 use tauri::{AppHandle, Manager};
 
 use super::auth::refresh_tokens_if_needed;
@@ -96,53 +97,53 @@ pub async fn gog_sync_library(app: AppHandle) -> Result<GogSyncResult, String> {
     // Metadata may be unavailable (api.gog.com rejects non-Galaxy
     // clients) — fall back to minimal entries with product-id titles.
     let mut errors: Vec<String> = Vec::new();
-    let mut synced: Vec<GogSyncedGame> = Vec::with_capacity(owned_ids.len());
-    let mut meta_missing = 0usize;
-    for product_id in &owned_ids {
-        if product_id.is_empty() {
-            continue;
-        }
-        let (title, cover_url) = match product_meta.get(product_id) {
-            Some(m) => (m.title.clone(), m.cover_url.clone()),
-            None => {
-                meta_missing += 1;
-                (
-                    format!("GOG Game {product_id}"),
-                    None,
-                )
+    let meta_missing = owned_ids
+        .iter()
+        .filter(|id| !id.is_empty() && !product_meta.contains_key(*id))
+        .count();
+
+    // Measuring an install walks its whole folder tree — the dominant
+    // cost on a large library — so the per-game merge runs on rayon.
+    let synced: Vec<GogSyncedGame> = owned_ids
+        .par_iter()
+        .filter(|product_id| !product_id.is_empty())
+        .map(|product_id| {
+            let (title, cover_url) = match product_meta.get(product_id) {
+                Some(m) => (m.title.clone(), m.cover_url.clone()),
+                None => (format!("GOG Game {product_id}"), None),
+            };
+            let inst = installed_by_id.get(product_id.as_str()).copied();
+            let is_installed = inst.is_some();
+            let install_dir = inst.map(|i| i.install_dir.clone()).filter(|d| !d.is_empty());
+            let install_path = inst.map(|i| i.exe_path.clone()).filter(|p| !p.is_empty());
+
+            // Stats come from playtime fallback only — the cookie-auth
+            // owned endpoint returns bare IDs, not inline stats objects.
+            let (playtime_minutes, last_played) = playtime_fallback
+                .get(product_id.as_str())
+                .map(|p| (Some(p.playtime), p.last_session))
+                .unwrap_or((None, None));
+
+            let size_info = install_dir
+                .as_deref()
+                .map(std::path::Path::new)
+                .and_then(size::measure_folder_size);
+
+            GogSyncedGame {
+                id: format!("gog-{product_id}"),
+                title,
+                gog_game_id: product_id.clone(),
+                is_installed,
+                install_path,
+                install_dir,
+                playtime_minutes,
+                last_played,
+                cover_url,
+                size_bytes: size_info.as_ref().map(|s| s.size_bytes),
+                size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
             }
-        };
-        let inst = installed_by_id.get(product_id.as_str()).copied();
-        let is_installed = inst.is_some();
-        let install_dir = inst.map(|i| i.install_dir.clone()).filter(|d| !d.is_empty());
-        let install_path = inst.map(|i| i.exe_path.clone()).filter(|p| !p.is_empty());
-
-        // Stats come from playtime fallback only — the cookie-auth
-        // owned endpoint returns bare IDs, not inline stats objects.
-        let (playtime_minutes, last_played) = playtime_fallback
-            .get(product_id.as_str())
-            .map(|p| (Some(p.playtime), p.last_session))
-            .unwrap_or((None, None));
-
-        let size_info = install_dir
-            .as_deref()
-            .map(std::path::Path::new)
-            .and_then(size::measure_folder_size);
-
-        synced.push(GogSyncedGame {
-            id: format!("gog-{product_id}"),
-            title,
-            gog_game_id: product_id.clone(),
-            is_installed,
-            install_path,
-            install_dir,
-            playtime_minutes,
-            last_played,
-            cover_url,
-            size_bytes: size_info.as_ref().map(|s| s.size_bytes),
-            size_root_path: size_info.as_ref().map(|s| s.root_path.clone()),
-        });
-    }
+        })
+        .collect();
     if meta_missing > 0 {
         errors.push(format!(
             "{} of {} owned games have no metadata — using fallback titles (GOG's metadata API is not accessible)",

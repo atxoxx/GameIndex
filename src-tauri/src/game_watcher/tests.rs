@@ -69,6 +69,23 @@ fn test_name_scoring_exact_match() {
 }
 
 #[test]
+fn test_resolve_ignores_helper_exes_and_pruned_subdirs() {
+    // Only non-game executables and a `Redistributables` subfolder: the
+    // parallel resolver must find nothing rather than picking a helper.
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("SomeGame");
+    std::fs::create_dir_all(root.join("Redistributables")).unwrap();
+    std::fs::write(root.join("vcredist_x64.exe"), b"x").unwrap();
+    std::fs::write(root.join("unins000.exe"), b"x").unwrap();
+    std::fs::write(root.join("Redistributables").join("payload.exe"), b"x").unwrap();
+
+    assert!(
+        resolve_game_exe(&root, "SomeGame").is_none(),
+        "helper exes and pruned subdirs must not resolve to a game"
+    );
+}
+
+#[test]
 fn test_get_game_root_dir_heuristics() {
     assert_eq!(
         get_game_root_dir(Path::new("C:\\Games\\GameName\\game.exe")),

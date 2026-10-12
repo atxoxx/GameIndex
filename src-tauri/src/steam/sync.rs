@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
+use rayon::prelude::*;
 use reqwest::Client;
 use serde::Deserialize;
 use tauri::Manager;
@@ -585,37 +586,40 @@ pub fn scan_steam_manifests() -> std::collections::HashMap<u32, SteamManifestSta
         return std::collections::HashMap::new();
     };
 
-    let mut states = std::collections::HashMap::with_capacity(paths.len());
-    for (appid, manifest_path) in paths {
-        // The library's `steamapps` dir is the manifest's parent, so the
-        // install root composes identically to `game_install_path`
-        // without a second manifest read.
-        let steamapps_dir = manifest_path.parent();
-        let (fully_installed, install_dir, last_owner, installed_dlcs) =
-            match fs::read_to_string(&manifest_path) {
-                Ok(raw) => match steam_game_watcher::parse_appmanifest(&raw, appid) {
-                    Some(parsed) => (
-                        parsed.is_fully_installed(),
-                        steamapps_dir.map(|dir| dir.join("common").join(&parsed.install_dir)),
-                        parsed.last_owner,
-                        parsed.installed_dlcs,
-                    ),
-                    None => (true, None, None, Vec::new()), // unparseable → assume installed
+    // Reading and parsing every appmanifest is pure local work, so fan it
+    // out over rayon — the serial loop dominated Steam syncs on libraries
+    // with hundreds of installed games.
+    paths
+        .into_par_iter()
+        .map(|(appid, manifest_path)| {
+            // The library's `steamapps` dir is the manifest's parent, so the
+            // install root composes identically to `game_install_path`
+            // without a second manifest read.
+            let steamapps_dir = manifest_path.parent();
+            let (fully_installed, install_dir, last_owner, installed_dlcs) =
+                match fs::read_to_string(&manifest_path) {
+                    Ok(raw) => match steam_game_watcher::parse_appmanifest(&raw, appid) {
+                        Some(parsed) => (
+                            parsed.is_fully_installed(),
+                            steamapps_dir.map(|dir| dir.join("common").join(&parsed.install_dir)),
+                            parsed.last_owner,
+                            parsed.installed_dlcs,
+                        ),
+                        None => (true, None, None, Vec::new()), // unparseable → assume installed
+                    },
+                    Err(_) => (true, None, None, Vec::new()), // unreadable → assume installed
+                };
+            (
+                appid,
+                SteamManifestState {
+                    fully_installed,
+                    install_dir,
+                    last_owner,
+                    installed_dlcs,
                 },
-                Err(_) => (true, None, None, Vec::new()), // unreadable → assume installed
-            };
-        states.insert(
-            appid,
-            SteamManifestState {
-                fully_installed,
-                install_dir,
-                last_owner,
-                installed_dlcs,
-            },
-        );
-    }
-
-    states
+            )
+        })
+        .collect()
 }
 
 /// Presence-only scan of every `appmanifest_<appid>.acf` under the Steam
