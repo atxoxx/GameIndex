@@ -26,6 +26,8 @@ export function GameThumbnail({
       <img
         src={iconUrl}
         alt={name}
+        loading="lazy"
+        decoding="async"
         className={className}
         onError={() => setIconError(true)}
       />
@@ -37,6 +39,8 @@ export function GameThumbnail({
       <img
         src={coverArtUrl}
         alt={name}
+        loading="lazy"
+        decoding="async"
         className={className}
         onError={(e) => {
           const img = e.currentTarget;

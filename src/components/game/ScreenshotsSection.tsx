@@ -4,6 +4,7 @@ import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useRef } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface ScreenshotsSectionProps {
   game: Game;
@@ -111,11 +112,10 @@ export default function ScreenshotsSection({
                 }}
                 aria-label={t("screenshots.openAria", { n: index + 1 })}
               >
-                <img
+                <ArtworkImage
                   src={src}
                   alt={t("screenshots.imgAlt", { name: game.name, n: index + 1 })}
                   className="screenshot-img"
-                  loading="lazy"
                 />
               </div>
             );

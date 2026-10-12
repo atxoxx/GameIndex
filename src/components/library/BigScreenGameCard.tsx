@@ -18,6 +18,7 @@ import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useLanguage } from "../../context/LanguageContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
+import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface BigScreenGameCardProps {
   game: Game;
@@ -59,11 +60,9 @@ export default function BigScreenGameCard({
       <div className="bigscreen-game-card-cover">
         {(staticPosterUrl || displayUrl) ? (
           <>
-            <img
+            <ArtworkImage
               src={staticPosterUrl || displayUrl!}
               alt={gameDisplayName(game)}
-              loading="lazy"
-              decoding="async"
               onError={handleError}
               className="bigscreen-game-card-cover-static"
             />

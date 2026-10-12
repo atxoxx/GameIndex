@@ -7,6 +7,7 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import type { LibraryStatus } from "../../hooks/useLibraryFilters";
+import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface LibraryHeroProps {
   games: Game[];
@@ -126,7 +127,7 @@ function LibraryHeroBase({
       {collage.length > 0 && (
         <div className="lib-hero-collage" aria-hidden="true">
           {collage.map((src, i) => (
-            <img key={i} src={src} alt="" loading="lazy" />
+            <ArtworkImage key={i} src={src} alt="" />
           ))}
         </div>
       )}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useFocusable } from "../../hooks/useFocusable";
 import type { StoreGameSummary } from "../../types/game";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
+import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface BigScreenStoreGameCardProps {
   game: StoreGameSummary;
@@ -40,11 +41,9 @@ export default function BigScreenStoreGameCard({
       <div className="bigscreen-game-card-cover">
         {(staticPosterUrl || displayUrl) ? (
           <>
-            <img
+            <ArtworkImage
               src={staticPosterUrl || displayUrl!}
               alt={game.name}
-              loading="lazy"
-              decoding="async"
               onError={handleError}
               className="bigscreen-game-card-cover-static"
             />

@@ -11,6 +11,7 @@ import PlayerCountBadge from "../PlayerCountBadge";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useSteamGridArt, usePrefetchImage } from "../../context/SteamGridDbContext";
 import { resolveSteamAppId } from "../../hooks/useGameCardArt";
+import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface HomeHeroProps {
   games: Game[];
@@ -361,7 +362,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
       {collage.length > 0 && (
         <div className="home-hero__collage ui-complete-only ui-item-hero" aria-hidden>
           {collage.map((src, i) => (
-            <img key={i} src={src} alt="" loading="lazy" />
+            <ArtworkImage key={i} src={src} alt="" />
           ))}
         </div>
       )}

@@ -9,6 +9,7 @@
 
 import type { ReactNode } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { ArtworkImage } from "../ui/ArtworkImage";
 
 export interface BigScreenCoverProps {
   /** Primary image URL. `undefined` renders the placeholder. */
@@ -51,7 +52,7 @@ export default function BigScreenCover({
       style={{ aspectRatio }}
     >
       {url ? (
-        <img src={url} alt={alt} loading="lazy" />
+        <ArtworkImage src={url} alt={alt} />
       ) : (
         <div className="bigscreen-cover-placeholder">{placeholderIcon}</div>
       )}

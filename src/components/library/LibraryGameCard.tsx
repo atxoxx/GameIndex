@@ -6,6 +6,7 @@ import { useGameCardActions, NO_IGDB_MATCH_SOURCE } from "../../context/GameCont
 import { useLanguage } from "../../context/LanguageContext";
 import { useCardDisplaySettings } from "../../context/SettingsContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
+import { ArtworkImage } from "../ui/ArtworkImage";
 import { playLaunchSound } from "../../utils/soundEffects";
 
 interface LibraryGameCardProps {
@@ -286,11 +287,9 @@ function LibraryGameCardBase({
 
         {(staticPosterUrl || displayUrl) ? (
           <>
-            <img
+            <ArtworkImage
               src={staticPosterUrl || displayUrl!}
               alt={displayName}
-              loading="lazy"
-              decoding="async"
               onError={handleError}
               className="lib-card-cover-static"
             />

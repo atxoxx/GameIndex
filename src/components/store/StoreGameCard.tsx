@@ -13,6 +13,7 @@ import { useCardDisplaySettings } from "../../context/SettingsContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
+import { ArtworkImage } from "../ui/ArtworkImage";
 import StoreHighlightText from "./StoreHighlightText";
 
 interface StoreGameCardProps {
@@ -243,12 +244,10 @@ function StoreGameCardBase({
 
         <div className={`store-card-list-thumb${isIcon ? " has-icon" : ""}`}>
           {displayUrl ? (
-            <img
+            <ArtworkImage
               ref={displayUrl === coverUrl ? imgRef : undefined}
               src={displayUrl}
               alt={game.name}
-              loading="lazy"
-              decoding="async"
               onError={handleError}
               className={isIcon ? "store-card-icon-img" : "store-card-poster-img"}
             />
@@ -442,12 +441,10 @@ function StoreGameCardBase({
 
         {(staticPosterUrl || displayUrl) ? (
           <>
-            <img
+            <ArtworkImage
               ref={displayUrl === coverUrl ? imgRef : undefined}
               src={staticPosterUrl || displayUrl!}
               alt={game.name}
-              loading="lazy"
-              decoding="async"
               onError={handleError}
               className="store-card-cover-static"
             />
