@@ -111,6 +111,10 @@ fn build_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     .build()
     .map_err(|e| format!("failed to create launch splash window: {e}"))?;
 
+    if let Some(webview) = app.get_webview(SPLASH_WINDOW_LABEL) {
+        crate::webkit_memory::tune_webview(&webview);
+    }
+
     let handle = app.clone();
     window.on_window_event(move |event| {
         if matches!(event, tauri::WindowEvent::Destroyed) {

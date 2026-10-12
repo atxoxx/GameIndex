@@ -98,6 +98,7 @@ mod overlay;
 mod overlay_detect;
 #[cfg(target_os = "linux")]
 mod linux_desktop;
+mod webkit_memory;
 mod capture;
 mod media;
 mod store;
@@ -640,6 +641,7 @@ pub fn run() {
             crashlog::breadcrumb("db", "database initialized");
             app.manage(mods::ModScanState::default());
             app.manage(media::ExeScanState::default());
+            app.manage(webview::PreviewWebviews::default());
 
             // Reconcile any in-progress `sessions` rows orphaned by a crash
             // on a previous run: back-date their `ended_at` from the last
@@ -833,6 +835,14 @@ pub fn run() {
             // platform; nothing before this point needs a live window.
             create_config_windows(app.handle())?;
             crashlog::breadcrumb("window", "windows created");
+
+            // Shrink WebKitGTK's image and page caches on the shell webviews
+            // before any artwork is loaded (Linux only; no-op elsewhere).
+            for label in ["main", "splashscreen"] {
+                if let Some(webview) = app.get_webview(label) {
+                    webkit_memory::tune_webview(&webview);
+                }
+            }
 
             // Startup-splash preference (Settings → Appearance). When the
             // user turned it off, reveal the main window right away instead

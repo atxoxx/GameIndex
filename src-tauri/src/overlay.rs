@@ -662,6 +662,10 @@ fn ensure_window(app: &AppHandle) -> Result<WebviewWindow, String> {
     .build()
     .map_err(|e| format!("failed to create overlay window: {e}"))?;
 
+    if let Some(webview) = app.get_webview(OVERLAY_WINDOW_LABEL) {
+        crate::webkit_memory::tune_webview(&webview);
+    }
+
     // Wayland layer-shell (and any future platform traits) must be applied
     // before the window is first shown.
     configure_platform_window(&window);

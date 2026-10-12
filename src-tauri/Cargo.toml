@@ -260,6 +260,11 @@ windows = { version = "0.58", features = [
 procfs = "0.17"
 libc = "0.2"
 gtk = { version = "0.18" }
+# WebKitGTK is the Linux webview engine. Used to shrink its image/page caches
+# (see `webkit_memory.rs`) — WebKit memoizes decoded artwork far more
+# aggressively than WebView2, which is what drives the render process into
+# gigabytes on a large library.
+webkit2gtk = "2"
 # X11 overlay support: screen capture (GetImage/XShm), EWMH always-on-top
 # (_NET_WM_STATE_ABOVE), and click-through via an empty XFixes/SHAPE input
 # region. Pure-Rust bindings — no libX11 headers required at build time.

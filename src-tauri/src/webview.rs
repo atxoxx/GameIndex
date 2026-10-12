@@ -108,6 +108,75 @@ struct LinuxOverlayState {
     widgets: std::collections::HashMap<String, gtk::Widget>,
 }
 
+/// Upper bound on simultaneously live preview child webviews (WebLinks /
+/// News / Map / Guides). The frontend normally closes the previous preview
+/// before opening the next, but a missed close — a navigation race, a
+/// crashed page, a fresh random label — would otherwise pin a whole external
+/// site, its decoded images and its GPU surfaces, inside the shared
+/// WebKitWebProcess for the rest of the session. This registry is the last
+/// line of defence: opening a preview beyond the cap evicts the oldest.
+pub const MAX_PREVIEW_WEBVIEWS: usize = 3;
+
+/// FIFO of live preview webview labels. Registered in `setup`.
+#[derive(Default)]
+pub struct PreviewWebviews(std::sync::Mutex<std::collections::VecDeque<String>>);
+
+impl PreviewWebviews {
+    /// Record `label` as live and return any labels pushed past the cap.
+    fn register(&self, label: &str) -> Vec<String> {
+        let mut queue = match self.0.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        if let Some(pos) = queue.iter().position(|entry| entry == label) {
+            queue.remove(pos);
+        }
+        queue.push_back(label.to_string());
+        let mut evicted = Vec::new();
+        while queue.len() > MAX_PREVIEW_WEBVIEWS {
+            if let Some(oldest) = queue.pop_front() {
+                evicted.push(oldest);
+            }
+        }
+        evicted
+    }
+
+    fn unregister(&self, label: &str) {
+        let mut queue = match self.0.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        if let Some(pos) = queue.iter().position(|entry| entry == label) {
+            queue.remove(pos);
+        }
+    }
+}
+
+/// Tear down a preview child webview: remove it from the GTK overlay (Linux)
+/// and close the underlying webview. Shared by the explicit close command and
+/// by cap eviction.
+fn destroy_preview_webview(app: &tauri::AppHandle, label: &str) {
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::*;
+
+        let label_clone = label.to_string();
+        let _ = app.run_on_main_thread(move || {
+            OVERLAY_STATE.with(|state_cell| {
+                if let Some(state) = state_cell.borrow_mut().as_mut() {
+                    if let Some(widget) = state.widgets.remove(&label_clone) {
+                        state.fixed.remove(&widget);
+                    }
+                }
+            });
+        });
+    }
+
+    if let Some(webview) = app.get_webview(label) {
+        let _ = webview.close();
+    }
+}
+
 /// Create the WebLinks / News preview child webview from Rust.
 /// On Windows/macOS, creates an embedded child webview with LogicalPosition/LogicalSize.
 /// On Linux (WebKitGTK), moves the child webview from default_vbox into a GtkOverlay
@@ -232,6 +301,19 @@ pub async fn create_preview_webview(
         .map_err(|e| e.to_string())?;
     }
 
+    // Bound the number of co-resident preview pages. Register the new preview
+    // and evict the oldest beyond the cap; each evicted page is fully closed
+    // so its render-process memory is reclaimed.
+    if let Some(state) = app.try_state::<PreviewWebviews>() {
+        for stale in state.register(&label) {
+            destroy_preview_webview(&app, &stale);
+        }
+    }
+
+    if let Some(webview) = app.get_webview(&label) {
+        crate::webkit_memory::tune_embedded_webview(&webview);
+    }
+
     Ok(())
 }
 
@@ -315,25 +397,10 @@ pub fn set_preview_webview_visible(
 /// Close and destroy an active preview webview, removing it from GTK overlay.
 #[tauri::command]
 pub fn close_preview_webview(app: tauri::AppHandle, label: String) -> Result<(), String> {
-    #[cfg(target_os = "linux")]
-    {
-        use gtk::prelude::*;
-
-        let label_clone = label.clone();
-        let _ = app.run_on_main_thread(move || {
-            OVERLAY_STATE.with(|state_cell| {
-                if let Some(state) = state_cell.borrow_mut().as_mut() {
-                    if let Some(widget) = state.widgets.remove(&label_clone) {
-                        state.fixed.remove(&widget);
-                    }
-                }
-            });
-        });
+    if let Some(state) = app.try_state::<PreviewWebviews>() {
+        state.unregister(&label);
     }
-
-    if let Some(webview) = app.get_webview(&label) {
-        let _ = webview.close();
-    }
+    destroy_preview_webview(&app, &label);
     Ok(())
 }
 
@@ -362,6 +429,42 @@ pub fn webview_dismiss_consent(app: tauri::AppHandle, label: String) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preview_registry_caps_live_webviews() {
+        let registry = PreviewWebviews::default();
+        for i in 0..MAX_PREVIEW_WEBVIEWS {
+            assert!(
+                registry.register(&format!("preview-{i}")).is_empty(),
+                "no eviction before the cap is reached"
+            );
+        }
+        let evicted = registry.register("preview-overflow");
+        assert_eq!(
+            evicted,
+            vec!["preview-0".to_string()],
+            "the oldest preview is evicted once past the cap"
+        );
+        // The evicted label is gone; the newest is tracked.
+        let again = registry.register("preview-another");
+        assert_eq!(again, vec!["preview-1".to_string()]);
+    }
+
+    #[test]
+    fn preview_registry_dedupes_and_unregisters() {
+        let registry = PreviewWebviews::default();
+        registry.register("a");
+        registry.register("b");
+        // Re-registering an existing label refreshes it without evicting.
+        assert!(registry.register("a").is_empty());
+        registry.unregister("b");
+        // Only "a" is left; fill to the cap without evicting.
+        for i in 0..MAX_PREVIEW_WEBVIEWS - 1 {
+            assert!(registry.register(&format!("new-{i}")).is_empty());
+        }
+        // "a" is now the oldest and is the next eviction.
+        assert_eq!(registry.register("new-final"), vec!["a".to_string()]);
+    }
 
     #[test]
     fn content_filter_script_targets_ads_and_consent() {
