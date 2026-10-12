@@ -121,6 +121,22 @@ export default function HeroTrailer({
     }
   }, [isInView, shouldAutoplay]);
 
+  // WebKitGTK keeps a removed <video>'s pipeline and its buffered frames alive
+  // while the element is still playing, so every navigation away from a hero
+  // left one more decoder behind. The YouTube branch below unmounts its iframe
+  // for the same reason; the native element needs the explicit detach.
+  const isFileTrailer = parsed?.kind === "file";
+  useEffect(() => {
+    if (!isFileTrailer) return;
+    const video = videoRef.current;
+    if (!video) return;
+    return () => {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [isFileTrailer]);
+
   if (!parsed) return null;
 
   if (parsed.kind === "file") {

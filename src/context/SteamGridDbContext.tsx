@@ -215,7 +215,11 @@ function processPrefetchQueue() {
 function schedulePrefetch(url: string) {
   if (prefetchCache.has(url) || prefetchQueue.includes(url)) return;
   if (prefetchCache.size >= MAX_PREFETCH_CACHE) {
-    prefetchCache.clear();
+    // Evict the oldest entry instead of dropping the whole cache: the heroes
+    // rotate their spotlight every few seconds, so a wholesale clear made the
+    // same animated assets re-download and re-decode on every rotation.
+    const oldest = prefetchCache.values().next().value;
+    if (oldest) prefetchCache.delete(oldest);
   }
   prefetchQueue.push(url);
   if (typeof window.requestIdleCallback === "function") {
