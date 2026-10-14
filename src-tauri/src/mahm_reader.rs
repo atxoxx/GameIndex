@@ -298,6 +298,31 @@ fn matches_gpu_mem_clock(name: &str) -> bool {
     n.contains("gpu") && n.contains("clock") && (n.contains("mem") || n.contains("memory"))
 }
 
+/// Whether an MAHM entry's owning GPU (`dwGpu`, or `None` for the legacy
+/// layout that did not expose it) belongs to the resolved adapter. Per-GPU
+/// sensors (power, clocks, VRAM) must be filtered this way, otherwise the
+/// first GPU in the list — often the iGPU or a virtual adapter — wins and the
+/// deep-dive shows that adapter's readings for every GPU. Package/system
+/// sensors carry `u32::MAX` and never match; legacy entries can't be
+/// attributed, so they pass through (the previous first-match behaviour).
+#[cfg(any(windows, test))]
+fn gpu_entry_on_adapter(entry_dw_gpu: Option<u32>, resolved_gpu_idx: u32) -> bool {
+    match entry_dw_gpu {
+        Some(g) => g == resolved_gpu_idx,
+        None => true,
+    }
+}
+
+/// Whether a CPU power entry is the package/aggregate reading rather than a
+/// single core's. The aggregate is named "CPU power" / "CPU package power"
+/// and carries the system sentinel `dwGpu` (`u32::MAX`); per-core entries are
+/// "CPU1 power", "CPU2 power", … and must not shadow it.
+#[cfg(any(windows, test))]
+fn cpu_power_entry_is_package(name: &str, entry_dw_gpu: Option<u32>) -> bool {
+    let n = name.trim().to_lowercase();
+    n == "cpu power" || n.contains("package") || entry_dw_gpu == Some(u32::MAX)
+}
+
 /// Instantaneous frame time sensor ("Frametime" / "Frame time").
 #[cfg(any(windows, test))]
 fn matches_frametime(name: &str) -> bool {
@@ -431,10 +456,15 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
         let mut vram_used_mb: Option<f32> = None;
         let mut gpu_power: Option<f32> = None;
         let mut cpu_power: Option<f32> = None;
+        let mut cpu_power_is_package = false;
         let mut gpu_core_clock: Option<f32> = None;
         let mut gpu_mem_clock: Option<f32> = None;
 
         let entries_base = (base as *const u8).add(header.header_size as usize);
+
+        // The modern entry layout carries the owning GPU index (`dwGpu`) right
+        // after the min/max/flags fields; the legacy layout has no such field.
+        let has_dw_gpu = header.entry_size >= LEGACY_ENTRY_SIZE_THRESHOLD;
 
         for i in 0..header.entry_count {
             // Bound each entry against a generous fixed cap so a corrupt
@@ -451,6 +481,12 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
             
             let data = *(entry.add(data_offset) as *const f32);
             let name_lower = name.to_lowercase();
+            let entry_dw_gpu = if has_dw_gpu {
+                Some(*(entry.add(data_offset + 16) as *const u32))
+            } else {
+                None
+            };
+            let on_selected_gpu = gpu_entry_on_adapter(entry_dw_gpu, resolved_gpu_idx);
 
             let expected_gpu_usage_1_space = format!("gpu {} usage", target_gpu_num);
             let expected_gpu_usage_2_space = format!("gpu {} load", target_gpu_num);
@@ -500,23 +536,28 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
                 if data.is_finite() && data > 0.0 && data <= 1000.0 {
                     frametime = Some(data);
                 }
-            } else if vram_used_mb.is_none() && matches_gpu_memory_used(&name) {
+            } else if vram_used_mb.is_none() && on_selected_gpu && matches_gpu_memory_used(&name) {
                 if data.is_finite() && data > 0.0 && data <= 1_048_576.0 {
                     vram_used_mb = Some(data);
                 }
-            } else if gpu_power.is_none() && matches_gpu_power(&name) {
+            } else if gpu_power.is_none() && on_selected_gpu && matches_gpu_power(&name) {
                 if data.is_finite() && data > 0.0 && data <= 2000.0 {
                     gpu_power = Some(data);
                 }
-            } else if cpu_power.is_none() && matches_cpu_power(&name) {
+            } else if matches_cpu_power(&name) {
+                // Prefer the package/aggregate reading over a single core's.
                 if data.is_finite() && data > 0.0 && data <= 2000.0 {
-                    cpu_power = Some(data);
+                    let is_package = cpu_power_entry_is_package(&name, entry_dw_gpu);
+                    if cpu_power.is_none() || (is_package && !cpu_power_is_package) {
+                        cpu_power = Some(data);
+                        cpu_power_is_package = is_package;
+                    }
                 }
-            } else if gpu_core_clock.is_none() && matches_gpu_core_clock(&name) {
+            } else if gpu_core_clock.is_none() && on_selected_gpu && matches_gpu_core_clock(&name) {
                 if data.is_finite() && data > 0.0 && data <= 20_000.0 {
                     gpu_core_clock = Some(data);
                 }
-            } else if gpu_mem_clock.is_none() && matches_gpu_mem_clock(&name) {
+            } else if gpu_mem_clock.is_none() && on_selected_gpu && matches_gpu_mem_clock(&name) {
                 if data.is_finite() && data > 0.0 && data <= 20_000.0 {
                     gpu_mem_clock = Some(data);
                 }
@@ -747,5 +788,24 @@ mod tests {
             "GB203-A",
             "616.56",
         ));
+    }
+
+    #[test]
+    fn gpu_entry_on_adapter_matches_only_the_resolved_index() {
+        assert!(gpu_entry_on_adapter(Some(1), 1));
+        assert!(!gpu_entry_on_adapter(Some(0), 1));
+        // The package/system sentinel never matches a real adapter.
+        assert!(!gpu_entry_on_adapter(Some(u32::MAX), 1));
+        // Legacy layout (no dwGpu) can't be attributed → passes through.
+        assert!(gpu_entry_on_adapter(None, 1));
+    }
+
+    #[test]
+    fn cpu_power_prefers_the_package_reading() {
+        assert!(cpu_power_entry_is_package("CPU power", Some(u32::MAX)));
+        assert!(cpu_power_entry_is_package("CPU Package Power", Some(u32::MAX)));
+        assert!(cpu_power_entry_is_package("CPU power", None));
+        assert!(!cpu_power_entry_is_package("CPU1 power", Some(0)));
+        assert!(!cpu_power_entry_is_package("CPU2 power", Some(1)));
     }
 }
