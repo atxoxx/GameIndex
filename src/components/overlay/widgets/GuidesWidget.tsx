@@ -8,7 +8,7 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { BookOpen, ChevronLeft, ExternalLink, Loader2, Map as MapIcon } from "lucide-react";
+import { BookOpen, Globe, Loader2, Map as MapIcon } from "lucide-react";
 import { useOverlay } from "../../../context/OverlayContext";
 import { useOptionalGames } from "../../../context/GameContext";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -17,35 +17,38 @@ import {
   FIXED_SOURCES,
   buildUrl,
   getSteamAppIdString,
+  normalizeUrl,
   parseCustomLinks,
 } from "../../weblinks/sources";
 import WebviewControls from "../../webview/WebviewControls";
 import { Card } from "../../ui";
+import type { SourceCategoryKey } from "../../weblinks/types";
 import type { Game } from "../../../types/game";
 
 /** Child-webview label prefix reserved for the overlay's Guides browser. */
 const PREVIEW_PREFIX = "overlay-guides-";
 
-/**
- * Sources offered in the compact HUD picker, in display order. A curated
- * subset of the full WebLinks list — the panel is small, so stores and
- * anything a player won't open mid-game are left to the main app.
- */
-const CURATED_SOURCE_KEYS = [
-  "pcgamingwiki",
-  "hltb",
-  "reddit",
-  "youtube",
-  "twitch",
-  "nexusmods",
-  "protondb",
-] as const;
+/** Dropdown optgroup order for the fixed WebLinks sources. */
+const WEBSITE_GROUP_ORDER: { key: Exclude<SourceCategoryKey, "all">; i18nKey: string }[] = [
+  { key: "stores", i18nKey: "weblinks.categories.stores" },
+  { key: "wikis", i18nKey: "weblinks.categories.wikis" },
+  { key: "community", i18nKey: "weblinks.categories.community" },
+  { key: "modding", i18nKey: "weblinks.categories.modding" },
+  { key: "mylinks", i18nKey: "weblinks.categories.mylinks" },
+];
 
-interface LinkEntry {
+type GuidesTab = "websites" | "maps";
+
+interface PickEntry {
   key: string;
   label: string;
   url: string;
-  icon: ReactNode;
+}
+
+interface PickGroup {
+  id: string;
+  label: string;
+  entries: PickEntry[];
 }
 
 /**
@@ -198,10 +201,11 @@ function useOverlayPreview(url: string | null) {
 }
 
 /**
- * Guides — a lightweight in-HUD browser for the current game's wikis, guides
- * and interactive maps. Reuses the WebLinks source list and `buildUrl`, plus
- * the map providers from `fetch_game_maps`, and embeds the chosen page in a
- * native child webview hosted by the overlay window.
+ * Guides — a lightweight in-HUD browser for the current game. Two sub-tabs:
+ * "Websites" lists every registered WebLinks source (fixed sources, Steam
+ * Guides and the game's custom links) in an always-visible dropdown, "Maps"
+ * lists the interactive map providers from `fetch_game_maps`. The chosen page
+ * is embedded in a native child webview hosted by the overlay window.
  */
 export default function GuidesWidget() {
   const { session } = useOverlay();
@@ -226,58 +230,131 @@ export default function GuidesWidget() {
 
   const appId = useMemo(() => (game ? getSteamAppIdString(game) : null), [game]);
 
-  const entries = useMemo<LinkEntry[]>(() => {
+  const websiteGroups = useMemo<PickGroup[]>(() => {
     if (!game) return [];
-    const list: LinkEntry[] = [];
+    const groups: PickGroup[] = WEBSITE_GROUP_ORDER.map((group) => ({
+      id: group.key,
+      label: t(group.i18nKey),
+      entries: [],
+    }));
+    const byId = new Map(groups.map((group) => [group.id, group]));
 
-    for (const source of maps.sources) {
-      list.push({
-        key: `map:${source.id}`,
+    for (const source of FIXED_SOURCES) {
+      byId.get(source.category)?.entries.push({
+        key: source.key,
         label: source.label,
-        url: source.url,
-        icon: <MapIcon size={14} />,
+        url: buildUrl(game, source.key, "store", appId),
       });
-    }
-
-    for (const key of CURATED_SOURCE_KEYS) {
-      const def = FIXED_SOURCES.find((s) => s.key === key);
-      if (!def) continue;
-      list.push({ key, label: def.label, url: buildUrl(game, key, "store", appId), icon: def.icon });
     }
 
     if (appId) {
-      list.push({
+      byId.get("wikis")?.entries.push({
         key: "steam:guides",
-        label: "Steam Guides",
+        label: t("overlay.guides.steamGuides"),
         url: buildUrl(game, "steam", "guides", appId),
-        icon: FIXED_SOURCES.find((s) => s.key === "steam")?.icon ?? <BookOpen size={14} />,
       });
     }
 
+    // Fixed sources resolve to per-game URLs, so a registered link can still
+    // duplicate e.g. Steam or NexusMods. Match the WebLinks tab and drop those.
+    const fixedUrls = new Set(
+      FIXED_SOURCES.map((source) =>
+        normalizeUrl(buildUrl(game, source.key, "store", appId))
+      )
+    );
     for (const link of parseCustomLinks(game.websites)) {
       if (!/^https?:\/\//i.test(link.url)) continue;
-      list.push({ key: `mine:${link.url}`, label: link.label, url: link.url, icon: <BookOpen size={14} /> });
+      if (fixedUrls.has(normalizeUrl(link.url))) continue;
+      byId.get("mylinks")?.entries.push({
+        key: `mine:${link.url}`,
+        label: link.label,
+        url: link.url,
+      });
     }
 
-    return list;
-  }, [game, maps.sources, appId]);
+    return groups.filter((group) => group.entries.length > 0);
+  }, [game, appId, t]);
 
-  const [activeUrl, setActiveUrl] = useState<string | null>(null);
+  const mapGroups = useMemo<PickGroup[]>(() => {
+    const groups: PickGroup[] = [];
+    for (const source of maps.sources) {
+      const items =
+        source.maps.length > 0 ? source.maps : [{ title: source.title, url: source.url }];
+      const entries = items
+        .filter((item) => /^https?:\/\//i.test(item.url))
+        .map((item) => ({
+          key: `${source.id}:${item.url}`,
+          label: item.title,
+          url: item.url,
+        }));
+      if (entries.length > 0) {
+        groups.push({ id: source.id, label: source.label, entries });
+      }
+    }
+    return groups;
+  }, [maps.sources]);
 
-  // Drop the open page when the game changes.
+  const [activeTab, setActiveTab] = useState<GuidesTab>("websites");
+  const [websiteUrl, setWebsiteUrl] = useState<string | null>(null);
+  const [mapUrl, setMapUrl] = useState<string | null>(null);
+
+  // Drop both open pages when the game changes.
   useEffect(() => {
-    setActiveUrl(null);
+    setWebsiteUrl(null);
+    setMapUrl(null);
   }, [game?.id]);
 
+  const activeUrl = activeTab === "websites" ? websiteUrl : mapUrl;
   const preview = useOverlayPreview(activeUrl);
-  const activeEntry = entries.find((e) => e.url === activeUrl) ?? null;
 
-  const openExternal = () => {
+  const activeEntry = useMemo(() => {
+    const groups = activeTab === "websites" ? websiteGroups : mapGroups;
+    for (const group of groups) {
+      const match = group.entries.find((entry) => entry.url === activeUrl);
+      if (match) return match;
+    }
+    return null;
+  }, [activeTab, websiteGroups, mapGroups, activeUrl]);
+
+  const openExternal = useCallback(() => {
     if (!activeUrl) return;
     void openUrl(activeUrl).catch(() => {
       window.open(activeUrl, "_blank", "noopener,noreferrer");
     });
-  };
+  }, [activeUrl]);
+
+  if (!game) {
+    return (
+      <Card variant="glass" className="overlay-widget overlay-guides-widget" data-testid="overlay-guides">
+        <div className="overlay-widget__head">
+          <span className="overlay-widget__icon" aria-hidden>
+            <BookOpen />
+          </span>
+          <h3 className="overlay-widget__title">{t("overlay.group.guides")}</h3>
+        </div>
+        <p className="overlay-widget__empty">{t("overlay.guides.empty")}</p>
+      </Card>
+    );
+  }
+
+  const tabs: { id: GuidesTab; label: string; icon: ReactNode }[] = [
+    { id: "websites", label: t("overlay.guides.websites"), icon: <Globe size={12} aria-hidden /> },
+    { id: "maps", label: t("overlay.guides.maps"), icon: <MapIcon size={12} aria-hidden /> },
+  ];
+
+  const renderGroups = (groups: PickGroup[]) =>
+    groups.map((group) => (
+      <optgroup key={group.id} label={group.label}>
+        {group.entries.map((entry) => (
+          <option key={entry.key} value={entry.url}>
+            {entry.label}
+          </option>
+        ))}
+      </optgroup>
+    ));
+
+  const tabId = (tab: GuidesTab) => `overlay-guides-tab-${tab}`;
+  const noMaps = activeTab === "maps" && maps.status === "ready" && mapGroups.length === 0;
 
   return (
     <Card variant="glass" className="overlay-widget overlay-guides-widget" data-testid="overlay-guides">
@@ -286,77 +363,106 @@ export default function GuidesWidget() {
           <BookOpen />
         </span>
         <h3 className="overlay-widget__title">{t("overlay.group.guides")}</h3>
-        {game && activeUrl && (
-          <button
-            type="button"
-            className="overlay-guides__back"
-            onClick={() => setActiveUrl(null)}
-            title={t("overlay.guides.back")}
-            aria-label={t("overlay.guides.back")}
-          >
-            <ChevronLeft size={14} />
-            <span>{t("overlay.guides.back")}</span>
-          </button>
-        )}
       </div>
 
-      {!game ? (
-        <p className="overlay-widget__empty">{t("overlay.guides.empty")}</p>
-      ) : activeUrl ? (
-        <div className="overlay-guides__browser">
-          <div className="overlay-guides__toolbar">
-            <WebviewControls
-              canGoBack={preview.navState.back}
-              canGoForward={preview.navState.forward}
-              onBack={preview.goBack}
-              onForward={preview.goForward}
-              onReload={preview.reload}
-              onDismissCookies={preview.dismissCookies}
-              onOpenExternal={openExternal}
-            />
-            <span className="overlay-guides__title" title={activeUrl}>
-              {activeEntry?.label ?? activeUrl}
-            </span>
-            <button
-              type="button"
-              className="overlay-guides__external"
-              onClick={openExternal}
-              title={t("weblinks.openInBrowser")}
-              aria-label={t("weblinks.openInBrowser")}
-            >
-              <ExternalLink size={13} />
-            </button>
+      <div className="overlay-guides__tabs" role="tablist" aria-label={t("overlay.group.guides")}>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={tabId(tab.id)}
+            aria-selected={activeTab === tab.id}
+            aria-controls="overlay-guides-tabpanel"
+            className={`overlay-guides__tab${
+              activeTab === tab.id ? " overlay-guides__tab--active" : ""
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+            data-testid={`overlay-guides-tab-${tab.id}`}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div
+        className="overlay-guides__body"
+        role="tabpanel"
+        id="overlay-guides-tabpanel"
+        aria-labelledby={tabId(activeTab)}
+      >
+        {activeTab === "websites" ? (
+          <select
+            className="overlay-guides__select"
+            value={websiteUrl ?? ""}
+            onChange={(event) => setWebsiteUrl(event.target.value)}
+            aria-label={t("overlay.guides.websites")}
+            data-testid="overlay-guides-select"
+          >
+            <option value="" disabled>
+              {t("overlay.guides.selectWebsite")}
+            </option>
+            {renderGroups(websiteGroups)}
+          </select>
+        ) : (
+          <select
+            className="overlay-guides__select"
+            value={mapUrl ?? ""}
+            disabled={maps.status === "loading" || mapGroups.length === 0}
+            onChange={(event) => setMapUrl(event.target.value)}
+            aria-label={t("overlay.guides.maps")}
+            data-testid="overlay-guides-select"
+          >
+            <option value="" disabled>
+              {maps.status === "loading"
+                ? t("overlay.guides.loading")
+                : t("overlay.guides.selectMap")}
+            </option>
+            {renderGroups(mapGroups)}
+          </select>
+        )}
+
+        {noMaps ? (
+          <p className="overlay-widget__empty">{t("overlay.guides.noMaps")}</p>
+        ) : activeUrl ? (
+          <div className="overlay-guides__browser">
+            <div className="overlay-guides__toolbar">
+              <WebviewControls
+                canGoBack={preview.navState.back}
+                canGoForward={preview.navState.forward}
+                onBack={preview.goBack}
+                onForward={preview.goForward}
+                onReload={preview.reload}
+                onDismissCookies={preview.dismissCookies}
+                onOpenExternal={openExternal}
+              />
+              <span className="overlay-guides__title" title={activeUrl}>
+                {activeEntry?.label ?? activeUrl}
+              </span>
+            </div>
+            <div className="overlay-guides__frame" ref={preview.frameRef}>
+              {!preview.ready && (
+                <div className="overlay-guides__loader" aria-hidden>
+                  <Loader2 size={16} className="overlay-spin" />
+                  <span>{t("overlay.guides.loading")}</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="overlay-guides__frame" ref={preview.frameRef}>
-            {!preview.ready && (
+        ) : (
+          <div className="overlay-guides__frame overlay-guides__frame--idle">
+            {activeTab === "maps" && maps.status === "loading" ? (
               <div className="overlay-guides__loader" aria-hidden>
                 <Loader2 size={16} className="overlay-spin" />
                 <span>{t("overlay.guides.loading")}</span>
               </div>
+            ) : (
+              <span className="overlay-guides__hint">{t("overlay.guides.pickHint")}</span>
             )}
           </div>
-        </div>
-      ) : (
-        <div className="overlay-guides__grid" data-testid="overlay-guides-grid">
-          {entries.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              className="overlay-guides__link"
-              onClick={() => setActiveUrl(entry.url)}
-              title={entry.label}
-            >
-              <span className="overlay-guides__link-icon" aria-hidden>
-                {entry.icon}
-              </span>
-              <span className="overlay-guides__link-label">{entry.label}</span>
-            </button>
-          ))}
-          {entries.length === 0 && (
-            <p className="overlay-widget__empty">{t("overlay.guides.empty")}</p>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </Card>
   );
 }

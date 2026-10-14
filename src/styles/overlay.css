@@ -3147,8 +3147,8 @@ body.overlay-window #root {
 }
 
 /* ── Guides (in-HUD browser) ─────────────────────────────────────────── */
-/* A compact mini-browser for the current game's wikis, guides and maps. The
-   page itself renders in a native child webview glued to `.overlay-guides__frame`,
+/* A compact mini-browser for the current game's websites and maps. The page
+   itself renders in a native child webview glued to `.overlay-guides__frame`,
    so the frame is a sized placeholder with no visible chrome of its own. */
 
 .overlay-guides-widget {
@@ -3166,62 +3166,69 @@ body.overlay-window #root {
   gap: var(--space-sm);
 }
 
-.overlay-guides__back {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 8px 2px 4px;
-  font-size: 0.7rem;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.overlay-guides__back:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-}
-
-.overlay-guides__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: var(--space-2xs);
-}
-
-.overlay-guides__link {
+.overlay-guides__tabs {
   display: flex;
-  align-items: center;
   gap: var(--space-2xs);
-  padding: 7px 8px;
-  min-width: 0;
-  font-size: 0.72rem;
-  text-align: left;
-  color: var(--color-text-primary);
+  padding: 2px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-sm);
+}
+
+.overlay-guides__tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
   cursor: pointer;
 }
 
-.overlay-guides__link:hover {
-  border-color: var(--color-accent);
+.overlay-guides__tab:hover {
+  color: var(--color-text-primary);
+}
+
+.overlay-guides__tab--active {
+  color: var(--color-text-primary);
   background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent-border);
 }
 
-.overlay-guides__link-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  width: 14px;
-  height: 14px;
+.overlay-guides__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: var(--space-2xs);
 }
 
-.overlay-guides__link-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.overlay-guides__select {
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.overlay-guides__select:focus {
+  outline: none;
+  border-color: var(--color-accent-border);
+}
+
+.overlay-guides__select:disabled {
+  color: var(--color-text-tertiary);
+  cursor: default;
 }
 
 .overlay-guides__browser {
@@ -3248,25 +3255,6 @@ body.overlay-window #root {
   color: var(--color-text-secondary);
 }
 
-.overlay-guides__external {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.overlay-guides__external:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-}
-
 .overlay-guides__frame {
   position: relative;
   flex: 1;
@@ -3274,6 +3262,19 @@ body.overlay-window #root {
   border-radius: var(--radius-sm);
   background: var(--color-bg-secondary);
   overflow: hidden;
+}
+
+.overlay-guides__frame--idle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm);
+  text-align: center;
+}
+
+.overlay-guides__hint {
+  font-size: 0.72rem;
+  color: var(--color-text-tertiary);
 }
 
 .overlay-guides__loader {
