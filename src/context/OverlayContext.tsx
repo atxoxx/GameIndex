@@ -250,6 +250,27 @@ function prependCapped(list: string[], value: string, limit: number): string[] {
   return next.length > limit ? next.slice(0, limit) : next;
 }
 
+/**
+ * The GPU selected in Settings → Hardware, read from the shared localStorage.
+ * The overlay is a separate webview on the same origin, so it sees the main
+ * window's selection. Passed to the live sampler so a detected game samples
+ * the same adapter as an app-launched session (the backend falls back to the
+ * watcher's launch GPU when this is null).
+ */
+function readSelectedGpu(): { id: string; name: string } | null {
+  try {
+    const raw = localStorage.getItem("gamelib-gpus");
+    const id = localStorage.getItem("gamelib-selected-gpu");
+    if (!raw || !id) return null;
+    const gpus = JSON.parse(raw) as Array<{ id?: string; name?: string }>;
+    const gpu = gpus.find((g) => g.id === id);
+    if (!gpu?.id || !gpu.name) return null;
+    return { id: gpu.id, name: gpu.name };
+  } catch {
+    return null;
+  }
+}
+
 export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   enabled: false,
   hotkey: "Shift+F1",
@@ -526,7 +547,12 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
             : { gameId: found.gameId, startedAt: Date.now(), pid: found.pid },
         );
         if (found.pid) {
-          void invoke("overlay_start_live_metrics", { pid: found.pid }).catch(() => {
+          const gpu = readSelectedGpu();
+          void invoke("overlay_start_live_metrics", {
+            pid: found.pid,
+            gpuId: gpu?.id ?? null,
+            gpuName: gpu?.name ?? null,
+          }).catch(() => {
             /* no Tauri runtime */
           });
         }

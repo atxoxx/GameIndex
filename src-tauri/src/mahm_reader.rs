@@ -145,6 +145,33 @@ unsafe fn read_str_at(ptr: *const u8, len: usize) -> String {
     String::from_utf8_lossy(&slice[..end]).trim().to_string()
 }
 
+/// Null-terminated ASCII from a fixed-size MAHM byte field (the GPU records
+/// are `[u8; 260]` arrays, unlike the pointer-based sensor entries).
+#[cfg(windows)]
+fn cstr_from_bytes(bytes: &[u8]) -> String {
+    let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+    String::from_utf8_lossy(&bytes[..end]).trim().to_string()
+}
+
+/// Whether a GameIndex GPU name (`filter`, e.g. "NVIDIA GeForce RTX 5070 Ti")
+/// identifies the MAHM GPU described by its `device` (die codename, e.g.
+/// "GB203-A") or `driver` field. Afterburner stores the marketing name in
+/// `driver` on current builds even though the field is nominally the driver
+/// version, and older builds put it in `device` — so both are checked.
+/// Bidirectional containment tolerates the abbreviated variants Afterburner
+/// emits. Shared with tests.
+#[cfg(any(windows, test))]
+fn mahm_gpu_name_matches(filter: &str, device: &str, driver: &str) -> bool {
+    let filter = filter.trim().to_lowercase();
+    if filter.is_empty() {
+        return false;
+    }
+    [device, driver].iter().any(|raw| {
+        let cleaned = raw.trim().to_lowercase();
+        !cleaned.is_empty() && (cleaned.contains(&filter) || filter.contains(&cleaned))
+    })
+}
+
 /// Get the offset of the float `data` field within an entry,
 /// based on the entry size reported by the header.
 #[cfg(windows)]
@@ -360,30 +387,29 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
 
         let data_offset = get_data_offset(header.entry_size);
 
-        // Resolve which GPU index to use in Afterburner by looking up GPU list in shared memory.
+        // Resolve which GPU index to use in Afterburner by looking up the GPU
+        // list in shared memory. Afterburner's `device` field is the die
+        // codename (e.g. "GB203-A") while GameIndex/Windows report the
+        // marketing name (e.g. "NVIDIA GeForce RTX 5070 Ti"), so matching only
+        // `device` never resolves a real GPU. Check both `device` and
+        // `driver`, where current builds keep the marketing name.
         let mut resolved_gpu_idx = gpu_idx;
         let mut vram_total_mb: Option<f32> = None;
         if let Some(name_filter) = gpu_name {
             let gpus_offset = header.header_size + header.entry_count * header.entry_size;
             let gpu_base = base.add(gpus_offset as usize);
-            
+
             for i in 0..header.gpu_count {
                 if gpus_offset + (i + 1) * header.gpu_entry_size > 0x40000 {
                     break;
                 }
                 let gpu_ptr = gpu_base.add((i * header.gpu_entry_size) as usize) as *const MAHMSharedMemoryGpu;
-                let gpu_device_bytes = (*gpu_ptr).device;
-                if let Ok(device_str) = std::str::from_utf8(&gpu_device_bytes) {
-                    let cleaned_device = device_str.split('\0').next().unwrap_or("").trim().to_lowercase();
-                    let filter_lower = name_filter.to_lowercase();
-                    if !cleaned_device.is_empty() && (cleaned_device.contains(&filter_lower) || filter_lower.contains(&cleaned_device)) {
-                        resolved_gpu_idx = i;
-                        let mem_bytes = (*gpu_ptr).mem_amount;
-                        if let Ok(mem_str) = std::str::from_utf8(&mem_bytes) {
-                            vram_total_mb = parse_mem_amount_mb(mem_str.split('\0').next().unwrap_or(""));
-                        }
-                        break;
-                    }
+                let device = cstr_from_bytes(&(*gpu_ptr).device);
+                let driver = cstr_from_bytes(&(*gpu_ptr).driver);
+                if mahm_gpu_name_matches(name_filter, &device, &driver) {
+                    resolved_gpu_idx = i;
+                    vram_total_mb = parse_mem_amount_mb(&cstr_from_bytes(&(*gpu_ptr).mem_amount));
+                    break;
                 }
             }
         }
@@ -674,5 +700,52 @@ mod tests {
         assert_eq!(parse_mem_amount_mb(""), None);
         assert_eq!(parse_mem_amount_mb("garbage"), None);
         assert_eq!(parse_mem_amount_mb("0 MB"), None);
+    }
+
+    #[test]
+    fn gpu_name_matches_marketing_name_in_driver_field() {
+        // Real report: GameIndex/Windows say the marketing name while MAHM's
+        // `device` holds the die codename and `driver` holds the marketing name.
+        assert!(mahm_gpu_name_matches(
+            "NVIDIA GeForce RTX 5070 Ti",
+            "GB203-A",
+            "NVIDIA GeForce RTX 5070 Ti",
+        ));
+    }
+
+    #[test]
+    fn gpu_name_matches_marketing_name_in_device_field() {
+        // Older builds keep the marketing name in `device` (the prior behaviour).
+        assert!(mahm_gpu_name_matches(
+            "NVIDIA GeForce RTX 3080",
+            "NVIDIA GeForce RTX 3080",
+            "31.0.15.3699",
+        ));
+    }
+
+    #[test]
+    fn gpu_name_matches_is_case_insensitive_and_empty_safe() {
+        assert!(mahm_gpu_name_matches(
+            "amd radeon(tm) graphics",
+            "AMD Radeon(TM) Graphics",
+            "",
+        ));
+        assert!(!mahm_gpu_name_matches("", "GB203-A", "NVIDIA"));
+        assert!(!mahm_gpu_name_matches("NVIDIA GeForce RTX 5070 Ti", "", ""));
+    }
+
+    #[test]
+    fn gpu_name_does_not_match_an_unrelated_adapter() {
+        // The 5070 Ti must never resolve to the TU106 (RTX 2070) entry.
+        assert!(!mahm_gpu_name_matches(
+            "NVIDIA GeForce RTX 5070 Ti",
+            "TU106-A",
+            "NVIDIA GeForce RTX 2070",
+        ));
+        assert!(!mahm_gpu_name_matches(
+            "NVIDIA GeForce RTX 5070 Ti",
+            "GB203-A",
+            "616.56",
+        ));
     }
 }

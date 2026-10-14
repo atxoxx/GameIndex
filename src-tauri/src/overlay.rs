@@ -803,7 +803,7 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     if let Some(session) = session {
         let pid = resolve_pid(app, &session);
         if pid != 0 {
-            let _ = start_live(app, pid);
+            let _ = start_live(app, pid, None, None);
         }
     }
     Ok(())
@@ -1202,7 +1202,17 @@ fn resolve_pid(app: &AppHandle, session: &OverlaySession) -> u32 {
 /// Start (or restart) the ~1 s live telemetry sampler for `pid`. Only one
 /// sampler runs at a time; any previous one is stopped first. Reuses the
 /// user's telemetry gating exactly as the session collector does.
-fn start_live(app: &AppHandle, pid: u32) -> Result<(), String> {
+///
+/// `gpu_id`/`gpu_name` target the adapter to sample; when omitted the
+/// watcher's last-launch GPU is used. Passing `None` for both would sample GPU
+/// index 0, which on multi-adapter systems can be a virtual/other GPU — hence
+/// the fallback rather than a hardcoded `None`.
+fn start_live(
+    app: &AppHandle,
+    pid: u32,
+    gpu_id: Option<String>,
+    gpu_name: Option<String>,
+) -> Result<(), String> {
     let state = app.state::<OverlayState>();
 
     let previous = lock(state.inner()).live.take();
@@ -1210,11 +1220,22 @@ fn start_live(app: &AppHandle, pid: u32) -> Result<(), String> {
         previous.stop();
     }
 
-    let config = app
+    // The telemetry config and the launch-scoped GPU both live on the watcher;
+    // read them under one lock. An explicit selection (the detected-game path,
+    // which has no launch record) wins over the watcher's last-launch value.
+    let (config, watcher_gpu_id, watcher_gpu_name) = match app
         .state::<Arc<Mutex<GameWatcher>>>()
         .lock()
-        .map(|w| w.metrics_config())
-        .unwrap_or_default();
+    {
+        Ok(w) => {
+            let (id, name) = w.gpu();
+            (w.metrics_config(), id, name)
+        }
+        Err(_) => (metrics_collector::MetricsConfig::default(), None, None),
+    };
+    let gpu_id = gpu_id.or(watcher_gpu_id);
+    let gpu_name = gpu_name.or(watcher_gpu_name);
+
     // FPS is the overlay's headline metric, so always attempt the RTSS/
     // Afterburner read here even if the user turned FPS off for session
     // recording. Everything else honours the session gating.
@@ -1227,8 +1248,8 @@ fn start_live(app: &AppHandle, pid: u32) -> Result<(), String> {
     let handle = metrics_collector::start_live_collection(
         config,
         pid,
-        None,
-        None,
+        gpu_id,
+        gpu_name,
         interval,
         move |sample| {
             let _ = emit_app.emit_to(OVERLAY_WINDOW_LABEL, EVENT_METRICS, sample);
@@ -1239,10 +1260,18 @@ fn start_live(app: &AppHandle, pid: u32) -> Result<(), String> {
     Ok(())
 }
 
-/// Start the live telemetry sampler for `pid`.
+/// Start the live telemetry sampler for `pid`, optionally targeting an
+/// explicit GPU. The overlay frontend passes the user's selected GPU (shared
+/// localStorage) so a game adopted via detection samples the same adapter as
+/// an app-launched session; omitting them falls back to the watcher's GPU.
 #[tauri::command]
-pub fn overlay_start_live_metrics(app: AppHandle, pid: u32) -> Result<(), String> {
-    start_live(&app, pid)
+pub fn overlay_start_live_metrics(
+    app: AppHandle,
+    pid: u32,
+    gpu_id: Option<String>,
+    gpu_name: Option<String>,
+) -> Result<(), String> {
+    start_live(&app, pid, gpu_id, gpu_name)
 }
 
 /// Stop the live telemetry sampler and join its thread.
@@ -1654,7 +1683,7 @@ pub fn register_listeners(app: &AppHandle) {
             if let Some(session) = session {
                 let pid = resolve_pid(&handle, &session);
                 if pid != 0 {
-                    let _ = start_live(&handle, pid);
+                    let _ = start_live(&handle, pid, None, None);
                 }
             }
         });

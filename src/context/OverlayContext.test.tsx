@@ -113,6 +113,7 @@ describe("OverlayProvider background sync", () => {
     vi.clearAllMocks();
     handlers.clear();
     contextRef.current = null;
+    localStorage.clear();
     mockedListen.mockImplementation(((
       event: string,
       cb: EventHandler,
@@ -250,5 +251,59 @@ describe("OverlayProvider background sync", () => {
     const root = document.documentElement;
     expect(root.dataset.overlayContrast).toBe("high");
     expect(root.style.fontSize).toBe("125%");
+  });
+
+  it("passes the selected GPU to the live sampler for a detected game", async () => {
+    localStorage.setItem(
+      "gamelib-gpus",
+      JSON.stringify([{ id: "gpu-2", name: "NVIDIA GeForce RTX 5070 Ti" }]),
+    );
+    localStorage.setItem("gamelib-selected-gpu", "gpu-2");
+    mockedInvoke.mockImplementation((command: string) => {
+      if (command === "overlay_detect_game") {
+        return Promise.resolve({ gameId: "g1", name: "Game", pid: 4242 });
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <OverlayProvider>
+        <Probe />
+      </OverlayProvider>,
+    );
+    await flush();
+    await flush();
+
+    const call = mockedInvoke.mock.calls.find(
+      (entry) => entry[0] === "overlay_start_live_metrics",
+    );
+    expect(call?.[1]).toEqual({
+      pid: 4242,
+      gpuId: "gpu-2",
+      gpuName: "NVIDIA GeForce RTX 5070 Ti",
+    });
+  });
+
+  it("sends null GPU when none is selected", async () => {
+    localStorage.clear();
+    mockedInvoke.mockImplementation((command: string) => {
+      if (command === "overlay_detect_game") {
+        return Promise.resolve({ gameId: "g1", name: "Game", pid: 9 });
+      }
+      return Promise.resolve(null);
+    });
+
+    render(
+      <OverlayProvider>
+        <Probe />
+      </OverlayProvider>,
+    );
+    await flush();
+    await flush();
+
+    const call = mockedInvoke.mock.calls.find(
+      (entry) => entry[0] === "overlay_start_live_metrics",
+    );
+    expect(call?.[1]).toEqual({ pid: 9, gpuId: null, gpuName: null });
   });
 });

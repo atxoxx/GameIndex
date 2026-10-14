@@ -201,6 +201,13 @@ impl GameWatcher {
         self.metrics_config.clone()
     }
 
+    /// The GPU selected at the last launch, or `(None, None)` until one is set.
+    /// Lets the overlay's live sampler target the same adapter as the session
+    /// collector instead of always defaulting to GPU index 0.
+    pub fn gpu(&self) -> (Option<String>, Option<String>) {
+        (self.gpu_id.clone(), self.gpu_name.clone())
+    }
+
     /// PID of a tracked session's process, or `None` while it is still
     /// pending (no process captured yet). Lets the overlay resolve a game's
     /// PID for RTSS/Afterburner FPS without waiting on the next event.
