@@ -23,14 +23,27 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
+use crate::db::{kv, Db};
+
 const CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(25);
+/// Wand's per-game sub-map enumeration is an optional extra; keep it well under
+/// the global timeout so a slow page can't hold up the whole map lookup.
+const WAND_SUBMAP_TIMEOUT: Duration = Duration::from_secs(6);
+
+/// `kv` keys for the persisted provider catalogs (versioned so a change in the
+/// stored shape can be invalidated without touching other kv entries).
+const KV_INDEX_MAPGENIE: &str = "map_index.v1.mapgenie";
+const KV_INDEX_GAMEMAPS: &str = "map_index.v1.gamemaps";
+const KV_INDEX_GAMEMAPPERS: &str = "map_index.v1.gamemappers";
+const KV_INDEX_WAND: &str = "map_index.v1.wand";
+const KV_INDEX_GAMEMAPSCOM: &str = "map_index.v1.gamemapscom";
 const USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
      (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
@@ -67,7 +80,7 @@ pub struct MapSourceResult {
 }
 
 /// One normalized lookup key pointing at a provider page.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct IndexedGame {
     key: String,
     title: String,
@@ -88,6 +101,53 @@ struct IndexedGame {
 struct CachedIndex {
     fetched_at: Instant,
     games: Arc<Vec<IndexedGame>>,
+}
+
+/// On-disk shape of a provider catalog, persisted in the `kv` domain so the
+/// slow, uncacheable provider pages (Wand's `/maps` render takes ~8-10 s and
+/// sends `Cache-Control: no-store`) are fetched at most once per TTL across
+/// app restarts, not once per launch.
+#[derive(Serialize, Deserialize)]
+struct DiskIndex {
+    fetched_at_ms: u64,
+    games: Vec<IndexedGame>,
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Read a provider catalog back from the `kv` store, ignoring stale or
+/// malformed entries (a shape change simply triggers a fresh fetch).
+fn load_disk_index(db: &Db, key: &str) -> Option<Arc<Vec<IndexedGame>>> {
+    let raw = kv::get(db, key).ok().flatten()?;
+    let parsed: DiskIndex = serde_json::from_str(&raw).ok()?;
+    if parsed.games.is_empty() {
+        return None;
+    }
+    if now_ms().saturating_sub(parsed.fetched_at_ms) >= CACHE_TTL.as_millis() as u64 {
+        return None;
+    }
+    Some(Arc::new(parsed.games))
+}
+
+/// Best-effort persistence of a freshly fetched provider catalog.
+fn store_disk_index(db: &Db, key: &str, games: &Arc<Vec<IndexedGame>>) {
+    let envelope = DiskIndex {
+        fetched_at_ms: now_ms(),
+        games: games.as_ref().clone(),
+    };
+    match serde_json::to_string(&envelope) {
+        Ok(json) => {
+            if let Err(e) = kv::set(db, key, &json) {
+                eprintln!("[map_sources] disk cache write failed for {key}: {e}");
+            }
+        }
+        Err(e) => eprintln!("[map_sources] disk cache encode failed for {key}: {e}"),
+    }
 }
 
 // ── MapGenie catalog (JSON) ────────────────────────────────────────────
@@ -1045,7 +1105,9 @@ fn parse_gamemapscom_home(html: &str) -> Vec<IndexedGame> {
 // ── Caching ────────────────────────────────────────────────────────────
 
 async fn cached_index(
+    db: &Db,
     cache: &'static OnceLock<Mutex<Option<CachedIndex>>>,
+    disk_key: &str,
     client: &reqwest::Client,
     url: &str,
     referer: &str,
@@ -1060,6 +1122,16 @@ async fn cached_index(
                 return Ok(entry.games.clone());
             }
         }
+    }
+
+    // A catalog persisted on a previous run skips the network entirely, so a
+    // cold start doesn't re-pay Wand's ~8-10 s (and uncacheable) catalog render.
+    if let Some(games) = load_disk_index(db, disk_key) {
+        *cell.lock().await = Some(CachedIndex {
+            fetched_at: Instant::now(),
+            games: games.clone(),
+        });
+        return Ok(games);
     }
 
     let response = client
@@ -1085,6 +1157,7 @@ async fn cached_index(
         return Err(format!("{url} produced no game entries"));
     }
 
+    store_disk_index(db, disk_key, &games);
     *cell.lock().await = Some(CachedIndex {
         fetched_at: Instant::now(),
         games: games.clone(),
@@ -1095,15 +1168,29 @@ async fn cached_index(
 /// Read a provider's already-built index without touching the network. The
 /// map tab only renders after `fetch_game_maps` warmed these caches, so the
 /// autocomplete stays instant and never blocks on a provider that is down.
+/// Falls back to the persisted copy (survives restarts) if memory is cold.
 async fn cached_snapshot(
+    db: &Db,
     cache: &'static OnceLock<Mutex<Option<CachedIndex>>>,
+    disk_key: &str,
 ) -> Option<Arc<Vec<IndexedGame>>> {
     let cell = cache.get_or_init(|| Mutex::new(None));
-    let guard = cell.lock().await;
-    guard
-        .as_ref()
-        .filter(|entry| entry.fetched_at.elapsed() < CACHE_TTL)
-        .map(|entry| entry.games.clone())
+    {
+        let guard = cell.lock().await;
+        if let Some(entry) = guard
+            .as_ref()
+            .filter(|entry| entry.fetched_at.elapsed() < CACHE_TTL)
+        {
+            return Some(entry.games.clone());
+        }
+    }
+
+    let games = load_disk_index(db, disk_key)?;
+    *cell.lock().await = Some(CachedIndex {
+        fetched_at: Instant::now(),
+        games: games.clone(),
+    });
+    Some(games)
 }
 
 // ── Providers ──────────────────────────────────────────────────────────
@@ -1118,11 +1205,14 @@ static WAND_SUBMAP_CACHE: OnceLock<Mutex<HashMap<String, (Instant, Arc<Vec<MapSo
     OnceLock::new();
 
 async fn resolve_mapgenie(
+    db: &Db,
     client: &reqwest::Client,
     game_name: &str,
 ) -> Result<Option<MapSourceResult>, String> {
     let index = cached_index(
+        db,
         &MAPGENIE_CACHE,
+        KV_INDEX_MAPGENIE,
         client,
         MAPGENIE_URL,
         "https://mapgenie.io/",
@@ -1133,11 +1223,14 @@ async fn resolve_mapgenie(
 }
 
 async fn resolve_gamemaps(
+    db: &Db,
     client: &reqwest::Client,
     game_name: &str,
 ) -> Result<Option<MapSourceResult>, String> {
     let index = cached_index(
+        db,
         &GAMEMAPS_CACHE,
+        KV_INDEX_GAMEMAPS,
         client,
         GAMEMAPS_URL,
         "https://www.gamemaps.net/",
@@ -1148,11 +1241,14 @@ async fn resolve_gamemaps(
 }
 
 async fn resolve_gamemappers(
+    db: &Db,
     client: &reqwest::Client,
     game_name: &str,
 ) -> Result<Option<MapSourceResult>, String> {
     let index = cached_index(
+        db,
         &GAMEMAPPERS_CACHE,
+        KV_INDEX_GAMEMAPPERS,
         client,
         GAMEMAPPERS_SITEMAP,
         "https://gamemappers.com/",
@@ -1182,6 +1278,7 @@ async fn cached_wand_submaps(
     let maps = match client
         .get(game_url)
         .header("Referer", "https://wand.com/")
+        .timeout(WAND_SUBMAP_TIMEOUT)
         .send()
         .await
     {
@@ -1203,11 +1300,14 @@ async fn cached_wand_submaps(
 }
 
 async fn resolve_wand(
+    db: &Db,
     client: &reqwest::Client,
     game_name: &str,
 ) -> Result<Option<MapSourceResult>, String> {
     let index = cached_index(
+        db,
         &WAND_CACHE,
+        KV_INDEX_WAND,
         client,
         WAND_MAPS,
         "https://wand.com/",
@@ -1222,7 +1322,9 @@ async fn resolve_wand(
     // A Wand game page lists its individual maps as `/maps/{game}/{map}`.
     // Surface them so the UI offers a picker. Keep `result.url` on the game
     // page: opening a sub-map URL directly can render blank in the embedded
-    // webview, while the game page is the known-good entry point.
+    // webview, while the game page is the known-good entry point. This is a
+    // second network round-trip, so it is bounded well below the global
+    // timeout — a slow Wand page must not stall the whole map lookup.
     let submaps = cached_wand_submaps(client, &result.url).await;
     if submaps.len() > 1 {
         result.maps = submaps.as_ref().clone();
@@ -1232,11 +1334,14 @@ async fn resolve_wand(
 }
 
 async fn resolve_gamemapscom(
+    db: &Db,
     client: &reqwest::Client,
     game_name: &str,
 ) -> Result<Option<MapSourceResult>, String> {
     let index = cached_index(
+        db,
         &GAMEMAPSCOM_CACHE,
+        KV_INDEX_GAMEMAPSCOM,
         client,
         GAMEMAPSCOM_HOME,
         "https://game-maps.com/",
@@ -1251,10 +1356,16 @@ async fn resolve_gamemapscom(
 /// and skipped so the rest still resolve. An empty result means no
 /// provider has a map and the caller renders no Map tab.
 #[tauri::command]
-pub async fn fetch_game_maps(game_name: String) -> Result<Vec<MapSourceResult>, String> {
+pub async fn fetch_game_maps(
+    app: tauri::AppHandle,
+    game_name: String,
+) -> Result<Vec<MapSourceResult>, String> {
     if normalize(&game_name).is_empty() {
         return Ok(Vec::new());
     }
+
+    use tauri::Manager;
+    let db: Db = app.state::<Db>().inner().clone();
 
     let client = reqwest::Client::builder()
         .user_agent(USER_AGENT)
@@ -1263,11 +1374,11 @@ pub async fn fetch_game_maps(game_name: String) -> Result<Vec<MapSourceResult>, 
         .map_err(|e| format!("map client build failed: {e}"))?;
 
     let (mapgenie, gamemaps, gamemappers, wand, gamemapscom) = tokio::join!(
-        resolve_mapgenie(&client, &game_name),
-        resolve_gamemaps(&client, &game_name),
-        resolve_gamemappers(&client, &game_name),
-        resolve_wand(&client, &game_name),
-        resolve_gamemapscom(&client, &game_name),
+        resolve_mapgenie(&db, &client, &game_name),
+        resolve_gamemaps(&db, &client, &game_name),
+        resolve_gamemappers(&db, &client, &game_name),
+        resolve_wand(&db, &client, &game_name),
+        resolve_gamemapscom(&db, &client, &game_name),
     );
 
     let mut results = Vec::new();
@@ -1327,17 +1438,21 @@ where
 /// initial resolve already built and cached in memory.
 #[tauri::command]
 pub async fn search_map_games(
+    app: tauri::AppHandle,
     query: String,
     limit: Option<usize>,
 ) -> Result<Vec<String>, String> {
     let limit = limit.unwrap_or(8).clamp(1, 25);
 
+    use tauri::Manager;
+    let db: Db = app.state::<Db>().inner().clone();
+
     let (mapgenie, gamemaps, gamemappers, wand, gamemapscom) = tokio::join!(
-        cached_snapshot(&MAPGENIE_CACHE),
-        cached_snapshot(&GAMEMAPS_CACHE),
-        cached_snapshot(&GAMEMAPPERS_CACHE),
-        cached_snapshot(&WAND_CACHE),
-        cached_snapshot(&GAMEMAPSCOM_CACHE),
+        cached_snapshot(&db, &MAPGENIE_CACHE, KV_INDEX_MAPGENIE),
+        cached_snapshot(&db, &GAMEMAPS_CACHE, KV_INDEX_GAMEMAPS),
+        cached_snapshot(&db, &GAMEMAPPERS_CACHE, KV_INDEX_GAMEMAPPERS),
+        cached_snapshot(&db, &WAND_CACHE, KV_INDEX_WAND),
+        cached_snapshot(&db, &GAMEMAPSCOM_CACHE, KV_INDEX_GAMEMAPSCOM),
     );
 
     let mut indexes: Vec<&[IndexedGame]> = Vec::new();
@@ -1834,6 +1949,66 @@ mod tests {
         assert_eq!(
             maps[1].url,
             "https://wand.com/maps/stalker-call-of-pripyat/jupiter"
+        );
+    }
+
+    fn disk_test_db() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        db.kv()
+            .unwrap()
+            .execute_batch(crate::db::schema::KV_DDL)
+            .unwrap();
+        (dir, db)
+    }
+
+    fn sample_index() -> Arc<Vec<IndexedGame>> {
+        Arc::new(vec![IndexedGame {
+            key: "eldenring".into(),
+            title: "Elden Ring".into(),
+            url: "https://wand.com/maps/elden-ring".into(),
+            maps: single_map("Elden Ring", "https://wand.com/maps/elden-ring"),
+            norm: "eldenring".into(),
+            sequel: 0,
+            haystack: "eldenring".into(),
+        }])
+    }
+
+    #[test]
+    fn disk_index_round_trips_and_expires() {
+        let (_dir, db) = disk_test_db();
+
+        store_disk_index(&db, KV_INDEX_WAND, &sample_index());
+        let loaded = load_disk_index(&db, KV_INDEX_WAND).expect("fresh entry loads");
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].url, "https://wand.com/maps/elden-ring");
+
+        let stale = DiskIndex {
+            fetched_at_ms: 1,
+            games: sample_index().as_ref().clone(),
+        };
+        kv::set(&db, KV_INDEX_WAND, &serde_json::to_string(&stale).unwrap()).unwrap();
+        assert!(
+            load_disk_index(&db, KV_INDEX_WAND).is_none(),
+            "an entry older than the TTL is ignored"
+        );
+    }
+
+    #[test]
+    fn disk_index_ignores_malformed_and_empty_payloads() {
+        let (_dir, db) = disk_test_db();
+
+        kv::set(&db, KV_INDEX_WAND, "not json").unwrap();
+        assert!(load_disk_index(&db, KV_INDEX_WAND).is_none());
+
+        let empty = DiskIndex {
+            fetched_at_ms: now_ms(),
+            games: Vec::new(),
+        };
+        kv::set(&db, KV_INDEX_WAND, &serde_json::to_string(&empty).unwrap()).unwrap();
+        assert!(
+            load_disk_index(&db, KV_INDEX_WAND).is_none(),
+            "an empty catalog is never treated as a cache hit"
         );
     }
 }

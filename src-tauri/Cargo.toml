@@ -43,7 +43,10 @@ mime_guess = "2.0.5"
 scraper = "0.22"
 # `stream` (bytes_stream) is used directly by updater.rs; librqbit 8.x
 # pulled it in transitively but 9.x no longer enables that feature.
-reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "blocking", "stream", "rustls-tls"] }
+# `gzip`/`deflate` enable transparent response decompression: the map provider
+# catalogs (Wand ~1.7 MB, MapGenie ~1.5 MB) and other scraped HTML ship 5-21x
+# smaller compressed, so this cuts a cold map lookup's transfer sharply.
+reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "blocking", "stream", "rustls-tls", "gzip", "deflate"] }
 # Embedded JS engine for the plugin sandbox (quickjs-ng via quickjs-sys).
 # Used to run user-installed `plugins/*.js` search scripts with injected
 # httpGet/httpGetJson/definePlugin globals. Default features are enough:
