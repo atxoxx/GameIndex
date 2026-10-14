@@ -12,6 +12,7 @@
 //! success navigation and sync endpoints differ (see `login.rs` and
 //! `sync.rs`).
 
+mod battlenet;
 mod ea;
 mod login;
 mod sync;
@@ -44,6 +45,9 @@ struct StoreLogin {
     height: f64,
     success: login::SuccessMatch,
     cookie_domains: &'static [&'static str],
+    /// Let the success page load before snapshotting cookies — its
+    /// response is what mints the store session. See `LoginSpec::settle`.
+    settle: bool,
 }
 
 fn login_spec(key: &str) -> Result<StoreLogin, String> {
@@ -58,6 +62,10 @@ fn login_spec(key: &str) -> Result<StoreLogin, String> {
             height: 720.0,
             success: login::SuccessMatch::UrlPrefix("https://account.battle.net/overview"),
             cookie_domains: &["battle.net", "blizzard.com"],
+            // The account session cookie is set when `/overview` (and the
+            // OAuth2 callback behind it) actually load, not by the
+            // redirect that leads there.
+            settle: true,
         }),
         EA => Ok(StoreLogin {
             window_label: ea::window_label(),
@@ -70,6 +78,7 @@ fn login_spec(key: &str) -> Result<StoreLogin, String> {
             height: 740.0,
             success: login::SuccessMatch::UrlEquals(ea::EA_HOME_URL),
             cookie_domains: &["ea.com"],
+            settle: false,
         }),
         XBOX => Ok(StoreLogin {
             window_label: "xbox-login",
@@ -84,6 +93,7 @@ fn login_spec(key: &str) -> Result<StoreLogin, String> {
                 "https://login.live.com/oauth20_desktop.srf",
             ),
             cookie_domains: &["live.com"],
+            settle: false,
         }),
         ITCH => Ok(StoreLogin {
             window_label: "itch-login",
@@ -97,6 +107,7 @@ fn login_spec(key: &str) -> Result<StoreLogin, String> {
                 login::SuccessMatch::UrlPrefix("https://itch.io/my-collections"),
             ]),
             cookie_domains: &["itch.io", "itch.zone"],
+            settle: false,
         }),
         other => Err(format!("Unknown beta store: {other}")),
     }
@@ -122,6 +133,7 @@ async fn begin_login(app: AppHandle, key: &str) -> Result<BetaSession, String> {
             url: spec.url,
             width: spec.width,
             height: spec.height,
+            settle: spec.settle,
         },
         spec.success,
         cookie_domains,
@@ -187,6 +199,27 @@ fn persist_session(app: &AppHandle, key: &str, session: &BetaSession) -> Result<
         .ok_or_else(|| "Database not initialized".to_string())?;
     let json = serde_json::to_string(session).map_err(|e| format!("serialize session: {e}"))?;
     db::kv::set(db_state.inner(), &format!("{key}_session"), &json)
+}
+
+/// Best-effort refresh of the stored display name — used when a later
+/// call (a sync) learns the account name after the login probe could not.
+/// A missing session is not an error; there is nothing to update.
+pub(super) fn update_session_username(
+    app: &AppHandle,
+    key: &str,
+    username: &str,
+) -> Result<(), String> {
+    let Some(raw) = kv_get(app, &format!("{key}_session")) else {
+        return Ok(());
+    };
+    let Ok(mut session) = serde_json::from_str::<BetaSession>(&raw) else {
+        return Ok(());
+    };
+    if session.username == username {
+        return Ok(());
+    }
+    session.username = username.to_string();
+    persist_session(app, key, &session)
 }
 
 async fn probe_username(key: &str, cookies: &[types::CookieRecord]) -> String {

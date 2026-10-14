@@ -10,7 +10,7 @@ use std::time::Duration;
 use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
-use super::login::{jar_from, user_agent};
+use super::login::user_agent;
 use super::types::{BetaSyncResult, BetaSyncedGame, CookieRecord, XboxAuthTokens};
 use super::{EA, BATTLENET, ITCH, XBOX};
 use crate::db;
@@ -100,72 +100,30 @@ fn load_cookies(app: &AppHandle, key: &str) -> Result<Vec<CookieRecord>, String>
     Ok(cookies.records)
 }
 
-fn cookie_client(cookies: &[CookieRecord], default_host: &str) -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .user_agent(user_agent())
-        .cookie_provider(jar_from(cookies, default_host)?)
-        .timeout(Duration::from_secs(25))
-        .build()
-        .map_err(|e| format!("http client: {e}"))
-}
-
 // ── Battle.net ─────────────────────────────────────────────────────────
 
 /// Battle.net's account website exposes the owned-games list (plus
-/// subscriptions) at `account.battle.net/api/games-and-subs` once the
-/// `account.battle.net` session cookies are present — this is exactly
-/// what Playnite's BattleNetAccountClient scrapes.
+/// subscriptions) at `account.battle.net/api/games-and-subs` — this is
+/// what Playnite's BattleNetAccountClient reads. The API only answers as
+/// the signed-in user to requests made from the browser session itself
+/// (the site's own SPA sends `credentials: include` plus the
+/// `X-XSRF-TOKEN` header, and the account session is re-issued through
+/// an OAuth2 redirect as it rotates), so the read runs through a hidden
+/// WebView sharing the app's profile — see `super::battlenet` — rather
+/// than replaying captured cookies with a plain HTTP client.
 async fn battlenet_sync(app: &AppHandle) -> Result<BetaSyncResult, String> {
-    let cookies = load_cookies(app, BATTLENET)?;
-    let client = cookie_client(&cookies, "account.battle.net")?;
+    let payload = super::battlenet::capture_library(app).await?;
+    let games = super::battlenet::games_from_payload(&payload);
 
-    let resp = client
-        .get("https://account.battle.net/api/games-and-subs")
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| format!("Battle.net request failed: {e}"))?;
-
-    if !resp.status().is_success() {
-        return Err(format!(
-            "Battle.net returned HTTP {} — your session may have expired, reconnect the account",
-            resp.status().as_u16()
-        ));
+    if let Some(battle_tag) = payload
+        .get("battleTag")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        let _ = super::update_session_username(app, BATTLENET, battle_tag);
     }
 
-    let payload: Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Battle.net response parse failed: {e}"))?;
-
-    let empty = Vec::new();
-    let accounts = payload
-        .get("gameAccounts")
-        .and_then(|v| v.as_array())
-        .unwrap_or(&empty);
-
-    let mut games = Vec::new();
-    for entry in accounts {
-        let Some(title_id) = entry.get("titleId").and_then(|v| v.as_str()) else {
-            continue;
-        };
-        let title = entry
-            .get("localizedGameName")
-            .and_then(|v| v.as_str())
-            .or_else(|| entry.get("gameName").and_then(|v| v.as_str()))
-            .unwrap_or(title_id);
-        games.push(BetaSyncedGame {
-            id: format!("battlenet-{}", slug(title_id)),
-            title: title.to_string(),
-            store_game_id: Some(title_id.to_string()),
-            is_installed: false,
-            install_path: None,
-            cover_url: None,
-            playtime_minutes: None,
-            last_played: None,
-        });
-    }
-
+    eprintln!("[beta-stores] Battle.net imported {} games", games.len());
     Ok(result(games))
 }
 

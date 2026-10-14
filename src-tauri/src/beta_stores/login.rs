@@ -18,6 +18,7 @@
 use std::sync::mpsc;
 use std::time::Duration;
 
+use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use super::types::CookieRecord;
@@ -50,6 +51,13 @@ pub struct LoginSpec {
     pub url: String,
     pub width: f64,
     pub height: f64,
+    /// When true, the success navigation is allowed to complete and the
+    /// cookie snapshot waits for that page to finish loading. Stores
+    /// whose session is minted by the landing page response itself (or
+    /// by the page's own scripts) need this: blocking the navigation
+    /// means the response — and any `Set-Cookie` on it — is never
+    /// processed, so a snapshot taken right after the match is anonymous.
+    pub settle: bool,
 }
 
 /// Outcome of a completed login: the URL that triggered the success match
@@ -60,6 +68,10 @@ pub struct LoginOutcome {
 }
 
 const LOGIN_TIMEOUT_SECS: u64 = 300;
+
+/// How long a `settle` login waits for the success page to finish
+/// loading before snapshotting the cookies anyway.
+const SETTLE_TIMEOUT_SECS: u64 = 12;
 
 const BROWSER_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
@@ -83,6 +95,8 @@ pub async fn run_login(
         .parse()
         .map_err(|e| format!("invalid login url: {e}"))?;
     let (tx, rx) = mpsc::channel::<String>();
+    let (page_tx, mut page_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let settle = spec.settle;
 
     let webview = WebviewWindowBuilder::new(app, spec.window_label, WebviewUrl::External(url))
         .title(spec.title)
@@ -91,11 +105,18 @@ pub async fn run_login(
         .on_navigation(move |url| {
             if success.is_match(url.as_str()) {
                 let _ = tx.send(url.as_str().to_string());
-                // Stop the navigation so the window does not flash a
-                // redirect page before we close it.
-                return false;
+                // Normally stop the navigation so the window does not
+                // flash a redirect page before we close it. A `settle`
+                // store needs the response processed instead — that is
+                // where its session cookie comes from.
+                return !settle;
             }
             true
+        })
+        .on_page_load(move |_window, payload| {
+            if matches!(payload.event(), PageLoadEvent::Finished) {
+                let _ = page_tx.send(payload.url().to_string());
+            }
         })
         .build()
         .map_err(|e| format!("Failed to open login window: {e}"))?;
@@ -115,6 +136,14 @@ pub async fn run_login(
         }
     };
 
+    if settle {
+        let _ = tokio::time::timeout(
+            Duration::from_secs(SETTLE_TIMEOUT_SECS),
+            wait_for_same_origin(&mut page_rx, &callback_url),
+        )
+        .await;
+    }
+
     // Cookies survive only while the window is alive, so snapshot before
     // closing it.
     let cookies = capture_cookies(app, spec.window_label, cookie_domains)?;
@@ -124,6 +153,30 @@ pub async fn run_login(
         callback_url,
         cookies,
     })
+}
+
+/// Resolve once a finished page load on the same origin as
+/// `callback_url` has been observed. Used by `settle` logins to give the
+/// success page time to set its session; the caller bounds the wait.
+async fn wait_for_same_origin(
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
+    callback_url: &str,
+) {
+    let Ok(target) = url::Url::parse(callback_url) else {
+        return;
+    };
+    while let Some(loaded) = rx.recv().await {
+        if same_origin(&loaded, &target) {
+            return;
+        }
+    }
+}
+
+/// True when both URLs parse and share a scheme/host/port origin.
+pub fn same_origin(a: &str, b: &url::Url) -> bool {
+    url::Url::parse(a)
+        .map(|u| u.origin() == b.origin())
+        .unwrap_or(false)
 }
 
 /// Snapshot the cookies currently held by `label`, keeping only those
@@ -259,5 +312,15 @@ mod tests {
         assert!(domain_matches("ea.com", &["ea.com"]));
         assert!(!domain_matches("notbattle.net", &["battle.net"]));
         assert!(!domain_matches("evil-battle.net", &["battle.net"]));
+    }
+
+    #[test]
+    fn same_origin_compares_scheme_host_and_port() {
+        let target = url::Url::parse("https://account.battle.net/overview").unwrap();
+        assert!(same_origin("https://account.battle.net/", &target));
+        assert!(same_origin("https://account.battle.net/callback?a=1", &target));
+        assert!(!same_origin("https://eu.account.battle.net/", &target));
+        assert!(!same_origin("http://account.battle.net/", &target));
+        assert!(!same_origin("not a url", &target));
     }
 }
