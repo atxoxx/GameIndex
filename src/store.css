@@ -821,6 +821,10 @@
   grid-template-columns: repeat(auto-fill, minmax(clamp(160px, 15vw, 220px), 1fr));
   gap: var(--space-lg);
   align-content: start;
+  /* The windowed grid reserves offscreen rows with fixed-height spacers. Turn
+     off scroll anchoring so the browser can never try to "hold" the viewport
+     while those spacers change, which would read as a jiggle. */
+  overflow-anchor: none;
 }
 
 /* Phase 2.8: allow grid items to shrink below their intrinsic content
@@ -1031,6 +1035,20 @@
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
+}
+
+/* The windowed grid assumes every row is the measured stride, so cards in the
+   default "cozy" grid must all be the same height. Genre pills never wrap
+   (a wrapped row would be taller than the reserved stride) and invisible
+   ghosts reserve the genre and price rows when a game has no data. */
+.store-game-card.density-cozy .store-card-genres {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.store-card-genre--ghost,
+.store-card-price--ghost {
+  visibility: hidden;
 }
 
 .store-card-genre {

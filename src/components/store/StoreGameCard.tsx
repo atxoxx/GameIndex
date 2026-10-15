@@ -197,6 +197,16 @@ function StoreGameCardBase({
   const showBody = density !== "compact";
   const genresToShow = density === "cinematic" ? 4 : density === "list" ? 3 : 2;
   const showHeart = Boolean(onToggleWishlist);
+
+  // The store grid windows long catalogues by a fixed row stride, so every card
+  // in the default "cozy" grid must resolve to the same height. The genre and
+  // price rows are always rendered there — invisible ghosts stand in when a
+  // game has no data — so a missing field or an async price load can't change a
+  // row's height while the list is scrolling. Cinematic overlays its body on
+  // the cover, so it keeps the conditional rows untouched.
+  const reserveRowHeight = density === "cozy";
+  const hasGenres = (game.genres?.length ?? 0) > 0;
+  const hasPrice = price != null && price.salePrice != null;
   const { badgeCrackwatch: showCrack, badgeCompare: showCompare } = useCardDisplaySettings();
 
   const releaseYear = game.firstReleaseDate
@@ -618,13 +628,19 @@ function StoreGameCardBase({
             <StoreHighlightText text={game.name} query={searchQuery} />
           </h3>
 
-          {(game.genres?.length ?? 0) > 0 && (
+          {(hasGenres || reserveRowHeight) && (
             <div className="store-card-genres">
-              {game.genres!.slice(0, genresToShow).map((g) => (
-                <span key={g} className="store-card-genre">
-                  <StoreHighlightText text={g} query={searchQuery} />
+              {hasGenres ? (
+                game.genres!.slice(0, genresToShow).map((g) => (
+                  <span key={g} className="store-card-genre">
+                    <StoreHighlightText text={g} query={searchQuery} />
+                  </span>
+                ))
+              ) : (
+                <span className="store-card-genre store-card-genre--ghost" aria-hidden="true">
+                  {"\u00A0"}
                 </span>
-              ))}
+              )}
             </div>
           )}
 
@@ -637,23 +653,31 @@ function StoreGameCardBase({
                 </Fragment>
               ))
             ) : (
-              (releaseYear ?? "")
+              (releaseYear ?? (reserveRowHeight ? "\u00A0" : ""))
             )}
           </div>
 
-          {price && price.salePrice != null && (
+          {(hasPrice || reserveRowHeight) && (
             <div className="store-card-price">
-              {price.isOnSale && price.discountPercent > 0 && (
-                <span className="store-card-price-discount">
-                  -{price.discountPercent}%
-                </span>
-              )}
-              <span className="store-card-price-now">
-                ${price.salePrice.toFixed(2)}
-              </span>
-              {price.isOnSale && price.normalPrice != null && (
-                <span className="store-card-price-was">
-                  ${price.normalPrice.toFixed(2)}
+              {hasPrice ? (
+                <>
+                  {price!.isOnSale && price!.discountPercent > 0 && (
+                    <span className="store-card-price-discount">
+                      -{price!.discountPercent}%
+                    </span>
+                  )}
+                  <span className="store-card-price-now">
+                    ${price!.salePrice!.toFixed(2)}
+                  </span>
+                  {price!.isOnSale && price!.normalPrice != null && (
+                    <span className="store-card-price-was">
+                      ${price!.normalPrice.toFixed(2)}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="store-card-price-now store-card-price--ghost" aria-hidden="true">
+                  {"\u00A0"}
                 </span>
               )}
             </div>

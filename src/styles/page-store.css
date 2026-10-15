@@ -1968,11 +1968,12 @@
 
 .store-card-list-genres {
   display: flex;
-  flex-wrap: wrap;
+  /* One line only: the windowed list reserves a fixed row stride, and a
+     wrapped genre line would make that row taller than the stride. */
+  flex-wrap: nowrap;
   gap: 4px;
   min-width: 0;
   overflow: hidden;
-  max-height: 48px;
 }
 
 .store-card-genre {

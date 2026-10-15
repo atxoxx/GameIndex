@@ -145,3 +145,32 @@ describe("StoreGameCard animated preview hover intent", () => {
     }).not.toThrow();
   });
 });
+
+describe("StoreGameCard uniform grid rows", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  const bareGame = {
+    id: "blank",
+    slug: "blank",
+    name: "Blank",
+    coverUrl: "cover.jpg",
+  } as unknown as StoreGameSummary;
+
+  it("reserves the genre and price rows in the default grid density (happy path)", () => {
+    const { container } = render(<StoreGameCard game={bareGame} onClick={() => {}} />);
+    expect(container.querySelector(".store-card-genres")).not.toBeNull();
+    expect(container.querySelector(".store-card-genre--ghost")).not.toBeNull();
+    expect(container.querySelector(".store-card-price")).not.toBeNull();
+    expect(container.querySelector(".store-card-price--ghost")).not.toBeNull();
+  });
+
+  it("leaves cinematic cards unmodified (error path)", () => {
+    const { container } = render(
+      <StoreGameCard game={bareGame} onClick={() => {}} density="cinematic" />
+    );
+    expect(container.querySelector(".store-card-genres")).toBeNull();
+    expect(container.querySelector(".store-card-price")).toBeNull();
+  });
+});
