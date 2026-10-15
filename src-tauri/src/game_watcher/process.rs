@@ -1,7 +1,4 @@
-use std::path::Path;
-
-
-use super::paths::normalize_path_lower;
+use super::paths::{exe_stem_lower, normalize_path_lower};
 
 #[derive(Debug, Clone)]
 pub(crate) struct ProcessInfo {
@@ -56,8 +53,7 @@ impl MemoryScanFilter {
             return true;
         }
         if !self.exe_stems.is_empty() {
-            if let Some(stem) = Path::new(exe_path).file_stem().and_then(|s| s.to_str()) {
-                let stem = stem.to_lowercase();
+            if let Some(stem) = exe_stem_lower(exe_path) {
                 if self.exe_stems.iter().any(|s| *s == stem) {
                     return true;
                 }

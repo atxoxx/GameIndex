@@ -4,7 +4,9 @@ use tauri::{AppHandle, Emitter};
 use crate::db::{self};
 
 use super::*;
-use super::paths::{is_path_sep, normalize_path_lower, now_unix_ms, trim_path_separators};
+use super::paths::{
+    exe_stem_lower, is_path_sep, normalize_path_lower, now_unix_ms, trim_path_separators,
+};
 use super::process::ProcessInfo;
 use super::resolve::SKIP_KEYWORDS;
 
@@ -218,10 +220,7 @@ pub(crate) fn find_session_process(
 ) -> Option<ProcessInfo> {
     // Stem of the tracked exe. `None` only for pending protocol launches
     // with no known exe; those fall back to direct children of the dir.
-    let expected_stem = Path::new(matched_exe)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .map(|s| s.to_lowercase())
+    let expected_stem = exe_stem_lower(matched_exe)
         .filter(|s| !s.is_empty() && !SKIP_KEYWORDS.iter().any(|kw| s.contains(kw)));
 
     // Tier 1: the session's own install dir. This is the only scan
@@ -258,10 +257,7 @@ pub(crate) fn find_session_process(
     }
 
     // Tier 3: exact exe-stem match, restricted to the install-dir tree.
-    let stem = Path::new(matched_exe)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .map(|s| s.to_lowercase());
+    let stem = exe_stem_lower(matched_exe);
     if let Some(lower) = stem {
         if !lower.is_empty() && !SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
             if let Some(dir_lower) = install_dir.map(|d| {
@@ -269,8 +265,8 @@ pub(crate) fn find_session_process(
             }) {
                 let mut best: Option<(u64, ProcessInfo)> = None;
                 for p in processes {
-                    let pstem = match Path::new(&p.exe_path).file_stem().and_then(|s| s.to_str()) {
-                        Some(s) => s.to_lowercase(),
+                    let pstem = match exe_stem_lower(&p.exe_path) {
+                        Some(s) => s,
                         None => continue,
                     };
                     if SKIP_KEYWORDS.iter().any(|kw| pstem.contains(kw)) {
@@ -379,8 +375,7 @@ pub(crate) fn find_handoff_descendant(
         .filter(|p| {
             // Skip-keyword executables (launchers, crash handlers,
             // redistributables) are never the game.
-            if let Some(stem) = Path::new(&p.exe_path).file_stem().and_then(|s| s.to_str()) {
-                let lower = stem.to_lowercase();
+            if let Some(lower) = exe_stem_lower(&p.exe_path) {
                 if SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
                     return false;
                 }
@@ -489,8 +484,8 @@ pub(crate) fn find_best_process_in_dir(
 /// runtime host, not the stub. Scoping to the bundled-runtime path is
 /// what keeps this from matching the user's system-wide Java install.
 pub(crate) fn is_java_runtime_host(p: &ProcessInfo) -> bool {
-    let stem = match Path::new(&p.exe_path).file_stem().and_then(|s| s.to_str()) {
-        Some(s) => s.to_lowercase(),
+    let stem = match exe_stem_lower(&p.exe_path) {
+        Some(s) => s,
         None => return false,
     };
     if stem != "java" && stem != "javaw" && stem != "javaws" {
@@ -506,10 +501,8 @@ pub(crate) fn is_java_runtime_host(p: &ProcessInfo) -> bool {
 
 /// `true` when the process's exe stem (case-insensitive) equals `stem`.
 pub(crate) fn exe_stem_matches(p: &ProcessInfo, stem: &str) -> bool {
-    Path::new(&p.exe_path)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .map(|s| s.to_lowercase() == stem)
+    exe_stem_lower(&p.exe_path)
+        .map(|s| s == stem)
         .unwrap_or(false)
 }
 
@@ -560,8 +553,7 @@ where
     let skip_filtered: Vec<ProcessInfo> = candidates
         .iter()
         .filter(|p| {
-            if let Some(stem) = Path::new(&p.exe_path).file_stem().and_then(|s| s.to_str()) {
-                let lower = stem.to_lowercase();
+            if let Some(lower) = exe_stem_lower(&p.exe_path) {
                 !SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw))
             } else {
                 true

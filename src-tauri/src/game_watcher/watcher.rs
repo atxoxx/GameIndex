@@ -9,7 +9,8 @@ use crate::steam_game_watcher;
 
 use super::*;
 use super::paths::{
-    get_game_root_dir, is_path_sep, normalize_path_lower, now_unix_ms, trim_path_separators,
+    exe_stem_lower, get_game_root_dir, is_path_sep, normalize_path_lower, now_unix_ms,
+    trim_path_separators,
 };
 use super::poll::{
     PENDING_SESSION_TIMEOUT, POLL_INTERVAL_FAST, POLL_INTERVAL_STEADY, SESSION_LOST_GRACE,
@@ -377,11 +378,7 @@ impl GameWatcher {
                     filter.dir_prefixes.push(prefix);
                 }
             }
-            if let Some(stem) = Path::new(&session.matched_exe)
-                .file_stem()
-                .and_then(|s| s.to_str())
-            {
-                let stem = stem.to_lowercase();
+            if let Some(stem) = exe_stem_lower(&session.matched_exe) {
                 if !stem.is_empty() && !filter.exe_stems.iter().any(|s| *s == stem) {
                     filter.exe_stems.push(stem);
                 }
@@ -635,11 +632,7 @@ impl GameWatcher {
             // Engine that is always running would be picked up as a session
             // the moment the real game quits and its process index entry
             // matches (the running indicator would "shift" to it).
-            if let Some(stem) = Path::new(&proc.exe_path)
-                .file_stem()
-                .and_then(|s| s.to_str())
-            {
-                let lower = stem.to_lowercase();
+            if let Some(lower) = exe_stem_lower(&proc.exe_path) {
                 if SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
                     continue;
                 }

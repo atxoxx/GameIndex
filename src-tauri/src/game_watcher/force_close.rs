@@ -2,6 +2,8 @@ use serde::Serialize;
 use std::path::Path;
 
 
+#[cfg(target_os = "linux")]
+use super::paths::{exe_stem_lower, normalize_path_lower};
 use super::process::{query_running_processes, MemoryScanFilter};
 use super::resolve::SKIP_KEYWORDS;
 
@@ -182,11 +184,7 @@ pub(crate) fn linux_force_close_targets(expected_exe_lower: &str, install_dir_lo
                 // Skip known non-game binaries (launchers, crash
                 // handlers, redistributables) so we don't nuke a
                 // harmless sibling.
-                if let Some(stem) = std::path::Path::new(&proc.exe_path)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                {
-                    let lower = stem.to_lowercase();
+                if let Some(lower) = exe_stem_lower(&proc.exe_path) {
                     if SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
                         continue;
                     }

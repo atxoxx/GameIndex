@@ -32,6 +32,18 @@ pub(crate) fn normalize_path_lower(s: &str) -> String {
     s.to_lowercase().replace('\\', "/")
 }
 
+/// Lowercased exe stem parsed from the *normalized* path, so Windows-style
+/// paths (Wine/Proton argv on Linux, mixed-separator fixtures) split into
+/// path components on every target. Comparisons only - stored exe paths are
+/// never rewritten.
+pub(crate) fn exe_stem_lower(exe_path: &str) -> Option<String> {
+    let normalized = normalize_path_lower(exe_path);
+    std::path::Path::new(&normalized)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(str::to_string)
+}
+
 /// `true` when `c` is a path separator in either style. Normalized paths
 /// use only the platform separator, but matching both keeps Windows-style
 /// test fixtures (and mixed-separator Wine argv) working on every target.
