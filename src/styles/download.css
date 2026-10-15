@@ -797,6 +797,20 @@
   min-width: 0;
 }
 
+/* Status cluster — state badges sit apart from the identity tags, just
+   before the selection indicator. */
+.dl-result-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  max-width: 42%;
+  padding-left: 10px;
+  border-left: 1px solid var(--color-border);
+}
+
 .dl-source-pill-badge {
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
@@ -948,6 +962,44 @@
 .dl-badge--mirrors svg {
   width: 10px;
   height: 10px;
+}
+
+/* Calm, monochrome row badges: the accent is reserved for the source pill
+   and the recommended mark so the list scans evenly. Scoped to the row so
+   the detail panel keeps its semantic colors. */
+.dl-result-card .dl-badge {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+}
+
+.dl-result-card .dl-badge--recommended {
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.dl-result-card .dl-reliability-badge {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border);
+}
+
+/* Demoted metrics (swarm/score) and provenance join the quiet meta line. */
+.dl-result-card .dl-meta-chip--swarm.healthy,
+.dl-result-card .dl-meta-chip--swarm.low,
+.dl-result-card .dl-meta-chip--score.high,
+.dl-result-card .dl-meta-chip--score.partial,
+.dl-result-card .dl-meta-chip--score.low,
+.dl-result-card .dl-meta-chip--provenance {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border);
+}
+
+.dl-result-card .dl-meta-chip--swarm.healthy svg,
+.dl-result-card .dl-meta-chip--swarm.low svg {
+  color: var(--color-text-muted);
 }
 
 .dl-result-title {

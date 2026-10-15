@@ -8,7 +8,6 @@ import {
   webUrlFor,
   parseReleaseMetadata,
 } from "./helpers";
-import { accentForPlatform } from "../../types/emulator";
 import { highlightSegments, type ParsedQuery } from "./searchQuery";
 import { ReliabilityBadge } from "./ReliabilityBadge";
 import type { SourceReliability } from "./reliability";
@@ -110,6 +109,10 @@ export function ResultRow({
   const hasSwarm = match.seeds != null && match.peers != null;
   const swarmHealthy = seeds >= 5;
 
+  const downloaded = isDownloaded(match.title);
+  const showCacheStatus = cacheStatus === "checking" || cacheStatus === "cached" || cacheStatus === "uncached";
+  const hasStatus = meta.versionComparison === "newer" || match.isNew || downloaded || match.verified || showCacheStatus;
+
   return (
     <div
       role="button"
@@ -144,7 +147,7 @@ export function ResultRow({
 
       {/* Main card body */}
       <div className="dl-result-body">
-        {/* Header Badges */}
+        {/* Identity row — what this release is */}
         <div className="dl-result-header">
           <div className="dl-result-tags">
             {recommended && (
@@ -160,143 +163,16 @@ export function ResultRow({
               {match.sourceName}
             </span>
 
-            {cacheStatus && cacheStatus !== "idle" && cacheStatus !== "error" && (
-              <span
-                className={`dl-badge dl-badge--cache dl-badge--cache-${cacheStatus}`}
-                title={
-                  cacheStatus === "cached"
-                    ? t("downloadModal.rowCacheCached")
-                    : cacheStatus === "uncached"
-                      ? t("downloadModal.rowCacheUncached")
-                      : t("downloadModal.rowCacheChecking")
-                }
-              >
-                {cacheStatus === "checking" && <span className="dl-cache-spinner" aria-hidden />}
-                {cacheStatus === "cached" && (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                  </svg>
-                )}
-                {cacheStatus === "uncached" && (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <circle cx="12" cy="12" r="9" />
-                    <line x1="9" y1="9" x2="15" y2="15" />
-                    <line x1="15" y1="9" x2="9" y2="15" />
-                  </svg>
-                )}
-                {cacheStatus === "cached"
-                  ? t("downloadModal.rowCacheCached")
-                  : cacheStatus === "uncached"
-                    ? t("downloadModal.rowCacheUncached")
-                    : t("downloadModal.rowCacheChecking")}
-              </span>
-            )}
-
             <ReliabilityBadge reliability={reliability} compact />
 
             {formatBadge && <span className="dl-badge dl-badge--format">{formatBadge}</span>}
 
-            {meta.group && (
-              <span className="dl-badge dl-badge--group" title={`Group: ${meta.group}`}>
-                {meta.group}
-              </span>
-            )}
-
             {versionLabel && (
               <span
-                className={`dl-badge dl-badge--version${
-                  meta.versionComparison === "newer"
-                    ? " dl-badge--version-newer"
-                    : meta.versionComparison === "same"
-                      ? " dl-badge--version-same"
-                      : meta.versionComparison === "older"
-                        ? " dl-badge--version-older"
-                        : ""
-                }`}
-                title={
-                  meta.versionComparison === "newer"
-                    ? `${versionLabel} (${t("downloadModal.versionNewer")})`
-                    : meta.versionComparison === "same"
-                      ? `${versionLabel} (${t("downloadModal.versionCurrent")})`
-                      : meta.versionComparison === "older"
-                        ? `${versionLabel} (${t("downloadModal.versionOlder")})`
-                        : `${t("downloadModal.detailVersion")}: ${versionLabel}`
-                }
+                className="dl-badge dl-badge--version"
+                title={`${t("downloadModal.detailVersion")}: ${versionLabel}`}
               >
-                {meta.versionComparison === "newer" && (
-                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <line x1="12" y1="19" x2="12" y2="5" />
-                    <polyline points="5 12 12 5 19 12" />
-                  </svg>
-                )}
-                <span>{versionLabel}</span>
-                {meta.versionComparison === "newer" && (
-                  <span className="dl-version-status-pill">{t("downloadModal.versionNewer")}</span>
-                )}
-                {meta.versionComparison === "same" && (
-                  <span className="dl-version-status-pill">{t("downloadModal.versionCurrent")}</span>
-                )}
-              </span>
-            )}
-
-            {meta.edition && (
-              <span className="dl-badge dl-badge--edition" title={`Edition: ${meta.edition}`}>
-                {meta.edition}
-              </span>
-            )}
-
-            {meta.isMultiPart && (
-              <span className="dl-badge dl-badge--multipart">
-                {meta.partCount ? `${meta.partCount} Parts` : t("downloadModal.multiPartPackage")}
-              </span>
-            )}
-
-            {mirrorCount > 1 && (
-              <span className="dl-badge dl-badge--mirrors" title={`${mirrorCount} Mirrors`}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="2" y1="12" x2="22" y2="12" />
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                </svg>
-                {t("downloadModal.mirrorsCount", { count: mirrorCount })}
-              </span>
-            )}
-
-            {match.platform && (() => {
-              const platformColor = accentForPlatform(match.platform);
-              return (
-                <span
-                  className="dl-badge dl-badge--platform"
-                  style={{
-                    color: platformColor,
-                    backgroundColor: `color-mix(in srgb, ${platformColor} 16%, transparent)`,
-                    borderColor: `color-mix(in srgb, ${platformColor} 40%, transparent)`,
-                  }}
-                  title={match.platform}
-                >
-                  {match.platform}
-                </span>
-              );
-            })()}
-
-            {match.region && (
-              <span className="dl-badge dl-badge--region" title={`${t("downloadModal.detailRegion")}: ${match.region}`}>
-                {match.region}
-              </span>
-            )}
-
-            {match.isNew && <span className="dl-badge dl-badge--new">{t("downloads.newlyAddedSource")}</span>}
-
-            {isDownloaded(match.title) && (
-              <span className="dl-badge dl-badge--downloaded">✓ {t("downloads.alreadyDownloaded")}</span>
-            )}
-
-            {match.verified && (
-              <span className="dl-badge dl-badge--verified" title={t("downloadModal.verified")}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {t("downloadModal.verified")}
+                {versionLabel}
               </span>
             )}
           </div>
@@ -385,7 +261,7 @@ export function ResultRow({
           )}
         </h4>
 
-        {/* Metric Badges */}
+        {/* Metrics + demoted secondary metadata, one quiet, even line */}
         <div className="dl-result-meta-row">
           <span className="dl-meta-chip dl-meta-chip--size">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -426,6 +302,47 @@ export function ResultRow({
             <span className="dl-tier-percent">{(score * 100).toFixed(0)}%</span>
           </span>
 
+          {meta.group && (
+            <span className="dl-meta-chip dl-meta-chip--group" title={`${t("downloadModal.detailReleaseGroup")}: ${meta.group}`}>
+              {meta.group}
+            </span>
+          )}
+
+          {meta.edition && (
+            <span className="dl-meta-chip" title={`${t("downloadModal.detailEdition")}: ${meta.edition}`}>
+              {meta.edition}
+            </span>
+          )}
+
+          {match.platform && (
+            <span className="dl-meta-chip dl-meta-chip--platform" title={match.platform}>
+              {match.platform}
+            </span>
+          )}
+
+          {match.region && (
+            <span className="dl-meta-chip" title={`${t("downloadModal.detailRegion")}: ${match.region}`}>
+              {match.region}
+            </span>
+          )}
+
+          {meta.isMultiPart && (
+            <span className="dl-meta-chip">
+              {meta.partCount ? `${meta.partCount} ${t("downloadModal.partsShort")}` : t("downloadModal.multiPartPackage")}
+            </span>
+          )}
+
+          {mirrorCount > 1 && (
+            <span className="dl-meta-chip" title={`${mirrorCount} Mirrors`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              {t("downloadModal.mirrorsCount", { count: mirrorCount })}
+            </span>
+          )}
+
           {match.provenance && (
             <span className="dl-meta-chip dl-meta-chip--provenance" title={t("downloadModal.provenanceTitle")}>
               {match.provenance}
@@ -433,6 +350,76 @@ export function ResultRow({
           )}
         </div>
       </div>
+
+      {/* Status cluster — what's happening with this release, kept near the
+          selection indicator and apart from the identity badges. */}
+      {hasStatus && (
+        <div className="dl-result-status">
+          {meta.versionComparison === "newer" && (
+            <span className="dl-badge dl-badge--status" title={t("downloadModal.rowStatusUpdateHint")}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
+              </svg>
+              {t("downloadModal.versionNewer")}
+            </span>
+          )}
+
+          {match.isNew && (
+            <span className="dl-badge dl-badge--status">{t("downloads.newlyAddedSource")}</span>
+          )}
+
+          {downloaded && (
+            <span className="dl-badge dl-badge--status" title={t("downloads.alreadyDownloaded")}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              {t("downloads.alreadyDownloaded")}
+            </span>
+          )}
+
+          {match.verified && (
+            <span className="dl-badge dl-badge--status" title={t("downloadModal.verified")}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              {t("downloadModal.verified")}
+            </span>
+          )}
+
+          {showCacheStatus && (
+            <span
+              className={`dl-badge dl-badge--status dl-badge--cache dl-badge--cache-${cacheStatus}`}
+              title={
+                cacheStatus === "cached"
+                  ? t("downloadModal.rowCacheCached")
+                  : cacheStatus === "uncached"
+                    ? t("downloadModal.rowCacheUncached")
+                    : t("downloadModal.rowCacheChecking")
+              }
+            >
+              {cacheStatus === "checking" && <span className="dl-cache-spinner" aria-hidden />}
+              {cacheStatus === "cached" && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+              )}
+              {cacheStatus === "uncached" && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="9" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                </svg>
+              )}
+              {cacheStatus === "cached"
+                ? t("downloadModal.rowCacheCached")
+                : cacheStatus === "uncached"
+                  ? t("downloadModal.rowCacheUncached")
+                  : t("downloadModal.rowCacheChecking")}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Radio Selection Indicator */}
       <div className="dl-result-indicator" aria-hidden>
