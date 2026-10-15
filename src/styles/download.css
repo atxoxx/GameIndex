@@ -860,6 +860,30 @@
   border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
 }
 
+/* Per-row debrid cache availability indicator. */
+.dl-badge--cache svg {
+  width: 10px;
+  height: 10px;
+}
+
+.dl-badge--cache-checking {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.dl-badge--cache-cached {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 32%, transparent);
+}
+
+.dl-badge--cache-uncached {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 26%, transparent);
+}
+
 .dl-badge--group {
   color: var(--color-warning);
   background: color-mix(in srgb, var(--color-warning) 14%, transparent);

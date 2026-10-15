@@ -22,7 +22,11 @@ export type SortKey =
   | "relevance"
   | "size_desc"
   | "size_asc"
-  | "seeds";
+  | "seeds"
+  | "cached";
+
+/** Debrid cache availability filter for the results list. */
+export type CacheFilter = "all" | "cached";
 
 /** Broad platform class filter for the results list. */
 export type PlatformFilter = "all" | "pc" | "console";

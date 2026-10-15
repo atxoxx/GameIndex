@@ -31,6 +31,7 @@ export function DownloadToolbar({
   batchMode,
   onToggleBatchMode,
   selectedCount,
+  cacheAvailable = false,
 }: {
   filters: DownloadFilters;
   onChange: (patch: Partial<DownloadFilters>) => void;
@@ -49,6 +50,7 @@ export function DownloadToolbar({
   batchMode: boolean;
   onToggleBatchMode: () => void;
   selectedCount: number;
+  cacheAvailable?: boolean;
 }) {
   const { t } = useLanguage();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -73,8 +75,8 @@ export function DownloadToolbar({
     [t],
   );
 
-  const sortOptions: { id: SortKey; label: string }[] = useMemo(
-    () => [
+  const sortOptions: { id: SortKey; label: string }[] = useMemo(() => {
+    const options: { id: SortKey; label: string }[] = [
       { id: "recommended", label: t("downloadModal.sortRecommended") },
       { id: "date", label: t("downloads.sortDateNewest") },
       { id: "relevance", label: t("downloads.sortRelevance") },
@@ -82,9 +84,12 @@ export function DownloadToolbar({
       { id: "size_asc", label: t("downloadModal.sortSizeAsc") },
       { id: "seeds", label: t("downloadModal.sortSeeds") },
       { id: "source", label: t("downloads.sortSource") },
-    ],
-    [t],
-  );
+    ];
+    if (cacheAvailable) {
+      options.splice(1, 0, { id: "cached", label: t("downloadModal.sortCached") });
+    }
+    return options;
+  }, [t, cacheAvailable]);
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
@@ -92,6 +97,7 @@ export function DownloadToolbar({
     if (filters.groupFilter !== "all") n++;
     if (filters.platformFilter !== "all") n++;
     if (filters.typeFilter !== "all") n++;
+    if (filters.cacheFilter !== "all") n++;
     if (filters.updatesOnly) n++;
     return n;
   }, [filters]);
@@ -240,6 +246,30 @@ export function DownloadToolbar({
                 ))}
               </div>
             </div>
+
+            {cacheAvailable && (
+              <div className="dl-filter-group">
+                <span className="dl-filter-group-label">{t("downloadModal.filterAvailability")}</span>
+                <div className="dl-segmented-pills">
+                  <button
+                    type="button"
+                    className={`dl-segmented-tab${filters.cacheFilter === "all" ? " active" : ""}`}
+                    aria-pressed={filters.cacheFilter === "all"}
+                    onClick={() => onChange({ cacheFilter: "all" })}
+                  >
+                    {t("downloadModal.filterAll")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`dl-segmented-tab${filters.cacheFilter === "cached" ? " active" : ""}`}
+                    aria-pressed={filters.cacheFilter === "cached"}
+                    onClick={() => onChange({ cacheFilter: "cached" })}
+                  >
+                    {t("downloadModal.filterCachedOnly")}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="dl-filter-group">
               <span className="dl-filter-group-label">{t("downloadModal.filterBySource")}</span>

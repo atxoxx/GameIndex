@@ -46,6 +46,7 @@ import {
   webUrlFor,
 } from "./helpers";
 import type {
+  CacheFilter,
   DownloadStep,
   SortKey,
   DisplayMatch,
@@ -53,6 +54,8 @@ import type {
   PlatformFilter,
   DownloadTypeFilter,
 } from "./types";
+import { useRowCacheChecks } from "./useRowCacheChecks";
+import { cacheCapableProvider } from "./cacheCheck";
 import type { DownloadSearchResult, SearchProgressEvent } from "../../types/plugins";
 import { OwnershipBanner } from "./OwnershipBanner";
 import { ConfidenceWarning } from "./ConfidenceWarning";
@@ -165,6 +168,7 @@ export default function DownloadModal({
   const [searchQuery, setSearchQuery] = useState<string>(() => loadLastFilters().searchQuery);
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>(() => loadLastFilters().platformFilter);
   const [typeFilter, setTypeFilter] = useState<DownloadTypeFilter>(() => loadLastFilters().typeFilter);
+  const [cacheFilter, setCacheFilter] = useState<CacheFilter>(() => loadLastFilters().cacheFilter ?? "all");
   const [updatesOnly, setUpdatesOnly] = useState<boolean>(() => loadLastFilters().updatesOnly);
   const [sortBy, setSortBy] = useState<SortKey>(() => loadLastFilters().sortBy);
 
@@ -228,10 +232,20 @@ export default function DownloadModal({
       groupFilter,
       platformFilter,
       typeFilter,
+      cacheFilter,
       updatesOnly,
       sortBy,
     }),
-    [searchQuery, sourceFilter, groupFilter, platformFilter, typeFilter, updatesOnly, sortBy],
+    [
+      searchQuery,
+      sourceFilter,
+      groupFilter,
+      platformFilter,
+      typeFilter,
+      cacheFilter,
+      updatesOnly,
+      sortBy,
+    ],
   );
 
   const applyFilters = useCallback((next: DownloadFilters) => {
@@ -240,6 +254,7 @@ export default function DownloadModal({
     setGroupFilter(next.groupFilter);
     setPlatformFilter(next.platformFilter);
     setTypeFilter(next.typeFilter);
+    setCacheFilter(next.cacheFilter ?? "all");
     setUpdatesOnly(next.updatesOnly);
     setSortBy(next.sortBy);
   }, []);
@@ -285,6 +300,19 @@ export default function DownloadModal({
     [reliability],
   );
 
+  const debridConfigured = useMemo(() => {
+    return debridProvider !== "none" && !!debridApiKey;
+  }, [debridProvider, debridApiKey]);
+
+  // Automatic per-row debrid cache probes for every checkable result.
+  const rowCacheStatuses = useRowCacheChecks({
+    matches,
+    provider: debridProvider,
+    apikey: debridApiKey,
+    enabled: debridConfigured,
+  });
+  const cacheFilterAvailable = debridConfigured && cacheCapableProvider(debridProvider);
+
   // Available source filter options extracted from raw matches
   const sourceFilterOptions = useMemo(
     () => extractSourceFilters(matches, t),
@@ -294,19 +322,8 @@ export default function DownloadModal({
   const availableGroups = useMemo(() => extractReleaseGroups(matches), [matches]);
 
   // Filter raw matches by every active filter.
-  const filteredMatches = useMemo(
-    () =>
-      filterMatches(
-        matches,
-        sourceFilter,
-        searchQuery,
-        platformFilter,
-        typeFilter,
-        groupFilter,
-        updatesOnly,
-        installedVersion,
-      ),
-    [
+  const filteredMatches = useMemo(() => {
+    const base = filterMatches(
       matches,
       sourceFilter,
       searchQuery,
@@ -315,8 +332,23 @@ export default function DownloadModal({
       groupFilter,
       updatesOnly,
       installedVersion,
-    ],
-  );
+    );
+    if (cacheFilter === "cached") {
+      return base.filter((m) => rowCacheStatuses.get(m.id) === "cached");
+    }
+    return base;
+  }, [
+    matches,
+    sourceFilter,
+    searchQuery,
+    platformFilter,
+    typeFilter,
+    groupFilter,
+    updatesOnly,
+    installedVersion,
+    cacheFilter,
+    rowCacheStatuses,
+  ]);
 
   const isSingleSourceFiltered =
     sourceFilter !== "all" &&
@@ -362,16 +394,21 @@ export default function DownloadModal({
     [reliabilityFor],
   );
 
-  const sortedMatches = useMemo(
-    () =>
-      sortMatches(
-        visibleMatches,
-        sortBy,
-        isSingleSourceFiltered,
-        sortBy === "recommended" ? scoreFor : undefined,
-      ),
-    [visibleMatches, sortBy, isSingleSourceFiltered, scoreFor],
-  );
+  const sortedMatches = useMemo(() => {
+    const effectiveSort = sortBy === "cached" ? "recommended" : sortBy;
+    const base = sortMatches(
+      visibleMatches,
+      effectiveSort,
+      isSingleSourceFiltered,
+      effectiveSort === "recommended" ? scoreFor : undefined,
+    );
+    if (sortBy === "cached") {
+      // Stable partition: cached releases first, latest probe last-resort.
+      const rank = (m: DisplayMatch) => (rowCacheStatuses.get(m.id) === "cached" ? 0 : 1);
+      return [...base].sort((a, b) => rank(a) - rank(b));
+    }
+    return base;
+  }, [visibleMatches, sortBy, isSingleSourceFiltered, scoreFor, rowCacheStatuses]);
 
   // Smart default: the top-ranked result is badged and auto-selected.
   // A plugin hit that explicitly flags itself `recommended` wins first.
@@ -436,10 +473,6 @@ export default function DownloadModal({
     applyFilters({ ...DEFAULT_FILTERS, sortBy });
     setActivePresetId(null);
   }, [applyFilters, sortBy]);
-
-  const debridConfigured = useMemo(() => {
-    return debridProvider !== "none" && !!debridApiKey;
-  }, [debridProvider, debridApiKey]);
 
   useEffect(() => {
     if (
@@ -1476,6 +1509,7 @@ export default function DownloadModal({
                         batchMode={batchMode}
                         onToggleBatchMode={handleToggleBatchMode}
                         selectedCount={batchSelected.size}
+                        cacheAvailable={cacheFilterAvailable}
                       />
                     )}
                     <ResultsPane
@@ -1499,6 +1533,7 @@ export default function DownloadModal({
                       weakCount={weakCount}
                       showWeakMatches={showWeakMatches}
                       onToggleWeak={() => setShowWeakMatches((v) => !v)}
+                      cacheStatuses={rowCacheStatuses}
                     />
                   </div>
 

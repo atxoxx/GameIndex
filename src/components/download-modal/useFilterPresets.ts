@@ -1,5 +1,10 @@
 import { useCallback, useState } from "react";
-import type { DownloadTypeFilter, PlatformFilter, SortKey } from "./types";
+import type {
+  CacheFilter,
+  DownloadTypeFilter,
+  PlatformFilter,
+  SortKey,
+} from "./types";
 
 /** The complete, persistable filter/sort state of the results toolbar. */
 export interface DownloadFilters {
@@ -8,6 +13,7 @@ export interface DownloadFilters {
   groupFilter: string;
   platformFilter: PlatformFilter;
   typeFilter: DownloadTypeFilter;
+  cacheFilter: CacheFilter;
   updatesOnly: boolean;
   sortBy: SortKey;
 }
@@ -18,6 +24,7 @@ export const DEFAULT_FILTERS: DownloadFilters = {
   groupFilter: "all",
   platformFilter: "all",
   typeFilter: "all",
+  cacheFilter: "all",
   updatesOnly: false,
   sortBy: "recommended",
 };

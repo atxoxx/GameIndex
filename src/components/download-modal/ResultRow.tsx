@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import type { DisplayMatch } from "./types";
+import type { CacheCheckStatus, DisplayMatch } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   formatUploadDate,
@@ -27,6 +27,7 @@ export function ResultRow({
   onToggleBatch,
   comparePinned = false,
   onToggleCompare,
+  cacheStatus,
 }: {
   match: DisplayMatch;
   selected: boolean;
@@ -41,6 +42,7 @@ export function ResultRow({
   onToggleBatch?: (id: string) => void;
   comparePinned?: boolean;
   onToggleCompare?: (id: string) => void;
+  cacheStatus?: CacheCheckStatus;
 }) {
   const { t, language } = useLanguage();
   const isPlugin = match.provider === "plugin";
@@ -157,6 +159,38 @@ export function ResultRow({
             <span className={`dl-source-pill-badge${isPlugin ? " dl-source-pill-badge--plugin" : ""}`}>
               {match.sourceName}
             </span>
+
+            {cacheStatus && cacheStatus !== "idle" && cacheStatus !== "error" && (
+              <span
+                className={`dl-badge dl-badge--cache dl-badge--cache-${cacheStatus}`}
+                title={
+                  cacheStatus === "cached"
+                    ? t("downloadModal.rowCacheCached")
+                    : cacheStatus === "uncached"
+                      ? t("downloadModal.rowCacheUncached")
+                      : t("downloadModal.rowCacheChecking")
+                }
+              >
+                {cacheStatus === "checking" && <span className="dl-cache-spinner" aria-hidden />}
+                {cacheStatus === "cached" && (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                )}
+                {cacheStatus === "uncached" && (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="12" r="9" />
+                    <line x1="9" y1="9" x2="15" y2="15" />
+                    <line x1="15" y1="9" x2="9" y2="15" />
+                  </svg>
+                )}
+                {cacheStatus === "cached"
+                  ? t("downloadModal.rowCacheCached")
+                  : cacheStatus === "uncached"
+                    ? t("downloadModal.rowCacheUncached")
+                    : t("downloadModal.rowCacheChecking")}
+              </span>
+            )}
 
             <ReliabilityBadge reliability={reliability} compact />
 

@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import type { DisplayMatch } from "./types";
+import type { CacheCheckStatus, DisplayMatch } from "./types";
 import { ResultRow } from "./ResultRow";
 import { useLanguage } from "../../context/LanguageContext";
 import type { ParsedQuery } from "./searchQuery";
@@ -26,6 +26,7 @@ export function ResultsPane({
   weakCount,
   showWeakMatches,
   onToggleWeak,
+  cacheStatuses,
 }: {
   matches: DisplayMatch[];
   selectedId: string | null;
@@ -52,6 +53,7 @@ export function ResultsPane({
   weakCount: number;
   showWeakMatches: boolean;
   onToggleWeak: () => void;
+  cacheStatuses?: Map<string, CacheCheckStatus>;
 }) {
   const { t } = useLanguage();
 
@@ -162,6 +164,7 @@ export function ResultsPane({
               onToggleBatch={onToggleBatch}
               comparePinned={compareIds.has(match.id)}
               onToggleCompare={onToggleCompare}
+              cacheStatus={cacheStatuses?.get(match.id)}
             />
           </Fragment>
         );
