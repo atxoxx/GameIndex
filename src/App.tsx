@@ -27,6 +27,8 @@ import { SessionNotesProvider } from "./context/SessionNotesContext";
 import { BigScreenProvider, useBigScreen } from "./context/BigScreenContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { PresenceProvider } from "./context/PresenceContext";
+import { SetupWizardProvider } from "./context/SetupWizardContext";
+import SetupWizard from "./components/setup/SetupWizard";
 import { UpdateProvider } from "./context/UpdateContext";
 import { SteamGridDbProvider } from "./context/SteamGridDbContext";
 import { CrackWatchProvider } from "./context/CrackWatchContext";
@@ -228,11 +230,14 @@ function App() {
                                         <PriceProvider>
                                           <BigScreenProvider>
                                             <PresenceProvider>
-                                              <AdaptiveThemeSync />
-                                              <GameAccentSync />
-                                              <AppShell />
-                                              <UpdateModal />
-                                              <UpdateNotification />
+                                              <SetupWizardProvider>
+                                                <AdaptiveThemeSync />
+                                                <GameAccentSync />
+                                                <AppShell />
+                                                <SetupWizard />
+                                                <UpdateModal />
+                                                <UpdateNotification />
+                                              </SetupWizardProvider>
                                             </PresenceProvider>
                                           </BigScreenProvider>
                                         </PriceProvider>

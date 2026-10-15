@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSetupWizard } from "../../context/SetupWizardContext";
 import { useAppVersion } from "../../hooks/useAppVersion";
 import { useUpdate, formatBytes, installModeLabelKey } from "../../context/UpdateContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -15,6 +17,7 @@ import { CompatibilityIcon, GamepadIcon, GlobeIcon, RefreshIcon } from "./settin
  */
 export default function GeneralTab() {
   const { language, setLanguage, languages, t } = useLanguage();
+  const { openWizard } = useSetupWizard();
   const { showToast } = useToast();
   const version = useAppVersion();
   const {
@@ -232,6 +235,17 @@ export default function GeneralTab() {
             </div>
           )}
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        id="general-setup"
+        icon={<Sparkles />}
+        title={t("settingsPage.setupTitle")}
+        desc={t("settingsPage.setupDesc")}
+      >
+        <Button variant="secondary" onClick={openWizard}>
+          {t("settings.runSetup")}
+        </Button>
       </SettingsSection>
 
       <SettingsSection
