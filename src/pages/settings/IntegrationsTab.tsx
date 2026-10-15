@@ -69,9 +69,14 @@ const CATEGORY_OF_SECTION: Record<string, string> = {
 export default function IntegrationsTab({
   integrations,
   sectionIds,
+  accountsOnly = false,
 }: {
   integrations: Integrations;
   sectionIds: string[];
+  /** Render only the store/account categories. The setup wizard embeds
+   *  this view so connecting a store stays inside the wizard; the mods,
+   *  RetroAchievements and data-sync sections remain Settings-only. */
+  accountsOnly?: boolean;
 }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -93,6 +98,9 @@ export default function IntegrationsTab({
   });
 
   useEffect(() => {
+    // The wizard only embeds the account categories — skip the backend
+    // round-trip for RetroAchievements settings it will never render.
+    if (accountsOnly) return;
     let cancelled = false;
     (async () => {
       try {
@@ -121,7 +129,7 @@ export default function IntegrationsTab({
     return () => {
       cancelled = true;
     };
-  }, [getRetroSettings, getRetroConsoles, showToast, t]);
+  }, [accountsOnly, getRetroSettings, getRetroConsoles, showToast, t]);
 
   async function handleRetroSave() {
     setRetro((prev) => ({ ...prev, saving: true }));
@@ -1072,6 +1080,8 @@ export default function IntegrationsTab({
           />
         </SettingsCategory>
 
+        {!accountsOnly && (
+          <>
         {/* ── Mods & community — mod site API keys ── */}
         <SettingsCategory
           id="section-mods"
@@ -1383,6 +1393,8 @@ export default function IntegrationsTab({
           </label>
         </div>
         </SettingsCategory>
+          </>
+        )}
 
         <p className="integration-footer">{t("settings.integrations.footerNotice")}</p>
       </SettingsSection>

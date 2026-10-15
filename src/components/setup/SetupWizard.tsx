@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSetupWizard } from "../../context/SetupWizardContext";
+import { GamepadProvider } from "../../hooks/GamepadProvider";
 import { Button } from "../ui";
 import { SETUP_STEPS } from "./setupSteps";
 
@@ -46,7 +47,11 @@ export default function SetupWizard() {
   const isLast = index === SETUP_STEPS.length - 1;
   const StepBody = step.Component;
 
+  // The wizard renders beside <AppShell>, outside the shell's
+  // GamepadProvider — embedded settings views (the integrations panel)
+  // rely on gamepad hooks, so mount the inert desktop provider here.
   return createPortal(
+    <GamepadProvider enabled={false}>
     <div
       className="setup-wizard"
       role="dialog"
@@ -139,7 +144,8 @@ export default function SetupWizard() {
           </footer>
         </div>
       </div>
-    </div>,
+    </div>
+    </GamepadProvider>,
     document.body,
   );
 }

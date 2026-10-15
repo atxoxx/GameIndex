@@ -1,31 +1,17 @@
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { FilePlus2, FolderSearch } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../../context/GameContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useSettings } from "../../../context/SettingsContext";
-import { useSetupWizard } from "../../../context/SetupWizardContext";
 import { useToast } from "../../../context/ToastContext";
+import { useIntegrations } from "../../../pages/settings/useIntegrations";
+import IntegrationsTab from "../../../pages/settings/IntegrationsTab";
 import { gameNameFromPath, type GameMetadataResult } from "../../../types/game";
 import ImportModal, { type ExeInfo } from "../../ImportModal";
 import FolderScanProgressModal from "../../library/FolderScanProgressModal";
 import { Button } from "../../ui";
 import { SetupInfo, SetupSection, SetupToggle } from "../SetupControls";
-
-/** Settings labels for the supported store accounts, in display order. */
-const STORES = [
-  "steam",
-  "epicGames",
-  "gogGalaxy",
-  "humbleBundle",
-  "rockstarGamesLauncher",
-  "ubisoftConnect",
-  "battleNet",
-  "ea",
-  "xbox",
-  "itch",
-] as const;
 
 /**
  * Library & accounts — one page for getting games in: add a single
@@ -38,9 +24,8 @@ export default function LibrariesStep() {
   const { t } = useLanguage();
   const { games, importLocalGames } = useGames();
   const { showToast } = useToast();
-  const { closeWizard } = useSetupWizard();
   const { steamAutoDetect, setSteamAutoDetect } = useSettings();
-  const navigate = useNavigate();
+  const integrations = useIntegrations();
 
   const existingPathsSet = useMemo(
     () =>
@@ -137,11 +122,6 @@ export default function LibrariesStep() {
     }
   }
 
-  const openIntegrations = () => {
-    closeWizard();
-    navigate("/settings/integrations");
-  };
-
   return (
     <div className="setup-step">
       <SetupSection title={t("setup.libraries.heading")} desc={t("setup.libraries.body")}>
@@ -178,25 +158,9 @@ export default function LibrariesStep() {
         </div>
       </SetupSection>
 
-      <SetupSection title={t("setup.stores.heading")} desc={t("setup.stores.body")}>
-        <div className="setup-store-list">
-          {STORES.map((key) => {
-            const store = t(`settings.integration.${key}`);
-            return (
-              <div key={key} className="setup-store">
-                <span className="setup-store__name">
-                  {store}
-                  <SetupInfo tip={t("setup.stores.connectTip", { store })} />
-                </span>
-                <Button variant="secondary" size="sm" onClick={openIntegrations}>
-                  {t("setup.stores.connect")}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-        <p className="setup-section__note">{t("setup.stores.betaNote")}</p>
-      </SetupSection>
+      {/* The real Settings → Integrations account panel, embedded so
+          connecting a store happens in place and never leaves the wizard. */}
+      <IntegrationsTab integrations={integrations} sectionIds={[]} accountsOnly />
 
       {showImportModal && (
         <ImportModal
