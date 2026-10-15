@@ -7,6 +7,14 @@ import type {
   LibraryStatsData,
 } from "./commandPaletteTypes";
 import type { Game } from "../../types/game";
+import {
+  foldSearchText,
+  scoreSearchMatch,
+  getSearchMatchRanges,
+  levenshteinDistance,
+} from "../../utils/search";
+
+export { levenshteinDistance };
 
 const RECENT_STORAGE_KEY = "gamelib.command_palette_recent:v2";
 const MAX_RECENTS = 25;
@@ -258,238 +266,37 @@ export function parseQueryFilters(raw: string): ParsedQueryFilters {
 /**
  * Calculates a match score for a target text against a multi-token search query.
  * Returns -1 if not matching.
+ *
+ * Delegates the generic ranking to the shared engine and layers the gaming
+ * acronym dictionary on top, so "cp2077" still reaches "Cyberpunk 2077".
  */
 export function scoreMatch(
   query: string,
   target: string,
   extraTerms: (string | undefined)[] = []
 ): number {
-  const q = query.trim().toLowerCase();
-  if (!q) return 0;
-  const t = target.toLowerCase();
+  const base = scoreSearchMatch(query, target, extraTerms);
+  const q = foldSearchText(query);
+  if (!q) return base;
 
-  // 1. Exact string match
-  if (t === q) return 1500;
-
-  // 2. Starts with complete query
-  if (t.startsWith(q)) {
-    return 1100 + Math.max(0, 60 - (t.length - q.length));
-  }
-
-  // 3. Word boundary match for full query
-  const wordBoundaryRegex = new RegExp(`\\b${escapeRegExp(q)}`, "i");
-  if (wordBoundaryRegex.test(t)) {
-    return 950 + Math.max(0, 40 - t.indexOf(q));
-  }
-
-  // 4. Known acronym dictionary match (e.g. "gow", "rdr2", "cp2077", "bg3", "gta5")
-  if (COMMON_ACRONYMS[q]) {
-    for (const phrase of COMMON_ACRONYMS[q]) {
-      if (t.includes(phrase)) {
-        return 920;
+  const aliases = COMMON_ACRONYMS[q];
+  if (aliases) {
+    const foldedTarget = foldSearchText(target);
+    for (const phrase of aliases) {
+      const foldedPhrase = foldSearchText(phrase);
+      if (foldedPhrase && foldedTarget.includes(foldedPhrase)) {
+        return Math.max(base, 920);
       }
     }
   }
-
-  // 5. Dynamic word acronym / initialism match
-  const words = t.split(/[\s\-_:.]+/).filter(Boolean);
-  if (words.length > 1) {
-    const acronym = words.map((w) => w[0]).join("");
-    if (acronym === q) return 860;
-    if (acronym.startsWith(q)) return 780;
-
-    // Acronym with digits (e.g. "gta5" for "Grand Theft Auto V" or "Grand Theft Auto 5")
-    const numWords = words
-      .map((w) => {
-        const match = w.match(/^(\d+|[a-zA-Z])/);
-        return match ? match[1].toLowerCase() : "";
-      })
-      .join("");
-    if (numWords === q) return 840;
-  }
-
-  // 6. Multi-token decomposition matching
-  const queryTokens = q.split(/\s+/).filter(Boolean);
-  if (queryTokens.length > 1) {
-    let allMatched = true;
-    let tokenScore = 600;
-    let prevIndex = -1;
-
-    for (const token of queryTokens) {
-      const directIdx = t.indexOf(token);
-      if (directIdx !== -1) {
-        tokenScore += 60;
-        if (prevIndex !== -1 && directIdx > prevIndex) {
-          tokenScore += 50; // In-order bonus
-        }
-        prevIndex = directIdx;
-      } else {
-        // Check extra terms
-        let extraMatched = false;
-        for (const term of extraTerms) {
-          if (term && term.toLowerCase().includes(token)) {
-            extraMatched = true;
-            tokenScore += 30;
-            break;
-          }
-        }
-        if (!extraMatched) {
-          allMatched = false;
-          break;
-        }
-      }
-    }
-
-    if (allMatched) {
-      return tokenScore;
-    }
-  }
-
-  // 7. Direct substring match
-  const subIdx = t.indexOf(q);
-  if (subIdx !== -1) {
-    return 500 - Math.min(subIdx * 2, 120);
-  }
-
-  // 8. Fuzzy subsequence match
-  let qIdx = 0;
-  let matches = 0;
-  let gapPenalty = 0;
-  let prevMatchIdx = -1;
-
-  for (let i = 0; i < t.length && qIdx < q.length; i++) {
-    if (t[i] === q[qIdx]) {
-      matches++;
-      if (prevMatchIdx !== -1) {
-        gapPenalty += Math.max(0, i - prevMatchIdx - 1);
-      }
-      prevMatchIdx = i;
-      qIdx++;
-    }
-  }
-
-  if (matches === q.length) {
-    return Math.max(160, 380 - gapPenalty * 5);
-  }
-
-  // 9. Levenshtein typo-tolerant single word match (tolerates 1-2 mistypes for q.length >= 4)
-  if (q.length >= 4 && words.length > 0) {
-    let bestDist = 999;
-    for (const word of words) {
-      const dist = levenshteinDistance(q, word.slice(0, q.length + 2));
-      if (dist < bestDist) bestDist = dist;
-    }
-    if (bestDist <= (q.length > 6 ? 2 : 1)) {
-      return 280 - bestDist * 60;
-    }
-  }
-
-  // 10. Extra metadata / tag terms match
-  for (const term of extraTerms) {
-    if (!term) continue;
-    const termLower = term.toLowerCase();
-    if (termLower.startsWith(q)) return 200;
-    if (termLower.includes(q)) return 140;
-  }
-
-  return -1;
+  return base;
 }
 
 /**
  * Returns index ranges where the query matches within text for visual highlighting.
  */
 export function getMatchRanges(text: string, query: string): MatchHighlight[] {
-  const q = query.trim().toLowerCase();
-  if (!q || !text) return [];
-
-  const t = text.toLowerCase();
-  const ranges: MatchHighlight[] = [];
-
-  // Multi-token match highlight
-  const tokens = q.split(/\s+/).filter(Boolean);
-  if (tokens.length > 1) {
-    for (const token of tokens) {
-      let startIndex = 0;
-      let matchIdx = t.indexOf(token, startIndex);
-      while (matchIdx !== -1) {
-        ranges.push({ start: matchIdx, end: matchIdx + token.length });
-        startIndex = matchIdx + token.length;
-        matchIdx = t.indexOf(token, startIndex);
-      }
-    }
-    return mergeOverlappingRanges(ranges);
-  }
-
-  // Direct substring match first
-  const subIdx = t.indexOf(q);
-  if (subIdx !== -1) {
-    return [{ start: subIdx, end: subIdx + q.length }];
-  }
-
-  // Fuzzy subsequence matches
-  let qIdx = 0;
-  for (let i = 0; i < t.length && qIdx < q.length; i++) {
-    if (t[i] === q[qIdx]) {
-      ranges.push({ start: i, end: i + 1 });
-      qIdx++;
-    }
-  }
-
-  return mergeOverlappingRanges(ranges);
-}
-
-function mergeOverlappingRanges(ranges: MatchHighlight[]): MatchHighlight[] {
-  if (ranges.length <= 1) return ranges;
-  const sorted = [...ranges].sort((a, b) => a.start - b.start);
-  const merged: MatchHighlight[] = [];
-  let current = { ...sorted[0] };
-
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].start <= current.end) {
-      current.end = Math.max(current.end, sorted[i].end);
-    } else {
-      merged.push(current);
-      current = { ...sorted[i] };
-    }
-  }
-  merged.push(current);
-  return merged;
-}
-
-function escapeRegExp(string: string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Calculates Levenshtein distance for typo tolerance
- */
-export function levenshteinDistance(a: string, b: string): number {
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
-
-  const matrix: number[][] = [];
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
-  }
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
-  }
-
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
-        );
-      }
-    }
-  }
-
-  return matrix[b.length][a.length];
+  return getSearchMatchRanges(text, query);
 }
 
 /**

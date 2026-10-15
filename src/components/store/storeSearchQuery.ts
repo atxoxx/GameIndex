@@ -1,5 +1,11 @@
 import { useSyncExternalStore } from "react";
 import { STORE_SEARCH_QUERY_PARAM as PARAM } from "../../types/game";
+import {
+  foldSearchText,
+  searchTokenMatches,
+  tokenizeSearchQuery as sharedTokenizeSearchQuery,
+} from "../../utils/search";
+import type { StoreGameSummary } from "../../types/game";
 
 /**
  * Tiny external store for the live Store search query.
@@ -43,14 +49,44 @@ export function useStoreSearchQuery(): string {
 
 /**
  * Split a free-text query into normalized tokens.
- * Lower-cases, trims, splits on whitespace. Empty query → [].
- * Shared single source of truth for Store local search (mirrors
- * libraryFilters.ts tokenization) so grid and suggestions agree on
- * what constitutes a token.
+ * Folds case, diacritics, punctuation, ligatures, "&"/"and", "&"/"plus" and
+ * collapses whitespace — the shared engine's canonical form. Empty query → [].
+ * Shared single source of truth for Store local search so grid, suggestions
+ * and highlighting all agree on what constitutes a token.
  */
 export function tokenizeSearchQuery(query: string): string[] {
-  if (!query) return [];
-  return query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  return sharedTokenizeSearchQuery(query);
+}
+
+// ─── Suggestion grouping ──────────────────────────────────────────────────
+
+/**
+ * Bucket a store suggestion into title / genre / platform using the shared
+ * matcher, so accent/punctuation/roman variations classify consistently.
+ * `tokens` are assumed already folded (see `tokenizeSearchQuery`).
+ */
+export function classifyStoreSuggestion(
+  g: StoreGameSummary,
+  tokens: string[],
+  foldedQuery: string
+): "title" | "genre" | "platform" {
+  const name = foldSearchText(g.name || "");
+  if (foldedQuery && name.includes(foldedQuery)) return "title";
+  if (
+    tokens.some(
+      (tok) => name.includes(tok) || name.split(" ").some((word) => searchTokenMatches(tok, word))
+    )
+  ) {
+    return "title";
+  }
+
+  const genres = (g.genres ?? []).map(foldSearchText).filter(Boolean);
+  if (tokens.some((tok) => genres.some((field) => field.includes(tok)))) return "genre";
+
+  const platforms = (g.platforms ?? []).map(foldSearchText).filter(Boolean);
+  if (tokens.some((tok) => platforms.some((field) => field.includes(tok)))) return "platform";
+
+  return "title";
 }
 
 // ─── URL sync foundation ──────────────────────────────────────────────────

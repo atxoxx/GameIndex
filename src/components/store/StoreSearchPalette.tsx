@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSearchSuggestions } from "../../hooks/useSearchSuggestions";
 import StoreHighlightText from "./StoreHighlightText";
-import { tokenizeSearchQuery } from "./storeSearchQuery";
+import { tokenizeSearchQuery, classifyStoreSuggestion } from "./storeSearchQuery";
+import { foldSearchText } from "../../utils/search";
 import { STORE_POPULAR_SEARCHES, type StoreGameSummary } from "../../types/game";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
 
@@ -14,16 +15,9 @@ interface StoreSearchPaletteProps {
 function classifySuggestion(
   g: StoreGameSummary,
   tokens: string[],
-  qLower: string
+  foldedQuery: string
 ): "title" | "genre" | "platform" {
-  const nameLower = (g.name || "").toLowerCase();
-  if (qLower && nameLower.includes(qLower)) return "title";
-  if (tokens.some((tok) => nameLower.includes(tok))) return "title";
-  const genresLower = (g.genres ?? []).map((s) => s.toLowerCase());
-  if (tokens.some((tok) => genresLower.some((ge) => ge.includes(tok)))) return "genre";
-  const platformsLower = (g.platforms ?? []).map((s) => s.toLowerCase());
-  if (tokens.some((tok) => platformsLower.some((pl) => pl.includes(tok)))) return "platform";
-  return "title";
+  return classifyStoreSuggestion(g, tokens, foldedQuery);
 }
 
 export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProps) {
@@ -37,7 +31,7 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
   const { suggestions, loading } = useSearchSuggestions(query, open);
 
   const trimmed = query.trim();
-  const qLower = trimmed.toLowerCase();
+  const qLower = foldSearchText(trimmed);
   const tokens = useMemo(() => tokenizeSearchQuery(trimmed), [trimmed]);
 
   const groups = useMemo(() => {

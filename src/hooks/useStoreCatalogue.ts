@@ -22,6 +22,7 @@ import type {
   ViewDensity,
 } from "../types/game";
 import { tokenizeSearchQuery } from "../components/store/storeSearchQuery";
+import { foldSearchText, searchTokenMatches } from "../utils/search";
 import {
   parseStoreSearchQuery,
   getStoreSearchQueryFromSearchParams,
@@ -41,101 +42,87 @@ const MAX_AUTO_EMPTY_FETCHES = 3;
 
 // ─── Tokenized + expanded fields helpers ───────────────────────────────────
 
-function getStoreGameSearchFieldsLower(g: StoreGameSummary): string[] {
+/** Every searchable field of a store game, folded to the shared canonical form. */
+function getStoreGameSearchFields(g: StoreGameSummary): string[] {
   const fields: string[] = [];
-  if (g.name) fields.push(g.name.toLowerCase());
-  if (g.summary) fields.push(g.summary.toLowerCase());
-  for (const x of g.genres ?? []) if (x) fields.push(x.toLowerCase());
-  for (const x of g.platforms ?? []) if (x) fields.push(x.toLowerCase());
+  const add = (value: unknown) => {
+    if (value == null) return;
+    const folded = foldSearchText(String(value));
+    if (folded) fields.push(folded);
+  };
+  add(g.name);
+  add(g.summary);
+  for (const x of g.genres ?? []) add(x);
+  for (const x of g.platforms ?? []) add(x);
   const anyG = g as unknown as Record<string, unknown>;
-  const themes = anyG["themes"] as string[] | undefined;
-  if (Array.isArray(themes)) for (const x of themes) if (x) fields.push(String(x).toLowerCase());
-  const gameModes = anyG["gameModes"] as string[] | undefined;
-  if (Array.isArray(gameModes)) for (const x of gameModes) if (x) fields.push(String(x).toLowerCase());
-  const alt = anyG["alternativeNames"] as string[] | undefined;
-  if (Array.isArray(alt)) for (const x of alt) if (x) fields.push(String(x).toLowerCase());
-  const coll = anyG["collection"] as string | null | undefined;
-  if (coll) fields.push(String(coll).toLowerCase());
-  const fr = anyG["franchise"] as string | null | undefined;
-  if (fr) fields.push(String(fr).toLowerCase());
-  const tags = anyG["tags"] as string[] | undefined;
-  if (Array.isArray(tags)) for (const x of tags) if (x) fields.push(String(x).toLowerCase());
+  for (const key of ["themes", "gameModes", "alternativeNames", "tags"]) {
+    const value = anyG[key];
+    if (Array.isArray(value)) for (const x of value) add(x);
+  }
+  add(anyG["collection"]);
+  add(anyG["franchise"]);
   return fields;
 }
 
-// Lightweight Levenshtein distance ≤1 check (early exit, no dep).
-function levenshteinLeq1(a: string, b: string): boolean {
-  if (a === b) return true;
-  const la = a.length, lb = b.length;
-  if (Math.abs(la - lb) > 1) return false;
-  // Single char diff
-  let i = 0, j = 0, edits = 0;
-  while (i < la && j < lb) {
-    if (a[i] === b[j]) { i++; j++; }
-    else {
-      if (edits === 1) return false;
-      edits++;
-      if (la > lb) i++;
-      else if (lb > la) j++;
-      else { i++; j++; }
-    }
-  }
-  if (i < la || j < lb) edits++;
-  return edits <= 1;
+/** True when a folded token hits a folded field (word-equivalent or substring). */
+function foldedFieldHasToken(field: string, token: string): boolean {
+  if (field.includes(token)) return true;
+  return field.split(" ").some((word) => searchTokenMatches(token, word));
 }
 
-function isFuzzyTitleMatch(nameLower: string, tokens: string[]): boolean {
-  if (!nameLower || tokens.length === 0) return false;
-  const titleWords = nameLower.split(/[\W_]+/).filter(Boolean);
-  if (titleWords.length === 0) return false;
-  // Every query token must fuzzy-match some title word (AND)
-  return tokens.every((tok) =>
-    titleWords.some((w) => levenshteinLeq1(tok, w) || w.startsWith(tok) || tok.startsWith(w))
-  );
+/** True when every query token matches somewhere across the fields (AND). */
+function allTokensInFields(tokens: string[], fields: string[]): boolean {
+  if (tokens.length === 0) return false;
+  return tokens.every((token) => fields.some((field) => foldedFieldHasToken(field, token)));
+}
+
+/** Fuzzy title match: every query token matches some word of the title. */
+function titleTokenMatch(nameFolded: string, tokens: string[]): boolean {
+  if (!nameFolded || tokens.length === 0) return false;
+  const words = nameFolded.split(" ").filter(Boolean);
+  if (words.length === 0) return false;
+  return tokens.every((token) => words.some((word) => searchTokenMatches(token, word)));
 }
 
 /**
- * Tier score for a store game given query + tokens.
+ * Tier score for a store game given the folded query + folded tokens.
  * 0 exact title → 1 prefix → 2 substring → 3 genre → 4 platform → 5 summary/expanded → 6 fuzzy
  */
-function getStoreRelevanceScore(g: StoreGameSummary, qLower: string, tokens: string[]): number {
-  const nameLower = (g.name || "").toLowerCase();
-  if (nameLower === qLower) return 0;
-  if (qLower && nameLower.startsWith(qLower)) return 1;
-  if (qLower && nameLower.includes(qLower)) return 2;
+function getStoreRelevanceScore(g: StoreGameSummary, qFolded: string, tokens: string[]): number {
+  const nameFolded = foldSearchText(g.name || "");
+  if (qFolded && nameFolded === qFolded) return 0;
+  if (qFolded && nameFolded.startsWith(qFolded)) return 1;
+  if (qFolded && nameFolded.includes(qFolded)) return 2;
 
-  const genreLowers = (g.genres ?? []).map((x) => x.toLowerCase());
-  if (tokens.length > 0 && tokens.every((tok) => genreLowers.some((f) => f.includes(tok)))) return 3;
+  const genreFields = (g.genres ?? []).map(foldSearchText).filter(Boolean);
+  if (allTokensInFields(tokens, genreFields)) return 3;
 
-  const platformLowers = (g.platforms ?? []).map((x) => x.toLowerCase());
-  if (tokens.length > 0 && tokens.every((tok) => platformLowers.some((f) => f.includes(tok)))) return 4;
+  const platformFields = (g.platforms ?? []).map(foldSearchText).filter(Boolean);
+  if (allTokensInFields(tokens, platformFields)) return 4;
 
   const anyG = g as unknown as Record<string, unknown>;
   const expanded: string[] = [];
-  if (g.summary) expanded.push(g.summary.toLowerCase());
-  const themes = anyG["themes"] as string[] | undefined;
-  if (Array.isArray(themes)) for (const x of themes) if (x) expanded.push(String(x).toLowerCase());
-  const gameModes = anyG["gameModes"] as string[] | undefined;
-  if (Array.isArray(gameModes)) for (const x of gameModes) if (x) expanded.push(String(x).toLowerCase());
-  const alt = anyG["alternativeNames"] as string[] | undefined;
-  if (Array.isArray(alt)) for (const x of alt) if (x) expanded.push(String(x).toLowerCase());
-  const coll = anyG["collection"] as string | null | undefined;
-  if (coll) expanded.push(String(coll).toLowerCase());
-  const fr = anyG["franchise"] as string | null | undefined;
-  if (fr) expanded.push(String(fr).toLowerCase());
-  const tags = anyG["tags"] as string[] | undefined;
-  if (Array.isArray(tags)) for (const x of tags) if (x) expanded.push(String(x).toLowerCase());
+  const addExpanded = (value: unknown) => {
+    if (value == null) return;
+    const folded = foldSearchText(String(value));
+    if (folded) expanded.push(folded);
+  };
+  addExpanded(g.summary);
+  for (const key of ["themes", "gameModes", "alternativeNames", "tags"]) {
+    const value = anyG[key];
+    if (Array.isArray(value)) for (const x of value) addExpanded(x);
+  }
+  addExpanded(anyG["collection"]);
+  addExpanded(anyG["franchise"]);
+  if (allTokensInFields(tokens, expanded)) return 5;
 
-  if (tokens.length > 0 && tokens.every((tok) => expanded.some((f) => f.includes(tok)))) return 5;
+  if (titleTokenMatch(nameFolded, tokens)) return 6;
 
-  if (isFuzzyTitleMatch(nameLower, tokens)) return 6;
+  // Cross-field fallback: every token still appears somewhere → expanded tier
+  // so tokenized AND filtering still returns the game.
+  if (allTokensInFields(tokens, getStoreGameSearchFields(g))) return 5;
 
-  // Cross-field fallback: if we reached here but every token still appears somewhere across all fields,
-  // treat as expanded tier (5) so tokenized AND filtering still returns the game.
-  const allFields = getStoreGameSearchFieldsLower(g);
-  if (tokens.length > 0 && tokens.every((tok) => allFields.some((f) => f.includes(tok)))) return 5;
-
-  return 999; // unreachable for filtered set
+  return 999; // unreachable for the filtered set
 }
 
 // Re-export for testing / external use
@@ -152,16 +139,16 @@ export function localSearchGames(
   query: string
 ): StoreGameSummary[] {
   const tokens = tokenizeSearchQuery(query);
-  const qLower = query.trim().toLowerCase();
-  if (!qLower || tokens.length === 0) return [];
+  const qFolded = foldSearchText(query);
+  if (!qFolded || tokens.length === 0) return [];
   const scored: { game: StoreGameSummary; score: number; idx: number }[] = [];
   for (let idx = 0; idx < games.length; idx++) {
     const g = games[idx];
-    const allFields = getStoreGameSearchFieldsLower(g);
-    const everyTokenMatches = tokens.every((tok) => allFields.some((f) => f.includes(tok)));
-    const fuzzyOk = !everyTokenMatches && isFuzzyTitleMatch((g.name || "").toLowerCase(), tokens);
+    const allFields = getStoreGameSearchFields(g);
+    const everyTokenMatches = allTokensInFields(tokens, allFields);
+    const fuzzyOk = !everyTokenMatches && titleTokenMatch(foldSearchText(g.name || ""), tokens);
     if (!everyTokenMatches && !fuzzyOk) continue;
-    const score = getStoreRelevanceScore(g, qLower, tokens);
+    const score = getStoreRelevanceScore(g, qFolded, tokens);
     if (score === 999) continue;
     scored.push({ game: g, score, idx });
   }

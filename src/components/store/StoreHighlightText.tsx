@@ -1,9 +1,5 @@
 import { Fragment } from "react";
-
-/** Escape regex metacharacters so a user query is treated as literal text. */
-function escapeRegExp(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+import { getSearchHighlightSegments } from "../../utils/search";
 
 interface StoreHighlightTextProps {
   text: string;
@@ -15,65 +11,34 @@ interface StoreHighlightTextProps {
 }
 
 /**
- * Presentational helper: renders `text` with every case-insensitive
- * occurrence of each token in `query` wrapped in `<mark class="store-highlight">`.
- * Used on suggestion names (`StoreSearchBar`), game-card titles
- * (`StoreGameCard`) and genre/platform badges so the user sees exactly
- * where their search terms hit.
+ * Presentational helper: renders `text` with every occurrence of the search
+ * tokens wrapped in `<mark class="store-highlight">`.
  *
- * Tokenized: `query` is split on whitespace, each token escaped and
- * joined into an alternation regex (`token1|token2|…`). Longest tokens
- * are placed first so a query like "a ab" correctly highlights "ab"
- * as a whole rather than just its "a" prefix. Matching is case-insensitive.
+ * Uses the shared search engine so highlighting stays aligned with matching —
+ * it folds diacritics, punctuation, apostrophes and ligatures and maps the
+ * ranges back onto the original string (e.g. "pokemon" underlines "Pokémon").
+ * Used on suggestion names, game-card titles and genre/platform badges.
  *
- * Deliberately display-only: it never inspects or transforms data, so
- * callers keep using the raw string for lookups (crackwatch/price hooks,
- * `aria-label`, `title` attributes, etc.). `String.prototype.split` with a
- * capturing group keeps the matched parts at the odd indices; the segment
- * list is deterministic for a given (text, query), so React keys stay
- * stable across re-renders.
+ * Deliberately display-only: it never inspects or transforms data, so callers
+ * keep using the raw string for lookups. The segment list is deterministic for
+ * a given (text, query), so React keys stay stable across re-renders.
  */
 export default function StoreHighlightText({ text, query }: StoreHighlightTextProps) {
   const raw = query?.trim();
   if (!raw) return <Fragment>{text}</Fragment>;
 
-  // Tokenize on whitespace, deduplicate case-insensitively, sort longest-first
-  const rawTokens = raw.split(/\s+/).filter(Boolean);
-  if (rawTokens.length === 0) return <Fragment>{text}</Fragment>;
-
-  const seen = new Set<string>();
-  const uniqueTokens: string[] = [];
-  for (const tok of rawTokens) {
-    const low = tok.toLowerCase();
-    if (!seen.has(low)) {
-      seen.add(low);
-      uniqueTokens.push(tok);
-    }
-  }
-  // Longest first ensures "elden ring" style alternation prefers full tokens
-  uniqueTokens.sort((a, b) => b.length - a.length);
-
-  const escapedTokens = uniqueTokens.map(escapeRegExp).filter(Boolean);
-  if (escapedTokens.length === 0) return <Fragment>{text}</Fragment>;
-
-  const pattern = escapedTokens.join("|");
-  // Capturing group preserves matches as odd-indexed splits
-  const regex = new RegExp(`(${pattern})`, "gi");
-
-  const parts = text.split(regex);
-  // If no split (no match), avoid extra work — return plain text
-  // `split` with capturing group returns [text] when no match
-  if (parts.length === 1) return <Fragment>{text}</Fragment>;
+  const segments = getSearchHighlightSegments(text, raw);
+  if (segments.length === 1 && !segments[0].highlight) return <Fragment>{text}</Fragment>;
 
   return (
     <Fragment>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <mark key={`${i}-${part}`} className="store-highlight">
-            {part}
+      {segments.map((segment, i) =>
+        segment.highlight ? (
+          <mark key={`${i}-${segment.text}`} className="store-highlight">
+            {segment.text}
           </mark>
         ) : (
-          <Fragment key={`${i}-${part}`}>{part}</Fragment>
+          <Fragment key={`${i}-${segment.text}`}>{segment.text}</Fragment>
         )
       )}
     </Fragment>

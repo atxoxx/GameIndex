@@ -2,7 +2,8 @@ import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSearchSuggestions } from "../../hooks/useSearchSuggestions";
 import StoreHighlightText from "./StoreHighlightText";
-import { publishSearchQuery, tokenizeSearchQuery } from "./storeSearchQuery";
+import { publishSearchQuery, tokenizeSearchQuery, classifyStoreSuggestion } from "./storeSearchQuery";
+import { foldSearchText } from "../../utils/search";
 import { STORE_POPULAR_SEARCHES, type StoreGameSummary } from "../../types/game";
 
 interface StoreSearchBarProps {
@@ -36,16 +37,9 @@ interface StoreSearchBarProps {
 function classifySuggestion(
   g: StoreGameSummary,
   tokens: string[],
-  qLower: string
+  foldedQuery: string
 ): "title" | "genre" | "platform" {
-  const nameLower = (g.name || "").toLowerCase();
-  if (qLower && nameLower.includes(qLower)) return "title";
-  if (tokens.some((tok) => nameLower.includes(tok))) return "title";
-  const genresLower = (g.genres ?? []).map((s) => s.toLowerCase());
-  if (tokens.some((tok) => genresLower.some((ge) => ge.includes(tok)))) return "genre";
-  const platformsLower = (g.platforms ?? []).map((s) => s.toLowerCase());
-  if (tokens.some((tok) => platformsLower.some((pl) => pl.includes(tok)))) return "platform";
-  return "title";
+  return classifyStoreSuggestion(g, tokens, foldedQuery);
 }
 
 export default function StoreSearchBar({
@@ -129,7 +123,7 @@ export default function StoreSearchBar({
     focused && trimmed.length < 2 && (recentSearches.length > 0 || STORE_POPULAR_SEARCHES.length > 0);
 
   // Grouped suggestions derived from tokens
-  const qLower = trimmed.toLowerCase();
+  const qLower = foldSearchText(trimmed);
   const tokens = useMemo(() => tokenizeSearchQuery(trimmed), [trimmed]);
 
   const groups = useMemo(() => {

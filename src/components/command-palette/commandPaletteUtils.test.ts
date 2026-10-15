@@ -167,6 +167,22 @@ describe("commandPaletteUtils", () => {
         expect(r.start).toBeLessThan(r.end);
       });
     });
+
+    it("matches across diacritics, apostrophes, ampersands and numerals", () => {
+      expect(scoreMatch("pokemon", "Pokémon Violet")).toBeGreaterThan(0);
+      expect(scoreMatch("toms", "Tom's Game")).toBeGreaterThan(0);
+      expect(scoreMatch("assassins creed", "Assassin's Creed Shadows")).toBeGreaterThan(0);
+      expect(scoreMatch("rock and roll", "Rock & Roll Racing")).toBeGreaterThan(0);
+      expect(scoreMatch("gta 5", "GTA V")).toBeGreaterThan(0);
+      expect(scoreMatch("mafia 3", "Mafia III")).toBeGreaterThan(0);
+    });
+
+    it("highlights matches that sit behind diacritics/punctuation", () => {
+      const ranges = getMatchRanges("Pokémon Violet", "pokemon");
+      expect(ranges).toEqual([{ start: 0, end: 7 }]);
+      const ranges2 = getMatchRanges("Assassin's Creed", "assassins");
+      expect(ranges2).toEqual([{ start: 0, end: 10 }]);
+    });
   });
 
   describe("evaluateExpression (Calculator & Unit Converter)", () => {
