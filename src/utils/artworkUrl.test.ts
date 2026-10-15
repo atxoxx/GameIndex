@@ -5,6 +5,7 @@ import {
   toWebviewAssetUrl,
   normalizeGameArtworkUrls,
   safeArtworkUrl,
+  thumbVariantUrl,
   resolveGameLogo,
 } from "./artworkUrl";
 
@@ -111,6 +112,31 @@ describe("safeArtworkUrl", () => {
     expect(safeArtworkUrl("C:\\games\\icon.png")).toBe(
       "asset://localhost/" + encodeURIComponent("C:\\games\\icon.png")
     );
+  });
+});
+
+describe("thumbVariantUrl", () => {
+  it("rewrites a local grid cover to its _thumb.webp sibling", () => {
+    expect(thumbVariantUrl("asset://localhost/artwork/g1/cover.png")).toBe(
+      "asset://localhost/artwork/g1/cover_thumb.webp"
+    );
+    expect(thumbVariantUrl("http://asset.localhost/artwork/g1/banner.jpg")).toBe(
+      "http://asset.localhost/artwork/g1/banner_thumb.webp"
+    );
+  });
+
+  it("handles percent-encoded Windows separators from convertFileSrc", () => {
+    const url = "asset://localhost/" + encodeURIComponent("C:\\app\\artwork\\g1\\cover.jpg");
+    expect(thumbVariantUrl(url)).toBe(
+      "asset://localhost/" + encodeURIComponent("C:\\app\\artwork\\g1\\") + "cover_thumb.webp"
+    );
+  });
+
+  it("returns null for remote, non-grid, or empty URLs", () => {
+    expect(thumbVariantUrl("https://cdn.example.com/cover.jpg")).toBeNull();
+    expect(thumbVariantUrl("asset://localhost/artwork/g1/logo.png")).toBeNull();
+    expect(thumbVariantUrl(undefined)).toBeNull();
+    expect(thumbVariantUrl(null)).toBeNull();
   });
 });
 

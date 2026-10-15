@@ -194,6 +194,11 @@ obfstr = "0.4"
 # format. The PNG path stays hand-rolled (no decoder/encoder dep); this only
 # covers the optional lossy format so screenshots can be a fraction of the size.
 jpeg-encoder = "0.6"
+# Decode + downscale for grid-artwork thumbnails (Lanczos3). Only the codecs
+# the artwork store ingests are enabled so the dependency graph stays small.
+# `image`'s WebP encoder is lossless-only, which is fine here: a 300x450
+# thumbnail is cheap on disk and the point is reducing the decoded bitmap.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
 # === Security patches ===
 # `librqbit` 9.0.1 (the newest release) depends on `librqbit-utp` 0.7.0,

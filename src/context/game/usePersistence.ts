@@ -51,6 +51,9 @@ export function usePersistence(options: {
           // Pass game refs so the background poll loop can match
           // running processes to known games (excluding untracked ones).
           syncWatcherIndex(normalized, untrackedGameIdsRef.current);
+          // Backfill grid thumbnails for covers written before the artwork
+          // store generated them. Idempotent; a failure is non-fatal.
+          void invoke("ensure_artwork_thumbnails").catch(() => undefined);
         }
       })
       .catch((err) => console.error("Failed to load games:", err))

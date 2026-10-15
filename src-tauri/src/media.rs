@@ -158,6 +158,14 @@ pub fn artwork_asset_url(app: tauri::AppHandle, relative_path: String) -> Result
     Ok(tauri::Url::from_file_path(path).map_err(|_| "Invalid artwork path".to_string())?.to_string())
 }
 
+/// Backfill grid-artwork thumbnails for artwork already on disk. Called once
+/// after the library loads; idempotent and returns the number written.
+#[tauri::command]
+pub fn ensure_artwork_thumbnails(app: tauri::AppHandle) -> Result<usize, String> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(crate::db::artwork::ensure_thumbnails(&root))
+}
+
 /// Store a selected local image in the artwork directory.
 #[tauri::command]
 pub fn store_artwork_file(

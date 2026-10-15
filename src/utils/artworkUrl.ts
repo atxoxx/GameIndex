@@ -94,6 +94,42 @@ export function safeArtworkUrl(u: string | undefined | null): string | null {
   }
 }
 
+const THUMB_BASENAME = /^(cover|banner|hero)\.([a-z0-9]+)$/i;
+
+/**
+ * Rewrite a disk-backed grid artwork URL to its downscaled `_thumb.webp`
+ * sibling (e.g. `.../cover.jpg` → `.../cover_thumb.webp`), the variant the
+ * backend writes alongside the full-resolution file. Returns null when the
+ * URL is not a local asset — remote CDN covers have no on-disk thumbnail.
+ */
+export function thumbVariantUrl(url: string | undefined | null): string | null {
+  if (!url || typeof url !== "string") return null;
+  const isLocalAsset =
+    url.startsWith("asset:") ||
+    url.startsWith("asset.localhost/") ||
+    url.startsWith("http://asset.localhost/") ||
+    url.startsWith("https://asset.localhost/") ||
+    /^[a-zA-Z]:[\\/]/.test(url) ||
+    url.startsWith("/");
+  if (!isLocalAsset) return null;
+  // `convertFileSrc` percent-encodes the whole path on Windows, so a separator
+  // can be `/`, `\`, `%2F` (1 char) or `%5C` (3 chars). Track where the last
+  // one actually ends so the basename is sliced at the right offset.
+  const separators: ReadonlyArray<readonly [number, number]> = [
+    [url.lastIndexOf("/"), 1],
+    [url.lastIndexOf("\\"), 1],
+    [url.lastIndexOf("%5C"), 3],
+    [url.lastIndexOf("%2F"), 3],
+  ];
+  let sepEnd = 0;
+  for (const [start, len] of separators) {
+    if (start >= 0 && start + len > sepEnd) sepEnd = start + len;
+  }
+  const base = url.slice(sepEnd);
+  if (!THUMB_BASENAME.test(base)) return null;
+  return `${url.slice(0, sepEnd)}${base.replace(/\.[a-z0-9]+$/i, "_thumb.webp")}`;
+}
+
 /**
  * Resolve an official clear logo URL for a game, checking `game.logoUrl`
  * first, and falling back to the canonical Steam CDN logo if the game

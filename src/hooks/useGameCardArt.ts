@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, type SyntheticEvent } from "react";
 import { useSteamGridArt } from "../context/SteamGridDbContext";
 import { useAnimatedMediaEnabled } from "../context/SettingsContext";
+import { thumbVariantUrl } from "../utils/artworkUrl";
 import {
   extractSteamAppId,
   extractSteamAppIdFromWebsites,
@@ -107,6 +108,7 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
   const [sgdbStaticFailed, setSgdbStaticFailed] = useState(false);
   const [sgdbIconFailed, setSgdbIconFailed] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
+  const [coverThumbFailed, setCoverThumbFailed] = useState(false);
   const [iconFailed, setIconFailed] = useState(false);
 
   const steamAppId = useMemo(
@@ -119,6 +121,7 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
     setSgdbStaticFailed(false);
     setSgdbIconFailed(false);
     setCoverFailed(false);
+    setCoverThumbFailed(false);
     setIconFailed(false);
   }, [steamAppId, game]);
 
@@ -130,13 +133,23 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
   const animatedMediaEnabled = useAnimatedMediaEnabled();
 
   // Extract base assets
-  const ownCover = useMemo(() => {
+  const ownCoverFull = useMemo(() => {
     if (defaultCoverUrl) return defaultCoverUrl;
     if (!game) return null;
     if ("coverArtUrl" in game && game.coverArtUrl) return game.coverArtUrl;
     if ("coverUrl" in game && game.coverUrl) return game.coverUrl;
     return null;
   }, [defaultCoverUrl, game]);
+
+  // Grid/list cards render the downscaled thumbnail (a 600x900 poster decoded
+  // into a 200px box wastes most of its bitmap). Detail surfaces read the
+  // full-resolution field directly. A missing thumbnail falls back to the
+  // original via `handleError`.
+  const ownCoverThumb = useMemo(
+    () => (coverThumbFailed ? null : thumbVariantUrl(ownCoverFull)),
+    [ownCoverFull, coverThumbFailed]
+  );
+  const ownCover = ownCoverThumb ?? ownCoverFull;
 
   const ownIcon = useMemo(() => {
     if (defaultIconUrl) return defaultIconUrl;
@@ -211,6 +224,12 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
         setSgdbIconFailed(true);
         return;
       }
+      if (ownCoverThumb && (src === ownCoverThumb || src.includes(ownCoverThumb))) {
+        // Thumbnail missing on disk (e.g. not backfilled yet) — fall back to
+        // the full-resolution cover rather than showing a placeholder.
+        setCoverThumbFailed(true);
+        return;
+      }
       if (ownIcon && (src === ownIcon || src.includes(ownIcon))) {
         setIconFailed(true);
         return;
@@ -230,7 +249,7 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
 
       setCoverFailed(true);
     },
-    [sgdbAnimated, sgdbStatic, sgdbIcon, ownIcon, steamAppId]
+    [sgdbAnimated, sgdbStatic, sgdbIcon, ownCoverThumb, ownIcon, steamAppId]
   );
 
   return {
