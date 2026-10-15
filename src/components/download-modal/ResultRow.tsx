@@ -11,6 +11,7 @@ import {
 import { highlightSegments, type ParsedQuery } from "./searchQuery";
 import { ReliabilityBadge } from "./ReliabilityBadge";
 import type { SourceReliability } from "./reliability";
+import { accentForPlatform } from "../../types/emulator";
 
 export function ResultRow({
   match,
@@ -45,6 +46,7 @@ export function ResultRow({
 }) {
   const { t, language } = useLanguage();
   const isPlugin = match.provider === "plugin";
+  const platformAccent = match.platform ? accentForPlatform(match.platform) : null;
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const score = match.matchScore;
@@ -118,6 +120,7 @@ export function ResultRow({
       role="button"
       tabIndex={0}
       className={`dl-result-card${selected ? " selected" : ""}${batchChecked ? " is-batch-checked" : ""}`}
+      style={platformAccent ? ({ "--dl-platform-accent": platformAccent } as React.CSSProperties) : undefined}
       onClick={() => onSelect(match.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
