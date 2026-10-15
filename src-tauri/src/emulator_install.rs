@@ -814,6 +814,7 @@ pub async fn start_emulator_install(
         None,
         None,
         None,
+        None,
     )
     .await
 }

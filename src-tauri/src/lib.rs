@@ -251,6 +251,8 @@ pub fn run() {
             downloads::torrent_open_folder,
             downloads::download_set_seed_config,
             downloads::download_set_seed_limits,
+            downloads::download_get_settings,
+            downloads::download_set_settings,
             downloads::download_set_seeding,
             downloads::download_set_priority,
             downloads::download_retry,

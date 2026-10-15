@@ -146,6 +146,7 @@ pub async fn run_direct_download(
     manager_weak: WeakManager,
     generation: u64,
     worker_lock: Arc<tokio::sync::Mutex<()>>,
+    segments: u32,
 ) {
     // ── C1 single-writer invariant ────────────────────────────────
     // We hold the per-download worker lock for our entire lifetime
@@ -229,30 +230,41 @@ pub async fn run_direct_download(
             if is_superseded(&manager_weak, &id, generation).await {
                 return;
             }
-            match attempt_download(
-                &client,
-                &id,
-                &effective_url,
-                &current_save_path,
-                &bytes_counter,
-                0,
-                true,
-                &manager_weak,
-                &request_headers,
-                referer.as_deref(),
-                generation,
-            )
-            .await
-            {
+            let outcome = if segments > 1 {
+                attempt_segmented_download(
+                    &client,
+                    &id,
+                    &effective_url,
+                    &current_save_path,
+                    &bytes_counter,
+                    0,
+                    true,
+                    &manager_weak,
+                    &request_headers,
+                    referer.as_deref(),
+                    generation,
+                    segments,
+                )
+                .await
+            } else {
+                attempt_download(
+                    &client,
+                    &id,
+                    &effective_url,
+                    &current_save_path,
+                    &bytes_counter,
+                    0,
+                    true,
+                    &manager_weak,
+                    &request_headers,
+                    referer.as_deref(),
+                    generation,
+                )
+                .await
+            };
+            match outcome {
                 AttemptResult::Completed => {
-                    finalize_success(
-                        &manager_weak,
-                        &id,
-                        &current_save_path,
-                        &bytes_counter,
-                        generation,
-                    )
-                    .await;
+                    finalize_success(&manager_weak, &id, &bytes_counter, generation).await;
                     return;
                 }
                 AttemptResult::Aborted => return,
@@ -478,7 +490,7 @@ pub async fn run_debrid_files_download(
         mark_file_complete(&manager_weak, &id, idx, file_bytes).await;
     }
 
-    finalize_success(&manager_weak, &id, &save_dir, &bytes_counter, generation).await;
+    finalize_success(&manager_weak, &id, &bytes_counter, generation).await;
 }
 
 /// Mark one debrid file as fully downloaded in the record (used both when a
@@ -593,7 +605,6 @@ async fn finish_with_error(
 async fn finalize_success(
     manager_weak: &WeakManager,
     id: &str,
-    save_path: &str,
     bytes_counter: &Arc<AtomicU64>,
     generation: u64,
 ) {
@@ -603,9 +614,6 @@ async fn finalize_success(
     let Some(manager) = manager_weak.upgrade() else {
         return;
     };
-    let mut auto_extract = false;
-    let mut files_clone = Vec::new();
-    let mut name = String::new();
     let mut history_item: Option<Download> = None;
     {
         let mut guard = manager.write().await;
@@ -619,10 +627,7 @@ async fn finalize_success(
             item.upload_speed = 0;
             item.had_real_downloads = Some(true);
             item.completed_at = Some(unix_now());
-            auto_extract = item.auto_extract.unwrap_or(false);
-            item.extracted = Some(!auto_extract);
-            files_clone = item.files.clone();
-            name = item.name.clone();
+            item.extracted = Some(!item.auto_extract.unwrap_or(false));
             history_item = Some(item.clone());
         }
         guard.mark_dirty();
@@ -636,14 +641,8 @@ async fn finalize_success(
         guard.record_history(&item);
     }
 
-    if auto_extract {
-        manager::spawn_extraction(
-            id.to_string(),
-            save_path.to_string(),
-            name,
-            files_clone,
-        );
-    }
+    // Extraction + post-actions run off the caller's lock.
+    manager::queue_post_completion(id.to_string(), true);
 
     manager::on_download_finished(&manager, id).await;
 }

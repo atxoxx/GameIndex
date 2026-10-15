@@ -18,6 +18,7 @@ use crate::db::pool::Db;
 use super::extract;
 use super::http;
 use super::persistence;
+use super::post_actions::{self, DownloadSettings};
 use super::scheduler;
 use super::torrent;
 use super::types::{
@@ -110,6 +111,13 @@ pub struct DownloadManager {
     /// ("window" | "game"). Lets the matching resume restore exactly the
     /// records the trigger paused, never a user-paused one.
     pub automation_paused: HashMap<String, String>,
+    /// Engine-wide download preferences (multi-connection downloads and
+    /// the default post-action list).
+    pub settings: DownloadSettings,
+    /// Download ids whose post-actions already ran. Guarded in memory so a
+    /// re-entrant completion/failure report can't run an action twice; a
+    /// retry clears the flag.
+    pub post_action_ran: HashSet<String>,
 }
 
 impl DownloadManager {
@@ -143,6 +151,8 @@ impl DownloadManager {
             seed_time_limit_mins: 0,
             game_running: false,
             automation_paused: HashMap::new(),
+            settings: DownloadSettings::default(),
+            post_action_ran: HashSet::new(),
         }
     }
 
@@ -489,8 +499,6 @@ impl DownloadManager {
                 entries
             });
 
-            let mut to_extract: Vec<(String, String, String, Vec<super::types::DownloadFile>)> =
-                Vec::new();
             let mut to_delete: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
             let mut to_stop_seeding: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
             let mut to_record: Vec<Download> = Vec::new();
@@ -529,6 +537,7 @@ impl DownloadManager {
                 // Status reconciliation. States the MANAGER owns
                 // (Queued / Seeding / user-facing Error) are not
                 // overwritten by librqbit's view.
+                let was_error = matches!(d.status, DownloadStatus::Error(_));
                 let keep_manager_status = matches!(
                     d.status,
                     DownloadStatus::Queued | DownloadStatus::Seeding | DownloadStatus::Paused
@@ -652,21 +661,19 @@ impl DownloadManager {
                         d.should_seed = Some(false);
                         // Delete from the session to release file locks.
                         to_delete.push(entry.handle.clone());
-                        if auto_extract && !d.extracted.unwrap_or(false) {
-                            d.extracted = Some(true);
-                            to_extract.push((
-                                d.id.clone(),
-                                d.save_path.clone(),
-                                d.name.clone(),
-                                d.files.clone(),
-                            ));
-                        }
                     }
+                    // Extraction + post-actions run off the tick; deduped per
+                    // id so the seeding branch can't double-run them.
+                    queue_post_completion(d.id.clone(), true);
                     // Record AFTER the wants_seed branch so the ledger
                     // status is the final one (Completed or Seeding).
                     to_record.push(d.clone());
                 }
 
+                // ---- Failure transition (torrent errored this tick) ----
+                if !was_error && matches!(d.status, DownloadStatus::Error(_)) {
+                    queue_post_completion(d.id.clone(), false);
+                }
             }
 
             for handle in pause_sweep {
@@ -683,9 +690,6 @@ impl DownloadManager {
                 self.mark_dirty();
             }
 
-            for (id, save_path, name, files) in to_extract {
-                spawn_extraction(id, save_path, name, files);
-            }
             for handle in to_delete {
                 let session_clone = session.clone();
                 tokio::spawn(async move {
@@ -1038,9 +1042,13 @@ async fn begin_download(
     } else {
         0
     };
+    // A (re)start is a fresh attempt: allow post-actions to run again and
+    // clear the previous outcome note.
+    guard.post_action_ran.remove(id);
     let Some(d) = guard.downloads_mut().get_mut(id) else {
         return false;
     };
+    d.post_action_status = None;
     if d.status.is_active() {
         return true;
     }
@@ -1369,6 +1377,7 @@ async fn start_direct(manager: &SharedManager, id: &str) -> bool {
             );
             guard.mark_dirty();
             guard.emit_progress_force();
+            queue_post_completion(id.to_string(), false);
             return false;
         }
     }
@@ -1381,7 +1390,7 @@ async fn start_direct(manager: &SharedManager, id: &str) -> bool {
 /// write concurrently with a still-running predecessor (C1).
 /// Returns false when the record vanished before the spawn.
 pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
-    let (url, save_path, referer, counter, generation, lock) = {
+    let (url, save_path, referer, counter, generation, lock, segments) = {
         let mut guard = manager.write().await;
         let (source_uri, save_path, referer) = {
             let Some(d) = guard.downloads_mut().get_mut(id) else {
@@ -1389,6 +1398,7 @@ pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
             };
             (d.source_uri.clone(), d.save_path.clone(), d.referer.clone())
         };
+        let segments = guard.settings.effective_segments();
         let generation = {
             let e = guard.direct_generations.entry(id.to_string()).or_insert(0u64);
             *e += 1;
@@ -1403,7 +1413,7 @@ pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
             .entry(id.to_string())
             .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
             .clone();
-        (source_uri, save_path, referer, counter, generation, lock)
+        (source_uri, save_path, referer, counter, generation, lock, segments)
     };
 
     let weak = Arc::downgrade(manager);
@@ -1419,6 +1429,7 @@ pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
                 weak,
                 generation,
                 lock,
+                segments,
             )
             .await;
         });
@@ -1532,15 +1543,16 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
                 let Some(d) = guard.downloads_map().get(id) else {
                     return false;
                 };
+                let desired = guard.settings.effective_segments();
                 let (segments, url_refresher) = guard
                     .debrid_params
                     .get(id)
-                    .map(|(provider, apikey)| debrid_worker_options(provider, apikey))
+                    .map(|(provider, apikey)| debrid_worker_options(provider, apikey, desired))
                     .or_else(|| {
                         let p = guard.default_debrid_provider.as_deref()?;
                         let k = guard.default_debrid_apikey.as_deref()?;
                         if !p.is_empty() && !k.is_empty() {
-                            Some(debrid_worker_options(p, k))
+                            Some(debrid_worker_options(p, k, desired))
                         } else {
                             None
                         }
@@ -1891,12 +1903,17 @@ async fn run_debrid_flow(
             // Same worker machinery as start_direct (generation + lock),
             // so a pause/remove during the debrid HTTP phase is safe.
             //
-            // AllDebrid unlock links expire after hours. The refresher lets the
+            // Debrid unlock links expire after hours. The refresher lets the
             // HTTP worker re-unlock a file's original URL before retrying, so a long or
             // stalled download resumes against a live link instead of a dead one.
-            // Segmented (8-stream) downloads match AllDebrid's documented IDM/FDM
-            // recommendation (8 connections/file); other providers stay single-connection.
-            let (segments, url_refresher) = debrid_worker_options(&provider, &apikey);
+            // Segmented downloads use the engine-wide connection count (default 8);
+            // the HTTP layer probes `Range` support and falls back to a single
+            // stream when a server ignores it.
+            let desired = {
+                let guard = manager.read().await;
+                guard.settings.effective_segments()
+            };
+            let (segments, url_refresher) = debrid_worker_options(&provider, &apikey, desired);
             spawn_debrid_files_worker(&manager, &id, files, None, 0, segments, url_refresher)
                 .await;
             return;
@@ -2021,13 +2038,16 @@ fn filename_from_url(url: &str) -> String {
     }
 }
 
-/// Download-segment count for a debrid provider (0 = single connection).
-/// AllDebrid officially recommends 8 connections per file.
-fn segments_for(provider: &str) -> u32 {
-    if provider == "alldebrid" {
-        super::http::SEGMENT_COUNT
-    } else {
+/// Resolve the debrid segment count from the engine preference (`desired`,
+/// the configured connections-per-file, already clamped; `<= 1` means
+/// single-connection). 0 disables segmentation. Every provider is allowed
+/// here — `attempt_segmented_download` probes `Range` support and falls
+/// back to one stream when the server ignores it or the file is too small.
+fn segments_for(_provider: &str, desired: u32) -> u32 {
+    if desired <= 1 {
         0
+    } else {
+        desired
     }
 }
 
@@ -2037,8 +2057,9 @@ fn segments_for(provider: &str) -> u32 {
 fn debrid_worker_options(
     provider: &str,
     apikey: &str,
+    desired_segments: u32,
 ) -> (u32, Option<Arc<super::http::UrlRefresher>>) {
-    let segs = segments_for(provider);
+    let segs = segments_for(provider, desired_segments);
     let apikey = apikey.to_string();
     let refresher: Arc<super::http::UrlRefresher> = match provider {
         "alldebrid" => Arc::new(move |_url: String, orig_url: String| {
@@ -2089,13 +2110,21 @@ fn debrid_worker_options(
 
 /// Mark a download as errored and free the active slot.
 pub async fn fail_download(manager: &SharedManager, id: &str, err: String) {
-    let mut guard = manager.write().await;
-    if let Some(d) = guard.downloads_mut().get_mut(id) {
-        d.status = DownloadStatus::Error(err);
-        d.download_speed = 0;
+    let newly_failed = {
+        let mut guard = manager.write().await;
+        let mut newly_failed = false;
+        if let Some(d) = guard.downloads_mut().get_mut(id) {
+            newly_failed = !matches!(d.status, DownloadStatus::Error(_));
+            d.status = DownloadStatus::Error(err);
+            d.download_speed = 0;
+        }
+        guard.mark_dirty();
+        guard.emit_progress_force();
+        newly_failed
+    };
+    if newly_failed {
+        queue_post_completion(id.to_string(), false);
     }
-    guard.mark_dirty();
-    guard.emit_progress_force();
 }
 
 /// Called by workers when a download finished successfully.
@@ -2105,15 +2134,54 @@ pub async fn on_download_finished(manager: &SharedManager, _id: &str) {
     guard.emit_progress_force();
 }
 
-/// Spawn an archive-extraction task for a completed download.
-pub fn spawn_extraction(
-    id: String,
-    save_path: String,
-    name: String,
-    files: Vec<super::types::DownloadFile>,
-) {
-    let manager = super::manager_handle();
-    tokio::spawn(async move {
+/// Schedule the post-completion pipeline for a download: archive
+/// auto-extraction (success only), then every post-action whose trigger
+/// matches the outcome. Safe to call from both sync (the 1 s status loop)
+/// and async (the HTTP worker) contexts — the work is scheduled on the
+/// Tauri runtime so it acquires the manager lock only after the caller has
+/// released it.
+pub fn queue_post_completion(id: String, success: bool) {
+    let Some(manager) = super::manager_handle() else {
+        return;
+    };
+    tauri::async_runtime::spawn(async move {
+        run_post_completion(manager, id, success).await;
+    });
+}
+
+/// Run one download's post-completion pipeline. Deduped per download id via
+/// `post_action_ran` so a repeated terminal report can't run actions twice.
+async fn run_post_completion(manager: SharedManager, id: String, success: bool) {
+    let (app, settings, save_path, name, files, single_file, auto_extract, actions) = {
+        let mut guard = manager.write().await;
+        if !guard.post_action_ran.insert(id.clone()) {
+            return;
+        }
+        let (override_actions, save_path, name, files, single_file, auto_extract) = {
+            let Some(d) = guard.downloads_mut().get_mut(&id) else {
+                guard.post_action_ran.remove(&id);
+                return;
+            };
+            (
+                d.post_actions.clone(),
+                d.save_path.clone(),
+                d.name.clone(),
+                d.files.clone(),
+                d.kind == DownloadKind::Direct,
+                d.auto_extract.unwrap_or(false),
+            )
+        };
+        let actions = override_actions.unwrap_or_else(|| guard.settings.post_actions.clone());
+        let settings = guard.settings.clone();
+        let app = guard.app.clone();
+        (app, settings, save_path, name, files, single_file, auto_extract, actions)
+    };
+
+    let mut notes: Vec<String> = Vec::new();
+
+    // 1. Auto-extraction (success only). Best-effort: a failure is noted,
+    //    never fatal, and archives are only deleted when they extracted.
+    if success && auto_extract {
         println!("[downloads] Starting auto-extraction for {}", name);
         let id_clone = id.clone();
         let files_clone = files.clone();
@@ -2122,36 +2190,121 @@ pub fn spawn_extraction(
             extract::extract_archives_for_download(&id_clone, &save_path_clone, &files_clone)
         })
         .await;
-
         match result {
             Ok(Ok(extracted)) => {
-                // Delete only what actually extracted (first parts +
-                // their volume siblings). Nothing is deleted on failure.
                 if !extracted.is_empty() {
-                    println!(
-                        "[downloads] Extraction complete for {}. Deleting {} archive(s).",
-                        name,
-                        extracted.len()
-                    );
                     extract::delete_archives_for_download(&save_path, &files, &extracted);
                 }
             }
-            Ok(Err(e)) => {
-                println!("[downloads] Extraction failed for {}: {}", name, e);
-            }
-            Err(e) => {
-                println!("[downloads] Extraction task panicked for {}: {}", name, e);
-            }
+            Ok(Err(e)) => notes.push(format!("extraction failed: {e}")),
+            Err(e) => notes.push(format!("extraction task panicked: {e}")),
         }
-        if let Some(manager) = manager {
-            let mut guard = manager.write().await;
-            if let Some(d) = guard.downloads_mut().get_mut(&id) {
+    }
+
+    // 2. Post-actions, in order, filtered by their success/failure trigger.
+    for action in actions
+        .into_iter()
+        .filter(|a| post_actions::should_run(a, success))
+    {
+        let Some(app_handle) = app.clone() else {
+            notes.push(format!("{}: no app handle", action_summary(&action)));
+            break;
+        };
+        match run_one_action(
+            app_handle,
+            &action,
+            &save_path,
+            &files,
+            single_file,
+            settings.installer_opt_in,
+        )
+        .await
+        {
+            Ok(()) => notes.push(action_summary(&action)),
+            Err(e) => notes.push(format!("{}: {e}", action_summary(&action))),
+        }
+    }
+
+    // 3. Record the outcome.
+    {
+        let mut guard = manager.write().await;
+        if let Some(d) = guard.downloads_mut().get_mut(&id) {
+            if success {
                 d.extracted = Some(true);
             }
-            guard.mark_dirty();
-            guard.emit_progress_force();
+            if !notes.is_empty() {
+                d.post_action_status = Some(notes.join("; "));
+            }
         }
-    });
+        guard.mark_dirty();
+        guard.emit_progress_force();
+    }
+}
+
+/// Execute a single post-action.
+async fn run_one_action(
+    app: AppHandle,
+    action: &post_actions::PostAction,
+    save_path: &str,
+    files: &[super::types::DownloadFile],
+    single_file: bool,
+    installer_opt_in: bool,
+) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    match action.kind {
+        post_actions::PostActionKind::OpenFolder => {
+            let target =
+                post_actions::open_folder_target(save_path, action.path.as_deref(), single_file);
+            if !target.exists() {
+                return Err("folder does not exist".to_string());
+            }
+            app.opener()
+                .open_path(target.to_string_lossy().as_ref(), None::<&str>)
+                .map_err(|e| format!("open folder: {e}"))
+        }
+        post_actions::PostActionKind::LaunchInstaller => {
+            if !installer_opt_in {
+                return Err("installer actions are disabled in Settings".to_string());
+            }
+            let Some(exe) =
+                post_actions::detect_installer(files, save_path, action.path.as_deref(), single_file)
+            else {
+                return Err("no installer file found".to_string());
+            };
+            let prompt = exe.display().to_string();
+            let confirm_app = app.clone();
+            let confirm_prompt = prompt.clone();
+            let confirmed = tokio::task::spawn_blocking(move || {
+                use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+                confirm_app
+                    .dialog()
+                    .message(format!("Run this downloaded installer?\n\n{confirm_prompt}"))
+                    .title("Run installer")
+                    .kind(MessageDialogKind::Warning)
+                    .buttons(MessageDialogButtons::OkCancelCustom(
+                        "Run".to_string(),
+                        "Cancel".to_string(),
+                    ))
+                    .blocking_show()
+            })
+            .await
+            .map_err(|e| format!("confirm dialog failed: {e}"))?;
+            if !confirmed {
+                return Err("cancelled by user".to_string());
+            }
+            app.opener()
+                .open_path(exe.to_string_lossy().as_ref(), None::<&str>)
+                .map_err(|e| format!("launch installer: {e}"))
+        }
+    }
+}
+
+/// Short human label for an action, used in the per-download status note.
+fn action_summary(action: &post_actions::PostAction) -> String {
+    match action.kind {
+        post_actions::PostActionKind::OpenFolder => "opened folder".to_string(),
+        post_actions::PostActionKind::LaunchInstaller => "launched installer".to_string(),
+    }
 }
 
 /// Frontend ordering: completed records at the bottom, everything else

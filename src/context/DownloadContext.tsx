@@ -35,6 +35,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useToast } from "./ToastContext";
 import { useLanguage } from "./LanguageContext";
 import {
+  DEFAULT_DOWNLOAD_SETTINGS,
   DEFAULT_SCHEDULER_CONFIG,
   getStatusError,
   isActiveStatus,
@@ -43,6 +44,8 @@ import {
   type DownloadStatus,
   type DownloadHistory,
   type SchedulerConfig,
+  type DownloadSettings,
+  type PostAction,
 } from "../types/download";
 
 /** Bandwidth-limit configuration. Values in kbps; 0 = unlimited. */
@@ -89,6 +92,7 @@ interface DownloadContextValue {
     listOnly?: boolean,
     referer?: string | null,
     gamePoster?: string | null,
+    postActions?: PostAction[] | null,
   ) => Promise<TorrentDownload>;
   addDirectDownload: (
     url: string,
@@ -100,6 +104,7 @@ interface DownloadContextValue {
     useDebrid?: boolean,
     referer?: string | null,
     gamePoster?: string | null,
+    postActions?: PostAction[] | null,
   ) => Promise<TorrentDownload>;
   /**
    * Upload a magnet to the configured debrid provider, then download
@@ -114,11 +119,13 @@ interface DownloadContextValue {
     autoExtract?: boolean,
     gamePoster?: string | null,
     onlyFiles?: number[] | null,
+    postActions?: PostAction[] | null,
   ) => Promise<TorrentDownload>;
   startSelectedDownload: (
     id: string,
     onlyFiles: number[],
     autoExtract: boolean,
+    postActions?: PostAction[] | null,
   ) => Promise<void>;
   updateDirectDownloadUrl: (id: string, url: string) => Promise<void>;
   pauseDownload: (id: string) => Promise<void>;
@@ -188,6 +195,15 @@ interface DownloadContextValue {
   seedLimits: DownloadSeedLimits;
   /** Persist new global seed caps. */
   setSeedLimits: (next: DownloadSeedLimits) => Promise<void>;
+  /**
+   * Engine-wide download preferences: multi-connection downloads and the
+   * default post-action list. Owned by the Rust engine (persisted in the
+   * `kv` store under `download_settings`); localStorage is only the
+   * instant-hydration mirror for the first paint.
+   */
+  downloadSettings: DownloadSettings;
+  /** Persist new engine-wide download preferences (state + backend). */
+  setDownloadSettings: (next: DownloadSettings) => Promise<void>;
 }
 
 /** Global seed-stop caps. `0` disables either cap. */
@@ -372,6 +388,15 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     ratio: parseFloat(localStorage.getItem("gamelib-seed-ratio-limit") || "0") || 0,
     minutes: parseInt(localStorage.getItem("gamelib-seed-time-limit") || "0", 10) || 0,
   }));
+  const [downloadSettings, setDownloadSettingsState] = useState<DownloadSettings>(() => {
+    const raw = localStorage.getItem("gamelib-download-settings");
+    if (!raw) return DEFAULT_DOWNLOAD_SETTINGS;
+    try {
+      return { ...DEFAULT_DOWNLOAD_SETTINGS, ...(JSON.parse(raw) as Partial<DownloadSettings>) };
+    } catch {
+      return DEFAULT_DOWNLOAD_SETTINGS;
+    }
+  });
   const { showToast } = useToast();
   const { t } = useLanguage();
   // Keep a stable ref to the latest list so the `download-progress`
@@ -535,6 +560,19 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           console.debug("[DownloadContext] scheduler config unavailable:", e);
         }
 
+        // Adopt the engine's persisted download preferences (multi-connection
+        // + default post-actions). Backend is the source of truth.
+        try {
+          const remote = await invoke<DownloadSettings>("download_get_settings");
+          if (remote && typeof remote === "object") {
+            const merged = { ...DEFAULT_DOWNLOAD_SETTINGS, ...remote };
+            setDownloadSettingsState(merged);
+            localStorage.setItem("gamelib-download-settings", JSON.stringify(merged));
+          }
+        } catch (e) {
+          console.debug("[DownloadContext] download settings unavailable:", e);
+        }
+
         // 1. Subscribe to the background-polling event FIRST so we
         //    don't miss the first emission if the engine is already
         //    running. (In practice, the engine isn't init'd until
@@ -620,6 +658,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       listOnly?: boolean,
       referer?: string | null,
       gamePoster?: string | null,
+      postActions?: PostAction[] | null,
     ): Promise<TorrentDownload> => {
       const newDownload = await invoke<TorrentDownload>("torrent_add", {
         magnetUri,
@@ -630,6 +669,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         autoExtract: autoExtract ?? false,
         listOnly: listOnly ?? false,
         referer: referer ?? null,
+        postActions: postActions ?? null,
       });
       // Optimistic merge: insert (or replace) the new record so the
       // UI updates within milliseconds of `torrent_add` returning,
@@ -656,6 +696,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       useDebrid?: boolean,
       referer?: string | null,
       gamePoster?: string | null,
+      postActions?: PostAction[] | null,
     ): Promise<TorrentDownload> => {
       const id = `dd_${Math.random().toString(36).substring(2, 11)}`;
       
@@ -715,6 +756,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         autoExtract,
         uris,
         referer: referer ?? null,
+        postActions: postActions ?? null,
       });
       setDownloads((prev) => {
         const without = prev.filter((d) => d.id !== newDownload.id);
@@ -734,6 +776,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       autoExtract = false,
       gamePoster?: string | null,
       onlyFiles?: number[] | null,
+      postActions?: PostAction[] | null,
     ): Promise<TorrentDownload> => {
       const debridProvider = debridRef.current.provider;
       const debridApiKey = debridRef.current.apiKey;
@@ -754,6 +797,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         apikey: debridApiKey,
         autoExtract,
         onlyFiles: onlyFiles ?? null,
+        postActions: postActions ?? null,
       });
       setDownloads((prev) => {
         const without = prev.filter((d) => d.id !== newDownload.id);
@@ -765,8 +809,18 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   );
 
   const startSelectedDownload = useCallback(
-    async (id: string, onlyFiles: number[], autoExtract: boolean): Promise<void> => {
-      await invoke("torrent_start_selected", { id, onlyFiles, autoExtract });
+    async (
+      id: string,
+      onlyFiles: number[],
+      autoExtract: boolean,
+      postActions?: PostAction[] | null,
+    ): Promise<void> => {
+      await invoke("torrent_start_selected", {
+        id,
+        onlyFiles,
+        autoExtract,
+        postActions: postActions ?? null,
+      });
     },
     [],
   );
@@ -1037,6 +1091,22 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setDownloadSettings = useCallback(async (next: DownloadSettings) => {
+    setDownloadSettingsState(next);
+    localStorage.setItem("gamelib-download-settings", JSON.stringify(next));
+    try {
+      const applied = await invoke<DownloadSettings>("download_set_settings", {
+        settings: next,
+      });
+      if (applied && typeof applied === "object") {
+        setDownloadSettingsState(applied);
+        localStorage.setItem("gamelib-download-settings", JSON.stringify(applied));
+      }
+    } catch (e) {
+      console.warn("[DownloadContext] Failed to apply download settings:", e);
+    }
+  }, []);
+
   // ── Derived state ──────────────────────────────────────────────────
   const sorted = useMemo(() => [...downloads].sort(sortDownloads), [downloads]);
   const activeDownloads = useMemo(
@@ -1097,6 +1167,8 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       setPriority,
       seedLimits,
       setSeedLimits,
+      downloadSettings,
+      setDownloadSettings,
     }),
     [
       sorted,
@@ -1145,6 +1217,8 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       setPriority,
       seedLimits,
       setSeedLimits,
+      downloadSettings,
+      setDownloadSettings,
     ],
   );
 

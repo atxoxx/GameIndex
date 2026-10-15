@@ -145,6 +145,13 @@ export interface TorrentDownload {
   priority?: number;
   /** Cumulative bytes uploaded (torrents only), used for the seed-ratio cap. */
   uploaded?: number;
+  /**
+   * Per-download post-action override. `undefined` inherits the global
+   * defaults from `DownloadSettings`; an empty array means "no actions".
+   */
+  postActions?: PostAction[];
+  /** Human-readable summary of the last post-action run, if any. */
+  postActionStatus?: string;
 }
 
 /**
@@ -180,6 +187,56 @@ export interface DownloadHistory {
   /** Highest observed download speed in bytes/sec. */
   peakSpeed: number;
 }
+
+// ─── Post-download actions & engine preferences ─────────────────────────────
+
+/**
+ * What a post-download action does. Mirrors the Rust `PostActionKind`
+ * (`#[serde(rename_all = "camelCase")]` → `"openFolder"` / `"launchInstaller"`).
+ */
+export type PostActionKind = "openFolder" | "launchInstaller";
+
+/** One configured post-download action. Mirrors the Rust `PostAction`. */
+export interface PostAction {
+  /** Stable id assigned by the UI; vector order is execution order. */
+  id: string;
+  kind: PostActionKind;
+  /** Run when the download completed successfully (defaults to true). */
+  onSuccess: boolean;
+  /** Run when the download ended in an error (defaults to false). */
+  onFailure: boolean;
+  /**
+   * Explicit path override. For `openFolder`, a folder to reveal (empty =
+   * the download's own folder). For `launchInstaller`, the executable to
+   * run (empty = auto-detect among the download's files).
+   */
+  path?: string | null;
+}
+
+/**
+ * Engine-wide download preferences, persisted in the `kv` store under
+ * `download_settings`. Mirrors the Rust `DownloadSettings`.
+ */
+export interface DownloadSettings {
+  /** Split eligible files across parallel Range connections. */
+  multiConnection: boolean;
+  /** Connections per file when `multiConnection` is on (1–16). */
+  segmentCount: number;
+  /** User acknowledgement that installer actions may run (gates `launchInstaller`). */
+  installerOptIn: boolean;
+  /** Default post-action list for downloads without an override. */
+  postActions: PostAction[];
+}
+
+/** Largest segment count the backend accepts (mirrors Rust `MAX_SEGMENTS`). */
+export const MAX_SEGMENT_COUNT = 16;
+
+export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
+  multiConnection: true,
+  segmentCount: 8,
+  installerOptIn: false,
+  postActions: [],
+};
 
 // ─── Scheduling ─────────────────────────────────────────────────────────────
 

@@ -158,6 +158,14 @@ pub struct Download {
     /// restart.
     #[serde(default)]
     pub uploaded: u64,
+    /// Per-download post-action override. `None` inherits the global
+    /// defaults from `DownloadSettings`; `Some([])` means "no actions".
+    #[serde(default)]
+    pub post_actions: Option<Vec<super::post_actions::PostAction>>,
+    /// Human-readable summary of the last post-action run (setup help /
+    /// diagnostics). `None` until actions run.
+    #[serde(default)]
+    pub post_action_status: Option<String>,
 }
 
 impl Download {
@@ -208,6 +216,8 @@ impl Download {
             scheduled_start_at: None,
             priority: 0,
             uploaded: 0,
+            post_actions: None,
+            post_action_status: None,
         }
     }
 }

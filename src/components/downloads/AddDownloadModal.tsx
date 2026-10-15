@@ -7,8 +7,9 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { Button } from "../ui";
-import { formatBytesShort, type TorrentFile } from "../../types/download";
+import { formatBytesShort, type TorrentFile, type PostAction } from "../../types/download";
 import { getFileCategory } from "../download-modal/helpers";
+import PostActionEditor from "./PostActionEditor";
 
 const URI_PATTERN = /^(magnet:|https?:\/\/|[a-zA-Z]:\\|\/)/i;
 
@@ -49,6 +50,9 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
   });
   const [autoExtract, setAutoExtract] = useState<boolean>(true);
   const [useDebrid, setUseDebrid] = useState<boolean>(false);
+  // Per-download post-action override. `null` inherits the global defaults;
+  // an array (possibly empty) overrides them for this download only.
+  const [overridePostActions, setOverridePostActions] = useState<PostAction[] | null>(null);
 
   // Debrid cache checking state
   const [cacheStatus, setCacheStatus] = useState<
@@ -399,7 +403,18 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
         } catch {}
 
         const fullPath = `${finalPath}/${filename}`.replace(/\\/g, "/");
-        await addDirectDownload(clean, fullPath, null, "Manual Direct Link", autoExtract);
+        await addDirectDownload(
+          clean,
+          fullPath,
+          null,
+          "Manual Direct Link",
+          autoExtract,
+          [],
+          undefined,
+          undefined,
+          undefined,
+          overridePostActions,
+        );
         showToast(t("magnetInput.downloadAdded"), "success");
       }
       // 2. Magnet or Torrent via the configured debrid provider
@@ -414,7 +429,16 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
           setInspectedTorrentId(null);
         }
 
-        await addDebridDownload(magnetToUse, finalPath, null, debridProviderLabel, autoExtract);
+        await addDebridDownload(
+          magnetToUse,
+          finalPath,
+          null,
+          debridProviderLabel,
+          autoExtract,
+          undefined,
+          undefined,
+          overridePostActions,
+        );
         showToast(t("magnetInput.downloadAdded"), "success");
       }
       // 3. Torrent / Magnet via P2P swarm
@@ -425,11 +449,22 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
             inspectedTorrentId,
             Array.from(selectedFileIndices),
             autoExtract,
+            overridePostActions,
           );
           setInspectedTorrentId(null); // It is now a real active download, don't clean it up
         } else {
           // Direct add without prior inspection completion
-          await addDownload(clean, finalPath, null, "Manual Download", autoExtract, false);
+          await addDownload(
+            clean,
+            finalPath,
+            null,
+            "Manual Download",
+            autoExtract,
+            false,
+            undefined,
+            undefined,
+            overridePostActions,
+          );
         }
         showToast(t("magnetInput.downloadAdded"), "success");
       }
@@ -857,7 +892,30 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
                 />
                 <span>{t("addDownloadModal.autoExtract")}</span>
               </label>
+              <label className="dl-magnet-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={overridePostActions !== null}
+                  onChange={(e) =>
+                    setOverridePostActions(e.target.checked ? [] : null)
+                  }
+                />
+                <span>{t("addDownloadModal.overridePostActions")}</span>
+              </label>
             </div>
+
+            {overridePostActions !== null ? (
+              <div className="dl-add-post-actions">
+                <PostActionEditor
+                  actions={overridePostActions}
+                  onChange={setOverridePostActions}
+                />
+              </div>
+            ) : (
+              <p className="settings-helper-text">
+                {t("addDownloadModal.postActionsInherit")}
+              </p>
+            )}
           </div>
         </div>
 

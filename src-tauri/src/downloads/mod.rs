@@ -15,6 +15,7 @@ pub mod hosters;
 pub mod http;
 pub mod manager;
 pub mod persistence;
+pub mod post_actions;
 pub mod scheduler;
 pub mod torrent;
 pub mod types;
@@ -85,6 +86,13 @@ pub async fn initialize_engine(
                 v.get("ratio").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32;
             mgr.seed_time_limit_mins =
                 v.get("minutes").and_then(|x| x.as_u64()).unwrap_or(0) as u32;
+        }
+    }
+    // Engine-wide download preferences (multi-connection + post-actions),
+    // also kv-backed so they survive a restart.
+    if let Ok(Some(raw)) = crate::db::kv::get(&db, "download_settings") {
+        if let Ok(s) = serde_json::from_str::<post_actions::DownloadSettings>(&raw) {
+            mgr.settings = s.normalized();
         }
     }
     mgr.set_history_db(db);
@@ -541,6 +549,7 @@ async fn handle_duplicate_add(
     source_name: String,
     auto_extract: bool,
     referer: Option<String>,
+    post_actions: Option<Vec<post_actions::PostAction>>,
 ) -> Result<Download, String> {
     if matches!(
         existing.status,
@@ -569,6 +578,8 @@ async fn handle_duplicate_add(
         d.source_name = source_name;
         d.auto_extract = Some(auto_extract);
         d.referer = referer;
+        d.post_actions = post_actions;
+        d.post_action_status = None;
         d.only_files = None;
         d.downloaded = 0;
         d.total_size = None;
@@ -648,6 +659,7 @@ pub async fn torrent_add(
     auto_extract: Option<bool>,
     list_only: Option<bool>,
     referer: Option<String>,
+    post_actions: Option<Vec<post_actions::PostAction>>,
 ) -> Result<Download, String> {
     let mgr = wait_for_manager().await?;
     let save_path = normalize_path(&save_path);
@@ -773,6 +785,8 @@ pub async fn torrent_add(
             existing.source_name = source_name;
             existing.auto_extract = Some(auto_extract.unwrap_or(false));
             existing.referer = referer.clone();
+            existing.post_actions = post_actions.clone();
+            existing.post_action_status = None;
             if existing.files.is_empty() {
                 existing.files = files;
             }
@@ -835,6 +849,7 @@ pub async fn torrent_add(
                 source_name,
                 auto_extract.unwrap_or(false),
                 referer,
+                post_actions,
             )
             .await;
         }
@@ -857,6 +872,7 @@ pub async fn torrent_add(
     );
     d.referer = referer;
     d.game_poster = game_poster;
+    d.post_actions = post_actions;
     {
         let mut guard = mgr.write().await;
         guard.downloads_mut().insert(id.clone(), d.clone());
@@ -881,6 +897,7 @@ pub async fn direct_download_start(
     uris: Option<Vec<String>>,
     referer: Option<String>,
     extra_headers: Option<Vec<(String, String)>>,
+    post_actions: Option<Vec<post_actions::PostAction>>,
 ) -> Result<Download, String> {
     let mgr = wait_for_manager().await?;
 
@@ -911,6 +928,7 @@ pub async fn direct_download_start(
     d.referer = referer;
     d.extra_headers = extra_headers;
     d.game_poster = game_poster;
+    d.post_actions = post_actions;
 
     {
         let mut guard = mgr.write().await;
@@ -937,6 +955,7 @@ pub async fn debrid_download_start(
     apikey: String,
     auto_extract: Option<bool>,
     only_files: Option<Vec<usize>>,
+    post_actions: Option<Vec<post_actions::PostAction>>,
 ) -> Result<Download, String> {
     let mgr = wait_for_manager().await?;
 
@@ -953,6 +972,7 @@ pub async fn debrid_download_start(
     d.status = DownloadStatus::Queued;
     d.only_files = only_files;
     d.game_poster = game_poster;
+    d.post_actions = post_actions;
 
     {
         let mut guard = mgr.write().await;
@@ -1467,6 +1487,31 @@ pub async fn download_set_seed_limits(
     Ok(())
 }
 
+/// Read the engine-wide download preferences (multi-connection + post-actions).
+#[tauri::command]
+pub async fn download_get_settings() -> Result<post_actions::DownloadSettings, String> {
+    let mgr = wait_for_manager().await?;
+    let guard = mgr.read().await;
+    Ok(guard.settings.clone())
+}
+
+/// Persist and apply the engine-wide download preferences.
+#[tauri::command]
+pub async fn download_set_settings(
+    settings: post_actions::DownloadSettings,
+    app: tauri::AppHandle,
+) -> Result<post_actions::DownloadSettings, String> {
+    let normalized = settings.normalized();
+    if let Ok(mgr) = wait_for_manager().await {
+        let mut guard = mgr.write().await;
+        guard.settings = normalized.clone();
+    }
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+    let payload = serde_json::to_string(&normalized).map_err(|e| e.to_string())?;
+    crate::db::kv::set(&db, "download_settings", &payload)?;
+    Ok(normalized)
+}
+
 #[tauri::command]
 pub async fn torrent_update_only_files(
     id: String,
@@ -1553,6 +1598,7 @@ pub async fn torrent_start_selected(
     id: String,
     only_files: Vec<usize>,
     auto_extract: bool,
+    post_actions: Option<Vec<post_actions::PostAction>>,
 ) -> Result<(), String> {
     let mgr = wait_for_manager().await?;
 
@@ -1574,6 +1620,7 @@ pub async fn torrent_start_selected(
         }
         d.only_files = Some(only_files);
         d.auto_extract = Some(auto_extract);
+        d.post_actions = post_actions;
         d.added_at = unix_now();
         for (i, f) in d.files.iter_mut().enumerate() {
             let selected = d

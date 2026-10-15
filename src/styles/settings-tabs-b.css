@@ -967,6 +967,38 @@
   gap: var(--space-sm);
 }
 
+/* Post-action row — kind label, success/failure triggers, path, remove. */
+.settings-limit-row--post-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.settings-post-action-kind {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.settings-limit-row--post-action .settings-input {
+  flex: 1 1 12rem;
+  min-width: 8rem;
+}
+
+/* Per-download post-action override container in the add modal. */
+.dl-add-post-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+}
+
 .settings-checkbox-label--fixed {
   flex: 1;
   min-width: 0;

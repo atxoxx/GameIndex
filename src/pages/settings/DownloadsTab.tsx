@@ -8,8 +8,10 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../../components/ui";
 import type { SpeedUnit } from "../../types/game";
+import { MAX_SEGMENT_COUNT } from "../../types/download";
+import PostActionEditor from "../../components/downloads/PostActionEditor";
 import SettingsSection from "./SettingsSection";
-import { BellIcon, CloudIcon, FolderIcon, GaugeIcon, ShieldIcon } from "./settingsIcons";
+import { BellIcon, CloudIcon, DownloadIcon, FolderIcon, GaugeIcon, ShieldIcon } from "./settingsIcons";
 
 /**
  * DownloadsTab — download preferences: default save location,
@@ -38,12 +40,18 @@ export default function DownloadsTab() {
     setDebridProvider,
     debridApiKey,
     setDebridApiKey,
+    downloadSettings,
+    setDownloadSettings,
   } = useDownloads();
   const { blockedSourceDomains, setBlockedSourceDomains } = useSettings();
   const { unit: speedUnit, setUnit: setSpeedUnit } = useSpeedUnit();
   const { t } = useLanguage();
 
   const [testingDebrid, setTestingDebrid] = useState(false);
+
+  const updateSettings = (partial: Partial<typeof downloadSettings>) => {
+    void setDownloadSettings({ ...downloadSettings, ...partial });
+  };
 
   const handlePickDefaultPath = async () => {
     try {
@@ -375,6 +383,75 @@ export default function DownloadsTab() {
               </div>
             </div>
             <p className="settings-helper-text">{t("settings.downloads.seedLimitsHint")}</p>
+          </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        id="downloads-engine"
+        icon={<DownloadIcon />}
+        title={t("settings.section.downloadEngine")}
+        desc={t("settings.downloads.engineDesc")}
+      >
+        <div className="settings-card">
+          <div className="settings-limit-row settings-limit-row--seed">
+            <label className="settings-checkbox-label settings-checkbox-label--inline">
+              <input
+                type="checkbox"
+                checked={downloadSettings.multiConnection}
+                onChange={(e) => updateSettings({ multiConnection: e.target.checked })}
+              />
+              <span>{t("settings.downloads.multiConnection")}</span>
+            </label>
+            <div className="settings-limit-row">
+              <label className="settings-checkbox-label settings-checkbox-label--fixed">
+                <span>{t("settings.downloads.segmentCount")}</span>
+              </label>
+              <div className="settings-limit-value">
+                <input
+                  type="number"
+                  className="settings-limit-input"
+                  min="1"
+                  max={MAX_SEGMENT_COUNT}
+                  value={downloadSettings.segmentCount}
+                  disabled={!downloadSettings.multiConnection}
+                  onChange={(e) => {
+                    const val = Math.min(
+                      MAX_SEGMENT_COUNT,
+                      Math.max(1, parseInt(e.target.value, 10) || 1),
+                    );
+                    updateSettings({ segmentCount: val });
+                  }}
+                />
+                <span className="settings-limit-unit">
+                  {t("settings.downloads.connections")}
+                </span>
+              </div>
+            </div>
+            <p className="settings-helper-text">{t("settings.downloads.multiConnectionDesc")}</p>
+          </div>
+
+          <div className="settings-limit-row settings-limit-row--stack">
+            <label className="settings-checkbox-label settings-checkbox-label--inline">
+              <input
+                type="checkbox"
+                checked={downloadSettings.installerOptIn}
+                onChange={(e) => updateSettings({ installerOptIn: e.target.checked })}
+              />
+              <span>{t("settings.downloads.allowInstallers")}</span>
+            </label>
+            <p className="settings-helper-text">{t("settings.downloads.allowInstallersDesc")}</p>
+          </div>
+
+          <div className="settings-limit-row settings-limit-row--stack">
+            <label className="settings-label settings-label--sm">
+              {t("settings.downloads.postActions")}
+            </label>
+            <p className="settings-helper-text">{t("settings.downloads.postActionsDesc")}</p>
+            <PostActionEditor
+              actions={downloadSettings.postActions}
+              onChange={(next) => updateSettings({ postActions: next })}
+            />
           </div>
         </div>
       </SettingsSection>

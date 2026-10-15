@@ -896,6 +896,7 @@ async fn dispatch_intercepted(
             Some(auto_extract),
             None,
             payload.referer.clone(),
+            None,
         )
         .await
         {
@@ -959,6 +960,7 @@ async fn dispatch_intercepted(
             None,
             Some(referer),
             Some(extra_headers),
+            None,
         )
         .await
         {

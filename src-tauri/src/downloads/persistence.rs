@@ -165,6 +165,8 @@ pub fn load(state_dir: &Path) -> LoadedState {
             scheduled_start_at: None,
             priority: 0,
             uploaded: 0,
+            post_actions: None,
+            post_action_status: None,
         };
         normalise_on_load(&mut d);
         map.insert(id, d);
