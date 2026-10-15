@@ -85,6 +85,8 @@ fn test_resolve_ignores_helper_exes_and_pruned_subdirs() {
     );
 }
 
+// Windows path walking: the fixture relies on backslash-separated parents.
+#[cfg(windows)]
 #[test]
 fn test_get_game_root_dir_heuristics() {
     assert_eq!(

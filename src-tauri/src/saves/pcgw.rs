@@ -599,6 +599,9 @@ mod tests {
         );
     }
 
+    // Windows-platform rows only resolve on a Windows host by design
+    // (see `skips_windows_rows_on_non_windows_and_missing_paths`).
+    #[cfg(windows)]
     #[test]
     fn expands_uid_wildcard_against_host_roots() {
         let dir = tempfile::tempdir().unwrap();
@@ -622,6 +625,9 @@ mod tests {
         assert_eq!(found[0].kind, "dir");
     }
 
+    // Windows-platform rows only resolve on a Windows host by design
+    // (see `skips_windows_rows_on_non_windows_and_missing_paths`).
+    #[cfg(windows)]
     #[test]
     fn resolves_path_to_game_against_install_dir() {
         let dir = tempfile::tempdir().unwrap();
