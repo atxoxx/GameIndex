@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fs::{self};
 use std::path::{Path, PathBuf};
+#[cfg(not(windows))]
+use std::process::Command;
 
 
 /// Recursively compute the disk size of a directory in bytes (ignoring symlinks to prevent cycles).
@@ -257,7 +259,7 @@ pub fn linux_gamescope_stats_fifo() -> Option<PathBuf> {
 /// path cannot be made a FIFO — e.g. it exists as a regular file left
 /// over from a crash and unlinking it fails.
 #[cfg(target_os = "linux")]
-fn ensure_gamescope_stats_fifo(path: &Path) -> bool {
+pub(crate) fn ensure_gamescope_stats_fifo(path: &Path) -> bool {
     use std::os::unix::fs::FileTypeExt;
     match fs::metadata(path) {
         Ok(meta) if meta.file_type().is_fifo() => return true,

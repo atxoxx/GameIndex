@@ -1,5 +1,7 @@
 use std::fs::{self};
 use std::path::{Path, PathBuf};
+#[cfg(not(windows))]
+use std::process::Command;
 
 use super::*;
 use super::paths::{steam_library_roots, vdf_key_values};

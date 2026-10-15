@@ -1,3 +1,8 @@
+#[cfg(target_os = "linux")]
+use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::process::Command;
+
 /// Remove AppImage `AppRun` paths from a child command's environment.
 ///
 /// `AppRun` exports `PYTHONHOME`/`PYTHONPATH` pointing at the ephemeral mount
@@ -55,7 +60,7 @@ fn utf8_env_vars() -> Vec<(String, String)> {
 /// variable keeps only its non-AppImage entries, `(key, None)` means it is
 /// removed entirely. Variables with nothing to strip are left untouched.
 #[cfg(target_os = "linux")]
-fn appimage_env_overrides(
+pub(crate) fn appimage_env_overrides(
     app_dir: &Path,
     vars: &[(String, String)],
     keys: &[&str],

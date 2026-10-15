@@ -22,6 +22,8 @@ mod wine;
 mod tests;
 
 pub use self::anticheat::*;
+#[cfg(target_os = "linux")]
+pub use self::env::*;
 pub use self::gpu::*;
 pub use self::launch::*;
 pub use self::paths::*;
