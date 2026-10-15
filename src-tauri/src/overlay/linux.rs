@@ -22,19 +22,35 @@ use tauri::WebviewWindow;
 ///
 /// gtk-layer-shell commits on the next GTK frame, which a busy or fully
 /// occluded surface can miss — leaving a resize or reposition configured but
-/// never painted. The Rust binding does not expose this entry point, so it is
-/// declared directly.
+/// never painted. The Rust binding does not expose `gtk_layer_try_force_commit`
+/// and the symbol only exists from gtk-layer-shell 0.9 on (Ubuntu 24.04 ships
+/// 0.8.2), so it is resolved at runtime and the forced commit is skipped on
+/// older libraries instead of failing to link against them.
 pub(crate) fn try_force_commit<W: gtk::prelude::IsA<gtk::Window>>(gtk_window: &W) {
     use gtk::glib::translate::ToGlibPtr;
     use gtk::prelude::Cast;
 
-    extern "C" {
-        fn gtk_layer_try_force_commit(window: *mut gtk::ffi::GtkWindow);
-    }
+    type TryForceCommit = unsafe extern "C" fn(*mut gtk::ffi::GtkWindow);
+
+    static SYMBOL: std::sync::OnceLock<Option<TryForceCommit>> = std::sync::OnceLock::new();
+    let commit = *SYMBOL.get_or_init(|| unsafe {
+        let symbol = libc::dlsym(
+            libc::RTLD_DEFAULT,
+            b"gtk_layer_try_force_commit\0".as_ptr().cast(),
+        );
+        if symbol.is_null() {
+            None
+        } else {
+            Some(std::mem::transmute::<*mut libc::c_void, TryForceCommit>(symbol))
+        }
+    });
+    let Some(commit) = commit else {
+        return;
+    };
 
     let window: &gtk::Window = gtk_window.upcast_ref();
     unsafe {
-        gtk_layer_try_force_commit(window.to_glib_none().0);
+        commit(window.to_glib_none().0);
     }
 }
 
