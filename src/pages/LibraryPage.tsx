@@ -66,8 +66,8 @@ export default function LibraryPage() {
 
   // When a shelf is applied, also enforce the rules the filter facets can't
   // express (numeric/date/mode) so the grid matches the shelf exactly.
-  const { activeShelfId, getShelf, shelfGames } = useShelves();
-  const activeShelf = activeShelfId ? getShelf(activeShelfId) : undefined;
+  const { activeShelfId, enabled, getShelf, shelfGames } = useShelves();
+  const activeShelf = enabled && activeShelfId ? getShelf(activeShelfId) : undefined;
   const activeShelfIds = useMemo(
     () => (activeShelf ? new Set(shelfGames(activeShelf.id).map((g) => g.id)) : null),
     [activeShelf, shelfGames]

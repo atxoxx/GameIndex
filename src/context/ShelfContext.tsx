@@ -30,6 +30,18 @@ const SHELVES_SEEDED_KEY = "gameindex:shelves-seeded-v1";
 /** localStorage flag: the one-time duplicate-starter cleanup has run. */
 const SHELVES_DEDUPE_KEY = "gameindex:shelves-dedupe-v1";
 
+/** localStorage flag: the Smart Shelves feature is switched on. */
+const SHELVES_ENABLED_KEY = "gamelib.smart_shelves_enabled";
+
+/** Read the Smart Shelves master flag (defaults to on when unset). */
+function readShelfEnabled(): boolean {
+  try {
+    return localStorage.getItem(SHELVES_ENABLED_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
 /** Prefix marking a starter shelf whose `name` is an i18n key. */
 const STARTER_NAME_PREFIX = "shelves.starter.";
 
@@ -47,6 +59,9 @@ interface ShelfContextValue {
   /** Id of the shelf currently applied as a Library filter, if any. */
   activeShelfId: string | null;
   setActiveShelf: (id: string | null) => void;
+  /** Master switch — when off, every shelf surface is hidden. */
+  enabled: boolean;
+  setEnabled: (next: boolean) => void;
   createShelf: (draft: ShelfDraft) => Promise<Shelf | null>;
   updateShelf: (shelf: Shelf) => Promise<void>;
   deleteShelf: (id: string) => Promise<void>;
@@ -167,6 +182,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   const [shelves, setShelves] = useState<Shelf[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
+  const [enabled, setEnabledState] = useState<boolean>(readShelfEnabled);
   const [completions, setCompletions] = useState<Map<string, number>>(new Map());
   // Ensures seeding runs at most once per mounted provider, even under React
   // StrictMode's double-invoked effects (which otherwise seeds the starter
@@ -369,12 +385,24 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   const shelfCount = useCallback((id: string) => membership.get(id)?.length ?? 0, [membership]);
   const getShelf = useCallback((id: string) => shelves.find((s) => s.id === id), [shelves]);
 
+  const setEnabled = useCallback((next: boolean) => {
+    setEnabledState(next);
+    try {
+      localStorage.setItem(SHELVES_ENABLED_KEY, next ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
+    if (!next) setActiveShelfId(null);
+  }, []);
+
   const value = useMemo<ShelfContextValue>(
     () => ({
       shelves,
       loading,
       activeShelfId,
       setActiveShelf: setActiveShelfId,
+      enabled,
+      setEnabled,
       createShelf,
       updateShelf,
       deleteShelf,
@@ -389,6 +417,8 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
       shelves,
       loading,
       activeShelfId,
+      enabled,
+      setEnabled,
       createShelf,
       updateShelf,
       deleteShelf,

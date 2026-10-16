@@ -42,6 +42,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useShelves } from "../../../context/ShelfContext";
 import { usePersistedState } from "../../../hooks/usePersistedState";
 import {
   DEFAULT_NAVBAR_BUTTON_ORDER,
@@ -220,6 +221,7 @@ export default function LayoutStudio() {
     showDeckVerified,
     landingPage,
   } = useSettings();
+  const { enabled: shelvesEnabled, setEnabled: setShelvesEnabled } = useShelves();
 
   const [activePage, setActivePage] = useState<InterfacePageKey>("global");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -668,6 +670,11 @@ export default function LayoutStudio() {
     playSound();
   }, [showNavbarNowPlaying, setShowNavbarNowPlaying, playSound]);
 
+  const handleToggleSmartShelves = useCallback(() => {
+    setShelvesEnabled(!shelvesEnabled);
+    playSound();
+  }, [shelvesEnabled, setShelvesEnabled, playSound]);
+
   const handleSetSidebarPosition = useCallback(
     (side: "left" | "right") => {
       setSidebarPosition(side);
@@ -865,6 +872,7 @@ export default function LayoutStudio() {
     setShowHeroTilt(true);
     setShowHeroBackdropControls(true);
     setShowHeroInteractiveControls(true);
+    setShelvesEnabled(true);
     for (const key of availableDetailSectionKeys) {
       setDetailSectionVisible(key, true);
     }
@@ -901,6 +909,7 @@ export default function LayoutStudio() {
     setCommandPaletteMode,
     setShowGameArtBackdrop,
     setUiScale,
+    setShelvesEnabled,
     playSound,
   ]);
 
@@ -1171,6 +1180,8 @@ export default function LayoutStudio() {
               setShowHeroInteractiveControls(!showHeroInteractiveControls);
               playSound();
             }}
+            showSmartShelves={shelvesEnabled}
+            onToggleSmartShelves={handleToggleSmartShelves}
           />
 
           <p className="studio-pane__hint">

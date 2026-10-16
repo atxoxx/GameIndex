@@ -1,6 +1,7 @@
 import { useAchievements } from "../../../context/AchievementContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useSaves } from "../../../context/SavesContext";
+import { useShelves } from "../../../context/ShelfContext";
 import { useSettings } from "../../../context/SettingsContext";
 import { NAV_TAB_ITEMS } from "../../../pages/settings/interfaceItems";
 import { SetupSection, SetupToggle } from "../SetupControls";
@@ -17,6 +18,7 @@ export default function FeaturesStep() {
   const saves = useSaves();
   const overlay = useOverlaySettings();
   const achievements = useAchievements();
+  const shelves = useShelves();
 
   return (
     <div className="setup-step">
@@ -92,6 +94,13 @@ export default function FeaturesStep() {
             onChange={(value) =>
               achievements.updateSettings({ localAchievementsEnabled: value })
             }
+          />
+          <SetupToggle
+            title={t("setup.features.shelves")}
+            desc={t("setup.features.shelvesDesc")}
+            tip={t("setup.features.shelvesTip")}
+            checked={shelves.enabled}
+            onChange={shelves.setEnabled}
           />
         </div>
       </SetupSection>

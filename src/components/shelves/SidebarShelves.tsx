@@ -32,6 +32,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
   const {
     shelves,
     activeShelfId,
+    enabled,
     setActiveShelf,
     shelfCount,
     deleteShelf,
@@ -130,7 +131,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
     [updateShelf]
   );
 
-  if (isIconRail) return null;
+  if (isIconRail || !enabled) return null;
 
   return (
     <div className="sidebar-shelves">

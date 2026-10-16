@@ -25,7 +25,7 @@ export interface ShelfRailsProps {
  * shelves are skipped (the sidebar still lists them with a 0 count).
  */
 export function ShelfRails({ onCardClick, maxItems = 12 }: ShelfRailsProps) {
-  const { shelves } = useShelves();
+  const { shelves, enabled } = useShelves();
 
   const pinned = useMemo(
     () =>
@@ -35,7 +35,7 @@ export function ShelfRails({ onCardClick, maxItems = 12 }: ShelfRailsProps) {
     [shelves]
   );
 
-  if (pinned.length === 0) return null;
+  if (!enabled || pinned.length === 0) return null;
 
   return (
     <>

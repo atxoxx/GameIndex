@@ -121,8 +121,8 @@ export default function Sidebar() {
   // filter state; the membership set additionally enforces the rules the
   // filter facets can't express (numeric/date/mode), so the sidebar list
   // matches the shelf exactly.
-  const { activeShelfId, getShelf, shelfGames } = useShelves();
-  const activeShelf = activeShelfId ? getShelf(activeShelfId) : undefined;
+  const { activeShelfId, enabled, getShelf, shelfGames } = useShelves();
+  const activeShelf = enabled && activeShelfId ? getShelf(activeShelfId) : undefined;
   const activeShelfIds = useMemo(() => {
     if (!activeShelf) return null;
     return new Set(shelfGames(activeShelf.id).map((g) => g.id));
@@ -253,7 +253,7 @@ export default function Sidebar() {
   const isFilteringActive =
     filterState.search.trim() !== "" ||
     advancedFilterCount > 0 ||
-    activeShelfId !== null;
+    (enabled && activeShelfId !== null);
 
   // ── Hover preview ────────────────────────────────────────────────
   const [hoveredGameId, setHoveredGameId] = useState<string | null>(null);

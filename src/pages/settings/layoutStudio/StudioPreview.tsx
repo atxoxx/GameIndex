@@ -8,6 +8,7 @@ import {
   HardDrive,
   Layers,
   LayoutGrid,
+  Library,
   type LucideIcon,
   MousePointerClick,
   PanelLeft,
@@ -184,6 +185,9 @@ export interface StudioPreviewProps {
   onToggleHeroBackdropControls?: () => void;
   showHeroInteractiveControls?: boolean;
   onToggleHeroInteractiveControls?: () => void;
+  /** Smart Shelves feature master — off hides the sidebar section and Home rails. */
+  showSmartShelves?: boolean;
+  onToggleSmartShelves?: () => void;
 }
 
 export function StudioPreview({
@@ -232,6 +236,8 @@ export function StudioPreview({
   onToggleHeroBackdropControls,
   showHeroInteractiveControls = true,
   onToggleHeroInteractiveControls,
+  showSmartShelves = true,
+  onToggleSmartShelves,
 }: StudioPreviewProps) {
   const { t } = useLanguage();
   const isGlobal = page === "global";
@@ -765,6 +771,29 @@ export function StudioPreview({
                         inspectMode={inspectMode}
                         onInspect={onInspectElement}
                         onToggle={onToggleHeroInteractiveControls ?? (() => {})}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Smart Shelves feature master — the sidebar section + Home rails. */}
+                  <div
+                    className="studio-preview__tuner"
+                    role="group"
+                    aria-label={t("shelves.title")}
+                  >
+                    <span className="studio-preview__tuner-label">
+                      <Library size={11} aria-hidden="true" />
+                      {t("shelves.title")}
+                    </span>
+                    <div className="studio-preview__tuner-chips">
+                      <ToggleChip
+                        id="smart-shelves"
+                        label={t("settings.interface.smartShelvesTitle")}
+                        icon={Library}
+                        active={showSmartShelves !== false}
+                        inspectMode={inspectMode}
+                        onInspect={onInspectElement}
+                        onToggle={onToggleSmartShelves ?? (() => {})}
                       />
                     </div>
                   </div>

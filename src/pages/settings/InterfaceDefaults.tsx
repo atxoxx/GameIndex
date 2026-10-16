@@ -1,5 +1,6 @@
 import { List, SlidersHorizontal } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
+import { useShelves } from "../../context/ShelfContext";
 import { useSettings, type DetailSectionKey, type UiScale } from "../../context/SettingsContext";
 import { buildDetailSectionItems } from "./interfaceItems";
 import SettingsSection from "./SettingsSection";
@@ -66,6 +67,7 @@ export default function InterfaceDefaults() {
     setDetailSectionVisible,
     showDeckVerified,
   } = useSettings();
+  const { enabled: shelvesEnabled, setEnabled: setShelvesEnabled } = useShelves();
 
   const detailSections = buildDetailSectionItems(showDeckVerified).filter(
     (item) => !TAB_DETAIL_KEYS.has(item.key),
@@ -146,6 +148,12 @@ export default function InterfaceDefaults() {
               desc={t("settings.appearance.heroInteractiveControlsDesc")}
               checked={showHeroInteractiveControls}
               onChange={setShowHeroInteractiveControls}
+            />
+            <SettingsToggleCard
+              title={t("settings.interface.smartShelvesTitle")}
+              desc={t("settings.interface.smartShelvesDesc")}
+              checked={shelvesEnabled}
+              onChange={setShelvesEnabled}
             />
           </div>
         </div>
