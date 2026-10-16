@@ -4,11 +4,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type FormEvent,
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { BookOpen, Globe, Loader2, Map as MapIcon } from "lucide-react";
+import { BookOpen, Globe, Loader2, Map as MapIcon, Search } from "lucide-react";
 import { useOverlay } from "../../../context/OverlayContext";
 import { useOptionalGames } from "../../../context/GameContext";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -38,6 +39,31 @@ const WEBSITE_GROUP_ORDER: { key: Exclude<SourceCategoryKey, "all">; i18nKey: st
 ];
 
 type GuidesTab = "websites" | "maps";
+
+/** Dropdown value prefix marking a Google/YouTube search entry. */
+const SEARCH_PREFIX = "search:";
+
+type SearchEngineKey = "google" | "youtube";
+
+const SEARCH_ENGINES: { key: SearchEngineKey; label: string }[] = [
+  { key: "google", label: "Google" },
+  { key: "youtube", label: "YouTube" },
+];
+
+/** The engine encoded in a `search:<engine>` dropdown value, or null for real URLs. */
+function parseSearchEngine(value: string | null): SearchEngineKey | null {
+  if (!value || !value.startsWith(SEARCH_PREFIX)) return null;
+  const engine = value.slice(SEARCH_PREFIX.length);
+  return engine === "google" || engine === "youtube" ? engine : null;
+}
+
+/** Build the results URL for a query on the given engine. */
+function buildSearchUrl(engine: SearchEngineKey, query: string): string {
+  const q = encodeURIComponent(query.trim());
+  return engine === "youtube"
+    ? `https://www.youtube.com/results?search_query=${q}`
+    : `https://www.google.com/search?q=${q}`;
+}
 
 interface PickEntry {
   key: string;
@@ -240,6 +266,9 @@ export default function GuidesWidget() {
     const byId = new Map(groups.map((group) => [group.id, group]));
 
     for (const source of FIXED_SOURCES) {
+      // YouTube is offered through the Search group below, so skip the shared
+      // WebLinks entry here to avoid listing it twice.
+      if (source.key === "youtube") continue;
       byId.get(source.category)?.entries.push({
         key: source.key,
         label: source.label,
@@ -272,7 +301,17 @@ export default function GuidesWidget() {
       });
     }
 
-    return groups.filter((group) => group.entries.length > 0);
+    const searchGroup: PickGroup = {
+      id: "search",
+      label: t("overlay.guides.search"),
+      entries: SEARCH_ENGINES.map((engine) => ({
+        key: `${SEARCH_PREFIX}${engine.key}`,
+        label: engine.label,
+        url: `${SEARCH_PREFIX}${engine.key}`,
+      })),
+    };
+
+    return [searchGroup, ...groups.filter((group) => group.entries.length > 0)];
   }, [game, appId, t]);
 
   const mapGroups = useMemo<PickGroup[]>(() => {
@@ -296,16 +335,45 @@ export default function GuidesWidget() {
 
   const [activeTab, setActiveTab] = useState<GuidesTab>("websites");
   const [websiteUrl, setWebsiteUrl] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchUrl, setSearchUrl] = useState<string | null>(null);
   const [mapUrl, setMapUrl] = useState<string | null>(null);
 
   // Drop both open pages when the game changes.
   useEffect(() => {
     setWebsiteUrl(null);
+    setSearchUrl(null);
+    setSearchQuery("");
     setMapUrl(null);
   }, [game?.id]);
 
-  const activeUrl = activeTab === "websites" ? websiteUrl : mapUrl;
+  // `websiteUrl` holds the dropdown selection: a real URL, or a `search:<engine>`
+  // sentinel once a Google/YouTube entry is picked. In search mode the page only
+  // opens once a query is submitted (`searchUrl`).
+  const searchEngine = parseSearchEngine(websiteUrl);
+  const websiteActiveUrl = searchEngine ? searchUrl : websiteUrl;
+  const activeUrl = activeTab === "websites" ? websiteActiveUrl : mapUrl;
   const preview = useOverlayPreview(activeUrl);
+
+  const handleWebsiteChange = useCallback(
+    (value: string) => {
+      setWebsiteUrl(value);
+      setSearchUrl(null);
+      if (parseSearchEngine(value)) setSearchQuery(game?.name ?? "");
+    },
+    [game?.name]
+  );
+
+  const submitSearch = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      if (!searchEngine) return;
+      const query = searchQuery.trim();
+      if (!query) return;
+      setSearchUrl(buildSearchUrl(searchEngine, query));
+    },
+    [searchEngine, searchQuery]
+  );
 
   const activeEntry = useMemo(() => {
     const groups = activeTab === "websites" ? websiteGroups : mapGroups;
@@ -355,6 +423,7 @@ export default function GuidesWidget() {
 
   const tabId = (tab: GuidesTab) => `overlay-guides-tab-${tab}`;
   const noMaps = activeTab === "maps" && maps.status === "ready" && mapGroups.length === 0;
+  const searchPending = activeTab === "websites" && searchEngine !== null && !searchUrl;
 
   return (
     <Card variant="glass" className="overlay-widget overlay-guides-widget" data-testid="overlay-guides">
@@ -393,18 +462,42 @@ export default function GuidesWidget() {
         aria-labelledby={tabId(activeTab)}
       >
         {activeTab === "websites" ? (
-          <select
-            className="overlay-guides__select"
-            value={websiteUrl ?? ""}
-            onChange={(event) => setWebsiteUrl(event.target.value)}
-            aria-label={t("overlay.guides.websites")}
-            data-testid="overlay-guides-select"
-          >
-            <option value="" disabled>
-              {t("overlay.guides.selectWebsite")}
-            </option>
-            {renderGroups(websiteGroups)}
-          </select>
+          <>
+            <select
+              className="overlay-guides__select"
+              value={websiteUrl ?? ""}
+              onChange={(event) => handleWebsiteChange(event.target.value)}
+              aria-label={t("overlay.guides.websites")}
+              data-testid="overlay-guides-select"
+            >
+              <option value="" disabled>
+                {t("overlay.guides.selectWebsite")}
+              </option>
+              {renderGroups(websiteGroups)}
+            </select>
+            {searchEngine && (
+              <form className="overlay-guides__search" onSubmit={submitSearch}>
+                <input
+                  type="text"
+                  className="overlay-guides__search-input"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={t("overlay.guides.searchPlaceholder")}
+                  aria-label={t("overlay.guides.searchPlaceholder")}
+                  data-testid="overlay-guides-search-input"
+                />
+                <button
+                  type="submit"
+                  className="overlay-guides__search-go"
+                  disabled={!searchQuery.trim()}
+                  data-testid="overlay-guides-search-go"
+                >
+                  <Search size={12} aria-hidden />
+                  <span>{t("overlay.guides.searchGo")}</span>
+                </button>
+              </form>
+            )}
+          </>
         ) : (
           <select
             className="overlay-guides__select"
@@ -438,7 +531,10 @@ export default function GuidesWidget() {
                 onOpenExternal={openExternal}
               />
               <span className="overlay-guides__title" title={activeUrl}>
-                {activeEntry?.label ?? activeUrl}
+                {activeEntry?.label ??
+                  (searchEngine
+                    ? `${SEARCH_ENGINES.find((engine) => engine.key === searchEngine)?.label ?? searchEngine}: ${searchQuery}`
+                    : activeUrl)}
               </span>
             </div>
             <div className="overlay-guides__frame" ref={preview.frameRef}>
@@ -458,7 +554,9 @@ export default function GuidesWidget() {
                 <span>{t("overlay.guides.loading")}</span>
               </div>
             ) : (
-              <span className="overlay-guides__hint">{t("overlay.guides.pickHint")}</span>
+              <span className="overlay-guides__hint">
+                {searchPending ? t("overlay.guides.searchHint") : t("overlay.guides.pickHint")}
+              </span>
             )}
           </div>
         )}

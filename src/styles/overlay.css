@@ -3231,6 +3231,52 @@ body.overlay-window #root {
   cursor: default;
 }
 
+.overlay-guides__search {
+  display: flex;
+  gap: var(--space-2xs);
+}
+
+.overlay-guides__search-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+}
+
+.overlay-guides__search-input:focus {
+  outline: none;
+  border-color: var(--color-accent-border);
+}
+
+.overlay-guides__search-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 5px 10px;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.overlay-guides__search-go:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.overlay-guides__search-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .overlay-guides__browser {
   display: flex;
   flex-direction: column;

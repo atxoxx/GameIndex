@@ -146,4 +146,66 @@ describe("GuidesWidget", () => {
     expect(screen.getByText("overlay.guides.noMaps")).toBeInTheDocument();
     expect(screen.getByTestId("overlay-guides-select")).toBeDisabled();
   });
+
+  it("lists Google and YouTube under a Search group without duplicating YouTube", () => {
+    renderRunningGame();
+
+    expect(screen.getByRole("group", { name: "overlay.guides.search" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Google" })).toBeInTheDocument();
+    // The shared WebLinks YouTube entry is dropped in favour of the search one.
+    expect(screen.getAllByRole("option", { name: "YouTube" })).toHaveLength(1);
+  });
+
+  it("prefills an editable query with the game name and opens a Google search", () => {
+    renderRunningGame();
+
+    const select = screen.getByTestId<HTMLSelectElement>("overlay-guides-select");
+    fireEvent.change(select, { target: { value: "search:google" } });
+
+    const input = screen.getByTestId<HTMLInputElement>("overlay-guides-search-input");
+    expect(input.value).toBe("Hollow Knight");
+    // Nothing opens until the query is submitted.
+    expect(invokeMock).not.toHaveBeenCalledWith("create_preview_webview", expect.anything());
+
+    fireEvent.change(input, { target: { value: "Hollow Knight pale king" } });
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "create_preview_webview",
+      expect.objectContaining({
+        url: "https://www.google.com/search?q=Hollow%20Knight%20pale%20king",
+      })
+    );
+  });
+
+  it("opens a YouTube search with the bare game name", () => {
+    renderRunningGame();
+
+    const select = screen.getByTestId<HTMLSelectElement>("overlay-guides-select");
+    fireEvent.change(select, { target: { value: "search:youtube" } });
+
+    const input = screen.getByTestId<HTMLInputElement>("overlay-guides-search-input");
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "create_preview_webview",
+      expect.objectContaining({
+        url: "https://www.youtube.com/results?search_query=Hollow%20Knight",
+      })
+    );
+  });
+
+  it("keeps the search button disabled and opens nothing for a blank query", () => {
+    renderRunningGame();
+
+    const select = screen.getByTestId<HTMLSelectElement>("overlay-guides-select");
+    fireEvent.change(select, { target: { value: "search:google" } });
+
+    const input = screen.getByTestId<HTMLInputElement>("overlay-guides-search-input");
+    fireEvent.change(input, { target: { value: "   " } });
+
+    expect(screen.getByTestId("overlay-guides-search-go")).toBeDisabled();
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+    expect(invokeMock).not.toHaveBeenCalledWith("create_preview_webview", expect.anything());
+  });
 });
