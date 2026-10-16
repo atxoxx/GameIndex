@@ -35,10 +35,19 @@ pub(crate) fn finalize_session(
     }
     let _ = session.stop_tx.send(());
     let elapsed = session.elapsed_seconds();
-    let metrics = session
+    let drained = session
         .metrics_rx
         .as_mut()
         .and_then(|rx| rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap_or(None));
+    // A slow WMI shutdown can outlast the 1 s drain. Fall back to the live
+    // accumulator so the freshest samples are still recorded instead of
+    // dropping telemetry for the session.
+    let metrics = drained.or_else(|| {
+        session
+            .metrics_acc
+            .as_ref()
+            .and_then(|acc| acc.snapshot())
+    });
 
     // Capture the wall-clock time at session-end (Unix ms). The frontend
     // uses this to stamp `Game.lastPlayed`, which drives the "Continue
@@ -60,21 +69,10 @@ pub(crate) fn finalize_session(
     // frontend listener that reads from the DB sees a row in place.
     // Synchronous SQLite insert on a WAL pool is sub-millisecond; the
     // emit follows only after the commit returns.
-    let metrics_json = metrics
-        .as_ref()
-        .and_then(|m| serde_json::to_string(m).ok());
-    // `SessionMetrics` exposes u32 scalars directly (not Option<F>), so
-    // we always populate the averages. Cast to f32 for the SQLite REAL
-    // columns.
-    let (avg_fps, avg_cpu, avg_gpu, avg_ram) = match metrics.as_ref() {
-        Some(m) => (
-            Some(m.avg_fps as f32),
-            Some(m.avg_cpu_usage as f32),
-            Some(m.avg_gpu_usage as f32),
-            Some(m.avg_ram_usage as f32),
-        ),
-        None => (None, None, None, None),
-    };
+    // A `None` drain result does not erase telemetry: `finalize` COALESCEs
+    // these columns, preserving the checkpoint the last heartbeat persisted.
+    let (avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json) =
+        crate::metrics_collector::persist_parts(metrics.as_ref());
     // A session that never attached (last_pid == 0 — only reachable via
     // the pending-launch timeout) never ran a process: skip the phantom
     // session row and the last_played stamp entirely. `game-exited` is

@@ -66,6 +66,11 @@ pub struct ActiveSession {
     pub last_pid: u32,
     pub stop_tx: std::sync::mpsc::Sender<()>,
     pub metrics_rx: Option<std::sync::mpsc::Receiver<Option<metrics_collector::SessionMetrics>>>,
+    /// Shared live sample buffer for the running collector, mirrored into the
+    /// durable running row at each heartbeat so telemetry survives a slow
+    /// collector shutdown or an app crash mid-session. `None` for a pending
+    /// launch (no process/collector yet).
+    pub metrics_acc: Option<metrics_collector::MetricsAccumulator>,
     /// `true` if the session was started by `register_launched_session`
     /// (user clicked Launch); `false` if detected passively by
     /// `start_passive_session`. Wired up so future telemetry and

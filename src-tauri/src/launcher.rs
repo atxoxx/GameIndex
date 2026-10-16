@@ -146,10 +146,18 @@ pub fn force_close_game(
     }
     let _ = session.stop_tx.send(());
     let elapsed = session.elapsed_seconds();
-    let metrics = session
+    let drained = session
         .metrics_rx
         .as_mut()
         .and_then(|rx| rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap_or(None));
+    // A slow WMI shutdown can outlast the 1 s drain; fall back to the live
+    // accumulator (see `finalize_session`).
+    let metrics = drained.or_else(|| {
+        session
+            .metrics_acc
+            .as_ref()
+            .and_then(|acc| acc.snapshot())
+    });
     // Attach-anchored wall-clock stamp when available; back-dated otherwise.
     let started_at_ms = if session.attached_at_ms > 0 {
         session.attached_at_ms
@@ -157,18 +165,10 @@ pub fn force_close_game(
         finished_at_ms.saturating_sub(elapsed * 1000)
     };
 
-    let metrics_json = metrics
-        .as_ref()
-        .and_then(|m| serde_json::to_string(m).ok());
-    let (avg_fps, avg_cpu, avg_gpu, avg_ram) = match metrics.as_ref() {
-        Some(m) => (
-            Some(m.avg_fps as f32),
-            Some(m.avg_cpu_usage as f32),
-            Some(m.avg_gpu_usage as f32),
-            Some(m.avg_ram_usage as f32),
-        ),
-        None => (None, None, None, None),
-    };
+    // A `None` payload preserves any telemetry checkpoint the heartbeat
+    // already wrote (`finalize` COALESCEs these columns).
+    let (avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json) =
+        crate::metrics_collector::persist_parts(metrics.as_ref());
     // Skip the DB row for a pending session that never attached a real
     // process (matches the natural-exit path's guard).
     if session.last_pid != 0 {
@@ -1017,18 +1017,23 @@ pub fn launch_game(
     // Start metrics collection immediately if we have a valid PID.
     // The stop_tx and metrics_rx are stored in the session so the
     // watcher's finish_session can stop collection and read results.
-    let (metrics_stop_tx, metrics_rx) = if initial_pid > 0 {
+    // The accumulator clone stored on the session lets the heartbeat
+    // persist crash-safe telemetry checkpoints while the game runs.
+    let cfg = w.metrics_config();
+    let (metrics_stop_tx, metrics_rx, metrics_acc) = if initial_pid > 0 {
+        let acc = metrics_collector::MetricsAccumulator::new(cfg.clone());
         let (tx, rx) = metrics_collector::start_metrics_collection(
-            w.metrics_config().clone(), initial_pid, gpu_id.clone(), gpu_name.clone(),
+            cfg, initial_pid, gpu_id.clone(), gpu_name.clone(), acc.clone(),
         );
-        (tx, rx)
+        (tx, rx, Some(acc))
     } else {
         // No PID yet (Steam protocol launch) — create dummy channels.
         // Sends will fail silently in finish_session — acceptable
-        // because metrics were never started for this session.
+        // because metrics were never started for this session; the poll
+        // loop starts real collection when the game process appears.
         let (dummy_stop_tx, _) = std::sync::mpsc::channel::<()>();
         let (_, dummy_metrics_rx) = std::sync::mpsc::channel::<Option<metrics_collector::SessionMetrics>>();
-        (dummy_stop_tx, dummy_metrics_rx)
+        (dummy_stop_tx, dummy_metrics_rx, None)
     };
 
     {
@@ -1045,6 +1050,7 @@ pub fn launch_game(
             initial_pid,
             metrics_stop_tx,
             metrics_rx,
+            metrics_acc,
             post_exit,
         );
     }

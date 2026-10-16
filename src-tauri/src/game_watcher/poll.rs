@@ -3,6 +3,7 @@ use std::time::Instant;
 use tauri::AppHandle;
 
 use crate::db::{self};
+use crate::metrics_collector;
 
 use super::*;
 use super::process::query_running_processes;
@@ -169,12 +170,19 @@ pub fn start_background_poll(
         // reconciled (back-dated) by finalize_orphaned_running on next
         // startup, and only loses sub-heartbeat playtime.
         for row in heartbeat_rows {
+            let (avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json) =
+                metrics_collector::persist_parts(row.metrics.as_ref());
             if let Err(e) = db::sessions::upsert_running(
                 &db,
                 &row.game_id,
                 &row.game_name,
                 row.started_at_ms,
                 row.elapsed_seconds,
+                avg_fps,
+                avg_cpu,
+                avg_gpu,
+                avg_ram,
+                metrics_json.as_deref(),
             ) {
                 eprintln!(
                     "[game_watcher] failed to persist running session for {}: {e}",

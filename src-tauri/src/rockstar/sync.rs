@@ -111,17 +111,20 @@ pub async fn rockstar_launch_game(
     let watcher: tauri::State<'_, Arc<Mutex<GameWatcher>>> = app.state();
     let mut w = watcher.lock().map_err(|e| e.to_string())?;
 
-    let (metrics_stop_tx, metrics_rx) = if pid > 0 {
+    let (metrics_stop_tx, metrics_rx, metrics_acc) = if pid > 0 {
         // GameWatcher's GPU fields are private with no public accessor
         // from this module, so real collection starts without GPU
         // sensor labels here (None, None).
+        let cfg = w.metrics_config();
+        let acc = metrics_collector::MetricsAccumulator::new(cfg.clone());
         let (tx, rx) = metrics_collector::start_metrics_collection(
-            w.metrics_config().clone(),
+            cfg,
             pid,
             None,
             None,
+            acc.clone(),
         );
-        (tx, rx)
+        (tx, rx, Some(acc))
     } else {
         // No PID yet (launcher hand-off) — create dummy channels. Sends
         // will fail silently in finish_session — acceptable because
@@ -130,7 +133,7 @@ pub async fn rockstar_launch_game(
         let (dummy_stop_tx, _) = std::sync::mpsc::channel::<()>();
         let (_, dummy_metrics_rx) =
             std::sync::mpsc::channel::<Option<metrics_collector::SessionMetrics>>();
-        (dummy_stop_tx, dummy_metrics_rx)
+        (dummy_stop_tx, dummy_metrics_rx, None)
     };
 
     w.register_launched_session(
@@ -143,6 +146,7 @@ pub async fn rockstar_launch_game(
         pid,
         metrics_stop_tx,
         metrics_rx,
+        metrics_acc,
         None,
     );
 

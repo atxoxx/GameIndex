@@ -23,6 +23,11 @@ pub(crate) struct RunningSessionSnapshot {
     pub(crate) game_name: String,
     pub(crate) started_at_ms: u64,
     pub(crate) elapsed_seconds: u64,
+    /// Crash-safe telemetry checkpoint aggregated from the session's live
+    /// accumulator (see [`crate::metrics_collector::MetricsAccumulator`]).
+    /// `None` before the first sample or when collection is disabled, in
+    /// which case the heartbeat leaves any existing row metrics untouched.
+    pub(crate) metrics: Option<crate::metrics_collector::SessionMetrics>,
 }
 
 /// Tells `query_running_processes` which processes need their working-set

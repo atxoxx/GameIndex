@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 #[cfg(windows)]
 use wmi::{COMLibrary, WMIConnection};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
 #[cfg(windows)]
@@ -149,13 +149,100 @@ struct WmiSensor {
     sensor_type: String,
 }
 
+/// Live, thread-safe accumulator of a session's raw telemetry samples.
+///
+/// The collector thread pushes every sample it captures into the shared
+/// buffer; the watcher keeps its own clone and snapshots the buffer at each
+/// heartbeat to persist a *crash-safe* telemetry checkpoint on the durable
+/// running-session row. This is what lets telemetry survive the two ways a
+/// session's final drain can come up empty:
+///
+///   * a slow shutdown — WMI can block for seconds, so the 1 s drain in
+///     `finalize_session` times out and the collector's own result never
+///     arrives; and
+///   * an app crash / kill mid-session — the collector thread dies with the
+///     process, so no result is ever sent at all.
+///
+/// In both cases the most recent heartbeat's checkpoint is already on disk,
+/// and `finalize` / `upsert_running` preserve it via `COALESCE`.
+#[derive(Clone)]
+pub struct MetricsAccumulator {
+    samples: Arc<Mutex<Vec<MetricsSample>>>,
+    config: MetricsConfig,
+}
+
+impl MetricsAccumulator {
+    pub fn new(config: MetricsConfig) -> Self {
+        Self {
+            samples: Arc::new(Mutex::new(Vec::new())),
+            config,
+        }
+    }
+
+    /// Aggregate everything captured so far for a durable checkpoint.
+    /// `None` when collection is disabled or nothing has been sampled yet,
+    /// so a checkpoint never overwrites real telemetry with an empty payload.
+    pub fn snapshot(&self) -> Option<SessionMetrics> {
+        if !self.config.enabled {
+            return None;
+        }
+        let samples = self.samples.lock().ok()?;
+        if samples.is_empty() {
+            return None;
+        }
+        aggregate_metrics(&samples, &self.config)
+    }
+
+    fn push(&self, sample: MetricsSample) {
+        if let Ok(mut samples) = self.samples.lock() {
+            push_sample(&mut samples, sample);
+        }
+    }
+
+    /// Aggregate the final result for the collector's result channel and
+    /// release the buffer. Always `Some` (mirrors `aggregate_metrics`'s
+    /// "attempted, maybe zeroed" contract), so a live collector that ran but
+    /// found no source still reports a result.
+    fn finish(&self) -> Option<SessionMetrics> {
+        let samples = match self.samples.lock() {
+            Ok(mut guard) => std::mem::take(&mut *guard),
+            Err(_) => Vec::new(),
+        };
+        aggregate_metrics(&samples, &self.config)
+    }
+}
+
+/// Break a metrics payload into the denormalized columns the `sessions`
+/// table stores — the four `avg_*` REALs plus the serialised JSON blob — so
+/// every writer (finalize, force-close, heartbeat checkpoint) shapes the row
+/// identically.
+pub fn persist_parts(
+    metrics: Option<&SessionMetrics>,
+) -> (Option<f32>, Option<f32>, Option<f32>, Option<f32>, Option<String>) {
+    match metrics {
+        Some(m) => (
+            Some(m.avg_fps as f32),
+            Some(m.avg_cpu_usage as f32),
+            Some(m.avg_gpu_usage as f32),
+            Some(m.avg_ram_usage as f32),
+            serde_json::to_string(m).ok(),
+        ),
+        None => (None, None, None, None, None),
+    }
+}
+
 /// Start collecting real-time performance metrics on a background thread.
 /// Returns a receiver that the caller can use to stop collection and get the averaged results.
+///
+/// `accumulator` is the shared sample buffer the collector fills. The caller
+/// keeps a clone (stored on the active session) so the watcher's heartbeat can
+/// persist crash-safe telemetry checkpoints while the game is still running.
 pub fn start_metrics_collection(
     config: MetricsConfig,
     game_pid: u32,
     gpu_id: Option<String>,
     gpu_name: Option<String>,
+    accumulator: MetricsAccumulator,
 ) -> (
     std::sync::mpsc::Sender<()>,
     std::sync::mpsc::Receiver<Option<SessionMetrics>>,
@@ -172,9 +259,8 @@ pub fn start_metrics_collection(
             return;
         }
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let samples =
-                collect_metrics_loop(&config, stop_rx, game_pid, gpu_id, gpu_name);
-            aggregate_metrics(&samples, &config)
+            collect_metrics_loop(&config, stop_rx, game_pid, gpu_id, gpu_name, &accumulator);
+            accumulator.finish()
         }));
         match result {
             Ok(metrics) => { let _ = result_tx.send(metrics); }
@@ -577,8 +663,8 @@ fn collect_metrics_loop(
     _game_pid: u32,
     gpu_id: Option<String>,
     _gpu_name: Option<String>,
-) -> Vec<MetricsSample> {
-    let mut samples: Vec<MetricsSample> = Vec::new();
+    accumulator: &MetricsAccumulator,
+) {
     let loop_start = Instant::now();
     let interval = Duration::from_millis(config.interval_ms.max(250));
 
@@ -691,19 +777,17 @@ fn collect_metrics_loop(
             );
         }
 
-        push_sample(&mut samples, sample);
+        accumulator.push(sample);
 
         // Wait out the poll interval. `recv_timeout` wakes on the stop signal
         // immediately, replacing the old 200 ms re-check loop that woke this
         // thread 25 times for a single 5 s sample.
         match stop_rx.recv_timeout(interval) {
-            Ok(()) => return samples,
+            Ok(()) => return,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return samples,
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return,
         }
     }
-
-    samples
 }
 
 /// Read the aggregate `cpu ` line from /proc/stat as (total, idle) ticks.
@@ -1201,9 +1285,9 @@ fn collect_metrics_loop(
     _game_pid: u32,
     _gpu_id: Option<String>,
     _gpu_name: Option<String>,
-) -> Vec<MetricsSample> {
+    _accumulator: &MetricsAccumulator,
+) {
     let _ = stop_rx.recv();
-    Vec::new()
 }
 
 #[cfg(windows)]
@@ -1213,8 +1297,8 @@ fn collect_metrics_loop(
     game_pid: u32,
     gpu_id: Option<String>,
     gpu_name: Option<String>,
-) -> Vec<MetricsSample> {
-    let mut samples: Vec<MetricsSample> = Vec::new();
+    accumulator: &MetricsAccumulator,
+) {
     let loop_start = Instant::now();
     let interval = Duration::from_millis(config.interval_ms.max(250));
 
@@ -1242,7 +1326,7 @@ fn collect_metrics_loop(
                 Ok(lib) => lib,
                 Err(e2) => {
                     eprintln!("[metrics] COMLibrary::without_security() also failed: {:?} — no WMI samples", e2);
-                    return samples;
+                    return;
                 }
             }
         }
@@ -1251,7 +1335,7 @@ fn collect_metrics_loop(
         Ok(con) => con,
         Err(e) => {
             eprintln!("[metrics] WMIConnection::new() failed: {:?} — no WMI samples", e);
-            return samples;
+            return;
         }
     };
 
@@ -1310,18 +1394,16 @@ fn collect_metrics_loop(
         }
 
         sample.t = loop_start.elapsed().as_secs_f64();
-        push_sample(&mut samples, sample);
+        accumulator.push(sample);
 
         // Wait out the polling interval. `recv_timeout` wakes on the stop
         // signal immediately instead of re-checking it every 200 ms.
         match stop_rx.recv_timeout(interval) {
-            Ok(()) => return samples,
+            Ok(()) => return,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return samples,
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return,
         }
     }
-
-    samples
 }
 
 #[cfg(windows)]
@@ -2226,6 +2308,62 @@ mod tests {
         let samples: Vec<MetricsSample> = (0..50).map(sample).collect();
         assert!(downsample_samples(&samples, true).iter().all(|p| p.fps.is_some()));
         assert!(downsample_samples(&samples, false).iter().all(|p| p.fps.is_none()));
+    }
+
+    // ─────────── tests for MetricsAccumulator / persist_parts ───────────
+
+    #[test]
+    fn accumulator_snapshot_is_none_until_first_sample() {
+        let acc = MetricsAccumulator::new(MetricsConfig::default());
+        assert!(acc.snapshot().is_none(), "empty buffer must not checkpoint");
+        acc.push(sample(0));
+        assert!(acc.snapshot().is_some(), "a captured sample checkpoints");
+    }
+
+    #[test]
+    fn accumulator_snapshot_is_none_when_collection_disabled() {
+        let config = MetricsConfig {
+            enabled: false,
+            ..MetricsConfig::default()
+        };
+        let acc = MetricsAccumulator::new(config);
+        acc.push(sample(0));
+        assert!(acc.snapshot().is_none());
+    }
+
+    #[test]
+    fn accumulator_finish_drains_the_buffer() {
+        let acc = MetricsAccumulator::new(MetricsConfig::default());
+        acc.push(sample(0));
+        acc.push(sample(1));
+        assert!(acc.finish().is_some());
+        // `finish` takes the samples out, so nothing is left to checkpoint.
+        assert!(acc.snapshot().is_none());
+    }
+
+    #[test]
+    fn persist_parts_maps_metrics_and_preserves_none() {
+        let (nf, nc, ng, nr, nj) = persist_parts(None);
+        assert!(nf.is_none() && nc.is_none() && ng.is_none() && nr.is_none() && nj.is_none());
+
+        let m = SessionMetrics {
+            avg_fps: 60,
+            avg_cpu_usage: 40,
+            avg_gpu_usage: 70,
+            avg_ram_usage: 50,
+            avg_cpu_temp: 0,
+            avg_gpu_temp: 0,
+            min_fps: 0,
+            max_fps: 0,
+            resolution: "1920x1080".to_string(),
+            samples: Vec::new(),
+        };
+        let (fps, cpu, gpu, ram, json) = persist_parts(Some(&m));
+        assert_eq!(fps, Some(60.0));
+        assert_eq!(cpu, Some(40.0));
+        assert_eq!(gpu, Some(70.0));
+        assert_eq!(ram, Some(50.0));
+        assert!(json.unwrap().contains("\"avgFps\":60"));
     }
 
     // ─────────── tests for the MangoHud log FPS parser ───────────

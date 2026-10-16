@@ -78,26 +78,56 @@ pub fn upsert_running(
     game_name: &str,
     started_at_ms: u64,
     elapsed_seconds: u64,
+    avg_fps: Option<f32>,
+    avg_cpu: Option<f32>,
+    avg_gpu: Option<f32>,
+    avg_ram: Option<f32>,
+    metrics_json: Option<&str>,
 ) -> Result<(), String> {
     let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    // Telemetry columns are only advanced when this heartbeat actually has a
+    // sample (`COALESCE(?5, avg_fps)`); a heartbeat that fires before the
+    // collector's first sample (or with collection disabled) must not wipe the
+    // checkpoint an earlier heartbeat already wrote.
     let updated = conn
         .execute(
             "UPDATE sessions
-                SET started_at = ?1, game_name = ?2, elapsed_seconds = ?3
+                SET started_at = ?1, game_name = ?2, elapsed_seconds = ?3,
+                    avg_fps = COALESCE(?5, avg_fps),
+                    avg_cpu = COALESCE(?6, avg_cpu),
+                    avg_gpu = COALESCE(?7, avg_gpu),
+                    avg_ram = COALESCE(?8, avg_ram),
+                    metrics_json = COALESCE(?9, metrics_json)
               WHERE game_id = ?4 AND ended_at IS NULL",
             params![
                 started_at_ms as i64,
                 game_name,
                 elapsed_seconds as i64,
                 game_id,
+                avg_fps.map(|n| n as f64),
+                avg_cpu.map(|n| n as f64),
+                avg_gpu.map(|n| n as f64),
+                avg_ram.map(|n| n as f64),
+                metrics_json,
             ],
         )
         .map_err(|e| format!("sessions upsert_running: {e}"))?;
     if updated == 0 {
         conn.execute(
-            "INSERT INTO sessions(game_id, game_name, started_at, ended_at, elapsed_seconds)
-             VALUES (?1, ?2, ?3, NULL, ?4)",
-            params![game_id, game_name, started_at_ms as i64, elapsed_seconds as i64],
+            "INSERT INTO sessions(game_id, game_name, started_at, ended_at, elapsed_seconds,
+                                  avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json)
+             VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                game_id,
+                game_name,
+                started_at_ms as i64,
+                elapsed_seconds as i64,
+                avg_fps.map(|n| n as f64),
+                avg_cpu.map(|n| n as f64),
+                avg_gpu.map(|n| n as f64),
+                avg_ram.map(|n| n as f64),
+                metrics_json,
+            ],
         )
         .map_err(|e| format!("sessions upsert_running insert: {e}"))?;
     }
@@ -108,6 +138,10 @@ pub fn upsert_running(
 /// ever created one) into the finished row, otherwise insert a fresh
 /// finished row. Keeps exactly one row per session whether or not the
 /// heartbeat ran (short sessions end before the first 30 s heartbeat).
+///
+/// Telemetry columns are `COALESCE`-merged so a `None` payload (the collector
+/// drained empty — slow WMI shutdown, or the process was killed) never
+/// overwrites the crash-safe checkpoint the last heartbeat already persisted.
 #[allow(clippy::too_many_arguments)]
 pub fn finalize(
     db: &Db,
@@ -127,7 +161,11 @@ pub fn finalize(
         .execute(
             "UPDATE sessions
                 SET started_at = ?1, game_name = ?2, ended_at = ?3, elapsed_seconds = ?4,
-                    avg_fps = ?5, avg_cpu = ?6, avg_gpu = ?7, avg_ram = ?8, metrics_json = ?9
+                    avg_fps = COALESCE(?5, avg_fps),
+                    avg_cpu = COALESCE(?6, avg_cpu),
+                    avg_gpu = COALESCE(?7, avg_gpu),
+                    avg_ram = COALESCE(?8, avg_ram),
+                    metrics_json = COALESCE(?9, metrics_json)
               WHERE game_id = ?10 AND ended_at IS NULL",
             params![
                 started_at_ms as i64,
@@ -515,9 +553,9 @@ mod tests {
         super::super::migrate::run_migrations(&db).unwrap();
 
         // First heartbeat creates the in-progress row.
-        upsert_running(&db, "g", "Game", 1000, 30).unwrap();
+        upsert_running(&db, "g", "Game", 1000, 30, None, None, None, None, None).unwrap();
         // Second heartbeat updates it in place — still one row.
-        upsert_running(&db, "g", "Game", 1000, 60).unwrap();
+        upsert_running(&db, "g", "Game", 1000, 60, None, None, None, None, None).unwrap();
 
         // In-progress rows must not surface in the finished-session lists.
         assert_eq!(list_for_game(&db, "g").unwrap().len(), 0);
@@ -533,8 +571,66 @@ mod tests {
     }
 
     #[test]
-    fn finalize_without_running_row_inserts() {
+    fn finalize_preserves_heartbeat_telemetry_when_drain_is_empty() {
         let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        // A heartbeat checkpointed real telemetry mid-session...
+        upsert_running(
+            &db,
+            "g",
+            "Game",
+            1000,
+            300,
+            Some(60.0),
+            Some(40.0),
+            Some(70.0),
+            Some(50.0),
+            Some(r#"{"avgFps":60,"samples":[{"t":0.0}]}"#),
+        )
+        .unwrap();
+
+        // ...but the final drain came back empty (slow WMI shutdown / the
+        // collector process was killed). Finalizing must not wipe it.
+        finalize(&db, "g", "Game", 1000, 610_000, 600, None, None, None, None, None).unwrap();
+
+        let rows = list_for_game(&db, "g").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].avg_fps, Some(60.0));
+        assert!(rows[0].metrics_json.as_deref().unwrap().contains("avgFps"));
+    }
+
+    #[test]
+    fn heartbeat_without_samples_keeps_earlier_checkpoint() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        upsert_running(
+            &db, "g", "Game", 1000, 30,
+            Some(60.0), None, None, None, Some(r#"{"avgFps":60}"#),
+        )
+        .unwrap();
+        // A later heartbeat that ran before the collector's first sample
+        // carries no metrics — the earlier checkpoint must survive.
+        upsert_running(&db, "g", "Game", 1000, 40, None, None, None, None, None).unwrap();
+
+        let conn = db.sessions().unwrap();
+        let (fps, elapsed): (Option<f64>, i64) = conn
+            .query_row(
+                "SELECT avg_fps, elapsed_seconds FROM sessions
+                  WHERE game_id = 'g' AND ended_at IS NULL",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(fps, Some(60.0));
+        assert_eq!(elapsed, 40);
+    }
+
+    #[test]
+    fn finalize_without_running_row_inserts() {        let dir = tempfile::tempdir().unwrap();
         let db = Db::open(dir.path()).unwrap();
         super::super::migrate::run_migrations(&db).unwrap();
 
@@ -551,8 +647,8 @@ mod tests {
 
         // Two orphans: one with real elapsed, one zero-elapsed
         // (crashed before the first heartbeat).
-        upsert_running(&db, "a", "Game A", 1000, 90).unwrap();
-        upsert_running(&db, "b", "Game B", 2000, 0).unwrap();
+        upsert_running(&db, "a", "Game A", 1000, 90, None, None, None, None, None).unwrap();
+        upsert_running(&db, "b", "Game B", 2000, 0, None, None, None, None, None).unwrap();
 
         let finalized = finalize_orphaned_running(&db).unwrap();
         assert_eq!(finalized, 1, "only the non-zero orphan is back-dated");

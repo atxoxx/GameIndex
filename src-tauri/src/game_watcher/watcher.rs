@@ -231,6 +231,7 @@ impl GameWatcher {
         initial_pid: u32,
         metrics_stop_tx: std::sync::mpsc::Sender<()>,
         metrics_rx: std::sync::mpsc::Receiver<Option<metrics_collector::SessionMetrics>>,
+        metrics_acc: Option<metrics_collector::MetricsAccumulator>,
         post_exit_script: Option<(String, bool)>,
     ) {
         let install_dir = if platform == "Steam" {
@@ -265,6 +266,7 @@ impl GameWatcher {
                 last_pid: initial_pid,
                 stop_tx: metrics_stop_tx,
                 metrics_rx: Some(metrics_rx),
+                metrics_acc,
                 launched_by_app: true,
                 matched_exe: exe_path.unwrap_or("").to_string(),
                 // A known-PID launch is attached immediately; a pending
@@ -561,14 +563,17 @@ impl GameWatcher {
                     session.game_name, proc.pid, proc.exe_path
                 );
 
+                let acc = metrics_collector::MetricsAccumulator::new(self.metrics_config.clone());
                 let (tx, rx) = metrics_collector::start_metrics_collection(
                     self.metrics_config.clone(),
                     proc.pid,
                     self.gpu_id.clone(),
                     self.gpu_name.clone(),
+                    acc.clone(),
                 );
                 session.stop_tx = tx;
                 session.metrics_rx = Some(rx);
+                session.metrics_acc = Some(acc);
 
                 // Notify the frontend the first time a process is found.
                 if was_pending {
@@ -687,11 +692,13 @@ impl GameWatcher {
         proc: &ProcessInfo,
     ) {
         let pid = proc.pid;
+        let acc = metrics_collector::MetricsAccumulator::new(self.metrics_config.clone());
         let (stop_tx, metrics_rx) = metrics_collector::start_metrics_collection(
             self.metrics_config.clone(),
             pid,
             self.gpu_id.clone(),
             self.gpu_name.clone(),
+            acc.clone(),
         );
 
         self.active_sessions.insert(
@@ -703,6 +710,7 @@ impl GameWatcher {
                 last_pid: pid,
                 stop_tx,
                 metrics_rx: Some(metrics_rx),
+                metrics_acc: Some(acc),
                 launched_by_app: false,
                 attached_at: Some(Instant::now()),
                 attached_at_ms: now_unix_ms(),
@@ -748,6 +756,7 @@ impl GameWatcher {
                 game_name: session.game_name.clone(),
                 started_at_ms: session.attached_at_ms,
                 elapsed_seconds: elapsed,
+                metrics: session.metrics_acc.as_ref().and_then(|acc| acc.snapshot()),
             });
         }
         rows

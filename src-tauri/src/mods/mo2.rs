@@ -1299,6 +1299,7 @@ pub fn launch_with_mo2(
             dummy_stop_tx,
             dummy_metrics_rx,
             None,
+            None,
         );
     }
 

@@ -244,6 +244,7 @@ pub async fn uplay_launch_game(
         dummy_stop_tx,
         dummy_metrics_rx,
         None,
+        None,
     );
 
     Ok(initial_pid)
