@@ -21,6 +21,7 @@ import {
   History,
   Image,
   Info,
+  Layers,
   LayoutGrid,
   LayoutList,
   LayoutTemplate,
@@ -67,6 +68,7 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   homeWishlist: Heart,
   homeDeals: Tag,
   homeNews: Newspaper,
+  homeShelves: Layers,
   // Library
   libContinuePlaying: PlayCircle,
   libRecentlyAdded: Clock,

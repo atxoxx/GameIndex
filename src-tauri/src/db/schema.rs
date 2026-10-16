@@ -186,6 +186,10 @@ pub const COMPATIBILITY_DDL: &str = include_str!("schema_compatibility.sql");
 /// snapshot index that powers the Save Backups suite.
 pub const SAVES_DDL: &str = include_str!("schema_saves.sql");
 
+/// DDL for the `shelves` domain: user-defined Smart Shelves (named,
+/// auto-updating rule queries over the library).
+pub const SHELVES_DDL: &str = include_str!("schema_shelves.sql");
+
 /// Bootstrap the schema-meta table on a fresh domain DB. This table is
 /// itself part of v1, but we need to read `schema_version` *before*
 /// applying v1, so bootstrap is logically a separate step.
@@ -273,5 +277,9 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     DomainSchema {
         label: "saves",
         versions: &[("v1", SAVES_DDL)],
+    },
+    DomainSchema {
+        label: "shelves",
+        versions: &[("v1", SHELVES_DDL)],
     },
 ];

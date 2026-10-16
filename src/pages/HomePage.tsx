@@ -20,6 +20,7 @@ import HomeCustomizeModal, {
 } from "../components/home/HomeCustomizeModal";
 import ContinuePlayingRail from "../components/library/ContinuePlayingRail";
 import RecentlyAddedRail from "../components/library/RecentlyAddedRail";
+import ShelfRails from "../components/shelves/ShelfRails";
 import HomeActivityRecap from "../components/home/HomeActivityRecap";
 import HomeAchievements from "../components/home/HomeAchievements";
 import HomeDownloads from "../components/home/HomeDownloads";
@@ -200,6 +201,13 @@ export default function HomePage() {
             <PageWidget page="home" widget="homeRecentlyAdded">
               <div className="ui-item-homeRecentlyAdded">
                 <RecentlyAddedRail games={games} onCardClick={openGame} />
+              </div>
+            </PageWidget>
+          )}
+          {!isEmpty && (
+            <PageWidget page="home" widget="homeShelves">
+              <div className="ui-item-homeShelves">
+                <ShelfRails onCardClick={openGame} />
               </div>
             </PageWidget>
           )}

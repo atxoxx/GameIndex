@@ -767,6 +767,7 @@ html[data-ui-page-hide~="homeDownloads"] .ui-item-homeDownloads,
 html[data-ui-page-hide~="homeWishlist"] .ui-item-homeWishlist,
 html[data-ui-page-hide~="homeDeals"] .ui-item-homeDeals,
 html[data-ui-page-hide~="homeNews"] .ui-item-homeNews,
+html[data-ui-page-hide~="homeShelves"] .ui-item-homeShelves,
 /* Library */
 html[data-ui-page-hide~="libContinuePlaying"] .ui-item-libContinuePlaying,
 html[data-ui-page-hide~="libRecentlyAdded"] .ui-item-libRecentlyAdded,
@@ -880,6 +881,7 @@ html[data-ui-page-order="true"] .ui-item-homeDownloads { order: var(--ui-ord-hom
 html[data-ui-page-order="true"] .ui-item-homeWishlist { order: var(--ui-ord-homeWishlist, 0); }
 html[data-ui-page-order="true"] .ui-item-homeDeals { order: var(--ui-ord-homeDeals, 0); }
 html[data-ui-page-order="true"] .ui-item-homeNews { order: var(--ui-ord-homeNews, 0); }
+html[data-ui-page-order="true"] .ui-item-homeShelves { order: var(--ui-ord-homeShelves, 0); }
 /* Library */
 html[data-ui-page-order="true"] .ui-item-libContinuePlaying { order: var(--ui-ord-libContinuePlaying, 0); }
 html[data-ui-page-order="true"] .ui-item-libRecentlyAdded { order: var(--ui-ord-libRecentlyAdded, 0); }

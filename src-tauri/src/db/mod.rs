@@ -84,6 +84,7 @@ pub mod saves;
 pub mod schema;
 pub mod secrets;
 pub mod sessions;
+pub mod shelves;
 pub mod sources;
 pub mod split_migrate;
 pub mod store_cache;

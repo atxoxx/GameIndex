@@ -1,0 +1,367 @@
+/* Smart Shelves — sidebar section + builder modal.
+   All colours reference theme tokens so every theme (light, nord,
+   cyberpunk, …) picks up the right palette. */
+
+.sidebar-shelves {
+  padding: var(--space-2xs) var(--space-2xs) 0;
+}
+
+.sidebar-shelves__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.sidebar-shelves__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.sidebar-shelves__action:hover,
+.sidebar-shelves__action:focus-visible {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.sidebar-shelves__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-2xs) 0;
+}
+
+.sidebar-shelves__empty {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.sidebar-shelves__new {
+  padding: var(--space-3xs) var(--space-2xs) var(--space-2xs);
+}
+
+/* ── Shelf row ───────────────────────────────────────────────────── */
+
+.shelf-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: 28px;
+  padding: 0 var(--space-2xs) 0 var(--space-3xs);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.shelf-row:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.shelf-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.shelf-row--active {
+  background: color-mix(in srgb, var(--shelf-swatch, var(--color-accent)) 16%, transparent);
+  color: var(--color-text-primary);
+}
+
+.shelf-row--dragging {
+  opacity: 0.6;
+}
+
+.shelf-row--over {
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.shelf-row__grip {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity var(--transition-fast);
+}
+
+.shelf-row:hover .shelf-row__grip {
+  opacity: 0.7;
+}
+
+.shelf-row__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--shelf-swatch, var(--color-accent));
+}
+
+.shelf-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.shelf-row__count {
+  flex-shrink: 0;
+  min-width: 18px;
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-hover);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-align: center;
+  line-height: 16px;
+}
+
+.shelf-row__actions {
+  display: none;
+  align-items: center;
+  gap: 1px;
+}
+
+.shelf-row:hover .shelf-row__count,
+.shelf-row:focus-within .shelf-row__count {
+  display: none;
+}
+
+.shelf-row:hover .shelf-row__actions,
+.shelf-row:focus-within .shelf-row__actions {
+  display: flex;
+}
+
+.shelf-row__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.shelf-row__action:hover,
+.shelf-row__action:focus-visible {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.shelf-row__action--danger:hover,
+.shelf-row__action--danger:focus-visible {
+  color: var(--color-danger);
+}
+
+/* ── Builder modal ───────────────────────────────────────────────── */
+
+.shelf-builder-modal {
+  width: min(560px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+}
+
+.shelf-builder-modal .modal-header-icon {
+  color: var(--shelf-swatch, var(--color-accent));
+  border-color: color-mix(in srgb, var(--shelf-swatch, var(--color-accent)) 24%, transparent);
+  background: color-mix(in srgb, var(--shelf-swatch, var(--color-accent)) 12%, transparent);
+}
+
+.shelf-builder-modal .modal-header-icon svg {
+  color: var(--shelf-swatch, var(--color-accent));
+}
+
+.shelf-builder__body {
+  padding: var(--space-lg) var(--space-xl);
+}
+
+.shelf-builder__preview {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.shelf-builder__preview strong {
+  color: var(--color-text-primary);
+}
+
+.shelf-builder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.shelf-builder__section-title {
+  margin-top: var(--space-2xs);
+  padding-bottom: var(--space-3xs);
+  border-bottom: 1px solid var(--color-border-faint);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.shelf-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.shelf-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.shelf-field--block {
+  grid-column: 1 / -1;
+}
+
+/* Keep the compact multi-select trigger the same height as the text inputs. */
+.shelf-field .msd__trigger {
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-normal);
+}
+
+.shelf-field__label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.shelf-field__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.shelf-field__unit {
+  position: absolute;
+  right: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  pointer-events: none;
+}
+
+.shelf-field__input-wrap .shelf-field__input {
+  padding-right: var(--space-xl);
+}
+
+.shelf-field__input {
+  width: 100%;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.shelf-field__input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.shelf-field__warn {
+  color: var(--color-warning);
+  font-size: var(--font-size-2xs);
+}
+
+.shelf-icon-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.shelf-icon-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.shelf-icon-option:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.shelf-icon-option--active {
+  border-color: var(--shelf-swatch, var(--color-accent));
+  background: color-mix(in srgb, var(--shelf-swatch, var(--color-accent)) 16%, transparent);
+  color: var(--color-text-primary);
+}
+
+.shelf-color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.shelf-color-option {
+  width: 24px;
+  height: 24px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  background: var(--shelf-swatch, var(--color-accent));
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.shelf-color-option:hover {
+  transform: scale(1.1);
+}
+
+.shelf-color-option--active {
+  border-color: var(--color-text-primary);
+}
+
+.shelf-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .shelf-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Home rails ──────────────────────────────────────────────────── */
+
+.lib-rail-icon--shelf {
+  color: var(--shelf-swatch, var(--color-accent));
+  background: color-mix(in srgb, var(--shelf-swatch, var(--color-accent)) 16%, transparent);
+}

@@ -156,6 +156,7 @@ pub const BACKUP_DOMAINS: &[&str] = &[
     "kv",
     "compatibility",
     "saves",
+    "shelves",
 ];
 
 /// One row of the backup overview: a domain + the live file's size + item count.

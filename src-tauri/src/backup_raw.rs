@@ -204,6 +204,15 @@ pub fn count_domain_items(db: &Db, domain: &str) -> u64 {
             })
             .unwrap_or(0)
             .max(0) as u64,
+        "shelves" => db
+            .shelves()
+            .ok()
+            .and_then(|c| {
+                c.query_row("SELECT count(*) FROM shelves", [], |r| r.get::<_, i64>(0))
+                    .ok()
+            })
+            .unwrap_or(0)
+            .max(0) as u64,
         _ => 0,
     }
 }
@@ -525,6 +534,15 @@ where
                     .map_err(|e| format!("zip save_backups entry: {e}"))?;
                 for backup in crate::db::saves::list_backups(db, None)? {
                     let line = serde_json::to_string(&backup).map_err(|e| e.to_string())?;
+                    zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+                    zip.write_all(b"\n").map_err(|e| e.to_string())?;
+                }
+            }
+            "shelves" => {
+                zip.start_file("data/shelves.ndjson", zip_file_opts())
+                    .map_err(|e| format!("zip shelves entry: {e}"))?;
+                for shelf in crate::db::shelves::list(db)? {
+                    let line = serde_json::to_string(&shelf).map_err(|e| e.to_string())?;
                     zip.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
                     zip.write_all(b"\n").map_err(|e| e.to_string())?;
                 }
@@ -1005,6 +1023,25 @@ where
                         }
                         if let Ok(row) = serde_json::from_str::<crate::db::saves::SaveBackup>(&l) {
                             let _ = crate::db::saves::insert_backup(db, row);
+                        }
+                    }
+                }
+            }
+            "shelves" => {
+                if replace_mode {
+                    if let Ok(conn) = db.shelves() {
+                        let _ = conn.execute("DELETE FROM shelves", []);
+                    }
+                }
+                if let Ok(entry) = archive.by_name("data/shelves.ndjson") {
+                    let reader = BufReader::new(entry);
+                    for line in reader.lines() {
+                        let l = line.map_err(|e| e.to_string())?;
+                        if l.trim().is_empty() {
+                            continue;
+                        }
+                        if let Ok(row) = serde_json::from_str::<crate::db::shelves::Shelf>(&l) {
+                            let _ = crate::db::shelves::upsert(db, row);
                         }
                     }
                 }

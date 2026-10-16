@@ -10,7 +10,10 @@ export type LibrarySort =
   | "date_added"
   | "most_played"
   | "recently_played"
-  | "rating";
+  | "rating"
+  | "shortest"
+  | "longest"
+  | "recently_completed";
 
 /** Label for each sort option (used in dropdown). */
 export const SORT_LABELS: Record<LibrarySort, string> = {
@@ -19,6 +22,9 @@ export const SORT_LABELS: Record<LibrarySort, string> = {
   most_played: "Most Played",
   recently_played: "Recently Played",
   rating: "Highest Rated",
+  shortest: "Shortest Main Story",
+  longest: "Longest Main Story",
+  recently_completed: "Recently Completed",
 };
 
 /** All sort options in dropdown order. */
@@ -28,6 +34,9 @@ export const SORT_OPTIONS: readonly LibrarySort[] = [
   "most_played",
   "recently_played",
   "rating",
+  "shortest",
+  "longest",
+  "recently_completed",
 ];
 
 /**
@@ -59,6 +68,13 @@ export interface LibraryFilters {
   vrOnly: boolean;
   /** Sort order for the filtered list. */
   sort: LibrarySort;
+}
+
+/** Validate an arbitrary value as a `LibrarySort`, falling back when unknown. */
+export function parseLibrarySort(value: unknown, fallback: LibrarySort = "alphabetical"): LibrarySort {
+  return (SORT_OPTIONS as readonly string[]).includes(value as string)
+    ? (value as LibrarySort)
+    : fallback;
 }
 
 /** Sentinel for "no filter selected from any facet". */
@@ -349,13 +365,7 @@ export function parseStoredFilters(raw: unknown): LibraryFilters {
         ? (obj.playStatus as PlayStatus)
         : "all",
     vrOnly: obj.vrOnly === true,
-    sort:
-      obj.sort === "date_added" ||
-      obj.sort === "most_played" ||
-      obj.sort === "recently_played" ||
-      obj.sort === "rating"
-        ? obj.sort
-        : "alphabetical",
+    sort: parseLibrarySort(obj.sort),
   };
 }
 
@@ -367,7 +377,11 @@ export function filterGames(games: Game[], filters: LibraryFilters): Game[] {
 }
 
 /** Apply the sort facet to a (possibly narrowed) game list. */
-export function sortGames(games: Game[], sort: LibrarySort): Game[] {
+export function sortGames(
+  games: Game[],
+  sort: LibrarySort,
+  opts?: { completedAtOf?: (gameId: string) => number | undefined }
+): Game[] {
   const sorted = [...games];
   switch (sort) {
     case "alphabetical":
@@ -395,6 +409,29 @@ export function sortGames(games: Game[], sort: LibrarySort): Game[] {
         return rb - ra;
       });
       break;
+    case "shortest":
+    case "longest": {
+      const storyHours = (g: Game): number | null =>
+        g.timeToBeat?.normally != null ? g.timeToBeat.normally / 3600 : null;
+      const dir = sort === "shortest" ? 1 : -1;
+      sorted.sort((a, b) => {
+        const sa = storyHours(a);
+        const sb = storyHours(b);
+        // Games without a known length always sink to the bottom.
+        if (sa == null && sb == null) return 0;
+        if (sa == null) return 1;
+        if (sb == null) return -1;
+        return (sa - sb) * dir;
+      });
+      break;
+    }
+    case "recently_completed": {
+      const completedAtOf = opts?.completedAtOf;
+      sorted.sort(
+        (a, b) => (completedAtOf?.(b.id) ?? 0) - (completedAtOf?.(a.id) ?? 0)
+      );
+      break;
+    }
   }
   return sorted;
 }
@@ -424,22 +461,9 @@ export function parseStoredPreset(raw: unknown): FilterPreset | null {
   if (!obj.filters || typeof obj.filters !== "object" || Array.isArray(obj.filters)) return null;
   const f = obj.filters as Record<string, unknown>;
   // Validate sort
-  const sortRaw = obj.sort;
-  const sort: LibrarySort =
-    sortRaw === "date_added" ||
-    sortRaw === "most_played" ||
-    sortRaw === "recently_played" ||
-    sortRaw === "rating"
-      ? (sortRaw as LibrarySort)
-      : "alphabetical";
+  const sort: LibrarySort = parseLibrarySort(obj.sort);
   // Filters sort fallback is alphabetical; prefer f.sort if present else top-level sort
-  const filtersSort: LibrarySort =
-    f.sort === "date_added" ||
-    f.sort === "most_played" ||
-    f.sort === "recently_played" ||
-    f.sort === "rating"
-      ? (f.sort as LibrarySort)
-      : sort;
+  const filtersSort: LibrarySort = parseLibrarySort(f.sort, sort);
 
   const filters: Omit<LibraryFilters, "search"> = {
     genres: Array.isArray(f.genres) ? f.genres.filter((g): g is string => typeof g === "string") : [],

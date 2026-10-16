@@ -46,6 +46,25 @@ const SORT_ICONS: Record<LibrarySort, React.ReactNode> = {
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   ),
+  shortest: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 12h13" />
+      <path d="M12 7l5 5-5 5" />
+      <path d="M21 5v14" />
+    </svg>
+  ),
+  longest: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12H8" />
+      <path d="M12 7l-5 5 5 5" />
+      <path d="M3 5v14" />
+    </svg>
+  ),
+  recently_completed: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  ),
 };
 
 /**

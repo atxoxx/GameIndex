@@ -39,6 +39,7 @@ export type PageWidgetKey =
   | "homeWishlist"
   | "homeDeals"
   | "homeNews"
+  | "homeShelves"
   // Library
   | "libContinuePlaying"
   | "libRecentlyAdded"
@@ -157,6 +158,7 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "homeWishlist",
   "homeDeals",
   "homeNews",
+  "homeShelves",
   // Library
   "libContinuePlaying",
   "libRecentlyAdded",
@@ -277,6 +279,7 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   homeWishlist: "ui-item-homeWishlist",
   homeDeals: "ui-item-homeDeals",
   homeNews: "ui-item-homeNews",
+  homeShelves: "ui-item-homeShelves",
   // Library
   libContinuePlaying: "ui-item-libContinuePlaying",
   libRecentlyAdded: "ui-item-libRecentlyAdded",
@@ -397,6 +400,7 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   homeWishlist: "settings.interface.widgetHomeWishlist",
   homeDeals: "settings.interface.widgetHomeDeals",
   homeNews: "settings.interface.widgetHomeNews",
+  homeShelves: "settings.interface.widgetHomeShelves",
   // Library
   libContinuePlaying: "settings.interface.widgetLibContinuePlaying",
   libRecentlyAdded: "settings.interface.widgetLibRecentlyAdded",
@@ -553,6 +557,7 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "homeWishlist",
       "homeDeals",
       "homeNews",
+      "homeShelves",
     ],
   },
   {

@@ -10,6 +10,7 @@ import { commonParentDir, isImportableExecutablePath } from "../../utils/exeDrop
 import { useSidebarCollapse } from "../../context/SidebarCollapseContext";
 import { useSidebarSectionVisible } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useShelves } from "../../context/ShelfContext";
 import {
   gameDisplayName,
   gameNameFromPath,
@@ -22,6 +23,7 @@ import ImportModal, { type ExeInfo } from "../ImportModal";
 import FolderScanProgressModal from "../library/FolderScanProgressModal";
 import SidebarFilterPopover from "../SidebarFilterPopover";
 import { SidebarHoverPreview } from "../SidebarHoverPreview";
+import SidebarShelves from "../shelves/SidebarShelves";
 import SidebarHeader from "./SidebarHeader";
 import SidebarActiveFilters from "./SidebarActiveFilters";
 import SidebarSectionHeader from "./SidebarSectionHeader";
@@ -113,6 +115,18 @@ export default function Sidebar() {
 
   // ── Icon-rail & Resizing Context ──────────────────────────────────
   const { isIconRail, toggle: toggleIconRail } = useSidebarCollapse();
+
+  // ── Active shelf membership ───────────────────────────────────────
+  // When a shelf is applied its facet rules already flow through the shared
+  // filter state; the membership set additionally enforces the rules the
+  // filter facets can't express (numeric/date/mode), so the sidebar list
+  // matches the shelf exactly.
+  const { activeShelfId, getShelf, shelfGames } = useShelves();
+  const activeShelf = activeShelfId ? getShelf(activeShelfId) : undefined;
+  const activeShelfIds = useMemo(() => {
+    if (!activeShelf) return null;
+    return new Set(shelfGames(activeShelf.id).map((g) => g.id));
+  }, [activeShelf, shelfGames]);
 
   // ── Layout Studio → Global → Sidebar elements ─────────────────────
   // Hidden sections are unmounted (not just CSS-hidden) so their effects
@@ -220,9 +234,11 @@ export default function Sidebar() {
 
   // ── Filtered Games Pipeline with Sort Direction ──────────────────
   const processedFilteredGames = useMemo(() => {
-    if (sortDirection !== "desc") return baseFilteredGames;
-    return [...baseFilteredGames].reverse();
-  }, [baseFilteredGames, sortDirection]);
+    let list = baseFilteredGames;
+    if (activeShelfIds) list = list.filter((g) => activeShelfIds.has(g.id));
+    if (sortDirection !== "desc") return list;
+    return [...list].reverse();
+  }, [baseFilteredGames, activeShelfIds, sortDirection]);
 
   // Advanced filter count
   const advancedFilterCount =
@@ -236,7 +252,8 @@ export default function Sidebar() {
 
   const isFilteringActive =
     filterState.search.trim() !== "" ||
-    advancedFilterCount > 0;
+    advancedFilterCount > 0 ||
+    activeShelfId !== null;
 
   // ── Hover preview ────────────────────────────────────────────────
   const [hoveredGameId, setHoveredGameId] = useState<string | null>(null);
@@ -889,6 +906,8 @@ export default function Sidebar() {
         onRemoveRating={removeRating}
         onReset={reset}
       />}
+
+      <SidebarShelves isIconRail={isIconRail} />
 
       <hr className="sidebar-divider" />
 

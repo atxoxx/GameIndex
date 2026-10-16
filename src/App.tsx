@@ -16,6 +16,7 @@ import { ActivityProvider } from "./context/ActivityContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { DensityProvider } from "./context/DensityContext";
 import { LibraryFilterProvider } from "./context/LibraryFilterContext";
+import { ShelfProvider } from "./context/ShelfContext";
 import { SplashProvider, useSplash } from "./context/SplashContext";
 import { DownloadProvider } from "./context/DownloadContext";
 import { SavesProvider } from "./context/SavesContext";
@@ -219,6 +220,7 @@ function App() {
                     <AchievementProvider>
                       <DensityProvider>
                         <LibraryFilterProvider>
+                          <ShelfProvider>
                           <WishlistProvider>
                             <SourceProvider>
                               <DownloadProvider>
@@ -249,6 +251,7 @@ function App() {
                               </DownloadProvider>
                             </SourceProvider>
                           </WishlistProvider>
+                          </ShelfProvider>
                         </LibraryFilterProvider>
                       </DensityProvider>
                     </AchievementProvider>

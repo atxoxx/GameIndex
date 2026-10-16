@@ -6,6 +6,7 @@ import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useLibraryFilters } from "../hooks/useLibraryFilters";
+import { useShelves } from "../context/ShelfContext";
 import type { Game, PlayStatus } from "../types/game";
 import LibraryFilterChips from "../components/library/LibraryFilterChips";
 import LibraryFilterSidebar from "../components/library/LibraryFilterSidebar";
@@ -37,7 +38,7 @@ export default function LibraryPage() {
 
   const {
     filters,
-    filteredGames,
+    filteredGames: baseFilteredGames,
     availableGenres,
     availablePlatforms,
     setSearch,
@@ -62,6 +63,19 @@ export default function LibraryPage() {
     reset,
     hasFilters,
   } = useLibraryFilters(games);
+
+  // When a shelf is applied, also enforce the rules the filter facets can't
+  // express (numeric/date/mode) so the grid matches the shelf exactly.
+  const { activeShelfId, getShelf, shelfGames } = useShelves();
+  const activeShelf = activeShelfId ? getShelf(activeShelfId) : undefined;
+  const activeShelfIds = useMemo(
+    () => (activeShelf ? new Set(shelfGames(activeShelf.id).map((g) => g.id)) : null),
+    [activeShelf, shelfGames]
+  );
+  const filteredGames = useMemo(
+    () => (activeShelfIds ? baseFilteredGames.filter((g) => activeShelfIds.has(g.id)) : baseFilteredGames),
+    [baseFilteredGames, activeShelfIds]
+  );
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [editGame, setEditGame] = useState<Game | null>(null);
