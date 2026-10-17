@@ -1,7 +1,7 @@
 import { List, SlidersHorizontal } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useShelves } from "../../context/ShelfContext";
-import { useSettings, type DetailSectionKey, type UiScale } from "../../context/SettingsContext";
+import { useLayoutSettings, useSettings, type DetailSectionKey, type UiScale } from "../../context/SettingsContext";
 import { buildDetailSectionItems } from "./interfaceItems";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -63,10 +63,9 @@ export default function InterfaceDefaults() {
     setShowHeroBackdropControls,
     showHeroInteractiveControls,
     setShowHeroInteractiveControls,
-    detailSectionVisible,
-    setDetailSectionVisible,
     showDeckVerified,
   } = useSettings();
+  const { detailSectionVisible, setDetailSectionVisible } = useLayoutSettings();
   const { enabled: shelvesEnabled, setEnabled: setShelvesEnabled } = useShelves();
 
   const detailSections = buildDetailSectionItems(showDeckVerified).filter(

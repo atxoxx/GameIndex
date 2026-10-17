@@ -7,7 +7,7 @@ import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../types/game";
 import { useWishlistContext } from "../context/WishlistContext";
 import { usePresence } from "../context/PresenceContext";
-import { useSettings, useDetailTabOrder, useDetailTopBarLayout, type DetailSectionKey } from "../context/SettingsContext";
+import { useSettings, useLayoutSettings, useDetailTabOrder, useDetailTopBarLayout, type DetailSectionKey } from "../context/SettingsContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { setActiveGameArtwork } from "../utils/activeGameArtwork";
 import { Button } from "../components/ui";
@@ -134,7 +134,8 @@ export default function StoreGameDetail() {
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { unit: sizeUnit } = useSizeUnit();
-  const { isSimpleUi, detailSectionVisible, showDeckVerified } = useSettings();
+  const { isSimpleUi, showDeckVerified } = useSettings();
+  const { detailSectionVisible } = useLayoutSettings();
   // Top-bar order/visibility, resolved before the loading/error early returns
   // so the hook order stays stable.
   const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("store");

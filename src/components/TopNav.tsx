@@ -45,7 +45,7 @@ import WindowControls from "./WindowControls";
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const DownloadPopover = lazy(() => import("./DownloadPopover"));
 import { useLanguage } from "../context/LanguageContext";
-import { useSettings, type InterfaceItemKey } from "../context/SettingsContext";
+import { useLayoutSettings, useSettings, type InterfaceItemKey } from "../context/SettingsContext";
 import { useSaves } from "../context/SavesContext";
 import { playTabSound } from "../utils/soundEffects";
 import { preloadRoute } from "../utils/routePreload";
@@ -132,10 +132,12 @@ export default function TopNav() {
   const {
     navbarMode,
     showNavbarNowPlaying,
+  } = useSettings();
+  const {
     interfaceVisibility,
     navbarTabOrder,
     navbarButtonOrder,
-  } = useSettings();
+  } = useLayoutSettings();
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [unseenCommunity, setUnseenCommunity] = useState<number>(() => getUnseenCommunityItems());

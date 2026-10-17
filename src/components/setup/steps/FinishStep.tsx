@@ -1,6 +1,6 @@
 import { useActivity } from "../../../context/ActivityContext";
 import { useLanguage } from "../../../context/LanguageContext";
-import { useSettings } from "../../../context/SettingsContext";
+import { useLayoutSettings } from "../../../context/SettingsContext";
 import { useSetupWizard } from "../../../context/SetupWizardContext";
 import { useTheme } from "../../../context/ThemeContext";
 import { NAV_TAB_ITEMS } from "../../../pages/settings/interfaceItems";
@@ -9,7 +9,7 @@ import { Button } from "../../ui";
 /** Final step: a plain-language recap of the choices just made. */
 export default function FinishStep() {
   const { t, language, languages } = useLanguage();
-  const { interfaceVisibility } = useSettings();
+  const { interfaceVisibility } = useLayoutSettings();
   const { currentTheme, themes } = useTheme();
   const { selectedGpu } = useActivity();
   const { finishWizard } = useSetupWizard();

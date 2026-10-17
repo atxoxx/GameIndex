@@ -542,66 +542,14 @@ export interface SettingsContextValue {
   setShowHeroBackdropControls: (next: boolean) => void;
   showHeroInteractiveControls: boolean;
   setShowHeroInteractiveControls: (next: boolean) => void;
-  /** Per-section visibility for the game detail and store pages. */
-  detailSectionVisible: DetailSectionVisibility;
-  setDetailSectionVisible: (key: DetailSectionKey, visible: boolean) => void;
-  /** Per-item visibility for the Interface tab (navbar tabs, buttons,
-   *  card badges, page widgets). Simple mode hides everything at once;
-   *  these refine visibility in Complete mode. */
-  interfaceVisibility: InterfaceVisibility;
-  setInterfaceVisibility: (key: InterfaceItemKey, visible: boolean) => void;
-  /** User-arranged order of the top navbar tabs (Settings → Interface). */
-  navbarTabOrder: InterfaceItemKey[];
-  setNavbarTabOrder: (next: InterfaceItemKey[]) => void;
-  /** User-arranged order of the top-right header buttons (Layout Studio). */
-  navbarButtonOrder: InterfaceItemKey[];
-  setNavbarButtonOrder: (next: InterfaceItemKey[]) => void;
   /** Which side the app sidebar docks to (Layout Studio → Global). */
   sidebarPosition: SidebarPosition;
   setSidebarPosition: (next: SidebarPosition) => void;
-  /** Show/hide the sidebar's top-level sections (Layout Studio → Global). */
-  sidebarSectionVisible: SidebarSectionVisibility;
-  setSidebarSectionVisible: (key: SidebarSectionKey, visible: boolean) => void;
-  /** Per-page widget visibility (Layout Studio → page tabs). */
-  pageItemVisible: PageItemVisibilityMap;
-  setPageItemVisible: (
-    page: InterfacePageKey,
-    widget: PageWidgetKey,
-    visible: boolean,
-  ) => void;
-  /** Per-page widget order (Layout Studio → page tabs). */
-  pageItemOrder: PageItemOrderMap;
-  setPageItemOrder: (page: InterfacePageKey, next: PageWidgetKey[]) => void;
-  /** Per-scope detail-page tab order (Settings → Interface). Tab visibility
-   *  itself reuses `detailSectionVisible`; this is order only. */
-  detailTabOrder: DetailTabOrderMap;
-  setDetailTabOrder: (scope: DetailTabScope, next: DetailTabKey[]) => void;
-  /** Per-scope hero element order (Settings → Interface). */
-  heroElementOrder: HeroElementOrderMap;
-  setHeroElementOrder: (scope: HeroScope, next: HeroElementKey[]) => void;
-  /** OFF-only per-scope hero element visibility overrides. */
-  heroElementVisibility: HeroElementVisibilityMap;
-  setHeroElementVisible: (
-    scope: HeroScope,
-    key: HeroElementKey,
-    visible: boolean,
-  ) => void;
-  /** Optional per-scope hero grid layout (Layout Studio → hero grid).
-   *  An absent scope means the hero renders its flex/`order` layout. */
-  heroGridLayout: HeroGridLayoutMap;
-  setHeroGridLayout: (scope: HeroScope, next: HeroGridLayout) => void;
-  resetHeroGridLayout: (scope: HeroScope) => void;
-  /** Per-scope order of the detail-page top bar (game + store). */
-  detailTopBarOrder: DetailTopBarOrderMap;
-  setDetailTopBarOrder: (scope: DetailTopBarScope, next: DetailTopBarKey[]) => void;
-  /** OFF-only per-scope top-bar visibility overrides. A hidden item is
-   *  removed from the bar completely, not just styled away. */
-  detailTopBarVisibility: DetailTopBarVisibilityMap;
-  setDetailTopBarVisible: (
-    scope: DetailTopBarScope,
-    key: DetailTopBarKey,
-    visible: boolean,
-  ) => void;
+
+  // The Layout Studio maps and orders (detail sections, interface
+  // navbar/sidebar/page/tab/hero order maps) lives in
+  // `LayoutSettingsContextValue` — see `useLayoutSettings` below. It is a
+  // separate context so drag-and-drop bursts don't sweep the whole tree.
 
   // ── Splash screens (Settings → Appearance) ──────────────────────
   /** Show the standalone launch splash while a game starts. Mirrors the
@@ -660,6 +608,7 @@ const DEFAULT_CARD_DISPLAY_SETTINGS: CardDisplaySettings = {
 const globalSettingsObj = globalThis as unknown as {
   __gamelib_settings_context__?: React.Context<SettingsContextValue | null>;
   __gamelib_card_display_settings_context__?: React.Context<CardDisplaySettings>;
+  __gamelib_layout_settings_context__?: React.Context<LayoutSettingsContextValue | null>;
 };
 const SettingsContext =
   globalSettingsObj.__gamelib_settings_context__ ??
@@ -669,6 +618,57 @@ const CardDisplaySettingsContext =
   globalSettingsObj.__gamelib_card_display_settings_context__ ??
   (globalSettingsObj.__gamelib_card_display_settings_context__ =
     createContext<CardDisplaySettings>(DEFAULT_CARD_DISPLAY_SETTINGS));
+
+// Layout Studio surface, split from `SettingsContextValue`. Its maps and
+// orders change in bursts while drag-and-drop is active, which would
+// otherwise sweep every subscribed component in the app. Providers expose
+// it through a dedicated context so a card, tab or widget only re-renders
+// when the layout state it consumes actually changes.
+export interface LayoutSettingsContextValue {
+  detailSectionVisible: DetailSectionVisibility;
+  setDetailSectionVisible: (key: DetailSectionKey, visible: boolean) => void;
+  interfaceVisibility: InterfaceVisibility;
+  setInterfaceVisibility: (key: InterfaceItemKey, visible: boolean) => void;
+  navbarTabOrder: InterfaceItemKey[];
+  setNavbarTabOrder: (next: InterfaceItemKey[]) => void;
+  navbarButtonOrder: InterfaceItemKey[];
+  setNavbarButtonOrder: (next: InterfaceItemKey[]) => void;
+  sidebarSectionVisible: SidebarSectionVisibility;
+  setSidebarSectionVisible: (key: SidebarSectionKey, visible: boolean) => void;
+  pageItemVisible: PageItemVisibilityMap;
+  setPageItemVisible: (
+    page: InterfacePageKey,
+    widget: PageWidgetKey,
+    visible: boolean,
+  ) => void;
+  pageItemOrder: PageItemOrderMap;
+  setPageItemOrder: (page: InterfacePageKey, next: PageWidgetKey[]) => void;
+  detailTabOrder: DetailTabOrderMap;
+  setDetailTabOrder: (scope: DetailTabScope, next: DetailTabKey[]) => void;
+  heroElementOrder: HeroElementOrderMap;
+  setHeroElementOrder: (scope: HeroScope, next: HeroElementKey[]) => void;
+  heroElementVisibility: HeroElementVisibilityMap;
+  setHeroElementVisible: (
+    scope: HeroScope,
+    key: HeroElementKey,
+    visible: boolean,
+  ) => void;
+  heroGridLayout: HeroGridLayoutMap;
+  setHeroGridLayout: (scope: HeroScope, next: HeroGridLayout) => void;
+  resetHeroGridLayout: (scope: HeroScope) => void;
+  detailTopBarOrder: DetailTopBarOrderMap;
+  setDetailTopBarOrder: (scope: DetailTopBarScope, next: DetailTopBarKey[]) => void;
+  detailTopBarVisibility: DetailTopBarVisibilityMap;
+  setDetailTopBarVisible: (
+    scope: DetailTopBarScope,
+    key: DetailTopBarKey,
+    visible: boolean,
+  ) => void;
+}
+
+const LayoutSettingsContext =
+  globalSettingsObj.__gamelib_layout_settings_context__ ??
+  (globalSettingsObj.__gamelib_layout_settings_context__ = createContext<LayoutSettingsContextValue | null>(null));
 
 // ── localStorage helpers (try/catch around every read/write because
 // private-browsing modes and some sandboxed contexts throw) ────────────────
@@ -1926,39 +1926,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowHeroBackdropControls,
       showHeroInteractiveControls,
       setShowHeroInteractiveControls,
+      sidebarPosition,
+      setSidebarPosition,
       launchSplashEnabled,
       setLaunchSplashEnabled,
       startupSplashEnabled,
       setStartupSplashEnabled,
-      detailSectionVisible,
-      setDetailSectionVisible,
-      interfaceVisibility,
-      setInterfaceVisibility,
-      navbarTabOrder,
-      setNavbarTabOrder,
-      navbarButtonOrder,
-      setNavbarButtonOrder,
-      sidebarPosition,
-      setSidebarPosition,
-      sidebarSectionVisible,
-      setSidebarSectionVisible,
-      pageItemVisible,
-      setPageItemVisible,
-      pageItemOrder,
-      setPageItemOrder,
-      detailTabOrder,
-      setDetailTabOrder,
-      heroElementOrder,
-      setHeroElementOrder,
-      heroElementVisibility,
-      setHeroElementVisible,
-      heroGridLayout,
-      setHeroGridLayout,
-      resetHeroGridLayout,
-      detailTopBarOrder,
-      setDetailTopBarOrder,
-      detailTopBarVisibility,
-      setDetailTopBarVisible,
       hostPlatform,
       isLinuxHost,
       isWindowsHost,
@@ -2063,10 +2036,25 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowHeroBackdropControls,
       showHeroInteractiveControls,
       setShowHeroInteractiveControls,
+      sidebarPosition,
+      setSidebarPosition,
       launchSplashEnabled,
       setLaunchSplashEnabled,
       startupSplashEnabled,
       setStartupSplashEnabled,
+      hostPlatform,
+      isLinuxHost,
+      isWindowsHost,
+      linuxSupportLevel,
+      setLinuxSupportLevel,
+      showDeckVerified,
+      showFullLinuxUi,
+      ready,
+    ],
+  );
+
+  const layoutValue = useMemo<LayoutSettingsContextValue>(
+    () => ({
       detailSectionVisible,
       setDetailSectionVisible,
       interfaceVisibility,
@@ -2075,8 +2063,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setNavbarTabOrder,
       navbarButtonOrder,
       setNavbarButtonOrder,
-      sidebarPosition,
-      setSidebarPosition,
       sidebarSectionVisible,
       setSidebarSectionVisible,
       pageItemVisible,
@@ -2096,14 +2082,35 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setDetailTopBarOrder,
       detailTopBarVisibility,
       setDetailTopBarVisible,
-      hostPlatform,
-      isLinuxHost,
-      isWindowsHost,
-      linuxSupportLevel,
-      setLinuxSupportLevel,
-      showDeckVerified,
-      showFullLinuxUi,
-      ready,
+    }),
+    [
+      detailSectionVisible,
+      setDetailSectionVisible,
+      interfaceVisibility,
+      setInterfaceVisibility,
+      navbarTabOrder,
+      setNavbarTabOrder,
+      navbarButtonOrder,
+      setNavbarButtonOrder,
+      sidebarSectionVisible,
+      setSidebarSectionVisible,
+      pageItemVisible,
+      setPageItemVisible,
+      pageItemOrder,
+      setPageItemOrder,
+      detailTabOrder,
+      setDetailTabOrder,
+      heroElementOrder,
+      setHeroElementOrder,
+      heroElementVisibility,
+      setHeroElementVisible,
+      heroGridLayout,
+      setHeroGridLayout,
+      resetHeroGridLayout,
+      detailTopBarOrder,
+      setDetailTopBarOrder,
+      detailTopBarVisibility,
+      setDetailTopBarVisible,
     ],
   );
 
@@ -2133,7 +2140,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   return (
     <SettingsContext.Provider value={value}>
       <CardDisplaySettingsContext.Provider value={cardDisplaySettings}>
-        {children}
+        <LayoutSettingsContext.Provider value={layoutValue}>
+          {children}
+        </LayoutSettingsContext.Provider>
       </CardDisplaySettingsContext.Provider>
     </SettingsContext.Provider>
   );
@@ -2143,6 +2152,20 @@ export function useSettings(): SettingsContextValue {
   const ctx = useContext(SettingsContext);
   if (!ctx) {
     throw new Error("useSettings must be used within a SettingsProvider");
+  }
+  return ctx;
+}
+
+/**
+ * Layout Studio state (detail sections, interface visibility, navbar/
+ * sidebar/page/tab/hero order maps). Sits under `SettingsProvider` in the
+ * same component; consumers subscribe to only this slice so drag-and-drop
+ * bursts don't re-render unrelated settings consumers.
+ */
+export function useLayoutSettings(): LayoutSettingsContextValue {
+  const ctx = useContext(LayoutSettingsContext);
+  if (!ctx) {
+    throw new Error("useLayoutSettings must be used within a SettingsProvider");
   }
   return ctx;
 }
@@ -2200,7 +2223,7 @@ const GENERIC_WIDGET_INTERFACE_KEY: Partial<Record<PageWidgetKey, InterfaceItemK
 /** Whether a global Interface element (nav item, badge, generic widget) is
  *  currently switched on. */
 export function useInterfaceItemVisible(key: InterfaceItemKey): boolean {
-  const ctx = useContext(SettingsContext);
+  const ctx = useContext(LayoutSettingsContext);
   if (!ctx) return true;
   return ctx.interfaceVisibility[key] !== false;
 }
@@ -2212,7 +2235,7 @@ export function useWidgetVisible(
   page: InterfacePageKey,
   widget: PageWidgetKey,
 ): boolean {
-  const ctx = useContext(SettingsContext);
+  const ctx = useContext(LayoutSettingsContext);
   if (!ctx) return true;
   const globalKey = GENERIC_WIDGET_INTERFACE_KEY[widget];
   if (globalKey && ctx.interfaceVisibility[globalKey] === false) return false;
@@ -2226,7 +2249,7 @@ export function usePageWidgetOrder(
   page: InterfacePageKey,
   widget: PageWidgetKey,
 ): number | undefined {
-  const ctx = useContext(SettingsContext);
+  const ctx = useContext(LayoutSettingsContext);
   if (!ctx) return undefined;
   const order = ctx.pageItemOrder[page];
   if (!order) return undefined;
@@ -2236,7 +2259,7 @@ export function usePageWidgetOrder(
 
 /** Whether a sidebar top-level section should be mounted. */
 export function useSidebarSectionVisible(key: SidebarSectionKey): boolean {
-  const ctx = useContext(SettingsContext);
+  const ctx = useContext(LayoutSettingsContext);
   if (!ctx) return true;
   return ctx.sidebarSectionVisible[key] !== false;
 }
@@ -2244,7 +2267,7 @@ export function useSidebarSectionVisible(key: SidebarSectionKey): boolean {
 /** Effective detail-page tab order for a scope. Defaults to the shipped order
  *  outside a SettingsProvider (isolated tests, static renders). */
 export function useDetailTabOrder(scope: DetailTabScope): DetailTabKey[] {
-  const ctx = useContext(SettingsContext);
+  const ctx = useContext(LayoutSettingsContext);
   if (!ctx) return DETAIL_TABS[scope];
   return resolveDetailTabOrder(ctx.detailTabOrder, scope);
 }
@@ -2255,7 +2278,7 @@ export function useHeroElementLayout(scope: HeroScope): {
   order: HeroElementKey[];
   hidden: Partial<Record<HeroElementKey, boolean>>;
 } {
-  const ctx = useContext(SettingsContext);
+  const ctx = useContext(LayoutSettingsContext);
   if (!ctx) return { order: HERO_ELEMENTS, hidden: {} };
   return {
     order: resolveHeroElementOrder(ctx.heroElementOrder, scope),
@@ -2267,7 +2290,7 @@ export function useHeroElementLayout(scope: HeroScope): {
  *  authored (the hero then renders its flex/`order` layout). Defaults to
  *  `null` outside a SettingsProvider (isolated tests, static renders). */
 export function useHeroGridLayout(scope: HeroScope): HeroGridLayout | null {
-  const ctx = useContext(SettingsContext);
+  const ctx = useContext(LayoutSettingsContext);
   if (!ctx) return null;
   return resolveHeroGridLayout(ctx.heroGridLayout, scope);
 }
@@ -2278,7 +2301,7 @@ export function useDetailTopBarLayout(scope: DetailTopBarScope): {
   order: DetailTopBarKey[];
   hidden: Partial<Record<DetailTopBarKey, boolean>>;
 } {
-  const ctx = useContext(SettingsContext);
+  const ctx = useContext(LayoutSettingsContext);
   if (!ctx) return { order: DETAIL_TOP_BAR[scope], hidden: {} };
   return {
     order: resolveDetailTopBarOrder(ctx.detailTopBarOrder, scope),

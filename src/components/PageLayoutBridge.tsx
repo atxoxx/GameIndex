@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { useSettings } from "../context/SettingsContext";
+import { useLayoutSettings } from "../context/SettingsContext";
 import {
   PAGE_WIDGET_KEYS,
   resolveInterfacePage,
@@ -32,7 +32,7 @@ import {
  */
 export default function PageLayoutBridge() {
   const location = useLocation();
-  const { pageItemVisible, pageItemOrder } = useSettings();
+  const { pageItemVisible, pageItemOrder } = useLayoutSettings();
 
   useEffect(() => {
     if (typeof document === "undefined") return;

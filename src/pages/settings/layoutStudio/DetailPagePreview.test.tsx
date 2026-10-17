@@ -10,7 +10,8 @@ vi.mock("../../../context/LanguageContext", () => ({
 }));
 
 vi.mock("../../../context/SettingsContext", () => ({
-  useSettings: () => ({ detailSectionVisible: {}, showDeckVerified: true }),
+  useSettings: () => ({ showDeckVerified: true }),
+  useLayoutSettings: () => ({ detailSectionVisible: {} }),
 }));
 
 function pageItems(page: "game" | "storeGame"): OrderListItem[] {

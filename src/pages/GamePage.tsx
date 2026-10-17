@@ -5,6 +5,7 @@ import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import {
   useSettings,
+  useLayoutSettings,
   useDetailTabOrder,
   useDetailTopBarLayout,
   type DetailSectionKey,
@@ -156,7 +157,8 @@ function GameDetail({ game }: { game: Game }) {
   const { launchGame, enrichGameMetadata, fetchGameHltb, removeGame, updateGame, loadGameDetail } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
-  const { isSimpleUi, detailSectionVisible, showDeckVerified, showFullLinuxUi } = useSettings();
+  const { isSimpleUi, showDeckVerified, showFullLinuxUi } = useSettings();
+  const { detailSectionVisible } = useLayoutSettings();
   const { enabled: savesEnabled } = useSaves();
   const mapLookup = useGameMaps(game.name);
   const [mapHasResult, setMapHasResult] = useState<boolean | null>(() =>

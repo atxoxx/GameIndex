@@ -2,7 +2,7 @@ import { useAchievements } from "../../../context/AchievementContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useSaves } from "../../../context/SavesContext";
 import { useShelves } from "../../../context/ShelfContext";
-import { useSettings } from "../../../context/SettingsContext";
+import { useLayoutSettings, useSettings } from "../../../context/SettingsContext";
 import { NAV_TAB_ITEMS } from "../../../pages/settings/interfaceItems";
 import { SetupSection, SetupToggle } from "../SetupControls";
 import { useOverlaySettings } from "../useOverlaySettings";
@@ -14,7 +14,8 @@ import { useOverlaySettings } from "../useOverlaySettings";
  */
 export default function FeaturesStep() {
   const { t } = useLanguage();
-  const { interfaceVisibility, setInterfaceVisibility, discordRichPresence, setDiscordRichPresence, hardwareMonitoringEnabled, setHardwareMonitoringEnabled, isWindowsHost } = useSettings();
+  const { interfaceVisibility, setInterfaceVisibility } = useLayoutSettings();
+  const { discordRichPresence, setDiscordRichPresence, hardwareMonitoringEnabled, setHardwareMonitoringEnabled, isWindowsHost } = useSettings();
   const saves = useSaves();
   const overlay = useOverlaySettings();
   const achievements = useAchievements();
