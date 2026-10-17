@@ -957,17 +957,10 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     }
   }, [recordingState.recording, settings.videoSound]);
 
-  // Global F12 capture handler inside overlay
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F12") {
-        e.preventDefault();
-        void captureScreenshot();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [captureScreenshot]);
+  // Screenshots are captured by the global screenshot hotkey (registered in the
+  // Rust backend, so it also fires while the game is focused). The overlay must
+  // not add its own hardcoded key handler: it would fire even when the user
+  // rebound or disabled the shortcut, and double up with the global binding.
 
   // Resize the HUD window to match the presentation: the compact ticker vs the
   // expanded panel. The backend re-anchors it to the configured corner so the

@@ -138,6 +138,36 @@ describe("GuidesWidget", () => {
     );
   });
 
+  it("offers the provider's game-level page as the first map entry", () => {
+    mockGameMaps.mockReturnValue({
+      status: "ready",
+      sources: [
+        {
+          id: "wand",
+          label: "Wand",
+          title: "Elden Ring",
+          url: "https://wand.com/en/maps/elden-ring",
+          maps: [
+            { title: "Limgrave", url: "https://wand.com/en/maps/elden-ring/limgrave" },
+          ],
+        },
+      ],
+    });
+    renderRunningGame();
+
+    fireEvent.click(screen.getByTestId("overlay-guides-tab-maps"));
+
+    const select = screen.getByTestId<HTMLSelectElement>("overlay-guides-select");
+    const home = screen.getByRole<HTMLOptionElement>("option", { name: "Elden Ring" });
+    expect(home.value).toBe("https://wand.com/en/maps/elden-ring");
+
+    fireEvent.change(select, { target: { value: home.value } });
+    expect(invokeMock).toHaveBeenCalledWith(
+      "create_preview_webview",
+      expect.objectContaining({ url: "https://wand.com/en/maps/elden-ring" })
+    );
+  });
+
   it("shows an empty state when no map provider has a map", () => {
     renderRunningGame();
 

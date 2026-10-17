@@ -37,7 +37,7 @@ pub fn capture_rgba() -> Result<(u32, u32, Vec<u8>), String> {
 /// Capture the desktop and write it to `dest` as a PNG. Returns the dimensions.
 pub fn capture_desktop(dest: &Path) -> Result<(u32, u32), String> {
     let (width, height, rgba) = capture_rgba()?;
-    let png = crate::overlay::encode_uncompressed_png(width, height, &rgba);
+    let png = crate::overlay::encode_png(width, height, &rgba);
     std::fs::write(dest, png)
         .map_err(|e| format!("failed to write screenshot {}: {e}", dest.display()))?;
     Ok((width, height))

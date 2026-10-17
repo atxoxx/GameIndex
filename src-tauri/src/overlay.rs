@@ -452,10 +452,47 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// Center of the foreground window in physical pixels, or `None` when there is
+/// none. The HUD is a non-activating tool window, so the foreground window is
+/// the game (or another app) rather than the overlay itself — this lets the HUD
+/// follow the display the game is actually on instead of wherever the cursor
+/// happens to rest.
+#[cfg(windows)]
+fn foreground_window_center() -> Option<(f64, f64)> {
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowRect};
+
+    unsafe {
+        let hwnd: HWND = GetForegroundWindow();
+        if hwnd.0.is_null() {
+            return None;
+        }
+        let mut rect = RECT::default();
+        if GetWindowRect(hwnd, &mut rect).is_err() {
+            return None;
+        }
+        Some((
+            (rect.left + rect.right) as f64 / 2.0,
+            (rect.top + rect.bottom) as f64 / 2.0,
+        ))
+    }
+}
+
+#[cfg(not(windows))]
+fn foreground_window_center() -> Option<(f64, f64)> {
+    None
+}
+
 /// The monitor the overlay should target. There is no portable "monitor of the
-/// game window" API, so we approximate it with the monitor under the cursor
-/// and fall back to the primary monitor, then the first available one.
+/// game window" API, so we approximate it with the monitor under the foreground
+/// window (the running game), then the monitor under the cursor, then the
+/// primary monitor, then the first available one.
 fn target_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
+    if let Some((x, y)) = foreground_window_center() {
+        if let Ok(Some(monitor)) = app.monitor_from_point(x, y) {
+            return Some(monitor);
+        }
+    }
     if let Ok(pos) = app.cursor_position() {
         if let Ok(Some(monitor)) = app.monitor_from_point(pos.x, pos.y) {
             return Some(monitor);
@@ -928,8 +965,32 @@ pub fn overlay_save_bounds(
 
     let settings = {
         let mut rt = lock(state.inner());
-        rt.settings.pos_x = Some(pos.x);
-        rt.settings.pos_y = Some(pos.y);
+        // A programmatic resize (content auto-fit, a ticker/panel switch) fires
+        // the same move/resize events as a manual drag. Keep the overlay
+        // corner-anchored while it still sits exactly where the corner math puts
+        // it, so those events can't silently pin an absolute position.
+        let keep_anchored = match (rt.settings.pos_x, rt.settings.pos_y) {
+            (None, None) => {
+                let size = overlay_size(&rt.settings, collapsed);
+                let (work_area, monitor_scale) = monitor_geometry(&app);
+                let phys = (size.0 * monitor_scale, size.1 * monitor_scale);
+                corner_rect(
+                    &rt.settings.corner,
+                    work_area,
+                    phys,
+                    OVERLAY_MARGIN * monitor_scale,
+                )
+                .map(|(ax, ay)| {
+                    ((pos.x as f64) - ax).abs() < 2.0 && ((pos.y as f64) - ay).abs() < 2.0
+                })
+                .unwrap_or(false)
+            }
+            _ => false,
+        };
+        if !keep_anchored {
+            rt.settings.pos_x = Some(pos.x);
+            rt.settings.pos_y = Some(pos.y);
+        }
         if collapsed {
             rt.settings.ticker_width = ((size.width as f64) / scale).round();
             rt.settings.ticker_height = ((size.height as f64) / scale).round();
@@ -1758,8 +1819,34 @@ fn write_png_chunk(out: &mut Vec<u8>, chunk_type: &[u8; 4], data: &[u8]) {
     out.extend_from_slice(&crc.to_be_bytes());
 }
 
-/// Standalone, dependency-free uncompressed PNG encoder (RFC 2083 / RFC 1950).
-pub fn encode_uncompressed_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
+/// Encode raw top-down RGBA8 pixels as a compressed PNG via the `png` crate.
+/// This is a fraction of the size of the stored-block writer it replaced for
+/// large (1440p/4K) captures. If the encoder ever rejects the frame it falls
+/// back to [`encode_stored_png`], so a capture is never lost.
+pub fn encode_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    let encoded = {
+        let mut encoder = png::Encoder::new(&mut out, width, height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        match encoder.write_header() {
+            Ok(mut writer) => {
+                writer.write_image_data(rgba).is_ok() && writer.finish().is_ok()
+            }
+            Err(_) => false,
+        }
+    };
+    if encoded {
+        out
+    } else {
+        encode_stored_png(width, height, rgba)
+    }
+}
+
+/// Standalone, dependency-free PNG encoder that stores raw pixels as
+/// uncompressed deflate blocks (RFC 2083 / RFC 1950). Fallback for
+/// [`encode_png`].
+fn encode_stored_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
     out.extend_from_slice(b"\x89PNG\r\n\x1a\n");
 
@@ -2108,10 +2195,10 @@ pub fn encode_capture(
         match encode_jpeg(width, height, rgba, 92) {
             Ok(bytes) => (bytes, "jpg"),
             // Fall back to PNG rather than losing the capture.
-            Err(_) => (encode_uncompressed_png(width, height, rgba), "png"),
+            Err(_) => (encode_png(width, height, rgba), "png"),
         }
     } else {
-        (encode_uncompressed_png(width, height, rgba), "png")
+        (encode_png(width, height, rgba), "png")
     }
 }
 
@@ -2226,6 +2313,7 @@ pub async fn overlay_capture_screenshot(
 #[tauri::command]
 pub fn overlay_get_recent_screenshots(
     app: AppHandle,
+    state: tauri::State<'_, OverlayState>,
     game_title: Option<String>,
 ) -> Result<Vec<String>, String> {
     let title = game_title.unwrap_or_else(|| {
@@ -2241,7 +2329,10 @@ pub fn overlay_get_recent_screenshots(
         "GameIndex".to_string()
     });
 
-    let dir = get_captures_dir(&title);
+    // Honour a custom screenshot folder, matching where `capture_screenshot`
+    // actually wrote the files; otherwise fall back to the per-game tree.
+    let folder = lock(state.inner()).settings.screenshot_folder.clone();
+    let dir = resolve_capture_dir(folder.as_deref(), &title);
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -2271,10 +2362,24 @@ pub fn overlay_get_recent_screenshots(
 
 /// Open the screenshots folder or select the specific file in File Explorer.
 #[tauri::command]
-pub fn overlay_open_screenshot_folder(file_or_dir_path: Option<String>) -> Result<(), String> {
+pub fn overlay_open_screenshot_folder(
+    state: tauri::State<'_, OverlayState>,
+    file_or_dir_path: Option<String>,
+) -> Result<(), String> {
+    let _ = &state;
+
     #[cfg(windows)]
     let target = if let Some(path) = file_or_dir_path {
         std::path::PathBuf::from(path)
+    } else if let Some(folder) = lock(state.inner())
+        .settings
+        .screenshot_folder
+        .clone()
+        .filter(|f| !f.trim().is_empty())
+    {
+        // Open the configured folder rather than the default tree, so the
+        // button lands where the captures actually are.
+        std::path::PathBuf::from(folder)
     } else if let Ok(profile) = std::env::var("USERPROFILE") {
         std::path::PathBuf::from(profile).join("Videos").join("Captures")
     } else {
@@ -2458,16 +2563,32 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_uncompressed_png_header_and_structure() {
+    fn encode_png_round_trips_the_pixels() {
         let width = 2u32;
         let height = 2u32;
         let rgba = vec![
             255, 0, 0, 255,   0, 255, 0, 255,
             0, 0, 255, 255,   255, 255, 0, 255,
         ];
-        let bytes = encode_uncompressed_png(width, height, &rgba);
+        let bytes = encode_png(width, height, &rgba);
         assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
-        assert!(bytes.len() > 30);
+
+        let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+        let mut reader = decoder.read_info().unwrap();
+        let mut buf = vec![0u8; reader.output_buffer_size()];
+        let info = reader.next_frame(&mut buf).unwrap();
+        assert_eq!((info.width, info.height), (width, height));
+        assert_eq!(&buf[..info.buffer_size()], rgba.as_slice());
+    }
+
+    #[test]
+    fn encode_png_compresses_larger_than_stored_blocks() {
+        // A flat image deflates far below the stored-block fallback, proving the
+        // compressed path is actually in use.
+        let rgba = vec![120u8; 256 * 256 * 4];
+        let compressed = encode_png(256, 256, &rgba);
+        let stored = encode_stored_png(256, 256, &rgba);
+        assert!(compressed.len() < stored.len());
     }
 
     #[test]

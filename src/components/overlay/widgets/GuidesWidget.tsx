@@ -317,15 +317,17 @@ export default function GuidesWidget() {
   const mapGroups = useMemo<PickGroup[]>(() => {
     const groups: PickGroup[] = [];
     for (const source of maps.sources) {
-      const items =
-        source.maps.length > 0 ? source.maps : [{ title: source.title, url: source.url }];
-      const entries = items
-        .filter((item) => /^https?:\/\//i.test(item.url))
-        .map((item) => ({
-          key: `${source.id}:${item.url}`,
-          label: item.title,
-          url: item.url,
-        }));
+      // The provider's game-level page is the reliable entry point: some
+      // providers (e.g. Wand) hand out per-map deep links that can render
+      // blank, so offer it first and keep the sub-maps as extras.
+      const entries: PickEntry[] = [];
+      if (/^https?:\/\//i.test(source.url)) {
+        entries.push({ key: `${source.id}:home`, label: source.title, url: source.url });
+      }
+      for (const item of source.maps) {
+        if (!/^https?:\/\//i.test(item.url) || item.url === source.url) continue;
+        entries.push({ key: `${source.id}:${item.url}`, label: item.title, url: item.url });
+      }
       if (entries.length > 0) {
         groups.push({ id: source.id, label: source.label, entries });
       }

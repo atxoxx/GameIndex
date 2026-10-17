@@ -190,15 +190,19 @@ discord-rich-presence = "1.1.0"
 # binary doesn't reveal them. Extraction-bar only — not real secrecy; the
 # decryption material lives in the binary too.
 obfstr = "0.4"
-# Pure-Rust, dependency-free JPEG encoder for the overlay's `jpg` screenshot
-# format. The PNG path stays hand-rolled (no decoder/encoder dep); this only
-# covers the optional lossy format so screenshots can be a fraction of the size.
+# Pure-Rust JPEG encoder for the overlay's optional `jpg` screenshot format,
+# so captures can be a fraction of the size.
 jpeg-encoder = "0.6"
 # Decode + downscale for grid-artwork thumbnails (Lanczos3). Only the codecs
 # the artwork store ingests are enabled so the dependency graph stays small.
 # `image`'s WebP encoder is lossless-only, which is fine here: a 300x450
 # thumbnail is cheap on disk and the point is reducing the decoded bitmap.
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+# Pure-Rust PNG encoder for the overlay's screenshot path. Compresses captures
+# (a flat 1440p/4K frame is dramatically smaller than the old stored-block
+# writer) without native zlib. Already in the lockfile via the Linux screen
+# capture decoder, so it adds no new packages.
+png = "0.17"
 
 # === Security patches ===
 # `librqbit` 9.0.1 (the newest release) depends on `librqbit-utp` 0.7.0,
@@ -301,8 +305,5 @@ gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
 # (org.freedesktop.portal.Screenshot) and global hotkeys
 # (org.freedesktop.portal.GlobalShortcuts), which have no X11 equivalent.
 ashpd = { version = "0.13", features = ["screencast", "screenshot", "global_shortcuts"] }
-# Decode the PNG the Wayland Screenshot portal writes to disk before we
-# re-encode it in the user's chosen format. Pure-Rust, light.
-png = "0.17"
 
 
