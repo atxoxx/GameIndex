@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -106,8 +106,24 @@ pub fn get_for_game(db: &Db, game_id: &str) -> Result<Option<Value>, String> {
 pub fn upsert_for_game(db: &Db, game_id: &str, config: &Value) -> Result<(), String> {
     let raw = serde_json::to_string(config)
         .map_err(|e| format!("serialize game compatibility for {game_id}: {e}"))?;
-    let now = unix_now() as i64;
     let conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
+    // Same convention as the games `content_hash` skip: a per-cover
+    // enrichment burst re-saves rows whose profile never changed, and the
+    // payload always serializes to the same bytes (serde_json sorts map
+    // keys), so the rewrite is pure churn. Refreshing `updated_at` is not
+    // load-bearing — nothing reads it for decisions.
+    let existing: Option<String> = conn
+        .query_row(
+            "SELECT config_json FROM game_compatibility WHERE game_id = ?1",
+            params![game_id],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("compatibility lookup {game_id}: {e}"))?;
+    if existing.as_deref() == Some(raw.as_str()) {
+        return Ok(());
+    }
+    let now = unix_now() as i64;
     conn.execute(
         "INSERT INTO game_compatibility(game_id, config_json, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?3)
@@ -161,6 +177,20 @@ pub fn upsert_batch_for_games(db: &Db, items: &[(String, Value)]) -> Result<(), 
     let mut conn = db.compatibility().map_err(|e| format!("compatibility conn: {e}"))?;
     let tx = conn.transaction().map_err(|e| format!("tx: {e}"))?;
     let now = unix_now() as i64;
+    // Stored payloads read once inside the tx: unchanged profiles (the
+    // common case on a repeated full-library save) skip their write, byte
+    // comparison stays cheap because serde_json orders map keys
+    // deterministically.
+    let stored: HashMap<String, String> = {
+        let mut stmt = tx
+            .prepare("SELECT game_id, config_json FROM game_compatibility")
+            .map_err(|e| format!("prepare stored read: {e}"))?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+            .map_err(|e| format!("query stored read: {e}"))?;
+        rows.filter_map(|r| r.ok())
+            .collect::<HashMap<String, String>>()
+    };
     {
         let mut stmt = tx
             .prepare(
@@ -174,6 +204,9 @@ pub fn upsert_batch_for_games(db: &Db, items: &[(String, Value)]) -> Result<(), 
 
         for (gid, config) in items {
             if let Ok(raw) = serde_json::to_string(config) {
+                if stored.get(gid).map(|s| s == raw.as_str()).unwrap_or(false) {
+                    continue;
+                }
                 let _ = stmt.execute(params![gid, raw, now]);
             }
         }
