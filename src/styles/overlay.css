@@ -2528,6 +2528,18 @@ body.overlay-window #root {
   background: var(--color-accent);
 }
 
+/* Pre-roll countdown: an amber (warning) pulse distinct from the red
+   "recording" state, since the recorder is not active yet. */
+.overlay-record-status--countdown {
+  color: var(--color-text-primary);
+  border-color: var(--color-warning);
+}
+
+.overlay-record-status--countdown .overlay-record-status__dot {
+  background: var(--color-warning);
+  animation: overlayRecordPulse 0.9s ease-in-out infinite;
+}
+
 .overlay-record-status--error {
   border-color: var(--color-danger);
   color: var(--color-danger);

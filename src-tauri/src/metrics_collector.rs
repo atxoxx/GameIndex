@@ -100,6 +100,11 @@ struct MetricsSample {
     cpu_temp: u32,
     gpu_temp: u32,
     rtss_fps: Option<f64>,
+    /// RTSS's own per-frame minimum over its stat window. `None` when no RTSS
+    /// source reported — never fabricated from the 1 Hz polls.
+    rtss_fps_min: Option<f64>,
+    /// RTSS's own per-frame maximum over its stat window.
+    rtss_fps_max: Option<f64>,
     /// Instantaneous frame time (ms) when a real source reported it.
     frametime_ms: Option<f64>,
     /// GPU dedicated memory in use / total (MB).
@@ -296,6 +301,13 @@ pub struct LiveMetricsSample {
     /// reported this poll, else `None`. Never fabricated.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fps: Option<f64>,
+    /// RTSS's per-frame minimum over its stat window (real frame data, not a
+    /// 1 Hz poll), else `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fps_min: Option<f64>,
+    /// RTSS's per-frame maximum over its stat window.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fps_max: Option<f64>,
     /// Instantaneous frame time in milliseconds (RTSS / Afterburner), else
     /// `None`. The frontend derives it from FPS when no sensor reports it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -351,7 +363,7 @@ impl LiveMetricsHandle {
 /// caller decides where samples go (the overlay emits them to its window) and
 /// stops the sampler via [`LiveMetricsHandle::stop`].
 ///
-/// `interval` is clamped to a 200 ms floor and the master `config.enabled`
+/// `interval` is clamped to a 100 ms floor and the master `config.enabled`
 /// toggle short-circuits the thread entirely. On Windows and Linux the thread
 /// samples real telemetry; on other targets it simply parks until stopped so
 /// the lifecycle is identical.
@@ -367,7 +379,7 @@ where
     F: Fn(LiveMetricsSample) + Send + 'static,
 {
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
-    let interval = interval.max(Duration::from_millis(200));
+    let interval = interval.max(Duration::from_millis(100));
     let join = std::thread::spawn(move || {
         live_collect_loop(
             config, stop_rx, game_pid, gpu_id, gpu_name, interval, &on_sample,
@@ -506,6 +518,8 @@ fn live_collect_loop<F: Fn(LiveMetricsSample)>(
                     cpu_temp: sample.cpu_temp as f32,
                     gpu_temp: sample.gpu_temp as f32,
                     fps: if config.capture_fps { sample.rtss_fps } else { None },
+                    fps_min: if config.capture_fps { sample.rtss_fps_min } else { None },
+                    fps_max: if config.capture_fps { sample.rtss_fps_max } else { None },
                     frametime: sample.frametime_ms,
                     vram_used_mb: sample.vram_used_mb,
                     vram_total_mb: sample.vram_total_mb,
@@ -620,6 +634,10 @@ fn live_collect_loop<F: Fn(LiveMetricsSample)>(
             cpu_temp,
             gpu_temp,
             fps,
+            // MangoHud/gamescope expose only the current rate per poll; no
+            // per-frame min/max source is wired on Linux yet.
+            fps_min: None,
+            fps_max: None,
             frametime: None,
             vram_used_mb: None,
             vram_total_mb: None,
@@ -1569,9 +1587,16 @@ fn collect_single_sample(
     //
     // 5. Try to read RTSS FPS if Afterburner did not supply it. Skipped
     // entirely when FPS capture is disabled (a separate shared-memory map).
+    // RTSS also carries per-frame min/max over its stat window — the only
+    // real low/high-FPS data in the pipeline — so keep those alongside.
+    let mut rtss_min = None;
+    let mut rtss_max = None;
     if capture_fps && fps_val.is_none() {
-        let rtss = rtss_reader::read_rtss_metrics(game_pid);
-        fps_val = rtss.as_ref().map(|r| r.fps);
+        if let Some(rtss) = rtss_reader::read_rtss_metrics(game_pid) {
+            fps_val = Some(rtss.fps);
+            rtss_min = Some(rtss.stat_fps_min);
+            rtss_max = Some(rtss.stat_fps_max);
+        }
     }
 
     // 6. Derive frame time from FPS when no dedicated frametime sensor exists.
@@ -1591,6 +1616,8 @@ fn collect_single_sample(
         cpu_temp: cpu_temp_val.max(0.0).round() as u32,
         gpu_temp: gpu_temp_val.max(0.0).round() as u32,
         rtss_fps: fps_val,
+        rtss_fps_min: rtss_min,
+        rtss_fps_max: rtss_max,
         frametime_ms: frametime_val,
         vram_used_mb,
         vram_total_mb,
@@ -2442,6 +2469,8 @@ fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_m
             cpu_temp: 61.0,
             gpu_temp: 70.0,
             fps: None,
+            fps_min: None,
+            fps_max: None,
             frametime: None,
             vram_used_mb: None,
             vram_total_mb: None,

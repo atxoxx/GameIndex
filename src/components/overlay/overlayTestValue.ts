@@ -99,6 +99,8 @@ export function makeOverlayValue(
     updateSettings: vi.fn().mockResolvedValue(undefined),
     captureSupported: false,
     recordingState: { ...idleRecordingState },
+    deepDiveActive: false,
+    setDeepDiveActive: vi.fn(),
     isRecording: false,
     isReplayBuffering: false,
     recentClips: [],

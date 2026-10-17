@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Gauge, Timer, Flame, CircuitBoard, Zap } from "lucide-react";
 import { useOverlay } from "../../../context/OverlayContext";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -42,13 +42,33 @@ function StatChip({
  * no source reported stay hidden rather than showing a fabricated zero.
  */
 export default function PerformanceDeepDive() {
-  const { metrics, history } = useOverlay();
+  const { metrics, history, setDeepDiveActive } = useOverlay();
   const { t } = useLanguage();
+
+  // While the deep-dive is open the sampler runs at the fine rate
+  // (DEEP_DIVE_INTERVAL_MS) — the statistics below are only meaningful over a
+  // dense series — and drops back to the ordinary rate when it closes.
+  useEffect(() => {
+    setDeepDiveActive(true);
+    return () => setDeepDiveActive(false);
+  }, [setDeepDiveActive]);
 
   const fpsStats = useMemo(
     () => computeFpsStats(metricSeries(history, "fps")),
     [history],
   );
+
+  // RTSS reports per-frame min/max over its own stat window — real frame
+  // boundaries rather than the 1-second samples the HUD sees — so those bounds
+  // win over anything computed from the rolling window.
+  const rtssMin = useMemo(() => {
+    const series = metricSeries(history, "fpsMin");
+    return series.length ? Math.min(...series) : null;
+  }, [history]);
+  const rtssMax = useMemo(() => {
+    const series = metricSeries(history, "fpsMax");
+    return series.length ? Math.max(...series) : null;
+  }, [history]);
 
   // Frame time: prefer the sensor value, otherwise derive it from FPS.
   const frametimeSeries = useMemo(
@@ -119,13 +139,27 @@ export default function PerformanceDeepDive() {
           <StatChip
             testId="overlay-stat-min"
             label={t("overlay.performance.minFps")}
-            value={hasFps ? String(Math.round(fpsStats!.min)) : "—"}
+            value={
+              rtssMin !== null
+                ? String(Math.round(rtssMin))
+                : hasFps
+                  ? String(Math.round(fpsStats!.min))
+                  : "—"
+            }
+            hint={rtssMin !== null ? t("overlay.performance.realWindow") : undefined}
           />
           <StatChip
             testId="overlay-stat-max"
             intent="good"
             label={t("overlay.performance.maxFps")}
-            value={hasFps ? String(Math.round(fpsStats!.max)) : "—"}
+            value={
+              rtssMax !== null
+                ? String(Math.round(rtssMax))
+                : hasFps
+                  ? String(Math.round(fpsStats!.max))
+                  : "—"
+            }
+            hint={rtssMax !== null ? t("overlay.performance.realWindow") : undefined}
           />
         </div>
 

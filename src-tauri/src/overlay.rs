@@ -115,6 +115,13 @@ pub struct OverlaySettings {
     /// Let clicks pass through the collapsed ticker so it never steals input
     /// from the game. The global hotkey still expands it to the panel.
     pub ticker_click_through: bool,
+    /// Dim the collapsed ticker after this many seconds since it was last
+    /// shown/interacted with. `0` disables.
+    pub ticker_auto_dim_seconds: u32,
+    /// Hide the collapsed ticker entirely after this many seconds since it was
+    /// last shown/interacted with. `0` disables; the toggle hotkey peeks it
+    /// back. Should be ≥ the dim timeout to make sense, but is not forced.
+    pub ticker_auto_hide_seconds: u32,
     pub poll_interval_ms: u64,
     /// Show CPU/GPU temperatures in the performance widget.
     pub show_temps: bool,
@@ -192,6 +199,22 @@ pub struct OverlaySettings {
     /// Session-scoped: true while the replay buffer is armed.
     #[serde(default)]
     pub replay_buffer_active: bool,
+
+    // ── Native window backdrop ─────────────────────────────────────────
+    /// Whether the glass background should use the OS-native backdrop
+    /// (Windows acrylic). The frontend computes the tint and applies it via
+    /// `overlay_set_window_effect`; this field persists the preference so
+    /// older payloads and restarts keep the choice.
+    #[serde(default = "default_true")]
+    pub native_blur: bool,
+    /// Last native-backdrop tint applied, persisted so a rebuilt window
+    /// replays the same glass before the frontend re-syncs. `None` clears it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effect_color: Option<[u8; 4]>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for OverlaySettings {
@@ -241,6 +264,8 @@ impl Default for OverlaySettings {
             high_contrast: false,
             text_scale: 1.0,
             ticker_click_through: false,
+            ticker_auto_dim_seconds: 0,
+            ticker_auto_hide_seconds: 0,
             poll_interval_ms: 1000,
             show_temps: true,
             detect_current_game: true,
@@ -282,6 +307,9 @@ impl Default for OverlaySettings {
 
             video_recording: false,
             replay_buffer_active: false,
+
+            native_blur: true,
+            effect_color: None,
         }
     }
 }
@@ -326,6 +354,9 @@ pub struct OverlayRuntime {
     /// manual resize turns it off so the user's size sticks; a settings change
     /// turns it back on (the widget set is what the auto-fit follows).
     pub ticker_auto_fit: bool,
+    /// Bumped on every `present` so at most one monitor-follow loop owns the
+    /// re-anchoring at a time (a stale loop exits on a generation mismatch).
+    pub follow_generation: u64,
     /// Wayland-only: the running XDG GlobalShortcuts portal session, if any.
     #[cfg(target_os = "linux")]
     pub portal_hotkeys: Option<hotkeys_linux::PortalHotkeys>,
@@ -338,7 +369,7 @@ pub struct OverlayRuntime {
 impl OverlayRuntime {
     pub fn new(settings: OverlaySettings) -> Self {
         Self {
-            settings,
+            settings: settings.clone(),
             accelerator: None,
             screenshot_accelerator: None,
             record_accelerator: None,
@@ -346,8 +377,9 @@ impl OverlayRuntime {
             live: None,
             session: None,
             collapsed: true,
-            effect_color: None,
+            effect_color: settings.effect_color,
             ticker_auto_fit: true,
+            follow_generation: 0,
             #[cfg(target_os = "linux")]
             portal_hotkeys: None,
             #[cfg(target_os = "linux")]
@@ -715,6 +747,28 @@ fn apply_geometry(
         return Ok(());
     }
 
+    // Skip the move/resize round-trip when the window already sits exactly
+    // where the geometry wants it: the monitor-follow loop re-evaluates this
+    // every few seconds and each native call would otherwise churn the window
+    // (visible flicker on some compositors) for a no-op.
+    if let (Ok(cur_pos), Ok(cur_size)) = (window.outer_position(), window.inner_size()) {
+        let target_pos = (
+            x.round() as i32,
+            y.round() as i32,
+        );
+        let target_size = (
+            phys_size.0.round() as i32,
+            phys_size.1.round() as i32,
+        );
+        if (cur_pos.x - target_pos.0).abs() <= 2
+            && (cur_pos.y - target_pos.1).abs() <= 2
+            && (cur_size.width as i32 - target_size.0).abs() <= 2
+            && (cur_size.height as i32 - target_size.1).abs() <= 2
+        {
+            return Ok(());
+        }
+    }
+
     window
         .set_size(PhysicalSize::new(
             phys_size.0.round() as u32,
@@ -798,6 +852,7 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     let settings = {
         let mut rt = lock(state.inner());
         rt.collapsed = collapsed;
+        rt.follow_generation += 1;
         rt.settings.clone()
     };
 
@@ -840,10 +895,62 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     if let Some(session) = session {
         let pid = resolve_pid(app, &session);
         if pid != 0 {
-            let _ = start_live(app, pid, None, None);
+            let _ = start_live(app, pid, None, None, None);
         }
     }
+    // Keep following the display the game lives on: a fullscreen game moved to
+    // another monitor (or a second session starting there) re-anchors the HUD
+    // to it, as long as the user hasn't dragged the HUD to a manual position.
+    spawn_monitor_follow(app);
     Ok(())
+}
+
+/// Re-anchor the overlay when the game's monitor changes.
+///
+/// A background loop (one per `present`; the generation counter retires the
+/// previous one) re-evaluates the target monitor every few seconds while the
+/// HUD is visible. It exits as soon as the window is gone/hidden, the user
+/// dragged the HUD to a manual position, or a newer `present` superseded it.
+/// Must be spawned, never inlined: it sleeps and locks the overlay state.
+fn spawn_monitor_follow(app: &AppHandle) {
+    let state = app.state::<OverlayState>();
+    let generation = lock(state.inner()).follow_generation;
+    let app = app.clone();
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        let mut last_monitor: Option<(i32, i32)> = None;
+        loop {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) else {
+                return;
+            };
+            if !window.is_visible().unwrap_or(false) {
+                return;
+            }
+            let (manual_pos, collapsed, gen) = {
+                let rt = lock(&state);
+                (
+                    rt.settings.pos_x.is_some() || rt.settings.pos_y.is_some(),
+                    rt.collapsed,
+                    rt.follow_generation,
+                )
+            };
+            if manual_pos || gen != generation {
+                return;
+            }
+            let origin = target_monitor(&app).map(|m| (m.position().x, m.position().y));
+            match origin {
+                None => continue,
+                Some(o) if last_monitor == Some(o) => continue,
+                Some(o) => {
+                    let settings = lock(&state).settings.clone();
+                    if apply_geometry(&window, &app, &settings, collapsed).is_ok() {
+                        last_monitor = Some(o);
+                    }
+                }
+            }
+        }
+    });
 }
 
 /// Show the overlay in the ticker (`collapsed`) or panel presentation.
@@ -895,8 +1002,10 @@ pub fn overlay_native_blur_supported() -> bool {
 
 /// Enable/disable the native window backdrop and set its tint. The frontend
 /// computes `color` (surface RGB + the user's opacity) so the acrylic matches
-/// the active theme. Persisting the choice in the runtime lets a rebuilt
-/// window replay it on the next show.
+/// the active theme. The choice is mirrored into the runtime for instant
+/// replay on a rebuilt window AND persisted into settings (`effect_color` /
+/// `native_blur`), so the glass survives an app restart without waiting for
+/// the frontend's first settings sync.
 #[tauri::command]
 pub fn overlay_set_window_effect(
     app: AppHandle,
@@ -909,7 +1018,14 @@ pub fn overlay_set_window_effect(
     } else {
         None
     };
-    lock(state.inner()).effect_color = value;
+    let settings = {
+        let mut rt = lock(state.inner());
+        rt.effect_color = value;
+        rt.settings.native_blur = enabled;
+        rt.settings.effect_color = value;
+        rt.settings.clone()
+    };
+    persist_settings(&app, &settings).ok();
     if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
         apply_native_effect(&window, value);
     }
@@ -1197,8 +1313,6 @@ pub fn overlay_save_settings(
     // Surfaces an invalid/conflicting binding as an error and keeps the
     // previous one, so a bad save never leaves the overlay unreachable.
     register_hotkey(&app, state.inner(), &settings.hotkey)?;
-    // Capture bindings are best-effort; a conflict there is logged, not fatal.
-    register_capture_hotkeys(&app, state.inner());
 
     {
         let mut rt = lock(state.inner());
@@ -1207,6 +1321,12 @@ pub fn overlay_save_settings(
         // auto-fit take over again even if the user had resized manually.
         rt.ticker_auto_fit = true;
     }
+    // Capture bindings are best-effort; a conflict there is logged, not fatal.
+    // Registered after the settings swap so the video_enabled gate inside
+    // reads the NEW value — disabling video capture unbinds the record/replay
+    // hotkeys immediately instead of on the next boot.
+    register_capture_hotkeys(&app, state.inner());
+
     persist_settings(&app, &settings)?;
     emit_settings(&app, &settings);
 
@@ -1260,19 +1380,24 @@ fn resolve_pid(app: &AppHandle, session: &OverlaySession) -> u32 {
         .unwrap_or(0)
 }
 
-/// Start (or restart) the ~1 s live telemetry sampler for `pid`. Only one
-/// sampler runs at a time; any previous one is stopped first. Reuses the
-/// user's telemetry gating exactly as the session collector does.
+/// Start (or restart) the live telemetry sampler for `pid`. Only one sampler
+/// runs at a time; any previous one is stopped first. Reuses the user's
+/// telemetry gating exactly as the session collector does.
 ///
 /// `gpu_id`/`gpu_name` target the adapter to sample; when omitted the
 /// watcher's last-launch GPU is used. Passing `None` for both would sample GPU
 /// index 0, which on multi-adapter systems can be a virtual/other GPU — hence
 /// the fallback rather than a hardcoded `None`.
+///
+/// `interval_override_ms` replaces the persisted poll interval (used by the
+/// performance deep-dive, which wants a much finer sample rate while open);
+/// `None` uses `settings.poll_interval_ms`.
 fn start_live(
     app: &AppHandle,
     pid: u32,
     gpu_id: Option<String>,
     gpu_name: Option<String>,
+    interval_override_ms: Option<u64>,
 ) -> Result<(), String> {
     let state = app.state::<OverlayState>();
 
@@ -1302,8 +1427,14 @@ fn start_live(
     // recording. Everything else honours the session gating.
     let mut config = config;
     config.capture_fps = true;
-    // Clamp so a misconfigured tiny/zero interval can't spin the sampler.
-    let interval = Duration::from_millis(lock(state.inner()).settings.poll_interval_ms.max(250));
+    // Clamp so a misconfigured tiny/zero interval can't spin the sampler. The
+    // deep-dive override may go as low as 100 ms (RTSS/MAHM reads are cheap
+    // shared-memory maps; the expensive WMI fan-out is gated by the capture
+    // flags, and the focus gate skips it when the game is backgrounded).
+    let interval_ms = interval_override_ms
+        .unwrap_or_else(|| lock(state.inner()).settings.poll_interval_ms)
+        .max(100);
+    let interval = Duration::from_millis(interval_ms);
 
     let emit_app = app.clone();
     let handle = metrics_collector::start_live_collection(
@@ -1325,14 +1456,19 @@ fn start_live(
 /// explicit GPU. The overlay frontend passes the user's selected GPU (shared
 /// localStorage) so a game adopted via detection samples the same adapter as
 /// an app-launched session; omitting them falls back to the watcher's GPU.
+///
+/// `intervalMs` optionally overrides the persisted poll interval — the
+/// performance deep-dive passes a small value (e.g. 100) while it is open and
+/// re-calls without it when closed, so the ordinary ticker rate is restored.
 #[tauri::command]
 pub fn overlay_start_live_metrics(
     app: AppHandle,
     pid: u32,
     gpu_id: Option<String>,
     gpu_name: Option<String>,
+    interval_ms: Option<u64>,
 ) -> Result<(), String> {
-    start_live(&app, pid, gpu_id, gpu_name)
+    start_live(&app, pid, gpu_id, gpu_name, interval_ms)
 }
 
 /// Stop the live telemetry sampler and join its thread.
@@ -1442,20 +1578,41 @@ fn register_hotkey(
 
 /// (Re)register every global capture binding (screenshot / record / replay).
 /// Best-effort: a bad or conflicting capture binding is logged, never fatal.
+///
+/// When video capture is disabled (`video_enabled`), the record/replay
+/// bindings are **unregistered** instead — the toggle must actually keep the
+/// recorder out of reach, not just hide its UI. The screenshot binding is
+/// unaffected (screenshots are not gated by `video_enabled`).
 fn register_capture_hotkeys(app: &AppHandle, state: &OverlayState) {
-    let (screenshot, record, replay) = {
+    let (screenshot, record, replay, video_enabled) = {
         let rt = lock(state);
         (
             rt.settings.screenshot_hotkey.clone(),
             rt.settings.video_hotkey.clone(),
             rt.settings.replay_hotkey.clone(),
+            rt.settings.video_enabled,
         )
     };
-    for (which, name, accel) in [
-        (Binding::Screenshot, "screenshot", screenshot),
-        (Binding::Record, "record", record),
-        (Binding::Replay, "replay", replay),
-    ] {
+    let record_replay: Option<(String, String)> = if video_enabled {
+        Some((record, replay))
+    } else {
+        // Pass an empty accelerator through the normal path: it unregisters
+        // the current binding and records `None` in the runtime mirror.
+        None
+    };
+    let bindings: Vec<(Binding, &'static str, String)> = match record_replay {
+        Some((record, replay)) => vec![
+            (Binding::Screenshot, "screenshot", screenshot),
+            (Binding::Record, "record", record),
+            (Binding::Replay, "replay", replay),
+        ],
+        None => vec![
+            (Binding::Screenshot, "screenshot", screenshot),
+            (Binding::Record, "record", String::new()),
+            (Binding::Replay, "replay", String::new()),
+        ],
+    };
+    for (which, name, accel) in bindings {
         if let Err(e) = register_binding(app, state, which, &accel) {
             eprintln!("[overlay] capture hotkey registration failed: {e}");
             // Non-fatal, but the settings UI should know the binding was
@@ -1590,7 +1747,7 @@ pub fn handle_hotkey(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent)
     if is_rec {
         let handle = app.clone();
         tauri::async_runtime::spawn(async move {
-            let _ = crate::capture::capture_toggle_recording(handle);
+            let _ = crate::capture::capture_toggle_recording(handle).await;
         });
         return;
     }
@@ -1632,7 +1789,7 @@ pub(crate) fn dispatch_portal_binding(app: &AppHandle, id: &str) {
         "record" => {
             let handle = app.clone();
             tauri::async_runtime::spawn(async move {
-                let _ = crate::capture::capture_toggle_recording(handle);
+                let _ = crate::capture::capture_toggle_recording(handle).await;
             });
         }
         "replay" => {
@@ -1694,6 +1851,43 @@ pub fn set_session(app: &AppHandle, session: Option<OverlaySession>) {
     let _ = app.emit_to(OVERLAY_WINDOW_LABEL, EVENT_SESSION, session);
 }
 
+/// Restart the live sampler after a `game-started` event.
+///
+/// CONTRACT — must be **spawned**, never called inline on the emitting thread.
+/// `launch_game` emits `game-started` while holding the `GameWatcher` mutex
+/// and Tauri runs event listeners synchronously on the emitting thread; when
+/// that thread is the main thread, `run_on_main_thread` would execute the
+/// closure INLINE (see `send_user_message`) so the first
+/// `resolve_pid`/`start_live` call re-locks the same non-reentrant watcher
+/// mutex and deadlocks the whole app ("GameIndex Overlay — Ne répond pas").
+/// Spawning onto the async runtime simply waits until the lock is released,
+/// matching the downloads `game-started` listener. Any new code that reacts
+/// to events emitted under the GameWatcher lock must follow this pattern.
+fn spawn_live_refresh(app: &AppHandle) {
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if handle.try_state::<OverlayState>().is_none() {
+            return;
+        }
+        let visible = handle
+            .get_webview_window(OVERLAY_WINDOW_LABEL)
+            .and_then(|w| w.is_visible().ok())
+            .unwrap_or(false);
+        if !visible {
+            return;
+        }
+        let session = handle
+            .try_state::<OverlayState>()
+            .and_then(|state| lock(state.inner()).session.clone());
+        if let Some(session) = session {
+            let pid = resolve_pid(&handle, &session);
+            if pid != 0 {
+                let _ = start_live(&handle, pid, None, None, None);
+            }
+        }
+    });
+}
+
 /// Forward the existing game lifecycle events to the overlay as
 /// `overlay:session`. Called once from `lib.rs` setup.
 pub fn register_listeners(app: &AppHandle) {
@@ -1717,37 +1911,8 @@ pub fn register_listeners(app: &AppHandle) {
             }),
         );
 
-        // This listener runs synchronously on the emitting thread while the
-        // GameWatcher mutex is held — `launch_game` emits `game-started`
-        // before releasing its lock. `run_on_main_thread` must NOT be used
-        // here: when the emit already happens on the main thread, Tauri runs
-        // the closure INLINE (see `send_user_message`), so the moment it calls
-        // `resolve_pid`/`start_live` it re-locks the same non-reentrant watcher
-        // mutex and deadlocks the whole app. Spawn onto the async runtime
-        // instead — it simply waits until the lock is released, matching the
-        // downloads `game-started` listener.
-        let handle = started.clone();
-        tauri::async_runtime::spawn(async move {
-            if handle.try_state::<OverlayState>().is_none() {
-                return;
-            }
-            let visible = handle
-                .get_webview_window(OVERLAY_WINDOW_LABEL)
-                .and_then(|w| w.is_visible().ok())
-                .unwrap_or(false);
-            if !visible {
-                return;
-            }
-            let session = handle
-                .try_state::<OverlayState>()
-                .and_then(|state| lock(state.inner()).session.clone());
-            if let Some(session) = session {
-                let pid = resolve_pid(&handle, &session);
-                if pid != 0 {
-                    let _ = start_live(&handle, pid, None, None);
-                }
-            }
-        });
+        // See `spawn_live_refresh` for why this must be a spawned task.
+        spawn_live_refresh(&started);
     });
 
     let exited = app.clone();

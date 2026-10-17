@@ -228,13 +228,132 @@ fn load_targets(db: &db::Db) -> Result<Vec<DetectTarget>, String> {
 /// Which library game is running right now, or `None`. The overlay calls this
 /// when it has no tracked session so a game started outside GameIndex (or one
 /// the passive index skips) still lights up the HUD.
+///
+/// When no library title matches, a last pass adopts the **foreground
+/// fullscreen window** as a generic view-only session (`external:<exe>`), so
+/// any game — library entry or not — gets telemetry and captures while it
+/// covers the screen. It still never records playtime.
 #[tauri::command]
 pub async fn overlay_detect_game(app: tauri::AppHandle) -> Result<Option<DetectedGame>, String> {
     use tauri::Manager;
 
     let db = app.state::<db::Db>().inner().clone();
     let targets = load_targets(&db)?;
-    Ok(detect_running(&targets))
+    if let Some(found) = detect_running(&targets) {
+        return Ok(Some(found));
+    }
+    Ok(detect_fullscreen_game())
+}
+
+/// Pure check: does a window `rect` cover `monitor`'s rectangle closely enough
+/// to count as fullscreen? Borderless-game windows sit exactly on the monitor
+/// rect, but a DPI/virtualization off-by-one is tolerated on the edges.
+pub fn fullscreen_covers_monitor(rect: (i32, i32, i32, i32), monitor: (i32, i32, i32, i32)) -> bool {
+    let (rl, rt_, rr, rb) = rect;
+    let (ml, mt_, mr, mb) = monitor;
+    let covers_x = rl <= ml && rr >= mr;
+    let covers_y = rt_ <= mt_ && rb >= mb;
+    // Tolerance: either exact coverage or ≥ 90 % of the monitor area.
+    let area = |(l, t, r, b): (i32, i32, i32, i32)| (r - l).max(0) * (b - t).max(0);
+    let window_area = area(rect);
+    let monitor_area = area(monitor);
+    let covered_enough = monitor_area > 0
+        && window_area as f64 / monitor_area as f64 >= 0.9
+        && rl <= ml
+        && rt_ <= mt_;
+    (covers_x && covers_y) || covered_enough
+}
+
+/// Derive a display name from an exe path: the file stem (`witcher3.exe` →
+/// `Witcher3`, first letter up-cased when it was lowercase). Used for the
+/// generic (non-library) session title.
+pub fn exe_display_name(exe_path: &str) -> String {
+    let stem = exe_path
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(exe_path)
+        .trim()
+        .trim_end_matches(".exe")
+        .trim();
+    let mut chars = stem.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+/// Adopt the foreground fullscreen window as a generic view-only session when
+/// no library game matched. Windows only (the probe needs HWND APIs); other
+/// platforms return `None` and the HUD simply stays off for unknown games.
+#[cfg(windows)]
+fn detect_fullscreen_game() -> Option<DetectedGame> {
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    };
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowRect, GetWindowThreadProcessId,
+    };
+
+    let self_pid = std::process::id();
+
+    unsafe {
+        let hwnd: HWND = GetForegroundWindow();
+        if hwnd.0.is_null() {
+            return None;
+        }
+        let mut pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        if pid == 0 || pid == self_pid {
+            return None;
+        }
+        let mut rect = RECT::default();
+        if GetWindowRect(hwnd, &mut rect).is_err() {
+            return None;
+        }
+        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if monitor.0.is_null() {
+            return None;
+        }
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        if GetMonitorInfoW(monitor, &mut info).as_bool() == false {
+            return None;
+        }
+        let m = info.rcMonitor;
+        if !fullscreen_covers_monitor(
+            (rect.left, rect.top, rect.right, rect.bottom),
+            (m.left, m.top, m.right, m.bottom),
+        ) {
+            return None;
+        }
+
+        // Resolve the exe path from the process snapshot (one shared walk);
+        // the pid is the only thing the HWND gives us.
+        let exe = crate::game_watcher::snapshot_processes()
+            .into_iter()
+            .find(|(p, _)| *p == pid)
+            .map(|(_, exe)| exe)?;
+        if exe.is_empty() {
+            return None;
+        }
+        let name = exe_display_name(&exe);
+        if name.is_empty() {
+            return None;
+        }
+        Some(DetectedGame {
+            game_id: format!("external:{}", normalize(&exe)),
+            name,
+            pid,
+        })
+    }
+}
+
+#[cfg(not(windows))]
+fn detect_fullscreen_game() -> Option<DetectedGame> {
+    None
 }
 
 #[cfg(test)]
@@ -315,5 +434,47 @@ mod tests {
         let t = target("g1", r"C:\Games\Foo\Foo.exe");
         // "Foobar" shares the text prefix but is a different folder.
         assert!(!in_install_dir(&normalize(r"C:\Games\Foobar\Foobar.exe"), &t));
+    }
+
+    #[test]
+    fn fullscreen_check_accepts_an_exact_borderless_window() {
+        let monitor = (0, 0, 1920, 1080);
+        assert!(fullscreen_covers_monitor(monitor, monitor));
+        // Offset monitor (secondary display to the right).
+        let sec = (1920, 0, 3840, 1080);
+        assert!(fullscreen_covers_monitor(sec, sec));
+    }
+
+    #[test]
+    fn fullscreen_check_rejects_a_windowed_game() {
+        assert!(!fullscreen_covers_monitor(
+            (100, 100, 1200, 800),
+            (0, 0, 1920, 1080)
+        ));
+        assert!(!fullscreen_covers_monitor(
+            (0, 0, 800, 600),
+            (0, 0, 1920, 1080)
+        ));
+    }
+
+    #[test]
+    fn fullscreen_check_tolerates_a_small_edge_overshoot() {
+        // DPI virtualization can leave a 1-2 px overshoot; still fullscreen.
+        assert!(fullscreen_covers_monitor(
+            (-2, -2, 1922, 1082),
+            (0, 0, 1920, 1080)
+        ));
+    }
+
+    #[test]
+    fn exe_display_name_builds_a_title_from_the_stem() {
+        assert_eq!(exe_display_name(r"C:\Games\Witcher3\bin\witcher3.exe"), "Witcher3");
+        assert_eq!(exe_display_name("/games/eldenring/eldenring.exe"), "Eldenring");
+        // Multi-word stems and already-capitalised names pass through.
+        assert_eq!(exe_display_name(r"C:\X\Factorio.exe"), "Factorio");
+        assert_eq!(exe_display_name(r"C:\X\Cyberpunk2077.exe"), "Cyberpunk2077");
+        // Empty / junk inputs degrade to empty (caller then rejects).
+        assert_eq!(exe_display_name(""), "");
+        assert_eq!(exe_display_name("   "), "");
     }
 }

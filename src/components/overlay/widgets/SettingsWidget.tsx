@@ -382,6 +382,44 @@ export default function SettingsWidget() {
             checked={settings.tickerClickThrough ?? false}
             onChange={(on) => void updateSettings({ tickerClickThrough: on })}
           />
+
+          <OverlayFieldSlider
+            className="overlay-setting-row"
+            infoClassName="overlay-setting-row__info"
+            labelClassName="overlay-setting-row__label"
+            valueClassName="overlay-setting-row__val"
+            inputClassName="overlay-slider"
+            label={t("overlay.settings.tickerAutoDim")}
+            display={
+              settings.tickerAutoDimSeconds
+                ? `${settings.tickerAutoDimSeconds}s`
+                : t("common.off")
+            }
+            value={settings.tickerAutoDimSeconds ?? 0}
+            min={0}
+            max={120}
+            step={5}
+            onChange={(value) => void updateSettings({ tickerAutoDimSeconds: value })}
+          />
+
+          <OverlayFieldSlider
+            className="overlay-setting-row"
+            infoClassName="overlay-setting-row__info"
+            labelClassName="overlay-setting-row__label"
+            valueClassName="overlay-setting-row__val"
+            inputClassName="overlay-slider"
+            label={t("overlay.settings.tickerAutoHide")}
+            display={
+              settings.tickerAutoHideSeconds
+                ? `${settings.tickerAutoHideSeconds}s`
+                : t("common.off")
+            }
+            value={settings.tickerAutoHideSeconds ?? 0}
+            min={0}
+            max={120}
+            step={5}
+            onChange={(value) => void updateSettings({ tickerAutoHideSeconds: value })}
+          />
         </div>
 
         {/* Section: Accessibility */}
@@ -584,6 +622,25 @@ export default function SettingsWidget() {
               }))}
               value={settings.videoBitrateKbps}
               onChange={(kbps) => void updateSettings({ videoBitrateKbps: kbps })}
+            />
+
+            <OverlayFieldSlider
+              className="overlay-setting-row"
+              infoClassName="overlay-setting-row__info"
+              labelClassName="overlay-setting-row__label"
+              valueClassName="overlay-setting-row__val"
+              inputClassName="overlay-slider"
+              label={t("overlay.settings.videoCountdown")}
+              display={
+                settings.videoCountdownMs
+                  ? `${(settings.videoCountdownMs / 1000).toFixed(1)}s`
+                  : t("common.off")
+              }
+              value={settings.videoCountdownMs}
+              min={0}
+              max={10000}
+              step={500}
+              onChange={(value) => void updateSettings({ videoCountdownMs: value })}
             />
           </div>
 

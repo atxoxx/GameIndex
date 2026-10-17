@@ -58,6 +58,8 @@ export interface OverlaySettings {
   backgroundOpacity?: number;
   /** Use the native OS backdrop (real behind-the-game blur) when glass. */
   nativeBlur?: boolean;
+  /** Last native backdrop tint the backend applied (persisted across restarts). */
+  effectColor?: number[];
   /** Drop the costly backdrop-filter and animated glows for performance. */
   reduceEffects?: boolean;
   /** Collapsed ticker ignores the mouse so clicks reach the game. */
@@ -116,6 +118,10 @@ export interface OverlaySettings {
   videoShowCursor: boolean;
   videoSound: boolean;
   videoCountdownMs: number;
+  /** Dim the ticker after N idle seconds (0 = off). */
+  tickerAutoDimSeconds?: number;
+  /** Hide the ticker after N idle seconds past the dim step (0 = off). */
+  tickerAutoHideSeconds?: number;
   videoHideOverlay: boolean;
   /** Session-scoped mirror of the backend flags. */
   videoRecording?: boolean;
@@ -130,6 +136,10 @@ export interface OverlayMetrics {
   cpuTemp: number;
   gpuTemp: number;
   fps?: number;
+  /** RTSS per-frame minimum over its stat window (only while RTSS is the FPS source). */
+  fpsMin?: number;
+  /** RTSS per-frame maximum over its stat window. */
+  fpsMax?: number;
   /** Instantaneous frame time in milliseconds (ms). Derived from FPS when absent. */
   frametime?: number;
   /** GPU dedicated memory in use / total, in megabytes. */
@@ -149,6 +159,8 @@ export interface OverlaySession {
   startedAt: number;
   /** Game process id, or 0 while the launch is still pending. */
   pid?: number;
+  /** Display name for sessions with no library entry (`external:<exe>` games). */
+  name?: string;
 }
 
 export interface ScreenshotCaptureInfo {
@@ -179,6 +191,8 @@ export interface RecordingState {
   replayBuffering: boolean;
   startedAt?: number | null;
   durationMs: number;
+  /** Non-zero while a pre-roll countdown is running before the recorder starts. */
+  countdownMs?: number;
   error?: string | null;
 }
 
@@ -222,6 +236,9 @@ export const TICKER_WIDGETS = [
 
 /** Ticker elements enabled out of the box. */
 export const DEFAULT_TICKER_WIDGETS: string[] = [...TICKER_WIDGETS];
+
+/** Poll interval (ms) the performance deep-dive boosts the sampler to. */
+export const DEEP_DIVE_INTERVAL_MS = 100;
 
 /** Panel widget keys, in fixed display order. */
 export const PANEL_WIDGETS = [
@@ -333,6 +350,8 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   videoShowCursor: false,
   videoSound: true,
   videoCountdownMs: 0,
+  tickerAutoDimSeconds: 0,
+  tickerAutoHideSeconds: 0,
   videoHideOverlay: true,
   videoRecording: false,
   replayBufferActive: false,
@@ -384,8 +403,12 @@ export interface OverlayContextValue {
   // ── Video capture ──────────────────────────────────────────────
   /** False on non-Windows platforms (or unsupported hardware). */
   captureSupported: boolean;
-  /** Live recorder state (recording + replay buffer). */
+   /** Live recorder state (recording + replay buffer). */
   recordingState: RecordingState;
+  /** True while the performance deep-dive drives the fine-grained sampler. */
+  deepDiveActive: boolean;
+  /** Switch the live sampler between the deep-dive rate and the normal rate. */
+  setDeepDiveActive: (active: boolean) => void;
   isRecording: boolean;
   isReplayBuffering: boolean;
   /** Recent clips for the active game. */
@@ -539,12 +562,17 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     }
     if (sessionRef.current) return; // the watcher already owns a session
     try {
-      const found = await invoke<OverlaySession | null>("overlay_detect_game");
+      const found = await invoke<{ gameId: string; name?: string; pid: number } | null>(
+        "overlay_detect_game",
+      );
       if (found && found.gameId) {
         setDetectedSession((prev) =>
-          prev && prev.gameId === found.gameId && prev.pid === found.pid
+          prev &&
+          prev.gameId === found.gameId &&
+          prev.pid === found.pid &&
+          prev.name === found.name
             ? prev
-            : { gameId: found.gameId, startedAt: Date.now(), pid: found.pid },
+            : { gameId: found.gameId, name: found.name, startedAt: Date.now(), pid: found.pid },
         );
         if (found.pid) {
           const gpu = readSelectedGpu();
@@ -575,6 +603,34 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
   const expand = useCallback(() => setCollapsed(false), []);
   const collapse = useCallback(() => setCollapsed(true), []);
+
+  // Live mirror of the detected session for the deep-dive callback below.
+  const detectedSessionRef = useRef<OverlaySession | null>(null);
+  detectedSessionRef.current = detectedSession;
+
+  // The performance deep-dive rides a finer sampler (see DEEP_DIVE_INTERVAL_MS)
+  // while it is open and restores the ordinary rate when it closes. Idempotent:
+  // repeated calls with the same state are no-ops, so an unconditional effect
+  // (or hotkey spam) cannot thrash the sampler.
+  const [deepDiveActive, setDeepDiveActiveState] = useState(false);
+  const deepDiveActiveRef = useRef(false);
+  const setDeepDiveActive = useCallback((active: boolean) => {
+    if (deepDiveActiveRef.current === active) return;
+    deepDiveActiveRef.current = active;
+    setDeepDiveActiveState(active);
+    const s = sessionRef.current ?? detectedSessionRef.current;
+    const pid = s?.pid ?? 0;
+    if (!pid) return;
+    const gpu = readSelectedGpu();
+    void invoke("overlay_start_live_metrics", {
+      pid,
+      gpuId: gpu?.id ?? null,
+      gpuName: gpu?.name ?? null,
+      intervalMs: active ? DEEP_DIVE_INTERVAL_MS : null,
+    }).catch(() => {
+      /* no Tauri runtime */
+    });
+  }, []);
 
   // Sync opacity directly into CSS variable for immediate feedback
   useEffect(() => {
@@ -1124,6 +1180,8 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       updateSettings,
       captureSupported,
       recordingState,
+      deepDiveActive,
+      setDeepDiveActive,
       isRecording: recordingState.recording,
       isReplayBuffering: recordingState.replayBuffering,
       recentClips,
@@ -1163,6 +1221,8 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       updateSettings,
       captureSupported,
       recordingState,
+      deepDiveActive,
+      setDeepDiveActive,
       recentClips,
       lastClip,
       startRecording,

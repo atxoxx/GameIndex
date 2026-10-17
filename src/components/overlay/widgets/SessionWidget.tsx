@@ -122,7 +122,7 @@ export default function SessionWidget() {
   }, [session?.startedAt]);
 
   const handleCapture = () => {
-    void captureScreenshot(game?.name);
+    void captureScreenshot(game?.name ?? session?.name);
   };
 
   const handleOpenFolder = () => {
@@ -178,7 +178,7 @@ export default function SessionWidget() {
               <div className="overlay-session-hero__title-wrap">
                 <Gamepad2 size={24} className="overlay-session-hero__title-icon" />
                 <h2 className="overlay-session-hero__title">
-                  {game?.name || t("overlay.widget.session")}
+                  {game?.name || session?.name || t("overlay.widget.session")}
                 </h2>
               </div>
             )}

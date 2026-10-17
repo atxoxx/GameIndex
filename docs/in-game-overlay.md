@@ -120,7 +120,9 @@ overlay is open (default every **1000 ms**; raise or lower **Update frequency** 
 deep-dive shows:
 
 - **Frame stats** - average, 1% low, 0.1% low, minimum and maximum FPS (lows are computed from the
-  worst 1% / 0.1% of samples).
+  worst 1% / 0.1% of samples). While the deep-dive is open the sampler boosts to a **100 ms** poll
+  for a denser series, and drops back to the ordinary rate when it closes. When RTSS is the FPS
+  source, the Min/Max chips additionally show RTSS's own frame-level bounds from its stat window.
 - **Frametime** - the frametime graph, or `1000 / FPS` when a dedicated frametime sensor is unavailable.
 - **Hardware sensors** - VRAM, GPU power, CPU power and GPU core/memory clocks where the platform reports them.
 - **Session peaks** - peak CPU, GPU and RAM for the current session.
@@ -154,6 +156,8 @@ The video recorder is platform-gated (see below) and lives in the panel's Captur
 capture controls.
 
 - **Record** starts a manual recording; press the record hotkey again (or Stop) to finish and save a clip.
+- **Countdown** - an optional pre-roll (default off) waits after pressing Record before the capture
+  actually starts, giving you a ClapShot-style heads-up. The HUD shows a live countdown during it.
 - **Replay** arms a rolling buffer (default **60 s**, configurable). Press the replay hotkey to save the
   last 60 seconds as a clip without having recorded up front.
 - **Audio** - capture **game audio** (on by default) and optionally your **microphone**, choosing devices.
@@ -162,8 +166,8 @@ capture controls.
 Recording and replay are mutually exclusive; a manual recording stops an armed replay. On game exit,
 any active recording/replay is stopped automatically.
 
-> **Note:** the **Enable video capture** toggle does not gate the hotkeys or commands today - hide the
-> capture widgets or avoid the hotkeys if you do not want the recorder available.
+> **Note:** the **Enable video capture** toggle is enforced by the backend — with it off, the record /
+> replay commands are refused and their global hotkeys are unbound (screenshots stay available).
 
 ---
 
@@ -237,11 +241,13 @@ without a portal leaves global hotkeys unavailable. On Linux, video requires the
 | High contrast | off | |
 | Text scale | 1.0 | |
 | Ticker click-through | off | Collapsed ticker only. |
-| Update frequency | 1000 ms | Live telemetry interval. |
-| Detect current game | on | Adopts externally-launched titles (view-only). |
+| Idle dim / hide | off | Fades the collapsed ticker out after idle seconds; hide fully hides the window (the toggle hotkey brings it back). |
+| Update frequency | 1000 ms | Live telemetry interval; the deep-dive temporarily boosts it to 100 ms. |
+| Detect current game | on | Adopts externally-launched titles (view-only); any foreground fullscreen app counts as a generic session when no library title matches. |
 | Screenshot format | PNG | PNG / JPEG. |
 | Screenshot sound / flash / clipboard | on | |
 | Video FPS / bitrate | 60 / 12 000 kbps | |
+| Recording countdown | off | Optional pre-roll before a recording actually starts (max 10 s). |
 | Replay buffer | 60 s | 5–600 s. |
 | Game audio / microphone | on / off | |
 

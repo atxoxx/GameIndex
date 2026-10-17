@@ -70,6 +70,26 @@ export default function RecordingWidget() {
 
   const clipCount = recentClips.length;
 
+  // Pre-roll countdown: the backend broadcasts a `countdownMs` state, then the
+  // recorder starts after that delay. Tick the remaining time locally so the
+  // label counts down live instead of showing every one-second snapshot.
+  const countdownTotal =
+    isRecording || isReplayBuffering ? 0 : recordingState.countdownMs ?? 0;
+  const [countdownLeft, setCountdownLeft] = useState(0);
+  useEffect(() => {
+    if (countdownTotal <= 0) {
+      setCountdownLeft(0);
+      return;
+    }
+    const endAt = Date.now() + countdownTotal;
+    const id = window.setInterval(() => {
+      const left = Math.max(0, endAt - Date.now());
+      setCountdownLeft(left);
+      if (left === 0) window.clearInterval(id);
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [countdownTotal]);
+
   const handleToggleRecord = async () => {
     setBusy(true);
     try {
@@ -118,11 +138,12 @@ export default function RecordingWidget() {
   };
 
   const statusTone = useMemo(() => {
+    if (countdownTotal > 0 || countdownLeft > 0) return "countdown";
     if (recordingState.error) return "error";
     if (isRecording) return "recording";
     if (isReplayBuffering) return "replay";
     return "idle";
-  }, [recordingState.error, isRecording, isReplayBuffering]);
+  }, [countdownTotal, countdownLeft, recordingState.error, isRecording, isReplayBuffering]);
 
   return (
     <Card variant="glass" className="overlay-widget overlay-recording-widget">
@@ -184,9 +205,13 @@ export default function RecordingWidget() {
           <div className={`overlay-record-status overlay-record-status--${statusTone}`}>
             <span className="overlay-record-status__dot" aria-hidden />
             <span className="overlay-record-status__label">
-              {recordingState.error
+              {recordingState.error && countdownLeft === 0
                 ? t("overlay.recording.error", { error: recordingState.error })
-                : isRecording
+                : countdownLeft > 0
+                  ? t("overlay.recording.countdown", {
+                      seconds: Math.ceil(countdownLeft / 1000),
+                    })
+                  : isRecording
                   ? t("overlay.recording.recordingFor", {
                       time: formatDuration(elapsed),
                     })

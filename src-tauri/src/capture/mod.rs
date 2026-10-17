@@ -11,6 +11,7 @@
 //! green and the settings UI still works (it just reports "unsupported").
 
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -71,9 +72,18 @@ pub struct RecordingState {
     pub replay_buffering: bool,
     pub started_at: Option<u64>,
     pub duration_ms: u64,
+    /// Non-zero while a pre-roll countdown (from `video_countdown_ms`) is
+    /// running before a manual recording actually starts. `0` otherwise.
+    #[serde(skip_serializing_if = "is_zero_u64")]
+    pub countdown_ms: u64,
     /// Last error from the capture pipeline, or `None` while healthy.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+#[allow(non_snake_case)]
+fn is_zero_u64(v: &u64) -> bool {
+    *v == 0
 }
 
 /// A finished clip on disk.
@@ -146,6 +156,23 @@ fn now_ms() -> u64 {
 /// Push the current controller state to every window.
 fn broadcast(app: &AppHandle, state: &RecordingState) {
     let _ = app.emit(EVENT_CAPTURE_STATE, state);
+}
+
+/// Whether video capture is enabled in the overlay settings. Enforced by the
+/// start paths (not just the UI): with the toggle off, the recorder and its
+/// record/replay hotkeys are refused outright.
+fn video_enabled(app: &AppHandle) -> bool {
+    use crate::overlay::OverlayState;
+    app.try_state::<OverlayState>()
+        .map(|state| {
+            state
+                .inner()
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .settings
+                .video_enabled
+        })
+        .unwrap_or(true)
 }
 
 /// Read the capture-relevant slice of the overlay settings.
@@ -237,10 +264,12 @@ pub fn capture_list_audio_devices() -> audio::AudioDeviceList {
     audio::list_devices()
 }
 
-/// Start a manual recording, stopping any replay buffer first.
+/// Start a manual recording, stopping any replay buffer first. Honours the
+/// `video_countdown_ms` pre-roll (the command awaits it, broadcasting a
+/// countdown state so the HUD can show one).
 #[tauri::command]
-pub fn capture_start_recording(app: AppHandle) -> Result<RecordingState, String> {
-    start_recording_impl(&app)
+pub async fn capture_start_recording(app: AppHandle) -> Result<RecordingState, String> {
+    start_recording_async(&app).await
 }
 
 /// Stop the manual recording and return the saved clip (if any).
@@ -249,15 +278,15 @@ pub fn capture_stop_recording(app: AppHandle) -> Result<Option<ClipResult>, Stri
     stop_recording_impl(&app)
 }
 
-/// Toggle a manual recording.
+/// Toggle a manual recording. Honours the pre-roll countdown on the start leg.
 #[tauri::command]
-pub fn capture_toggle_recording(app: AppHandle) -> Result<RecordingState, String> {
+pub async fn capture_toggle_recording(app: AppHandle) -> Result<RecordingState, String> {
     if is_recording(&app) {
         let _ = stop_recording_impl(&app)?;
+        Ok(current_state(&app))
     } else {
-        let _ = start_recording_impl(&app)?;
+        start_recording_async(&app).await
     }
-    Ok(current_state(&app))
 }
 
 /// Arm the rolling replay buffer, stopping any manual recording first.
@@ -322,6 +351,45 @@ pub fn is_recording(app: &AppHandle) -> bool {
         .is_some_and(Session::active)
 }
 
+/// Async start used by the commands: enforces the `video_enabled` gate, then
+/// runs the pre-roll countdown (if configured) before the real start. The
+/// countdown is awaited inside the command, so the frontend's `invoke`
+/// resolves only when the recorder is actually running — the UI's own busy
+/// spinner covers the wait, and a `countdownMs` state is broadcast so the
+/// recording widget can show a live countdown too.
+pub async fn start_recording_async(app: &AppHandle) -> Result<RecordingState, String> {
+    if !video_enabled(app) {
+        return Err(
+            "video capture is disabled (enable it in Settings → Overlay → Video)".to_string(),
+        );
+    }
+    let countdown_ms = app
+        .try_state::<crate::overlay::OverlayState>()
+        .map(|state| {
+            state
+                .inner()
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .settings
+                .video_countdown_ms
+        })
+        .unwrap_or(0);
+    if countdown_ms > 0 {
+        let countdown = countdown_ms.min(10_000);
+        let snapshot = RecordingState {
+            recording: false,
+            replay_buffering: false,
+            started_at: None,
+            duration_ms: 0,
+            countdown_ms: countdown,
+            error: None,
+        };
+        broadcast(app, &snapshot);
+        tokio::time::sleep(Duration::from_millis(countdown)).await;
+    }
+    start_recording_impl(app)
+}
+
 pub fn start_recording_impl(app: &AppHandle) -> Result<RecordingState, String> {
     let config = config_from_settings(app);
     let folder = capture_folder(app, &config.game_title);
@@ -339,6 +407,7 @@ pub fn start_recording_impl(app: &AppHandle) -> Result<RecordingState, String> {
         replay_buffering: false,
         started_at: Some(now_ms()),
         duration_ms: 0,
+        countdown_ms: 0,
         error: None,
     };
     let snapshot = controller.state.clone();
@@ -393,6 +462,11 @@ fn show_overlay_window(app: &AppHandle) {
 }
 
 pub fn start_replay_impl(app: &AppHandle) -> Result<RecordingState, String> {
+    if !video_enabled(app) {
+        return Err(
+            "video capture is disabled (enable it in Settings → Overlay → Video)".to_string(),
+        );
+    }
     let config = config_from_settings(app);
     let folder = capture_folder(app, &config.game_title);
     let _ = std::fs::create_dir_all(&folder);
@@ -408,6 +482,7 @@ pub fn start_replay_impl(app: &AppHandle) -> Result<RecordingState, String> {
         replay_buffering: true,
         started_at: Some(now_ms()),
         duration_ms: 0,
+        countdown_ms: 0,
         error: None,
     };
     let snapshot = controller.state.clone();
@@ -429,6 +504,11 @@ pub fn stop_replay_impl(app: &AppHandle) -> Result<RecordingState, String> {
 }
 
 pub fn save_replay_impl(app: &AppHandle) -> Result<Option<ClipResult>, String> {
+    if !video_enabled(app) {
+        return Err(
+            "video capture is disabled (enable it in Settings → Overlay → Video)".to_string(),
+        );
+    }
     let clip = {
         let state = app.state::<CaptureState>();
         let controller = lock(state.inner());

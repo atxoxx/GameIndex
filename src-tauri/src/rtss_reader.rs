@@ -18,9 +18,9 @@ pub struct RtssMetrics {
     pub fps: f64,
     #[allow(dead_code)]
     pub stat_fps_avg: f64,
-    #[allow(dead_code)]
+    /// Per-frame minimum over RTSS's stat window (validated 0 < v ≤ 500).
     pub stat_fps_min: f64,
-    #[allow(dead_code)]
+    /// Per-frame maximum over RTSS's stat window.
     pub stat_fps_max: f64,
 }
 

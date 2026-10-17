@@ -559,6 +559,56 @@ export default function OverlayTab() {
           onChange={(on) => update({ tickerClickThrough: on })}
         />
 
+        <OverlayFieldSlider
+          className="hw-card"
+          infoClassName="hw-card-head"
+          labelAs="label"
+          labelClassName="hw-card-label"
+          valueClassName="hw-card-value"
+          inputClassName="hw-range"
+          help={
+            <p className="hw-card-help">
+              {t("settings.overlay.tickerAutoDimDesc")}
+            </p>
+          }
+          label={t("overlay.settings.tickerAutoDim")}
+          display={
+            settings.tickerAutoDimSeconds
+              ? `${settings.tickerAutoDimSeconds}s`
+              : t("common.off")
+          }
+          value={settings.tickerAutoDimSeconds ?? 0}
+          min={0}
+          max={120}
+          step={5}
+          onChange={(tickerAutoDimSeconds) => update({ tickerAutoDimSeconds })}
+        />
+
+        <OverlayFieldSlider
+          className="hw-card"
+          infoClassName="hw-card-head"
+          labelAs="label"
+          labelClassName="hw-card-label"
+          valueClassName="hw-card-value"
+          inputClassName="hw-range"
+          help={
+            <p className="hw-card-help">
+              {t("settings.overlay.tickerAutoHideDesc")}
+            </p>
+          }
+          label={t("overlay.settings.tickerAutoHide")}
+          display={
+            settings.tickerAutoHideSeconds
+              ? `${settings.tickerAutoHideSeconds}s`
+              : t("common.off")
+          }
+          value={settings.tickerAutoHideSeconds ?? 0}
+          min={0}
+          max={120}
+          step={5}
+          onChange={(tickerAutoHideSeconds) => update({ tickerAutoHideSeconds })}
+        />
+
         <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card-head">
             <label className="hw-card-label">
@@ -911,6 +961,32 @@ export default function OverlayTab() {
             onChange={(videoResolutionScale) => update({ videoResolutionScale })}
           />
         </div>
+
+        <OverlayFieldSlider
+          className="hw-card"
+          style={{ marginTop: "var(--space-lg)" }}
+          infoClassName="hw-card-head"
+          labelAs="label"
+          labelClassName="hw-card-label"
+          valueClassName="hw-card-value"
+          inputClassName="hw-range"
+          help={
+            <p className="hw-card-help">
+              {t("settings.overlay.videoCountdownDesc")}
+            </p>
+          }
+          label={t("overlay.settings.videoCountdown")}
+          display={
+            settings.videoCountdownMs
+              ? `${(settings.videoCountdownMs / 1000).toFixed(1)}s`
+              : t("common.off")
+          }
+          value={settings.videoCountdownMs}
+          min={0}
+          max={10000}
+          step={500}
+          onChange={(videoCountdownMs) => update({ videoCountdownMs })}
+        />
 
         <div className="hw-duo" style={{ marginTop: "var(--space-lg)" }}>
           <OverlayFieldSlider
