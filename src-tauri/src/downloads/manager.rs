@@ -2109,7 +2109,7 @@ fn debrid_worker_options(
                 // (see run_debrid_flow), so mint a fresh link from the ids.
                 // Anything else — a hoster URL the frontend unrestricted —
                 // keeps using the webdl unlock path.
-                let client = reqwest::Client::new();
+                let client = super::debrid::debrid_api_client();
                 if let Some(rest) = orig_url.strip_prefix("torbox:") {
                     let mut parts = rest.split(':');
                     let tid = parts.next().and_then(|s| s.parse::<u64>().ok());

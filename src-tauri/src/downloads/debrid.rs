@@ -1,5 +1,25 @@
+use std::sync::OnceLock;
+
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
+
+static DEBRID_API_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+/// One shared reqwest client for every debrid provider call: a fresh
+/// client per request means a full TCP+TLS handshake each time, and the
+/// 3 s status poller re-pays that for the whole transfer. 30 s timeout —
+/// a wedged connection must not hold a download's active slot indefinitely
+/// (reqwest's default is no timeout).
+pub(crate) fn debrid_api_client() -> reqwest::Client {
+    DEBRID_API_CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new())
+        })
+        .clone()
+}
 
 // ─── Shared response types (consumed by mod.rs) ──────────────────────────────
 
@@ -89,15 +109,8 @@ pub struct DebridFileListResult {
 //
 // Live docs: https://docs.alldebrid.com/
 
-/// API calls have no business hanging forever — a wedged connection
-/// would otherwise hold the download's active slot indefinitely.
-fn ad_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .unwrap_or_default()
-}
-
+/// AllDebrid and TorBox share `debrid_api_client` — the per-provider
+/// constructors kept only so call sites below stay readable.
 pub struct AllDebridClient;
 
 #[derive(Deserialize, Debug)]
@@ -327,7 +340,7 @@ fn ad_err<T>(body: AllDebridResponse<T>) -> String {
 
 impl AllDebridClient {
     pub async fn test_key(apikey: &str) -> Result<DebridUserInfo, String> {
-        let client = ad_client();
+        let client = debrid_api_client();
         let resp = ad_request(&client, Method::GET, "/v4/user", apikey, None).await?;
         let status = resp.status();
         let body: AllDebridResponse<AllDebridUserResponse> = resp
@@ -354,7 +367,7 @@ impl AllDebridClient {
     }
 
     pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<DebridUploadResult, String> {
-        let client = ad_client();
+        let client = debrid_api_client();
         let trimmed_mag = magnet.trim();
         let resp = ad_request(
             &client,
@@ -428,7 +441,7 @@ impl AllDebridClient {
         // pulling from the swarm. Cached magnets resolve on the first poll.
         const LIST_DEADLINE_SECS: u64 = 120;
 
-        let client = ad_client();
+        let client = debrid_api_client();
         let deadline = std::time::Instant::now()
             + std::time::Duration::from_secs(LIST_DEADLINE_SECS);
 
@@ -509,7 +522,7 @@ impl AllDebridClient {
     }
 
     pub async fn delete_magnet(apikey: &str, id: &str) -> Result<(), String> {
-        let client = ad_client();
+        let client = debrid_api_client();
         let id_str = id.trim().to_string();
         let resp = ad_request(
             &client,
@@ -531,7 +544,7 @@ impl AllDebridClient {
     }
 
     pub async fn get_status(apikey: &str, id: &str) -> Result<DebridStatusResult, String> {
-        let client = ad_client();
+        let client = debrid_api_client();
         let id_str = id.trim().to_string();
         let resp = ad_request(
             &client,
@@ -627,7 +640,7 @@ impl AllDebridClient {
     }
 
     pub async fn unrestrict_link(apikey: &str, url: &str) -> Result<String, String> {
-        let client = ad_client();
+        let client = debrid_api_client();
         let trimmed_url = url.trim();
         let resp = ad_request(
             &client,
@@ -728,15 +741,6 @@ struct TorBoxResponse<T> {
     data: Option<T>,
 }
 
-/// TorBox API client. A wedged connection must not hold a download's active
-/// slot indefinitely.
-fn tb_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new())
-}
-
 /// `/v1/api/user/me` returns the user object DIRECTLY in `data` -- there is no
 /// `user` wrapper, and no `is_premium` boolean. Shape verified against TorBox's
 /// own generated SDKs (torbox-sdk-go / -dotnet / -py). Requiring `data.user`
@@ -828,7 +832,7 @@ impl std::fmt::Display for TorBoxId {
 
 impl TorBoxClient {
     pub async fn test_key(apikey: &str) -> Result<DebridUserInfo, String> {
-        let client = reqwest::Client::new();
+        let client = debrid_api_client();
         let resp = client
             .get("https://api.torbox.app/v1/api/user/me")
             .header("Authorization", format!("Bearer {}", apikey))
@@ -856,7 +860,7 @@ impl TorBoxClient {
     }
 
     pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<DebridUploadResult, String> {
-        let client = reqwest::Client::new();
+        let client = debrid_api_client();
         // TorBox's create route parses **multipart/form-data**, not JSON. A
         // JSON body is answered with HTTP 400 `MISSING_REQUIRED_OPTION — You
         // must provide either a file or magnet link`, i.e. TorBox never sees
@@ -912,7 +916,7 @@ impl TorBoxClient {
     }
 
     pub async fn get_status(apikey: &str, id: &str) -> Result<DebridStatusResult, String> {
-        let client = reqwest::Client::new();
+        let client = debrid_api_client();
         let resp = client
             .get("https://api.torbox.app/v1/api/torrents/mylist?bypass=true")
             .header("Authorization", format!("Bearer {}", apikey))
@@ -1069,7 +1073,7 @@ impl TorBoxClient {
         )
         .map_err(|e| format!("Failed to build checkcached URL: {}", e))?;
 
-        let resp = tb_client()
+        let resp = debrid_api_client()
             .get(url)
             .header("Authorization", format!("Bearer {}", apikey))
             .send()
@@ -1137,7 +1141,7 @@ impl TorBoxClient {
         )
         .map_err(|e| format!("Failed to build torrentinfo URL: {}", e))?;
 
-        let resp = tb_client()
+        let resp = debrid_api_client()
             .get(url)
             .header("Authorization", format!("Bearer {}", apikey))
             .send()
@@ -1355,7 +1359,7 @@ struct RealDebridTorrentInfo {
 
 impl RealDebridClient {
     pub async fn test_key(apikey: &str) -> Result<DebridUserInfo, String> {
-        let client = reqwest::Client::new();
+        let client = debrid_api_client();
         let resp = client
             .get("https://api.real-debrid.com/rest/1.0/user")
             .header("Authorization", format!("Bearer {}", apikey))
@@ -1386,7 +1390,7 @@ impl RealDebridClient {
     }
 
     pub async fn unrestrict_link(apikey: &str, url: &str) -> Result<String, String> {
-        let client = reqwest::Client::new();
+        let client = debrid_api_client();
         let resp = client
             .post("https://api.real-debrid.com/rest/1.0/unrestrict/link")
             .header("Authorization", format!("Bearer {}", apikey))
@@ -1416,7 +1420,7 @@ impl RealDebridClient {
     }
 
     pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<DebridUploadResult, String> {
-        let client = reqwest::Client::new();
+        let client = debrid_api_client();
         let resp = client
             .post("https://api.real-debrid.com/rest/1.0/torrents/addMagnet")
             .header("Authorization", format!("Bearer {}", apikey))
@@ -1452,7 +1456,7 @@ impl RealDebridClient {
     }
 
     pub async fn get_status(apikey: &str, id: &str) -> Result<DebridStatusResult, String> {
-        let client = reqwest::Client::new();
+        let client = debrid_api_client();
         let resp = client
             .get(format!(
                 "https://api.real-debrid.com/rest/1.0/torrents/info/{}",
