@@ -81,83 +81,6 @@
 }
 
 /* =============================================================================
- * Generic .btn utility — STILL LIVE: FriendsPage renders
- * `className="btn btn-primary btn--mini"` / `btn btn-secondary btn--mini`,
- * and the base + .btn-primary rules live here (no other file defines them).
- * The old .btn-sm / .btn-danger / .btn-steam variants were unused — pruned.
- * ========================================================================== */
-
-/* Alias .btn → .ui-btn (unified button system) */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  font-family: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: transform var(--duration-normal) var(--ease-standard),
-              background var(--duration-normal) var(--ease-standard),
-              border-color var(--duration-normal) var(--ease-standard),
-              box-shadow var(--duration-normal) var(--ease-standard),
-              color var(--duration-normal) var(--ease-standard),
-              filter var(--duration-normal) var(--ease-standard);
-  white-space: nowrap;
-  user-select: none;
-  outline: none;
-  line-height: 1.2;
-  position: relative;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  border-color: var(--color-border);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight);
-}
-.btn:hover:not(:disabled) {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-sm);
-}
-.btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
-}
-.btn:disabled,
-.btn[disabled] {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-.btn:focus-visible {
-  outline: none;
-  box-shadow: var(--ring-accent);
-}
-.btn svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-.btn-primary {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  border-color: transparent;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent), 0 3px 12px var(--color-accent-glow);
-}
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 30%, transparent), 0 5px 16px var(--color-accent-glow);
-}
-.btn--sm { padding: var(--space-xs) var(--space-md); font-size: var(--font-size-xs); gap: var(--space-xs); border-radius: var(--radius-sm); }
-.btn--lg { padding: var(--space-md) var(--space-2xl); font-size: var(--font-size-md); gap: var(--space-md); border-radius: var(--radius-lg); }
-.btn--secondary { background: var(--color-bg-tertiary); color: var(--color-text-primary); border-color: var(--color-border); }
-.btn--ghost { background: transparent; color: var(--color-text-secondary); border-color: transparent; }
-.btn--danger { color: var(--color-accent-contrast); background: var(--color-danger); border-color: transparent; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 18%, transparent), 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent); }
-
-/* =============================================================================
  * Shared primitives — sections
  * ========================================================================== */
 
@@ -268,21 +191,21 @@
 
 .settings-section-title {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
 .settings-section-desc {
-  margin: 3px 0 0;
-  font-size: var(--font-size-sm);
+  margin: var(--space-3xs) 0 0;
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
 
 .settings-section-desc code {
-  padding: 1px 5px;
+  padding: var(--space-4xs) var(--space-2xs);
   border-radius: var(--radius-xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -322,7 +245,7 @@
 
 /* Field label — clean desktop label per the design system. */
 .settings-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0;
   color: var(--color-text-primary);
@@ -331,7 +254,7 @@
 /* Descriptive lead paragraph under a label (accent desc, landing page…). */
 .settings-helper-lead {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   line-height: 1.6;
 }
@@ -342,7 +265,7 @@
 }
 
 .settings-helper-lead code {
-  padding: 1px 5px;
+  padding: var(--space-4xs) var(--space-2xs);
   border-radius: var(--radius-xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -353,7 +276,7 @@
 
 /* Small footnote under a control. */
 .settings-helper-text {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-top: var(--space-xs);
   line-height: 1.5;
@@ -367,7 +290,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-family: inherit;
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
@@ -409,12 +332,12 @@ textarea.settings-input {
 /* Select — uniform 30px control with a custom chevron. */
 .settings-select {
   min-height: var(--settings-ctl-h);
-  padding: 0 30px 0 var(--space-md);
+  padding: 0 var(--space-2xl) 0 var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-family: inherit;
   outline: none;
   cursor: pointer;
@@ -446,8 +369,8 @@ textarea.settings-input {
 /* Segmented control — bg-tertiary tray, 2px gap, accent-filled active. */
 .settings-segmented {
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -464,7 +387,7 @@ textarea.settings-input {
   padding: 0 var(--space-lg);
   border-radius: calc(var(--radius-md) - 2px);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -505,7 +428,7 @@ textarea.settings-input {
   gap: var(--space-md);
   cursor: pointer;
   user-select: none;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   line-height: 1.5;
   transition: color var(--transition-fast);
@@ -556,19 +479,19 @@ textarea.settings-input {
 .settings-checkbox-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .settings-checkbox-title {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1.35;
 }
 
 .settings-checkbox-desc {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.5;
 }
@@ -594,7 +517,7 @@ textarea.settings-input {
   align-items: center;
   gap: var(--space-sm);
   margin: 0 0 var(--space-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -614,7 +537,7 @@ textarea.settings-input {
  * ========================================================================== */
 
 .settings-link {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   text-decoration: none;
@@ -652,7 +575,7 @@ textarea.settings-input {
   background: color-mix(in srgb, var(--color-success) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-success);
   line-height: 1.5;
@@ -669,13 +592,13 @@ textarea.settings-input {
 }
 
 .connect-prompt {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
 .auth-note {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin: var(--space-xs) 0 0;
   line-height: 1.5;
@@ -688,7 +611,7 @@ textarea.settings-input {
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   line-height: 1.5;
   margin-top: var(--space-md);
@@ -707,7 +630,7 @@ textarea.settings-input {
 }
 
 .sync-result-time {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-top: var(--space-xs);
 }
@@ -725,7 +648,7 @@ textarea.settings-input {
 }
 
 .danger-zone-text {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
@@ -818,7 +741,7 @@ textarea.settings-input {
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
   font-family: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   cursor: pointer;
   text-align: left;
   transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
@@ -854,7 +777,7 @@ textarea.settings-input {
 }
 
 .language-trigger-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -863,7 +786,7 @@ textarea.settings-input {
 }
 
 .language-trigger-code {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.6px;
   color: var(--color-text-muted);
@@ -891,14 +814,14 @@ textarea.settings-input {
   left: 0;
   right: 0;
   z-index: 50;
-  padding: 4px;
+  padding: var(--space-2xs);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   transform-origin: bottom center;
   animation: languagePanelIn 160ms var(--ease-standard);
 }
@@ -924,7 +847,7 @@ textarea.settings-input {
   border: none;
   border-radius: var(--radius-sm);
   font-family: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
   text-align: left;
@@ -961,11 +884,11 @@ textarea.settings-input {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: var(--space-4xs);
 }
 
 .language-option-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   line-height: 1.2;
   white-space: nowrap;
@@ -979,7 +902,7 @@ textarea.settings-input {
 }
 
 .language-option-native {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.6px;
   color: var(--color-text-muted);
@@ -1106,6 +1029,7 @@ textarea.settings-input {
   right: 26%;
   top: 22px;
   height: 44px;
+  /* eslint-disable-next-line gameindex-css/no-hardcoded-length -- per-style shape preview */
   border-radius: 26px;
   background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface-raised));
   z-index: 0;
@@ -1163,7 +1087,7 @@ textarea.settings-input {
   right: 8%;
   top: 19px;
   height: 5px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--color-text-primary) 18%, transparent) 0%,
@@ -1181,7 +1105,7 @@ textarea.settings-input {
   right: 8%;
   bottom: 10px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--color-scrim) 34%, var(--color-bg-secondary));
   box-shadow:
     inset 0 2px 5px color-mix(in srgb, var(--color-scrim) 65%, transparent),
@@ -1278,6 +1202,7 @@ textarea.settings-input {
   right: 18%;
   top: 20px;
   height: 52px;
+  /* eslint-disable-next-line gameindex-css/no-hardcoded-length -- per-style shape preview */
   border-radius: 20px;
   background: color-mix(in srgb, var(--color-surface-glass) 60%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
@@ -1306,11 +1231,11 @@ textarea.settings-input {
   position: relative;
   z-index: 1;
   width: 90%;
-  padding: 10px 14px;
+  padding: var(--space-sm) var(--space-md);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 /* classic — solid & beveled: a weighted surface with a lit top edge and a
@@ -1322,7 +1247,7 @@ textarea.settings-input {
     var(--color-surface-raised) 42%
   );
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   box-shadow:
     inset 0 1px 0 var(--color-border-highlight),
     inset 0 -1px 0 color-mix(in srgb, var(--color-scrim) 42%, transparent),
@@ -1336,11 +1261,12 @@ textarea.settings-input {
 .ui-style-mock--materialyou {
   background: color-mix(in srgb, var(--color-accent) 24%, var(--color-surface-raised));
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  /* eslint-disable-next-line gameindex-css/no-hardcoded-length -- per-style shape preview */
   border-radius: 28px;
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 16%, transparent),
     var(--shadow-md);
-  padding: 12px 18px;
+  padding: var(--space-md) var(--space-lg);
 }
 
 /* steam — industrial CRT: near-square, ruled edge, a genuinely recessed tray
@@ -1354,12 +1280,12 @@ textarea.settings-input {
       var(--color-surface-raised) 100%
     );
   border: 2px solid color-mix(in srgb, var(--color-text-primary) 24%, transparent);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   box-shadow:
     inset 0 3px 6px color-mix(in srgb, var(--color-scrim) 62%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 10%, transparent),
     0 0 16px var(--color-accent-glow);
-  padding: 9px 12px;
+  padding: var(--space-sm) var(--space-md);
 }
 
 /* epic — neon HUD: zero radius, glowing accent edge and an inner wash. */
@@ -1371,7 +1297,7 @@ textarea.settings-input {
   box-shadow:
     0 0 18px var(--color-accent-glow),
     inset 0 0 14px color-mix(in srgb, var(--color-accent) 14%, transparent);
-  padding: 9px 12px;
+  padding: var(--space-sm) var(--space-md);
 }
 
 /* modern — Fluent: an acrylic Mica panel with a fine edge and the signature
@@ -1381,7 +1307,7 @@ textarea.settings-input {
   backdrop-filter: blur(var(--blur-md)) saturate(120%);
   -webkit-backdrop-filter: blur(var(--blur-md)) saturate(120%);
   border: 1px solid color-mix(in srgb, var(--color-text-primary) 9%, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent),
     0 12px 30px color-mix(in srgb, var(--color-scrim) 24%, transparent);
@@ -1421,6 +1347,7 @@ textarea.settings-input {
   backdrop-filter: blur(var(--blur-md)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%);
   border: 1px solid color-mix(in srgb, var(--color-text-primary) 26%, transparent);
+  /* eslint-disable-next-line gameindex-css/no-hardcoded-length -- per-style shape preview */
   border-radius: 26px;
   box-shadow:
     inset 0 1px 1px color-mix(in srgb, var(--color-text-primary) 38%, transparent),
@@ -1429,16 +1356,16 @@ textarea.settings-input {
 }
 
 .ui-style-mock-pill {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  padding: 4px 10px;
+  padding: var(--space-2xs) var(--space-sm);
   display: inline-flex;
   align-items: center;
 }
 
 /* classic — capsule pill with a lit top edge. */
 .ui-style-mock-pill--classic {
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 28%, transparent);
@@ -1447,23 +1374,23 @@ textarea.settings-input {
 /* materialyou — filled-tonal capsule: the accent container tinted into a
    surface token (never the solid accent), label in a deeper accent tone. */
 .ui-style-mock-pill--materialyou {
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 26%, var(--color-surface-raised));
   color: color-mix(in srgb, var(--color-accent) 62%, var(--color-text-primary));
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  padding: 4px 13px;
+  padding: var(--space-2xs) var(--space-md);
   box-shadow: 0 4px 14px var(--color-accent-glow);
 }
 
 /* steam — beveled gradient block, uppercase mono tracking, phosphor lit. */
 .ui-style-mock-pill--steam {
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
   color: var(--color-accent-contrast);
   border: 1px solid var(--color-accent-border);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   font-family: var(--font-mono);
   box-shadow:
@@ -1481,15 +1408,15 @@ textarea.settings-input {
   letter-spacing: 0.14em;
   font-weight: 800;
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  padding: 5px 12px;
+  font-size: var(--text-2xs);
+  padding: var(--space-2xs) var(--space-md);
   box-shadow: 0 0 14px var(--color-accent-glow);
 }
 
 /* modern — ghost hairline pill: the accent lives in the underline, not the
    button. Keeps the panel airy and studio-minimal. */
 .ui-style-mock-pill--modern {
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   border: 1px solid var(--color-accent-border);
   color: var(--color-accent);
@@ -1500,11 +1427,11 @@ textarea.settings-input {
 /* liquidglass — the Aqua gel capsule: saturated base, bright top band, a
    specular gloss and a soft bloom. */
 .ui-style-mock-pill--liquidglass {
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 80%, var(--color-accent-contrast)) 0%, var(--color-accent) 48%, var(--color-accent-active) 100%);
   color: var(--color-accent-contrast);
   border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 42%, transparent);
-  padding: 5px 14px;
+  padding: var(--space-2xs) var(--space-md);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 60%, transparent),
     inset 0 -2px 5px color-mix(in srgb, var(--color-scrim) 22%, transparent),
@@ -1512,7 +1439,7 @@ textarea.settings-input {
 }
 
 .ui-style-mock-tag {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -1522,7 +1449,7 @@ textarea.settings-input {
 .ui-style-mock--steam .ui-style-mock-tag {
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--color-text-muted);
@@ -1531,7 +1458,7 @@ textarea.settings-input {
 .ui-style-mock--epic .ui-style-mock-tag {
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 800;
   font-family: var(--font-mono);
   color: var(--color-text-primary);
@@ -1554,23 +1481,23 @@ textarea.settings-input {
 .ui-style-card-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
 .ui-style-badge {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 9999px;
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface-raised));
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .ui-style-card-desc {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.45;
 }
@@ -1579,12 +1506,12 @@ textarea.settings-input {
   position: absolute;
   top: 8px;
   right: 8px;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 3px 8px;
-  border-radius: 9999px;
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   box-shadow: 0 2px 8px var(--color-accent-glow);
@@ -1653,8 +1580,8 @@ textarea.settings-input {
 .theme-preview-bar {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 9px;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-sm);
   background: color-mix(in srgb, var(--themePreviewText) 7%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--themePreviewText) 10%, transparent);
 }
@@ -1671,8 +1598,8 @@ textarea.settings-input {
   flex: 1;
   display: grid;
   grid-template-columns: 36px 1fr;
-  gap: 6px;
-  padding: 8px 9px;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-sm);
 }
 
 .theme-preview-mini-sidebar {
@@ -1684,14 +1611,14 @@ textarea.settings-input {
 .theme-preview-mini-main {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--space-2xs);
 }
 
 .theme-preview-mini-row {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 6px;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs);
   height: 14px;
   background: color-mix(in srgb, var(--themePreviewText) 8%, transparent);
   border-radius: var(--radius-xs);
@@ -1709,7 +1636,7 @@ textarea.settings-input {
 .theme-preview-mini-bar {
   flex: 1;
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: var(--themePreviewText);
   opacity: 0.55;
 }
@@ -1719,7 +1646,7 @@ textarea.settings-input {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  padding: 5px 6px;
+  padding: var(--space-2xs) var(--space-xs);
   background: color-mix(in srgb, var(--themePreviewText) 12%, transparent);
   border-radius: var(--radius-xs);
   border: 1px solid color-mix(in srgb, var(--themePreviewText) 8%, transparent);
@@ -1728,7 +1655,7 @@ textarea.settings-input {
 .theme-preview-mini-accent {
   height: 8px;
   width: 50%;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--themePreviewAccent);
   box-shadow: 0 0 8px color-mix(in srgb, var(--themePreviewAccent) 40%, transparent);
 }
@@ -1746,12 +1673,12 @@ textarea.settings-input {
 .theme-card-text {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   min-width: 0;
 }
 
 .theme-card-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1760,11 +1687,11 @@ textarea.settings-input {
 }
 
 .theme-card-descriptor {
-  padding: 1px 7px;
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   white-space: nowrap;
@@ -1838,7 +1765,7 @@ textarea.settings-input {
   justify-content: center;
   background: var(--color-bg-tertiary);
   border-color: var(--color-border);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1;
 }
 
@@ -1863,7 +1790,7 @@ textarea.settings-input {
   background: transparent;
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
@@ -1916,7 +1843,7 @@ textarea.settings-input {
 .accent-preview__title-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .accent-preview__pip {
@@ -1928,7 +1855,7 @@ textarea.settings-input {
 }
 
 .accent-preview__title {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1938,14 +1865,14 @@ textarea.settings-input {
 .accent-preview__badges {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .accent-preview__badge-contrast {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   font-family: var(--font-mono);
-  padding: 2px 7px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   color: var(--color-accent);
@@ -1954,7 +1881,7 @@ textarea.settings-input {
 
 .accent-preview__hex {
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   white-space: nowrap;
   font-weight: var(--font-weight-medium);
@@ -2001,8 +1928,8 @@ textarea.settings-input {
 .accent-preview__card-title {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
@@ -2018,13 +1945,13 @@ textarea.settings-input {
 .accent-preview__live {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -2059,11 +1986,11 @@ textarea.settings-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 14px;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-sm);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.02em;
   border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 20%, transparent);
@@ -2080,24 +2007,24 @@ textarea.settings-input {
 .accent-preview__chip-soft {
   display: inline-flex;
   align-items: center;
-  padding: 5px 11px;
+  padding: var(--space-2xs) var(--space-md);
   border-radius: var(--radius-sm);
   background: var(--color-accent-soft);
   color: var(--color-accent);
   border: 1px solid var(--color-accent-border);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
 }
 
 .accent-preview__chip-laser {
   display: inline-flex;
   align-items: center;
-  padding: 5px 11px;
+  padding: var(--space-2xs) var(--space-md);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   border: 1px dashed color-mix(in srgb, var(--color-accent) 45%, transparent);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
 }
 
@@ -2105,11 +2032,11 @@ textarea.settings-input {
 .accent-preview__ramp-wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .accent-preview__ramp-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -2119,7 +2046,7 @@ textarea.settings-input {
 .accent-preview__ramp {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .accent-preview__ramp-step {
@@ -2198,7 +2125,7 @@ textarea.settings-input {
 }
 
 .hw-master-state {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -2256,12 +2183,12 @@ textarea.settings-input {
 .hw-pane-head {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .hw-pane-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -2270,7 +2197,7 @@ textarea.settings-input {
 
 .hw-pane-desc {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   line-height: 1.5;
 }
@@ -2342,15 +2269,15 @@ textarea.settings-input {
 .hw-spec-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .hw-spec-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -2363,8 +2290,8 @@ textarea.settings-input {
   justify-content: center;
   min-width: 18px;
   height: 16px;
-  padding: 0 5px;
-  font-size: var(--font-size-2xs);
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
@@ -2373,7 +2300,7 @@ textarea.settings-input {
 }
 
 .hw-spec-value {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1.35;
@@ -2382,12 +2309,12 @@ textarea.settings-input {
 }
 
 .hw-spec-sub {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .hw-spec-empty {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-style: italic;
 }
@@ -2403,7 +2330,7 @@ textarea.settings-input {
 .hw-gpu-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   max-width: 100%;
   padding: var(--space-2xs) var(--space-sm);
   background: var(--color-bg-tertiary);
@@ -2411,7 +2338,7 @@ textarea.settings-input {
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
@@ -2532,7 +2459,7 @@ textarea.settings-input {
 .hw-metric-label {
   flex: 1;
   min-width: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
 }
@@ -2620,7 +2547,7 @@ textarea.settings-input {
 }
 
 .hw-card-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
@@ -2629,8 +2556,8 @@ textarea.settings-input {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  padding: 2px 10px;
-  font-size: var(--font-size-xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
@@ -2641,7 +2568,7 @@ textarea.settings-input {
 
 .hw-card-help {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.5;
 }

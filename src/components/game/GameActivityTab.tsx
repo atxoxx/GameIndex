@@ -483,17 +483,15 @@ export function GameActivityTab({ game }: { game: Game }) {
             >
               {t("activityManual.logSessionBtn")}
             </Button>
-            <button
+            <Button variant="secondary" size="md" iconOnly leftIcon={<Icons.Camera size={14} />}
               ref={screenshotFocus.ref}
               tabIndex={screenshotFocus.tabIndex}
               type="button"
-              className="act-icon-btn"
+              
               title={t("gameActivity.saveScreenshotBtn")}
               aria-label={t("gameActivity.saveScreenshotBtn")}
               onClick={screenshotFocus.onClick}
-            >
-              <Icons.Camera size={14} />
-            </button>
+            ></Button>
             <Button ref={exportCsvFocus.ref} tabIndex={exportCsvFocus.tabIndex} variant="secondary" size="sm" leftIcon={<Icons.Download size={13} />} onClick={exportCsvFocus.onClick}>
               {t("activity.exportCsv")}
             </Button>

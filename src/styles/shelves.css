@@ -36,7 +36,7 @@
 .sidebar-shelves__list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-4xs);
   padding: var(--space-2xs) 0;
 }
 
@@ -44,7 +44,7 @@
   margin: 0;
   padding: var(--space-xs) var(--space-sm);
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
 }
 
 .sidebar-shelves__new {
@@ -115,7 +115,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .shelf-row__count {
@@ -125,7 +125,7 @@
   border-radius: var(--radius-full);
   background: var(--color-bg-hover);
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   text-align: center;
   line-height: 16px;
 }
@@ -133,7 +133,7 @@
 .shelf-row__actions {
   display: none;
   align-items: center;
-  gap: 1px;
+  gap: var(--space-4xs);
 }
 
 .shelf-row:hover .shelf-row__count,
@@ -198,7 +198,7 @@
   align-items: center;
   gap: var(--space-2xs);
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .shelf-builder__preview strong {
@@ -216,7 +216,7 @@
   padding-bottom: var(--space-3xs);
   border-bottom: 1px solid var(--color-border-faint);
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -247,7 +247,7 @@
 
 .shelf-field__label {
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
 }
 
 .shelf-field__input-wrap {
@@ -260,7 +260,7 @@
   position: absolute;
   right: var(--space-xs);
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   pointer-events: none;
 }
 
@@ -275,7 +275,7 @@
   border-radius: var(--radius-sm);
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .shelf-field__input:focus {
@@ -285,7 +285,7 @@
 
 .shelf-field__warn {
   color: var(--color-warning);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
 }
 
 .shelf-icon-picker {
@@ -349,7 +349,7 @@
   align-items: center;
   gap: var(--space-2xs);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 

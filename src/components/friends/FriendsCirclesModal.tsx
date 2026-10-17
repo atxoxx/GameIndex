@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Friend, FriendCircle } from "./friendsTypes";
 import { displayName, PlusIcon, TrashIcon, XIcon, PencilIcon } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface FriendsCirclesModalProps {
   isOpen: boolean;
@@ -69,9 +70,7 @@ export default function FriendsCirclesModal({
       <div className="friends-modal-box friends-circles-modal" onClick={(e) => e.stopPropagation()}>
         <div className="friends-modal-header">
           <h2 className="friends-modal-title">{t("friendsPage.manageCircles")}</h2>
-          <button type="button" className="friends-modal-close" onClick={onClose} title={t("common.close")}>
-            <XIcon />
-          </button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-body">
@@ -95,9 +94,7 @@ export default function FriendsCirclesModal({
                 />
               ))}
             </div>
-            <button type="submit" className="btn btn-primary btn--mini" disabled={!newCircleName.trim()}>
-              <PlusIcon /> {t("common.add")}
-            </button>
+            <Button variant="primary" size="sm" leftIcon={<PlusIcon />} type="submit"  disabled={!newCircleName.trim()}> {t("common.add")} </Button>
           </form>
 
           <div className="circles-layout">
@@ -190,9 +187,7 @@ export default function FriendsCirclesModal({
         </div>
 
         <div className="friends-modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            {t("common.done")}
-          </button>
+          <Button variant="secondary" size="md" type="button"  onClick={onClose}> {t("common.done")} </Button>
         </div>
       </div>
     </div>,

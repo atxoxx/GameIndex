@@ -14,6 +14,7 @@ import {
   StarIcon,
   XIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface FriendsRecsTabProps {
   recommendations: GameRecommendation[];
@@ -264,13 +265,10 @@ export default function FriendsRecsTab({
           </select>
         </div>
 
-        <button
+        <Button variant="primary" size="sm" leftIcon={<PlusIcon />}
           type="button"
-          className="btn btn-primary btn--mini"
           onClick={() => setShowCreateModal(true)}
-        >
-          <PlusIcon /> {t("friends.recommendGame")}
-        </button>
+        > {t("friends.recommendGame")} </Button>
       </div>
 
       {topGameFilter && (
@@ -280,13 +278,10 @@ export default function FriendsRecsTab({
               game: activeRecs.find((r) => r.gameId === topGameFilter)?.gameName || "",
             })}
           </span>
-          <button
+          <Button variant="secondary" size="sm" leftIcon={<XIcon />}
             type="button"
-            className="btn btn-secondary btn--mini"
             onClick={() => setTopGameFilter(null)}
-          >
-            <XIcon /> {t("common.clear")}
-          </button>
+          > {t("common.clear")} </Button>
         </div>
       )}
 
@@ -344,28 +339,22 @@ export default function FriendsRecsTab({
                   </div>
                   {pick.latestReason && <p className="rec-top-reason">&ldquo;{pick.latestReason}&rdquo;</p>}
                   <div className="rec-top-actions">
-                    <button
+                    <Button variant="secondary" size="sm"
                       type="button"
-                      className="btn btn-secondary btn--mini"
                       onClick={() => {
                         setTopGameFilter(pick.gameId);
                         setViewMode("feed");
                       }}
-                    >
-                      {t("friendsPage.viewRecs")}
-                    </button>
-                    <button
+                    > {t("friendsPage.viewRecs")} </Button>
+                    <Button variant="secondary" size="sm" leftIcon={<StarIcon />}
                       type="button"
-                      className={`btn btn-secondary btn--mini${pick.wantToPlay ? " active" : ""}`}
                       onClick={() => {
                         const target = !pick.wantToPlay;
                         pick.recs.forEach((r) => {
                           if (r.wantToPlay !== target) onToggleWantToPlay(r.id);
                         });
                       }}
-                    >
-                      <StarIcon /> {pick.wantToPlay ? t("friendsPage.backlog") : t("friendsPage.wantToPlayAdd")}
-                    </button>
+                     className={`pick.wantToPlay ? " active" : ""}`}> {pick.wantToPlay ? t("friendsPage.backlog") : t("friendsPage.wantToPlayAdd")} </Button>
                   </div>
                 </div>
               </div>
@@ -379,13 +368,10 @@ export default function FriendsRecsTab({
           </div>
           <h3 className="friends-empty-title">{t("friends.noRecommendations")}</h3>
           <p className="friends-empty-desc">{t("friendsPage.noRecsDesc")}</p>
-          <button
+          <Button variant="primary" size="md" leftIcon={<PlusIcon />}
             type="button"
-            className="btn btn-primary"
             onClick={() => setShowCreateModal(true)}
-          >
-            <PlusIcon /> {t("friends.recommendGame")}
-          </button>
+          > {t("friends.recommendGame")} </Button>
         </div>
       ) : (
         <div className="recs-feed-grid">
@@ -414,14 +400,12 @@ export default function FriendsRecsTab({
               <h2 className="friends-modal-title">
                 <RecommendIcon /> {t("friends.recommendGame")}
               </h2>
-              <button
+              <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />}
                 type="button"
-                className="friends-modal-close"
+                
                 onClick={() => setShowCreateModal(false)}
                 title={t("common.close")}
-              >
-                <XIcon />
-              </button>
+              ></Button>
             </div>
 
             <form onSubmit={handleCreateSubmit}>
@@ -487,16 +471,11 @@ export default function FriendsRecsTab({
               </div>
 
               <div className="friends-modal-footer">
-                <button
+                <Button variant="secondary" size="md"
                   type="button"
-                  className="btn btn-secondary"
                   onClick={() => setShowCreateModal(false)}
-                >
-                  {t("common.cancel")}
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={!gameName.trim()}>
-                  <PlusIcon /> {t("friendsPage.postRecommendation")}
-                </button>
+                > {t("common.cancel")} </Button>
+                <Button variant="primary" size="md" leftIcon={<PlusIcon />} type="submit"  disabled={!gameName.trim()}> {t("friendsPage.postRecommendation")} </Button>
               </div>
             </form>
           </div>

@@ -949,13 +949,11 @@ export default function EmulatorsPage() {
             >
               <div className="modal-header">
                 <h2>{t("emulators.games.renameTitle")}</h2>
-                <button
-                  className="modal-close"
+                <Button variant="ghost" size="sm" iconOnly
+                  
                   aria-label={t("common.close")}
                   onClick={() => setRenameGame(null)}
-                >
-                  ×
-                </button>
+                 className="modal-close"> × </Button>
               </div>
               <div className="modal-body emulators-editor-body">
                 <label className="modal-label" htmlFor="rom-rename">
@@ -1029,13 +1027,11 @@ export default function EmulatorsPage() {
                       : t("emulators.bios.notConfigured")}
                   </p>
                 </div>
-                <button
-                  className="modal-close"
+                <Button variant="ghost" size="sm" iconOnly
+                  
                   aria-label={t("common.close")}
                   onClick={() => setBiosResult(null)}
-                >
-                  ×
-                </button>
+                 className="modal-close"> × </Button>
               </div>
               <div className="modal-body emu-bios-body">
                 {biosResult.requirements.length === 0 ? (
@@ -1109,13 +1105,11 @@ export default function EmulatorsPage() {
                   <h2>{t("emulators.discovery.romFolders")}</h2>
                   <p className="modal-subtitle">{selectedEmulator.name}</p>
                 </div>
-                <button
-                  className="modal-close"
+                <Button variant="ghost" size="sm" iconOnly
+                  
                   aria-label={t("common.close")}
                   onClick={() => setRomFolderCandidates([])}
-                >
-                  ×
-                </button>
+                 className="modal-close"> × </Button>
               </div>
               <div className="modal-body emu-folder-body">
                 {romFolderCandidates.length === 0 ? (

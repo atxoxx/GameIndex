@@ -112,17 +112,15 @@ export default function GameNewsCustomFeedsModal({
             <h3>{t("game.news.customFeedsTitle")}</h3>
             <p>{t("game.news.customFeedsDesc", { game: gameName })}</p>
           </div>
-          <button
-            type="button"
-            className="game-news-modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+            </svg>}
+            type="button"
+            
+            onClick={onClose}
+            aria-label="Close"
+          ></Button>
         </div>
 
         <div className="game-news-modal-body">

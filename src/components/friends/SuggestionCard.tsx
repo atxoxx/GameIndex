@@ -12,6 +12,7 @@ import {
   SendIcon,
   PlusIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface SuggestionCardProps {
   suggestion: GameSuggestion;
@@ -207,14 +208,11 @@ export default function SuggestionCard({
               onChange={(e) => setCommentDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSendComment()}
             />
-            <button
+            <Button variant="primary" size="sm" iconOnly leftIcon={<SendIcon />}
               type="button"
-              className="btn btn-primary btn--mini"
               onClick={handleSendComment}
               disabled={!commentDraft.trim()}
-            >
-              <SendIcon />
-            </button>
+            ></Button>
           </div>
         </div>
       )}

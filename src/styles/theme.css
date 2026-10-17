@@ -143,30 +143,21 @@
   --space-4xl: 96px;
   --space-5xl: 128px;
 
-  /* ── Typography Scale ─────────────────────────────────────────────
-     xs bumped 11→12px for uppercase legibility; use --font-size-xs directly.
-     2xs is the absolute floor (11px) below xs — micro-labels only. */
-  --font-size-2xs: 11px;
-  --font-size-xs: 12px;
-  --font-size-sm: 13px;
-  --font-size-md: 14px;
-  --font-size-lg: 16px;
-  --font-size-xl: 20px;
-  --font-size-2xl: 24px;
-  --font-size-3xl: 32px;
-  --font-size-4xl: 40px;
-
-  /* Modular type scale */
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 2rem;
-  --text-4xl: 2.25rem;
-  --text-5xl: 2.75rem;
-  --text-6xl: 3.5rem;
+  /* ── Typography Scale (single rem scale) ──────────────────────────
+     One canonical scale, sized in rem so text follows OS/browser zoom
+     and the UI-scale presets. 2xs is the micro-label floor; 5xl/6xl
+     are the display tier for hero headings. */
+  --text-2xs: 0.6875rem; /* 11px — micro-labels only */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.8125rem;  /* 13px */
+  --text-md: 0.875rem;   /* 14px — body / default */
+  --text-lg: 1rem;       /* 16px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 2rem;      /* 32px */
+  --text-4xl: 2.5rem;    /* 40px */
+  --text-5xl: 3rem;      /* 48px */
+  --text-6xl: 3.5rem;    /* 56px — hero ceiling */
 
   /* Line heights — tight relaxed 1.20→1.25 for display readability */
   --line-height-tight: 1.25;
@@ -289,18 +280,6 @@
   --danger: var(--color-danger);
   --info: var(--color-info);
 
-  /* Spacing Scale Aliases (4, 8, 12, 16, 20, 24, 32, 40, 48, 64) */
-  --space-4: 4px;
-  --space-8: 8px;
-  --space-12: 12px;
-  --space-16: 16px;
-  --space-20: 20px;
-  --space-24: 24px;
-  --space-32: 32px;
-  --space-40: 40px;
-  --space-48: 48px;
-  --space-64: 64px;
-
   /* ── Legacy token aliases ─────────────────────────────────────────
      Older stylesheets (imports.css, modals.css, activity.css, and a
      few inline component styles) reference pre-token-system names.
@@ -322,13 +301,12 @@
   --color-surface-elevated: var(--color-surface-raised);
   --color-success-glow: color-mix(in srgb, var(--color-success) 40%, transparent);
   --color-border-hover: var(--color-border-highlight);
-  --font-size-base: var(--font-size-md);
   --font-weight-regular: var(--font-weight-normal);
   --transition-base: var(--transition-normal);
   --duration-medium: var(--duration-normal);
   --shadow-2xl: var(--elevation-5);
   --shadow-pop: var(--elevation-4);
-  --size-xs: var(--font-size-xs);
+  --size-xs: var(--text-xs);
   --page-padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
 }
 
@@ -375,8 +353,8 @@
     --space-xl: 28px;
     --space-2xl: 38px;
     --space-3xl: 56px;
-    --font-size-2xl: 26px;
-    --font-size-3xl: 36px;
+    --text-2xl: 1.625rem; /* 26px */
+    --text-3xl: 2.25rem;  /* 36px */
   }
 }
 
@@ -388,24 +366,17 @@
     --sidebar-icon-rail-width: 100px;
 
     /* Scaled typography hierarchy */
-    --font-size-2xs: 12.5px;
-    --font-size-xs: 13.5px;
-    --font-size-sm: 15px;
-    --font-size-md: 16.5px;
-    --font-size-lg: 19px;
-    --font-size-xl: 23px;
-    --font-size-2xl: 28px;
-    --font-size-3xl: 38px;
-    --font-size-4xl: 48px;
-
-    --text-xs: 0.85rem;
-    --text-sm: 0.95rem;
-    --text-md: 1.1rem;
-    --text-lg: 1.25rem;
-    --text-xl: 1.45rem;
-    --text-2xl: 1.75rem;
-    --text-3xl: 2.35rem;
-    --text-4xl: 2.75rem;
+    --text-2xs: 0.78125rem; /* 12.5px */
+    --text-xs: 0.84375rem;  /* 13.5px */
+    --text-sm: 0.9375rem;   /* 15px */
+    --text-md: 1.03125rem;  /* 16.5px */
+    --text-lg: 1.1875rem;   /* 19px */
+    --text-xl: 1.4375rem;   /* 23px */
+    --text-2xl: 1.75rem;    /* 28px */
+    --text-3xl: 2.375rem;   /* 38px */
+    --text-4xl: 3rem;       /* 48px */
+    --text-5xl: 3.5rem;     /* 56px */
+    --text-6xl: 4rem;       /* 64px */
 
     /* Scaled spacing rhythm */
     --space-2xs: 5px;
@@ -596,7 +567,7 @@ select option {
 .brand-eyebrow {
   display: inline-block;
   margin: 0 0 var(--space-sm);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -678,8 +649,8 @@ select option {
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
   border-radius: var(--radius-full);
-  padding: 2px 10px;
-  font-size: var(--font-size-xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.02em;
 }
@@ -995,7 +966,7 @@ html[data-ui-mode="simple"] .ui-item-dashboard {
   border-radius: var(--radius-full);
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
@@ -1012,7 +983,7 @@ html[data-ui-mode="simple"] .ui-item-dashboard {
 }
 
 .ui-disclosure__caret {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   line-height: 1;
 }
 

@@ -142,9 +142,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
             <h2 id="dl-speed-modal-title" className="modal-title">{t("downloads.speedLimiterTitle")}</h2>
             <p className="modal-subtitle">{t("downloads.speedLimiterDesc")}</p>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label={t("common.close")}>
-            ×
-          </button>
+          <Button variant="ghost" size="sm" iconOnly  onClick={onClose} aria-label={t("common.close")} className="modal-close"> × </Button>
         </div>
 
         <div className="modal-body dl-speed-body">

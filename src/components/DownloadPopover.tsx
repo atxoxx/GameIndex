@@ -135,10 +135,10 @@ const DownloadCard = React.memo(({
         <span className="dl-progress-card-name" title={displayName}>
           {displayName}
           {download.kind === "direct" && (
-            <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "color-mix(in srgb, var(--color-accent) 15%, transparent)", color: "var(--color-accent)", borderRadius: "3px", fontWeight: "bold" }}>DIRECT</span>
+            <span style={{ marginLeft: "var(--space-xs)", fontSize: "var(--text-2xs)", padding: "var(--space-3xs) var(--space-2xs)", background: "color-mix(in srgb, var(--color-accent) 15%, transparent)", color: "var(--color-accent)", borderRadius: "var(--radius-xs)", fontWeight: "bold" }}>DIRECT</span>
           )}
           {download.kind === "debrid" && (
-            <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "color-mix(in srgb, var(--brand-debrid) 15%, transparent)", color: "var(--brand-debrid)", borderRadius: "3px", fontWeight: "bold" }}>DEBRID</span>
+            <span style={{ marginLeft: "var(--space-xs)", fontSize: "var(--text-2xs)", padding: "var(--space-3xs) var(--space-2xs)", background: "color-mix(in srgb, var(--brand-debrid) 15%, transparent)", color: "var(--brand-debrid)", borderRadius: "var(--radius-xs)", fontWeight: "bold" }}>DEBRID</span>
           )}
         </span>
         <span className="dl-progress-card-status">
@@ -193,7 +193,7 @@ const DownloadCard = React.memo(({
             )}
           </div>
           {isActiveStatus(status) && download.downloadSpeed > 0 && download.totalSize != null && (
-            <div className="dl-progress-card-stats-row" style={{ fontSize: "9px", color: "var(--color-text-muted)", marginTop: "1px" }}>
+            <div className="dl-progress-card-stats-row" style={{ fontSize: "var(--text-2xs)", color: "var(--color-text-muted)", marginTop: "var(--space-4xs)" }}>
               <span>{formatEta(download.downloaded, download.totalSize, download.downloadSpeed, t)}</span>
             </div>
           )}

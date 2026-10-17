@@ -9,6 +9,7 @@ import { useSettings } from "../../context/SettingsContext";
 import { compareSessions, calculateTelemetryInsights } from "./insights";
 import { useFocusProps, useFocusableNative } from "./focusable";
 import * as Icons from "./Icons";
+import { Button } from "../ui";
 
 export interface SessionComparisonModalProps {
   isOpen: boolean;
@@ -118,16 +119,14 @@ export function SessionComparisonModal({
               <span className="act-modal__sub">{t("activityCompare.subtitle")}</span>
             </div>
           </div>
-          <button
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<Icons.X size={16} />}
             ref={closeFocus.ref}
             tabIndex={closeFocus.tabIndex}
             type="button"
-            className="act-modal__close-btn"
+            
             onClick={closeFocus.onClick}
             aria-label={t("common.close")}
-          >
-            <Icons.X size={16} />
-          </button>
+          ></Button>
         </div>
 
         <div className="act-compare-body">
@@ -320,15 +319,13 @@ export function SessionComparisonModal({
         </div>
 
         <div className="act-modal__actions">
-          <button
+          <Button variant="primary" size="md"
             ref={doneFocus.ref}
             tabIndex={doneFocus.tabIndex}
             type="button"
-            className="act-inspector-btn act-inspector-btn--primary"
+            
             onClick={doneFocus.onClick}
-          >
-            {t("common.done")}
-          </button>
+          > {t("common.done")} </Button>
         </div>
       </div>
     </div>,

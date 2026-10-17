@@ -145,7 +145,7 @@ export default function RemoteModGrid({
                   </div>
                 </>
               ) : (
-                <div style={{ display: "flex", gap: 12, alignItems: "center", width: "100%", padding: "6px 0" }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "center", width: "100%", padding: "var(--space-xs) 0" }}>
                   <Skeleton shape="rect" width="60px" height="18px" />
                   <Skeleton width="40%" height="14px" />
                   <Skeleton width="20%" height="14px" />

@@ -40,12 +40,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   position: relative;
@@ -99,7 +99,7 @@
 .store-search-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
   min-height: 44px;
   height: auto;
   padding: 0 var(--space-md);
@@ -144,7 +144,7 @@
   border: none;
   background: transparent;
   color: var(--color-text-primary);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-family: inherit;
   outline: none;
 }
@@ -182,7 +182,7 @@
 }
 
 .store-search-results-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   margin: 0 0 var(--space-md) 0;
   padding-top: var(--space-sm);
@@ -228,7 +228,7 @@
 
 .store-toolbar-title h2 {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.3px;
@@ -238,7 +238,7 @@
 }
 
 .store-toolbar-count {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
@@ -255,13 +255,13 @@
 .store-filter-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: color var(--transition-fast),
@@ -294,10 +294,10 @@
   justify-content: center;
   min-width: 18px;
   height: 18px;
-  padding: 0 5px;
+  padding: 0 var(--space-2xs);
   border-radius: var(--radius-full);
   background: rgba(255, 255, 255, 0.25);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1;
 }
@@ -448,14 +448,14 @@
   gap: var(--space-xs);
   padding: 0;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .store-density-toolbar-label {
   letter-spacing: 0.4px;
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   opacity: 0.85;
 }
 
@@ -511,7 +511,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -521,8 +521,8 @@
 
 /* "Clear" action in a filter section header (genres / platforms / year). */
 .store-filter-section-clear {
-  padding: 2px 8px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -548,8 +548,8 @@
   justify-content: center;
   min-width: 18px;
   height: 16px;
-  padding: 0 5px;
-  font-size: 9px;
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
@@ -562,8 +562,8 @@
   justify-content: center;
   min-width: 16px;
   height: 14px;
-  padding: 0 4px;
-  font-size: 9px;
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
@@ -580,8 +580,8 @@
   justify-content: center;
   min-width: 16px;
   height: 14px;
-  padding: 0 4px;
-  font-size: 9px;
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
@@ -600,7 +600,7 @@
 .store-filter-counts-note {
   margin: 0 0 var(--space-sm);
   padding: 0 var(--space-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   line-height: 1.4;
   color: var(--color-text-muted);
 }
@@ -618,7 +618,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   outline: none;
   text-align: center;
   transition: border-color var(--transition-fast);
@@ -631,7 +631,7 @@
 
 .store-filter-year-sep {
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
 }
 
 /* Rating slider (mirrors .lib-rating-slider) */
@@ -642,7 +642,7 @@
 }
 
 .store-filter-rating-value {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   font-variant-numeric: tabular-nums;
@@ -706,7 +706,7 @@
   padding: var(--space-xs) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: background var(--transition-fast),
@@ -738,7 +738,7 @@
 }
 
 .store-filter-count {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-right: var(--space-sm);
 }
@@ -747,11 +747,11 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: 3px 10px;
+  padding: var(--space-3xs) var(--space-sm);
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-accent);
   transition: color var(--transition-fast),
@@ -787,13 +787,13 @@
 .store-filter-chip-clear-all {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   margin-left: var(--space-xs);
-  padding: 3px 10px;
+  padding: var(--space-3xs) var(--space-sm);
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--color-text-secondary) 35%, transparent);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   color: var(--color-text-secondary);
@@ -996,10 +996,10 @@
   right: var(--space-sm);
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--scrim-text);
   box-shadow: var(--elevation-2);
@@ -1021,7 +1021,7 @@
 }
 
 .store-card-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1034,7 +1034,7 @@
 .store-card-genres {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: var(--space-3xs);
 }
 
 /* The windowed grid assumes every row is the measured stride, so cards in the
@@ -1052,16 +1052,16 @@
 }
 
 .store-card-genre {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-  padding: 1px 6px;
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-full);
   font-weight: var(--font-weight-medium);
 }
 
 .store-card-platforms {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   margin-top: auto;
   /* Phase 2.8d: ellipsize long platform strings instead of letting
@@ -1131,7 +1131,7 @@
   gap: var(--space-md);
   padding: var(--space-xl);
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .store-spinner {
@@ -1148,7 +1148,7 @@
   text-align: center;
   padding: var(--space-xl);
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 /* ── Store Empty & Error States ────────────────────────────────────────── */
@@ -1172,14 +1172,14 @@
 }
 
 .store-empty h3 {
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   margin: 0;
 }
 
 .store-empty p {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   max-width: 400px;
   margin: 0;
   line-height: 1.5;
@@ -1192,7 +1192,7 @@
   color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: background var(--transition-fast);
@@ -1213,7 +1213,7 @@
   color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition:
@@ -1252,7 +1252,7 @@
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: color var(--transition-fast),
@@ -1335,7 +1335,7 @@
 
 .store-filter-overlay-header h3 {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
@@ -1448,7 +1448,7 @@
   }
 
   .store-tab {
-    padding: 8px 12px;
+    padding: var(--space-sm) var(--space-md);
   }
 }
 
@@ -1481,15 +1481,15 @@
 .steam-player-count {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px 5px 10px;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-md) var(--space-2xs) var(--space-sm);
   background: color-mix(in srgb, var(--color-bg-primary) 70%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid color-mix(in srgb, var(--color-success) 30%, var(--color-border));
   border-radius: var(--radius-full);
   color: var(--color-text-primary);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.3px;
   line-height: 1;
@@ -1529,7 +1529,7 @@
 }
 
 .steam-player-count-suffix {
-  margin-left: 4px;
+  margin-left: var(--space-2xs);
   color: color-mix(in srgb, var(--color-text-primary) 70%, transparent);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.2px;
@@ -1551,7 +1551,7 @@
   /* Badge; wraps on narrow heroes. */
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -1632,7 +1632,7 @@
     var(--elevation-5),
     0 0 24px color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -1662,8 +1662,8 @@
 .steam-stats-popover-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-md);
   border-bottom: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-accent) 4%, transparent);
 }
@@ -1692,11 +1692,11 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-4xs);
 }
 
 .steam-stats-popover-header-title {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1.3;
@@ -1706,7 +1706,7 @@
 }
 
 .steam-stats-popover-header-subtitle {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1744,8 +1744,8 @@
 .steam-stats-popover-body {
   display: flex;
   flex-direction: column;
-  padding: 14px;
-  gap: 12px;
+  padding: var(--space-md);
+  gap: var(--space-md);
 }
 
 @media (max-width: 520px) {
@@ -1767,23 +1767,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 10px;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
 }
 
 .steam-stats-popover-freshness-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .steam-stats-popover-refresh,
 .steam-stats-popover-inline-retry {
   border: 0;
   border-radius: var(--radius-sm);
-  padding: 4px 8px;
+  padding: var(--space-2xs) var(--space-sm);
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
   cursor: pointer;
@@ -1801,7 +1801,7 @@
 }
 
 .steam-stats-popover-inline-retry {
-  margin-left: 8px;
+  margin-left: var(--space-sm);
   color: var(--color-accent);
 }
 
@@ -1812,11 +1812,11 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 8px 0 4px;
+  padding: var(--space-sm) 0 var(--space-2xs);
 }
 
 .steam-stats-popover-stat-value {
-  font-size: 32px;
+  font-size: var(--text-3xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   line-height: 1;
@@ -1825,8 +1825,8 @@
 }
 
 .steam-stats-popover-stat-label {
-  margin-top: 4px;
-  font-size: var(--font-size-2xs);
+  margin-top: var(--space-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -1846,18 +1846,18 @@
 .steam-stats-popover-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .steam-stats-popover-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .steam-stats-popover-section-title {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1865,9 +1865,9 @@
 }
 
 .steam-stats-popover-section-badge {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
-  padding: 2px 7px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-full);
   letter-spacing: 0.2px;
 }
@@ -1898,11 +1898,11 @@
 
 .steam-stats-popover-section-empty {
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .steam-stats-popover-section-error {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   font-style: italic;
 }
@@ -1949,7 +1949,7 @@
 }
 
 .steam-stats-popover-reviews-count {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
@@ -1961,7 +1961,7 @@
 }
 
 .steam-stats-popover-reviews-count-sep {
-  margin: 0 5px;
+  margin: 0 var(--space-2xs);
   opacity: 0.5;
 }
 
@@ -1985,14 +1985,14 @@
 .steam-stats-popover-activity {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .steam-stats-popover-activity-live {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-success);
   text-transform: uppercase;
@@ -2053,9 +2053,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 10px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  padding: 0 var(--space-sm);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   text-align: center;
   line-height: 1.3;
@@ -2072,13 +2072,13 @@
 }
 
 .steam-stats-popover-activity-empty-text {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
 }
 
 .steam-stats-popover-activity-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .steam-stats-popover-activity-stat {
@@ -2086,14 +2086,14 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 6px 4px;
+  padding: var(--space-xs) var(--space-2xs);
   background: color-mix(in srgb, var(--color-bg-tertiary) 50%, transparent);
   border-radius: var(--radius-sm);
   min-width: 0;
 }
 
 .steam-stats-popover-activity-stat-value {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1.1;
@@ -2106,8 +2106,8 @@
 }
 
 .steam-stats-popover-activity-stat-label {
-  margin-top: 2px;
-  font-size: 9px;
+  margin-top: var(--space-3xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -2117,12 +2117,12 @@
 /* ── Whole-fetch failure ─────────────────────────────────────── */
 
 .steam-stats-popover-fetch-error {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: color-mix(in srgb, var(--color-danger) 85%, var(--color-text-primary));
   text-align: center;
-  padding: 8px 0 0;
+  padding: var(--space-sm) 0 0;
   border-top: 1px solid color-mix(in srgb, var(--color-danger) 25%, transparent);
-  margin-top: 4px;
+  margin-top: var(--space-2xs);
 }
 
 /* ── Skeleton placeholders ───────────────────────────────────── */
@@ -2175,8 +2175,8 @@
 
 .steam-stats-popover-inline-retry {
   border: 0;
-  border-radius: 6px;
-  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2xs) var(--space-sm);
   color: var(--text-primary);
   background: var(--surface-3);
   cursor: pointer;
@@ -2194,7 +2194,7 @@
 }
 
 .steam-stats-popover-inline-retry {
-  margin-left: 8px;
+  margin-left: var(--space-sm);
   color: var(--accent-primary);
 }
 
@@ -2202,7 +2202,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 10px 14px;
+  padding: var(--space-sm) var(--space-md);
   border-top: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-bg-primary) 50%, transparent);
 }
@@ -2210,7 +2210,7 @@
 .steam-stats-popover-footer-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   flex-wrap: wrap;
   width: 100%;
   justify-content: space-between;
@@ -2219,12 +2219,12 @@
 .steam-stats-popover-footer-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   text-decoration: none;
-  padding: 6px 10px;
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
@@ -2270,17 +2270,17 @@
  * range toggle, the summary stat strip, and the loading/empty states.
  */
 .steam-history-chart {
-  padding: 2px 0 0;
+  padding: var(--space-3xs) 0 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .steam-stats-hero-banner {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-md);
   background: color-mix(in srgb, var(--color-bg-tertiary) 50%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -2291,13 +2291,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-sm);
 }
 
 .steam-stats-live-badge {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
 }
 
 .steam-stats-live-dot {
@@ -2321,7 +2321,7 @@
 }
 
 .steam-stats-live-count {
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold, 700);
   color: var(--color-text-primary);
   line-height: 1.1;
@@ -2330,7 +2330,7 @@
 }
 
 .steam-stats-live-label {
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold, 600);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -2340,23 +2340,23 @@
 .steam-stats-hero-reviews {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--space-2xs);
 }
 
 .steam-stats-hero-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   flex-wrap: wrap;
-  margin-top: 2px;
-  padding-top: 8px;
+  margin-top: var(--space-3xs);
+  padding-top: var(--space-sm);
   border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
 .steam-stats-hero-tag {
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
-  padding: 1px 6px;
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-accent);
@@ -2364,33 +2364,33 @@
 }
 
 .steam-stats-hero-date {
-  font-size: 9px;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   margin-left: auto;
 }
 
 .steam-history-chart-header {
-  gap: 10px;
+  gap: var(--space-sm);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 2px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-3xs);
 }
 
 .steam-history-title-icon {
   color: var(--color-accent);
   vertical-align: text-bottom;
-  margin-right: 4px;
+  margin-right: var(--space-2xs);
 }
 
 .player-history-range-toggle {
   display: inline-flex;
   background: color-mix(in srgb, var(--color-bg-tertiary) 75%, transparent);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-full, 9999px);
-  padding: 3px;
-  gap: 2px;
+  border-radius: var(--radius-full);
+  padding: var(--space-3xs);
+  gap: var(--space-3xs);
 }
 
 .player-history-range-btn {
@@ -2398,10 +2398,10 @@
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
-  padding: 3px 9px;
-  border-radius: var(--radius-full, 9999px);
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition: color var(--transition-fast),
     background var(--transition-fast),
@@ -2433,15 +2433,15 @@
   background: color-mix(in srgb, var(--color-bg-tertiary) 65%, var(--scrim-dark));
   border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
   border-radius: var(--radius-md);
-  padding: 8px 4px 4px 0;
+  padding: var(--space-sm) var(--space-2xs) var(--space-2xs) 0;
   box-shadow: inset 0 0 24px color-mix(in srgb, var(--color-bg-primary) 30%, transparent);
 }
 
 .steam-history-chart-skeleton {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 4px 8px;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-sm);
 }
 
 .steam-history-chart-skeleton-bar {
@@ -2459,7 +2459,7 @@
 
 .steam-history-chart-skeleton-tiles {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .steam-history-chart-skeleton-tiles .steam-stats-popover-skeleton-pill {
@@ -2469,23 +2469,23 @@
 
 .steam-history-chart-subtitle {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-normal);
 }
 
 .steam-history-chart-summary {
-  margin-top: 8px;
+  margin-top: var(--space-sm);
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
 }
 
 .steam-history-chart-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-  gap: 6px;
-  margin-top: 4px;
+  gap: var(--space-xs);
+  margin-top: var(--space-2xs);
 }
 
 .steam-history-chart-stat {
@@ -2493,8 +2493,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 8px 6px;
+  gap: var(--space-3xs);
+  padding: var(--space-sm) var(--space-xs);
   background: color-mix(in srgb, var(--color-bg-tertiary) 45%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -2512,7 +2512,7 @@
 .steam-history-chart-stat-header {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .steam-history-stat-icon {
@@ -2540,7 +2540,7 @@
 }
 
 .steam-history-chart-stat-value {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -2548,7 +2548,7 @@
 }
 
 .steam-history-chart-stat-label {
-  font-size: 9px;
+  font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: var(--font-weight-semibold);
@@ -2556,8 +2556,8 @@
 }
 
 .steam-history-chart-footnote {
-  margin-top: 4px;
-  font-size: var(--font-size-2xs);
+  margin-top: var(--space-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   text-align: center;
 }
@@ -2576,8 +2576,8 @@
 .store-highlight {
   background: color-mix(in srgb, var(--color-accent) 24%, transparent);
   color: var(--color-text-primary);
-  border-radius: 3px;
-  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-3xs);
   margin: 0 -2px;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
@@ -2585,8 +2585,8 @@
 /* ── Source match-mode segmented control (StoreFilterSidebar) ────────── */
 .store-filter-match-mode {
   display: flex;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -2595,12 +2595,12 @@
 .store-filter-match-mode-btn {
   flex: 1 1 0;
   min-width: 0;
-  padding: 5px 12px;
+  padding: var(--space-2xs) var(--space-md);
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
   white-space: nowrap;
@@ -2651,7 +2651,7 @@
   content: "";
   width: 4px;
   height: 4px;
-  margin-right: 3px;
+  margin-right: var(--space-3xs);
   border-radius: 50%;
   background: currentColor;
   flex: 0 0 auto;
@@ -2702,14 +2702,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-xs);
   margin-top: var(--space-xs);
-  padding: 7px 16px;
+  padding: var(--space-xs) var(--space-lg);
   background: transparent;
   border: 1px dashed color-mix(in srgb, var(--color-text-secondary) 45%, transparent);
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   line-height: 1;
@@ -2744,9 +2744,9 @@
 .store-refresh-cue {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-left: 10px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-2xs);
+  margin-left: var(--space-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
@@ -2778,7 +2778,7 @@
    header language) and the row gets a hairline so search + chips + grid
    share a visible rhythm. */
 .store-filter-count {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -3047,7 +3047,7 @@
 .store-empty svg {
   width: 52px;
   height: 52px;
-  padding: 14px;
+  padding: var(--space-md);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
@@ -3174,12 +3174,12 @@
 
 .store-card-list-year {
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   white-space: nowrap;
 }
 
 .store-search-suggestion-genre {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-tertiary);
   white-space: nowrap;
   overflow: hidden;

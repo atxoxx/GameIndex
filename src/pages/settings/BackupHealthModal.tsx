@@ -44,14 +44,12 @@ export default function BackupHealthModal({
               </span>
             </div>
           </div>
-          <button
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}
             type="button"
-            className="backup-modal-close"
+            
             onClick={onClose}
             aria-label={t("common.close")}
-          >
-            <X size={18} />
-          </button>
+          ></Button>
         </header>
 
         {/* Big Score Card */}

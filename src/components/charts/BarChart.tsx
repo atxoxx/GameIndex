@@ -426,7 +426,7 @@ export default function BarChart({
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              style={{ display: "inline-block", marginRight: "4px", verticalAlign: "middle" }}
+              style={{ display: "inline-block", marginRight: "var(--space-2xs)", verticalAlign: "middle" }}
             >
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />

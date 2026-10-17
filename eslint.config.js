@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import reactPlugin from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import css from "@eslint/css";
-import { cssColors, jsColors } from "./eslint-rules/index.js";
+import { cssColors, jsColors, cssLengths, jsLengths } from "./eslint-rules/index.js";
 
 /**
  * Files where literal colour values are the *source of truth* rather than a
@@ -32,6 +32,10 @@ const COLOR_DATA_FILES = [
   "src/**/*.test.{ts,tsx}",
 ];
 
+// The local plugins register both rule families under one namespace each.
+const jsTokensPlugin = { meta: jsColors.meta, rules: { ...jsColors.rules, ...jsLengths.rules } };
+const cssTokensPlugin = { meta: cssColors.meta, rules: { ...cssColors.rules, ...cssLengths.rules } };
+
 export default tseslint.config(
   { ignores: ["dist", "node_modules", "src-tauri/target", "src-tauri/vendor"] },
   {
@@ -47,7 +51,7 @@ export default tseslint.config(
     plugins: {
       react: reactPlugin,
       "react-hooks": reactHooks,
-      gameindex: jsColors,
+      gameindex: jsTokensPlugin,
     },
     linterOptions: {
       reportUnusedDisableDirectives: "off",
@@ -71,6 +75,8 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "off",
       // Theme integrity: colours must be referenced through design tokens.
       "gameindex/no-hardcoded-colors": "error",
+      // Shape/type integrity: px/rem lengths must come from the token scales.
+      "gameindex/no-hardcoded-length": "error",
     },
     settings: {
       react: { version: "detect" },
@@ -81,16 +87,30 @@ export default tseslint.config(
     language: "css/css",
     plugins: {
       css,
-      "gameindex-css": cssColors,
+      "gameindex-css": cssTokensPlugin,
     },
     rules: {
       "gameindex-css/no-hardcoded-colors": "error",
+      "gameindex-css/no-hardcoded-length": "error",
+    },
+  },
+  {
+    // Intentional alternate skins (ui-styles) and the out-of-scope Big Picture /
+    // overlay stylesheets keep their deliberate geometry literals.
+    files: [
+      "src/styles/ui-styles/**/*.css",
+      "src/styles/bigscreen.css",
+      "src/styles/overlay.css",
+    ],
+    rules: {
+      "gameindex-css/no-hardcoded-length": "off",
     },
   },
   {
     files: COLOR_DATA_FILES,
     rules: {
       "gameindex/no-hardcoded-colors": "off",
+      "gameindex/no-hardcoded-length": "off",
     },
   }
 );

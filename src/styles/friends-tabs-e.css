@@ -33,11 +33,11 @@
 .activity-feed-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-lg);
+  gap: var(--space-sm);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-2xs);
 }
 
 .activity-feed-title-icon {
@@ -57,15 +57,15 @@
 }
 
 .activity-feed-subtitle {
-  margin: 0 0 0 36px;
-  font-size: var(--font-size-sm);
+  margin: 0 0 0 var(--space-2xl);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
 .activity-feed-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -76,7 +76,7 @@
 .activity-feed-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-md);
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
   transition: background-color var(--transition-fast);
@@ -128,21 +128,21 @@
 }
 
 .activity-feed-text {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
   line-height: 1.4;
 }
 
 .activity-feed-detail {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
-  margin-top: 1px;
+  margin-top: var(--space-4xs);
 }
 
 .activity-feed-time {
   flex-shrink: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -188,7 +188,7 @@
 
 .dms-thread-list-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -196,7 +196,7 @@
 }
 
 .dms-thread-list-count {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
@@ -210,7 +210,7 @@
 .dm-thread-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
   width: 100%;
   padding: var(--space-sm) var(--space-lg);
   background: transparent;
@@ -239,11 +239,11 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .dm-thread-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
@@ -251,7 +251,7 @@
 }
 
 .dm-thread-preview {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -283,7 +283,7 @@
 .dm-thread-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
   padding: var(--space-md) var(--space-lg);
   border-bottom: 1px solid var(--color-border);
 }
@@ -291,13 +291,13 @@
 .dm-thread-header-name {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-sm);
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .dm-thread-online {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-success);
 }
@@ -308,7 +308,7 @@
   padding: var(--space-md) var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .dm-msg {
@@ -317,7 +317,7 @@
 
 .dm-thread-input {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
   padding: var(--space-md) var(--space-lg);
   border-top: 1px solid var(--color-border);
 }
@@ -332,7 +332,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   text-align: center;
   padding: var(--space-xl);
 }
@@ -352,11 +352,11 @@
 .race-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-lg);
+  gap: var(--space-sm);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-2xs);
 }
 
 .race-title-icon {
@@ -371,8 +371,8 @@
 }
 
 .race-subtitle {
-  margin: 0 0 0 36px;
-  font-size: var(--font-size-sm);
+  margin: 0 0 0 var(--space-2xl);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
@@ -402,12 +402,12 @@
 .race-game {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .race-game-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
@@ -415,25 +415,25 @@
 }
 
 .race-vs {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .race-bars {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
   min-width: 0;
 }
 
 .race-bar-group {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--space-3xs);
 }
 
 .race-bar-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -459,7 +459,7 @@
 }
 
 .race-result {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-align: right;
   white-space: nowrap;
@@ -493,16 +493,16 @@
 .playing-now-head {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--space-sm);
   margin-bottom: var(--space-sm);
 }
 
 .playing-now-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -526,22 +526,22 @@
 }
 
 .playing-now-hint {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .playing-now-strip {
   display: flex;
-  gap: 10px;
+  gap: var(--space-sm);
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: var(--space-2xs);
   scrollbar-width: thin;
 }
 
 .playing-now-card {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
   flex-shrink: 0;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-tertiary);
@@ -557,13 +557,13 @@
 .playing-now-info {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-4xs);
   min-width: 0;
   max-width: 170px;
 }
 
 .playing-now-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
@@ -571,7 +571,7 @@
 }
 
 .playing-now-game {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -584,7 +584,7 @@
 
 .playing-now-own-hint {
   flex-shrink: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -600,7 +600,7 @@
 .circle-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .circle-chip-dot {
@@ -618,19 +618,19 @@
 .friend-circle-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xs);
 }
 
 .friend-circle-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 7px;
+  gap: var(--space-2xs);
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-full);
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
   color: var(--color-accent);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   line-height: 16px;
 }
@@ -643,7 +643,7 @@
 
 .circles-create-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .circles-create-row .profile-input {
@@ -668,7 +668,7 @@
 .circle-manager-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   margin-bottom: var(--space-sm);
 }
 
@@ -680,19 +680,19 @@
 .circle-member-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .circle-member-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px 3px 4px;
+  gap: var(--space-xs);
+  padding: var(--space-3xs) var(--space-sm) var(--space-3xs) var(--space-2xs);
   border-radius: var(--radius-full);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   cursor: pointer;
   transition: border-color var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
 }
@@ -717,7 +717,7 @@
 }
 
 .circle-member-empty {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { Button } from "./Button";
 
 export interface ArrayEditorColumn<T> {
   key: keyof T & string;
@@ -156,8 +157,8 @@ export function ArrayEditor<T>({
             </div>
           ))}
           <div className="array-editor-add-actions">
-            <button type="button" className="edit-btn edit-btn-secondary" onClick={addRow}>{t("common.add")}</button>
-            <button type="button" className="edit-btn edit-btn-ghost" onClick={() => { setExpanded(false); setDraft(createEmpty()); }}>{t("common.cancel")}</button>
+            <Button variant="secondary" size="md" type="button"  onClick={addRow}> {t("common.add")} </Button>
+            <Button variant="ghost" size="md" type="button"  onClick={() => { setExpanded(false); setDraft(createEmpty()); }}> {t("common.cancel")} </Button>
           </div>
         </div>
       ) : (

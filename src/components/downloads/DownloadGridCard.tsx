@@ -32,6 +32,7 @@ import {
   GameFallbackIcon,
   RemoveIcon,
 } from "./DownloadIcons";
+import { Button } from "../ui";
 
 interface DownloadGridCardProps {
   download: TorrentDownload;
@@ -231,30 +232,26 @@ export const DownloadGridCard = React.memo(
             )}
 
             {(status.kind === "downloading" || status.kind === "fetchingMetadata") && (
-              <button
+              <Button variant="secondary" size="sm" iconOnly leftIcon={<PauseIcon />}
                 type="button"
-                className="dl-card-icon-btn"
+                
                 onClick={() => onPause(download.id)}
                 title={t("downloadRow.pause")}
-              >
-                <PauseIcon />
-              </button>
+               className="dl-card-icon-btn"></Button>
             )}
 
             {isPaused && (
-              <button
+              <Button variant="secondary" size="sm" iconOnly leftIcon={<PlayIcon />}
                 type="button"
-                className="dl-card-icon-btn"
+                
                 onClick={() => onResume(download.id)}
                 title={t("downloadRow.resume")}
-              >
-                <PlayIcon />
-              </button>
+               className="dl-card-icon-btn"></Button>
             )}
 
-            <button
+            <Button variant="secondary" size="sm" iconOnly leftIcon={<FolderIcon />}
               type="button"
-              className="dl-card-icon-btn"
+              
               onClick={async () => {
                 try {
                   await openDownloadFolder(download.id);
@@ -263,27 +260,21 @@ export const DownloadGridCard = React.memo(
                 }
               }}
               title={t("downloadRow.openFolder")}
-            >
-              <FolderIcon />
-            </button>
+             className="dl-card-icon-btn"></Button>
 
-            <button
+            <Button variant="secondary" size="sm" iconOnly leftIcon={<RemoveIcon />}
               type="button"
-              className="dl-card-icon-btn danger"
+              
               onClick={() => onRemove(download.id)}
               title={t("common.remove")}
-            >
-              <RemoveIcon />
-            </button>
+             className="dl-card-icon-btn danger"></Button>
 
-            <button
+            <Button variant="secondary" size="sm" iconOnly leftIcon={<TrashIcon />}
               type="button"
-              className="dl-card-icon-btn danger-fill"
+              
               onClick={() => onDeleteFiles(download)}
               title={t("downloadRow.deleteFromDisk")}
-            >
-              <TrashIcon />
-            </button>
+             className="dl-card-icon-btn danger-fill"></Button>
           </div>
         </div>
 

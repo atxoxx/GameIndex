@@ -83,7 +83,7 @@ export function TimeOfDayDistribution({
         <div className="act-tod__split">
           <div className="act-tod__split-header">
             <span className="act-tod__split-title">
-              <Icons.Clock size={13} style={{ display: "inline-block", marginRight: "4px", verticalAlign: "middle" }} />
+              <Icons.Clock size={13} style={{ display: "inline-block", marginRight: "var(--space-2xs)", verticalAlign: "middle" }} />
               {t("activityInsights.routineSplit")}
             </span>
             <span className="act-tod__split-ratio">

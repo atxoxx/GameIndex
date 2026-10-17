@@ -23,6 +23,7 @@ import {
 import type { Stats, Timeframe, PlaytimeAggregation, PlaytimeChartStyle } from "./GameActivityShared";
 import { useFocusProps } from "../activity/focusable";
 import * as Icons from "../activity/Icons";
+import { Button } from "../ui";
 
 interface GameActivityPlaytimeViewProps {
   game: Game;
@@ -307,15 +308,13 @@ export function GameActivityPlaytimeView({
               </span>
             </div>
           </div>
-          <button
+          <Button variant="secondary" size="md"
             ref={jumpFocus.ref}
             tabIndex={jumpFocus.tabIndex}
             type="button"
-            className="act-inspector-btn act-inspector-btn--secondary"
+            
             onClick={jumpFocus.onClick}
-          >
-            <Icons.Maximize2 size={12} /> {t("gameActivity.viewSessionLog")}
-          </button>
+          > <Icons.Maximize2 size={12} /> {t("gameActivity.viewSessionLog")} </Button>
         </div>
       )}
     </div>

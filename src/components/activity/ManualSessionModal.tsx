@@ -9,6 +9,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { GameThumbnail } from "./GameThumbnail";
 import { useFocusProps, useFocusableNative } from "./focusable";
 import * as Icons from "./Icons";
+import { Button } from "../ui";
 
 export interface ManualSessionModalProps {
   isOpen: boolean;
@@ -172,16 +173,14 @@ export function ManualSessionModal({
               <span className="act-modal__sub">{t("activityManual.subtitle")}</span>
             </div>
           </div>
-          <button
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<Icons.X size={16} />}
             ref={closeFocus.ref}
             tabIndex={closeFocus.tabIndex}
             type="button"
-            className="act-modal__close-btn"
+            
             onClick={closeFocus.onClick}
             aria-label={t("common.close")}
-          >
-            <Icons.X size={16} />
-          </button>
+          ></Button>
         </div>
 
         <form onSubmit={handleSave} className="act-modal__form">
@@ -376,15 +375,13 @@ export function ManualSessionModal({
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleAddTag}
               />
-              <button
+              <Button variant="secondary" size="sm"
                 ref={addTagFocus.ref}
                 tabIndex={addTagFocus.tabIndex}
                 type="button"
-                className="act-inspector-btn act-inspector-btn--sm"
+                
                 onClick={addTagFocus.onClick}
-              >
-                <Icons.Tag size={11} /> {t("sessionNotes.addTag")}
-              </button>
+              > <Icons.Tag size={11} /> {t("sessionNotes.addTag")} </Button>
             </div>
             {tagsList.length > 0 && (
               <div className="act-inspector-notes__tags">
@@ -397,25 +394,21 @@ export function ManualSessionModal({
 
           {/* Actions */}
           <div className="act-modal__actions">
-            <button
+            <Button variant="ghost" size="md"
               ref={cancelFocus.ref}
               tabIndex={cancelFocus.tabIndex}
               type="button"
-              className="act-inspector-btn act-inspector-btn--ghost"
+              
               onClick={cancelFocus.onClick}
               disabled={saving}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
+            > {t("common.cancel")} </Button>
+            <Button variant="primary" size="md"
               ref={submitFocus.setRef}
               tabIndex={submitFocus.tabIndex}
               type="submit"
-              className="act-inspector-btn act-inspector-btn--primary"
+              
               disabled={saving || !selectedGame}
-            >
-              <Icons.Check size={14} /> {saving ? t("common.saving") : t("activityManual.logSessionBtn")}
-            </button>
+            > <Icons.Check size={14} /> {saving ? t("common.saving") : t("activityManual.logSessionBtn")} </Button>
           </div>
         </form>
       </div>

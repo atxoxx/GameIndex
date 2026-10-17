@@ -19,6 +19,7 @@ import {
   VoteIcon,
   CheckIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 const SESSION_ROLE_ORDER: SessionRole[] = ["host", "cohost", "player"];
 
@@ -291,21 +292,15 @@ export default function SessionCard({
                     </span>
                   </div>
                   <div className="session-poll-option-actions">
-                    <button
+                    <Button variant="secondary" size="sm"
                       type="button"
-                      className={`btn btn-secondary btn--mini${voted ? " active" : ""}`}
                       onClick={() => onVotePoll?.(session.id, opt.id)}
-                    >
-                      {voted ? t("friendsPage.voted") : t("friendsPage.vote")}
-                    </button>
+                     className={`voted ? " active" : ""}`}> {voted ? t("friendsPage.voted") : t("friendsPage.vote")} </Button>
                     {canManage && (
-                      <button
+                      <Button variant="primary" size="sm" leftIcon={<CheckIcon />}
                         type="button"
-                        className="btn btn-primary btn--mini"
                         onClick={() => onFinalizePoll?.(session.id, opt.id)}
-                      >
-                        <CheckIcon /> {t("friendsPage.finalizeTime")}
-                      </button>
+                      > {t("friendsPage.finalizeTime")} </Button>
                     )}
                   </div>
                 </div>
@@ -385,7 +380,6 @@ export default function SessionCard({
               ) : (
                 <span className={`roster-role role-${p.role}`}>{t(`friends.${p.role}`)}</span>
               )}
-              
               <span className={`roster-rsvp-badge rsvp-${p.rsvp}`} title={p.rsvp}>
                 {p.rsvp === "going" ? (
                   <span>{t("friends.going")}</span>
@@ -429,9 +423,7 @@ export default function SessionCard({
               onChange={(e) => setGuestDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitGuest()}
             />
-            <button type="button" className="btn btn-secondary btn--mini" onClick={submitGuest}>
-              +1
-            </button>
+            <Button variant="secondary" size="sm" type="button"  onClick={submitGuest}> +1 </Button>
           </div>
         )}
 
@@ -445,9 +437,7 @@ export default function SessionCard({
               onChange={(e) => setNoteDraft(e.target.value)}
               onBlur={submitNote}
             />
-            <button type="button" className="btn btn-secondary btn--mini" onClick={submitNote}>
-              {t("common.save")}
-            </button>
+            <Button variant="secondary" size="sm" type="button"  onClick={submitNote}> {t("common.save")} </Button>
           </div>
         )}
       </div>
@@ -531,9 +521,7 @@ export default function SessionCard({
               onChange={(e) => setChatDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitChat()}
             />
-            <button type="button" className="btn btn-primary btn--mini" onClick={submitChat}>
-              {t("common.send")}
-            </button>
+            <Button variant="primary" size="sm" type="button"  onClick={submitChat}> {t("common.send")} </Button>
           </div>
         </div>
       )}

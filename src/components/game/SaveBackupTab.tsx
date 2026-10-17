@@ -377,7 +377,7 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
       {/* ─── Optional Snapshot Note Drawer ──────────────────────────────── */}
       {noteOpen && (
         <div className="saves-note-drawer">
-          <span className="saves-card__title" style={{ fontSize: "0.86rem" }}>
+          <span className="saves-card__title" style={{ fontSize: "var(--text-md)" }}>
             {t("saves.snapshot.createTitle")}
           </span>
           <div className="saves-note-drawer__inputs">
@@ -639,24 +639,20 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
                     >
                       {t("saves.action.restore")}
                     </Button>
-                    <button
+                    <Button variant="secondary" size="sm" iconOnly leftIcon={<FolderOpen size={15} />}
                       type="button"
-                      className="saves-icon-btn"
+                      
                       onClick={() => void openBackup(backup.id)}
                       title={t("saves.action.openBackup")}
                       aria-label={t("saves.action.openBackup")}
-                    >
-                      <FolderOpen size={15} />
-                    </button>
-                    <button
+                     className="saves-icon-btn"></Button>
+                    <Button variant="secondary" size="sm" iconOnly leftIcon={<Trash2 size={15} />}
                       type="button"
-                      className="saves-icon-btn saves-icon-btn--danger"
+                      
                       onClick={() => setPending({ kind: "delete", backup })}
                       title={t("saves.action.deleteBackup")}
                       aria-label={t("saves.action.deleteBackup")}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                     className="saves-icon-btn saves-icon-btn--danger"></Button>
                   </div>
                 </li>
               ))}
@@ -769,24 +765,20 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
                     </button>
                   </div>
                   <div className="saves-location__actions">
-                    <button
+                    <Button variant="secondary" size="sm" iconOnly leftIcon={<FolderOpen size={15} />}
                       type="button"
-                      className="saves-icon-btn"
+                      
                       onClick={() => void openPath(loc.path)}
                       title={t("saves.action.openFolder")}
                       aria-label={t("saves.action.openFolder")}
-                    >
-                      <FolderOpen size={15} />
-                    </button>
-                    <button
+                     className="saves-icon-btn"></Button>
+                    <Button variant="secondary" size="sm" iconOnly leftIcon={<Trash2 size={15} />}
                       type="button"
-                      className="saves-icon-btn saves-icon-btn--danger"
+                      
                       onClick={() => void removeLocation(loc)}
                       title={t("saves.action.removeLocation")}
                       aria-label={t("saves.action.removeLocation")}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                     className="saves-icon-btn saves-icon-btn--danger"></Button>
                   </div>
                 </li>
               ))}

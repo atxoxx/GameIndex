@@ -19,6 +19,7 @@ import {
   SmileIcon,
   XIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 const DM_EMOJI = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
 
@@ -284,14 +285,11 @@ export default function FriendsDmsTab({
 
               {activeFriend && onCompareFriend && (
                 <div className="dm-header-actions">
-                  <button
+                  <Button variant="secondary" size="sm" leftIcon={<CompareIcon />}
                     type="button"
-                    className="btn btn-secondary btn--mini"
                     onClick={() => onCompareFriend(activeFriend)}
                     title={t("friends.compare")}
-                  >
-                    <CompareIcon /> {t("friends.compare")}
-                  </button>
+                  > {t("friends.compare")} </Button>
                 </div>
               )}
             </div>
@@ -467,15 +465,12 @@ export default function FriendsDmsTab({
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 autoFocus
               />
-              <button
+              <Button variant="primary" size="md" iconOnly leftIcon={<SendIcon />}
                 type="button"
-                className="btn btn-primary dm-send-btn"
                 onClick={handleSend}
                 disabled={!messageDraft.trim() && !pendingAttachment}
                 title={t("common.send")}
-              >
-                <SendIcon />
-              </button>
+               className="dm-send-btn"></Button>
             </div>
           </>
         ) : (

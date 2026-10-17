@@ -40,7 +40,7 @@ export default function StoreGameLoadingSkeleton() {
 
       {/* Tabs bar skeleton */}
       <div style={{ display: "flex", justifyContent: "center", margin: "var(--space-xl) 0" }}>
-        <div style={{ display: "flex", gap: "var(--space-sm)", padding: "4px", background: "var(--color-surface-raised)", borderRadius: "var(--radius-full)", flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: "var(--space-sm)", padding: "var(--space-2xs)", background: "var(--color-surface-raised)", borderRadius: "var(--radius-full)", flexWrap: "wrap", justifyContent: "center" }}>
           <Skeleton shape="rect" width="90px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
           <Skeleton shape="rect" width="90px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
           <Skeleton shape="rect" width="110px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />

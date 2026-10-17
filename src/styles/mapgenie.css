@@ -33,7 +33,7 @@
 .map-tab__heading {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
   min-width: 0;
 }
 
@@ -52,7 +52,7 @@
 .map-tab__heading-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-4xs);
   min-width: 0;
 }
 
@@ -60,14 +60,14 @@
   display: inline-flex;
   align-items: center;
   height: 20px;
-  padding: 0 8px;
-  margin-left: 2px;
+  padding: 0 var(--space-sm);
+  margin-left: var(--space-3xs);
   flex-shrink: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background: var(--color-bg-secondary);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -75,7 +75,7 @@
 }
 
 .map-tab__eyebrow {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -83,7 +83,7 @@
 }
 
 .map-tab__game {
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -96,11 +96,11 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   width: 340px;
   max-width: 74vw;
   height: 34px;
-  padding: 0 4px 0 32px;
+  padding: 0 var(--space-2xs) 0 var(--space-2xl);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -130,7 +130,7 @@
   border: none;
   outline: none;
   color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
 }
 
@@ -165,13 +165,13 @@
   justify-content: center;
   height: 26px;
   min-width: 56px;
-  padding: 0 12px;
+  padding: 0 var(--space-md);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: background-color var(--transition-fast), opacity var(--transition-fast);
@@ -203,7 +203,7 @@
 .map-tab__search-triggers {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .map-tab__search-toggle {
@@ -305,7 +305,7 @@
   right: 0;
   z-index: 60;
   margin: 0;
-  padding: 4px;
+  padding: var(--space-2xs);
   list-style: none;
   max-height: 280px;
   overflow-y: auto;
@@ -318,12 +318,12 @@
 .map-tab__suggestion {
   display: block;
   width: 100%;
-  padding: 8px 10px;
+  padding: var(--space-sm) var(--space-sm);
   border: none;
   border-radius: calc(var(--radius-md) - 4px);
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   text-align: left;
   cursor: pointer;
@@ -346,7 +346,7 @@
 
 .map-tab__placeholder-hint {
   max-width: 420px;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -360,8 +360,8 @@
 
 .map-tab__search-go--wide {
   min-width: 0;
-  padding: 0 16px;
-  gap: 6px;
+  padding: 0 var(--space-lg);
+  gap: var(--space-xs);
 }
 
 /* ─── Fullscreen (near-full-window) ──────────────────────────────────────── */
@@ -411,7 +411,7 @@
 .map-tab__expand-title {
   flex: 1;
   min-width: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   white-space: nowrap;
@@ -464,29 +464,29 @@
 .map-tab__field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .map-tab__field-label {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-text-muted);
-  padding-left: 2px;
+  padding-left: var(--space-3xs);
 }
 
 .map-tab__select {
   height: 32px;
   min-width: 130px;
   max-width: 220px;
-  padding: 0 30px 0 12px;
+  padding: 0 var(--space-2xl) 0 var(--space-md);
   background-color: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   appearance: none;
@@ -518,14 +518,14 @@
 .map-tab__external {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   height: 32px;
-  padding: 0 14px;
+  padding: 0 var(--space-md);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   white-space: nowrap;
@@ -564,7 +564,7 @@
   justify-content: center;
   gap: var(--space-md);
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   text-align: center;
   padding: var(--space-lg);
 }

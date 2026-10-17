@@ -21,6 +21,7 @@ import {
   ClockIcon,
   XIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface FriendsSessionsTabProps {
   sessions: GameSession[];
@@ -381,13 +382,10 @@ export default function FriendsSessionsTab({
             </select>
           </div>
 
-          <button
+          <Button variant="primary" size="sm" leftIcon={<PlusIcon />}
             type="button"
-            className="btn btn-primary btn--mini"
             onClick={() => setShowCreateModal(true)}
-          >
-            <PlusIcon /> {t("friends.scheduleSession")}
-          </button>
+          > {t("friends.scheduleSession")} </Button>
         </div>
       </div>
 
@@ -401,13 +399,10 @@ export default function FriendsSessionsTab({
               </div>
               <h3 className="friends-empty-title">{t("friends.noSessions")}</h3>
               <p className="friends-empty-desc">{t("friendsPage.noUpcomingSessionsDesc")}</p>
-              <button
+              <Button variant="primary" size="md" leftIcon={<PlusIcon />}
                 type="button"
-                className="btn btn-primary"
                 onClick={() => setShowCreateModal(true)}
-              >
-                <PlusIcon /> {t("friends.scheduleSession")}
-              </button>
+              > {t("friends.scheduleSession")} </Button>
             </div>
           ) : (
             <div className="sessions-grid">
@@ -441,20 +436,14 @@ export default function FriendsSessionsTab({
       {viewMode === "agenda" && (
         <div className="sessions-agenda-view">
           <div className="agenda-mode-toggle">
-            <button
+            <Button variant="secondary" size="sm"
               type="button"
-              className={`btn btn-secondary btn--mini${agendaMode === "grid" ? " active" : ""}`}
               onClick={() => setAgendaMode("grid")}
-            >
-              {t("friendsPage.calendarGrid")}
-            </button>
-            <button
+             className={`agendaMode === "grid" ? " active" : ""}`}> {t("friendsPage.calendarGrid")} </Button>
+            <Button variant="secondary" size="sm"
               type="button"
-              className={`btn btn-secondary btn--mini${agendaMode === "list" ? " active" : ""}`}
               onClick={() => setAgendaMode("list")}
-            >
-              {t("friendsPage.timelineList")}
-            </button>
+             className={`agendaMode === "list" ? " active" : ""}`}> {t("friendsPage.timelineList")} </Button>
           </div>
 
           {agendaDays.length === 0 ? (
@@ -556,14 +545,12 @@ export default function FriendsSessionsTab({
               <h2 className="friends-modal-title">
                 <CalendarIcon /> {editingSession ? t("friendsPage.editSession") : t("friends.scheduleSession")}
               </h2>
-              <button
+              <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />}
                 type="button"
-                className="friends-modal-close"
+                
                 onClick={() => setShowCreateModal(false)}
                 title={t("common.close")}
-              >
-                <XIcon />
-              </button>
+              ></Button>
             </div>
 
             <form onSubmit={handleCreateSubmit}>
@@ -622,24 +609,18 @@ export default function FriendsSessionsTab({
                                 value={opt}
                                 onChange={(e) => updatePollOption(i, e.target.value)}
                               />
-                              <button
+                              <Button variant="secondary" size="sm" iconOnly leftIcon={<XIcon />}
                                 type="button"
-                                className="btn btn-secondary btn--mini"
                                 onClick={() => removePollOption(i)}
                                 title={t("friendsPage.removeOption")}
-                              >
-                                <XIcon />
-                              </button>
+                              ></Button>
                             </div>
                           ))}
                           {pollOptions.length < 4 && (
-                            <button
+                            <Button variant="secondary" size="sm" leftIcon={<PlusIcon />}
                               type="button"
-                              className="btn btn-secondary btn--mini"
                               onClick={addPollOption}
-                            >
-                              <PlusIcon /> {t("friendsPage.addOption")}
-                            </button>
+                            > {t("friendsPage.addOption")} </Button>
                           )}
                         </div>
                       </>
@@ -735,24 +716,18 @@ export default function FriendsSessionsTab({
               </div>
 
               <div className="friends-modal-footer">
-                <button
+                <Button variant="secondary" size="md"
                   type="button"
-                  className="btn btn-secondary"
                   onClick={() => setShowCreateModal(false)}
-                >
-                  {t("common.cancel")}
-                </button>
-                <button
+                > {t("common.cancel")} </Button>
+                <Button variant="primary" size="md" leftIcon={<PlusIcon />}
                   type="submit"
-                  className="btn btn-primary"
                   disabled={
                     !gameName.trim() ||
                     (!pollMode && !dateTime) ||
                     (pollMode && pollOptions.filter(Boolean).length === 0)
                   }
-                >
-                  <PlusIcon /> {editingSession ? t("common.save") : t("friends.createSession")}
-                </button>
+                > {editingSession ? t("common.save") : t("friends.createSession")} </Button>
               </div>
             </form>
           </div>

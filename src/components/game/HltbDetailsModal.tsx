@@ -358,13 +358,7 @@ export default function HltbDetailsModal({
               {t("hltb.sourceBy", { name: stats.gameName })}
             </p>
           </div>
-          <button
-            type="button"
-            className="modal-close-btn"
-            onClick={onClose}
-            aria-label={t("common.close")}
-          >
-            <svg
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -376,8 +370,12 @@ export default function HltbDetailsModal({
             >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+            </svg>}
+            type="button"
+            
+            onClick={onClose}
+            aria-label={t("common.close")}
+          ></Button>
         </div>
 
         <div className="modal-body hltb-modal__body">

@@ -547,13 +547,11 @@ function EmulatorRomManagerBase({
                       : t("emulators.duplicates.groups", { count: duplicates.length })}
                   </p>
                 </div>
-                <button
-                  className="modal-close"
+                <Button variant="ghost" size="sm" iconOnly
+                  
                   aria-label={t("common.close")}
                   onClick={() => setDuplicates(null)}
-                >
-                  ×
-                </button>
+                 className="modal-close"> × </Button>
               </div>
               <div className="modal-body emu-dup-body">
                 {duplicates.length === 0 ? (

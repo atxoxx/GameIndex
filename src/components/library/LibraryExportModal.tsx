@@ -191,9 +191,7 @@ export default function LibraryExportModal({
               <p className="modal-subtitle">{t("libraryExport.subtitle")}</p>
             </div>
           </div>
-          <button className="modal-close lib-export-close" aria-label={t("common.close")} onClick={onClose}>
-            ×
-          </button>
+          <Button variant="ghost" size="sm" iconOnly  aria-label={t("common.close")} onClick={onClose} className="modal-close"> × </Button>
         </div>
 
         <div className="modal-body lib-export-body">

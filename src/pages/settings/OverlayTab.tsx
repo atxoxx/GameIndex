@@ -433,7 +433,7 @@ export default function OverlayTab() {
 
         <OverlayFieldSlider
           className="hw-card"
-          style={{ marginTop: "1rem" }}
+          style={{ marginTop: "var(--space-lg)" }}
           infoClassName="hw-card-head"
           labelAs="label"
           labelClassName="hw-card-label"
@@ -452,7 +452,7 @@ export default function OverlayTab() {
           onChange={(opacity) => update({ opacity })}
         />
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
+        <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card-head">
             <label className="hw-card-label">
               {t("settings.overlay.layout")}
@@ -473,7 +473,7 @@ export default function OverlayTab() {
           />
         </div>
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
+        <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card-head">
             <label className="hw-card-label">
               {t("settings.overlay.background")}
@@ -496,7 +496,7 @@ export default function OverlayTab() {
             nativeBlurSupported && (
               <OverlayFieldToggle
                 className="overlay-toggle-item"
-                style={{ marginTop: "0.75rem" }}
+                style={{ marginTop: "var(--space-md)" }}
                 label={t("overlay.settings.nativeBlur")}
                 checked={settings.nativeBlur ?? true}
                 onChange={(nativeBlur) => update({ nativeBlur })}
@@ -510,7 +510,7 @@ export default function OverlayTab() {
               !settings.reduceEffects
             ) && (
               <OverlayFieldSlider
-                style={{ marginTop: "0.75rem" }}
+                style={{ marginTop: "var(--space-md)" }}
                 infoClassName="hw-card-head"
                 labelAs="label"
                 labelClassName="hw-card-label"
@@ -528,7 +528,7 @@ export default function OverlayTab() {
             )}
 
           <OverlayFieldSlider
-            style={{ marginTop: "0.75rem" }}
+            style={{ marginTop: "var(--space-md)" }}
             infoClassName="hw-card-head"
             labelAs="label"
             labelClassName="hw-card-label"
@@ -559,7 +559,7 @@ export default function OverlayTab() {
           onChange={(on) => update({ tickerClickThrough: on })}
         />
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
+        <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card-head">
             <label className="hw-card-label">
               {t("overlay.settings.resetSize")}
@@ -621,7 +621,7 @@ export default function OverlayTab() {
 
         <OverlayFieldSlider
           className="hw-card"
-          style={{ marginTop: "1rem" }}
+          style={{ marginTop: "var(--space-lg)" }}
           infoClassName="hw-card-head"
           labelAs="label"
           labelClassName="hw-card-label"
@@ -708,7 +708,7 @@ export default function OverlayTab() {
           </div>
         </div>
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
+        <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card-head">
             <label className="hw-card-label">
               {t("settings.overlay.screenshotFolder")}
@@ -730,7 +730,7 @@ export default function OverlayTab() {
 
         <OverlayFieldSlider
           className="hw-card"
-          style={{ marginTop: "1rem" }}
+          style={{ marginTop: "var(--space-lg)" }}
           infoClassName="hw-card-head"
           labelAs="label"
           labelClassName="hw-card-label"
@@ -776,7 +776,7 @@ export default function OverlayTab() {
         />
 
         {/* Video */}
-        <div className="hw-pane-head" style={{ marginTop: "2rem" }}>
+        <div className="hw-pane-head" style={{ marginTop: "var(--space-2xl)" }}>
           <h3 className="hw-pane-title">{t("settings.overlay.video")}</h3>
           <p className="hw-pane-desc">{t("settings.overlay.videoDesc")}</p>
         </div>
@@ -840,7 +840,7 @@ export default function OverlayTab() {
           </div>
         </div>
 
-        <div className="hw-duo" style={{ marginTop: "1rem" }}>
+        <div className="hw-duo" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card">
             <div className="hw-card-head">
               <label className="hw-card-label">
@@ -886,7 +886,7 @@ export default function OverlayTab() {
           </div>
         </div>
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
+        <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card-head">
             <label className="hw-card-label">
               {t("settings.overlay.videoScale")}
@@ -912,7 +912,7 @@ export default function OverlayTab() {
           />
         </div>
 
-        <div className="hw-duo" style={{ marginTop: "1rem" }}>
+        <div className="hw-duo" style={{ marginTop: "var(--space-lg)" }}>
           <OverlayFieldSlider
             className="hw-card"
             infoClassName="hw-card-head"
@@ -966,7 +966,7 @@ export default function OverlayTab() {
           </div>
         </div>
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
+        <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card-head">
             <label className="hw-card-label">
               {t("settings.overlay.videoFolder")}
@@ -999,7 +999,7 @@ export default function OverlayTab() {
           onChange={(on) => update({ videoMicrophone: on })}
         />
 
-        <div className="hw-duo" style={{ marginTop: "1rem" }}>
+        <div className="hw-duo" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card">
             <div className="hw-card-head">
               <label className="hw-card-label">
@@ -1108,7 +1108,7 @@ export default function OverlayTab() {
           })}
         </div>
 
-        <div className="hw-pane-head" style={{ marginTop: "1.5rem" }}>
+        <div className="hw-pane-head" style={{ marginTop: "var(--space-xl)" }}>
           <h3 className="hw-pane-title">
             {t("settings.overlay.panelWidgets")}
           </h3>

@@ -115,9 +115,7 @@ export default function EmulatorRomDetailModal({
               {game.romDisc ? ` · ${t("emulators.roms.disc")} ${game.romDisc}` : ""}
             </span>
           </div>
-          <button className="modal-close" aria-label={t("common.close")} onClick={onClose}>
-            ×
-          </button>
+          <Button variant="ghost" size="sm" iconOnly  aria-label={t("common.close")} onClick={onClose} className="modal-close"> × </Button>
         </div>
 
         {/* Badge row */}

@@ -657,10 +657,10 @@ export default function AppearanceTab() {
               style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)", padding: "var(--space-md) var(--space-lg)" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="settings-checkbox-title" style={{ fontSize: "var(--font-size-sm)", fontWeight: 600 }}>
+                <span className="settings-checkbox-title" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
                   {t("settings.sound.volumeTitle")}
                 </span>
-                <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-accent)", fontWeight: 700 }}>
+                <span style={{ fontSize: "var(--text-xs)", color: "var(--color-accent)", fontWeight: 700 }}>
                   {uiSoundVolume}%
                 </span>
               </div>

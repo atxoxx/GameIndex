@@ -5,6 +5,7 @@ import { SORT_LABELS, SORT_OPTIONS } from "../hooks/useLibraryFilters";
 import type { PlayStatus } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
 import MultiSelectDropdown from "./ui/MultiSelectDropdown";
+import { Button } from "./ui";
 
 /** Status toggle options. Declared at module scope so the literal
  *  `LibraryStatus` type is preserved on each `value` instead of widening
@@ -383,14 +384,7 @@ export default function SidebarFilterPopover({
           <span>{t("sidebarFilter.title")}</span>
         </div>
         <div className="sidebar-filter-popover-header-actions">
-          <button
-            type="button"
-            className="sidebar-filter-popover-icon-btn"
-            aria-label={t("sidebarFilter.resetAria")}
-            onClick={onReset}
-            title={t("sidebarFilter.resetTitle")}
-          >
-            <svg
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -401,16 +395,14 @@ export default function SidebarFilterPopover({
             >
               <polyline points="1 4 1 10 7 10" />
               <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
-          </button>
-          <button
+            </svg>}
             type="button"
-            className="sidebar-filter-popover-icon-btn"
-            aria-label={t("sidebarFilter.closeAria")}
-            onClick={onClose}
-            title={t("steamPlayer.close")}
-          >
-            <svg
+            
+            aria-label={t("sidebarFilter.resetAria")}
+            onClick={onReset}
+            title={t("sidebarFilter.resetTitle")}
+          ></Button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -421,8 +413,13 @@ export default function SidebarFilterPopover({
             >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+            </svg>}
+            type="button"
+            
+            aria-label={t("sidebarFilter.closeAria")}
+            onClick={onClose}
+            title={t("steamPlayer.close")}
+          ></Button>
         </div>
       </header>
 

@@ -37,6 +37,7 @@ import {
 import * as Icons from "./Icons";
 import PageWidget from "../../components/PageWidget";
 import { usePersistedState } from "../../hooks/usePersistedState";
+import { Button } from "../../components/ui";
 
 export interface ActivityDashboardProps {
   sessions: GameSession[];
@@ -513,19 +514,17 @@ export function ActivityDashboard({
                   </button>
                 )}
                 {selectedGame && onLaunchGame && (
-                  <button
+                  <Button variant="primary" size="sm"
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                    
                     onClick={() => onLaunchGame(selectedGame)}
-                  >
-                    <Icons.Play size={11} /> {t("game.play")}
-                  </button>
+                  > <Icons.Play size={11} /> {t("game.play")} </Button>
                 )}
                 {selectedGameId && !selectedGame && (
                   <>
-                    <button
+                    <Button variant="secondary" size="sm"
                       type="button"
-                      className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                      
                       onClick={() => {
                         const title =
                           gameIsolatedSessions[0]?.gameName ||
@@ -534,12 +533,10 @@ export function ActivityDashboard({
                         setLinkModalTarget({ id: selectedGameId, title });
                       }}
                       title={t("activity.linkToLibrary")}
-                    >
-                      <Icons.Link2 size={11} /> {t("activity.linkToLibrary")}
-                    </button>
-                    <button
+                    > <Icons.Link2 size={11} /> {t("activity.linkToLibrary")} </Button>
+                    <Button variant="primary" size="sm"
                       type="button"
-                      className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                      
                       onClick={() => {
                         const title =
                           gameIsolatedSessions[0]?.gameName ||
@@ -548,9 +545,7 @@ export function ActivityDashboard({
                         setAddModalTarget({ id: selectedGameId, title });
                       }}
                       title={t("activity.addToLibrary")}
-                    >
-                      <Icons.Plus size={11} /> {t("activity.addToLibrary")}
-                    </button>
+                    > <Icons.Plus size={11} /> {t("activity.addToLibrary")} </Button>
                   </>
                 )}
               </div>

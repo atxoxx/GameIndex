@@ -100,7 +100,7 @@
 
 .toast-message {
   flex: 1;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
   line-height: 1.4;
   font-weight: 500;
@@ -166,7 +166,7 @@
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: var(--space-3xs);
   border-radius: var(--radius-sm);
   transition: color var(--transition-fast);
 }
@@ -213,19 +213,19 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .update-notification-title {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text-primary);
   line-height: 1.4;
 }
 
 .update-notification-desc {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -235,9 +235,9 @@
   border: none;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: 600;
-  padding: 6px 12px;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background var(--transition-fast);
@@ -256,7 +256,7 @@
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: var(--space-3xs);
   border-radius: var(--radius-sm);
   transition: color var(--transition-fast);
 }

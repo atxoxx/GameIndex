@@ -561,7 +561,7 @@ export default function SettingsWidget() {
               className="overlay-corner-grid"
               chipClassName="overlay-corner-cell"
               labelWrap
-              style={{ marginTop: "0.4rem" }}
+              style={{ marginTop: "var(--space-xs)" }}
               options={[30, 60, 120].map((fps) => ({
                 id: fps,
                 label: `${fps} FPS`,
@@ -573,7 +573,7 @@ export default function SettingsWidget() {
             <OverlayFieldChips
               className="overlay-chips-list"
               chipClassName="overlay-chip"
-              style={{ marginTop: "0.4rem" }}
+              style={{ marginTop: "var(--space-xs)" }}
               options={[
                 { kbps: 6000, key: "overlay.settings.qualityLow" },
                 { kbps: 12000, key: "overlay.settings.qualityMedium" },

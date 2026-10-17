@@ -437,7 +437,7 @@ export default function LibraryPage() {
         <PageWidget page="library" widget="libPresets">
           <div
             className="lib-chips ui-complete-only ui-item-libPresets"
-            style={{ marginTop: "8px", flexWrap: "wrap" } as React.CSSProperties}
+            style={{ marginTop: "var(--space-sm)", flexWrap: "wrap" } as React.CSSProperties}
             aria-label={t("library.presets.title")}
           >
           {hasFilters && (
@@ -467,7 +467,7 @@ export default function LibraryPage() {
                     style={{
                       background: "none",
                       border: "none",
-                      padding: "0 2px",
+                      padding: "0 var(--space-3xs)",
                       color: "inherit",
                       cursor: "pointer",
                       opacity: 0.7,

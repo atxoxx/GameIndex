@@ -22,6 +22,7 @@ import { PerformanceComparison, type ComparisonMetric } from "./performance/Perf
 import { PerformanceBoard } from "./performance/PerformanceBoard";
 import { PerformanceTimeline } from "./performance/PerformanceTimeline";
 import { usePersistedState } from "../../hooks/usePersistedState";
+import { Button } from "../../components/ui";
 
 export interface ActivityPerformanceProps {
   sessions: GameSession[];
@@ -119,13 +120,11 @@ export function ActivityPerformance({
           </div>
           <div className="act-gpu-context-actions">
             {sessionsWithTelemetry.length >= 2 && (
-              <button
+              <Button variant="secondary" size="sm"
                 type="button"
-                className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                
                 onClick={() => setCompareModalOpen(true)}
-              >
-                <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")}
-              </button>
+              > <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")} </Button>
             )}
           </div>
         </div>

@@ -14,7 +14,7 @@ import { ActivityGantt } from "./activity/ActivityGantt";
 import { ActivitySessions } from "./activity/ActivitySessions";
 import { ActivityPerformance } from "./activity/ActivityPerformance";
 import * as Icons from "./activity/Icons";
-import { PageHeader } from "../components/ui";
+import { PageHeader, Button } from "../components/ui";
 import PageWidget from "../components/PageWidget";
 import { Segmented, ManualSessionModal } from "../components/activity";
 import type { DateRangeKey } from "../components/activity";
@@ -290,38 +290,30 @@ export default function ActivityPage() {
 
               <PageWidget page="activity" widget="filters">
               <div className="activity__export-actions ui-complete-only ui-item-filters">
-                <button
+                <Button variant="primary" size="md" iconOnly leftIcon={<Icons.Plus size={13} />}
                   type="button"
-                  className="activity__icon-btn activity__icon-btn--primary"
+                  
                   onClick={() => setManualSessionOpen(true)}
                   title={t("activityManual.logSessionBtn")}
-                >
-                  <Icons.Plus size={13} />
-                </button>
-                <button
+                ></Button>
+                <Button variant="secondary" size="md" iconOnly leftIcon={<Icons.Camera size={13} />}
                   type="button"
-                  className="activity__icon-btn"
+                  
                   onClick={handleCaptureScreenshot}
                   title={t("activity.capture")}
-                >
-                  <Icons.Camera size={13} />
-                </button>
-                <button
+                ></Button>
+                <Button variant="secondary" size="md" iconOnly leftIcon={<Icons.Download size={13} />}
                   type="button"
-                  className="activity__icon-btn"
+                  
                   onClick={handleExportCSV}
                   title={t("activity.exportCsv")}
-                >
-                  <Icons.Download size={13} />
-                </button>
-                <button
+                ></Button>
+                <Button variant="secondary" size="md" iconOnly leftIcon={<Icons.FileText size={13} />}
                   type="button"
-                  className="activity__icon-btn"
+                  
                   onClick={handleExportJSON}
                   title={t("activity.exportJson")}
-                >
-                  <Icons.FileText size={13} />
-                </button>
+                ></Button>
               </div>
               </PageWidget>
             </div>

@@ -187,7 +187,7 @@
 .lib-hero-greeting {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: var(--space-2xs);
   font-size: clamp(26px, 3vw, 36px);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
@@ -205,7 +205,7 @@
 }
 
 .lib-hero-subtitle {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.45;
@@ -216,14 +216,14 @@
 .lib-hero-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   width: fit-content;
-  padding: 4px 12px;
+  padding: var(--space-2xs) var(--space-md);
   border-radius: var(--radius-full);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -246,9 +246,9 @@
 .lib-hero-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 10px var(--space-lg);
-  font-size: var(--font-size-sm);
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   border-radius: var(--radius-full);
@@ -377,12 +377,12 @@
 .lib-stat-body {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-4xs);
   min-width: 0;
 }
 
 .lib-stat-value {
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   line-height: 1;
@@ -391,7 +391,7 @@
 }
 
 .lib-stat-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -400,7 +400,7 @@
 }
 
 .lib-stat-subtext {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -467,7 +467,7 @@
 }
 
 .lib-rail-title {
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin: 0;
@@ -480,9 +480,9 @@
 }
 
 .lib-rail-subtitle {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
-  margin: 2px 0 0 0;
+  margin: var(--space-3xs) 0 0 0;
 }
 
 /* Collapse animation via grid-template-rows trick. */
@@ -516,7 +516,7 @@
   gap: var(--space-md);
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 3px var(--space-xs) var(--space-lg);
+  padding: var(--space-3xs) var(--space-xs) var(--space-lg);
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   scrollbar-width: thin;
@@ -556,7 +556,7 @@
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-lg);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .lib-rail-empty-icon {
@@ -629,7 +629,7 @@
 .lib-toolbar-title h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--font-size-xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.02em;
@@ -642,12 +642,12 @@
 .lib-toolbar-count {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -678,7 +678,7 @@
   height: 22px;
   margin: 0 var(--space-2xs);
   flex-shrink: 0;
-  border-radius: 1px;
+  border-radius: var(--radius-xs);
   background: var(--color-border);
 }
 
@@ -692,7 +692,7 @@
 .lib-search {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-xs);
   height: 36px;
   padding: 0 var(--space-md);
   background: var(--color-bg-tertiary);
@@ -740,7 +740,7 @@
   background: transparent;
   outline: none;
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-family: inherit;
   width: 100%;
   padding: 0;
@@ -789,8 +789,8 @@
 .lib-toolbar-group {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -798,7 +798,7 @@
 
 .lib-toolbar-group .store-density-toggle {
   display: inline-flex;
-  gap: 2px;
+  gap: var(--space-3xs);
   padding: 0;
   background: transparent;
   border: none;
@@ -837,14 +837,14 @@
 .lib-groupby-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   height: 36px;
   padding: 0 var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
@@ -950,7 +950,7 @@
   background: transparent;
   border: none;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-family: inherit;
   cursor: pointer;
   text-align: left;
@@ -1005,7 +1005,7 @@
 }
 
 .lib-chip-count {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
@@ -1015,13 +1015,13 @@
 .lib-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 6px 4px var(--space-sm);
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs) var(--space-2xs) var(--space-sm);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
   color: var(--color-accent);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   line-height: 1.2;
   font-weight: var(--font-weight-medium);
   animation: libChipIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -1045,7 +1045,7 @@
   justify-content: center;
   width: 16px;
   height: 16px;
-  margin-left: 2px;
+  margin-left: var(--space-3xs);
   border-radius: 50%;
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
@@ -1085,12 +1085,12 @@
 .lib-chip-reset {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px var(--space-sm);
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-sm);
   background: transparent;
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
   cursor: pointer;
@@ -1269,8 +1269,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -1299,8 +1299,8 @@
   justify-content: center;
   min-width: 18px;
   height: 16px;
-  padding: 0 5px;
-  font-size: 9px;
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
@@ -1328,7 +1328,7 @@
   border-radius: var(--radius-xs);
   cursor: pointer;
   font-family: inherit;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1349,7 +1349,7 @@
 .lib-filter-group__head-left {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   min-width: 0;
   flex: 1;
 }
@@ -1409,7 +1409,7 @@
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   font-family: inherit;
@@ -1429,7 +1429,7 @@
    as one family. */
 select.lib-filter-search {
   appearance: none;
-  padding-right: 34px;
+  padding-right: var(--space-2xl);
   cursor: pointer;
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
@@ -1452,11 +1452,11 @@ select.lib-filter-search option {
 .lib-segment {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-2xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 3px;
+  padding: var(--space-3xs);
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -1468,8 +1468,8 @@ select.lib-filter-search option {
   text-align: center;
   background: transparent;
   border: none;
-  padding: 6px var(--space-xs);
-  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
@@ -1512,7 +1512,7 @@ select.lib-filter-search option {
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   outline: none;
   font-family: inherit;
   text-align: center;
@@ -1527,7 +1527,7 @@ select.lib-filter-search option {
 
 .lib-year-sep {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 /* Rating slider */
@@ -1538,7 +1538,7 @@ select.lib-filter-search option {
 }
 
 .lib-rating-value {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   font-variant-numeric: tabular-nums;
@@ -1595,10 +1595,10 @@ select.lib-filter-search option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   border: 1px solid var(--color-border);
@@ -1673,7 +1673,7 @@ select.lib-filter-search option {
 
 .lib-filter-overlay-header h3 {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
@@ -1731,14 +1731,14 @@ select.lib-filter-search option {
 .lib-filter-trigger {
   display: none;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   height: 36px;
   padding: 0 var(--space-md);
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -1768,11 +1768,11 @@ select.lib-filter-search option {
   justify-content: center;
   min-width: 18px;
   height: 18px;
-  padding: 0 5px;
+  padding: 0 var(--space-2xs);
   border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1;
 }
@@ -1864,7 +1864,7 @@ select.lib-filter-search option {
 }
 
 .lib-cards--editorial > .lib-card--featured .lib-card-name {
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
 }
 
@@ -2019,9 +2019,9 @@ select.lib-filter-search option {
 .lib-card-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 7px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.75);
@@ -2097,7 +2097,7 @@ select.lib-filter-search option {
   border-radius: 50%;
   background: var(--color-success);
   display: inline-block;
-  margin-right: 4px;
+  margin-right: var(--space-2xs);
 }
 
 @keyframes runningDotPulse {
@@ -2120,7 +2120,7 @@ select.lib-filter-search option {
 }
 
 .lib-card-name {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -2134,21 +2134,21 @@ select.lib-filter-search option {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .lib-card-platform {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   text-transform: capitalize;
 }
 
 .lib-card-developer {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   margin: 0;
   white-space: nowrap;
@@ -2159,20 +2159,20 @@ select.lib-filter-search option {
 .lib-card-genres {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .lib-card-genre {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  padding: 1px 6px;
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-full);
 }
 
 .lib-card-notes {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0;
@@ -2224,7 +2224,7 @@ select.lib-filter-search option {
 
 .lib-card.density-cinematic .lib-card-name {
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   -webkit-line-clamp: 2;
 }
 
@@ -2262,11 +2262,11 @@ select.lib-filter-search option {
   min-width: 0;
   padding: var(--space-sm) var(--space-lg);
   justify-content: center;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .lib-card.density-list .lib-card-name {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   -webkit-line-clamp: 1;
 }
 
@@ -2276,7 +2276,7 @@ select.lib-filter-search option {
 }
 
 .lib-card.density-list .lib-card-notes {
-  margin: 2px 0 0 0;
+  margin: var(--space-3xs) 0 0 0;
   -webkit-line-clamp: 1;
 }
 
@@ -2382,13 +2382,13 @@ select.lib-filter-search option {
   position: absolute;
   top: var(--space-xs);
   left: var(--space-xs);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   background: color-mix(in srgb, var(--color-bg-primary) 68%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  padding: 2px 6px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-light);
   letter-spacing: 0.4px;
@@ -2404,9 +2404,9 @@ select.lib-filter-search option {
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  font-size: 9px;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -2427,9 +2427,9 @@ select.lib-filter-search option {
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-size: 11px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent-contrast);
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
@@ -2487,11 +2487,11 @@ select.lib-filter-search option {
   padding: var(--space-sm) var(--space-md);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .lib-rail-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -2501,7 +2501,7 @@ select.lib-filter-search option {
 }
 
 .lib-rail-meta {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -2509,7 +2509,7 @@ select.lib-filter-search option {
 .lib-rail-meta--continue {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   color: color-mix(in srgb, var(--color-success) 75%, var(--color-text-primary));
   font-weight: var(--font-weight-semibold);
 }
@@ -2600,7 +2600,7 @@ select.lib-filter-search option {
 }
 
 .lib-empty-title {
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin: 0 0 var(--space-sm) 0;
@@ -2608,7 +2608,7 @@ select.lib-filter-search option {
 }
 
 .lib-empty-subtitle {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   color: var(--color-text-secondary);
   margin: 0 auto var(--space-xl);
   line-height: 1.55;
@@ -2706,11 +2706,11 @@ select.lib-filter-search option {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .lib-empty-card-title {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0;
@@ -2718,7 +2718,7 @@ select.lib-filter-search option {
 }
 
 .lib-empty-card-desc {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin: 0;
   line-height: 1.4;
@@ -2832,7 +2832,7 @@ select.lib-filter-search option {
 .lfe-tile-play svg {
   width: 11px;
   height: 11px;
-  margin-left: 2px;
+  margin-left: var(--space-3xs);
 }
 
 .lfe-glass {
@@ -2891,14 +2891,14 @@ select.lib-filter-search option {
 }
 
 .lib-filtered-empty-title {
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
   margin: 0;
 }
 
 .lib-filtered-empty-subtitle {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   margin: 0;
   max-width: 360px;
@@ -2912,7 +2912,7 @@ select.lib-filter-search option {
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-full);
   cursor: pointer;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
   transition: background var(--transition-fast),
@@ -3060,7 +3060,6 @@ select.lib-filter-search option {
   }
 }
 
-
 @media (prefers-reduced-motion: reduce) {
   .lib-page,
   .lib-hero,
@@ -3097,14 +3096,14 @@ select.lib-filter-search option {
 .lib-export-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   height: 36px;
   padding: 0 var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
@@ -3163,30 +3162,6 @@ select.lib-filter-search option {
   flex-direction: column;
 }
 
-/* Close affordance (mirrors `.modal-close` from page-emulators.css,
-   which isn't loaded on the library route). */
-.lib-export-close {
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-standard),
-    background var(--duration-fast) var(--ease-standard);
-}
-
-.lib-export-close:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
 .lib-export-body {
   overflow-y: auto;
   min-height: 0;
@@ -3204,7 +3179,7 @@ select.lib-filter-search option {
 
 .lib-export-section-title {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -3215,8 +3190,8 @@ select.lib-filter-search option {
 .lib-export-seg {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -3230,10 +3205,10 @@ select.lib-filter-search option {
   border: none;
   background: transparent;
   font-family: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
-  padding: 5px 14px;
+  padding: var(--space-2xs) var(--space-md);
   border-radius: var(--radius-full);
   cursor: pointer;
   white-space: nowrap;
@@ -3254,7 +3229,7 @@ select.lib-filter-search option {
 
 .lib-export-scope-count {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -3285,7 +3260,7 @@ select.lib-filter-search option {
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
   flex-shrink: 0;
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xs);
@@ -3315,19 +3290,19 @@ select.lib-filter-search option {
 .lib-export-check-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .lib-export-check-title {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1.35;
 }
 
 .lib-export-check-desc {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.5;
 }
@@ -3335,7 +3310,7 @@ select.lib-filter-search option {
 .lib-export-empty-hint {
   margin: 0;
   padding: var(--space-md) var(--space-lg);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   background: var(--color-bg-tertiary);
   border: 1px dashed var(--color-border-light);
@@ -3418,18 +3393,18 @@ select.lib-filter-search option {
 .lib-hero-spotlight-tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--color-accent);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-2xs);
 }
 
 .lib-hero-spotlight-name {
-  margin: 0 0 4px 0;
-  font-size: var(--font-size-md);
+  margin: 0 0 var(--space-2xs) 0;
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -3441,7 +3416,7 @@ select.lib-filter-search option {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   margin-bottom: var(--space-sm);
 }
@@ -3454,13 +3429,13 @@ select.lib-filter-search option {
 .lib-hero-spotlight-play {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-full);
   border: none;
   background: var(--brand-gradient);
   color: var(--color-accent-contrast);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -3508,12 +3483,12 @@ select.lib-filter-search option {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: 5px 12px;
+  padding: var(--space-2xs) var(--space-md);
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -3553,8 +3528,8 @@ select.lib-filter-search option {
 }
 
 .lib-hero-filter-count {
-  font-size: var(--font-size-2xs);
-  padding: 1px 5px;
+  font-size: var(--text-2xs);
+  padding: var(--space-4xs) var(--space-2xs);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
   font-weight: var(--font-weight-bold);
@@ -3577,7 +3552,7 @@ select.lib-filter-search option {
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
 }
@@ -3605,7 +3580,7 @@ select.lib-filter-search option {
   border: 1px solid var(--color-border);
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -3634,7 +3609,7 @@ select.lib-filter-search option {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  padding: 8px 16px;
+  padding: var(--space-sm) var(--space-lg);
   max-width: calc(100vw - var(--space-xl));
   flex-wrap: wrap;
   justify-content: center;
@@ -3658,7 +3633,7 @@ select.lib-filter-search option {
 }
 
 .lib-bulk-badge {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   padding-right: var(--space-xs);
@@ -3676,14 +3651,14 @@ select.lib-filter-search option {
 .lib-bulk-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   height: 30px;
-  padding: 0 10px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -3751,7 +3726,7 @@ select.lib-filter-search option {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 10px 16px;
+  padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-bg-secondary) 85%, transparent);
   backdrop-filter: blur(12px);
@@ -3796,23 +3771,23 @@ select.lib-filter-search option {
 }
 
 .lib-group-letter-badge {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
 }
 
 .lib-group-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.2px;
 }
 
 .lib-group-count-pill {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   color: var(--color-text-secondary);
@@ -3833,12 +3808,12 @@ select.lib-filter-search option {
   gap: var(--space-xs);
   flex-shrink: 0;
   color: var(--color-text-tertiary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
 }
 
 .lib-group-toggle-text {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -3875,7 +3850,7 @@ select.lib-filter-search option {
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
   border-bottom: 1px solid var(--color-border);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
@@ -3910,7 +3885,7 @@ select.lib-filter-search option {
   background: var(--color-bg-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-xs);
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -3956,7 +3931,7 @@ select.lib-filter-search option {
 }
 
 .lib-card-placeholder-letter {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
@@ -3968,8 +3943,8 @@ select.lib-filter-search option {
 }
 
 .lib-card-list-info .lib-card-name {
-  margin: 0 0 2px 0;
-  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-3xs) 0;
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
@@ -3977,7 +3952,7 @@ select.lib-filter-search option {
 }
 
 .lib-card-list-dev {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   white-space: nowrap;
   overflow: hidden;
@@ -3995,7 +3970,7 @@ select.lib-filter-search option {
 }
 
 .lib-card-list-last-played {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -4061,14 +4036,14 @@ select.lib-filter-search option {
 .lib-card-list-play-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2xs);
   height: 28px;
-  padding: 0 12px;
+  padding: 0 var(--space-md);
   border-radius: var(--radius-full);
   border: none;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: all var(--transition-fast);

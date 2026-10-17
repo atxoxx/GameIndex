@@ -10,6 +10,7 @@ import {
   isAppBlacklisted,
   safeCurrentlyPlaying,
 } from "../../pages/friendsStorage";
+import { Button } from "../ui";
 
 export {
   displayName,
@@ -326,13 +327,10 @@ export function SearchableGameSelector({
           </div>
           <span className="selected-game-title">{gameDisplayName(selectedGame)}</span>
         </div>
-        <button
+        <Button variant="secondary" size="sm"
           type="button"
-          className="btn btn-secondary btn--mini"
           onClick={() => onSelect("")}
-        >
-          {t("common.change")}
-        </button>
+        > {t("common.change")} </Button>
       </div>
     );
   }
@@ -492,9 +490,7 @@ export function GamePicker({
           <GameCover id={selectedGameId} name={selectedGameName} className="selected-game-thumb" />
           <span className="selected-game-title">{selectedGameName}</span>
         </div>
-        <button type="button" className="btn btn-secondary btn--mini" onClick={() => onSelect({ id: "", name: "" })}>
-          {t("common.change")}
-        </button>
+        <Button variant="secondary" size="sm" type="button"  onClick={() => onSelect({ id: "", name: "" })}> {t("common.change")} </Button>
       </div>
     );
   }

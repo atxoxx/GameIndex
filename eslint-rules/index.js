@@ -153,3 +153,5 @@ export const jsColors = {
   meta: { name: "@gameindex/js", version: "1.0.0" },
   rules: { "no-hardcoded-colors": jsRule },
 };
+
+export { cssLengths, jsLengths } from "./design-tokens.js";

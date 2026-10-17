@@ -31,6 +31,7 @@ import { copyTextToClipboard } from "../../utils/clipboard";
 import { generateEstimatedTimeline, TIMELINE_COLORS } from "./performance/perfData";
 import { EmptyState, ManualSessionModal, SessionComparisonModal, LinkGameModal, AddActivityGameModal } from "../../components/activity";
 import * as Icons from "./Icons";
+import { Button } from "../../components/ui";
 
 export interface ActivitySessionsProps {
   sessions: GameSession[];
@@ -402,14 +403,12 @@ export function ActivitySessions({
             </button>
           </div>
 
-          <button
+          <Button variant="primary" size="sm"
             type="button"
-            className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+            
             onClick={() => setManualSessionOpen(true)}
             title={t("activityManual.logSessionBtn")}
-          >
-            <Icons.Plus size={12} /> {t("activityManual.logSessionBtn")}
-          </button>
+          > <Icons.Plus size={12} /> {t("activityManual.logSessionBtn")} </Button>
         </div>
       </div>
 
@@ -421,44 +420,34 @@ export function ActivitySessions({
           </span>
           <div className="activity-sessions-batch-bar__actions">
             {selectedSessionIds.size === 2 && (
-              <button
+              <Button variant="secondary" size="sm"
                 type="button"
-                className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                
                 onClick={() => setCompareModalOpen(true)}
-              >
-                <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")}
-              </button>
+              > <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")} </Button>
             )}
-            <button
+            <Button variant="secondary" size="sm"
               type="button"
-              className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+              
               onClick={handleExportSelectedCSV}
               title={t("activity.exportCsv")}
-            >
-              <Icons.Download size={12} /> CSV
-            </button>
-            <button
+            > <Icons.Download size={12} /> CSV </Button>
+            <Button variant="secondary" size="sm"
               type="button"
-              className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+              
               onClick={handleExportSelectedJSON}
               title={t("activity.exportJson")}
-            >
-              <Icons.FileText size={12} /> JSON
-            </button>
-            <button
+            > <Icons.FileText size={12} /> JSON </Button>
+            <Button variant="danger" size="sm"
               type="button"
-              className="act-inspector-btn act-inspector-btn--danger act-inspector-btn--sm"
+              
               onClick={() => setConfirmBatchDelete(true)}
-            >
-              <Icons.Trash2 size={12} /> {t("activitySessions.deleteSelected")}
-            </button>
-            <button
+            > <Icons.Trash2 size={12} /> {t("activitySessions.deleteSelected")} </Button>
+            <Button variant="ghost" size="sm"
               type="button"
-              className="act-inspector-btn act-inspector-btn--ghost act-inspector-btn--sm"
+              
               onClick={() => setSelectedSessionIds(new Set())}
-            >
-              {t("common.cancel")}
-            </button>
+            > {t("common.cancel")} </Button>
           </div>
         </div>
       )}
@@ -1091,13 +1080,11 @@ function ActivitySessionItem({
                 <Icons.FileText size={13} /> {t("sessionNotes.title")}
               </span>
               {!isEditingNote && (
-                <button
+                <Button variant="secondary" size="sm"
                   type="button"
-                  className="act-inspector-btn act-inspector-btn--sm"
+                  
                   onClick={() => setIsEditingNote(true)}
-                >
-                  <Icons.Edit3 size={11} /> {noteText ? t("common.edit") : t("sessionNotes.addNote")}
-                </button>
+                > <Icons.Edit3 size={11} /> {noteText ? t("common.edit") : t("sessionNotes.addNote")} </Button>
               )}
             </div>
 
@@ -1119,13 +1106,11 @@ function ActivitySessionItem({
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={handleAddTag}
                   />
-                  <button
+                  <Button variant="secondary" size="sm"
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--sm"
+                    
                     onClick={handleAddTag}
-                  >
-                    <Icons.Tag size={11} /> {t("sessionNotes.addTag")}
-                  </button>
+                  > <Icons.Tag size={11} /> {t("sessionNotes.addTag")} </Button>
                 </div>
                 {tagsList.length > 0 && (
                   <div className="act-inspector-notes__tags">
@@ -1145,20 +1130,16 @@ function ActivitySessionItem({
                   </div>
                 )}
                 <div className="act-inspector-notes__editor-actions">
-                  <button
+                  <Button variant="primary" size="sm"
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                    
                     onClick={handleSaveNotes}
-                  >
-                    <Icons.Check size={12} /> {t("common.save")}
-                  </button>
-                  <button
+                  > <Icons.Check size={12} /> {t("common.save")} </Button>
+                  <Button variant="ghost" size="sm"
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--ghost act-inspector-btn--sm"
+                    
                     onClick={() => setIsEditingNote(false)}
-                  >
-                    {t("common.cancel")}
-                  </button>
+                  > {t("common.cancel")} </Button>
                 </div>
               </div>
             ) : (
@@ -1184,44 +1165,36 @@ function ActivitySessionItem({
           {/* Quick Actions Footer */}
           {game ? (
             <div className="activity-session-item__actions-footer">
-              <button
+              <Button variant="secondary" size="sm"
                 type="button"
-                className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                
                 onClick={() => navigate(`/library/${game.id}`)}
-              >
-                <Icons.ExternalLink size={12} /> {t("gameActivity.viewGamePage")}
-              </button>
+              > <Icons.ExternalLink size={12} /> {t("gameActivity.viewGamePage")} </Button>
               {onLaunchGame && (
-                <button
+                <Button variant="primary" size="sm"
                   type="button"
-                  className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                  
                   onClick={() => onLaunchGame(game)}
-                >
-                  <Icons.Play size={12} /> {t("game.play")}
-                </button>
+                > <Icons.Play size={12} /> {t("game.play")} </Button>
               )}
             </div>
           ) : (
             <div className="activity-session-item__actions-footer">
               {onRequestLink && (
-                <button
+                <Button variant="secondary" size="sm"
                   type="button"
-                  className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                  
                   onClick={() => onRequestLink(session.gameId, session.gameName)}
                   title={t("activity.linkToLibrary")}
-                >
-                  <Icons.Link2 size={12} /> {t("activity.linkToLibrary")}
-                </button>
+                > <Icons.Link2 size={12} /> {t("activity.linkToLibrary")} </Button>
               )}
               {onRequestAdd && (
-                <button
+                <Button variant="primary" size="sm"
                   type="button"
-                  className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                  
                   onClick={() => onRequestAdd(session.gameId, session.gameName)}
                   title={t("activity.addToLibrary")}
-                >
-                  <Icons.Plus size={12} /> {t("activity.addToLibrary")}
-                </button>
+                > <Icons.Plus size={12} /> {t("activity.addToLibrary")} </Button>
               )}
             </div>
           )}

@@ -15,7 +15,7 @@
 
 .diag-meta-label {
   flex: 0 0 auto;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-text-tertiary);
@@ -23,7 +23,7 @@
 
 .diag-meta-value {
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   word-break: break-all;
 }
@@ -42,7 +42,7 @@
 }
 
 .diag-reports-title {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
@@ -56,17 +56,17 @@
 .diag-report-item {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .diag-report-chip {
-  padding: 4px 10px;
+  padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
@@ -86,9 +86,9 @@
   border: none;
   background: transparent;
   color: var(--color-text-tertiary);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   line-height: 1;
-  padding: 2px 4px;
+  padding: var(--space-3xs) var(--space-2xs);
   cursor: pointer;
   border-radius: var(--radius-sm);
 }
@@ -103,7 +103,7 @@
   padding: var(--space-lg);
   text-align: center;
   color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
 }
@@ -116,7 +116,7 @@
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   line-height: 1.55;
   color: var(--color-text-secondary);
   background: var(--color-bg-primary);

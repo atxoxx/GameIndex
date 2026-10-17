@@ -14,6 +14,7 @@ import {
   CheckIcon,
 } from "./friendsUtils";
 import { STATUS_PRESETS } from "../../pages/friendsStorage";
+import { Button } from "../ui";
 
 interface FriendsProfileTabProps {
   profile: UserProfile;
@@ -117,13 +118,10 @@ export default function FriendsProfileTab({
 
             <div className="my-code-box">
               <span className="my-code-text">{myFriendCode}</span>
-              <button
+              <Button variant="secondary" size="sm" leftIcon={<CopyIcon />}
                 type="button"
-                className="btn btn-secondary btn--mini"
                 onClick={() => copyToClipboard(myFriendCode, t("friendsPage.friendCode"))}
-              >
-                <CopyIcon /> {t("common.copy")}
-              </button>
+              > {t("common.copy")} </Button>
             </div>
 
             {myFriendCode && (
@@ -138,13 +136,10 @@ export default function FriendsProfileTab({
                 <span className="nostr-key-label">{t("friendsPage.nostrPublicKey")}</span>
                 <div className="nostr-key-row">
                   <span className="nostr-key-val">{nostrPublicKey}</span>
-                  <button
+                  <Button variant="secondary" size="sm" iconOnly leftIcon={<CopyIcon />}
                     type="button"
-                    className="btn btn-secondary btn--mini"
                     onClick={() => copyToClipboard(nostrPublicKey, t("friendsPage.nostrPublicKey"))}
-                  >
-                    <CopyIcon />
-                  </button>
+                  ></Button>
                 </div>
               </div>
             )}
@@ -173,17 +168,14 @@ export default function FriendsProfileTab({
             <div className="form-group">
               <label className="form-label">{t("friendsPage.avatarPicture")}</label>
               <div className="avatar-options-row">
-                <button
+                <Button variant="secondary" size="sm"
                   type="button"
-                  className={`btn btn-secondary btn--mini${
-                    profile.avatar === "procedural" ? " active" : ""
-                  }`}
                   onClick={handleUseProceduralAvatar}
-                >
-                  {t("friendsPage.proceduralAvatar")}
-                </button>
+                 className={`
+                    profile.avatar === "procedural" ? " active" : ""
+                  }`}> {t("friendsPage.proceduralAvatar")} </Button>
 
-                <label className="btn btn-secondary btn--mini file-upload-label">
+                <label className="ui-btn ui-btn--secondary ui-btn--sm file-upload-label">
                   <span>{t("friendsPage.uploadCustomImage")}</span>
                   <input
                     type="file"
@@ -263,9 +255,7 @@ export default function FriendsProfileTab({
             </div>
 
             <div className="profile-editor-footer">
-              <button type="submit" className="btn btn-primary">
-                <CheckIcon /> {t("friendsPage.saveProfile")}
-              </button>
+              <Button variant="primary" size="md" leftIcon={<CheckIcon />} type="submit" > {t("friendsPage.saveProfile")} </Button>
             </div>
           </form>
         </div>

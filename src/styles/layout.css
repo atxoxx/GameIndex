@@ -164,14 +164,14 @@ html[data-sidebar-position="right"] .app-layout.sidebar-collapsed .app-sidebar {
 }
 
 .main-empty-title {
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.02em;
 }
 
 .main-empty-subtitle {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   color: var(--color-text-secondary);
   max-width: 440px;
   line-height: var(--line-height-relaxed);

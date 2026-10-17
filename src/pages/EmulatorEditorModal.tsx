@@ -221,9 +221,7 @@ export default function EmulatorEditorModal({
               {isEdit ? selectedKnown?.name || name : t("emulators.knownHint")}
             </p>
           </div>
-          <button className="modal-close" aria-label={t("common.close")} onClick={onClose}>
-            ×
-          </button>
+          <Button variant="ghost" size="sm" iconOnly  aria-label={t("common.close")} onClick={onClose} className="modal-close"> × </Button>
         </div>
 
         <div className="modal-body emulators-editor-body">

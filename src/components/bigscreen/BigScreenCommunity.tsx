@@ -90,9 +90,9 @@ export default function BigScreenCommunity() {
         <div className="bigscreen-panel-card">
           <h3>{t("bigscreen.community.mostPlayed")}</h3>
           {topGames.length === 0 ? (
-            <p className="bigscreen-kpi-sub" style={{ fontSize: "0.8125rem" }}>{t("bigscreen.community.noPlaytime")}</p>
+            <p className="bigscreen-kpi-sub" style={{ fontSize: "var(--text-sm)" }}>{t("bigscreen.community.noPlaytime")}</p>
           ) : (
-            <div className="bigscreen-sessions-list" style={{ gap: "1rem" }}>
+            <div className="bigscreen-sessions-list" style={{ gap: "var(--space-lg)" }}>
               {topGames.slice(0, 5).map((g) => (
                 <TopGameRow
                   key={g.gameId}
@@ -105,11 +105,11 @@ export default function BigScreenCommunity() {
         </div>
 
         {/* Breakdown by Genre and Platform */}
-        <div className="bigscreen-sessions-list" style={{ gap: "1.5rem", width: "100%" }}>
+        <div className="bigscreen-sessions-list" style={{ gap: "var(--space-xl)", width: "100%" }}>
           <div className="bigscreen-panel-card">
             <h3>{t("bigscreen.community.playtimeByGenre")}</h3>
             {stats.genreBreakdown.length === 0 ? (
-              <p className="bigscreen-kpi-sub" style={{ fontSize: "0.8125rem" }}>{t("bigscreen.community.noGenres")}</p>
+              <p className="bigscreen-kpi-sub" style={{ fontSize: "var(--text-sm)" }}>{t("bigscreen.community.noGenres")}</p>
             ) : (
               <div className="bigscreen-breakdown-list">
                 {stats.genreBreakdown.slice(0, 5).map((gen) => (
@@ -133,7 +133,7 @@ export default function BigScreenCommunity() {
           <div className="bigscreen-panel-card">
             <h3>{t("bigscreen.community.playtimeByPlatform")}</h3>
             {stats.platformBreakdown.length === 0 ? (
-              <p className="bigscreen-kpi-sub" style={{ fontSize: "0.8125rem" }}>{t("bigscreen.community.noPlatforms")}</p>
+              <p className="bigscreen-kpi-sub" style={{ fontSize: "var(--text-sm)" }}>{t("bigscreen.community.noPlatforms")}</p>
             ) : (
               <div className="bigscreen-breakdown-list">
                 {stats.platformBreakdown.slice(0, 5).map((plat) => (

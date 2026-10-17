@@ -633,14 +633,14 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
           <div className="store-spotlight-skeleton-info">
             <div className="skeleton-line skeleton-title" style={{ width: "60%" }} />
             <div className="skeleton-line skeleton-subtitle" style={{ width: "40%" }} />
-            <div className="skeleton-line skeleton-subtitle" style={{ width: "80%", marginTop: "12px" }} />
+            <div className="skeleton-line skeleton-subtitle" style={{ width: "80%", marginTop: "var(--space-md)" }} />
           </div>
         </div>
       ) : !activeGame ? (
         <div className="store-spotlight-stage store-spotlight-stage--empty">
           <div className="store-spotlight-body">
             <h2 className="store-spotlight-title">{t("store.noGames")}</h2>
-            <p style={{ color: "var(--color-text-secondary)", margin: "8px 0 16px" }}>{t("store.noGamesHint")}</p>
+            <p style={{ color: "var(--color-text-secondary)", margin: "var(--space-sm) 0 var(--space-lg)" }}>{t("store.noGamesHint")}</p>
             <Button variant="secondary" size="sm" onClick={() => setTab("hot")}>
               {t("common.reset")}
             </Button>

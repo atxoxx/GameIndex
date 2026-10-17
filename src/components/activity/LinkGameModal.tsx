@@ -8,6 +8,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { calculateLinkedPlaytime } from "./activityLinkUtils";
 import { GameThumbnail } from "./GameThumbnail";
 import * as Icons from "./Icons";
+import { Button } from "../ui";
 
 export interface LinkGameModalProps {
   isOpen: boolean;
@@ -115,14 +116,12 @@ export function LinkGameModal({
               {t("activityLink.modalDesc", { name: unlinkedGameTitle })}
             </p>
           </div>
-          <button
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<Icons.X size={16} />}
             type="button"
-            className="act-modal__close-btn"
+            
             onClick={onClose}
             aria-label={t("common.close")}
-          >
-            <Icons.X size={16} />
-          </button>
+          ></Button>
         </div>
 
         <form onSubmit={handleLink} className="act-link-modal__form">
@@ -218,22 +217,18 @@ export function LinkGameModal({
 
           {/* Actions */}
           <div className="act-modal__actions">
-            <button
+            <Button variant="ghost" size="md"
               type="button"
-              className="act-inspector-btn act-inspector-btn--ghost"
+              
               onClick={onClose}
               disabled={linking}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
+            > {t("common.cancel")} </Button>
+            <Button variant="primary" size="md"
               type="submit"
-              className="act-inspector-btn act-inspector-btn--primary"
+              
               disabled={linking || !selectedTargetGame}
-            >
-              <Icons.Link2 size={13} />{" "}
-              {linking ? t("activityLink.linking") : t("activityLink.confirm")}
-            </button>
+            > <Icons.Link2 size={13} />{" "}
+              {linking ? t("activityLink.linking") : t("activityLink.confirm")} </Button>
           </div>
         </form>
       </div>

@@ -10,6 +10,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { fetchAllImages } from "../../context/game/useEnrich";
 import { calculateNewGamePlaytime } from "./activityLinkUtils";
 import * as Icons from "./Icons";
+import { Button } from "../ui";
 
 export interface AddActivityGameModalProps {
   isOpen: boolean;
@@ -170,14 +171,12 @@ export function AddActivityGameModal({
               {t("activityAdd.modalDesc", { name: unlinkedGameTitle })}
             </p>
           </div>
-          <button
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<Icons.X size={16} />}
             type="button"
-            className="act-modal__close-btn"
+            
             onClick={onClose}
             aria-label={t("common.close")}
-          >
-            <Icons.X size={16} />
-          </button>
+          ></Button>
         </div>
 
         <form onSubmit={handleSave} className="act-add-modal__form">
@@ -193,14 +192,12 @@ export function AddActivityGameModal({
                 placeholder={t("activityAdd.gameNamePlaceholder")}
                 required
               />
-              <button
+              <Button variant="secondary" size="md"
                 type="button"
-                className="act-inspector-btn act-inspector-btn--secondary"
+                
                 onClick={() => searchMetadata(title)}
                 disabled={searching || !title.trim()}
-              >
-                <Icons.Search size={13} /> {searching ? t("activityAdd.searching") : t("activityAdd.searchMetadata")}
-              </button>
+              > <Icons.Search size={13} /> {searching ? t("activityAdd.searching") : t("activityAdd.searchMetadata")} </Button>
             </div>
           </div>
 
@@ -278,34 +275,28 @@ export function AddActivityGameModal({
                 value={exePath}
                 onChange={(e) => setExePath(e.target.value)}
               />
-              <button
+              <Button variant="secondary" size="md"
                 type="button"
-                className="act-inspector-btn act-inspector-btn--secondary"
+                
                 onClick={handleBrowseExe}
-              >
-                <Icons.Folder size={13} /> {t("activityAdd.browseExe")}
-              </button>
+              > <Icons.Folder size={13} /> {t("activityAdd.browseExe")} </Button>
             </div>
           </div>
 
           {/* Actions */}
           <div className="act-modal__actions">
-            <button
+            <Button variant="ghost" size="md"
               type="button"
-              className="act-inspector-btn act-inspector-btn--ghost"
+              
               onClick={onClose}
               disabled={saving}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
+            > {t("common.cancel")} </Button>
+            <Button variant="primary" size="md"
               type="submit"
-              className="act-inspector-btn act-inspector-btn--primary"
+              
               disabled={saving || !title.trim()}
-            >
-              <Icons.Plus size={13} />{" "}
-              {saving ? t("common.saving") : t("activityAdd.submitBtn")}
-            </button>
+            > <Icons.Plus size={13} />{" "}
+              {saving ? t("common.saving") : t("activityAdd.submitBtn")} </Button>
           </div>
         </form>
       </div>

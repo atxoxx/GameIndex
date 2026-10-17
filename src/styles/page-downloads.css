@@ -35,8 +35,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  padding-left: 12px;
-  font-size: var(--font-size-md);
+  padding-left: var(--space-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.01em;
@@ -61,8 +61,8 @@
   justify-content: center;
   min-width: 22px;
   height: 22px;
-  padding: 0 8px;
-  font-size: var(--font-size-2xs);
+  padding: 0 var(--space-sm);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   background: var(--color-bg-tertiary);
   color: var(--color-accent);
@@ -84,7 +84,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: 4px 6px 4px 12px;
+  padding: var(--space-2xs) var(--space-xs) var(--space-2xs) var(--space-md);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -108,7 +108,7 @@
 .dl-magnet-input-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   flex: 1;
   min-width: 0;
 }
@@ -121,9 +121,9 @@
 }
 
 .dl-magnet-badge {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
-  padding: 2px 6px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
@@ -152,7 +152,7 @@
   border: none;
   background: transparent;
   outline: none;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-primary);
   font-family: inherit;
 }
@@ -165,13 +165,13 @@
 .dl-magnet-clear-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   flex-shrink: 0;
@@ -229,8 +229,8 @@
 .dl-magnet-path-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   min-width: 0;
 }
@@ -249,15 +249,15 @@
   align-items: center;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  padding-top: 4px;
+  padding-top: var(--space-2xs);
   border-top: 1px dashed color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
 .dl-magnet-checkbox-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   cursor: pointer;
 }
@@ -316,7 +316,7 @@
 .dl-hero-metric {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .dl-hero-metric-header {
@@ -329,8 +329,8 @@
 .dl-hero-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
 }
@@ -356,17 +356,17 @@
 }
 
 .dl-hero-peak {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   background: var(--color-bg-tertiary);
-  padding: 1px 6px;
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-sm);
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
 .dl-hero-value {
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -382,7 +382,7 @@
 }
 
 .dl-hero-sub {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -410,13 +410,13 @@
 .dl-hero-speed-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -436,9 +436,9 @@
 }
 
 .dl-hero-speed-badge {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: 800;
-  padding: 1px 5px;
+  padding: var(--space-4xs) var(--space-2xs);
   background: color-mix(in srgb, var(--color-warning) 20%, transparent);
   border-radius: var(--radius-xs);
   color: var(--color-warning);
@@ -449,8 +449,8 @@
 .dl-drive-widget {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 12px;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -466,13 +466,13 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
 }
 
 .dl-drive-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .dl-drive-icon {
@@ -492,13 +492,13 @@
 .dl-drive-meta {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .dl-drive-queue-tag {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
-  padding: 1px 5px;
+  padding: var(--space-4xs) var(--space-2xs);
   border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--color-accent) 15%, transparent);
   color: var(--color-accent);
@@ -548,10 +548,10 @@
 .dl-drive-alert {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   color: var(--color-warning);
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
 }
 
 /* ── Sparkline Telemetry Graph ───────────────────────────────────── */
@@ -580,8 +580,8 @@
 .dl-sparkline-title {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
@@ -595,16 +595,16 @@
 .dl-sparkline-time-toggles {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-3xs);
   background: var(--color-bg-tertiary);
-  padding: 2px;
+  padding: var(--space-3xs);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
 }
 
 .dl-sparkline-time-btn {
-  padding: 2px 8px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   background: transparent;
@@ -633,8 +633,8 @@
 .dl-sparkline-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
 }
@@ -660,11 +660,11 @@
 }
 
 .dl-sparkline-stat-pill {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   background: var(--color-bg-tertiary);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
 }
@@ -735,13 +735,13 @@
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 3px 8px;
+  gap: var(--space-sm);
+  padding: var(--space-3xs) var(--space-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   z-index: 2;
@@ -769,7 +769,7 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 8px 10px;
+  padding: var(--space-sm) var(--space-sm);
   box-shadow: var(--shadow-xs);
 }
 
@@ -783,7 +783,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-sm);
   flex: 1 1 320px;
   min-width: 0;
 }
@@ -815,8 +815,8 @@
 
 .dl-filters-search-input {
   width: 100%;
-  padding: 6px 26px 6px 28px;
-  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-xl) var(--space-xs) var(--space-xl);
+  font-size: var(--text-xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -838,7 +838,7 @@
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .dl-filters-sort-wrapper {
@@ -860,8 +860,8 @@
 .dl-filters-sort-select {
   appearance: none;
   -webkit-appearance: none;
-  padding: 6px 24px 6px 26px;
-  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-xl) var(--space-xs) var(--space-xl);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -888,9 +888,9 @@
 .dl-view-toggle-group {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-3xs);
   background: var(--color-bg-tertiary);
-  padding: 2px;
+  padding: var(--space-3xs);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   flex-shrink: 0;
@@ -938,7 +938,7 @@
 .dl-toolbar--selected {
   background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  padding: 6px 12px;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-md);
 }
 
@@ -950,7 +950,7 @@
 }
 
 .dl-toolbar-selection-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
 }
@@ -965,13 +965,13 @@
   justify-content: center;
   min-width: 18px;
   height: 18px;
-  padding: 0 5px;
-  font-size: var(--font-size-2xs);
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   color: var(--color-text-muted);
-  margin-left: 4px;
+  margin-left: var(--space-2xs);
 }
 
 /* ── Custom Styled Checkboxes ────────────────────────────────────── */
@@ -1043,9 +1043,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
-  padding: 2px 7px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-xs);
   font-family: inherit;
   white-space: nowrap;
@@ -1104,7 +1104,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-list--compact {
-  gap: 3px;
+  gap: var(--space-3xs);
 }
 
 .dl-row-container {
@@ -1129,7 +1129,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-page .dl-row--compact {
   grid-template-columns: auto minmax(0, 1fr) minmax(110px, 140px) minmax(80px, 100px) auto;
-  padding: 6px var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
   gap: var(--space-sm);
 }
 
@@ -1251,7 +1251,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--space-2xs);
 }
 
 .dl-row-name-row {
@@ -1265,13 +1265,13 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-row-name-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   min-width: 0;
   flex-wrap: wrap;
 }
 
 .dl-row-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1282,9 +1282,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-row-badge {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
-  padding: 1px 5px;
+  padding: var(--space-4xs) var(--space-2xs);
   border-radius: var(--radius-xs);
   vertical-align: middle;
   flex-shrink: 0;
@@ -1310,15 +1310,15 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-row-meta-tags {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   flex-shrink: 0;
 }
 
 .dl-row-source {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
-  padding: 2px 7px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
@@ -1327,7 +1327,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-row-queue {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
@@ -1373,7 +1373,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-row-progress {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
@@ -1385,16 +1385,16 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   color: var(--color-accent);
   font-weight: var(--font-weight-bold);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  padding: 1px 6px;
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-sm);
-  margin-left: 4px;
+  margin-left: var(--space-2xs);
 }
 
 .dl-row-activity {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   line-height: 1.4;
   color: var(--color-text-muted);
   min-width: 0;
@@ -1426,14 +1426,14 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-row-error {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--color-danger);
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
   border-radius: var(--radius-md);
-  padding: 6px 10px;
-  margin-top: 2px;
+  padding: var(--space-xs) var(--space-sm);
+  margin-top: var(--space-3xs);
   word-break: break-word;
 }
 
@@ -1441,10 +1441,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-row-speed {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   align-items: flex-end;
   font-variant-numeric: tabular-nums;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -1452,14 +1452,14 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   color: var(--color-accent);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .dl-row-speed-ul {
   color: var(--color-success);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .dl-row-speed-muted {
@@ -1470,9 +1470,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-row-swarm {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
   align-items: flex-end;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
@@ -1480,13 +1480,13 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-row-swarm-counts {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .dl-row-swarm-counts span {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-3xs);
 }
 
 .dl-row-swarm-seeds {
@@ -1496,14 +1496,14 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-swarm-health {
   display: flex;
   align-items: flex-end;
-  gap: 2px;
+  gap: var(--space-3xs);
   height: 10px;
 }
 
 .dl-swarm-bar {
   width: 3px;
   height: 100%;
-  border-radius: 1px;
+  border-radius: var(--radius-xs);
   background: var(--color-bg-tertiary);
 }
 
@@ -1522,7 +1522,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-row-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   flex-shrink: 0;
 }
 
@@ -1612,12 +1612,12 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   -webkit-appearance: none;
   max-width: 150px;
   height: 32px;
-  padding: 0 26px 0 10px;
+  padding: 0 var(--space-xl) 0 var(--space-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
@@ -1637,7 +1637,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   position: absolute;
   right: 8px;
   pointer-events: none;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1657,10 +1657,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-files-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
   max-height: 320px;
   overflow-y: auto;
-  padding-right: 6px;
+  padding-right: var(--space-xs);
 }
 
 .dl-file-item {
@@ -1668,7 +1668,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   grid-template-columns: 24px minmax(180px, 1fr) 90px 140px 50px;
   align-items: center;
   gap: var(--space-md);
-  padding: 8px 12px;
+  padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
   background: var(--color-bg-primary);
   border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
@@ -1691,7 +1691,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 @media (max-width: 760px) {
   .dl-file-item {
     grid-template-columns: 24px minmax(0, 1fr) auto;
-    row-gap: 6px;
+    row-gap: var(--space-xs);
   }
 
   .dl-file-checkbox {
@@ -1716,7 +1716,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-file-name {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   font-family: var(--font-mono, monospace);
   color: var(--color-text-primary);
@@ -1732,7 +1732,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-file-size {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
   text-align: right;
@@ -1754,7 +1754,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-file-percentage {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
@@ -1846,10 +1846,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   position: absolute;
   bottom: 10px;
   left: 10px;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  padding: 2px 6px;
+  padding: var(--space-3xs) var(--space-xs);
   background: var(--scrim-dark);
   backdrop-filter: blur(4px);
   color: var(--scrim-text);
@@ -1861,9 +1861,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   position: absolute;
   bottom: 10px;
   right: 10px;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: 800;
-  padding: 2px 6px;
+  padding: var(--space-3xs) var(--space-xs);
   background: color-mix(in srgb, var(--color-warning) 30%, black);
   color: var(--color-warning);
   border-radius: var(--radius-xs);
@@ -1879,7 +1879,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-card-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1890,8 +1890,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-card-progress-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xs);
 }
 
 .dl-card-bar {
@@ -1913,7 +1913,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
@@ -1924,7 +1924,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-card-size {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
@@ -1934,9 +1934,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
-  margin-top: 4px;
+  margin-top: var(--space-2xs);
 }
 
 .dl-card-speed--dl { color: var(--color-accent); font-weight: var(--font-weight-bold); }
@@ -1951,21 +1951,21 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-card-swarm {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   color: var(--color-text-muted);
 }
 
 .dl-card-swarm span {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .dl-card-activity {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1973,10 +1973,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-card-error {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-danger);
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
-  padding: 4px 8px;
+  padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--radius-sm);
   border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
@@ -1984,7 +1984,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-card-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   margin-top: auto;
   padding-top: var(--space-xs);
   border-top: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
@@ -1993,10 +1993,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-card-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-md);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -2011,32 +2011,6 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-card-action-btn.primary:hover {
   background: var(--color-accent-hover);
   box-shadow: 0 0 10px var(--color-accent-glow);
-}
-
-.dl-card-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 0;
-  transition: all var(--transition-fast);
-}
-
-.dl-card-icon-btn svg {
-  width: 13px;
-  height: 13px;
-}
-
-.dl-card-icon-btn:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
 }
 
 .dl-card-icon-btn.danger:hover {
@@ -2091,14 +2065,14 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-list-empty-title {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
 .dl-list-empty-hint {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   max-width: 420px;
   line-height: 1.6;
@@ -2113,7 +2087,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   padding: var(--space-2xl) var(--space-lg);
   text-align: center;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
   border: 1px dashed var(--color-border);
@@ -2142,7 +2116,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
@@ -2155,12 +2129,12 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-speed-presets {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .dl-speed-preset-btn {
-  padding: 6px 10px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -2197,7 +2171,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-speed-toggle-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
 }
@@ -2292,8 +2266,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 15%, transparent);
@@ -2326,7 +2300,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -2349,8 +2323,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 1px 6px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-4xs) var(--space-xs);
+  font-size: var(--text-2xs);
   border-radius: var(--radius-full);
   background: var(--color-bg-secondary);
   color: var(--color-text-muted);
@@ -2387,7 +2361,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-kpi-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
   padding: var(--space-md) var(--space-lg);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -2407,7 +2381,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-kpi-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: var(--font-weight-semibold);
@@ -2415,7 +2389,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-kpi-value {
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -2427,10 +2401,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-kpi-value--info { color: var(--color-info); }
 
 .dl-stats-kpi-sub {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   line-height: 1.4;
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
 }
 
 .dl-stats-card {
@@ -2452,17 +2426,17 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-stats-card-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
 .dl-stats-card-badge {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   background: var(--color-bg-secondary);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
 }
@@ -2520,18 +2494,18 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-protocol-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .dl-stats-protocol-title {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .dl-stats-protocol-count {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -2543,7 +2517,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   overflow: hidden;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .dl-stats-status-seg {
@@ -2570,8 +2544,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-legend-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
@@ -2610,7 +2584,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-bar-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .dl-stats-bar-meta {
@@ -2618,7 +2592,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .dl-stats-bar-title {
@@ -2669,15 +2643,15 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-extraction-num {
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
 }
 
 .dl-stats-extraction-desc {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
 }
 
 .dl-stats-timeline-row {
@@ -2698,15 +2672,15 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-timeline-count {
-  font-size: var(--font-size-xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
 .dl-stats-timeline-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
 }
 
 .dl-stats-diag-header {
@@ -2726,8 +2700,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-stats-search-input {
   width: 100%;
-  padding: 6px 28px 6px 10px;
-  font-size: 12px;
+  padding: var(--space-xs) var(--space-xl) var(--space-xs) var(--space-sm);
+  font-size: var(--text-xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -2746,11 +2720,11 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .dl-stats-diag-count {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -2765,12 +2739,12 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-align: left;
 }
 
 .dl-stats-table th {
-  padding: 8px 12px;
+  padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-secondary);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
@@ -2781,7 +2755,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-table td {
-  padding: 8px 12px;
+  padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
@@ -2794,7 +2768,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-cell-name {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   max-width: 240px;
 }
 
@@ -2809,15 +2783,15 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-tbl-name-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   min-width: 0;
 }
 
 .dl-stats-tbl-history-tag {
   flex-shrink: 0;
-  padding: 1px 5px;
+  padding: var(--space-4xs) var(--space-2xs);
   border-radius: var(--radius-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -2830,15 +2804,15 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-tbl-source {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
 .dl-stats-chip {
   display: inline-block;
-  padding: 2px 6px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
 }
@@ -2849,9 +2823,9 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-stats-status-pill {
   display: inline-block;
-  padding: 2px 6px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: capitalize;
 }
@@ -2897,10 +2871,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-history-note {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   margin: 0;
   padding: var(--space-sm) var(--space-md);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-tertiary));
   border: 1px solid color-mix(in srgb, var(--color-accent) 20%, var(--color-border));
@@ -2911,7 +2885,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   margin: 0;
   padding: var(--space-md) 0;
   text-align: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -2924,7 +2898,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-mini-table {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .dl-stats-mini-row {
@@ -2932,7 +2906,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-sm);
-  padding: 8px 10px;
+  padding: var(--space-sm) var(--space-sm);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -2947,12 +2921,12 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-mini-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .dl-stats-mini-name {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -2961,7 +2935,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-mini-sub {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -2969,7 +2943,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-mini-value {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
@@ -2982,8 +2956,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   justify-content: center;
   min-width: 26px;
   height: 26px;
-  padding: 0 6px;
-  font-size: var(--font-size-2xs);
+  padding: 0 var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   border-radius: var(--radius-sm);
@@ -2997,8 +2971,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 7px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-3xs) var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -3026,7 +3000,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-stats-export-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -3036,16 +3010,16 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-stats-format-seg {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
 
 .dl-stats-format-btn {
-  padding: 3px 10px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   background: transparent;
@@ -3139,7 +3113,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: 6px 10px;
+  padding: var(--space-xs) var(--space-sm);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -3159,7 +3133,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   outline: none;
   background: transparent;
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-family: inherit;
 }
 
@@ -3185,7 +3159,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-add-debrid-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .dl-add-debrid-title-row {
@@ -3197,23 +3171,23 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-add-debrid-title {
   font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
 }
 
 .dl-add-debrid-desc {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .dl-add-cache-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
+  gap: var(--space-xs);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.2px;
 }
@@ -3251,7 +3225,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-accent);
 }
 
@@ -3294,13 +3268,13 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-tab-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -3318,11 +3292,11 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-tab-count {
   min-width: 18px;
-  padding: 1px 7px;
-  border-radius: 999px;
+  padding: var(--space-4xs) var(--space-xs);
+  border-radius: var(--radius-full);
   background: var(--color-surface-hover);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 600;
   text-align: center;
 }
@@ -3383,13 +3357,13 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-sched-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: 999px;
+  gap: var(--space-xs);
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-surface-hover) 60%, transparent);
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -3427,7 +3401,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-sched-group-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3437,15 +3411,15 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-sched-card-title {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-md);
+  gap: var(--space-sm);
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .dl-sched-hint {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -3463,7 +3437,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-sched-row-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
 
@@ -3471,7 +3445,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   position: relative;
   width: 42px;
   height: 24px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: var(--color-surface-hover);
   cursor: pointer;
@@ -3529,8 +3503,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-sched-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-2xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -3539,8 +3513,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  padding: 6px 8px;
-  font-size: var(--font-size-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--text-sm);
   width: 100%;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -3562,8 +3536,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  padding: 6px 8px;
-  font-size: var(--font-size-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--text-sm);
   text-align: center;
   font-variant-numeric: tabular-nums;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -3578,23 +3552,23 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-sched-days-wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .dl-sched-days {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2xs);
   flex-wrap: wrap;
 }
 
 .dl-sched-day {
   min-width: 38px;
-  padding: 5px 8px;
-  border-radius: 999px;
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: capitalize;
   cursor: pointer;
@@ -3614,19 +3588,19 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 .dl-sched-days--compact .dl-sched-day {
   min-width: 32px;
-  padding: 3px 4px;
+  padding: var(--space-3xs) var(--space-2xs);
 }
 
 .dl-sched-add-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 10px;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -3643,7 +3617,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border-radius: var(--radius-md);
   border: 1px dashed var(--color-border);
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   text-align: center;
 }
 
@@ -3652,7 +3626,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   padding: var(--space-lg);
 }
 
@@ -3663,7 +3637,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-sched-empty--roomy span {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   opacity: 0.75;
   max-width: 42ch;
 }
@@ -3709,8 +3683,8 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  padding: 6px 8px;
-  font-size: var(--font-size-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--text-sm);
 }
 
 .dl-sched-icon-btn {
@@ -3779,7 +3753,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-sched-queue-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -3789,7 +3763,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-sched-queue-size {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -3804,7 +3778,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-sched-priority {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .dl-sched-priority .dl-sched-icon-btn {
@@ -3820,13 +3794,13 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-sched-priority-value {
   min-width: 18px;
   text-align: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
 }
 
 .dl-sched-queue-when {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -3840,20 +3814,20 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  padding: 5px 7px;
-  font-size: var(--font-size-xs);
+  padding: var(--space-2xs) var(--space-xs);
+  font-size: var(--text-xs);
 }
 
 .dl-sched-now-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 10px;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, box-shadow 0.15s ease;
@@ -3887,10 +3861,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-history-search {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   flex: 1;
   min-width: 200px;
-  padding: 7px 10px;
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -3903,33 +3877,33 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   border: none;
   outline: none;
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .dl-history-filter {
-  padding: 7px 10px;
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .dl-history-count {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .dl-history-clear {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 12px;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -3956,11 +3930,11 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-history-empty p {
   margin: 0;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
 }
 
 .dl-history-empty span {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
 }
 
 .dl-history-list {
@@ -3972,7 +3946,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-history-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
@@ -3993,7 +3967,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-history-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -4003,7 +3977,7 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 .dl-history-source {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -4012,14 +3986,14 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   align-items: center;
   gap: var(--space-md);
   flex-wrap: wrap;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .dl-history-path {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   max-width: 420px;
   overflow: hidden;
   text-overflow: ellipsis;

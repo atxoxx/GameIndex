@@ -1113,7 +1113,7 @@ export default function CompatibilityTab() {
                       variant="ghost"
                       size="sm"
                       onClick={handleCancelInstall}
-                      style={{ height: "24px", padding: "0 6px", fontSize: "0.75rem" }}
+                      style={{ height: "24px", padding: "0 var(--space-xs)", fontSize: "var(--text-xs)" }}
                     >
                       {t("compatibility.cancelInstall")}
                     </Button>
@@ -1783,7 +1783,7 @@ export default function CompatibilityTab() {
                     : t("compatibility.noPrefixesMatching")}
                 </p>
                 {prefixes.length === 0 && (
-                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-xs)", margin: "var(--space-xs) 0 0" }}>
+                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", margin: "var(--space-xs) 0 0" }}>
                     {t("compatibility.createFirstPrefix")}
                   </p>
                 )}
@@ -1826,7 +1826,7 @@ export default function CompatibilityTab() {
                     {p.associatedGames.length > 0 ? (
                       <div className="prefix-games-chips">
                         <Gamepad2 size={13} style={{ color: "var(--color-text-muted)" }} />
-                        <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
                           {t("compatibility.prefixCardGames", { count: p.associatedGames.length })}:
                         </span>
                         {p.associatedGames.slice(0, 5).map((g) => (
@@ -1838,7 +1838,7 @@ export default function CompatibilityTab() {
                       </div>
                     ) : (
                       <div className="prefix-games-chips">
-                        <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
+                        <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
                           {t("compatibility.prefixCardStandalone")}
                         </span>
                       </div>
@@ -1953,10 +1953,10 @@ export default function CompatibilityTab() {
               <div className="prefix-modal-dialog" onClick={(e) => e.stopPropagation()}>
                 <div className="prefix-modal-header">
                   <h3 className="prefix-modal-title">{t("compatibility.createPrefixTitle")}</h3>
-                  <button className="prefix-modal-close-btn" onClick={() => setCreatePrefixOpen(false)}><X size={18} /></button>
+                  <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}  onClick={() => setCreatePrefixOpen(false)}></Button>
                 </div>
                 <div className="prefix-modal-body">
-                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", margin: 0 }}>
+                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", margin: 0 }}>
                     {t("compatibility.createPrefixDesc")}
                   </p>
                   <div className="prefix-modal-field">
@@ -2031,10 +2031,10 @@ export default function CompatibilityTab() {
               <div className="prefix-modal-dialog" onClick={(e) => e.stopPropagation()}>
                 <div className="prefix-modal-header">
                   <h3 className="prefix-modal-title">{t("compatibility.duplicatePrefixTitle")}</h3>
-                  <button className="prefix-modal-close-btn" onClick={() => setDuplicateTarget(null)}><X size={18} /></button>
+                  <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}  onClick={() => setDuplicateTarget(null)}></Button>
                 </div>
                 <div className="prefix-modal-body">
-                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", margin: 0 }}>
+                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", margin: 0 }}>
                     {t("compatibility.duplicatePrefixDesc")}
                   </p>
                   <div className="prefix-modal-field">
@@ -2106,10 +2106,10 @@ export default function CompatibilityTab() {
               <div className="prefix-modal-dialog" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
                 <div className="prefix-modal-header">
                   <h3 className="prefix-modal-title">{t("compatibility.quickVerbsTitle")}</h3>
-                  <button className="prefix-modal-close-btn" onClick={() => setQuickVerbsTarget(null)}><X size={18} /></button>
+                  <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}  onClick={() => setQuickVerbsTarget(null)}></Button>
                 </div>
                 <div className="prefix-modal-body">
-                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", margin: 0 }}>
+                  <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", margin: 0 }}>
                     {t("compatibility.quickVerbsDesc", { name: quickVerbsTarget.name })}
                   </p>
                   <div className="quick-verbs-list">
@@ -2233,7 +2233,7 @@ export default function CompatibilityTab() {
                       checked={settings.virtualDesktop}
                       onChange={(e) => updateSettings((prev) => ({ ...prev, virtualDesktop: e.target.checked }))}
                     />
-                    <label htmlFor="compat-virtual-desktop" style={{ fontSize: "0.85rem", cursor: "pointer" }}>
+                    <label htmlFor="compat-virtual-desktop" style={{ fontSize: "var(--text-md)", cursor: "pointer" }}>
                       {t("compatibility.enableVirtualDesktop")}
                     </label>
                   </div>
@@ -2397,7 +2397,7 @@ export default function CompatibilityTab() {
                   <div className="gamescope-control-row">
                     <label className="settings-label">{t("compatibility.renderResolution")}</label>
                     <p className="settings-helper-lead">{t("compatibility.renderResolutionDesc")}</p>
-                    <div style={{ display: "flex", gap: "var(--space-sm)", marginTop: "4px" }}>
+                    <div style={{ display: "flex", gap: "var(--space-sm)", marginTop: "var(--space-2xs)" }}>
                       <input
                         type="number"
                         className="settings-input"
@@ -2445,7 +2445,7 @@ export default function CompatibilityTab() {
                   <div className="gamescope-control-row">
                     <label className="settings-label">{t("compatibility.outputResolution")}</label>
                     <p className="settings-helper-lead">{t("compatibility.outputResolutionDesc")}</p>
-                    <div style={{ display: "flex", gap: "var(--space-sm)", marginTop: "4px" }}>
+                    <div style={{ display: "flex", gap: "var(--space-sm)", marginTop: "var(--space-2xs)" }}>
                       <input
                         type="number"
                         className="settings-input"
@@ -2571,7 +2571,7 @@ export default function CompatibilityTab() {
 
                 {/* Toggles: VRR, HDR, Stretch */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--space-md)", marginTop: "var(--space-sm)" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", fontSize: "0.85rem" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", fontSize: "var(--text-md)" }}>
                     <input
                       type="checkbox"
                       checked={settings.gamescopeAdaptiveSync}
@@ -2580,7 +2580,7 @@ export default function CompatibilityTab() {
                     <span>{t("compatibility.adaptiveSync")}</span>
                   </label>
 
-                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", fontSize: "0.85rem" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", fontSize: "var(--text-md)" }}>
                     <input
                       type="checkbox"
                       checked={settings.gamescopeHdr}
@@ -2589,7 +2589,7 @@ export default function CompatibilityTab() {
                     <span>{t("compatibility.hdrEnabled")}</span>
                   </label>
 
-                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", fontSize: "0.85rem" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", fontSize: "var(--text-md)" }}>
                     <input
                       type="checkbox"
                       checked={settings.gamescopeStretch}
@@ -2850,21 +2850,21 @@ export default function CompatibilityTab() {
                   }}
                 >
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       {t("compatibility.osKernel")}
                     </span>
                     <strong>{systemStatus?.osName || "..."} ({systemStatus?.kernelVersion || "..."})</strong>
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       {t("compatibility.displayServer")}
                     </span>
                     <Badge variant="accent">{systemStatus?.displayServer || "..."}</Badge>
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       Vulkan
                     </span>
                     <Badge variant={systemStatus?.vulkanSupport ? "success" : "default"}>
@@ -2873,7 +2873,7 @@ export default function CompatibilityTab() {
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       GameMode
                     </span>
                     <Badge variant={systemStatus?.gamemodeAvailable ? "success" : "default"}>
@@ -2882,7 +2882,7 @@ export default function CompatibilityTab() {
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       MangoHud
                     </span>
                     <Badge variant={systemStatus?.mangohudAvailable ? "success" : "default"}>
@@ -2891,7 +2891,7 @@ export default function CompatibilityTab() {
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       Gamescope
                     </span>
                     <Badge variant={systemStatus?.gamescopeAvailable ? "success" : "default"}>
@@ -2900,7 +2900,7 @@ export default function CompatibilityTab() {
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       Winetricks
                     </span>
                     <Badge variant={systemStatus?.winetricksAvailable ? "success" : "default"}>
@@ -2909,7 +2909,7 @@ export default function CompatibilityTab() {
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       UMU-Launcher
                     </span>
                     <Badge variant={systemStatus?.umuAvailable ? "success" : "default"}>
@@ -2918,7 +2918,7 @@ export default function CompatibilityTab() {
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       {t("compatibility.eacRuntime")}
                     </span>
                     <Badge variant={systemStatus?.eacRuntimeAvailable ? "success" : "default"}>
@@ -2927,7 +2927,7 @@ export default function CompatibilityTab() {
                   </div>
 
                   <div style={{ padding: "var(--space-sm)", background: "var(--color-surface-hover)", borderRadius: "var(--radius-sm)" }}>
-                    <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem", display: "block" }}>
+                    <span style={{ color: "var(--color-text-muted)", fontSize: "var(--text-xs)", display: "block" }}>
                       {t("compatibility.battleyeRuntime")}
                     </span>
                     <Badge variant={systemStatus?.battleyeRuntimeAvailable ? "success" : "default"}>

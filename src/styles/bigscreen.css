@@ -263,7 +263,7 @@
 }
 
 .bigscreen-library-count {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
@@ -288,13 +288,13 @@
 .bigscreen-library-empty-state h3 {
   color: var(--color-text-primary);
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
 }
 
 .bigscreen-library-empty-state p {
   margin: 0;
   max-width: 360px;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   line-height: 1.5;
 }
 
@@ -718,7 +718,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
 }
@@ -1129,7 +1129,7 @@
 }
 
 .dl-status-badge {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: 900;
   background: color-mix(in srgb, var(--bigscreen-accent) 20%, transparent);
   color: var(--bigscreen-accent-soft-text);
@@ -1368,7 +1368,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: 900;
   color: var(--color-accent);
 }
@@ -1563,7 +1563,7 @@
 }
 
 .bigscreen-tab-bar-bumper {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: 900;
   color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
   display: inline-flex;
@@ -1884,7 +1884,7 @@
 }
 
 .stat-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: 800;
   color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
   text-transform: uppercase;
@@ -2080,7 +2080,7 @@
 }
 
 .deal-store-tag {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: 900;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);

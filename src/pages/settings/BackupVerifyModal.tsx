@@ -36,14 +36,12 @@ export default function BackupVerifyModal({ report, onClose }: BackupVerifyModal
               </span>
             </div>
           </div>
-          <button
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}
             type="button"
-            className="backup-modal-close"
+            
             onClick={onClose}
             aria-label={t("common.close")}
-          >
-            <X size={18} />
-          </button>
+          ></Button>
         </header>
 
         {/* Verification status hero */}

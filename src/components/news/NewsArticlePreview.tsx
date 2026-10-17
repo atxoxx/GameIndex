@@ -11,6 +11,7 @@ import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
 import WebviewControls from "../webview/WebviewControls";
+import { Button } from "../ui";
 
 interface NewsArticlePreviewProps {
   article: NewsArticle | null;
@@ -691,16 +692,14 @@ export default function NewsArticlePreview({
 
         {/* Footer */}
         <div className="news-preview-footer">
-          <button
+          <Button variant="ghost" size="md"
             type="button"
-            className="edit-btn edit-btn-ghost"
+            
             onClick={() => {
               stopTts();
               onClose();
             }}
-          >
-            {t("newsArticle.close")}
-          </button>
+          > {t("newsArticle.close")} </Button>
 
           <div className="news-preview-footer-actions">
             {onToggleSave && (

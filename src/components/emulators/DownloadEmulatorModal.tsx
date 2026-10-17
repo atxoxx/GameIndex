@@ -380,14 +380,12 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
             <h2 className="modal-title">{t("emulators.download.title")}</h2>
             <p className="modal-subtitle">{t("emulators.download.subtitle")}</p>
           </div>
-          <button
-            className="modal-close"
+          <Button variant="ghost" size="sm" iconOnly
+            
             aria-label={t("common.close")}
             onClick={onClose}
             disabled={lockClose}
-          >
-            ×
-          </button>
+           className="modal-close"> × </Button>
         </div>
 
         <div className="modal-body download-emulator-body">

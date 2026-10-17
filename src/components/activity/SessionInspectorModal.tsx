@@ -12,6 +12,7 @@ import { GameSessionDetail } from "../game/GameSessionDetail";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { useFocusProps } from "./focusable";
 import * as Icons from "./Icons";
+import { Button } from "../ui";
 
 export interface SessionInspectorModalProps {
   session: GameSession | null;
@@ -144,16 +145,14 @@ export function SessionInspectorModal({
             </div>
 
             <div className="act-modal__header-actions">
-              <button
+              <Button variant="ghost" size="sm" iconOnly leftIcon={<Icons.X size={16} />}
                 ref={closeFocus.ref}
                 tabIndex={closeFocus.tabIndex}
                 type="button"
-                className="act-modal__close-btn"
+                
                 onClick={closeFocus.onClick}
                 aria-label={t("common.close")}
-              >
-                <Icons.X size={16} />
-              </button>
+              ></Button>
             </div>
           </div>
 
@@ -214,15 +213,13 @@ export function SessionInspectorModal({
                   <Icons.FileText size={14} /> {t("sessionNotes.title")}
                 </h4>
                 {!isEditingNote && (
-                  <button
+                  <Button variant="secondary" size="sm"
                     ref={editNoteFocus.ref}
                     tabIndex={editNoteFocus.tabIndex}
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--sm"
+                    
                     onClick={editNoteFocus.onClick}
-                  >
-                    <Icons.Edit3 size={12} /> {noteText ? t("common.edit") : t("sessionNotes.addNote")}
-                  </button>
+                  > <Icons.Edit3 size={12} /> {noteText ? t("common.edit") : t("sessionNotes.addNote")} </Button>
                 )}
               </div>
 
@@ -244,35 +241,29 @@ export function SessionInspectorModal({
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyDown={handleAddTag}
                     />
-                    <button
+                    <Button variant="secondary" size="sm"
                       ref={addTagFocus.ref}
                       tabIndex={addTagFocus.tabIndex}
                       type="button"
-                      className="act-inspector-btn act-inspector-btn--sm"
+                      
                       onClick={addTagFocus.onClick}
-                    >
-                      <Icons.Tag size={12} /> {t("sessionNotes.addTag")}
-                    </button>
+                    > <Icons.Tag size={12} /> {t("sessionNotes.addTag")} </Button>
                   </div>
                   <div className="act-inspector-notes__editor-actions">
-                    <button
+                    <Button variant="primary" size="md"
                       ref={saveNoteFocus.ref}
                       tabIndex={saveNoteFocus.tabIndex}
                       type="button"
-                      className="act-inspector-btn act-inspector-btn--primary"
+                      
                       onClick={saveNoteFocus.onClick}
-                    >
-                      <Icons.Check size={13} /> {t("common.save")}
-                    </button>
-                    <button
+                    > <Icons.Check size={13} /> {t("common.save")} </Button>
+                    <Button variant="ghost" size="md"
                       ref={cancelNoteFocus.ref}
                       tabIndex={cancelNoteFocus.tabIndex}
                       type="button"
-                      className="act-inspector-btn act-inspector-btn--ghost"
+                      
                       onClick={cancelNoteFocus.onClick}
-                    >
-                      {t("common.cancel")}
-                    </button>
+                    > {t("common.cancel")} </Button>
                   </div>
                 </div>
               ) : (
@@ -302,40 +293,34 @@ export function SessionInspectorModal({
           <div className="act-modal__footer">
             <div className="act-modal__footer-left">
               {onDeleteSession && (
-                <button
+                <Button variant="danger" size="md"
                   ref={deleteFocus.ref}
                   tabIndex={deleteFocus.tabIndex}
                   type="button"
-                  className="act-inspector-btn act-inspector-btn--danger"
+                  
                   onClick={deleteFocus.onClick}
-                >
-                  <Icons.Trash2 size={13} /> {t("activity.deleteSessionBtn")}
-                </button>
+                > <Icons.Trash2 size={13} /> {t("activity.deleteSessionBtn")} </Button>
               )}
             </div>
 
             <div className="act-modal__footer-right">
               {game && (
                 <>
-                  <button
+                  <Button variant="secondary" size="md"
                     ref={goToGameFocus.ref}
                     tabIndex={goToGameFocus.tabIndex}
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--secondary"
+                    
                     onClick={goToGameFocus.onClick}
-                  >
-                    <Icons.ExternalLink size={13} /> {t("gameActivity.viewGamePage")}
-                  </button>
+                  > <Icons.ExternalLink size={13} /> {t("gameActivity.viewGamePage")} </Button>
                   {onLaunchGame && (
-                    <button
+                    <Button variant="primary" size="md"
                       ref={launchFocus.ref}
                       tabIndex={launchFocus.tabIndex}
                       type="button"
-                      className="act-inspector-btn act-inspector-btn--primary"
+                      
                       onClick={launchFocus.onClick}
-                    >
-                      <Icons.Play size={13} /> {t("game.play")}
-                    </button>
+                    > <Icons.Play size={13} /> {t("game.play")} </Button>
                   )}
                 </>
               )}

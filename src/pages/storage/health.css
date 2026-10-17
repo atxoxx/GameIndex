@@ -49,20 +49,20 @@
 
 .health-hero-title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
 .health-hero-desc {
-  margin: 4px 0 0 0;
-  font-size: var(--font-size-xs);
+  margin: var(--space-2xs) 0 0 0;
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
 .health-hero-scanned {
-  margin: 4px 0 0 0;
-  font-size: 11px;
+  margin: var(--space-2xs) 0 0 0;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
@@ -88,13 +88,13 @@
 .health-subtab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
@@ -122,9 +122,9 @@
 
 .health-subtab-count {
   min-width: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  font-size: 10px;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-md);
+  font-size: var(--text-2xs);
   line-height: 16px;
   text-align: center;
   color: var(--color-text-primary);
@@ -173,7 +173,7 @@
 .health-tab-toolbar-text {
   flex: 1;
   min-width: 160px;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
@@ -184,7 +184,7 @@
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   cursor: pointer;
 }
 
@@ -192,7 +192,7 @@
   width: 15px;
   height: 15px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -283,15 +283,15 @@
 }
 
 .health-score-value {
-  font-size: 26px;
+  font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   line-height: 1;
   color: var(--color-text-primary);
 }
 
 .health-score-band {
-  margin-top: 2px;
-  font-size: 10px;
+  margin-top: var(--space-3xs);
+  font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
@@ -303,14 +303,14 @@
 
 .health-score-heading {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .health-score-desc {
-  margin: 4px 0 0 0;
-  font-size: var(--font-size-xs);
+  margin: var(--space-2xs) 0 0 0;
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
@@ -376,7 +376,7 @@
 .health-cat-body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
@@ -384,18 +384,18 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .health-cat-count {
   min-width: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-success) 20%, transparent);
   color: var(--color-success);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   line-height: 16px;
   text-align: center;
 }
@@ -416,7 +416,7 @@
 }
 
 .health-cat-desc {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -441,14 +441,14 @@
 
 .health-empty-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .health-empty-desc {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   max-width: 460px;
 }
@@ -478,7 +478,7 @@
 .health-issue-severity {
   width: 4px;
   align-self: stretch;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 
@@ -503,7 +503,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .health-issue-headline {
@@ -514,7 +514,7 @@
 }
 
 .health-issue-name {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -525,7 +525,7 @@
 
 .health-issue-path {
   font-family: monospace;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -533,7 +533,7 @@
 }
 
 .health-issue-size {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   flex-shrink: 0;
@@ -549,7 +549,7 @@
 .health-gap-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 /* ── Badges ───────────────────────────────────────────────────────────── */
@@ -557,9 +557,9 @@
 .health-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 10px;
+  padding: var(--space-4xs) var(--space-xs);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   line-height: 16px;
   white-space: nowrap;
@@ -604,7 +604,7 @@
 }
 
 .health-duplicate-count {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
@@ -614,14 +614,14 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .health-duplicate-game {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 6px var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -630,13 +630,13 @@
 .health-duplicate-pick {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2xs);
   flex-shrink: 0;
   cursor: pointer;
 }
 
 .health-duplicate-pick-label {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
@@ -645,12 +645,12 @@
 .health-duplicate-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .health-duplicate-meta {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
@@ -664,21 +664,21 @@
 .health-bulk-progress {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
 .health-bulk-track {
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--color-bg-secondary);
   overflow: hidden;
 }
 
 .health-bulk-fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--color-accent);
   transition: width 0.2s ease;
 }

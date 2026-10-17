@@ -23,9 +23,9 @@
 .cw-status-pill {
   display: inline-flex;
   align-items: center;
-  padding: 4px 14px;
+  padding: var(--space-2xs) var(--space-md);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.6px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -93,7 +93,7 @@
 }
 
 .cw-meta-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
@@ -101,7 +101,7 @@
 }
 
 .cw-meta-val {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
   text-align: right;
@@ -133,7 +133,7 @@
   align-items: center;
   gap: var(--space-sm);
   align-self: flex-start;
-  padding: 6px 14px;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-full);
   border: 1px solid;
   box-shadow: 0 2px 12px color-mix(in srgb, currentColor 25%, transparent);
@@ -147,7 +147,7 @@
 }
 
 .pdb-tier-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -173,7 +173,7 @@
 }
 
 .pdb-meta-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
@@ -181,7 +181,7 @@
 }
 
 .pdb-meta-val {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
   text-align: right;
@@ -191,7 +191,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -226,7 +226,7 @@
   gap: var(--space-xs);
   flex: 1;
   justify-content: center;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-accent);
   text-decoration: none;
   font-weight: var(--font-weight-medium);
@@ -256,10 +256,10 @@
   left: var(--space-sm);
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.4px;
   backdrop-filter: blur(6px);

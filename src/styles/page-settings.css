@@ -67,14 +67,14 @@
   justify-content: space-between;
   gap: var(--space-md);
   flex-wrap: wrap;
-  padding: 2px var(--space-xs);
+  padding: var(--space-3xs) var(--space-xs);
 }
 
 .settings-topnav-brand {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.2px;
@@ -92,7 +92,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
-  padding: 3px;
+  padding: var(--space-3xs);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -101,14 +101,14 @@
 .settings-category-tab {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-xs);
   height: 32px;
   padding: 0 var(--space-md);
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -156,8 +156,8 @@
   justify-content: center;
   min-width: 18px;
   height: 16px;
-  padding: 0 5px;
-  font-size: 10px;
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   color: var(--color-success);
@@ -203,14 +203,14 @@
 .settings-topnav-status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   height: 30px;
-  padding: 0 10px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-full);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-decoration: none;
   cursor: pointer;
@@ -240,15 +240,15 @@
 .settings-subtabs-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   height: 32px;
-  padding: 0 11px;
+  padding: 0 var(--space-md);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   white-space: nowrap;
@@ -297,7 +297,7 @@
   gap: var(--space-xs);
   overflow-x: auto;
   scrollbar-width: none;
-  padding-bottom: 2px;
+  padding-bottom: var(--space-3xs);
 }
 
 .settings-subtabs-bar::-webkit-scrollbar {
@@ -307,15 +307,15 @@
 .settings-subtab-item {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-xs);
   height: 30px;
-  padding: 0 12px;
+  padding: 0 var(--space-md);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   text-decoration: none;
   white-space: nowrap;
@@ -358,8 +358,8 @@
   justify-content: center;
   min-width: 18px;
   height: 16px;
-  padding: 0 5px;
-  font-size: 10px;
+  padding: 0 var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   color: var(--color-success);
@@ -379,23 +379,23 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: 4px var(--space-xs) 0;
-  font-size: var(--font-size-xs);
+  padding: var(--space-2xs) var(--space-xs) 0;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .settings-compact-subtab-label {
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
 }
 
 .settings-compact-subtab-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 9px;
+  gap: var(--space-xs);
+  padding: var(--space-3xs) var(--space-sm);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -451,7 +451,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   letter-spacing: -0.2px;
@@ -483,13 +483,13 @@
 
 .settings-search-input {
   width: 100%;
-  padding: 9px 34px 9px 34px;
+  padding: var(--space-sm) var(--space-2xl) var(--space-sm) var(--space-2xl);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-primary);
   font-family: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -516,7 +516,7 @@
   color: var(--color-text-secondary);
   border-radius: 50%;
   cursor: pointer;
-  font-size: 15px;
+  font-size: var(--text-md);
   line-height: 1;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
@@ -535,15 +535,15 @@
   justify-content: center;
   min-width: 20px;
   height: 20px;
-  padding: 0 5px;
+  padding: 0 var(--space-2xs);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-bottom-width: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   pointer-events: none;
 }
 
@@ -556,8 +556,8 @@
   z-index: 60;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px;
+  gap: var(--space-3xs);
+  padding: var(--space-xs);
   max-height: min(360px, 60vh);
   overflow-y: auto;
   background: var(--color-surface-raised);
@@ -584,12 +584,12 @@
   align-items: center;
   gap: var(--space-sm);
   width: 100%;
-  padding: 7px var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
   font-family: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   text-align: left;
   cursor: pointer;
@@ -630,7 +630,7 @@
 .settings-search-result-dot {
   width: 6px;
   height: 6px;
-  margin: 0 10px;
+  margin: 0 var(--space-sm);
   border-radius: 50%;
   background: var(--color-text-muted);
   flex-shrink: 0;
@@ -641,11 +641,11 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-4xs);
 }
 
 .settings-search-result-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
   overflow: hidden;
@@ -653,7 +653,7 @@
 }
 
 .settings-search-result-crumb {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -666,11 +666,11 @@
 /* "Section" tag on section-level results. */
 .settings-search-result-kind {
   flex-shrink: 0;
-  padding: 1px 8px;
+  padding: var(--space-4xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -683,15 +683,15 @@
 }
 
 .settings-search-empty {
-  margin: 0 0 6px 0;
-  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-xs) 0;
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
 }
 
 .settings-search-tip {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -700,7 +700,7 @@
   font-style: normal;
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  padding: 1px 4px;
+  padding: var(--space-4xs) var(--space-2xs);
   border-radius: var(--radius-xs);
 }
 
@@ -751,7 +751,7 @@
 .settings-nav-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 /* Hairline divider between groups. */
@@ -766,7 +766,7 @@
   align-items: center;
   gap: var(--space-sm);
   padding: 0 var(--space-sm) var(--space-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -778,13 +778,13 @@
   align-items: center;
   gap: var(--space-sm);
   width: 100%;
-  padding: 7px var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-family: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   text-align: left;
   text-decoration: none;
@@ -849,9 +849,9 @@
   justify-content: center;
   min-width: 20px;
   height: 18px;
-  padding: 0 6px;
+  padding: 0 var(--space-xs);
   flex-shrink: 0;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-success);
   background: color-mix(in srgb, var(--color-success) 12%, transparent);
@@ -884,7 +884,7 @@
 }
 
 .settings-sidebar-version {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   letter-spacing: 0.2px;
@@ -904,9 +904,9 @@
 .settings-header-summary {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  font-size: var(--font-size-sm);
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
   background: var(--color-surface-raised);

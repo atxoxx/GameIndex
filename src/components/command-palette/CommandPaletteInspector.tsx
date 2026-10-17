@@ -31,6 +31,7 @@ import type { LibraryStatsData, PaletteItem } from "./commandPaletteTypes";
 import { formatBytes, formatRelativeTime, formatSummaryParagraphs } from "./commandPaletteUtils";
 import { useSettings } from "../../context/SettingsContext";
 import { gameDisplayName } from "../../types/game";
+import { Button } from "../ui";
 
 interface CommandPaletteInspectorProps {
   item: PaletteItem | null;
@@ -108,7 +109,7 @@ export default function CommandPaletteInspector({
           )}
 
           {libraryStats?.topPlayedGame && (
-            <div className="cmd-inspector-section" style={{ marginTop: "12px" }}>
+            <div className="cmd-inspector-section" style={{ marginTop: "var(--space-md)" }}>
               <span className="cmd-inspector-label">{t("commandPalette.mostPlayedTitle")}</span>
               <div className="cmd-stats-highlight-card">
                 {libraryStats.topPlayedGame.coverArtUrl && (
@@ -126,7 +127,7 @@ export default function CommandPaletteInspector({
             </div>
           )}
 
-          <div className="cmd-inspector-section" style={{ marginTop: "14px" }}>
+          <div className="cmd-inspector-section" style={{ marginTop: "var(--space-md)" }}>
             <span className="cmd-inspector-label">
               <Sparkles size={11} className="cmd-inspector-label-icon" />
               {t("commandPalette.quickShortcutsTitle")}
@@ -299,7 +300,7 @@ export default function CommandPaletteInspector({
             </div>
           </div>
 
-          <div className="cmd-inspector-quick-action-row" style={{ marginTop: "12px" }}>
+          <div className="cmd-inspector-quick-action-row" style={{ marginTop: "var(--space-md)" }}>
             <button
               type="button"
               className="cmd-inspector-btn cmd-inspector-btn--accent"
@@ -347,10 +348,10 @@ export default function CommandPaletteInspector({
           <div className="cmd-inspector-action-icon">
             <BarChart3 size={28} />
           </div>
-          <h3 className="cmd-inspector-title" style={{ marginTop: "12px" }}>
+          <h3 className="cmd-inspector-title" style={{ marginTop: "var(--space-md)" }}>
             {t("commandPalette.libraryStats")}
           </h3>
-          <span className="cmd-badge cmd-badge--accent" style={{ marginTop: "6px" }}>
+          <span className="cmd-badge cmd-badge--accent" style={{ marginTop: "var(--space-xs)" }}>
             {statsData.totalGames} {t("commandPalette.scopeGames")}
           </span>
         </div>
@@ -393,7 +394,7 @@ export default function CommandPaletteInspector({
           </div>
 
           {statsData.topPlayedGame && (
-            <div className="cmd-inspector-section" style={{ marginTop: "12px" }}>
+            <div className="cmd-inspector-section" style={{ marginTop: "var(--space-md)" }}>
               <span className="cmd-inspector-label">{t("commandPalette.mostPlayedTitle")}</span>
               <div className="cmd-stats-highlight-card">
                 {statsData.topPlayedGame.coverArtUrl && (
@@ -506,31 +507,27 @@ export default function CommandPaletteInspector({
             <kbd className="cmd-key-hint">↵</kbd>
           </button>
           {navigate && (
-            <button
+            <Button variant="secondary" size="sm"
               type="button"
-              className="cmd-inspector-action-icon-btn"
+              
               title={`${t("commandPalette.open")} (Ctrl+↵)`}
               onClick={() => {
                 onClose?.();
                 navigate(`/library/${gameData.id}`);
               }}
-            >
-              <Layers size={13} />
-              <span>{t("commandPalette.hintDetails")}</span>
-            </button>
+            > <Layers size={13} />
+              <span>{t("commandPalette.hintDetails")}</span> </Button>
           )}
           {gameData.path && (
-            <button
+            <Button variant="secondary" size="sm"
               type="button"
-              className="cmd-inspector-action-icon-btn"
+              
               title={`${t("commandPalette.openFolder")} (Ctrl+O)`}
               onClick={() => {
                 invoke("open_folder", { path: gameData.path });
               }}
-            >
-              <FolderOpen size={13} />
-              <span>{t("commandPalette.openFolder")}</span>
-            </button>
+            > <FolderOpen size={13} />
+              <span>{t("commandPalette.openFolder")}</span> </Button>
           )}
         </div>
 
@@ -628,7 +625,7 @@ export default function CommandPaletteInspector({
                   <button
                     type="button"
                     className="cmd-inspector-btn cmd-inspector-btn--accent"
-                    style={{ marginTop: "8px", width: "100%" }}
+                    style={{ marginTop: "var(--space-sm)", width: "100%" }}
                     onClick={() => {
                       onClose?.();
                       navigate(`/library/${gameData.id}?tab=mods`);
@@ -919,10 +916,10 @@ export default function CommandPaletteInspector({
           <div className="cmd-inspector-action-icon">
             <Download size={28} />
           </div>
-          <h3 className="cmd-inspector-title" style={{ marginTop: "12px" }}>
+          <h3 className="cmd-inspector-title" style={{ marginTop: "var(--space-md)" }}>
             {downloadData.name || t("nav.downloads")}
           </h3>
-          <span className="cmd-badge cmd-badge--accent" style={{ marginTop: "6px" }}>
+          <span className="cmd-badge cmd-badge--accent" style={{ marginTop: "var(--space-xs)" }}>
             {downloadData.status.kind.toUpperCase()}
           </span>
         </div>
@@ -1007,7 +1004,7 @@ export default function CommandPaletteInspector({
             {item.subtitle && <p className="cmd-inspector-desc">{item.subtitle}</p>}
           </div>
 
-          <div className="cmd-inspector-section" style={{ marginTop: "16px" }}>
+          <div className="cmd-inspector-section" style={{ marginTop: "var(--space-lg)" }}>
             <span className="cmd-inspector-label">{t("commandPalette.inspectorPalette")}</span>
             <div className="cmd-palette-swatches">
               <div className="cmd-palette-swatch-item">
@@ -1053,12 +1050,12 @@ export default function CommandPaletteInspector({
     <div className="cmd-inspector">
       <div className="cmd-inspector-action-hero">
         <div className="cmd-inspector-action-icon">{item.icon || <Sparkles size={24} />}</div>
-        <h3 className="cmd-inspector-title" style={{ marginTop: "12px" }}>
+        <h3 className="cmd-inspector-title" style={{ marginTop: "var(--space-md)" }}>
           {item.title}
         </h3>
         {item.subtitle && <p className="cmd-inspector-desc">{item.subtitle}</p>}
         {item.badge && (
-          <span className="cmd-badge cmd-badge--accent" style={{ marginTop: "8px" }}>
+          <span className="cmd-badge cmd-badge--accent" style={{ marginTop: "var(--space-sm)" }}>
             {item.badge}
           </span>
         )}

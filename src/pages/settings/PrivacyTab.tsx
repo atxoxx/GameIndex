@@ -131,7 +131,7 @@ export default function PrivacyTab() {
       desc={t("settings.wipe.desc")}
     >
       <div className="settings-wipe-toolbar">
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)", flexWrap: "wrap" }}>
           <span className="settings-wipe-count">
             {t("settings.wipe.itemCount", { count: items.length })} ({formatStorageBytes(totalSize)})
           </span>
@@ -139,7 +139,7 @@ export default function PrivacyTab() {
             <input
               type="text"
               className="settings-input"
-              style={{ width: "200px", padding: "4px 10px", fontSize: "12px", height: "28px" }}
+              style={{ width: "200px", padding: "var(--space-2xs) var(--space-sm)", fontSize: "var(--text-xs)", height: "28px" }}
               placeholder="Filter keys..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}

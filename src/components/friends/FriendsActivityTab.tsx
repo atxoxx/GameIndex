@@ -21,6 +21,7 @@ import {
   SuggestionIcon,
   CompareIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface FriendsActivityTabProps {
   friends: Friend[];
@@ -247,49 +248,37 @@ export default function FriendsActivityTab({
 
                 {item.type === "playing" && onSelectCompareFriend && item.extra?.friendId && (
                   <div className="activity-card-cta">
-                    <button
+                    <Button variant="secondary" size="sm" leftIcon={<CompareIcon />}
                       type="button"
-                      className="btn btn-secondary btn--mini"
                       onClick={() => onSelectCompareFriend(item.extra.friendId)}
-                    >
-                      <CompareIcon /> {t("friends.compare")}
-                    </button>
+                    > {t("friends.compare")} </Button>
                   </div>
                 )}
 
                 {item.type === "session" && (
                   <div className="activity-card-cta">
-                    <button
+                    <Button variant="secondary" size="sm" leftIcon={<CalendarIcon />}
                       type="button"
-                      className="btn btn-secondary btn--mini"
                       onClick={() => onNavigateTab("sessions")}
-                    >
-                      <CalendarIcon /> {t("friendsPage.viewSession")}
-                    </button>
+                    > {t("friendsPage.viewSession")} </Button>
                   </div>
                 )}
 
                 {item.type === "recommendation" && (
                   <div className="activity-card-cta">
-                    <button
+                    <Button variant="secondary" size="sm" leftIcon={<RecommendIcon />}
                       type="button"
-                      className="btn btn-secondary btn--mini"
                       onClick={() => onNavigateTab("recs")}
-                    >
-                      <RecommendIcon /> {t("friendsPage.viewRec")}
-                    </button>
+                    > {t("friendsPage.viewRec")} </Button>
                   </div>
                 )}
 
                 {item.type === "suggestion" && (
                   <div className="activity-card-cta">
-                    <button
+                    <Button variant="secondary" size="sm" leftIcon={<SuggestionIcon />}
                       type="button"
-                      className="btn btn-secondary btn--mini"
                       onClick={() => onNavigateTab("suggestions")}
-                    >
-                      <SuggestionIcon /> {t("friendsPage.viewSuggestion")}
-                    </button>
+                    > {t("friendsPage.viewSuggestion")} </Button>
                   </div>
                 )}
               </div>

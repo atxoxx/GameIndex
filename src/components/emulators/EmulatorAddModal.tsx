@@ -137,9 +137,7 @@ export default function EmulatorAddModal({
             <h2>{t("emulators.add.title")}</h2>
             <p className="modal-subtitle">{t("emulators.add.subtitle")}</p>
           </div>
-          <button className="modal-close" aria-label={t("common.close")} onClick={onClose}>
-            <X size={18} />
-          </button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}  aria-label={t("common.close")} onClick={onClose} className="modal-close"></Button>
         </div>
 
         <div className="emu-add-tabs" role="tablist">

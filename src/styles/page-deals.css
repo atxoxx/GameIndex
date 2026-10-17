@@ -62,7 +62,7 @@
 .deals-empty span {
   max-width: 48ch;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
 }
 
 /* Section spacing */
@@ -109,7 +109,7 @@
 .deals-error span {
   max-width: 48ch;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
 }
 
 /* Retry buttons for both empty + error states */
@@ -121,7 +121,7 @@
   color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
   cursor: pointer;
@@ -170,7 +170,7 @@
 /* Giveaway card meta — expiry line + 18+ badge */
 .deals-giveaway-card-expiry {
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -183,11 +183,11 @@
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-danger) 92%, transparent);
   color: var(--color-accent-contrast, #fff);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1.5;
   pointer-events: none;

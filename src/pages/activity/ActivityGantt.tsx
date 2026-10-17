@@ -851,7 +851,7 @@ export function ActivityGantt({
           </div>
 
           <div className="activity-gantt__tooltip-time">
-            <Icons.Clock size={11} style={{ display: "inline-block", marginRight: "4px", verticalAlign: "middle" }} />
+            <Icons.Clock size={11} style={{ display: "inline-block", marginRight: "var(--space-2xs)", verticalAlign: "middle" }} />
             {hover.seg.absoluteStart.toLocaleTimeString(language, {
               hour: "2-digit",
               minute: "2-digit",

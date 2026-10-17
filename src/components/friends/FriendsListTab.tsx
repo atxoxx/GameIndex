@@ -17,6 +17,7 @@ import {
   TrashIcon,
   TagIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface FriendsListTabProps {
   friends: Friend[];
@@ -174,22 +175,16 @@ export default function FriendsListTab({
                   </div>
                 </div>
                 <div className="friend-invitation-actions">
-                  <button
+                  <Button variant="primary" size="sm" leftIcon={<CheckIcon />}
                     type="button"
-                    className="btn btn-primary btn--mini"
                     onClick={() => onAcceptInvitation(invite)}
                     title={t("friendsPage.acceptInvite")}
-                  >
-                    <CheckIcon /> {t("friendsPage.accept")}
-                  </button>
-                  <button
+                  > {t("friendsPage.accept")} </Button>
+                  <Button variant="secondary" size="sm" leftIcon={<XIcon />}
                     type="button"
-                    className="btn btn-secondary btn--mini danger"
                     onClick={() => onDenyInvitation(invite.syncId)}
                     title={t("friendsPage.denyInvite")}
-                  >
-                    <XIcon /> {t("friendsPage.deny")}
-                  </button>
+                   className="danger"> {t("friendsPage.deny")} </Button>
                 </div>
               </div>
             ))}
@@ -296,25 +291,19 @@ export default function FriendsListTab({
             </button>
           </div>
 
-          <button
+          <Button variant="secondary" size="sm" leftIcon={<CheckIcon />}
             type="button"
-            className={`btn btn-secondary btn--mini batch-toggle-btn${selectMode ? " active" : ""}`}
             onClick={() => {
               setSelectMode((v) => !v);
               setSelectedIds([]);
             }}
             title={selectMode ? t("friendsPage.exitSelectMode") : t("friendsPage.selectMultiple")}
-          >
-            <CheckIcon /> {selectMode ? t("friendsPage.exitSelectMode") : t("friendsPage.selectMultiple")}
-          </button>
+           className={`batch-toggle-btnselectMode ? " active" : ""}`}> {selectMode ? t("friendsPage.exitSelectMode") : t("friendsPage.selectMultiple")} </Button>
 
-          <button
+          <Button variant="primary" size="sm" leftIcon={<PlusIcon />}
             type="button"
-            className="btn btn-primary btn--mini"
             onClick={onOpenAddModal}
-          >
-            <PlusIcon /> {t("friends.addFriend")}
-          </button>
+          > {t("friends.addFriend")} </Button>
         </div>
       </div>
 
@@ -360,56 +349,42 @@ export default function FriendsListTab({
           </div>
 
           <div className="batch-actions-cluster">
-            <button type="button" className="btn btn-secondary btn--mini" onClick={handleSelectAll}>
-              {selectedIds.length === filteredFriends.length ? t("friendsPage.deselectAll") : t("friendsPage.selectAll")}
-            </button>
+            <Button variant="secondary" size="sm" type="button"  onClick={handleSelectAll}> {selectedIds.length === filteredFriends.length ? t("friendsPage.deselectAll") : t("friendsPage.selectAll")} </Button>
 
             {selectedIds.length > 0 && (
               <>
-                <button
+                <Button variant="secondary" size="sm" leftIcon={<PinIcon />}
                   type="button"
-                  className="btn btn-secondary btn--mini"
                   onClick={() => {
                     onBulkPin(selectedIds);
                     setSelectedIds([]);
                     setSelectMode(false);
                   }}
-                >
-                  <PinIcon /> {t("friendsPage.pinSelected")}
-                </button>
-                <button
+                > {t("friendsPage.pinSelected")} </Button>
+                <Button variant="secondary" size="sm"
                   type="button"
-                  className="btn btn-secondary btn--mini"
                   onClick={() => {
                     onBulkUnpin(selectedIds);
                     setSelectedIds([]);
                     setSelectMode(false);
                   }}
-                >
-                  {t("friends.unpin")}
-                </button>
-                <button
+                > {t("friends.unpin")} </Button>
+                <Button variant="secondary" size="sm" leftIcon={<BlockIcon />}
                   type="button"
-                  className="btn btn-secondary btn--mini"
                   onClick={() => {
                     onBulkBlock(selectedIds);
                     setSelectedIds([]);
                     setSelectMode(false);
                   }}
-                >
-                  <BlockIcon /> {t("friendsPage.blockSelected")}
-                </button>
-                <button
+                > {t("friendsPage.blockSelected")} </Button>
+                <Button variant="secondary" size="sm" leftIcon={<TrashIcon />}
                   type="button"
-                  className="btn btn-secondary btn--mini danger"
                   onClick={() => {
                     onBulkRemove(selectedIds);
                     setSelectedIds([]);
                     setSelectMode(false);
                   }}
-                >
-                  <TrashIcon /> {t("friendsPage.removeSelected")}
-                </button>
+                 className="danger"> {t("friendsPage.removeSelected")} </Button>
               </>
             )}
           </div>
@@ -431,9 +406,7 @@ export default function FriendsListTab({
               : t("friends.addFriendsDesc")}
           </p>
           {!searchQuery && filterState === "all" && (
-            <button type="button" className="btn btn-primary" onClick={onOpenAddModal}>
-              <PlusIcon /> {t("friends.addFriend")}
-            </button>
+            <Button variant="primary" size="md" leftIcon={<PlusIcon />} type="button"  onClick={onOpenAddModal}> {t("friends.addFriend")} </Button>
           )}
         </div>
       ) : (

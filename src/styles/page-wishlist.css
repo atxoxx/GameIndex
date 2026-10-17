@@ -11,7 +11,7 @@
 .wishlist-empty--brand {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-lg, 16px);
+  border-radius: var(--radius-lg);
   background: var(--color-bg-secondary);
   border: 1px dashed var(--color-border);
 }

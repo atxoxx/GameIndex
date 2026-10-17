@@ -9,6 +9,7 @@ import {
   PlusIcon,
   XIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface FriendsSuggestionsTabProps {
   suggestions: GameSuggestion[];
@@ -129,14 +130,11 @@ export default function FriendsSuggestionsTab({
           </select>
         </div>
 
-        <button
+        <Button variant="primary" size="sm" leftIcon={<PlusIcon />}
           type="button"
-          className="btn btn-primary btn--mini"
           onClick={() => setShowCreateModal(true)}
           disabled={wishlistGames.length === 0}
-        >
-          <PlusIcon /> {t("friendsPage.shareFromWishlist")}
-        </button>
+        > {t("friendsPage.shareFromWishlist")} </Button>
       </div>
 
       {filteredSuggestions.length === 0 ? (
@@ -151,13 +149,10 @@ export default function FriendsSuggestionsTab({
               : t("friendsPage.noSuggestionsDesc")}
           </p>
           {wishlistGames.length > 0 && (
-            <button
+            <Button variant="primary" size="md" leftIcon={<PlusIcon />}
               type="button"
-              className="btn btn-primary"
               onClick={() => setShowCreateModal(true)}
-            >
-              <PlusIcon /> {t("friendsPage.shareFromWishlist")}
-            </button>
+            > {t("friendsPage.shareFromWishlist")} </Button>
           )}
         </div>
       ) : (
@@ -187,14 +182,12 @@ export default function FriendsSuggestionsTab({
               <h2 className="friends-modal-title">
                 <SuggestionIcon /> {t("friendsPage.shareFromWishlist")}
               </h2>
-              <button
+              <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />}
                 type="button"
-                className="friends-modal-close"
+                
                 onClick={() => setShowCreateModal(false)}
                 title={t("common.close")}
-              >
-                <XIcon />
-              </button>
+              ></Button>
             </div>
 
             <form onSubmit={handleCreateSubmit}>
@@ -245,16 +238,11 @@ export default function FriendsSuggestionsTab({
               </div>
 
               <div className="friends-modal-footer">
-                <button
+                <Button variant="secondary" size="md"
                   type="button"
-                  className="btn btn-secondary"
                   onClick={() => setShowCreateModal(false)}
-                >
-                  {t("common.cancel")}
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={!selectedWishlistGameId}>
-                  <PlusIcon /> {t("friendsPage.shareSuggestion")}
-                </button>
+                > {t("common.cancel")} </Button>
+                <Button variant="primary" size="md" leftIcon={<PlusIcon />} type="submit"  disabled={!selectedWishlistGameId}> {t("friendsPage.shareSuggestion")} </Button>
               </div>
             </form>
           </div>

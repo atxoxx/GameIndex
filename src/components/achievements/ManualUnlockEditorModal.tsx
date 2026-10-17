@@ -158,14 +158,12 @@ export default function ManualUnlockEditorModal({
               {t("achievements.manualLink.linkedAs", { name: linkedName })}
             </p>
           </div>
-          <button
-            className="modal-close ach-modal-close"
+          <Button variant="ghost" size="sm" iconOnly
+            
             aria-label={t("common.close")}
             disabled={saving}
             {...closeFocus}
-          >
-            ×
-          </button>
+           className="modal-close"> × </Button>
         </div>
 
         <div className="modal-body ach-modal-body">

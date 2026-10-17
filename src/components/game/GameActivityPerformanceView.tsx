@@ -5,7 +5,7 @@ import LineChart from "../charts/LineChart";
 import { useLanguage } from "../../context/LanguageContext";
 import { useActivity } from "../../context/ActivityContext";
 import type { TempUnit } from "../../context/SettingsContext";
-import { Badge } from "../ui";
+import { Badge, Button } from "../ui";
 import { SectionPanel, EmptyState, SessionComparisonModal } from "../activity";
 import { useFocusProps, useFocusableNative } from "../activity/focusable";
 import { calculateFpsStability, calculateTelemetryInsights } from "../activity/insights";
@@ -95,15 +95,13 @@ export function GameActivityPerformanceView({
               </div>
               <div className="act-gpu-context-actions">
                 {sessionsWithHw.length >= 2 && (
-                  <button
+                  <Button variant="secondary" size="sm"
                     ref={compareFocus.ref}
                     tabIndex={compareFocus.tabIndex}
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                    
                     onClick={compareFocus.onClick}
-                  >
-                    <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")}
-                  </button>
+                  > <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")} </Button>
                 )}
               </div>
             </div>
@@ -129,15 +127,13 @@ export function GameActivityPerformanceView({
                   </div>
                 )}
                 {!selectedGpu && sessionsWithHw.length >= 2 && (
-                  <button
+                  <Button variant="secondary" size="sm"
                     ref={compareFocus.ref}
                     tabIndex={compareFocus.tabIndex}
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                    
                     onClick={compareFocus.onClick}
-                  >
-                    <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")}
-                  </button>
+                  > <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")} </Button>
                 )}
               </div>
             }

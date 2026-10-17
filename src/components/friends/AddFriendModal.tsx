@@ -14,6 +14,7 @@ import {
   UsersIcon,
   StarIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface AddFriendModalProps {
   isOpen: boolean;
@@ -54,9 +55,7 @@ export default function AddFriendModal({
           <h2 className="friends-modal-title">
             <UsersIcon /> {t("friendsPage.addFriendModalTitle")}
           </h2>
-          <button type="button" className="friends-modal-close" onClick={onClose} title={t("common.close")}>
-            <XIcon />
-          </button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-subtabs">
@@ -135,17 +134,12 @@ export default function AddFriendModal({
               )}
 
               <div className="friends-modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>
-                  {t("common.cancel")}
-                </button>
-                <button
+                <Button variant="secondary" size="md" type="button"  onClick={onClose}> {t("common.cancel")} </Button>
+                <Button variant="primary" size="md" leftIcon={<PlusIcon />}
                   type="button"
-                  className="btn btn-primary"
                   onClick={onAddFriend}
                   disabled={!decodedFriend}
-                >
-                  <PlusIcon /> {t("friends.addFriend")}
-                </button>
+                > {t("friends.addFriend")} </Button>
               </div>
             </div>
           ) : (
@@ -154,13 +148,10 @@ export default function AddFriendModal({
 
               <div className="my-code-box">
                 <span className="my-code-text">{myFriendCode}</span>
-                <button
+                <Button variant="secondary" size="sm" leftIcon={<CopyIcon />}
                   type="button"
-                  className="btn btn-secondary btn--mini"
                   onClick={() => copyToClipboard(myFriendCode, t("friendsPage.friendCode"))}
-                >
-                  <CopyIcon /> {t("common.copy")}
-                </button>
+                > {t("common.copy")} </Button>
               </div>
 
               {myFriendCode && (
@@ -175,13 +166,10 @@ export default function AddFriendModal({
                   <span className="nostr-key-label">{t("friendsPage.nostrPublicKey")}</span>
                   <div className="nostr-key-row">
                     <span className="nostr-key-val">{nostrPublicKey}</span>
-                    <button
+                    <Button variant="secondary" size="sm" iconOnly leftIcon={<CopyIcon />}
                       type="button"
-                      className="btn btn-secondary btn--mini"
                       onClick={() => copyToClipboard(nostrPublicKey, t("friendsPage.nostrPublicKey"))}
-                    >
-                      <CopyIcon />
-                    </button>
+                    ></Button>
                   </div>
                 </div>
               )}

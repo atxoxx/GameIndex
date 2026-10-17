@@ -613,14 +613,12 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
             >
               {t("downloadStats.resetStats")}
             </Button>
-            <button
+            <Button variant="ghost" size="sm" iconOnly
               type="button"
-              className="modal-close"
+              
               onClick={onClose}
               aria-label={t("common.close")}
-            >
-              ×
-            </button>
+             className="modal-close"> × </Button>
           </div>
         </div>
 

@@ -5,7 +5,7 @@
 
 import { Boxes, Compass, ExternalLink, FolderOpen, Maximize2 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import { Tooltip } from "../../ui";
+import { Tooltip, Button } from "../../ui";
 import { gameDisplayName, type Game } from "../../../types/game";
 import type { ModWorkspaceStats } from "../../../types/mods";
 
@@ -147,26 +147,22 @@ export default function WorkspaceHeader({
         <div className="mods-ws-actions">
           {onViewGamePage && (
             <Tooltip content={t("mods.viewGamePage")}>
-              <button
+              <Button variant="secondary" size="md" iconOnly leftIcon={<ExternalLink size={15} />}
                 type="button"
-                className="mods-ws-icon-btn"
+                
                 onClick={onViewGamePage}
                 aria-label={t("mods.viewGamePage")}
-              >
-                <ExternalLink size={15} />
-              </button>
+              ></Button>
             </Tooltip>
           )}
           {variant === "subtab" && onOpenDiscoverFull && (
             <Tooltip content={t("mods.discover.openFullScreen")}>
-              <button
+              <Button variant="secondary" size="md" iconOnly leftIcon={<Maximize2 size={15} />}
                 type="button"
-                className="mods-ws-icon-btn"
+                
                 onClick={onOpenDiscoverFull}
                 aria-label={t("mods.discover.openFullScreen")}
-              >
-                <Maximize2 size={15} />
-              </button>
+              ></Button>
             </Tooltip>
           )}
         </div>

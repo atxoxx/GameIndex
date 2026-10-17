@@ -111,7 +111,7 @@ export default function GeneralTab() {
   }, [languagePickerOpen, languagePickerHoverIdx, languages, setLanguage]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xl)" }}>
       <SettingsSection
         id="general-language"
         icon={<GlobeIcon />}
@@ -257,7 +257,7 @@ export default function GeneralTab() {
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "8px",
+              gap: "var(--space-sm)",
               flexWrap: "wrap",
             }}
           >
@@ -267,10 +267,10 @@ export default function GeneralTab() {
                 background: "var(--bg-tertiary, var(--color-bg-tertiary))",
                 border: "1px solid var(--border-subtle, var(--color-border))",
                 color: "var(--text-muted, var(--color-text-muted))",
-                fontSize: "11px",
+                fontSize: "var(--text-2xs)",
                 fontWeight: 500,
-                padding: "2px 8px",
-                borderRadius: "12px",
+                padding: "var(--space-3xs) var(--space-sm)",
+                borderRadius: "var(--radius-xl)",
                 lineHeight: 1.4,
                 whiteSpace: "nowrap",
               }}
@@ -280,7 +280,7 @@ export default function GeneralTab() {
           </span>
         }
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-lg)" }}>
           <SettingsToggleCard
             title={t("updater.autoCheck")}
             desc={t("updater.autoCheckDesc")}
@@ -294,8 +294,8 @@ export default function GeneralTab() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "16px 20px",
-              gap: "16px",
+              padding: "var(--space-lg) var(--space-lg)",
+              gap: "var(--space-lg)",
               flexWrap: "wrap",
             }}
           >
@@ -303,8 +303,8 @@ export default function GeneralTab() {
               <div
                 style={{
                   fontWeight: 600,
-                  fontSize: "14px",
-                  marginBottom: "4px",
+                  fontSize: "var(--text-md)",
+                  marginBottom: "var(--space-2xs)",
                   color:
                     status === "error"
                       ? "color-mix(in srgb, var(--color-danger) 85%, transparent)"
@@ -327,7 +327,7 @@ export default function GeneralTab() {
                   ? (error || t("updater.errorGeneric"))
                   : t("updater.title")}
               </div>
-              <div style={{ fontSize: "13px", color: "var(--text-muted, var(--color-text-muted))" }}>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted, var(--color-text-muted))" }}>
                 {status === "available"
                   ? t("updater.newVersionAvailableDesc")
                   : status === "downloading" && progress.speedBytesPerSec > 0
@@ -337,9 +337,9 @@ export default function GeneralTab() {
               {lastCheckedTime && (
                 <div
                   style={{
-                    fontSize: "12px",
+                    fontSize: "var(--text-xs)",
                     color: "var(--text-muted, var(--color-text-muted))",
-                    marginTop: "2px",
+                    marginTop: "var(--space-3xs)",
                   }}
                 >
                   {lastCheckedTime}
@@ -347,7 +347,7 @@ export default function GeneralTab() {
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center", flexWrap: "wrap" }}>
               <Button variant="ghost" onClick={() => setShowChangelog(true)}>
                 {t("updater.changelog")}
               </Button>
@@ -463,22 +463,22 @@ export default function GeneralTab() {
         desc={t("settings.linux.desc")}
       >
         {isLinuxHost ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
             <div
               className="settings-behavior-card"
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "12px",
-                padding: "16px 20px",
+                gap: "var(--space-md)",
+                padding: "var(--space-lg) var(--space-lg)",
               }}
             >
-              <span style={{ fontSize: "20px" }}>🐧</span>
+              <span style={{ fontSize: "var(--text-xl)" }}>🐧</span>
               <div>
-                <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "2px" }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--text-md)", marginBottom: "var(--space-3xs)" }}>
                   {t("settings.linux.modeFull")}
                 </div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
                   {t("settings.linux.nativeLinuxNotice")}
                 </div>
               </div>
@@ -489,21 +489,21 @@ export default function GeneralTab() {
               style={{
                 display: "flex",
                 alignItems: "flex-start",
-                gap: "12px",
-                padding: "16px 20px",
+                gap: "var(--space-md)",
+                padding: "var(--space-lg) var(--space-lg)",
               }}
             >
-              <span style={{ fontSize: "20px" }}>🕹️</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: "14px" }}>
+              <span style={{ fontSize: "var(--text-xl)" }}>🕹️</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)", minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--text-md)" }}>
                   {t("settings.linux.emulatorsTitle")}
                 </div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
                   {t("settings.linux.emulatorsDesc")}
                 </div>
                 <code
                   style={{
-                    fontSize: "12px",
+                    fontSize: "var(--text-xs)",
                     fontFamily: "var(--font-mono)",
                     color: "var(--color-text-secondary)",
                     overflowWrap: "anywhere",
@@ -513,7 +513,7 @@ export default function GeneralTab() {
                 </code>
                 <code
                   style={{
-                    fontSize: "12px",
+                    fontSize: "var(--text-xs)",
                     fontFamily: "var(--font-mono)",
                     color: "var(--color-text-secondary)",
                     overflowWrap: "anywhere",
@@ -521,7 +521,7 @@ export default function GeneralTab() {
                 >
                   snap run retroarch "%ROM%"
                 </code>
-                <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
                   {t("settings.linux.emulatorsPaths")}: /usr/bin · /usr/local/bin ·
                   /var/lib/flatpak/exports/bin · /snap/bin · ~/Applications · ~/AppImages
                 </div>
@@ -529,25 +529,25 @@ export default function GeneralTab() {
             </div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-lg)" }}>
             <div
               className="settings-behavior-card settings-behavior-card--warn"
               role="note"
               style={{
                 display: "flex",
                 alignItems: "flex-start",
-                gap: "12px",
-                padding: "16px 20px",
+                gap: "var(--space-md)",
+                padding: "var(--space-lg) var(--space-lg)",
               }}
             >
-              <span style={{ fontSize: "20px" }} aria-hidden>
+              <span style={{ fontSize: "var(--text-xl)" }} aria-hidden>
                 ⚠️
               </span>
               <div>
-                <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "2px" }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--text-md)", marginBottom: "var(--space-3xs)" }}>
                   {t("settings.linux.windowsWarningTitle")}
                 </div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
                   {t("settings.linux.windowsWarningDesc")}
                 </div>
               </div>
@@ -606,7 +606,7 @@ export default function GeneralTab() {
                   }}
                 >
                   <div className="hw-card-head">
-                    <span className="hw-card-label" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span className="hw-card-label" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
                       <span
                         style={{
                           width: "14px",
@@ -673,7 +673,7 @@ export default function GeneralTab() {
                   }}
                 >
                   <div className="hw-card-head">
-                    <span className="hw-card-label" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span className="hw-card-label" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
                       <span
                         style={{
                           width: "14px",

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Friend } from "./friendsTypes";
 import { PencilIcon, XIcon } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface EditNicknameModalProps {
   friend: Friend | null;
@@ -44,9 +45,7 @@ export default function EditNicknameModal({
           <h2 className="friends-modal-title">
             <PencilIcon /> {t("friendsPage.setNickname")}
           </h2>
-          <button type="button" className="friends-modal-close" onClick={onClose} title={t("common.close")}>
-            <XIcon />
-          </button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-body">
@@ -67,16 +66,10 @@ export default function EditNicknameModal({
 
         <div className="friends-modal-footer">
           {friend.nickname && (
-            <button type="button" className="btn btn-secondary btn--mini" onClick={handleClear}>
-              {t("friendsPage.clearNickname")}
-            </button>
+            <Button variant="secondary" size="sm" type="button"  onClick={handleClear}> {t("friendsPage.clearNickname")} </Button>
           )}
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            {t("common.cancel")}
-          </button>
-          <button type="submit" className="btn btn-primary">
-            {t("common.save")}
-          </button>
+          <Button variant="secondary" size="md" type="button"  onClick={onClose}> {t("common.cancel")} </Button>
+          <Button variant="primary" size="md" type="submit" > {t("common.save")} </Button>
         </div>
       </form>
     </div>,

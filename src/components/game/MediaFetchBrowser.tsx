@@ -659,9 +659,7 @@ function CandidateCard({
               Pick a {SLOT_LABEL[slot].toLowerCase()} from Steam, IGDB, SteamGridDB and LaunchBox
             </p>
           </div>
-          <button className="metadata-panel-close" onClick={onClose} aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-          </button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>}  onClick={onClose} aria-label="Close"></Button>
         </div>
 
         <form
@@ -855,9 +853,7 @@ function CandidateCard({
           }}
         >
           <div className="media-fetch-preview" onClick={(e) => e.stopPropagation()}>
-            <button className="metadata-panel-close" onClick={() => setPreviewCandidate(null)} aria-label="Close preview">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-            </button>
+            <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>}  onClick={() => setPreviewCandidate(null)} aria-label="Close preview"></Button>
             <div className={`media-fetch-preview-img${isTransparentSlot(slot) ? " transparent" : ""}`}>
               {isVideoUrl(previewCandidate.url) ? (
                 <video src={previewCandidate.url} controls autoPlay loop muted playsInline />

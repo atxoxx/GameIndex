@@ -101,12 +101,12 @@ export function UpdateModal() {
   let body: ReactNode;
   if (isDownloading) {
     body = (
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
         {pluginManaged && (
           <p
             style={{
               margin: 0,
-              fontSize: "13px",
+              fontSize: "var(--text-sm)",
               color: "var(--text-secondary, var(--color-text-secondary))",
               textAlign: "center",
             }}
@@ -120,9 +120,9 @@ export function UpdateModal() {
             height: "8px",
             width: "100%",
             background: "var(--bg-tertiary, var(--color-bg-tertiary))",
-            borderRadius: "4px",
+            borderRadius: "var(--radius-xs)",
             overflow: "hidden",
-            marginBottom: "2px",
+            marginBottom: "var(--space-3xs)",
           }}
         >
           <div
@@ -139,13 +139,13 @@ export function UpdateModal() {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "3px",
+            gap: "var(--space-3xs)",
             alignItems: "center",
           }}
         >
           <span
             style={{
-              fontSize: "13px",
+              fontSize: "var(--text-sm)",
               color: "var(--text-primary, var(--color-text-primary))",
               fontWeight: 600,
             }}
@@ -166,7 +166,7 @@ export function UpdateModal() {
           {progress.speedBytesPerSec > 0 && (
             <span
               style={{
-                fontSize: "13px",
+                fontSize: "var(--text-sm)",
                 color: "var(--text-muted, var(--color-text-muted))",
               }}
             >
@@ -181,7 +181,7 @@ export function UpdateModal() {
     );
   } else if (isReady) {
     body = (
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)" }}>
         <p style={{ margin: 0, color: "var(--text-primary, var(--color-text-primary))" }}>
           {t("updater.readyToRestart")}
         </p>
@@ -189,7 +189,7 @@ export function UpdateModal() {
           <p
             style={{
               margin: 0,
-              fontSize: "12px",
+              fontSize: "var(--text-xs)",
               color: "var(--text-muted, var(--color-text-muted))",
               lineHeight: 1.5,
             }}
@@ -207,8 +207,8 @@ export function UpdateModal() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: "10px",
-          padding: "20px 0 12px",
+          gap: "var(--space-sm)",
+          padding: "var(--space-lg) 0 var(--space-md)",
           textAlign: "center",
         }}
       >
@@ -230,7 +230,7 @@ export function UpdateModal() {
         <p
           style={{
             margin: 0,
-            fontSize: "14px",
+            fontSize: "var(--text-md)",
             fontWeight: 600,
             color: "var(--text-primary, var(--color-text-primary))",
           }}
@@ -240,7 +240,7 @@ export function UpdateModal() {
         <p
           style={{
             margin: 0,
-            fontSize: "12px",
+            fontSize: "var(--text-xs)",
             color: "var(--text-muted, var(--color-text-muted))",
           }}
         >
@@ -252,12 +252,12 @@ export function UpdateModal() {
     body = (
       <div
         style={{
-          padding: "12px 14px",
-          borderRadius: "8px",
+          padding: "var(--space-md) var(--space-md)",
+          borderRadius: "var(--radius-md)",
           background: "color-mix(in srgb, var(--color-danger) 12%, transparent)",
           border: "1px solid color-mix(in srgb, var(--color-danger) 25%, transparent)",
           color: "var(--color-danger)",
-          fontSize: "14px",
+          fontSize: "var(--text-md)",
           lineHeight: 1.5,
         }}
       >
@@ -279,14 +279,14 @@ export function UpdateModal() {
   } else {
     // available
     body = (
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
         {(updateInfo?.version || releasedOn) && (
           <div
             style={{
               display: "flex",
               alignItems: "baseline",
-              gap: "8px",
-              fontSize: "13px",
+              gap: "var(--space-sm)",
+              fontSize: "var(--text-sm)",
               color: "var(--text-muted, var(--color-text-muted))",
               flexWrap: "wrap",
             }}
@@ -317,7 +317,7 @@ export function UpdateModal() {
         <p
           style={{
             margin: 0,
-            fontSize: "14px",
+            fontSize: "var(--text-md)",
             color: "var(--text-secondary, var(--color-text-secondary))",
           }}
         >
@@ -327,7 +327,7 @@ export function UpdateModal() {
           <p
             style={{
               margin: 0,
-              fontSize: "12px",
+              fontSize: "var(--text-xs)",
               color: "var(--text-muted, var(--color-text-muted))",
               lineHeight: 1.5,
             }}
@@ -359,8 +359,8 @@ export function UpdateModal() {
             style={{
               background: "color-mix(in srgb, var(--accent-primary) 15%, transparent)",
               color: "var(--accent-primary)",
-              borderRadius: "12px",
-              padding: "10px",
+              borderRadius: "var(--radius-xl)",
+              padding: "var(--space-sm)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -391,8 +391,8 @@ export function UpdateModal() {
                 style={{
                   display: "flex",
                   flexWrap: "wrap",
-                  gap: "6px",
-                  marginTop: "6px",
+                  gap: "var(--space-xs)",
+                  marginTop: "var(--space-xs)",
                 }}
               >
                 {updateInfo?.version && (
@@ -400,10 +400,10 @@ export function UpdateModal() {
                     style={{
                       background: "var(--accent-primary)",
                       color: "var(--color-accent-contrast)",
-                      fontSize: "12px",
+                      fontSize: "var(--text-xs)",
                       fontWeight: 600,
-                      padding: "2px 8px",
-                      borderRadius: "12px",
+                      padding: "var(--space-3xs) var(--space-sm)",
+                      borderRadius: "var(--radius-xl)",
                       display: "inline-block",
                       lineHeight: 1.4,
                     }}
@@ -416,10 +416,10 @@ export function UpdateModal() {
                     background: "var(--bg-tertiary, var(--color-bg-tertiary))",
                     border: "1px solid var(--border-subtle, var(--color-border))",
                     color: "var(--text-muted, var(--color-text-muted))",
-                    fontSize: "11px",
+                    fontSize: "var(--text-2xs)",
                     fontWeight: 500,
-                    padding: "2px 8px",
-                    borderRadius: "12px",
+                    padding: "var(--space-3xs) var(--space-sm)",
+                    borderRadius: "var(--radius-xl)",
                     display: "inline-block",
                     lineHeight: 1.4,
                   }}

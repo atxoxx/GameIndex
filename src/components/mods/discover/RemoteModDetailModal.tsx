@@ -292,15 +292,13 @@ export default function RemoteModDetailModal({
               </button>
             )}
 
-            <button
+            <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={16} />}
               type="button"
-              className="mods-discover-icon-btn mods-discover-modal-close"
+              
               onClick={onClose}
               title={t("common.close")}
               aria-label={t("common.close")}
-            >
-              <X size={16} />
-            </button>
+            ></Button>
           </div>
         </div>
 

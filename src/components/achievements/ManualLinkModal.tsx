@@ -108,14 +108,12 @@ export default function ManualLinkModal({
             <h2 className="modal-title">{t("achievements.manualLink.title")}</h2>
             <p className="modal-subtitle">{t("achievements.manualLink.subtitle")}</p>
           </div>
-          <button
-            className="modal-close ach-modal-close"
+          <Button variant="ghost" size="sm" iconOnly
+            
             aria-label={t("common.close")}
             disabled={linking}
             {...closeFocus}
-          >
-            ×
-          </button>
+           className="modal-close"> × </Button>
         </div>
 
         <div className="modal-body ach-modal-body">

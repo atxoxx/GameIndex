@@ -44,10 +44,10 @@
 .ach-source-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
+  gap: var(--space-xs);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
   flex-shrink: 0;
@@ -113,7 +113,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
@@ -147,8 +147,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: var(--space-2xs) 4px;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs) var(--space-2xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -158,14 +158,14 @@
 }
 
 .ach-rarity-count-value {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .ach-rarity-count-label {
-  font-size: 9px;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -186,14 +186,14 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 3px;
-  gap: 2px;
+  padding: var(--space-3xs);
+  gap: var(--space-3xs);
 }
 
 .achievements-src-filter .achievements-filter-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .achievements-src-filter .achievements-filter-btn::before {
@@ -232,7 +232,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
@@ -290,13 +290,13 @@
 
 .achievements-empty h3 {
   color: var(--color-text-secondary);
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   margin: 0;
 }
 
 .achievements-empty p {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   line-height: 1.5;
   margin: 0;
   max-width: 420px;
@@ -313,7 +313,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--color-accent-contrast);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
@@ -351,7 +351,7 @@
 }
 
 .achievements-empty .ach-empty-hint {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-style: italic;
 }
@@ -471,7 +471,7 @@
 }
 
 .achievements-ring-pct {
-  font-size: var(--font-size-xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   line-height: 1;
@@ -479,10 +479,10 @@
 }
 
 .achievements-ring-sub {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -513,13 +513,13 @@
 .ach-tab-perfect-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-warning) 14%, transparent);
   border: 1px solid var(--color-warning);
   color: var(--color-warning);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -527,7 +527,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .ach-tab-points-val {
@@ -546,7 +546,7 @@
 }
 
 .ach-tab-points-level {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
@@ -555,14 +555,14 @@
   display: flex;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
 }
 
 .ach-tab-date {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
@@ -575,7 +575,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   letter-spacing: 0.4px;
 }
 
@@ -592,8 +592,8 @@
 
 .ach-source-picker {
   display: inline-flex;
-  gap: 2px;
-  padding: 3px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -604,12 +604,12 @@
 .ach-source-picker-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
   border-radius: var(--radius-sm);
@@ -687,7 +687,7 @@
 }
 
 .ach-rarity-side-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -718,12 +718,12 @@
 }
 
 .ach-rarity-row-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .ach-rarity-row-counts {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
@@ -751,9 +751,9 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
-  padding: var(--space-xs) 4px;
+  padding: var(--space-xs) var(--space-2xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -761,7 +761,7 @@
 }
 
 .achievements-stat-value {
-  font-size: var(--font-size-xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   line-height: 1.1;
@@ -773,7 +773,7 @@
 }
 
 .achievements-stat-label {
-  font-size: 9px;
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.2px;
@@ -828,7 +828,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
@@ -861,16 +861,16 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 3px;
-  gap: 2px;
+  padding: var(--space-3xs);
+  gap: var(--space-3xs);
 }
 
 .achievements-filter-btn {
-  padding: 6px 14px;
+  padding: var(--space-xs) var(--space-md);
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
   border-radius: var(--radius-sm);
@@ -894,17 +894,17 @@
 .ach-rarity-filter-pills {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   flex-wrap: wrap;
 }
 
 .ach-rarity-filter-pill {
-  padding: 4px 10px;
+  padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: color var(--duration-fast), background var(--duration-fast), border-color var(--duration-fast);
@@ -921,8 +921,8 @@
 .ach-reveal-toggle-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   cursor: pointer;
   user-select: none;
@@ -953,8 +953,8 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  padding: 8px 12px 8px 32px;
-  font-size: var(--font-size-sm);
+  padding: var(--space-sm) var(--space-md) var(--space-sm) var(--space-2xl);
+  font-size: var(--text-sm);
   font-family: inherit;
   width: 220px;
   max-width: 100%;
@@ -979,7 +979,7 @@
 }
 
 .achievements-sort-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
@@ -990,11 +990,11 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
-  padding: 6px 10px;
-  padding-right: 26px;
+  padding: var(--space-xs) var(--space-sm);
+  padding-right: var(--space-xl);
   border-radius: var(--radius-sm);
   cursor: pointer;
   outline: none;
@@ -1029,7 +1029,7 @@
   text-align: center;
   padding: var(--space-3xl);
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -1038,7 +1038,7 @@
 
 .achievements-last-synced {
   text-align: center;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   margin-top: var(--space-lg);
   padding-top: var(--space-lg);
@@ -1129,7 +1129,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .achievement-card-header {
@@ -1149,7 +1149,7 @@
 }
 
 .achievement-card-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0;
@@ -1160,9 +1160,9 @@
 }
 
 .achievement-card-points-tag {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
-  padding: 1px 5px;
+  padding: var(--space-4xs) var(--space-2xs);
   border-radius: var(--radius-full);
   border: 1px solid currentColor;
   background: color-mix(in srgb, currentColor 10%, transparent);
@@ -1180,20 +1180,20 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
 .achievement-card-reveal-btn {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 1px 6px;
+  gap: var(--space-3xs);
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-accent);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
@@ -1213,7 +1213,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-top: 4px;
+  margin-top: var(--space-2xs);
 }
 
 .achievement-card-rarity-bar {
@@ -1232,14 +1232,14 @@
 }
 
 .achievement-card-rarity-pct {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .achievement-card-desc {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   line-height: 1.35;
   margin: 0;
@@ -1257,8 +1257,8 @@
 .achievement-card-date {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-success);
   font-weight: var(--font-weight-medium);
   flex-shrink: 0;
@@ -1323,7 +1323,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .ach-compact-title-row {
@@ -1333,7 +1333,7 @@
 }
 
 .ach-compact-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1342,13 +1342,13 @@
 }
 
 .ach-compact-points {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
 }
 
 .ach-compact-desc {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1362,13 +1362,13 @@
 }
 
 .ach-compact-secret-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
 .ach-compact-reveal-btn {
-  padding: 1px 5px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-4xs) var(--space-2xs);
+  font-size: var(--text-2xs);
   border-radius: var(--radius-xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -1381,7 +1381,7 @@
 }
 
 .ach-compact-rarity-pill {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1394,13 +1394,13 @@
 }
 
 .ach-compact-date-text {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-success);
   font-weight: var(--font-weight-medium);
 }
 
 .ach-compact-locked-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1450,17 +1450,17 @@
 }
 
 .ach-journey-date-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
 .ach-journey-count-badge {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   background: var(--color-bg-tertiary);
-  padding: 1px 6px;
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-full);
 }
 
@@ -1475,7 +1475,7 @@
 .ach-sidebar-remaining-box {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   padding: var(--space-md);
   border-radius: var(--radius-md);
   background: var(--color-bg-secondary);
@@ -1484,7 +1484,7 @@
 }
 
 .ach-sidebar-remaining-title {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1492,7 +1492,7 @@
 }
 
 .ach-sidebar-remaining-count {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
 }
@@ -1571,7 +1571,7 @@
 }
 
 .achievements-summary-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -1603,7 +1603,7 @@
   display: flex;
   gap: var(--space-lg);
   overflow-x: auto;
-  padding: var(--space-sm) 2px var(--space-md);
+  padding: var(--space-sm) var(--space-3xs) var(--space-md);
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
 }
@@ -1658,13 +1658,13 @@
 .achievements-timeline-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   width: 100%;
   min-width: 0;
 }
 
 .achievements-timeline-name {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1674,7 +1674,7 @@
 }
 
 .achievements-timeline-game {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -1683,10 +1683,10 @@
 }
 
 .achievements-timeline-date {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-success);
   background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  padding: 2px 7px;
+  padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-full);
   font-weight: var(--font-weight-semibold);
 }
@@ -1770,7 +1770,7 @@
 }
 
 .achievements-game-name {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1805,7 +1805,7 @@
 }
 
 .achievements-game-progress-text {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
@@ -1813,7 +1813,7 @@
 }
 
 .achievements-game-not-synced {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   font-style: italic;
   font-weight: var(--font-weight-medium);
@@ -1831,7 +1831,7 @@
 }
 
 .achievements-game-synced-at {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
@@ -1851,34 +1851,6 @@
 
 .ach-modal--editor {
   max-width: 640px;
-}
-
-.ach-modal-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
-}
-
-.ach-modal-close:hover:not(:disabled) {
-  color: var(--color-text-primary);
-  border-color: var(--color-border-light);
-  background: var(--color-bg-hover);
-}
-
-.ach-modal-close:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .ach-modal-body {
@@ -1909,12 +1881,12 @@
   flex: 1;
   min-width: 0;
   height: 34px;
-  padding: 0 var(--space-md) 0 34px;
+  padding: 0 var(--space-md) 0 var(--space-2xl);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-family: inherit;
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
@@ -1931,7 +1903,7 @@
 
 .ach-modal-hint {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -1942,7 +1914,7 @@
 
 .ach-modal-error {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-danger);
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-danger) 25%, transparent);
@@ -1952,7 +1924,7 @@
 
 .ach-modal-empty {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   text-align: center;
   padding: var(--space-xl) var(--space-md);
@@ -1962,7 +1934,7 @@
 
 .ach-modal-counter {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
 }
@@ -1998,11 +1970,11 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .ach-modal-result-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -2011,7 +1983,7 @@
 }
 
 .ach-modal-result-id {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -2022,7 +1994,7 @@
 }
 
 .ach-modal-field-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -2036,7 +2008,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-family: inherit;
   outline: none;
   cursor: pointer;
@@ -2062,7 +2034,7 @@
 }
 
 .ach-modal-detect-hint {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
@@ -2117,17 +2089,17 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .ach-editor-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .ach-editor-desc {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
   line-height: 1.4;
   display: -webkit-box;
@@ -2139,12 +2111,12 @@
 .ach-editor-date {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--space-3xs);
   flex-shrink: 0;
 }
 
 .ach-editor-date-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -2158,7 +2130,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-family: inherit;
   outline: none;
   cursor: pointer;

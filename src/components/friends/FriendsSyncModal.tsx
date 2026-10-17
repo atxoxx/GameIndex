@@ -14,6 +14,7 @@ import {
   type RelayStatus,
 } from "../../pages/friendsStorage";
 import { P2pSyncIcon, RefreshIcon, XIcon, CopyIcon } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface FriendsSyncModalProps {
   isOpen: boolean;
@@ -107,9 +108,7 @@ export default function FriendsSyncModal({
           <h2 className="friends-modal-title">
             <P2pSyncIcon /> {t("friendsPage.p2pSyncDiagnostics")}
           </h2>
-          <button type="button" className="friends-modal-close" onClick={onClose} title={t("common.close")}>
-            <XIcon />
-          </button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-body">
@@ -123,14 +122,11 @@ export default function FriendsSyncModal({
                 readOnly
                 value={syncFolderPath || t("friendsPage.noFolderSelected")}
               />
-              <button
+              <Button variant="secondary" size="sm" leftIcon={<CopyIcon />}
                 type="button"
-                className="btn btn-secondary btn--mini"
                 onClick={handleCopyFolder}
                 title={t("common.copy")}
-              >
-                <CopyIcon /> {t("common.copy")}
-              </button>
+              > {t("common.copy")} </Button>
             </div>
           </div>
 
@@ -202,14 +198,11 @@ export default function FriendsSyncModal({
                   </span>
                 )}
               </div>
-              <button
+              <Button variant="primary" size="sm" leftIcon={<RefreshIcon className={isSyncing ? "sync-spinner" : ""} />}
                 type="button"
-                className="btn btn-primary btn--mini"
                 onClick={onTriggerSync}
                 disabled={isSyncing}
-              >
-                <RefreshIcon className={isSyncing ? "sync-spinner" : ""} /> {t("friends.syncNow")}
-              </button>
+              > {t("friends.syncNow")} </Button>
             </div>
 
             <div className="sync-log-container">
@@ -239,9 +232,7 @@ export default function FriendsSyncModal({
         </div>
 
         <div className="friends-modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            {t("common.close")}
-          </button>
+          <Button variant="secondary" size="md" type="button"  onClick={onClose}> {t("common.close")} </Button>
         </div>
       </div>
     </div>,

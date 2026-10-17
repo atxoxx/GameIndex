@@ -9,6 +9,7 @@ import { SessionInspectorModal } from "../activity/SessionInspectorModal";
 import { EmptyState } from "../activity/EmptyState";
 import { useFocusProps, useFocusableNative } from "../activity/focusable";
 import * as Icons from "../activity/Icons";
+import { Button } from "../ui";
 
 export interface GameActivitySessionsViewProps {
   game: Game;
@@ -434,16 +435,14 @@ function SessionRow({
                 <Icons.FileText size={13} /> {t("sessionNotes.title")}
               </span>
               {!editingNote && (
-                <button
+                <Button variant="secondary" size="sm"
                   ref={editNoteFocus.ref}
                   tabIndex={editNoteFocus.tabIndex}
                   type="button"
-                  className="act-inspector-btn act-inspector-btn--sm"
+                  
                   onClick={editNoteFocus.onClick}
-                >
-                  <Icons.Edit3 size={11} />{" "}
-                  {noteData.note ? t("common.edit") : t("sessionNotes.addNote")}
-                </button>
+                > <Icons.Edit3 size={11} />{" "}
+                  {noteData.note ? t("common.edit") : t("sessionNotes.addNote")} </Button>
               )}
             </div>
 
@@ -465,35 +464,29 @@ function SessionRow({
                     onChange={(e) => onChangeTagInput(e.target.value)}
                     onKeyDown={(e) => onAddTag(e)}
                   />
-                  <button
+                  <Button variant="secondary" size="sm"
                     ref={addTagFocus.ref}
                     tabIndex={addTagFocus.tabIndex}
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--sm"
+                    
                     onClick={addTagFocus.onClick}
-                  >
-                    <Icons.Tag size={11} /> {t("sessionNotes.addTag")}
-                  </button>
+                  > <Icons.Tag size={11} /> {t("sessionNotes.addTag")} </Button>
                 </div>
                 <div className="act-inspector-notes__editor-actions">
-                  <button
+                  <Button variant="primary" size="sm"
                     ref={saveNoteFocus.ref}
                     tabIndex={saveNoteFocus.tabIndex}
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                    
                     onClick={saveNoteFocus.onClick}
-                  >
-                    <Icons.Check size={12} /> {t("common.save")}
-                  </button>
-                  <button
+                  > <Icons.Check size={12} /> {t("common.save")} </Button>
+                  <Button variant="ghost" size="sm"
                     ref={cancelNoteFocus.ref}
                     tabIndex={cancelNoteFocus.tabIndex}
                     type="button"
-                    className="act-inspector-btn act-inspector-btn--ghost act-inspector-btn--sm"
+                    
                     onClick={cancelNoteFocus.onClick}
-                  >
-                    {t("common.cancel")}
-                  </button>
+                  > {t("common.cancel")} </Button>
                 </div>
               </div>
             ) : (

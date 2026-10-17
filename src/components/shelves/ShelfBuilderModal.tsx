@@ -516,14 +516,12 @@ export function ShelfBuilderModal({ open, shelf, initialRules, onClose }: ShelfB
                 : t("shelves.builder.matchCount", { count: matchCount })}
             </span>
           </div>
-          <button
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}
             type="button"
-            className="modal-close-btn"
+            
             onClick={onClose}
             aria-label={t("common.close")}
-          >
-            <X size={18} />
-          </button>
+          ></Button>
         </div>
 
         <div className="modal-body shelf-builder__body">{body}</div>

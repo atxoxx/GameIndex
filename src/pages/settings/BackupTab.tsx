@@ -934,40 +934,34 @@ export default function BackupTab() {
                     </div>
                     <div className="backup-archive-actions">
                       {/* Verify Integrity Action */}
-                      <button
+                      <Button variant="ghost" size="sm" iconOnly leftIcon={<ShieldCheck size={16} />}
                         type="button"
-                        className="backup-action-icon-btn"
+                        
                         onClick={() => void handleVerifyArchive(arc.filePath)}
                         title={t("settings.backup.verifyBtn")}
                         aria-label={t("settings.backup.verifyBtn")}
                         disabled={verifyingPath === arc.filePath}
-                      >
-                        <ShieldCheck size={16} />
-                      </button>
+                       className="backup-action-icon-btn"></Button>
 
                       {/* Compare / Diff Action */}
-                      <button
+                      <Button variant="ghost" size="sm" iconOnly leftIcon={<GitCompare size={16} />}
                         type="button"
-                        className="backup-action-icon-btn"
+                        
                         onClick={() => void handleDiffArchive(arc.filePath)}
                         title={t("settings.backup.diffBtn")}
                         aria-label={t("settings.backup.diffBtn")}
                         disabled={diffingPath === arc.filePath}
-                      >
-                        <GitCompare size={16} />
-                      </button>
+                       className="backup-action-icon-btn"></Button>
 
                       {/* Export Action */}
-                      <button
+                      <Button variant="ghost" size="sm" iconOnly leftIcon={<Download size={16} />}
                         type="button"
-                        className="backup-action-icon-btn"
+                        
                         onClick={() => void handleExportArchive(arc.filePath)}
                         title={t("settings.backup.exportBtn")}
                         aria-label={t("settings.backup.exportBtn")}
                         disabled={exportingPath === arc.filePath}
-                      >
-                        <Download size={16} />
-                      </button>
+                       className="backup-action-icon-btn"></Button>
 
                       {/* Quick Restore Action */}
                       <Button
@@ -979,27 +973,23 @@ export default function BackupTab() {
                         {t("settings.backup.quickRestoreBtn")}
                       </Button>
 
-                      <button
+                      <Button variant="ghost" size="sm" iconOnly leftIcon={<FolderOpen size={16} />}
                         type="button"
-                        className="backup-action-icon-btn"
+                        
                         onClick={() =>
                           void handleOpenFolder(arc.filePath.replace(/[\\/][^\\/]*$/, ""))
                         }
                         title={t("settings.backup.openFolder")}
                         aria-label={t("settings.backup.openFolder")}
-                      >
-                        <FolderOpen size={16} />
-                      </button>
+                       className="backup-action-icon-btn"></Button>
 
-                      <button
+                      <Button variant="ghost" size="sm" iconOnly leftIcon={<Trash2 size={16} />}
                         type="button"
-                        className="backup-action-icon-btn backup-action-icon-btn--danger"
+                        
                         onClick={() => setArchiveToDelete(arc)}
                         title={t("settings.backup.deleteBtn")}
                         aria-label={t("settings.backup.deleteBtn")}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                       className="backup-action-icon-btn backup-action-icon-btn--danger"></Button>
                     </div>
                   </article>
                 ))}

@@ -257,17 +257,15 @@ export function WineLogsModal({ gameId, gameName, onClose, onOpenEditTab }: Wine
             <span className="wine-logs-subtitle">{gameName}</span>
           </div>
 
-          <button
-            type="button"
-            className="modal-close-btn"
-            onClick={onClose}
-            aria-label={t("common.close") || "Close"}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+            </svg>}
+            type="button"
+            
+            onClick={onClose}
+            aria-label={t("common.close") || "Close"}
+          ></Button>
         </div>
 
         {/* Edit Game shortcuts — jump straight into the runner settings that

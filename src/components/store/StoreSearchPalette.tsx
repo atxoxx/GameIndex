@@ -197,7 +197,7 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
 
         <div className="store-search-palette-body" id="store-palette-listbox" role="listbox" aria-label={t("store.search.suggestions")}>
           {loading && trimmed.length >= 2 && flatGrouped.length === 0 ? (
-            <div className="store-search-dropdown-loading" style={{ padding: "16px" }}>
+            <div className="store-search-dropdown-loading" style={{ padding: "var(--space-lg)" }}>
               <span className="store-search-spinner" aria-hidden="true" />
               <span>{t("store.searching")}</span>
             </div>
@@ -305,7 +305,7 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
               })
             )
           ) : showEmptyState ? (
-            <div style={{ padding: "8px 0" }}>
+            <div style={{ padding: "var(--space-sm) 0" }}>
               {catalogue.recentSearches.length > 0 && (
                 <div className="store-search-section">
                   <div className="store-search-section-title store-search-section-title-row">
@@ -377,7 +377,7 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
               </div>
             </div>
           ) : (
-            <div className="store-search-dropdown-empty" style={{ padding: "16px" }}>
+            <div className="store-search-dropdown-empty" style={{ padding: "var(--space-lg)" }}>
               <span>{t("store.search.noSuggestions")}</span>
             </div>
           )}

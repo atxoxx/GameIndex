@@ -406,7 +406,7 @@ export default function HardwareTab() {
           </div>
         </div>
 
-        <div className="hw-card" style={{ marginTop: "1rem" }}>
+        <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
           <div className="hw-card-head">
             <label className="hw-card-label">{t("settings.label.speedUnit")}</label>
           </div>

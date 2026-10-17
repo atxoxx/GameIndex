@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { NewsFeed, FeedHealthStatus } from "../../hooks/useNewsFeeds";
 import { DEFAULT_FEEDS, CURATED_FEED_PACKS, getRegionalFeeds, discoverFeedUrl } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
+import { Button } from "../ui";
 
 interface NewsFeedSettingsProps {
   allFeeds: NewsFeed[];
@@ -538,13 +539,11 @@ export default function NewsFeedSettings({
             {t("news.feedCounts", { international: DEFAULT_FEEDS.length, regional: regionalFeeds.length, custom: customFeeds.length })}
           </span>
           <div className="modal-footer-actions">
-            <button
+            <Button variant="secondary" size="md"
               type="button"
-              className="edit-btn edit-btn-secondary"
+              
               onClick={onClose}
-            >
-              {t("editImage.done")}
-            </button>
+            > {t("editImage.done")} </Button>
           </div>
         </div>
       </div>

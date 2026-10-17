@@ -35,7 +35,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0;
@@ -45,34 +45,6 @@
   width: 18px;
   height: 18px;
   color: var(--color-accent);
-}
-
-.metadata-panel-close {
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: color var(--transition-fast),
-    background var(--transition-fast),
-    transform var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.metadata-panel-close:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.metadata-panel-close svg {
-  width: 18px;
-  height: 18px;
 }
 
 .metadata-panel-body {
@@ -93,7 +65,7 @@
 }
 
 .metadata-loading p {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   margin: 0;
 }
 
@@ -130,7 +102,7 @@
 }
 
 .metadata-empty p {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   margin: 0;
 }
 
@@ -162,11 +134,11 @@
 
 .metadata-result-source {
   display: inline-block;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  padding: 2px 10px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -190,7 +162,7 @@
 
 .metadata-result-title {
 
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: var(--space-sm);
@@ -200,7 +172,7 @@
 
 .metadata-result-desc {
 
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   line-height: 1.6;
   margin: 0 0 var(--space-md) 0;
@@ -217,7 +189,7 @@
   flex-wrap: wrap;
   gap: var(--space-md);
   margin-bottom: var(--space-sm);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
@@ -235,10 +207,10 @@
 
 .metadata-genre-tag {
   display: inline-block;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   background: var(--color-bg-hover);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
 }
@@ -269,13 +241,13 @@
 }
 
 .edit-image-slot-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .edit-image-slot-subtitle {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -319,7 +291,7 @@
 }
 
 .edit-img-btn {
-  font-size: var(--font-size-xs) !important;
+  font-size: var(--text-xs) !important;
   padding: var(--space-xs) var(--space-sm) !important;
 }
 
@@ -362,7 +334,7 @@
   align-items: center;
   gap: var(--space-xs);
   margin-top: var(--space-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-accent);
   text-decoration: none;
   transition: color var(--transition-fast);
@@ -387,7 +359,6 @@
   padding-top: var(--space-md);
   border-top: 1px solid var(--color-border);
 }
-
 
 /* ==============================
    Size field (Info card + Edit modal) -- Phase 3
@@ -433,7 +404,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-md);
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -456,7 +427,7 @@
   width: 100%;
   margin-top: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   background: var(--color-bg-secondary);
   border: 1px dashed var(--color-border);
@@ -491,7 +462,7 @@
 .edit-field-hint {
   display: block;
   margin-top: var(--space-xs);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -499,14 +470,13 @@
 /* Hint line below the input that surfaces the detected root path
  * (truncated with ellipsis; full path is exposed via title=). */
 .size-edit-hint {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 
 
 /* Launch-script header — label + tag stack */

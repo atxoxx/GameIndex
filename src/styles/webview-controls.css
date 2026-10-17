@@ -5,8 +5,8 @@
 .wv-controls {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -52,6 +52,6 @@
 .wv-controls__divider {
   width: 1px;
   align-self: stretch;
-  margin: 4px 2px;
+  margin: var(--space-2xs) var(--space-3xs);
   background: var(--color-border);
 }

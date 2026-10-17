@@ -843,28 +843,24 @@ export default function SavesPage() {
                       >
                         {t("saves.action.restore")}
                       </Button>
-                      <button
+                      <Button variant="secondary" size="sm" iconOnly leftIcon={<FolderOpen size={15} />}
                         type="button"
-                        className="saves-icon-btn"
+                        
                         onClick={() => void openBackup(backup.id)}
                         title={t("saves.action.openBackup")}
                         aria-label={t("saves.action.openBackup")}
-                      >
-                        <FolderOpen size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="saves-icon-btn saves-icon-btn--danger"
-                        onClick={() => setPending({ kind: "delete", backup })}
-                        title={t("saves.action.deleteBackup")}
-                        aria-label={t("saves.action.deleteBackup")}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                       className="saves-icon-btn"></Button>
+                      <Button variant="secondary" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                           <path d="M3 6h18" />
                           <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                           <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        </svg>
-                      </button>
+                        </svg>}
+                        type="button"
+                        
+                        onClick={() => setPending({ kind: "delete", backup })}
+                        title={t("saves.action.deleteBackup")}
+                        aria-label={t("saves.action.deleteBackup")}
+                       className="saves-icon-btn saves-icon-btn--danger"></Button>
                     </div>
                   </article>
                 );

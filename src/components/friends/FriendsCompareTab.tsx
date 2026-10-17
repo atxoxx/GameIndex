@@ -13,6 +13,7 @@ import {
   HandshakeIcon,
   GamepadIcon,
 } from "./friendsUtils";
+import { Button } from "../ui";
 
 interface FriendsCompareTabProps {
   friends: Friend[];
@@ -412,14 +413,11 @@ export default function FriendsCompareTab({
                     {onLaunchGame && (
                       <td>
                         {g.myGame && (
-                          <button
+                          <Button variant="secondary" size="sm" iconOnly leftIcon={<GamepadIcon />}
                             type="button"
-                            className="btn btn-secondary btn--mini"
                             onClick={() => onLaunchGame(g.myGame!.id)}
                             title={t("game.play")}
-                          >
-                            <GamepadIcon />
-                          </button>
+                          ></Button>
                         )}
                       </td>
                     )}

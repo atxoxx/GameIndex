@@ -84,13 +84,7 @@ export default function StoreSurpriseModal({
             </svg>
             <h2>{t("store.surprise.modalTitle")}</h2>
           </div>
-          <button
-            type="button"
-            className="store-surprise-modal-close"
-            onClick={onClose}
-            aria-label={t("store.surprise.close")}
-          >
-            <svg
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -101,8 +95,12 @@ export default function StoreSurpriseModal({
             >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+            </svg>}
+            type="button"
+            
+            onClick={onClose}
+            aria-label={t("store.surprise.close")}
+          ></Button>
         </div>
 
         <div className="store-surprise-modal-body">

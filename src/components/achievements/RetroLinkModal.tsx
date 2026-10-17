@@ -147,14 +147,12 @@ export default function RetroLinkModal({ game, onClose }: RetroLinkModalProps) {
             <h2 className="modal-title">{t("achievements.retroLink.title")}</h2>
             <p className="modal-subtitle">{t("achievements.retroLink.subtitle")}</p>
           </div>
-          <button
-            className="modal-close ach-modal-close"
+          <Button variant="ghost" size="sm" iconOnly
+            
             aria-label={t("common.close")}
             disabled={busy}
             {...closeFocus}
-          >
-            ×
-          </button>
+           className="modal-close"> × </Button>
         </div>
 
         <div className="modal-body ach-modal-body">

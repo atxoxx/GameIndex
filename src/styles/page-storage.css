@@ -111,7 +111,7 @@
 
 .storage-page .storage__empty-state-title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
@@ -119,7 +119,7 @@
 .storage-page .storage__empty-state-subtitle {
   margin: 0;
   max-width: 48ch;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   line-height: 1.5;
 }

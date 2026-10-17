@@ -1427,12 +1427,10 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
             >
               {fetchingMetadata ? t("edit.searching") : t("edit.fetchMetadata")}
             </Button>
-            <button className="metadata-panel-close" onClick={onClose} aria-label={t("common.close")}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+              </svg>}  onClick={onClose} aria-label={t("common.close")}></Button>
           </div>
         </div>
 
@@ -1465,12 +1463,10 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                       </svg>
                       {t("edit.metadataSearchResults")}
                     </h3>
-                    <button className="metadata-panel-close" onClick={() => setShowMetadataPanel(false)} aria-label="Close results">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" />
                         <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
+                      </svg>}  onClick={() => setShowMetadataPanel(false)} aria-label="Close results"></Button>
                   </div>
                   <div className="metadata-panel-body">
                     {fetchingMetadata ? (
@@ -1580,31 +1576,27 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                         onChange={(e) => setEditVersion(e.target.value)}
                         placeholder={cachedVersion || t("edit.versionPlaceholder")}
                       />
-                      <button
+                      <Button variant="secondary" size="md"
                         type="button"
-                        className="edit-btn edit-btn-secondary"
+                        
                         onClick={handleDetectVersion}
                         disabled={detectingVersion}
                         title={t("edit.autoDetectVersionTitle")}
-                      >
-                        {detectingVersion ? (
+                      > {detectingVersion ? (
                           <>
                             <div className="edit-slot-spinner" style={{ width: 12, height: 12 }} />
                             <span>{t("community.detecting") || "Detecting..."}</span>
                           </>
                         ) : (
                           t("edit.autoDetect") || "Auto-detect"
-                        )}
-                      </button>
+                        )} </Button>
                       {editVersion && (
-                        <button
+                        <Button variant="ghost" size="md"
                           type="button"
-                          className="edit-btn edit-btn-ghost"
+                          
                           onClick={() => setEditVersion("")}
                           title={t("common.clear")}
-                        >
-                          {t("common.clear")}
-                        </button>
+                        > {t("common.clear")} </Button>
                       )}
                     </div>
                   </div>
@@ -1640,19 +1632,15 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                   <label className="edit-label">{t("edit.label.size")}</label>
                   <div className="size-edit-row">
                     <input className="edit-input size-readonly" type="text" readOnly value={editSizeBytes != null ? formatSize(editSizeBytes, sizeUnit) : "Not set"} placeholder="Not set" />
-                    <button type="button" className="edit-btn edit-btn-secondary" onClick={openFolderAndDetectSize} disabled={detectingSize}>
-                      {detectingSize ? (
+                    <Button variant="secondary" size="md" type="button"  onClick={openFolderAndDetectSize} disabled={detectingSize}> {detectingSize ? (
                         <>
                           <div className="edit-slot-spinner" style={{ width: 12, height: 12 }} />
                           {t("community.detecting") || "Detecting..."}
                         </>
                       ) : (
                         t("edit.autoDetect") || "Auto-detect"
-                      )}
-                    </button>
-                    <button type="button" className="edit-btn edit-btn-ghost" onClick={clearSize} disabled={editSizeBytes == null}>
-                      {t("common.clear")}
-                    </button>
+                      )} </Button>
+                    <Button variant="ghost" size="md" type="button"  onClick={clearSize} disabled={editSizeBytes == null}> {t("common.clear")} </Button>
                   </div>
                   {editSizeRootPath && <span className="size-edit-hint" title={editSizeRootPath}>Folder: {editSizeRootPath}</span>}
                 </div>
@@ -1688,15 +1676,13 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                       />
                     </div>
                     <div className="edit-field">
-                      <button
+                      <Button variant="ghost" size="md"
                         type="button"
-                        className="edit-btn edit-btn-ghost"
+                        
                         onClick={resetPlaytimeEdits}
                         disabled={editPlaytimeHours === 0 && editPlaytimeMinutes === 0}
                         title={t("edit.playtime.resetTitle")}
-                      >
-                        {t("common.reset")}
-                      </button>
+                      > {t("common.reset")} </Button>
                     </div>
                   </div>
                   <span className="size-edit-hint">{t("edit.playtime.hint")}</span>

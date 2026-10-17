@@ -481,9 +481,9 @@ export default function StoreGameGrid({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
-            padding: "8px 2px 10px",
-            fontSize: "13px",
+            gap: "var(--space-sm)",
+            padding: "var(--space-sm) var(--space-3xs) var(--space-sm)",
+            fontSize: "var(--text-sm)",
             color: "var(--color-text-muted)",
           }}
         >

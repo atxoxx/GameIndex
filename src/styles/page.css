@@ -92,7 +92,7 @@
 
 .page-header__description {
   margin: var(--space-sm) 0 0;
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   line-height: var(--line-height-relaxed);
   color: var(--color-text-secondary);
   max-width: 64ch;

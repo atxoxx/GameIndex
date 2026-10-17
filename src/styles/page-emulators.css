@@ -93,7 +93,7 @@
 .emu-stat-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
@@ -104,7 +104,7 @@
 }
 
 .emu-stat-value {
-  font-size: var(--font-size-xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -114,16 +114,16 @@
 }
 
 .emu-stat-sublabel {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  padding: 1px 6px;
+  padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-full);
 }
 
 .emu-stat-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -199,7 +199,7 @@
 }
 
 .emulators-list-pane-title {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -207,9 +207,9 @@
 }
 
 .emulators-list-pane-count {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
-  padding: 2px var(--space-sm);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
@@ -236,8 +236,8 @@
 .emulators-search {
   width: 100%;
   height: 36px;
-  padding: 0 32px 0 36px;
-  font-size: var(--font-size-sm);
+  padding: 0 var(--space-2xl) 0 var(--space-2xl);
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -288,13 +288,13 @@
 .emulators-category-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .emu-cat-pill {
-  padding: 4px 8px;
+  padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   background: var(--color-bg-tertiary);
@@ -319,8 +319,8 @@
 .emulators-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 3px;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -330,9 +330,9 @@
   background: transparent;
   border: none;
   color: var(--color-text-secondary);
-  padding: 4px var(--space-sm);
+  padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   font-family: inherit;
@@ -358,7 +358,7 @@
 }
 
 .emulators-sort-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -371,7 +371,7 @@
   min-width: 0;
   height: 32px;
   padding: 0 var(--space-sm);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
   background: var(--color-bg-tertiary);
@@ -416,9 +416,9 @@
 }
 
 .emulators-list-count {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
-  padding: 0 2px;
+  padding: 0 var(--space-3xs);
 }
 
 .emulators-list {
@@ -427,8 +427,8 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-right: 4px;
+  gap: var(--space-2xs);
+  padding-right: var(--space-2xs);
 }
 
 .emulators-list-empty {
@@ -438,12 +438,12 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
 
 .emulators-list-empty-glyph {
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   opacity: 0.6;
 }
 
@@ -451,7 +451,7 @@
 .emu-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .emu-group + .emu-group {
@@ -462,8 +462,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 6px 4px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-3xs) var(--space-xs) var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -478,8 +478,8 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  padding: 0 7px;
-  font-size: var(--font-size-2xs);
+  padding: 0 var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
@@ -552,7 +552,7 @@
   border-radius: var(--radius-md);
   display: grid;
   place-items: center;
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   color: var(--emu-accent, var(--color-accent));
   background: color-mix(in srgb, var(--emu-accent, var(--color-accent)) 14%, var(--color-bg-tertiary));
   border: 1px solid color-mix(in srgb, var(--emu-accent, var(--color-accent)) 22%, transparent);
@@ -564,7 +564,7 @@
   flex-shrink: 0;
   border-radius: var(--radius-md);
   object-fit: contain;
-  padding: 5px;
+  padding: var(--space-2xs);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
 }
@@ -574,11 +574,11 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .emu-row-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   letter-spacing: -0.01em;
@@ -588,7 +588,7 @@
 }
 
 .emu-row-platform {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -599,12 +599,12 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: var(--space-2xs);
   flex-shrink: 0;
 }
 
 .emu-row-count {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
@@ -619,9 +619,9 @@
 .emu-status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -650,8 +650,8 @@
 }
 
 .emu-status-pill--lg {
-  padding: 4px 12px;
-  font-size: var(--font-size-xs);
+  padding: var(--space-2xs) var(--space-md);
+  font-size: var(--text-xs);
 }
 
 .emu-status-pill--lg::before {
@@ -682,7 +682,7 @@
   border: 1px dashed var(--color-border-light);
   border-radius: var(--radius-xl);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .emulators-detail-empty-glyph {
@@ -693,7 +693,7 @@
   border: 1px solid var(--color-border);
   display: grid;
   place-items: center;
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   opacity: 0.85;
 }
 
@@ -739,7 +739,7 @@
   border-radius: var(--radius-lg);
   display: grid;
   place-items: center;
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   color: var(--emu-accent, var(--color-accent));
   background: color-mix(in srgb, var(--emu-accent, var(--color-accent)) 16%, var(--color-bg-tertiary));
   border: 1px solid color-mix(in srgb, var(--emu-accent, var(--color-accent)) 30%, transparent);
@@ -752,7 +752,7 @@
   flex-shrink: 0;
   border-radius: var(--radius-lg);
   object-fit: contain;
-  padding: 8px;
+  padding: var(--space-sm);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
 }
@@ -762,7 +762,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .emu-detail-title-row {
@@ -774,7 +774,7 @@
 
 .emu-detail-name {
   margin: 0;
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   letter-spacing: -0.02em;
   color: var(--color-text-primary);
@@ -784,7 +784,7 @@
 }
 
 .emu-detail-platform {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -800,7 +800,7 @@
 
 .emu-detail-desc {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--color-text-secondary);
 }
@@ -815,7 +815,7 @@
 .emu-detail-meta-tile {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
   min-width: 0;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-tertiary);
@@ -836,7 +836,7 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  padding: 2px;
+  padding: var(--space-3xs);
   border-radius: var(--radius-xs);
   transition: color var(--duration-fast) var(--ease-standard);
 }
@@ -853,8 +853,8 @@
 .emu-detail-meta-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -868,7 +868,7 @@
 }
 
 .emu-detail-meta-value {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -877,13 +877,13 @@
 
 .emu-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
 }
 
 .emu-detail-notes {
   margin: 0;
   padding: var(--space-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--color-text-secondary);
   background: var(--color-bg-primary);
@@ -923,7 +923,7 @@
   border-radius: var(--radius-xl);
   display: grid;
   place-items: center;
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
 }
@@ -934,20 +934,20 @@
   margin-bottom: var(--space-xs);
   border-radius: var(--radius-xl);
   object-fit: contain;
-  padding: 7px;
+  padding: var(--space-xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
 }
 
 .emulators-notadded h3 {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   color: var(--color-text-primary);
 }
 
 .emulators-notadded p {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--color-text-secondary);
   max-width: 420px;
@@ -988,7 +988,7 @@
 
 .emu-games-title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
@@ -1000,11 +1000,11 @@
 .emu-games-count {
   display: inline-flex;
   align-items: center;
-  padding: 2px var(--space-sm);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
@@ -1014,11 +1014,11 @@
 .emu-games-total-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px var(--space-sm);
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   font-variant-numeric: tabular-nums;
@@ -1045,23 +1045,23 @@
 .emu-games-sort-box {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .emu-games-sort-select {
   height: 32px;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
 }
 
 /* View Mode Switcher (Grid vs Table) */
 .emu-view-toggle {
   display: flex;
   align-items: center;
-  padding: 2px;
+  padding: var(--space-3xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .emu-view-btn {
@@ -1132,13 +1132,13 @@
 }
 
 .emu-games-bulkcount {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
 }
 
 .emu-games-bulksize {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
@@ -1163,18 +1163,18 @@
 }
 
 .emu-games-empty-glyph {
-  font-size: var(--font-size-3xl);
+  font-size: var(--text-3xl);
   opacity: 0.6;
 }
 
 .emu-games-empty p {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
 
 .emu-games-empty-hint {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -1232,7 +1232,7 @@
   place-items: center;
   background: var(--scrim-dark-mid);
   backdrop-filter: blur(4px);
-  padding: 3px;
+  padding: var(--space-3xs);
   border-radius: var(--radius-xs);
   cursor: pointer;
 }
@@ -1246,13 +1246,13 @@
 .emu-rom-running-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   background: var(--color-scrim);
   backdrop-filter: blur(4px);
   color: var(--color-success);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
 }
@@ -1308,12 +1308,12 @@
 }
 
 .emu-rom-fallback-glyph {
-  font-size: var(--font-size-3xl);
+  font-size: var(--text-3xl);
   opacity: 0.7;
 }
 
 .emu-rom-fallback-platform {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1360,14 +1360,14 @@
 .emu-rom-play-btn svg {
   width: 18px;
   height: 18px;
-  margin-left: 2px;
+  margin-left: var(--space-3xs);
 }
 
 .emu-rom-card-body {
   padding: var(--space-sm);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
   flex: 1;
 }
 
@@ -1378,7 +1378,7 @@
 
 .emu-rom-card-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1395,14 +1395,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-secondary);
 }
 
 .emu-rom-card-playtime {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-3xs);
 }
 
 .emu-rom-card-playtime svg {
@@ -1414,8 +1414,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
-  padding-top: 4px;
+  gap: var(--space-3xs);
+  padding-top: var(--space-2xs);
   border-top: 1px solid var(--color-border);
 }
 
@@ -1424,7 +1424,7 @@
 .emu-games-table {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .emu-game-row {
@@ -1456,8 +1456,8 @@
 .emu-game-row-head {
   background: transparent;
   border: none;
-  padding: 4px var(--space-md);
-  font-size: var(--font-size-xs);
+  padding: var(--space-2xs) var(--space-md);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1527,7 +1527,7 @@
 }
 
 .emu-game-icon-fallback {
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   opacity: 0.6;
 }
 
@@ -1536,7 +1536,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   cursor: pointer;
 }
 
@@ -1547,7 +1547,7 @@
 }
 
 .emu-game-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1558,15 +1558,15 @@
 .emu-rom-running-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-success);
   text-transform: uppercase;
 }
 
 .emu-game-path {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -1574,7 +1574,7 @@
 }
 
 .emu-game-size {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   flex-shrink: 0;
   min-width: 80px;
@@ -1584,7 +1584,7 @@
 }
 
 .emu-game-mods {
-  margin-left: 4px;
+  margin-left: var(--space-2xs);
   color: var(--color-accent);
   font-weight: var(--font-weight-semibold);
 }
@@ -1592,7 +1592,7 @@
 .emu-game-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-3xs);
   flex-shrink: 0;
 }
 
@@ -1655,7 +1655,7 @@
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   border-top: 1px solid var(--color-border);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
@@ -1676,7 +1676,7 @@
 }
 
 .emu-rom-inspect-platform {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-accent);
   font-weight: var(--font-weight-semibold);
 }
@@ -1711,12 +1711,12 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-xs);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
 
 .emu-rom-inspect-fallback-glyph {
-  font-size: var(--font-size-3xl);
+  font-size: var(--text-3xl);
   opacity: 0.6;
 }
 
@@ -1729,14 +1729,14 @@
 .emu-rom-inspect-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .emu-rom-inspect-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1760,7 +1760,7 @@
 }
 
 .emu-rom-inspect-path {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1770,7 +1770,7 @@
 .emu-rom-inspect-path-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-3xs);
   flex-shrink: 0;
 }
 
@@ -1783,7 +1783,7 @@
 .emu-rom-inspect-meta-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
   padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -1791,7 +1791,7 @@
 }
 
 .emu-rom-inspect-val {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
@@ -1801,7 +1801,7 @@
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   word-break: break-all;
 }
@@ -1878,28 +1878,6 @@
   width: 92%;
 }
 
-.modal-close {
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-standard),
-    background var(--duration-fast) var(--ease-standard);
-}
-
-.modal-close:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
 .emulators-editor-body {
   display: flex;
   flex-direction: column;
@@ -1910,7 +1888,7 @@
 .emulators-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--space-2xs);
 }
 
 .emulators-field-header {
@@ -1926,13 +1904,13 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-2xs);
   row-gap: var(--space-xs);
 }
 
 .emu-preset-pill {
-  padding: 1px 6px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-4xs) var(--space-xs);
+  font-size: var(--text-2xs);
   font-family: var(--font-mono);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -1950,7 +1928,7 @@
 
 .emulators-field > span,
 .emulators-field-header > span {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -1961,7 +1939,7 @@
 .emulators-field select,
 .emulators-field textarea {
   padding: var(--space-sm) var(--space-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-primary);
@@ -2002,22 +1980,22 @@
 }
 
 .emulators-hint {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   opacity: 0.7;
 }
 
 .emulators-known-hint {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   font-style: italic;
-  padding: 2px 0 0;
+  padding: var(--space-3xs) 0 0;
 }
 
 .emulators-extensions {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
   opacity: 0.7;
 }
@@ -2026,7 +2004,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
   cursor: pointer;
 }
@@ -2051,7 +2029,7 @@
   width: 36px;
   height: 36px;
   object-fit: contain;
-  padding: 3px;
+  padding: var(--space-3xs);
   background: var(--color-bg-primary);
   border-radius: var(--radius-md);
 }
@@ -2062,31 +2040,31 @@
 }
 
 .emulators-known-logo-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .emulators-known-logo-platform {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
 /* Rename dialog fields */
 .modal-label {
   display: block;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-xs);
 }
 
 .modal-input {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-primary);
@@ -2107,14 +2085,6 @@
   max-height: 85vh;
 }
 
-.download-emulator-modal .modal-close:disabled,
-.download-emulator-modal .modal-close:disabled:hover {
-  opacity: 0.4;
-  cursor: not-allowed;
-  color: var(--color-text-secondary);
-  background: transparent;
-}
-
 .download-emulator-body {
   display: flex;
   flex-direction: column;
@@ -2127,7 +2097,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -2137,9 +2107,9 @@
 .download-emulator-back {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   background: transparent;
@@ -2210,7 +2180,7 @@
 .download-emulator-row-glyph {
   display: grid;
   place-items: center;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   background: color-mix(
     in srgb,
     var(--emu-accent, var(--color-accent)) 10%,
@@ -2227,7 +2197,7 @@
 
 .download-emulator-row-glyph-img {
   object-fit: contain;
-  padding: 4px;
+  padding: var(--space-2xs);
 }
 
 .download-emulator-row-main {
@@ -2235,21 +2205,21 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 
 .download-emulator-row-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .download-emulator-row-platform {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
 .download-emulator-notes {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.4;
   overflow: hidden;
@@ -2266,10 +2236,10 @@
 }
 
 .download-emulator-size {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   white-space: nowrap;
@@ -2278,14 +2248,14 @@
 .download-emulator-installed {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-2xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-success);
   background: color-mix(in srgb, var(--color-success) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
   border-radius: var(--radius-full);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   white-space: nowrap;
 }
 
@@ -2295,10 +2265,10 @@
 }
 
 .download-emulator-build {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   white-space: nowrap;
   color: var(--color-text-secondary);
   background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent);
@@ -2319,14 +2289,14 @@
 
 .download-emulator-hint {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
 .download-emulator-empty {
   padding: var(--space-xl);
   text-align: center;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   border: 1px dashed var(--color-border-light);
   border-radius: var(--radius-md);
@@ -2345,17 +2315,17 @@
 .download-emulator-summary-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 
 .download-emulator-summary-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 .download-emulator-summary-platform {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
@@ -2369,7 +2339,7 @@
   flex: 1;
   min-width: 0;
   padding: var(--space-sm) var(--space-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-family: var(--font-mono);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -2397,7 +2367,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-md);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
 }
@@ -2456,7 +2426,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
 
@@ -2467,7 +2437,7 @@
 
 .download-emulator-progress-status span {
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -2501,14 +2471,14 @@
 }
 
 .download-emulator-result-name {
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .download-emulator-result-path {
   max-width: 100%;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
   overflow: hidden;
@@ -2530,9 +2500,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 1px 5px;
-  margin-right: 6px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-4xs) var(--space-2xs);
+  margin-right: var(--space-xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -2625,7 +2595,7 @@
 /* ROM card size readout */
 .emu-rom-card-size {
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -2635,16 +2605,16 @@
 .emu-rom-badge-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 20px;
+  gap: var(--space-xs);
+  padding: 0 var(--space-lg);
 }
 .emu-rom-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
   font-weight: 600;
   color: var(--color-text);
   background: var(--color-bg-2);
@@ -2662,8 +2632,8 @@
 
 .emu-rom-tabs {
   display: flex;
-  gap: 4px;
-  padding: 0 20px;
+  gap: var(--space-2xs);
+  padding: 0 var(--space-lg);
   border-bottom: 1px solid var(--color-border);
 }
 .emu-rom-tab {
@@ -2672,8 +2642,8 @@
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--color-text-muted);
-  padding: 8px 12px;
-  font-size: var(--font-size-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -2691,35 +2661,35 @@
 .emu-rom-tab-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-md);
   width: 100%;
 }
 .emu-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 .emu-panel-head h4 {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text);
 }
 .emu-panel-head--spaced {
-  margin-top: 8px;
+  margin-top: var(--space-sm);
   border-top: 1px solid var(--color-border);
-  padding-top: 12px;
+  padding-top: var(--space-md);
 }
 .emu-panel-hint {
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   margin: 0;
 }
 
 .emu-candidate-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
   max-height: 180px;
   overflow-y: auto;
 }
@@ -2727,49 +2697,49 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-bg-1);
 }
 .emu-candidate-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 .emu-candidate-title {
   font-weight: 600;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 .emu-candidate-sub {
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
 }
 
 .emu-manual-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--space-sm);
 }
 .emu-manual-wide {
   grid-column: 1 / -1;
 }
 .emu-manual-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
   justify-content: flex-end;
 }
 
 .emu-controller-strip {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  font-size: var(--font-size-xs);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
   color: var(--color-text);
   background: var(--color-bg-1);
 }
@@ -2787,10 +2757,10 @@
 .emu-save-status {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
   font-weight: 600;
   border: 1px solid var(--color-border);
 }
@@ -2808,27 +2778,27 @@
 .emu-snapshot-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 .emu-save-entry,
 .emu-snapshot-entry {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--color-bg-1);
 }
 .emu-save-entry-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 .emu-save-entry-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -2836,35 +2806,35 @@
 }
 .emu-save-entry-sub {
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
 }
 .emu-save-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 .emu-save-actions .modal-input {
   flex: 1;
 }
 .emu-snapshot-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .emu-games-filters {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   flex-wrap: wrap;
-  padding: 8px 0 0;
+  padding: var(--space-sm) 0 0;
 }
 .emu-filter-chip {
   appearance: none;
   border: 1px solid var(--color-border);
   background: var(--color-bg-1);
   color: var(--color-text-muted);
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: var(--font-size-2xs);
+  border-radius: var(--radius-full);
+  padding: var(--space-2xs) var(--space-md);
+  font-size: var(--text-2xs);
   font-weight: 600;
   cursor: pointer;
 }
@@ -2874,43 +2844,43 @@
 }
 .emu-filter-select {
   width: auto;
-  padding: 4px 8px;
-  font-size: var(--font-size-2xs);
+  padding: var(--space-2xs) var(--space-sm);
+  font-size: var(--text-2xs);
 }
 .emu-filter-clear {
   appearance: none;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   text-decoration: underline;
   cursor: pointer;
 }
 
 .emu-recent-rail {
-  margin-top: 14px;
+  margin-top: var(--space-md);
 }
 .emu-recent-title {
-  margin: 0 0 8px;
-  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-weight: 600;
 }
 .emu-recent-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: var(--space-2xs);
 }
 .emu-recent-chip {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   flex-shrink: 0;
   max-width: 160px;
-  padding: 8px 12px;
+  padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--color-bg-1);
   color: var(--color-text);
   cursor: pointer;
@@ -2920,22 +2890,22 @@
   border-color: var(--accent);
 }
 .emu-recent-chip-name {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .emu-recent-chip-time {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
 .emu-tools-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .emu-dup-body,
@@ -2946,15 +2916,15 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 .emu-dup-group {
   border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 .emu-dup-group-head {
   display: flex;
@@ -2962,23 +2932,23 @@
   justify-content: space-between;
 }
 .emu-dup-group-size {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 .emu-dup-game {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
+  gap: var(--space-3xs);
+  padding: var(--space-xs) var(--space-sm);
   background: var(--color-bg-1);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .emu-dup-game-name {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .emu-dup-game-path {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -2989,32 +2959,32 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--color-bg-1);
 }
 .emu-discovery-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
 }
 .emu-discovery-name {
   font-weight: 600;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 .emu-discovery-platform {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   font-weight: 400;
 }
 .emu-discovery-path {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -3023,10 +2993,10 @@
 }
 
 .emu-bios-summary {
-  padding: 10px;
-  border-radius: 8px;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
   font-weight: 600;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
 }
 .emu-bios-ok {
   color: var(--color-success, #22c55e);
@@ -3037,10 +3007,10 @@
 .emu-bios-entry {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .emu-bios-entry.is-missing {
   opacity: 0.7;
@@ -3058,30 +3028,30 @@
 .emu-bios-entry-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   flex: 1;
   min-width: 0;
 }
 .emu-bios-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 .emu-bios-sub {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 .emu-bios-invalid {
   color: var(--color-warning, #f59e0b);
 }
 .emu-bios-tag {
-  font-size: var(--font-size-2xs);
-  padding: 2px 8px;
-  border-radius: 999px;
+  font-size: var(--text-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   white-space: nowrap;
 }
 .emu-rom-desc {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.5;
   margin: 0;
@@ -3093,11 +3063,11 @@
 .emu-rom-notes-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 6px;
+  margin-top: var(--space-xs);
 }
 .emu-rom-actions-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 /* ============================================================================
@@ -3129,21 +3099,21 @@
 /* ── Sidebar: status chips, dots, footer, empty ─────────────────── */
 .emu-status-chips {
   display: flex;
-  gap: 4px;
-  padding: 3px;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 .emu-status-chip {
   flex: 1;
-  padding: 4px var(--space-sm);
+  padding: var(--space-2xs) var(--space-sm);
   border: none;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   white-space: nowrap;
@@ -3181,7 +3151,7 @@
   width: 100%;
 }
 .emulators-list-empty strong {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
@@ -3191,7 +3161,7 @@
 
 /* ── Detail empty state ─────────────────────────────────────────── */
 .emulators-detail-empty strong {
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
@@ -3217,12 +3187,12 @@
 }
 .emu-setup-head h3 {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 .emu-setup-progress {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
@@ -3232,7 +3202,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 .emu-setup-step {
   display: flex;
@@ -3254,7 +3224,7 @@
 .emu-setup-label {
   flex: 1;
   min-width: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
 .emu-setup-step.is-done .emu-setup-label {
@@ -3275,7 +3245,7 @@
 .emu-quickstat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   min-width: 0;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-tertiary);
@@ -3283,7 +3253,7 @@
   border-radius: var(--radius-lg);
 }
 .emu-quickstat-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -3293,7 +3263,7 @@
   text-overflow: ellipsis;
 }
 .emu-quickstat-value {
-  font-size: var(--font-size-md);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -3354,7 +3324,7 @@
 }
 .emu-add-tabs {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2xs);
   flex-shrink: 0;
   padding: 0 var(--space-xl);
   border-bottom: 1px solid var(--color-border);
@@ -3362,14 +3332,14 @@
 .emu-add-tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   padding: var(--space-md);
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-standard);
@@ -3399,14 +3369,14 @@
   flex: 1;
   min-width: 200px;
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--color-text-secondary);
 }
 .emu-add-search {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   flex: 1;
   min-width: 200px;
   height: 34px;
@@ -3429,7 +3399,7 @@
   outline: none;
   color: var(--color-text-primary);
   font: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 .emu-add-search input::placeholder {
   color: var(--color-text-muted);
@@ -3437,16 +3407,16 @@
 .emu-add-families {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 .emu-add-chip {
-  padding: 4px 10px;
+  padding: var(--space-2xs) var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-standard),
@@ -3465,7 +3435,7 @@
 .emu-add-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 .emu-add-row {
   display: flex;
@@ -3482,7 +3452,7 @@
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -3492,26 +3462,26 @@
   height: 36px;
   flex-shrink: 0;
   object-fit: contain;
-  padding: 4px;
+  padding: var(--space-2xs);
 }
 .emu-add-row-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
 }
 .emu-add-row-name {
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 .emu-add-row-platform {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 .emu-add-row-desc {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -3519,7 +3489,7 @@
 }
 .emu-add-row-path {
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -3532,9 +3502,9 @@
   flex-shrink: 0;
 }
 .emu-add-row-badge {
-  padding: 2px 8px;
+  padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-2xs);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-success);
   background: color-mix(in srgb, var(--color-success) 10%, transparent);
@@ -3543,7 +3513,7 @@
 .emu-add-empty {
   padding: var(--space-2xl);
   text-align: center;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   border: 1px dashed var(--color-border-light);
   border-radius: var(--radius-md);
@@ -3563,7 +3533,7 @@
 .emu-add-download p {
   margin: 0;
   max-width: 420px;
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
   line-height: 1.6;
 }
 
@@ -3576,5 +3546,5 @@
 .emu-bios-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
