@@ -77,6 +77,34 @@ interface SteamPlayerCountPopoverProps {
 }
 
 /**
+ * The "updated Ns ago" line. It owns the per-second tick so the countdown
+ * re-render touches only this one-line span — the expiry clock used to
+ * re-render the entire popover body (chart, review bar, buttons) every
+ * second while it was open.
+ */
+function UpdatedAgoLabel({ lastUpdated }: { lastUpdated: number | null }) {
+  const { t } = useLanguage();
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (lastUpdated === null) return;
+    const timer = window.setInterval(() => setTick((tick) => tick + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [lastUpdated]);
+
+  if (lastUpdated === null) {
+    return <span>{t("steamPlayer.awaitingData")}</span>;
+  }
+  return (
+    <span>
+      {t("steamPlayer.updatedAgo", {
+        seconds: Math.max(0, Math.floor((Date.now() - lastUpdated) / 1000)),
+      })}
+    </span>
+  );
+}
+
+/**
  * SteamStatsPopoverBody
  * ─────────────────────
  * The Steam sections of the popover (live count, review breakdown,
@@ -103,7 +131,6 @@ export function SteamStatsPopoverBody({
   const liveCount = useSteamPlayerCount(appId);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
-  const [, setClockTick] = useState(0);
 
   useEffect(() => {
     if (liveCount !== null) setLastUpdated(Date.now());
@@ -114,16 +141,6 @@ export function SteamStatsPopoverBody({
     window.dispatchEvent(new Event("focus"));
     window.setTimeout(() => setIsRefreshing(false), 600);
   };
-
-  useEffect(() => {
-    if (lastUpdated === null) return;
-    const timer = window.setInterval(() => setClockTick((tick) => tick + 1), 1000);
-    return () => window.clearInterval(timer);
-  }, [lastUpdated]);
-
-  const updatedLabel = lastUpdated
-    ? t("steamPlayer.updatedAgo", { seconds: Math.max(0, Math.floor((Date.now() - lastUpdated) / 1000)) })
-    : t("steamPlayer.awaitingData");
 
   const reviewsLoading = statsLoading;
 
@@ -254,7 +271,7 @@ export function SteamStatsPopoverBody({
         </div>
 
         <div className="steam-stats-popover-freshness">
-          <span>{updatedLabel}</span>
+          <UpdatedAgoLabel lastUpdated={lastUpdated} />
           <div className="steam-stats-popover-freshness-actions">
             <button type="button" className="steam-stats-popover-refresh" onClick={copyStats} aria-label={t("steamPlayer.copyStats")}>
               {t("steamPlayer.copyStats")}
