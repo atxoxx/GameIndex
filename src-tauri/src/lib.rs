@@ -663,7 +663,10 @@ pub fn run() {
             crashlog::set_log_dir(app_data_dir.clone());
             crashlog::set_app_context(&app.package_info().version.to_string());
             crashlog::breadcrumb("app", "app data dir resolved");
-            db::artwork::cleanup_non_library_caches(&app_data_dir, Duration::from_secs(30 * 24 * 60 * 60));
+            // No `cleanup_non_library_caches` here: the same sweep runs from a
+            // background thread a few seconds after `load_games` (atomic
+            // guarded once per session), so booting no longer walks the whole
+            // artwork tree before the first window exists.
             let db = match db::init(&app_data_dir) {
                 Ok(db) => db,
                 Err(e) => {
