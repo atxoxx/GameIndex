@@ -719,8 +719,7 @@ impl DownloadManager {
             // Live session entry with no owning record — an invisible
             // download that writes files the UI never reports. Delete any
             // session torrent whose infohash has no record AND no
-            // in-flight add (a FetchingMetadata record whose source magnet
-            // carries the same infohash).
+            // in-flight add (see `add_is_in_flight`).
             {
                 let orphans: Vec<Arc<librqbit::ManagedTorrent>> =
                     session.with_torrents(|iter| {
@@ -731,15 +730,10 @@ impl DownloadManager {
                             if self.downloads.contains_key(&fid) {
                                 continue;
                             }
-                            let in_flight = self.downloads.values().any(|d| {
-                                matches!(d.status, DownloadStatus::FetchingMetadata)
-                                    && torrent::btih_from_magnet(&d.source_uri)
-                                        .and_then(|h| {
-                                            torrent::frontend_id_from_btih_hex(&h)
-                                        })
-                                        .as_deref()
-                                        == Some(fid.as_str())
-                            });
+                            let in_flight = self
+                                .downloads
+                                .values()
+                                .any(|d| add_is_in_flight(d, &fid));
                             if !in_flight {
                                 orphans.push(Arc::clone(mt));
                             }
@@ -976,6 +970,35 @@ impl DownloadManager {
 }
 
 // ─── Start orchestration (needs the shared Arc, so free functions) ──────────
+
+/// True while a torrent add whose infohash resolves to `fid` can still
+/// be in-flight. Protects the orphan sweep: the record is still keyed by
+/// its temporary `dl_pending_*` id until the add resolves, and the
+/// source URI rarely names the infohash for non-hex sources — base32 or
+/// v2 magnets and `.torrent` files/URLs yield no `btih:` match at all,
+/// so the URI-level check alone would let the sweep delete the session
+/// entry while `add_and_start` is still fetching metadata. Once the
+/// watchdog (or a real add failure) moves the record out of
+/// FetchingMetadata, the sweep can clean up any leftover again.
+fn add_is_in_flight(d: &Download, fid: &str) -> bool {
+    if d.kind != DownloadKind::Torrent {
+        return false;
+    }
+    let pending = matches!(d.status, DownloadStatus::FetchingMetadata | DownloadStatus::Queued);
+    if !pending {
+        return false;
+    }
+    match torrent::btih_from_magnet(&d.source_uri)
+        .and_then(|h| torrent::frontend_id_from_btih_hex(&h))
+        .as_deref()
+    {
+        // Hash proven: only THIS infohash is in flight.
+        Some(hashed) => hashed == fid,
+        // Hash unknown (base32 / v2 / .torrent): any pending add of a
+        // torrent-kind record must be treated as possibly ours.
+        None => true,
+    }
+}
 
 /// Push download/upload speed limits to the torrent session and the direct
 /// HTTP worker. This is the single choke point used by the user-facing
@@ -2360,6 +2383,77 @@ fn hash_downloads<'a>(downloads: impl Iterator<Item = &'a Download>) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const FID: &str = "dl_1234567";
+
+    fn torrent_record(source: &str, status: DownloadStatus) -> Download {
+        let mut d = Download::new(
+            "dl_pending_x".to_string(),
+            DownloadKind::Torrent,
+            "T".to_string(),
+            source.to_string(),
+            String::new(),
+            None,
+            "test".to_string(),
+            false,
+        );
+        d.status = status;
+        d
+    }
+
+    #[test]
+    fn hex_magnet_in_flight_matches_by_infohash() {
+        // 40-hex magnet whose truncated infohash yields FID.
+        let hex: String = "a".repeat(40);
+        let d = torrent_record(
+            &format!("magnet:?xt=urn:btih:{hex}"),
+            DownloadStatus::FetchingMetadata,
+        );
+        let expected = torrent::frontend_id_from_btih_hex(&hex).unwrap();
+        assert!(add_is_in_flight(&d, &expected));
+        // Another torrent's infohash is not in flight.
+        assert!(!add_is_in_flight(&d, FID));
+    }
+
+    #[test]
+    fn opaque_sources_block_orphan_sweep_while_adding() {
+        // A base32 magnet and a .torrent URL carry no hex btih, yet the
+        // session entry created by their (possibly slow) add must be
+        // treated as in-flight — otherwise the orphan sweep deletes it
+        // mid-add.
+        for source in [
+            "https://tracker.example/file.torrent",
+            r"C:\downloads\file.torrent",
+        ] {
+            let d = torrent_record(source, DownloadStatus::FetchingMetadata);
+            assert!(add_is_in_flight(&d, FID), "source: {source}");
+        }
+        // After the record left the add phase the sweep proceeds again.
+        let errored = torrent_record(
+            "https://tracker.example/file.torrent",
+            DownloadStatus::Error("meh".to_string()),
+        );
+        assert!(!add_is_in_flight(&errored, FID));
+    }
+
+    #[test]
+    fn non_torrent_records_never_block_the_sweep() {
+        let mut d = Download::new(
+            "db_x".to_string(),
+            DownloadKind::Debrid,
+            "D".to_string(),
+            "magnet:?xt=urn:btih:<hex>".to_string(),
+            String::new(),
+            None,
+            "test".to_string(),
+            false,
+        );
+        // Even a debrid record mid-resolve must not suppress orphan
+        // cleanup for a torrent infohash.
+        assert!(!add_is_in_flight(&d, FID));
+        d.kind = DownloadKind::Direct;
+        assert!(!add_is_in_flight(&d, FID));
+    }
 
     #[test]
     fn resolved_total_size_prefers_file_sum() {

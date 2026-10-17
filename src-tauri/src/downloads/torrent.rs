@@ -608,6 +608,7 @@ async fn fetch_torrent_bytes(uri: &str, referer: Option<&str>) -> Result<Vec<u8>
         req = req.header(reqwest::header::REFERER, r);
     }
     let resp = req
+        .timeout(Duration::from_secs(30))
         .send()
         .await
         .map_err(|e| format!("Failed to fetch .torrent file: {e}"))?;

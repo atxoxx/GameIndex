@@ -552,10 +552,13 @@ export default function DownloadModal({
     const remaining = Math.max(0, 30_000 - elapsed);
     const timeout = window.setTimeout(() => {
       if (cancelledRef.current) return;
-      invoke("torrent_remove", { id: tempTorrentId, deleteFiles: true }).catch((e) =>
-        console.error("Failed to clean up timed-out temporary torrent:", e),
-      );
+      if (tempTorrentIdRef.current && !tempIdReusesExistingRef.current) {
+        invoke("torrent_remove", { id: tempTorrentIdRef.current, deleteFiles: true }).catch((e) =>
+          console.error("Failed to clean up timed-out temporary torrent:", e),
+        );
+      }
       setTempTorrentId(null);
+      tempIdReusesExistingRef.current = false;
       setMetadataTimedOut(true);
       setError(t("downloadModal.metadataTimeout"));
       setStep("results");
@@ -566,8 +569,17 @@ export default function DownloadModal({
   const startAttemptedRef = useRef(false);
   const cancelledRef = useRef(false);
   const resultsListRef = useRef<HTMLDivElement | null>(null);
+  // Ids the downloads list already tracked as of the latest render. A
+  // list-only add that returns one of these ids means "preview file
+  // selection for an EXISTING download" — its cleanup paths must not
+  // remove (and, with deleteFiles, wipe) a download the user owns.
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  // True when tempTorrentId points at a pre-existing download (reuse
+  // case) rather than a freshly created placeholder.
   const tempTorrentIdRef = useRef<string | null>(null);
+  const tempIdReusesExistingRef = useRef(false);
   tempTorrentIdRef.current = tempTorrentId;
+  knownIdsRef.current = new Set([...activeDownloads, ...completedDownloads].map((d) => d.id));
   const [elapsedSec, setElapsedSec] = useState(0);
 
   const namesKey = useMemo(
@@ -656,11 +668,12 @@ export default function DownloadModal({
 
   const cancelFileListing = useCallback(() => {
     cancelledRef.current = true;
-    if (tempTorrentIdRef.current) {
+    if (tempTorrentIdRef.current && !tempIdReusesExistingRef.current) {
       invoke("torrent_remove", { id: tempTorrentIdRef.current, deleteFiles: true }).catch((e) =>
         console.error("Failed to remove list-only torrent:", e),
       );
     }
+    tempIdReusesExistingRef.current = false;
     setTempTorrentId(null);
     setFetchedFiles(null);
     setFetchMode(null);
@@ -905,7 +918,9 @@ export default function DownloadModal({
         setStep("fetching_metadata");
         let newDl;
         try {
+          const knownIds = new Set(knownIdsRef.current);
           newDl = await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, true, match.referer ?? null, gamePoster ?? null);
+          tempIdReusesExistingRef.current = knownIds.has(newDl.id);
         } catch (addErr) {
           if (cancelledRef.current) return;
           console.error("[DownloadModal] list-only add failed:", addErr);
@@ -914,9 +929,11 @@ export default function DownloadModal({
           return;
         }
         if (cancelledRef.current) {
-          invoke("torrent_remove", { id: newDl.id, deleteFiles: true }).catch((e) =>
-            console.error("Failed to clean up cancelled temporary torrent:", e)
-          );
+          if (!tempIdReusesExistingRef.current) {
+            invoke("torrent_remove", { id: newDl.id, deleteFiles: true }).catch((e) =>
+              console.error("Failed to clean up cancelled temporary torrent:", e)
+            );
+          }
           return;
         }
         setTempTorrentId(newDl.id);
@@ -1031,6 +1048,7 @@ export default function DownloadModal({
       setStep("fetching_metadata");
       setFetchMode("p2p");
       try {
+        const knownIds = new Set(knownIdsRef.current);
         const dl = await addDownload(
           sourceUri,
           finalSavePath,
@@ -1042,11 +1060,14 @@ export default function DownloadModal({
           gamePoster ?? null,
         );
         if (cancelledRef.current) {
-          invoke("torrent_remove", { id: dl.id, deleteFiles: true }).catch((e) =>
-            console.error("Failed to clean up cancelled temporary torrent:", e),
-          );
+          if (!tempIdReusesExistingRef.current && !knownIds.has(dl.id)) {
+            invoke("torrent_remove", { id: dl.id, deleteFiles: true }).catch((e) =>
+              console.error("Failed to clean up cancelled temporary torrent:", e),
+            );
+          }
           return;
         }
+        tempIdReusesExistingRef.current = knownIds.has(dl.id);
         setTempTorrentId(dl.id);
       } catch (addErr) {
         if (cancelledRef.current) return;
@@ -1117,14 +1138,17 @@ export default function DownloadModal({
           gamePoster ?? null,
         );
         if (cancelledRef.current) {
-          invoke("torrent_remove", { id: dl.id, deleteFiles: true }).catch((e) =>
-            console.error("Failed to clean up cancelled temporary torrent:", e),
-          );
+          if (!tempIdReusesExistingRef.current && !knownIdsRef.current.has(dl.id)) {
+            invoke("torrent_remove", { id: dl.id, deleteFiles: true }).catch((e) =>
+              console.error("Failed to clean up cancelled temporary torrent:", e),
+            );
+          }
           return;
         }
         activeId = dl.id;
         setTempTorrentId(activeId);
       }
+      tempIdReusesExistingRef.current = false;
       setTempTorrentId(null);
       await startSelectedDownload(activeId, Array.from(selectedFiles), autoExtract);
       showToast(t("downloadModal.startedWithFileSelection"), "success");
@@ -1163,7 +1187,7 @@ export default function DownloadModal({
   useEffect(() => {
     return () => {
       cancelledRef.current = true;
-      if (tempTorrentIdRef.current) {
+      if (tempTorrentIdRef.current && !tempIdReusesExistingRef.current) {
         invoke("torrent_remove", { id: tempTorrentIdRef.current, deleteFiles: true }).catch((e) =>
           console.error("Failed to clean up temporary torrent on unmount:", e)
         );

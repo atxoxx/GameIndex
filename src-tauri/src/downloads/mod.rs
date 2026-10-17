@@ -739,8 +739,17 @@ pub async fn torrent_add(
                     hex_hash,
                     urlencoding::encode(&name)
                 );
-                // Keep the entry paused — it must not download yet.
-                let _ = session.pause(&handle).await;
+                // Park the entry paused ONLY when no record owns it. When
+                // the record exists (a download the user already added),
+                // the preview must not touch its session state — pausing
+                // here would freeze an active transfer just because its
+                // file list was inspected, and the pre-existing record's
+                // fields must not be overwritten below.
+                let owned = mgr.read().await.downloads_map().contains_key(&id_str);
+                if !owned {
+                    // Keep the entry paused — it must not download yet.
+                    let _ = session.pause(&handle).await;
+                }
                 (id_str, name, files, stats.total_bytes, mag)
             }
             librqbit::AddTorrentResponse::ListOnly(res) => {
@@ -779,14 +788,20 @@ pub async fn torrent_add(
 
         let mut guard = mgr.write().await;
         if let Some(existing) = guard.downloads_mut().get_mut(&id_str) {
-            existing.save_path = save_path;
-            existing.game_id = game_id;
-            existing.game_poster = game_poster;
-            existing.source_name = source_name;
-            existing.auto_extract = Some(auto_extract.unwrap_or(false));
-            existing.referer = referer.clone();
-            existing.post_actions = post_actions.clone();
-            existing.post_action_status = None;
+            // Only metadata/non-lifecycle fields may be refreshed on a
+            // stable record. An actively downloading/seeding torrent keeps
+            // its save_path, source and post-actions — repointing those
+            // under a running transfer would corrupt it.
+            if !existing.status.is_active() {
+                existing.save_path = save_path.clone();
+                existing.game_id = game_id.clone();
+                existing.game_poster = game_poster.clone();
+                existing.source_name = source_name.clone();
+                existing.auto_extract = Some(auto_extract.unwrap_or(false));
+                existing.referer = referer.clone();
+                existing.post_actions = post_actions.clone();
+                existing.post_action_status = None;
+            }
             if existing.files.is_empty() {
                 existing.files = files;
             }
