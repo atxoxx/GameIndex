@@ -119,6 +119,11 @@ interface LiveElapsedValue {
 export interface GameCardActions {
   launchGame: (game: Game) => void;
   enrichGameMetadata: (gameId: string, gameName: string, steamAppId?: number) => Promise<void>;
+  /** Queue a newly visible card's missing cover for paced enrichment. */
+  enqueueEnrich: (
+    game: { id: string; name: string; steamAppId?: number },
+    highPriority?: boolean
+  ) => void;
 }
 
 // Shared empty snapshot so consumers outside the provider (or before the
@@ -449,6 +454,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   launchGameActionRef.current = launchGame;
   const enrichGameMetadataActionRef = useRef(enrichGameMetadata);
   enrichGameMetadataActionRef.current = enrichGameMetadata;
+  const enqueueEnrichActionRef = useRef(enqueueEnrich);
+  enqueueEnrichActionRef.current = enqueueEnrich;
 
   const gameCardActions = useMemo<GameCardActions>(
     () => ({
@@ -457,6 +464,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       },
       enrichGameMetadata: (gameId: string, gameName: string, steamAppId?: number) =>
         enrichGameMetadataActionRef.current(gameId, gameName, steamAppId),
+      enqueueEnrich: (
+        game: { id: string; name: string; steamAppId?: number },
+        highPriority?: boolean
+      ) => enqueueEnrichActionRef.current(game, highPriority),
     }),
     [],
   );

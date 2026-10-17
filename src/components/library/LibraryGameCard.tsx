@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { Badge } from "../ui";
 import type { Game } from "../../types/game";
 import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game";
@@ -6,6 +6,7 @@ import { useGameCardActions, NO_IGDB_MATCH_SOURCE } from "../../context/GameCont
 import { useLanguage } from "../../context/LanguageContext";
 import { useCardDisplaySettings } from "../../context/SettingsContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
+import { useSharedViewportVisibility } from "../../hooks/useSharedViewportVisibility";
 import { ArtworkImage } from "../ui/ArtworkImage";
 import { playLaunchSound } from "../../utils/soundEffects";
 
@@ -46,7 +47,7 @@ function LibraryGameCardBase({
   selected = false,
   onToggleSelect,
 }: LibraryGameCardProps) {
-  const { enrichGameMetadata, launchGame } = useGameCardActions();
+  const { enqueueEnrich, launchGame } = useGameCardActions();
   const { t } = useLanguage();
   const {
     showCardBadges,
@@ -73,22 +74,21 @@ function LibraryGameCardBase({
     (game.igdbId != null || game.metadataSource !== NO_IGDB_MATCH_SOURCE) &&
     !!game.name;
 
-  useEffect(() => {
-    if (!canAutoFetchCover || !coverRef.current) return;
-    const node = coverRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        enrichGameMetadata(game.id, game.name, game.steamAppId).catch((err) =>
-          console.warn(`Auto-cover fetch failed for ${game.name}:`, err)
-        );
-      },
-      { rootMargin: "300px" }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [canAutoFetchCover, game.id, game.name, game.steamAppId, enrichGameMetadata]);
+  // One shared observer for every mounted card (see the hook) instead of
+  // an IntersectionObserver per card, and the missing-cover fetch rides
+  // the paced background queue: a 300-card import scrolling into view no
+  // longer fires 300 concurrent IGDB pipelines, the queue's 350ms pacing
+  // + attempt guard apply instead.
+  useSharedViewportVisibility({
+    targetRef: coverRef,
+    enabled: canAutoFetchCover,
+    dep: game.id,
+    onVisible: () =>
+      enqueueEnrich(
+        { id: game.id, name: game.name, steamAppId: game.steamAppId },
+        true
+      ),
+  });
 
   const handleLaunch = (e: React.MouseEvent) => {
     e.stopPropagation();

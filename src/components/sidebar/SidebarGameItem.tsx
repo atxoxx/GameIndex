@@ -7,6 +7,7 @@ import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game
 import { accentForPlatform } from "../../types/emulator";
 import { preloadGameDetail } from "../../utils/routePreload";
 import { toWebviewAssetUrl } from "../../utils/artworkUrl";
+import { useSharedViewportVisibility } from "../../hooks/useSharedViewportVisibility";
 import HighlightedName from "./HighlightedName";
 import type { SidebarGameItemProps } from "./types";
 
@@ -41,7 +42,7 @@ function SidebarGameItemBase({
   onQuickPlay,
   onTogglePin,
 }: SidebarGameItemProps) {
-  const { updateGame, enrichGameMetadata, getGame } = useGames();
+  const { updateGame, enqueueEnrich, getGame } = useGames();
   const { t } = useLanguage();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const displayName = gameDisplayName(game);
@@ -91,25 +92,23 @@ function SidebarGameItemBase({
     };
   }, [sgdb, game, updateGame, getGame]);
 
-  useEffect(() => {
-    if (!coverRef.current) return;
-    const node = coverRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        setIsNearViewport(true);
-        if (canAutoFetchCover) {
-          enrichGameMetadata(game.id, game.name, game.steamAppId).catch((err) =>
-            console.warn(`Sidebar auto-cover fetch failed for ${game.name}:`, err)
-          );
-        }
-      },
-      { rootMargin: "300px" }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [canAutoFetchCover, game.id, game.name, game.steamAppId, enrichGameMetadata]);
+  // Shared viewport observer (one instance app-wide): flips `isNearViewport`
+  // for the lazy SGDB icon and queues a missing cover for paced background
+  // enrichment — the sidebar renders a row per game, so per-item observers
+  // compounded fast.
+  useSharedViewportVisibility({
+    targetRef: coverRef,
+    dep: game.id,
+    onVisible: () => {
+      setIsNearViewport(true);
+      if (canAutoFetchCover) {
+        enqueueEnrich(
+          { id: game.id, name: game.name, steamAppId: game.steamAppId },
+          true
+        );
+      }
+    },
+  });
 
   // Achievement stats if available
   const achievementCount = game.steamAchievements ? game.steamAchievements.length : 0;
