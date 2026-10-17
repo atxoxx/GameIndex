@@ -451,14 +451,16 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
   });
 
   // 11. Settings Deep-Links
+  // Keys mirror the settings catalog (settingsCatalog.tsx) — both surfaces
+  // must resolve identical labels, so the palette reuses its title/desc keys.
   const settingsSections = [
-    { path: "/settings/general", titleKey: "settings.tab.general", descKey: "settings.tab.general.desc", icon: Settings },
-    { path: "/settings/appearance", titleKey: "settings.tab.appearance", descKey: "settings.tab.appearance.desc", icon: Palette },
-    { path: "/settings/integrations", titleKey: "settings.tab.integrations", descKey: "settings.tab.integrations.desc", icon: RefreshCw },
-    { path: "/settings/downloads", titleKey: "settings.tab.downloads", descKey: "settings.tab.downloads.desc", icon: Download },
-    { path: "/settings/hardware", titleKey: "settings.tab.hardware", descKey: "settings.tab.hardware.desc", icon: Activity },
-    { path: "/settings/launcher", titleKey: "settings.tab.launcher", descKey: "settings.tab.launcher.desc", icon: Gamepad2 },
-    { path: "/settings/privacy", titleKey: "settings.tab.privacy", descKey: "settings.tab.privacy.desc", icon: Shield },
+    { path: "/settings/general", titleKey: "settings.general", descKey: "settings.general.desc", icon: Settings },
+    { path: "/settings/appearance", titleKey: "settings.appearance", descKey: "settings.appearance.desc", icon: Palette },
+    { path: "/settings/integrations", titleKey: "settings.tab.integrations", descKey: "settings.integrations.desc", icon: RefreshCw },
+    { path: "/settings/downloads", titleKey: "nav.downloads", descKey: "settings.downloads.desc", icon: Download },
+    { path: "/settings/hardware", titleKey: "settings.tab.hardware", descKey: "settings.hardware.sectionDesc", icon: Activity },
+    { path: "/settings/launcher", titleKey: "settings.tab.launcher", descKey: "settings.launcher.desc", icon: Gamepad2 },
+    { path: "/settings/privacy", titleKey: "settings.tab.privacy", descKey: "settings.wipe.desc", icon: Shield },
   ];
 
   settingsSections.forEach((sec) => {
