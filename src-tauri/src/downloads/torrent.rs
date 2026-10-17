@@ -580,19 +580,38 @@ pub async fn build_add_torrent(
             Ok(librqbit::AddTorrent::from_bytes(bytes))
         }
         None => {
-            // Anti-hotlink .torrent URLs need a Referer header; fetch the
-            // bytes ourselves and hand them to librqbit instead of
-            // `from_url`, which never sends one.
-            if let Some(r) = referer {
-                if uri.starts_with("http://") || uri.starts_with("https://") {
-                    let bytes = fetch_torrent_bytes(uri, Some(r)).await?;
-                    return Ok(librqbit::AddTorrent::from_bytes(bytes));
+            // Always fetch http(s) .torrent URLs ourselves with a
+            // browser UA (and Referer when the source provides one)
+            // instead of `from_url`, whose bare client gets 403s or
+            // HTML anti-bot pages that surface as a useless "error
+            // decoding torrent" after 3 expensive retries.
+            if uri.starts_with("http://") || uri.starts_with("https://") {
+                match fetch_torrent_bytes(uri, referer).await {
+                    Ok(bytes) => return Ok(librqbit::AddTorrent::from_bytes(bytes)),
+                    Err(e) => {
+                        // The verdict is about the CONTENT, not the
+                        // transport — routing it back through
+                        // `from_url` would hit the same page, so
+                        // surface it.
+                        if e.contains(NON_TORRENT_MARKER) {
+                            return Err(e);
+                        }
+                        eprintln!(
+                            "[downloads] own .torrent fetch failed ({}), trying librqbit's client",
+                            e
+                        );
+                    }
                 }
             }
             Ok(librqbit::AddTorrent::from_url(uri.to_string()))
         }
     }
 }
+
+/// Substring marking "this URL/data is not a .torrent file" errors —
+/// those must never be retried or fallen back on, since the payload
+/// won't change.
+const NON_TORRENT_MARKER: &str = "not a .torrent file";
 
 /// Download a `.torrent` file over HTTP(S), optionally with a `Referer`
 /// header for anti-hotlink hosts that reject requests without the right
@@ -618,10 +637,35 @@ async fn fetch_torrent_bytes(uri: &str, referer: Option<&str>) -> Result<Vec<u8>
             resp.status().as_u16()
         ));
     }
-    resp.bytes()
+    let bytes = resp
+        .bytes()
         .await
         .map(|b| b.to_vec())
-        .map_err(|e| format!("Failed to read .torrent file: {e}"))
+        .map_err(|e| format!("Failed to read .torrent file: {e}"))?;
+    validate_torrent_bytes(&bytes)?;
+    Ok(bytes)
+}
+
+/// A valid `.torrent` is raw bencode — the first non-whitespace byte is
+/// a dictionary opener (`d`). An HTML anti-bot page, a login page or a
+/// plain-text error page isn't; reject it with an actionable message
+/// instead of letting librqbit surface the opaque "error decoding
+/// torrent".
+fn validate_torrent_bytes(bytes: &[u8]) -> Result<(), String> {
+    let first = bytes
+        .iter()
+        .find(|b| !b.is_ascii_whitespace())
+        .copied()
+        .unwrap_or(0);
+    if first == b'd' {
+        return Ok(());
+    }
+    Err(format!(
+        "The URL returned data that is {marker} (likely an HTML or error \
+         page — the host may require a browser). Try the magnet link or \
+         a different source.",
+        marker = NON_TORRENT_MARKER
+    ))
 }
 
 /// Obtain the raw bytes of a `.torrent` from a local path or an
@@ -717,6 +761,12 @@ pub async fn add_and_start(
                     "[downloads] add_torrent attempt {}/{} failed: {}",
                     attempt, ADD_MAX_ATTEMPTS, msg
                 );
+                if is_permanent_add_error(&msg) {
+                    // A decode/magnet-parsing failure is deterministic —
+                    // the payload won't differ on attempt 2, and the
+                    // firewall/DHT advice would just mislead.
+                    return Err(finish_permanent_add_error(&msg));
+                }
                 if attempt >= ADD_MAX_ATTEMPTS {
                     return Err(finish_metadata_error(&msg));
                 }
@@ -770,6 +820,27 @@ fn finish_metadata_error(last_error: &str) -> String {
          and try again (the DHT routing table keeps warming up), or \
          try a different source.",
         last_error, ADD_MAX_ATTEMPTS
+    )
+}
+
+/// Errors that can never succeed on a retry — the source payload itself
+/// is bad. Matched on message text because librqbit's `add_torrent`
+/// error is an opaque `anyhow` chain behind our `String` error type.
+fn is_permanent_add_error(msg: &str) -> bool {
+    msg.contains(NON_TORRENT_MARKER)
+        || msg.contains("error decoding torrent")
+        || msg.contains("provided path is not a valid magnet URL")
+        || msg.contains("unsupported URL")
+        || msg.contains("magnet link didn't contain")
+}
+
+/// Wrap a permanent add failure with actionable advice (no retry
+/// rhetoric — the firewall/DHT hints would be misleading here).
+fn finish_permanent_add_error(msg: &str) -> String {
+    format!(
+        "{} — the source data itself is bad, so this was not retried. \
+         Try the magnet link or a different source.",
+        msg
     )
 }
 
@@ -913,4 +984,71 @@ pub async fn delete_torrent(
         Duration::from_secs(SESSION_OP_TIMEOUT_SECS),
     )
     .await;
+}
+
+// ─── Tests ──────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bencode_torrent_bytes_validate_ok() {
+        // A minimal bencode dict: d<contents>e — the usual .torrent shape.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"d4:name");
+        bytes.extend_from_slice(&8u32.to_be_bytes());
+        bytes.extend_from_slice(b"fake.bin");
+        bytes.push(b'e');
+        assert!(validate_torrent_bytes(&bytes).is_ok());
+    }
+
+    #[test]
+    fn leading_whitespace_torrent_bytes_validate_ok() {
+        // Some CDNs prepend stray newlines — bencode still follows.
+        assert!(validate_torrent_bytes(b"\n\td4:lengthi0e ee".as_slice()).is_ok());
+    }
+
+    #[test]
+    fn html_page_rejected_with_marker() {
+        let html = b"<html><body>Cloudflare check</body></html>".as_slice();
+        let err = validate_torrent_bytes(html).unwrap_err();
+        assert!(err.contains(NON_TORRENT_MARKER));
+        assert!(err.contains("magnet link"));
+    }
+
+    #[test]
+    fn empty_payload_rejected() {
+        assert!(validate_torrent_bytes(&[]).is_err());
+        assert!(validate_torrent_bytes(b"   \n".as_slice()).is_err());
+    }
+
+    #[test]
+    fn permanent_errors_are_classified() {
+        for msg in [
+            "Failed to add torrent: error decoding torrent",
+            "Failed to add torrent: provided path is not a valid magnet URL",
+            "Failed to add torrent: unsupported URL \"ftp://x\"",
+            "Failed to add torrent: magnet link didn't contain a BTv1 infohash",
+        ] {
+            assert!(is_permanent_add_error(msg), "missed: {msg}");
+        }
+        assert!(!is_permanent_add_error("transport error"));
+    }
+
+    #[test]
+    fn non_torrent_payloads_are_permanent() {
+        let msg = format!(
+            "Failed to add torrent: {}",
+            validate_torrent_bytes(b"<html>x</html>").unwrap_err()
+        );
+        assert!(is_permanent_add_error(&msg));
+        assert!(finish_permanent_add_error(&msg).contains("not retried"));
+    }
+
+    #[test]
+    fn metadata_errors_are_not_classified_permanent() {
+        let msg = "Timed out fetching metadata (attempt 3/3) — no peers responded";
+        assert!(!is_permanent_add_error(&msg));
+    }
 }
