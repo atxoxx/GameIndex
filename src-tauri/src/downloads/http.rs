@@ -1158,8 +1158,11 @@ async fn stream_segment(
         ));
     }
 
+    // Resume-mode open: `create` but never `truncate` — the file may hold
+    // bytes before `resume_from` that the seek positions us to preserve.
     let file_res = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .write(true)
         .open(temp_path)
         .await;
