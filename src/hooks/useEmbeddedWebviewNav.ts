@@ -32,6 +32,9 @@ export function useEmbeddedWebviewNav(
     let cancelled = false;
 
     const poll = async () => {
+      // The URL only matters while the preview (and this window) is visible;
+      // skip the IPC round-trip entirely while the app is hidden in the tray.
+      if (document.hidden) return;
       try {
         const current = await invoke<string>("webview_current_url", { label });
         if (cancelled || !current || current.startsWith("about:blank")) return;

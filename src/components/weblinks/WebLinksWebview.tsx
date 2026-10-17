@@ -168,6 +168,10 @@ export default function WebLinksWebview({
 
     async function pollCurrentUrl() {
       if (!localWebview || !active || !visibleRef.current) return;
+      // Same skip as the shared nav hook: while the main window is minimized
+      // to the tray / host game, nobody can click the toolbar, so keep the
+      // 500ms IPC tick for visible sessions only.
+      if (document.hidden) return;
       try {
         const current = await invoke<string>("webview_current_url", {
           label: localWebview.label,

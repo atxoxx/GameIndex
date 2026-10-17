@@ -176,6 +176,10 @@ function useOverlayPreview(url: string | null) {
     let index = 0;
 
     const poll = async () => {
+      // The overlay window has no tray-hide path, but it may be off-screen
+      // while the HUD is collapsed to a ticker — skip the IPC round-trip
+      // when the document is hidden so a closed overlay stops polling.
+      if (document.hidden) return;
       try {
         const current = await invoke<string>("webview_current_url", { label });
         if (cancelled || !current || current.startsWith("about:blank")) return;
