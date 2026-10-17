@@ -16,7 +16,8 @@
 //! - `epic_tokens`
 //! - `steam_session`
 //! - `steam_config`
-//! - `debrid_api_key`
+//! - `debrid_api_key` (written by the frontend via
+//!   `download_set_debrid_key` — see `downloads/mod.rs`)
 //!
 //! The service name is `gamelib/gamelib-app` (kept as-is to keep
 //! existing OS-keychain credentials accessible after the rename to
@@ -30,6 +31,10 @@ use keyring::Entry;
 const SERVICE: &str = "gamelib/gamelib-app";
 #[allow(dead_code)] // reserved for future use
 pub const SERVICE_FOR_DIAGNOSTICS: &str = SERVICE;
+
+/// Keychain account holding the debrid provider API key. Consumed by
+/// `download_get_debrid_key` / `download_set_debrid_key` (downloads/mod.rs).
+pub const DEBRID_API_KEY_ACCOUNT: &str = "debrid_api_key";
 
 /// One-stop wrapper. Cloning is cheap (only holds a `&str`).
 #[derive(Clone)]

@@ -32,6 +32,12 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import {
+  hydrateDebridKey,
+  persistDebridKey,
+  readLegacyDebridKey,
+  setLegacyDebridKey,
+} from "../utils/debridKey";
 import { useToast } from "./ToastContext";
 import { useLanguage } from "./LanguageContext";
 import {
@@ -372,9 +378,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   const [debridProvider, setDebridProviderState] = useState<string>(
     () => localStorage.getItem("gamelib-debrid-provider") || "none",
   );
-  const [debridApiKey, setDebridApiKeyState] = useState<string>(
-    () => localStorage.getItem("gamelib-debrid-apikey") || "",
-  );
+  const [debridApiKey, setDebridApiKeyState] = useState<string>(() => readLegacyDebridKey());
   const [schedulerConfig, setSchedulerConfigState] = useState<SchedulerConfig>(() => {
     const raw = localStorage.getItem("gamelib-download-scheduler");
     if (!raw) return DEFAULT_SCHEDULER_CONFIG;
@@ -532,10 +536,13 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           console.error("Failed to apply initial seed limits:", e);
         }
 
-        // Apply active debrid provider & API key on startup.
+        // Resolve the debrid API key: OS keychain first, falling back to
+        // — and migrating away from — the legacy plaintext localStorage
+        // copy. Then push the active provider + key into the engine.
         try {
           const prov = localStorage.getItem("gamelib-debrid-provider") || "none";
-          const key = localStorage.getItem("gamelib-debrid-apikey") || "";
+          const key = await hydrateDebridKey(invoke);
+          setDebridApiKeyState(key);
           if (prov !== "none" && key) {
             await invoke("download_set_debrid_config", {
               provider: prov,
@@ -973,10 +980,9 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   const setDebridProvider = useCallback((next: string) => {
     setDebridProviderState(next);
     localStorage.setItem("gamelib-debrid-provider", next);
-    const key = localStorage.getItem("gamelib-debrid-apikey") || "";
     void invoke("download_set_debrid_config", {
       provider: next,
-      apikey: key,
+      apikey: debridRef.current.apiKey,
     }).catch((e) => {
       console.warn("[DownloadContext] Failed to sync debrid provider:", e);
     });
@@ -984,12 +990,21 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
 
   const setDebridApiKey = useCallback((next: string) => {
     setDebridApiKeyState(next);
-    localStorage.setItem("gamelib-debrid-apikey", next);
-    const prov = localStorage.getItem("gamelib-debrid-provider") || "none";
-    void invoke("download_set_debrid_config", {
-      provider: prov,
-      apikey: next,
-    }).catch((e) => {
+    void (async () => {
+      // Durable copy goes to the OS keychain; the plaintext localStorage flag
+      // is only a fallback for environments without one (web dev, private
+      // mode). A verified keychain write clears the legacy mirror.
+      const persisted = await persistDebridKey(invoke, next);
+      if (persisted) {
+        setLegacyDebridKey("");
+      } else {
+        setLegacyDebridKey(next);
+      }
+      await invoke("download_set_debrid_config", {
+        provider: debridRef.current.provider,
+        apikey: next,
+      });
+    })().catch((e) => {
       console.warn("[DownloadContext] Failed to sync debrid apikey:", e);
     });
   }, []);

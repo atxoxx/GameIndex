@@ -1907,6 +1907,30 @@ pub async fn download_set_debrid_config(
     Ok(())
 }
 
+/// Reads the debrid API key from the OS keychain (`SecretStore`,
+/// account `debrid_api_key`). The key used to live in plaintext
+/// webview localStorage; the frontend migrates it on startup and this
+/// command is the only durable copy afterwards.
+#[tauri::command]
+pub fn download_get_debrid_key() -> Result<Option<String>, String> {
+    crate::db::secrets::SecretStore::new().get(crate::db::secrets::DEBRID_API_KEY_ACCOUNT)
+}
+
+/// Stores (or clears, for an empty/`null` key) the debrid API key in the
+/// OS keychain. Deliberately `sync` — keyring calls are sub-millisecond
+/// and the caller awaits the result to verify the write.
+#[tauri::command]
+pub fn download_set_debrid_key(apikey: Option<String>) -> Result<(), String> {
+    let store = crate::db::secrets::SecretStore::new();
+    match apikey
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty())
+    {
+        Some(k) => store.set(crate::db::secrets::DEBRID_API_KEY_ACCOUNT, &k),
+        None => store.delete(crate::db::secrets::DEBRID_API_KEY_ACCOUNT),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

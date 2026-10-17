@@ -328,6 +328,8 @@ pub fn run() {
             downloads::direct_download_start,
             downloads::debrid_download_start,
             downloads::download_set_debrid_config,
+            downloads::download_get_debrid_key,
+            downloads::download_set_debrid_key,
             downloads::direct_download_update_url,
             downloads::debrid_unrestrict_link,
             downloads::browser_resolver::open_download_resolver,
