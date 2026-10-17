@@ -957,7 +957,7 @@ fn query_pci_ids_file(vendor_hex: &str, device_hex: &str) -> Option<String> {
         .to_lowercase();
 
     let mut in_vendor = false;
-    for line in reader.lines().flatten() {
+    for line in reader.lines().map_while(Result::ok) {
         if line.starts_with('#') || line.is_empty() {
             continue;
         }
