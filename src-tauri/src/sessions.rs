@@ -41,14 +41,22 @@ fn strip_metrics_samples(metrics_json: Option<String>) -> Option<String> {
 /// The per-sample telemetry is stripped from `metrics_json` (summary
 /// averages, min/max, resolution are kept) so the resident history is small;
 /// charts pull samples on demand via `get_session_samples`.
+///
+/// Async + spawn_blocking: the strip parses and re-serializes every
+/// stored metrics blob per call, and sync command bodies run inline on
+/// the GTK main thread (see the note on `crate::games::save_games`).
 #[tauri::command]
-pub fn get_sessions(app: tauri::AppHandle) -> Result<Vec<db::sessions::SessionRecord>, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let mut rows = db::sessions::list_all(db_state.inner())?;
-    for row in rows.iter_mut() {
-        row.metrics_json = strip_metrics_samples(row.metrics_json.take());
-    }
-    Ok(rows)
+pub async fn get_sessions(app: tauri::AppHandle) -> Result<Vec<db::sessions::SessionRecord>, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut rows = db::sessions::list_all(&db)?;
+        for row in rows.iter_mut() {
+            row.metrics_json = strip_metrics_samples(row.metrics_json.take());
+        }
+        Ok(rows)
+    })
+    .await
+    .map_err(|e| format!("get_sessions task: {e}"))?
 }
 
 /// One session's per-sample telemetry, returned by `get_session_samples`.

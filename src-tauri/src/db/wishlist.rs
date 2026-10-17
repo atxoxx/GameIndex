@@ -39,6 +39,36 @@ pub fn upsert(db: &Db, slug: &str, payload_json: &str, added_at: u64) -> Result<
     Ok(())
 }
 
+/// Upsert a whole wishlist in one transaction. The frontend saves the
+/// complete blob, so one row per slug in one commit replaces the old
+/// autocommit-per-row loop.
+pub fn upsert_batch(
+    db: &Db,
+    items: &[(String, WishlistEntryJson, u64)],
+) -> Result<(), String> {
+    if items.is_empty() {
+        return Ok(());
+    }
+    let mut conn = db.wishlist().map_err(|e| format!("wishlist conn: {e}"))?;
+    let tx = conn.transaction().map_err(|e| format!("wishlist tx: {e}"))?;
+    {
+        let mut stmt = tx
+            .prepare(
+                "INSERT INTO wishlist(slug, payload_json, added_at) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(slug) DO UPDATE SET
+                     payload_json = excluded.payload_json,
+                     added_at     = excluded.added_at",
+            )
+            .map_err(|e| format!("wishlist batch prepare: {e}"))?;
+        for (slug, payload, added_at) in items {
+            stmt.execute(params![slug, payload, *added_at as i64])
+                .map_err(|e| format!("wishlist batch {slug}: {e}"))?;
+        }
+    }
+    tx.commit().map_err(|e| format!("wishlist batch commit: {e}"))?;
+    Ok(())
+}
+
 /// Delete a wishlisted game by slug. Idempotent: returns Ok even if
 /// the row never existed.
 pub fn remove(db: &Db, slug: &str) -> Result<(), String> {

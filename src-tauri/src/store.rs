@@ -13,30 +13,35 @@ use crate::game_scraper::{GameMetadataResult, GameRelationsResult, IgdbPlatformI
 /// existing Tauri command shape (the React hook invokes
 /// `save_store_cache` with a pre-serialized payload), we round-trip
 /// the JSON into rows here.
+///
+/// Async + spawn_blocking: the incoming blob is the entire IGDB catalog
+/// cache (multi-MB JSON), and sync command bodies run inline on the GTK
+/// main thread — parse/serialize must stay off it (see the note on
+/// `crate::games::save_games`).
 #[tauri::command]
-pub fn save_store_cache(app: tauri::AppHandle, data: String) -> Result<(), String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let parsed: serde_json::Value =
-        serde_json::from_str(&data).map_err(|e| format!("parse: {e}"))?;
+pub async fn save_store_cache(app: tauri::AppHandle, data: String) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || save_store_cache_blocking(&db, &data))
+        .await
+        .map_err(|e| format!("save_store_cache task: {e}"))?
+}
+
+fn save_store_cache_blocking(db: &db::Db, data: &str) -> Result<(), String> {
+    let parsed: serde_json::Value = serde_json::from_str(data).map_err(|e| format!("parse: {e}"))?;
     // Old shape: `{ "categories": { "<category>": <obj> },
     //   "detailCache": { "<slug>": <obj> } }`.
     if let Some(cats) = parsed.get("categories").and_then(|v| v.as_object()) {
         for (category, payload) in cats {
             let wrapped =
                 serde_json::to_string(payload).map_err(|e| format!("wrap category: {e}"))?;
-            db::store_cache::upsert_category_page(
-                db_state.inner(),
-                category,
-                0,
-                &wrapped,
-            )?;
+            db::store_cache::upsert_category_page(db, category, 0, &wrapped)?;
         }
     }
     if let Some(detail) = parsed.get("detailCache").and_then(|v| v.as_object()) {
         for (slug, payload) in detail {
             let wrapped =
                 serde_json::to_string(payload).map_err(|e| format!("wrap detail: {e}"))?;
-            db::store_cache::upsert_detail(db_state.inner(), slug, &wrapped)?;
+            db::store_cache::upsert_detail(db, slug, &wrapped)?;
         }
     }
     Ok(())
@@ -45,9 +50,18 @@ pub fn save_store_cache(app: tauri::AppHandle, data: String) -> Result<(), Strin
 /// Read the most recent store cache blob. Combines all known
 /// `(category, page=0)` rows plus every `store_detail` row into the
 /// same JSON shape the React frontend already understands.
+///
+/// Async + spawn_blocking for the same reason as `save_store_cache`:
+/// the combined blob is re-serialized in full per call.
 #[tauri::command]
-pub fn load_store_cache(app: tauri::AppHandle) -> Result<String, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
+pub async fn load_store_cache(app: tauri::AppHandle) -> Result<String, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || load_store_cache_blocking(&db))
+        .await
+        .map_err(|e| format!("load_store_cache task: {e}"))?
+}
+
+fn load_store_cache_blocking(db: &db::Db) -> Result<String, String> {
     let mut out = serde_json::Map::new();
     out.insert(
         "categories".to_string(),
@@ -61,7 +75,7 @@ pub fn load_store_cache(app: tauri::AppHandle) -> Result<String, String> {
     // Categories â€” list every (category, page=0) row. We don't currently
     // paginate beyond 0; if future code adds higher pages this JSON
     // shape will need a `pages` sub-object.
-    let conn = db_state.store_cache().map_err(|e| e.to_string())?;
+    let conn = db.store_cache().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare("SELECT category, payload_json FROM store_cache WHERE page = 0")
         .map_err(|e| e.to_string())?;
@@ -104,12 +118,20 @@ pub fn load_store_cache(app: tauri::AppHandle) -> Result<String, String> {
 
 /// Phase-1 wrapper around the wishlist DAO. The frontend sends a
 /// serialised `{entries: {<slug>: <entry>}}` blob; we split it into
-/// one row per slug.
+/// one row per slug, applied in a single transaction.
+///
+/// Async + spawn_blocking (whole-blob parse + serialize per call).
 #[tauri::command]
-pub fn save_wishlist(app: tauri::AppHandle, data: String) -> Result<(), String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let parsed: serde_json::Value = serde_json::from_str(&data)
-        .map_err(|e| format!("parse wishlist: {e}"))?;
+pub async fn save_wishlist(app: tauri::AppHandle, data: String) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || save_wishlist_blocking(&db, &data))
+        .await
+        .map_err(|e| format!("save_wishlist task: {e}"))?
+}
+
+fn save_wishlist_blocking(db: &db::Db, data: &str) -> Result<(), String> {
+    let parsed: serde_json::Value =
+        serde_json::from_str(data).map_err(|e| format!("parse wishlist: {e}"))?;
     let entries = parsed
         .get("entries")
         .and_then(|v| v.as_object())
@@ -119,24 +141,33 @@ pub fn save_wishlist(app: tauri::AppHandle, data: String) -> Result<(), String> 
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    for (slug, entry) in &entries {
-        let payload =
-            serde_json::to_string(entry).map_err(|e| format!("serialize entry: {e}"))?;
-        let added_at = entry
-            .get("addedAt")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(now_ms);
-        db::wishlist::upsert(db_state.inner(), slug, &payload, added_at)?;
-    }
-    Ok(())
+    let upserts: Vec<(String, String, u64)> = entries
+        .into_iter()
+        .map(|(slug, entry)| {
+            let payload =
+                serde_json::to_string(&entry).map_err(|e| format!("serialize entry: {e}"))?;
+            let added_at = entry
+                .get("addedAt")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(now_ms);
+            Ok((slug, payload, added_at))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    db::wishlist::upsert_batch(db, &upserts)
 }
 
 /// Read the wishlist back as the same `{entries: {<slug>: <entry>}}`
 /// shape the frontend expects.
 #[tauri::command]
-pub fn load_wishlist(app: tauri::AppHandle) -> Result<String, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let rows = db::wishlist::list(db_state.inner()).map_err(|e| e.to_string())?;
+pub async fn load_wishlist(app: tauri::AppHandle) -> Result<String, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || load_wishlist_blocking(&db))
+        .await
+        .map_err(|e| format!("load_wishlist task: {e}"))?
+}
+
+fn load_wishlist_blocking(db: &db::Db) -> Result<String, String> {
+    let rows = db::wishlist::list(db).map_err(|e| e.to_string())?;
     let mut entries = serde_json::Map::new();
     for (slug, payload, _added_at) in rows {
         let value: serde_json::Value =
