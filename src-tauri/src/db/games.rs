@@ -13,6 +13,7 @@
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
 
 use super::pool::Db;
 
@@ -853,6 +854,25 @@ pub fn list_names_by_ids(
     Ok(out)
 }
 
+/// Read every game with the heavy JSON columns blanked — the summary
+/// view the library ships to the frontend never includes them (see
+/// `crate::games::strip_heavy_fields`), so the blobs are not even
+/// transferred or parsed.
+pub fn list_all_summary(db: &Db) -> Result<Vec<GameRow>, String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(games_summary_select_sql())
+        .map_err(|e| format!("games list summary prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], game_row_from_row)
+        .map_err(|e| format!("games list summary query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("games row: {e}"))?);
+    }
+    Ok(out)
+}
+
 /// Read every game, in Continue-Playing-friendly order.
 pub fn list_all(db: &Db) -> Result<Vec<GameRow>, String> {
     let conn = db.games().map_err(|e| e.to_string())?;
@@ -926,6 +946,47 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
 }
 
 const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url, is_vr FROM games";
+
+/// The heavy summary columns (multi-MB JSON), in their `games` column
+/// positions. Must stay in sync with `crate::games::HEAVY_GAME_FIELDS`.
+const GAMES_HEAVY_JSON_COLUMNS: &[&str] = &[
+    "screenshots_json",
+    "videos_json",
+    "similar_games_json",
+    "releases_json",
+    "igdb_reviews_json",
+    "steam_achievements_json",
+    "language_supports_json",
+];
+
+static GAMES_SUMMARY_SELECT_SQL: OnceLock<String> = OnceLock::new();
+
+/// Same shape as [`GAMES_SELECT_SQL`] with every heavy JSON column
+/// selected as `NULL`: SQLite no longer copies the blobs out of the row
+/// pages into memory, and `game_row_from_row` (which decodes
+/// positionally) produces `None` for them without any parse. Column
+/// positions are deliberately unchanged so one decoder serves both
+/// variants.
+pub(crate) fn games_summary_select_sql() -> &'static str {
+    GAMES_SUMMARY_SELECT_SQL
+        .get_or_init(|| {
+            let columns: Vec<String> = GAMES_SELECT_SQL
+                .strip_prefix("SELECT ")
+                .and_then(|s| s.strip_suffix(" FROM games"))
+                .unwrap_or(GAMES_SELECT_SQL)
+                .split(", ")
+                .map(|c| {
+                    if GAMES_HEAVY_JSON_COLUMNS.contains(&c) {
+                        format!("NULL AS {c}")
+                    } else {
+                        c.to_string()
+                    }
+                })
+                .collect();
+            format!("SELECT {} FROM games", columns.join(", "))
+        })
+        .as_str()
+}
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {

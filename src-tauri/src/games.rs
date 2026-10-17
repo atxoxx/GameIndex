@@ -709,13 +709,25 @@ pub async fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), Stri
 pub async fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
     let db = app.state::<db::Db>().inner().clone();
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    tauri::async_runtime::spawn_blocking(move || load_games_blocking(&db, &app_data_dir))
+    tauri::async_runtime::spawn_blocking(move || load_games_blocking(&db, &app_data_dir, false))
         .await
         .map_err(|e| format!("load_games task: {e}"))?
 }
 
-fn load_games_blocking(db: &db::Db, app_data_dir: &std::path::Path) -> Result<Vec<GameData>, String> {
-    let mut rows = db::games::list_all(db).map_err(|e| e.to_string())?;
+fn load_games_blocking(
+    db: &db::Db,
+    app_data_dir: &std::path::Path,
+    summary: bool,
+) -> Result<Vec<GameData>, String> {
+    // Summary projection: the heavy JSON blobs are `SELECT NULL AS …`ed
+    // out by the DAO, so they neither leave SQLite nor pay a serde pass
+    // before `strip_heavy_fields` drops them below. Full loads keep the
+    // complete columns.
+    let mut rows = if summary {
+        db::games::list_all_summary(db).map_err(|e| e.to_string())?
+    } else {
+        db::games::list_all(db).map_err(|e| e.to_string())?
+    };
 
     // Legacy rows stored artwork as base64 data URLs in the games table —
     // ~67 MB of `icon_url` alone on a 268-game library. Move those into
@@ -740,6 +752,12 @@ fn load_games_blocking(db: &db::Db, app_data_dir: &std::path::Path) -> Result<Ve
             if let Some(c) = compat_map.remove(&g.id) {
                 g.compatibility = Some(c);
             }
+        }
+    }
+
+    if summary {
+        for game in out.iter_mut() {
+            strip_heavy_fields(game);
         }
     }
 
@@ -804,15 +822,9 @@ fn strip_heavy_fields(game: &mut GameData) {
 pub async fn load_games_summary(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
     let db = app.state::<db::Db>().inner().clone();
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut out = load_games_blocking(&db, &app_data_dir)?;
-        for game in out.iter_mut() {
-            strip_heavy_fields(game);
-        }
-        Ok(out)
-    })
-    .await
-    .map_err(|e| format!("load_games_summary task: {e}"))?
+    tauri::async_runtime::spawn_blocking(move || load_games_blocking(&db, &app_data_dir, true))
+        .await
+        .map_err(|e| format!("load_games_summary task: {e}"))?
 }
 
 /// Load one full game record (including the heavy arrays) for the detail
@@ -831,12 +843,11 @@ pub async fn get_game_detail(
         }
         let mut game = row.map(GameData::from);
         // Mirror `load_games_blocking`: re-attach the per-game compatibility
-        // profile from its own table so the edit modal sees it.
+        // profile from its own table so the edit modal sees it. The targeted
+        // getter avoids parsing every library profile just to hand one back.
         if let Some(game) = game.as_mut() {
-            if let Ok(mut compat_map) = db::compatibility::list_all_for_games(&db) {
-                if let Some(c) = compat_map.remove(&game.id) {
-                    game.compatibility = Some(c);
-                }
+            if let Ok(Some(c)) = db::compatibility::get_for_game(&db, &id) {
+                game.compatibility = Some(c);
             }
         }
         Ok(game)
