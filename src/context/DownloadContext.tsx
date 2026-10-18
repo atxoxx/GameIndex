@@ -349,6 +349,67 @@ function areDownloadsEqual(a: TorrentDownload[], b: TorrentDownload[]): boolean 
   return true;
 }
 
+/**
+ * Exponential moving average for a single speed sample. BitTorrent transfers
+ * are bursty, so the raw once-per-second librqbit sample flickers between
+ * pieces — smoothing keeps the displayed speed (and ETA) from appearing to
+ * collapse to zero between bursts. `prev` is the previous smoothed value for
+ * this download; returns 0 (snapped) when below `floor`.
+ */
+function smoothSpeed(
+  raw: number,
+  prev: number | undefined,
+  alpha: number,
+  floor: number,
+): number {
+  const previous = prev ?? 0;
+  const smoothed = alpha * raw + (1 - alpha) * previous;
+  return smoothed < floor ? 0 : smoothed;
+}
+
+/** How much weight the newest speed sample carries (0.4 = 40 % new, 60 % decay). */
+const SPEED_ALPHA = 0.4;
+/** Below this many bytes/s the smoothed speed is snapped to exactly 0. */
+const SPEED_FLOOR = 1;
+
+/**
+ * Replace each entry's raw `downloadSpeed`/`uploadSpeed` with EWMA-smoothed
+ * values, keyed by download id. Only actively-transferring records
+ * (downloading / fetching metadata / seeding) keep a smoothed value; paused,
+ * completed and errored records show exactly 0 and drop their smoothed state.
+ * Entries that leave the snapshot are pruned so the map doesn't grow.
+ */
+function smoothSnapshot(
+  snapshot: TorrentDownload[],
+  speedState: { current: Map<string, { down: number; up: number }> },
+): TorrentDownload[] {
+  const liveIds = new Set<string>();
+  const smoothed = snapshot.map((d) => {
+    liveIds.add(d.id);
+    const prev = speedState.current.get(d.id);
+    const transferring =
+      d.status.kind === "downloading" ||
+      d.status.kind === "fetchingMetadata" ||
+      d.status.kind === "seeding";
+    const down = transferring
+      ? smoothSpeed(d.downloadSpeed, prev?.down, SPEED_ALPHA, SPEED_FLOOR)
+      : 0;
+    const up = transferring
+      ? smoothSpeed(d.uploadSpeed, prev?.up, SPEED_ALPHA, SPEED_FLOOR)
+      : 0;
+    if (transferring) {
+      speedState.current.set(d.id, { down, up });
+    } else {
+      speedState.current.delete(d.id);
+    }
+    return { ...d, downloadSpeed: down, uploadSpeed: up };
+  });
+  for (const id of speedState.current.keys()) {
+    if (!liveIds.has(id)) speedState.current.delete(id);
+  }
+  return smoothed;
+}
+
 export function DownloadProvider({ children }: { children: ReactNode }) {
   const [downloads, setDownloads] = useState<TorrentDownload[]>(EMPTY_DOWNLOADS);
   const [history, setHistory] = useState<DownloadHistory[]>([]);
@@ -434,6 +495,11 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   // moved (idle seed, paused, a stalled torrent), so most ticks are no-ops;
   // this is what keeps the poll loop from doing O(n·m) work every tick.
   const lastSnapshotSigRef = useRef<string | null>(null);
+  // Per-download EWMA state used to smooth the live byte/sec samples the
+  // engine emits every second. BitTorrent transfers are bursty, so the raw
+  // librqbit sample flickers between pieces; smoothing keeps the speed
+  // column (and ETA) from appearing to collapse to zero between bursts.
+  const speedStateRef = useRef<Map<string, { down: number; up: number }>>(new Map());
 
   /**
    * Compare an incoming list against the last-seen statuses and fire
@@ -591,7 +657,10 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           // state. A payload that contains entries but none of them usable is
           // treated as malformed (ignored) rather than as an empty queue, so a
           // bad tick can't wipe out a valid list.
-          const snapshot = event.payload.filter(hasUsableStatus);
+          const snapshot = smoothSnapshot(
+            event.payload.filter(hasUsableStatus),
+            speedStateRef,
+          );
           if (event.payload.length > 0 && snapshot.length === 0) return;
           // Skip the identical-snapshot case before doing any work: a
           // byte-identical payload (idle seed / paused / stalled) needs no
@@ -623,8 +692,9 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         try {
           const initial = await invoke<TorrentDownload[]>("torrent_get_all");
           if (!cancelled && Array.isArray(initial)) {
-            notifyCompletionsRef.current(initial);
-            setDownloads(initial);
+            const smoothed = smoothSnapshot(initial, speedStateRef);
+            notifyCompletionsRef.current(smoothed);
+            setDownloads(smoothed);
           }
         } catch (err) {
           // Common during the very first second of app boot before

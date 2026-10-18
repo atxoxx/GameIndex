@@ -462,6 +462,48 @@ describe("DownloadProvider queue state", () => {
     expect(renders.n).toBe(rendersAfterTick);
   });
 
+  it("smooths bursty speed samples so a one-second gap doesn't read as zero (happy path)", async () => {
+    const { result } = renderDownloadsHook();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // A fast burst: raw 1 MB/s should be smoothed (alpha 0.4 → ~400 kB/s).
+    emitProgress([
+      makeDownload({
+        id: "d1",
+        downloadSpeed: 1_000_000,
+        status: { kind: "downloading" },
+      }),
+    ]);
+    await waitFor(() =>
+      expect(result.current.downloads[0]!.downloadSpeed).toBeGreaterThan(0),
+    );
+    const afterBurst = result.current.downloads[0]!.downloadSpeed;
+    expect(afterBurst).toBeGreaterThan(300_000);
+    expect(afterBurst).toBeLessThan(500_000);
+
+    // A one-second raw gap must decay the speed, not snap it to zero — the
+    // transfer is still alive between pieces.
+    emitProgress([
+      makeDownload({
+        id: "d1",
+        downloadSpeed: 0,
+        status: { kind: "downloading" },
+      }),
+    ]);
+    await waitFor(() =>
+      expect(result.current.downloads[0]!.downloadSpeed).toBeLessThan(afterBurst),
+    );
+    expect(result.current.downloads[0]!.downloadSpeed).toBeGreaterThan(0);
+
+    // Paused downloads show exactly 0 and drop their smoothed state.
+    emitProgress([
+      makeDownload({ id: "d1", downloadSpeed: 500_000, status: { kind: "paused" } }),
+    ]);
+    await waitFor(() =>
+      expect(result.current.downloads[0]!.downloadSpeed).toBe(0),
+    );
+  });
+
   it("toasts once on the not-completed to completed transition (happy path)", async () => {
     const { result } = renderDownloadsHook();
     await waitFor(() => expect(result.current.loading).toBe(false));

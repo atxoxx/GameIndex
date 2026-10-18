@@ -30,10 +30,11 @@ use super::types::{DownloadFile, DownloadStatus};
 fn build_peer_opts() -> Option<librqbit::PeerConnectionOptions> {
     // Desktop-client tuning: cycle to fast peers quickly (2 s connect
     // timeout vs the 10 s server-profile default), catch stuck peers at
-    // 20 s, keep NAT bindings alive with a 30 s keep-alive.
+    // 15 s so a dead peer doesn't hold a transfer slot at zero speed for
+    // long, keep NAT bindings alive with a 30 s keep-alive.
     Some(librqbit::PeerConnectionOptions {
         connect_timeout: Some(Duration::from_secs(2)),
-        read_write_timeout: Some(Duration::from_secs(20)),
+        read_write_timeout: Some(Duration::from_secs(15)),
         keep_alive_interval: Some(Duration::from_secs(30)),
     })
 }
