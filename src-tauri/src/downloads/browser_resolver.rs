@@ -750,6 +750,13 @@ pub async fn open_download_resolver(
     .build()
     .map_err(|e| format!("Failed to open browser resolver window: {e}"))?;
 
+    // The resolver hosts image-heavy file-locker pages for the whole life of a
+    // download (often hours); without the WebKit memory tuning its render
+    // process keeps decoded pages in the default browser cache model.
+    if let Some(resolver_webview) = app.get_webview(&window_id) {
+        crate::webkit_memory::tune_embedded_webview(&resolver_webview);
+    }
+
     // Register the session (holding a tx clone so the channel only closes
     // when the session is explicitly torn down).
     {

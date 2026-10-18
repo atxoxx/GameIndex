@@ -4,6 +4,17 @@
 fn main() {
     #[cfg(target_os = "linux")]
     {
+        // glibc keeps one allocation arena per thread (up to 8× the core count
+        // by default) and rarely hands freed pages back to the OS. This app's
+        // long-lived worker threads — process polling, telemetry, torrent and
+        // download loops — allocate on every tick, so RSS creeps up over a
+        // long session with no true leak behind it. Capping the arena pool
+        // makes freed pages reusable across threads before new ones are
+        // created. Must run before any worker thread is spawned.
+        unsafe {
+            libc::mallopt(libc::M_ARENA_MAX, 2);
+        }
+
         // Disable NVIDIA explicit sync (fixes torn frames / black rects on NVIDIA+Wayland).
         // This is an NVIDIA-driver-only var — a no-op on AMD/Intel — so it is safe to set
         // unconditionally. `WEBKIT_DISABLE_DMABUF_RENDERER` is not: it costs the DMA-BUF
