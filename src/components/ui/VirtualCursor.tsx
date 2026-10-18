@@ -107,6 +107,10 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
           el.style.opacity = "0";
           lastVisible = false;
         }
+        // Keep the loop alive — an alt-tab (document.hidden) must not
+        // cancel the frame chain, or the cursor stays dead after the
+        // window comes back until `visible` is toggled off and on.
+        rafId = requestAnimationFrame(tick);
         return;
       }
 
