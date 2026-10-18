@@ -19,6 +19,7 @@ import { LibraryFilterProvider } from "./context/LibraryFilterContext";
 import { ShelfProvider } from "./context/ShelfContext";
 import { SplashProvider, useSplash } from "./context/SplashContext";
 import { DownloadProvider } from "./context/DownloadContext";
+import BandwidthRecorder from "./components/downloads/BandwidthRecorder";
 import { SavesProvider } from "./context/SavesContext";
 import { SourceProvider } from "./context/SourceContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -236,6 +237,7 @@ function App() {
                           <WishlistProvider>
                             <SourceProvider>
                               <DownloadProvider>
+                                <BandwidthRecorder />
                                 <SavesProvider>
                                   <SettingsProvider>
                                   <SessionNotesProvider>
