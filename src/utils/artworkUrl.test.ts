@@ -132,6 +132,23 @@ describe("thumbVariantUrl", () => {
     );
   });
 
+  it("downscales a Steam 2x CDN poster to its 1x sibling", () => {
+    expect(
+      thumbVariantUrl(
+        "https://cdn.akamai.steamstatic.com/steam/apps/1245620/library_600x900_2x.jpg"
+      )
+    ).toBe(
+      "https://cdn.akamai.steamstatic.com/steam/apps/1245620/library_600x900.jpg"
+    );
+    expect(
+      thumbVariantUrl(
+        "https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/library_600x900_2x.jpg"
+      )
+    ).toBe(
+      "https://cdn.akamai.steamstatic.com/steam/apps/1245620/library_600x900.jpg"
+    );
+  });
+
   it("returns null for remote, non-grid, or empty URLs", () => {
     expect(thumbVariantUrl("https://cdn.example.com/cover.jpg")).toBeNull();
     expect(thumbVariantUrl("asset://localhost/artwork/g1/logo.png")).toBeNull();

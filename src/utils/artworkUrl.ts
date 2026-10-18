@@ -99,11 +99,19 @@ const THUMB_BASENAME = /^(cover|banner|hero)\.([a-z0-9]+)$/i;
 /**
  * Rewrite a disk-backed grid artwork URL to its downscaled `_thumb.webp`
  * sibling (e.g. `.../cover.jpg` → `.../cover_thumb.webp`), the variant the
- * backend writes alongside the full-resolution file. Returns null when the
- * URL is not a local asset — remote CDN covers have no on-disk thumbnail.
+ * backend writes alongside the full-resolution file, or a `library_600x900_2x`
+ * Steam CDN poster to its 1x sibling — a 1200×1800 bitmap decoded into a
+ * ~200px grid card is exactly the image-cache waste WebKitGTK is worst at.
+ * Returns null when no smaller variant exists.
  */
 export function thumbVariantUrl(url: string | undefined | null): string | null {
   if (!url || typeof url !== "string") return null;
+  const steamThumb = /^https:\/\/[^/]*steamstatic\.com\/steam\/apps\/(\d+)\/library_600x900_2x\.jpg$/i.exec(
+    url
+  );
+  if (steamThumb) {
+    return `https://cdn.akamai.steamstatic.com/steam/apps/${steamThumb[1]}/library_600x900.jpg`;
+  }
   const isLocalAsset =
     url.startsWith("asset:") ||
     url.startsWith("asset.localhost/") ||
