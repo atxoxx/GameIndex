@@ -33,13 +33,23 @@ export function useBandwidthHistory(maxSamples = 300): BandwidthPoint[] {
         .toString()
         .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
 
+      // A fully idle graph has nothing new to draw: when both speeds are
+      // zero and the last point already flattened to zero, skip the tick
+      // entirely instead of appending copies forever (no visual change,
+      // no re-render, no array churn). Sampling resumes as soon as any
+      // download traffic shows up.
       setHistory((prev) => {
+        const { down, up } = speedRef.current;
+        if (down === 0 && up === 0) {
+          const last = prev[prev.length - 1];
+          if (last && last.down === 0 && last.up === 0) return prev;
+        }
         const next = [
           ...prev,
           {
             time: timeStr,
-            down: speedRef.current.down,
-            up: speedRef.current.up,
+            down,
+            up,
           },
         ];
         if (next.length > maxSamples) {
