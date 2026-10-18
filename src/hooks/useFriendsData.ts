@@ -764,20 +764,19 @@ export function useFriendsData(): UseFriendsDataResult {
 
   // Incoming P2P sync payloads emitted by the backend sync loop.
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    const setup = async () => {
-      unlisten = await listen<string>("internet-sync-received", (event) => {
-        try {
-          const remoteDb = JSON.parse(event.payload) as FriendsDatabase;
-          handleReceiveRemoteData(remoteDb);
-        } catch (err) {
-          console.error("Failed to parse/merge remote sync data:", err);
-        }
-      });
-    };
-    void setup();
+    let disposed = false;
+    const unlisten = listen<string>("internet-sync-received", (event) => {
+      if (disposed) return;
+      try {
+        const remoteDb = JSON.parse(event.payload) as FriendsDatabase;
+        handleReceiveRemoteData(remoteDb);
+      } catch (err) {
+        console.error("Failed to parse/merge remote sync data:", err);
+      }
+    });
     return () => {
-      if (unlisten) unlisten();
+      disposed = true;
+      void unlisten.then((fn) => fn());
     };
   }, [handleReceiveRemoteData]);
 

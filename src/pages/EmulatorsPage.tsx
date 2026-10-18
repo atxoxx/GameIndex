@@ -240,10 +240,11 @@ export default function EmulatorsPage() {
 
   // ROM-folder watcher: auto-rescan (auto_scan) or prompt via toast.
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    listen<{ emulatorId: string; folder: string; autoScan: boolean }>(
+    let disposed = false;
+    const unlisten = listen<{ emulatorId: string; folder: string; autoScan: boolean }>(
       "rom-folder-changed",
       (event) => {
+        if (disposed) return;
         const { emulatorId, autoScan } = event.payload;
         const emu = emulatorsRef.current.find((e) => e.id === emulatorId);
         if (!emu) return;
@@ -253,10 +254,11 @@ export default function EmulatorsPage() {
           showToast(t("emulators.watcher.changed", { name: emu.name }), "info");
         }
       }
-    ).then((fn) => {
-      unlisten = fn;
-    });
-    return () => unlisten?.();
+    );
+    return () => {
+      disposed = true;
+      void unlisten.then((fn) => fn());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleScan, showToast, t]);
 

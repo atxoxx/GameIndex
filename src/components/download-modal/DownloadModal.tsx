@@ -24,7 +24,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useDownloads } from "../../context/DownloadContext";
 import { searchDownloadsStream } from "../../context/SourceContext";
@@ -778,53 +778,49 @@ export default function DownloadModal({
   );
 
   useEffect(() => {
-    let unlistenIntercepted: UnlistenFn | undefined;
-    let unlistenEnded: UnlistenFn | undefined;
+    let disposed = false;
 
-    const subscribe = async () => {
-      unlistenIntercepted = await listen<{
-        sessionId: string;
-        filename?: string;
-        partIndex?: number;
-        partsCaptured?: number;
-      }>("download-intercepted", (event) => {
-        const p = event.payload;
-        setResolverSession((prev) => {
-          if (!prev || prev.sessionId !== p.sessionId) return prev;
-          return {
-            ...prev,
-            status: "capturing",
-            partsCaptured: p.partsCaptured ?? p.partIndex ?? prev.partsCaptured + 1,
-          };
-        });
-        if (p.filename) {
-          showToast(t("downloadModal.resolverCaptured", { filename: p.filename }), "success");
-        }
+    const unlistenIntercepted = listen<{
+      sessionId: string;
+      filename?: string;
+      partIndex?: number;
+      partsCaptured?: number;
+    }>("download-intercepted", (event) => {
+      if (disposed) return;
+      const p = event.payload;
+      setResolverSession((prev) => {
+        if (!prev || prev.sessionId !== p.sessionId) return prev;
+        return {
+          ...prev,
+          status: "capturing",
+          partsCaptured: p.partsCaptured ?? p.partIndex ?? prev.partsCaptured + 1,
+        };
       });
+      if (p.filename) {
+        showToast(t("downloadModal.resolverCaptured", { filename: p.filename }), "success");
+      }
+    });
 
-      unlistenEnded = await listen<{
-        sessionId: string;
-        partsCaptured?: number;
-        cancelled?: boolean;
-      }>("resolver-session-ended", (event) => {
-        const p = event.payload;
-        setResolverSession((prev) => {
-          if (!prev || prev.sessionId !== p.sessionId) return prev;
-          return null;
-        });
-        if (p.cancelled && (p.partsCaptured ?? 0) === 0) {
-          showToast(t("downloadModal.resolverNoCapture"), "info");
-        }
+    const unlistenEnded = listen<{
+      sessionId: string;
+      partsCaptured?: number;
+      cancelled?: boolean;
+    }>("resolver-session-ended", (event) => {
+      if (disposed) return;
+      const p = event.payload;
+      setResolverSession((prev) => {
+        if (!prev || prev.sessionId !== p.sessionId) return prev;
+        return null;
       });
-    };
-
-    subscribe().catch((err) => {
-      console.error("[DownloadModal] resolver event subscription failed:", err);
+      if (p.cancelled && (p.partsCaptured ?? 0) === 0) {
+        showToast(t("downloadModal.resolverNoCapture"), "info");
+      }
     });
 
     return () => {
-      unlistenIntercepted?.();
-      unlistenEnded?.();
+      disposed = true;
+      void unlistenIntercepted.then((fn) => fn());
+      void unlistenEnded.then((fn) => fn());
     };
   }, [t, showToast]);
 

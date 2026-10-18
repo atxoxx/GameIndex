@@ -24,23 +24,16 @@ export function useTrayNavigation() {
 
   useEffect(() => {
     let disposed = false;
-    let unlisten: (() => void) | undefined;
-    (async () => {
-      try {
-        unlisten = await listen<{ path: string }>("navigate", (e) => {
-          if (disposed) return;
-          const { path } = e.payload;
-          if (TRAY_NAVIGATION_ROUTES.has(path)) {
-            navigate(path);
-          }
-        });
-      } catch (err) {
-        console.warn("[useTrayNavigation] navigate listen failed:", err);
+    const unlisten = listen<{ path: string }>("navigate", (e) => {
+      if (disposed) return;
+      const { path } = e.payload;
+      if (TRAY_NAVIGATION_ROUTES.has(path)) {
+        navigate(path);
       }
-    })();
+    });
     return () => {
       disposed = true;
-      unlisten?.();
+      void unlisten.then((fn) => fn());
     };
   }, [navigate]);
 }

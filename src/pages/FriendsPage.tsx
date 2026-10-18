@@ -1154,21 +1154,22 @@ export default function FriendsPage() {
   }, [sessions, friendsNotifications, profile.name, t]);
 
   // Incoming P2P sync listener
+  const receiveRemoteDataRef = useRef(handleReceiveRemoteData);
+  receiveRemoteDataRef.current = handleReceiveRemoteData;
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    async function setupListener() {
-      unlisten = await listen<string>("internet-sync-received", (event) => {
-        try {
-          const remoteDb = JSON.parse(event.payload) as FriendsDatabase;
-          handleReceiveRemoteData(remoteDb);
-        } catch (err) {
-          console.error("Failed to parse/merge remote sync data:", err);
-        }
-      });
-    }
-    setupListener();
+    let disposed = false;
+    const unlisten = listen<string>("internet-sync-received", (event) => {
+      if (disposed) return;
+      try {
+        const remoteDb = JSON.parse(event.payload) as FriendsDatabase;
+        receiveRemoteDataRef.current(remoteDb);
+      } catch (err) {
+        console.error("Failed to parse/merge remote sync data:", err);
+      }
+    });
     return () => {
-      if (unlisten) unlisten();
+      disposed = true;
+      void unlisten.then((fn) => fn());
     };
   }, [deniedIds]);
 

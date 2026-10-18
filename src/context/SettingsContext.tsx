@@ -1194,19 +1194,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // "Discord is not running" when the desktop app is closed.
   useEffect(() => {
     let disposed = false;
-    let unlisten: (() => void) | undefined;
-    (async () => {
-      try {
-        unlisten = await listen<{ connected: boolean }>("discord-presence-status", (e) => {
-          if (!disposed) setDiscordStatus(e.payload.connected ? "connected" : "notRunning");
-        });
-      } catch (err) {
-        console.warn("[SettingsContext] discord status listen failed:", err);
-      }
-    })();
+    const unlisten = listen<{ connected: boolean }>("discord-presence-status", (e) => {
+      if (!disposed) setDiscordStatus(e.payload.connected ? "connected" : "notRunning");
+    });
     return () => {
       disposed = true;
-      unlisten?.();
+      void unlisten.then((fn) => fn());
     };
   }, []);
 
