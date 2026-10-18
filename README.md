@@ -41,12 +41,12 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 - [✨ Features](#-features)
 - [🐧 Linux, Wine & Proton](#-linux-wine--proton)
 - [📸 Screenshots](#-screenshots)
-- [🎬 Demo Video](#demo-video)
+- [🎬 Demo Video](#-demo-video)
 - [💡 Inspiration](#-inspiration)
-- [🛠️ Tech Stack](#️-tech-stack)
+- [🛠️ Tech Stack](#-tech-stack)
 - [🚀 Getting Started](#-getting-started)
 - [📁 Project Structure](#-project-structure)
-- [🗺️ Roadmap](#️-roadmap)
+- [🗺️ Roadmap](#-roadmap)
 - [📌 Status](#-status)
 - [🤝 Contributing](#-contributing)
 - [⚖️ Disclaimer](#-disclaimer)
@@ -60,6 +60,7 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | Feature | Description |
 |---------|-------------|
 | **Unified Library** | Steam, GOG Galaxy, Epic Games Store, Rockstar, Ubisoft Connect, Humble Bundle, and manual imports in one cohesive grid — with a drag-and-drop executable import wizard that groups dropped folders, picks the primary executable and links IGDB metadata. |
+| **Smart Shelves** | Rule-based smart shelves built from your library — create a shelf from any filter combination (source, year, playtime, completion, modes, perspectives…), pin it to the sidebar and the home rails as live rails, with starter shelves on first run, reordering, icons/colors and a global enable/disable toggle. |
 | **Store Integrations** | Steam, GOG Galaxy, Epic, Rockstar, Ubisoft Connect and Humble Bundle out of the box, plus **beta** integrations for **Battle.net**, **EA**, **Xbox** and **itch.io** — WebView/OAuth sign-in, library import with install-state detection, and per-store sync settings. |
 | **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, HowLongToBeat stats, Crackwatch, ProtonDB, Steam community features, and live player counts — plus a built-in **Web Links** browser with address bar, zoom, pinning, a personal links manager and an embedded preview toolbar (back/forward, reload, home, expand, open external, dismiss cookie banners). |
 | **DLC & Add-ons** | Per-game Steam DLC/Add-ons tab with ownership progress, owned/unowned/free filters, search, cards and a detail modal — resolved from local manifests, app tickets and the store catalog, with manual and bulk mark-owned overrides and Steam Family Sharing attribution. |
@@ -78,9 +79,10 @@ A quick guided tour of GameIndex — the launcher, unified library, game pages, 
 | **Wishlist** | Dedicated wishlist tab with release-date countdowns, per-game notes, genre/platform filters, and share-with-friends cards. |
 | **News Reader** | Built-in RSS reader on a dedicated News page — curated gaming feeds, regional feeds and feed packs, with article reading that stays in the app. |
 | **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS on Windows (MangoHud / GameScope on Linux), with interactive timeline, Gantt, performance, and sparkline views. |
-| **In-Game Overlay** | An always-on-top HUD over your game — a collapsed telemetry ticker and an expandable panel with session, performance (FPS, frametime, 1%/0.1% lows, hardware sensors), captures, notes, timer, achievements, downloads and an embedded Guides browser. Draggable, click-through, glass/adaptive, and **off by default**. → [Full guide](docs/in-game-overlay.md) |
+| **In-Game Overlay** | An always-on-top HUD over your game — a collapsed telemetry ticker and an expandable panel with session, performance (FPS, frametime, 1%/0.1% lows, hardware sensors), captures, notes, timer, achievements, downloads and an embedded Guides browser with website and map tabs plus Google/YouTube search. Draggable, click-through, glass/adaptive, with idle dimming and a capture countdown, and **off by default**. → [Full guide](docs/in-game-overlay.md) |
 | **Capture & Replay** | One-key screenshots (with sound, flash and clipboard copy) and a native video recorder with instant replay — configurable FPS/bitrate/scale, game-audio + mic capture, PNG/JPEG and MP4/H.264 output. Windows uses Windows Graphics Capture + Media Foundation; Linux uses `gpu-screen-recorder`. → [Full guide](docs/in-game-overlay.md) |
-| **Downloads** | Unified concurrent download engine with seeding, HTTP direct, debrid (Real-Debrid / AllDebrid / TorBox), browser-resolver captures, and torrents via `librqbit` — plus a transfer scheduler (time windows, bandwidth rules, pause-on-game), queue priority/retry, seed caps, and a rebuilt download modal with ranked results, filters/presets, batch selection, a compare tray and an in-modal queue preview. |
+| **Downloads** | Unified concurrent download engine with seeding, HTTP direct (multi-connection segmented transfers with configurable connections-per-file), debrid (Real-Debrid / AllDebrid / TorBox), browser-resolver captures, and torrents via `librqbit` — plus a transfer scheduler (time windows, bandwidth rules, pause-on-game), queue priority/retry, seed caps, per-result debrid cache verification, post-download actions, and a rebuilt download modal with ranked results, filters/presets, batch selection, a compare tray and an in-modal queue preview. |
+| **Setup Wizard** | A first-run setup wizard — appearance (theme, language, accent), library sources with in-wizard store sign-in, download defaults, overlay & capture, feature toggles (including smart shelves), hardware, privacy, and tray/startup behavior — with live settings that apply immediately, skippable anytime and re-runnable from Settings. |
 | **Linux & Steam Deck** | First-class Proton/Wine compatibility: runner manager (GE-Proton, CachyOS, Proton-EM, Wine-GE, Soda, Kron4ek…), shared prefixes with per-game overrides, DXVK/VKD3D, esync/fsync/ntsync, MangoHud, GameMode, GameScope, per-game GPU pinning, controller & anti-cheat runtimes, captured logs with a live viewer, Wine tools and system diagnostics. → [Full guide](docs/linux-wine-proton.md) |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes — with a **Library Health & Maintenance** center for missing install paths, duplicate rows, missing metadata, orphaned artwork, stale sizes and unplayed backlog. |
 | **Backup & Restore** | Selectable, cancellable backups with live progress — raw NDJSON export plus merge/replace restore modes from the Settings backup tab, including Proton/Wine compatibility profiles. |
@@ -329,8 +331,11 @@ npm run tauri build    # tsc + vite build + native bundles
 | `npm run lint` | ESLint over `src` (zero-warning gate) |
 | `npm test` | Vitest run — `npm run test:watch` to watch |
 | `npm run audit:i18n` | Verifies every UI string has translations across locales |
+| `npm run audit:tauri` | Checks Tauri Rust/JS API versions stay aligned |
+| `npm run lint:plugins` | Lints installed QuickJS plugin manifests/scripts |
 | `npm run build` | Frontend build only (`tsc && vite build`) |
 | `npm run preview` | Preview the production frontend build |
+| `npm run build:appimage` | Linux AppImage build + post-build patch script |
 | `cargo check` | Rust backend — run inside `src-tauri/` |
 
 ### ❄️ Nix & NixOS
@@ -389,12 +394,16 @@ This is a known false-positive pattern affecting many legitimate Tauri and Rust 
     │   ├── downloads/        Concurrent direct, debrid, torrent & browser-resolver downloads + scheduler
     │   ├── saves/            Per-game save detection + `.gisave` snapshot/restore engine
     │   ├── mods/             Mod manager + multi-source Discover browser (mods/sources/)
+    │   ├── shelves.rs        Rule-based smart shelves (storage + matching)
+    │   ├── setup.rs          First-run setup wizard state
     │   ├── overlay.rs        In-game HUD window, telemetry bridge, hotkeys, screenshots
     │   ├── overlay_detect.rs Detect library games started outside GameIndex
+    │   ├── game_watcher/     WMI process polling + session lifecycle
     │   ├── capture/          Native video recorder + rolling replay buffer (WGC/WASAPI, gpu-screen-recorder)
     │   ├── plugins/          Sandboxed QuickJS plugin runtime (+ bencode/html helpers)
     │   ├── map_sources.rs    Multi-provider game-map lookup (MapGenie, GameMaps, …)
     │   ├── webview.rs        Embedded preview webviews + content/consent filters
+    │   ├── webkit_memory.rs  WebKitGTK render-process memory tuning (Linux)
     │   ├── compatibility/    Proton/Wine runners, prefixes, GameScope, GPU pinning
     │   ├── vr.rs             VR detection heuristics (title/platform/metadata)
     │   ├── scan.rs           Shared rayon-parallel filesystem walking
@@ -469,6 +478,10 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ IGDB relation groups (franchise, collection, similar, developer/publisher)
 - ✅ Metacritic critic & user scores in the ratings card
 - ✅ Per-plugin configuration, richer plugin results and host allowlists
+- ✅ First-run setup wizard with live settings and in-wizard store sign-in
+- ✅ Smart shelves — rule-based library shelves pinned to the sidebar and home rails
+- ✅ Multi-connection segmented downloads, post-download actions and per-result debrid cache verification
+- ✅ Overlay Guides browser rework — website/map tabs with Google & YouTube search
 - 🚧 Per-game performance profiles and user tags
 - 🚧 Community theme browser & scheduled theme switching
 - 🚧 Flatpak packaging and further backend performance work (streamed file operations)
@@ -479,7 +492,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 ## 📌 Status
 
 > 🛠️ **Personal project, vibe-coded** — built in my free time as a learning exercise and a love-letter to PC gaming.
-> Latest tagged release: **v1.6.0** ([GitHub Releases](https://github.com/atxoxx/GameIndex/releases)).
+> Latest tagged release: **v1.6.1** ([GitHub Releases](https://github.com/atxoxx/GameIndex/releases)).
 > Expect rough edges, breaking changes, and rapid iteration. Contributions and ideas are welcome.
 
 ---
