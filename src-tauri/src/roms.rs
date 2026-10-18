@@ -252,18 +252,14 @@ fn ensure_rom_hash(db_state: &db::Db, game: &GameData) -> Result<Option<String>,
 }
 
 fn persist_game(db_state: &db::Db, game: &GameData) -> Result<(), String> {
-    let value = serde_json::to_value(game).map_err(|e| format!("to_value: {e}"))?;
-    let row: db::games::GameRow =
-        serde_json::from_value(value).map_err(|e| format!("to GameRow: {e}"))?;
-    db::games::upsert_one(db_state, &row)
+    db::games::upsert_one(db_state, &db::games::GameRow::from(game.clone()))
 }
 
 fn load_game(db_state: &db::Db, game_id: &str) -> Result<GameData, String> {
     let row = db::games::get(db_state, game_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("ROM not found: {game_id}"))?;
-    let value = serde_json::to_value(&row).map_err(|e| format!("to_value: {e}"))?;
-    serde_json::from_value(value).map_err(|e| format!("from_value: {e}"))
+    Ok(GameData::from(row))
 }
 
 // ─── Command: identify & clean names ────────────────────────────────────────
@@ -1546,21 +1542,13 @@ pub async fn find_duplicate_roms(
     emulator_id: Option<String>,
 ) -> Result<Vec<DuplicateGroup>, String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
-    let rows = db::games::list_all(db_state.inner()).map_err(|e| e.to_string())?;
+    let rows = match emulator_id.as_deref() {
+        Some(id) => db::games::list_by_emulator(db_state.inner(), id)?,
+        None => db::games::list_detect_emulator_games(db_state.inner())?,
+    };
     let games: Vec<GameData> = rows
         .into_iter()
-        .filter_map(|row| {
-            if row.emulator_id.is_none() {
-                return None;
-            }
-            if let Some(filter) = &emulator_id {
-                if row.emulator_id.as_deref() != Some(filter.as_str()) {
-                    return None;
-                }
-            }
-            let value = serde_json::to_value(&row).ok()?;
-            serde_json::from_value::<GameData>(value).ok()
-        })
+        .map(GameData::from)
         .collect();
 
     let db_for_task = db_state.inner().clone();
@@ -1734,13 +1722,28 @@ pub struct EmulatorsExport {
 
 /// Export emulator configuration (config + ROM profiles) as JSON —
 /// import with `import_emulators_config`.
+///
+/// Async + `spawn_blocking`: serializes/parses on the blocking pool.
 #[tauri::command]
-pub fn export_emulators_config(app: tauri::AppHandle) -> Result<String, String> {
+pub async fn export_emulators_config(app: tauri::AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || export_emulators_config_blocking(app))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn export_emulators_config_blocking(app: tauri::AppHandle) -> Result<String, String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
     let emus = db::emulators::list_all(db_state.inner()).map_err(|e| e.to_string())?;
-    let emu_ids: std::collections::HashSet<String> = emus.iter().map(|e| e.id.clone()).collect();
     let mut emulator_data: Vec<crate::emulation::EmulatorData> = Vec::new();
+    let mut profiles: HashMap<String, RomProfile> = HashMap::new();
     for e in emus {
+        for (game_id, profile_json) in
+            db::games::list_emulator_rom_profiles(db_state.inner(), &e.id)?
+        {
+            if let Ok(profile) = serde_json::from_value::<RomProfile>(profile_json) {
+                profiles.insert(game_id, profile);
+            }
+        }
         emulator_data.push(crate::emulation::EmulatorData {
             id: e.id,
             name: e.name,
@@ -1756,17 +1759,6 @@ pub fn export_emulators_config(app: tauri::AppHandle) -> Result<String, String> 
             created_at: e.created_at,
             updated_at: e.updated_at,
         });
-    }
-    let mut profiles: HashMap<String, RomProfile> = HashMap::new();
-    for row in db::games::list_all(db_state.inner()).map_err(|e| e.to_string())? {
-        if row.emulator_id.is_none() || !emu_ids.contains(row.emulator_id.as_deref().unwrap_or("")) {
-            continue;
-        }
-        if let Some(p) = row.rom_profile {
-            if let Ok(profile) = serde_json::from_value::<RomProfile>(p) {
-                profiles.insert(row.id.clone(), profile);
-            }
-        }
     }
     let payload = EmulatorsExport {
         version: 1,
@@ -1808,12 +1800,12 @@ pub fn import_emulators_config(app: tauri::AppHandle, json: String) -> Result<us
     }
     // Apply ROM profiles to existing rows only.
     for (game_id, profile) in payload.rom_profiles {
-        let Some(row) = db::games::get(db_state.inner(), &game_id).map_err(|e| e.to_string())? else {
+        let Some(mut game) = db::games::get(db_state.inner(), &game_id)
+            .map_err(|e| e.to_string())?
+            .map(GameData::from)
+        else {
             continue;
         };
-        let value = serde_json::to_value(&row).map_err(|e| format!("to_value: {e}"))?;
-        let mut game: GameData = serde_json::from_value(value)
-            .map_err(|e| format!("from_value: {e}"))?;
         game.rom_profile = Some(profile);
         persist_game(db_state.inner(), &game)?;
     }

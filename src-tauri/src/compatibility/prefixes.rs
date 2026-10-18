@@ -133,7 +133,7 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
     };
 
     let db_state: tauri::State<'_, db::Db> = app.state();
-    let games = db::games::list_all(db_state.inner()).unwrap_or_default();
+    let id_names = db::games::list_id_names(db_state.inner()).unwrap_or_default();
     let compat_map = db::compatibility::list_all_for_games(db_state.inner()).unwrap_or_default();
 
     let default_prefix_path = settings
@@ -147,11 +147,11 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
     let mut custom_prefix_to_games: HashMap<PathBuf, Vec<PrefixAssociatedGame>> = HashMap::new();
     let mut default_prefix_games: Vec<PrefixAssociatedGame> = Vec::new();
 
-    for g in &games {
-        game_titles.insert(g.id.clone(), g.name.clone());
+    for (id, name) in &id_names {
+        game_titles.insert(id.clone(), name.clone());
 
         let custom_prefix = compat_map
-            .get(&g.id)
+            .get(id)
             .and_then(|p| p.get("customWinePrefix").or_else(|| p.get("winePrefix")))
             .and_then(|v| v.as_str())
             .map(str::trim)
@@ -162,13 +162,13 @@ pub fn list_wine_prefixes_sync(app: &tauri::AppHandle) -> Result<Vec<WinePrefixI
                 .entry(PathBuf::from(cp))
                 .or_default()
                 .push(PrefixAssociatedGame {
-                    id: g.id.clone(),
-                    title: g.name.clone(),
+                    id: id.clone(),
+                    title: name.clone(),
                 });
         } else if default_prefix_path.is_some() {
             default_prefix_games.push(PrefixAssociatedGame {
-                id: g.id.clone(),
-                title: g.name.clone(),
+                id: id.clone(),
+                title: name.clone(),
             });
         }
     }

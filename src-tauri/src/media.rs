@@ -160,10 +160,19 @@ pub fn artwork_asset_url(app: tauri::AppHandle, relative_path: String) -> Result
 
 /// Backfill grid-artwork thumbnails for artwork already on disk. Called once
 /// after the library loads; idempotent and returns the number written.
+///
+/// Async + `spawn_blocking`: the walk plus (when thumbnails are missing)
+/// full-res decode + Lanczos3 resize + WebP encode is seconds of CPU work
+/// and would otherwise run inline on the GTK main thread, janking the
+/// boot paint right as the library hydrates.
 #[tauri::command]
-pub fn ensure_artwork_thumbnails(app: tauri::AppHandle) -> Result<usize, String> {
+pub async fn ensure_artwork_thumbnails(app: tauri::AppHandle) -> Result<usize, String> {
     let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    Ok(crate::db::artwork::ensure_thumbnails(&root))
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::db::artwork::ensure_thumbnails(&root)
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// Store a selected local image in the artwork directory.

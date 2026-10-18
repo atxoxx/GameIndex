@@ -530,8 +530,18 @@ fn check_folder_manifests(candidate_dirs: &[PathBuf]) -> Option<String> {
 /// 3. Folder manifests (`version.txt`, `build.info`, `version.json`, `package.json`)
 /// 4. Executable PE resource inspection (with launcher bypass)
 /// 5. Steam app manifest (`appmanifest_<appid>.acf` `buildid`)
+///
+/// Async + `spawn_blocking`: recursive manifest walks and PE version reads
+/// are disk-heavy and would otherwise stall the main thread while a game
+/// page renders.
 #[tauri::command]
-pub fn detect_game_version(query: GameVersionQuery) -> Option<GameVersionInfo> {
+pub async fn detect_game_version(query: GameVersionQuery) -> Option<GameVersionInfo> {
+    tauri::async_runtime::spawn_blocking(move || detect_game_version_blocking(query))
+        .await
+        .ok()?
+}
+
+fn detect_game_version_blocking(query: GameVersionQuery) -> Option<GameVersionInfo> {
     let mut candidate_dirs = Vec::new();
     if let Some(ref inst) = query.install_dir {
         let p = PathBuf::from(inst);

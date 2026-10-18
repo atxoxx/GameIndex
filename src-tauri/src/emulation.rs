@@ -270,10 +270,11 @@ fn scan_emulator_roms_blocking(
 
     // Preload every stored row once instead of issuing a full-row SELECT per
     // file; the scan then writes the whole folder in a single transaction.
-    let existing: HashMap<String, db::games::GameRow> = db::games::list_all(db)?
-        .into_iter()
-        .map(|row| (row.id.clone(), row))
-        .collect();
+    let existing: HashMap<String, db::games::GameRow> =
+        db::games::list_by_emulator(db, emulator_id)?
+            .into_iter()
+            .map(|row| (row.id.clone(), row))
+            .collect();
 
     let exts = rom_extensions_for_platform(&emu.platform);
     let now_ms = SystemTime::now()
@@ -321,15 +322,11 @@ fn scan_emulator_roms_blocking(
 
             // Preserve progress / metadata if this ROM was scanned before.
             if let Some(existing) = existing.get(&game.id) {
-                let value = serde_json::to_value(existing).map_err(|e| format!("to_value: {e}"))?;
-                if let Ok(prev) = serde_json::from_value::<GameData>(value) {
-                    apply_existing_rom(&prev, &mut game);
-                }
+                let prev = GameData::from(existing.clone());
+                apply_existing_rom(&prev, &mut game);
             }
 
-            let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
-            let row: db::games::GameRow = serde_json::from_value(value)
-                .map_err(|e| format!("to GameRow: {e}"))?;
+            let row = db::games::GameRow::from(game.clone());
             Ok((game, row))
         })
         .collect();
@@ -468,15 +465,10 @@ pub fn add_rom_file(
     let mut game = build_rom_game(&emu, &path, now_ms);
     // Preserve any prior entry (e.g. re-adding a previously removed ROM).
     if let Some(existing) = db::games::get(db_state.inner(), &game.id).map_err(|e| e.to_string())? {
-        let value = serde_json::to_value(&existing).map_err(|e| format!("to_value: {e}"))?;
-        if let Ok(prev) = serde_json::from_value::<GameData>(value) {
-            apply_existing_rom(&prev, &mut game);
-        }
+        let prev = GameData::from(existing);
+        apply_existing_rom(&prev, &mut game);
     }
-    let row_value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
-    let row: db::games::GameRow = serde_json::from_value(row_value)
-        .map_err(|e| format!("to GameRow: {e}"))?;
-    db::games::upsert_one(db_state.inner(), &row)?;
+    db::games::upsert_one(db_state.inner(), &db::games::GameRow::from(game.clone()))?;
     Ok(game)
 }
 
@@ -525,9 +517,7 @@ pub fn rename_rom_file(
     let new_rom_path = new_path.to_string_lossy().to_string();
     let emu_id = existing.emulator_id.clone().unwrap_or_default();
     let new_id = format!("emu-{}-{}", emu_id, hash_str(&new_rom_path));
-    let value = serde_json::to_value(&existing).map_err(|e| format!("to_value: {e}"))?;
-    let mut game: GameData = serde_json::from_value(value)
-        .map_err(|e| format!("from_value: {e}"))?;
+    let mut game: GameData = existing.into();
     game.id = new_id.clone();
     game.name = trimmed.to_string();
     game.rom_path = Some(new_rom_path.clone());
@@ -537,10 +527,7 @@ pub fn rename_rom_file(
     if game.size_root_path.as_deref() == Some(rom_path.as_str()) {
         game.size_root_path = Some(new_rom_path.clone());
     }
-    let row_value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
-    let row: db::games::GameRow = serde_json::from_value(row_value)
-        .map_err(|e| format!("to GameRow: {e}"))?;
-    db::games::upsert_one(db_state.inner(), &row)?;
+    db::games::upsert_one(db_state.inner(), &db::games::GameRow::from(game.clone()))?;
     if new_id != game_id {
         let _ = db::games::delete(db_state.inner(), &game_id);
     }
@@ -645,8 +632,22 @@ pub fn start_rom_watcher(app: tauri::AppHandle) {
 /// Re-measure the on-disk size of every ROM belonging to an emulator and
 /// persist it. Used by the "Re-calc sizes" action; a ROM's size is its
 /// own file length.
+///
+/// Async + `spawn_blocking`: metadata stat calls plus the per-row upserts
+/// are filesystem work and ran inline on the main thread before. Row
+/// conversion goes through the direct `GameRow <-> GameData` impls
+/// instead of a serde double round-trip.
 #[tauri::command]
-pub fn recalc_rom_sizes(
+pub async fn recalc_rom_sizes(
+    app: tauri::AppHandle,
+    emulator_id: String,
+) -> Result<Vec<GameData>, String> {
+    tauri::async_runtime::spawn_blocking(move || recalc_rom_sizes_blocking(app, emulator_id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn recalc_rom_sizes_blocking(
     app: tauri::AppHandle,
     emulator_id: String,
 ) -> Result<Vec<GameData>, String> {
@@ -655,27 +656,19 @@ pub fn recalc_rom_sizes(
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let rows = db::games::list_all(db_state.inner()).map_err(|e| e.to_string())?;
+    let rows = db::games::list_by_emulator(db_state.inner(), &emulator_id)?;
     let mut out: Vec<GameData> = Vec::new();
     for row in rows {
-        if row.emulator_id.as_deref() != Some(emulator_id.as_str()) {
-            continue;
-        }
         let rom_path = match row.rom_path.clone() {
-            Some(p) => p,
-            None => continue,
+            Some(p) if !p.is_empty() => p,
+            _ => continue,
         };
-        let value = serde_json::to_value(&row).map_err(|e| format!("to_value: {e}"))?;
-        let mut game: GameData = serde_json::from_value(value)
-            .map_err(|e| format!("from_value: {e}"))?;
+        let mut game: GameData = row.clone().into();
         let size = std::fs::metadata(&rom_path).ok().map(|m| m.len());
         game.size_bytes = size;
         game.size_detected_at = size.map(|_| now_ms.to_string());
         game.size_root_path = Some(rom_path);
-        let row_value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
-        let game_row: db::games::GameRow = serde_json::from_value(row_value)
-            .map_err(|e| format!("to GameRow: {e}"))?;
-        db::games::upsert_one(db_state.inner(), &game_row)?;
+        db::games::upsert_one(db_state.inner(), &db::games::GameRow::from(game.clone()))?;
         out.push(game);
     }
     Ok(out)

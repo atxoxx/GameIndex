@@ -933,6 +933,94 @@ pub fn delete_many(db: &Db, ids: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Read every game tied to one emulator, in full-row shape. The ROM
+/// callers (size recalc, duplicate scan, config export) previously
+/// `list_all`-ed the whole library and filtered each decoded 80-column
+/// row in Rust — this pushes the filter into SQLite (`ix_games_emulator_id`),
+/// so only the relevant rows are ever read off the page cache.
+pub fn list_by_emulator(db: &Db, emulator_id: &str) -> Result<Vec<GameRow>, String> {
+    db_by_emulator_sql(
+        db,
+        "WHERE emulator_id = ?1",
+        &[&emulator_id as &dyn rusqlite::ToSql],
+    )
+}
+
+/// (id, name) for every game, nothing else. Prefix UIs and other
+/// label-maps used to `list_all` and decode 80 columns to keep two.
+pub fn list_id_names(db: &Db) -> Result<Vec<(String, String)>, String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, name FROM games")
+        .map_err(|e| format!("games id_names prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map_err(|e| format!("games id_names query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("games id_names row: {e}"))?);
+    }
+    Ok(out)
+}
+
+/// Games with any emulator linkage (ROM grid, duplicate scan). Cheap only
+/// via the `ix_games_emulator_id` index lookup plus a one-column probe, so
+/// it stays lighter than a full `list_all` on non-emulated libraries.
+pub fn list_detect_emulator_games(db: &Db) -> Result<Vec<GameRow>, String> {
+    db_by_emulator_sql(db, "WHERE rom_path IS NOT NULL AND rom_path != ''", &[])
+}
+
+fn db_by_emulator_sql(
+    db: &Db,
+    clause: &str,
+    params: &[&dyn rusqlite::ToSql],
+) -> Result<Vec<GameRow>, String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(format!("{GAMES_SELECT_SQL} {clause}").as_str())
+        .map_err(|e| format!("games list_by_emulator prepare: {e}"))?;
+    let rows = stmt
+        .query_map(params, game_row_from_row)
+        .map_err(|e| format!("games list_by_emulator query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("games row: {e}"))?);
+    }
+    Ok(out)
+}
+
+/// Per-ROM profiles for one emulator, keyed by game id. Projects only
+/// `id` + `rom_profile` — config export previously `list_all`-ed the
+/// whole library and decoded all 80 columns of every row to keep two.
+pub fn list_emulator_rom_profiles(
+    db: &Db,
+    emulator_id: &str,
+) -> Result<std::collections::HashMap<String, serde_json::Value>, String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, rom_profile FROM games \
+             WHERE emulator_id = ?1 AND rom_profile IS NOT NULL",
+        )
+        .map_err(|e| format!("games rom profiles prepare: {e}"))?;
+    let rows = stmt
+        .query_map(params![emulator_id], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("games rom profiles query: {e}"))?;
+    let mut out = std::collections::HashMap::new();
+    for row in rows {
+        let (id, json) = row.map_err(|e| format!("games rom profile row: {e}"))?;
+        match serde_json::from_str::<serde_json::Value>(&json) {
+            Ok(v) => {
+                out.insert(id, v);
+            }
+            Err(e) => eprintln!("[games] rom_profile for {id} is not valid JSON: {e}"),
+        }
+    }
+    Ok(out)
+}
+
 /// Delete every game tied to a given emulator instance (cascade when an
 /// emulator is removed).
 pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
@@ -1359,6 +1447,81 @@ mod tests {
         assert_eq!(stats.written, 1);
         assert_eq!(stats.deleted, 0);
         assert_eq!(get(&db, "b").unwrap().unwrap().name, "Renamed");
+    }
+
+    /// The emulator-scoped reads return exactly the rows of that
+    /// emulator (full-row shape, heavy columns intact) and nothing else.
+    #[test]
+    fn list_by_emulator_scopes_to_one_emulator() {
+        let (_dir, db) = test_db();
+        let mut a = sample_row();
+        a.id = "a".into();
+        a.emulator_id = Some("emu1".into());
+        let mut b = sample_row();
+        b.id = "b".into();
+        b.emulator_id = Some("emu2".into());
+        let mut plain = sample_row();
+        plain.id = "c".into();
+        upsert_all(&db, &[a.clone(), b.clone(), plain]).unwrap();
+
+        let rows = list_by_emulator(&db, "emu1").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "a");
+        assert_eq!(rows[0].screenshots, a.screenshots.clone());
+        assert!(list_by_emulator(&db, "missing").unwrap().is_empty());
+    }
+
+    /// The ROM-grid scope picks up every row with a ROM path, including
+    /// emulator-detached orphans that still carry one.
+    #[test]
+    fn list_detect_emulator_games_matches_rom_path_only() {
+        let (_dir, db) = test_db();
+        let mut a = sample_row();
+        a.id = "a".into();
+        a.rom_path = Some("C:/roms/a.zip".into());
+        a.emulator_id = None;
+        let mut b = sample_row();
+        b.id = "b".into();
+        b.rom_path = Some(String::new());
+        let mut plain = sample_row();
+        plain.id = "c".into();
+        plain.rom_path = None;
+        upsert_all(&db, &[a, b, plain]).unwrap();
+
+        let rows = list_detect_emulator_games(&db).unwrap();
+        let ids: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(ids, vec!["a"]);
+    }
+
+    /// The profile projection maps game id -> parsed profile and skips
+    /// malformed JSON instead of failing the whole read.
+    #[test]
+    fn list_emulator_rom_profiles_projects_two_columns() {
+        let (_dir, db) = test_db();
+        let mut a = sample_row();
+        a.id = "a".into();
+        a.emulator_id = Some("emu1".into());
+        let mut b = sample_row();
+        b.id = "b".into();
+        b.emulator_id = Some("emu1".into());
+        let mut other = sample_row();
+        other.id = "c".into();
+        other.emulator_id = Some("emu2".into());
+        upsert_all(&db, &[a, b, other]).unwrap();
+        {
+            let conn = db.games().unwrap();
+            conn.execute(
+                "UPDATE games SET rom_profile = '{bad json' WHERE id = 'b'",
+                [],
+            )
+            .unwrap();
+        }
+
+        let profiles = list_emulator_rom_profiles(&db, "emu1").unwrap();
+        assert!(profiles.contains_key("a"));
+        assert!(!profiles.contains_key("b"));
+        assert!(!profiles.contains_key("c"));
+        assert!(list_emulator_rom_profiles(&db, "missing").unwrap().is_empty());
     }
 
     /// Replace mode drops ids absent from the payload.
