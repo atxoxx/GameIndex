@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ShelfProvider, useShelves } from "./ShelfContext";
+import type { Shelf } from "../types/shelf";
 
 const { invokeMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(async (_cmd: string) => [] as unknown),
@@ -89,5 +90,55 @@ describe("ShelfProvider — Smart Shelves master switch", () => {
     renderProvider();
     await waitReady();
     expect(screen.getByTestId("enabled")).toHaveTextContent("true");
+  });
+});
+
+describe("ShelfProvider — active shelf persistence", () => {
+  const aShelf: Shelf = {
+    id: "s1",
+    name: "S1",
+    icon: "layers",
+    color: "accent",
+    rules: {},
+    sort: "alphabetical",
+    pinned: false,
+    position: 0,
+    createdAt: 0,
+    updatedAt: 0,
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem("gameindex:shelves-seeded-v1", "1");
+    invokeMock.mockClear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("restores a persisted active shelf that still exists (happy path)", async () => {
+    invokeMock.mockResolvedValueOnce([aShelf]);
+    localStorage.setItem("gameindex:active-shelf:v1", "s1");
+    renderProvider();
+    await waitReady();
+    expect(screen.getByTestId("active")).toHaveTextContent("s1");
+  });
+
+  it("does not restore a persisted shelf that was deleted (error path)", async () => {
+    invokeMock.mockResolvedValueOnce([]);
+    localStorage.setItem("gameindex:active-shelf:v1", "s1");
+    renderProvider();
+    await waitReady();
+    expect(screen.getByTestId("active")).toHaveTextContent("none");
+  });
+
+  it("persists the active shelf when applied (happy path)", async () => {
+    invokeMock.mockResolvedValueOnce([aShelf]);
+    renderProvider();
+    await waitReady();
+    fireEvent.click(screen.getByText("apply"));
+    expect(screen.getByTestId("active")).toHaveTextContent("s1");
+    expect(localStorage.getItem("gameindex:active-shelf:v1")).toBe("s1");
   });
 });

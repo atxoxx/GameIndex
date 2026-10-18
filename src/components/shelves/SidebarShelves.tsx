@@ -7,6 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import { useShelves } from "../../context/ShelfContext";
 import { useLibraryFilterState } from "../../context/LibraryFilterContext";
 import { rulesFromFilters, shelfRulesToFilters } from "../../hooks/shelfRules";
+import { useCollapsedState } from "../../hooks/useCollapsedState";
 import { useOrderDrag } from "../../pages/settings/useOrderDrag";
 import { MAX_SHELVES, shelfDisplayName, type Shelf } from "../../types/shelf";
 import { ShelfIcon } from "./ShelfIcon";
@@ -42,7 +43,14 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
   const { filters, reset, setSearch, setGenres, setPlatforms, setYearRange, setRatingMin, setStatus, setSource, setPlayStatus, setVrOnly, setSort } =
     useLibraryFilterState();
 
-  const [collapsed, setCollapsed] = useState(false);
+  // Persisted so the user's choice survives a relaunch; defaults to
+  // collapsed so the sidebar stays compact on first launch. When there
+  // are no shelves the section stays expanded to show the empty state.
+  const [collapsed, toggleCollapsed] = useCollapsedState(
+    "gamelib:sidebar:shelves:collapsed:v1",
+    shelves.length > 0,
+    true
+  );
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editing, setEditing] = useState<Shelf | null>(null);
   const [initialRules, setInitialRules] = useState<Shelf["rules"] | undefined>(undefined);
@@ -139,7 +147,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
         <button
           type="button"
           className="sidebar-section-toggle"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={toggleCollapsed}
           aria-expanded={!collapsed}
         >
           <span className="sidebar-section-toggle__chevron" aria-hidden="true">

@@ -33,6 +33,9 @@ const SHELVES_DEDUPE_KEY = "gameindex:shelves-dedupe-v1";
 /** localStorage flag: the Smart Shelves feature is switched on. */
 const SHELVES_ENABLED_KEY = "gamelib.smart_shelves_enabled";
 
+/** localStorage key: the last-applied shelf, restored on relaunch. */
+const ACTIVE_SHELF_KEY = "gameindex:active-shelf:v1";
+
 /** Read the Smart Shelves master flag (defaults to on when unset). */
 function readShelfEnabled(): boolean {
   try {
@@ -264,6 +267,15 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
         setShelves(loaded);
         setCompletions(new Map(completionRows));
         setLoading(false);
+        // Restore the last-applied shelf if it still exists after hydration.
+        try {
+          const persisted = localStorage.getItem(ACTIVE_SHELF_KEY);
+          if (persisted && loaded.some((s) => s.id === persisted)) {
+            setActiveShelfId(persisted);
+          }
+        } catch {
+          /* localStorage unavailable — start with no active shelf */
+        }
       }
     })();
     return () => {
@@ -320,12 +332,20 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   const deleteShelf = useCallback(async (id: string) => {
     try {
       await invoke("shelves_delete", { id });
+      const wasActive = activeShelfId === id;
       setShelves((prev) => prev.filter((s) => s.id !== id));
       setActiveShelfId((current) => (current === id ? null : current));
+      if (wasActive) {
+        try {
+          localStorage.removeItem(ACTIVE_SHELF_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [activeShelfId]);
 
   const reorderShelves = useCallback(async (ids: string[]) => {
     // Optimistic: apply the new order immediately, persist in the background.
@@ -392,7 +412,25 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    if (!next) setActiveShelfId(null);
+    if (!next) {
+      setActiveShelfId(null);
+      try {
+        localStorage.removeItem(ACTIVE_SHELF_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  /** Apply a shelf as the Library filter and persist the choice. */
+  const setActiveShelf = useCallback((id: string | null) => {
+    setActiveShelfId(id);
+    try {
+      if (id) localStorage.setItem(ACTIVE_SHELF_KEY, id);
+      else localStorage.removeItem(ACTIVE_SHELF_KEY);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const value = useMemo<ShelfContextValue>(
@@ -400,7 +438,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
       shelves,
       loading,
       activeShelfId,
-      setActiveShelf: setActiveShelfId,
+      setActiveShelf,
       enabled,
       setEnabled,
       createShelf,
