@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useOverlay } from "../../../context/OverlayContext";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useVisibleInterval } from "../../../hooks/useVisibleInterval";
 import { Card, Button } from "../../ui";
 
 const TARGET_PRESETS = [
@@ -59,21 +60,16 @@ export default function TimerWidget() {
   const animRef = useRef<number | null>(null);
 
   // Update real-time clock
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      setClockStr(
-        now.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-      );
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  useVisibleInterval(() => {
+    const now = new Date();
+    setClockStr(
+      now.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    );
+  }, 1000);
 
   // Stopwatch tick
   useEffect(() => {

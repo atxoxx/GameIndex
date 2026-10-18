@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import {
+import { invoke } from "@tauri-apps/api/core";import {
   Bell,
   Download,
   Maximize2,
@@ -24,6 +23,7 @@ import { useOverlay } from "../../context/OverlayContext";
 import { useDownloads } from "../../context/DownloadContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useOptionalGames } from "../../context/GameContext";
+import { useVisibleInterval } from "../../hooks/useVisibleInterval";
 import { Badge } from "../ui";
 import OverlaySparkline from "./OverlaySparkline";
 import OverlayGauge from "./OverlayGauge";
@@ -140,17 +140,16 @@ export default function OverlayTicker() {
 
   // Live REC timer, ticked locally so the chip updates between state pushes.
   const [recSeconds, setRecSeconds] = useState(0);
+  const startedAt = recordingState.startedAt;
+  const recActive = isRecording && startedAt !== undefined;
+  useVisibleInterval(
+    () => setRecSeconds((Date.now() - (startedAt ?? Date.now())) / 1000),
+    500,
+    recActive
+  );
   useEffect(() => {
-    if (!isRecording || !recordingState.startedAt) {
-      setRecSeconds(0);
-      return;
-    }
-    const startedAt = recordingState.startedAt;
-    const tick = () => setRecSeconds((Date.now() - startedAt) / 1000);
-    tick();
-    const id = window.setInterval(tick, 500);
-    return () => window.clearInterval(id);
-  }, [isRecording, recordingState.startedAt]);
+    if (!recActive) setRecSeconds(0);
+  }, [recActive]);
 
   const show = (key: string) => settings.tickerWidgets.includes(key);
 

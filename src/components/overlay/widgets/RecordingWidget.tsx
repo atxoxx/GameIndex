@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useOverlay } from "../../../context/OverlayContext";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useVisibleInterval } from "../../../hooks/useVisibleInterval";
 import { useIncrementalList } from "../useIncrementalList";
 import { Card, Button } from "../../ui";
 
@@ -56,17 +57,16 @@ export default function RecordingWidget() {
 
   // Tick a local timer while recording so the badge shows a live duration even
   // though the backend only reports on state changes.
+  const recStartedAt = recordingState.startedAt;
+  const recActive = isRecording && recStartedAt !== undefined;
+  useVisibleInterval(
+    () => setElapsed(Date.now() - (recStartedAt ?? Date.now())),
+    500,
+    recActive
+  );
   useEffect(() => {
-    if (!isRecording || !recordingState.startedAt) {
-      setElapsed(recordingState.durationMs);
-      return;
-    }
-    const startedAt = recordingState.startedAt;
-    const tick = () => setElapsed(Date.now() - startedAt);
-    tick();
-    const id = window.setInterval(tick, 500);
-    return () => window.clearInterval(id);
-  }, [isRecording, recordingState.startedAt, recordingState.durationMs]);
+    if (!recActive) setElapsed(recordingState.durationMs);
+  }, [recActive, recordingState.durationMs]);
 
   const clipCount = recentClips.length;
 

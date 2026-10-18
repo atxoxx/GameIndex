@@ -5,6 +5,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useGames, useGameById } from "../../context/GameContext";
+import { useVisibleInterval } from "../../hooks/useVisibleInterval";
 import { Button, Badge } from "../ui";
 import { formatSize, type WineLogResult } from "../../types/game";
 import { EDIT_GAME_TABS, type EditGameTab } from "./editGameTabs";
@@ -69,14 +70,13 @@ export function WineLogsModal({ gameId, gameName, onClose, onOpenEditTab }: Wine
     [gameId, showToast, t]
   );
 
-  // Initial load + live tailing. Polling stops while paused or unmounted.
+  // Initial load + live tailing. Polling stops while paused, unmounted, or
+  // while the window is hidden.
   useEffect(() => {
     lastSigRef.current = "";
     fetchLogs();
-    if (!live) return;
-    const id = setInterval(() => fetchLogs(true), LIVE_POLL_MS);
-    return () => clearInterval(id);
-  }, [gameId, live, fetchLogs]);
+  }, [gameId, fetchLogs]);
+  useVisibleInterval(() => fetchLogs(true), LIVE_POLL_MS, live);
 
   // Handle escape key
   useEffect(() => {

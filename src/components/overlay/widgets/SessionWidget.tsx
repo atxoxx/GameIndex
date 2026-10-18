@@ -12,6 +12,7 @@ import {
 import { useOverlay } from "../../../context/OverlayContext";
 import { useGames } from "../../../context/GameContext";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useVisibleInterval } from "../../../hooks/useVisibleInterval";
 import { Badge, Card } from "../../ui";
 import { safeArtworkUrl, resolveGameLogo } from "../../../utils/artworkUrl";
 import { parsePlayTime } from "../../../types/game";
@@ -36,12 +37,11 @@ export function formatClock(totalSeconds: number): string {
 export function useSessionElapsed(startedAt: number | null | undefined): number {
   const [now, setNow] = useState(() => Date.now());
 
-  useEffect(() => {
-    if (!startedAt) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [startedAt]);
+  useVisibleInterval(
+    () => setNow(Date.now()),
+    1000,
+    Boolean(startedAt)
+  );
 
   if (!startedAt) return 0;
   return Math.max(0, (now - startedAt) / 1000);
