@@ -684,6 +684,12 @@
   flex-wrap: wrap;
 }
 
+.setup-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .setup-inline-actions__hint {
   font-size: var(--text-xs);
   color: var(--color-text-muted);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import "../../styles/settings-tabs-b.css";
 import { useSettings, type SyncIntervalMinutes } from "../../context/SettingsContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
