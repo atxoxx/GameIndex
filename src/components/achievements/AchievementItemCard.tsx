@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import {
@@ -25,7 +25,7 @@ const TIER_ICONS: Record<AchievementRarity, string> = {
   common: "🔹",
 };
 
-export default function AchievementItemCard({
+function AchievementItemCard({
   achievement: a,
   globalRevealSecret = false,
 }: AchievementItemCardProps) {
@@ -138,3 +138,18 @@ export default function AchievementItemCard({
     </div>
   );
 }
+
+/**
+ * Cards in a filtered list usually keep the same achievement object while
+ * parent state churns (search keystrokes, filter toggles, provider polls),
+ * so the render can be skipped unless the payload changed or the effective
+ * reveal state (global toggle × achieved) flipped — that alone can swap a
+ * locked card between its hidden prompt and its description.
+ */
+export default memo(
+  AchievementItemCard,
+  (prev, next) =>
+    prev.achievement === next.achievement &&
+    ((prev.globalRevealSecret ?? false) || prev.achievement.achieved) ===
+      ((next.globalRevealSecret ?? false) || next.achievement.achieved),
+);

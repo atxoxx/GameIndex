@@ -108,9 +108,13 @@ export default function AchievementsPage() {
   // Filtered & sorted games (fast, without re-analyzing raw achievement arrays)
   const gamesWithAchievements = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return baseAchievementGames
-      .filter((item) => {
-        if (q && !gameDisplayName(item.game).toLowerCase().includes(q)) {
+    // Decorate once: gameDisplayName is non-trivial, so compute it per game
+    // up front instead of inside the name-sort comparator, which would run
+    // it in O(n log n) comparison pairs.
+    const decorated = baseAchievementGames
+      .map((item) => ({ item, name: gameDisplayName(item.game) }))
+      .filter(({ item, name }) => {
+        if (q && !name.toLowerCase().includes(q)) {
           return false;
         }
         if (completionFilter === "perfect") return item.pct === 100 && item.total > 0;
@@ -119,15 +123,19 @@ export default function AchievementsPage() {
         if (completionFilter === "not_started") return item.unlocked === 0 || !item.data;
         if (sourceFilter !== "all" && item.source !== sourceFilter) return false;
         return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === "name") return gameDisplayName(a.game).localeCompare(gameDisplayName(b.game));
-        if (sortBy === "completion") return b.pct - a.pct || b.unlocked - a.unlocked;
-        if (sortBy === "gamerscore") return b.pointsEarned - a.pointsEarned || b.pointsTotal - a.pointsTotal;
-        if (sortBy === "total") return b.total - a.total;
-        if (sortBy === "recent") return b.lastSynced - a.lastSynced;
-        return 0;
       });
+    if (sortBy === "name") {
+      decorated.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === "completion") {
+      decorated.sort((a, b) => b.item.pct - a.item.pct || b.item.unlocked - a.item.unlocked);
+    } else if (sortBy === "gamerscore") {
+      decorated.sort((a, b) => b.item.pointsEarned - a.item.pointsEarned || b.item.pointsTotal - a.item.pointsTotal);
+    } else if (sortBy === "total") {
+      decorated.sort((a, b) => b.item.total - a.item.total);
+    } else if (sortBy === "recent") {
+      decorated.sort((a, b) => b.item.lastSynced - a.item.lastSynced);
+    }
+    return decorated.map((d) => d.item);
   }, [baseAchievementGames, completionFilter, sourceFilter, sortBy, searchQuery]);
 
   // Aggregate stats (backend-computed).

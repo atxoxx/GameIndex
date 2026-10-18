@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import {
@@ -25,7 +25,7 @@ const TIER_ICONS: Record<AchievementRarity, string> = {
   common: "🔹",
 };
 
-export default function AchievementItemRow({
+function AchievementItemRow({
   achievement: a,
   globalRevealSecret = false,
 }: AchievementItemRowProps) {
@@ -106,3 +106,12 @@ export default function AchievementItemRow({
     </div>
   );
 }
+
+/** Same skip rule as the card: identical payload + unchanged reveal outcome. */
+export default memo(
+  AchievementItemRow,
+  (prev, next) =>
+    prev.achievement === next.achievement &&
+    ((prev.globalRevealSecret ?? false) || prev.achievement.achieved) ===
+      ((next.globalRevealSecret ?? false) || next.achievement.achieved),
+);
