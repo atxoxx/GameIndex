@@ -7858,3 +7858,112 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   Shared rail state bricks + desktop fallback page (polish pass)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Loading / empty / error states shared by rails and panes. Sized
+   generously for the couch: tall block, centered, no underline noise. */
+.bigscreen-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 9rem;
+  padding: var(--space-xl, 1.5rem) var(--space-lg, 1rem);
+  border-radius: 14px;
+  background: var(--bigscreen-surface);
+  border: 1px solid var(--bigscreen-border);
+  text-align: center;
+}
+
+.bigscreen-state--error {
+  border-color: color-mix(in srgb, var(--bigscreen-danger) 35%, transparent);
+}
+
+.bigscreen-state--empty {
+  min-height: 6rem;
+  background: transparent;
+  border-style: dashed;
+}
+
+.bigscreen-state-message {
+  color: color-mix(in srgb, var(--bigscreen-text) 62%, transparent);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  max-width: 44rem;
+}
+
+.bigscreen-state-spinner {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: 3px solid var(--bigscreen-border);
+  border-top-color: var(--bigscreen-accent);
+  animation: bigscreen-state-spin 0.9s linear infinite;
+}
+
+@keyframes bigscreen-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.bigscreen-state-retry {
+  appearance: none;
+  cursor: pointer;
+  padding: 0.55rem 1.4rem;
+  border-radius: 10px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--bigscreen-bg);
+  background: var(--bigscreen-accent);
+  border: 1px solid transparent;
+}
+
+.bigscreen-state-retry:hover {
+  filter: brightness(1.08);
+}
+
+/* Docs guide — each section is a D-pad stop; give the focused section
+   a quiet panel so the walk reads on screen. The global focus ring
+   style still applies on top. */
+.bigscreen-docs-section {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0.25rem 1.5rem 1.5rem;
+  border-radius: 14px;
+  scroll-margin-block: 1.5rem;
+}
+
+.bigscreen-docs-section h2 {
+  margin: 0 0 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.bigscreen-docs-section:focus {
+  background: var(--bigscreen-surface-hover);
+}
+
+/* Desktop-fallback pages (saves, mods/discover) — standard back header
+   plus one registered scroll field so the controller can reach the
+   content area while the inner controls stay pointer-driven. */
+.bigscreen-fallback-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  padding: 1rem 2rem 1.5rem;
+  gap: 1rem;
+}
+
+.bigscreen-fallback-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: 14px;
+  padding: 0.25rem;
+  scroll-margin-block: 1rem;
+}

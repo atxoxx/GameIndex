@@ -1,17 +1,30 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import BigScreenCover from "./BigScreenCover";
+import BigScreenRailSection from "./BigScreenRailSection";
+import {
+  BigScreenEmptyState,
+  BigScreenErrorState,
+  BigScreenLoadingState,
+} from "./BigScreenState";
 import { formatPrice } from "./bigscreenFormat";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 
+/** Per-section fetch state — an empty and an errored Game Pass feed
+ *  should not blank out the Deals and Giveaways rails next to it. */
+interface SectionState<T> {
+  items: T[];
+  error: string | null;
+}
+
 export default function BigScreenDeals() {
   const { t, language } = useLanguage();
-  const [gamepassGames, setGamepassGames] = useState<GamePassGame[]>([]);
-  const [deals, setDeals] = useState<DealItem[]>([]);
-  const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
+  const [gamepass, setGamepass] = useState<SectionState<GamePassGame>>({ items: [], error: null });
+  const [deals, setDeals] = useState<SectionState<DealItem>>({ items: [], error: null });
+  const [giveaways, setGiveaways] = useState<SectionState<Giveaway>>({ items: [], error: null });
   const [loading, setLoading] = useState(true);
 
   const [selectedGamepass, setSelectedGamepass] = useState<GamePassGame | null>(null);
@@ -21,61 +34,69 @@ export default function BigScreenDeals() {
   // Top-level section: controller Back is owned by the shell resolver,
   // which offers the exit confirmation at this level.
 
-  // Fetch Game Pass Catalog
-  const fetchGamePass = useCallback(async () => {
-    try {
-      const res = await invoke<GamePassGame[]>("fetch_gamepass_catalog", {
-        filters: { region: "US", categories: null, platform: null },
-      });
-      setGamepassGames(res || []);
-      if (res && res.length > 0) {
-        setSelectedGamepass(res[0]);
+  const loadAll = useCallback(() => {
+    setLoading(true);
+    const gamepassLoader = async () => {
+      try {
+        const res = await invoke<GamePassGame[]>("fetch_gamepass_catalog", {
+          filters: { region: "US", categories: null, platform: null },
+        });
+        const items = res ?? [];
+        setGamepass({ items, error: null });
+        setSelectedGamepass((prev) => prev ?? items[0] ?? null);
+      } catch (e) {
+        console.error("Failed to fetch GamePass catalog:", e);
+        setGamepass({ items: [], error: t("bigscreen.deals.loadGamepassError") });
       }
-    } catch (e) {
-      console.error("Failed to fetch GamePass catalog:", e);
-    }
-  }, []);
-
-  // Fetch Deals
-  const fetchDeals = useCallback(async () => {
-    try {
-      const res = await invoke<DealItem[]>("fetch_isthereanydeal_deals", {
-        filters: { platform: null, minDiscount: 25, store: null },
-      });
-      setDeals(res || []);
-      if (res && res.length > 0) {
-        setSelectedDeal(res[0]);
+    };
+    const dealsLoader = async () => {
+      try {
+        const res = await invoke<DealItem[]>("fetch_isthereanydeal_deals", {
+          filters: { platform: null, minDiscount: 25, store: null },
+        });
+        const items = res ?? [];
+        setDeals({ items, error: null });
+        setSelectedDeal((prev) => prev ?? items[0] ?? null);
+      } catch (e) {
+        console.error("Failed to fetch ITAD deals:", e);
+        setDeals({ items: [], error: t("bigscreen.deals.loadDealsError") });
       }
-    } catch (e) {
-      console.error("Failed to fetch ITAD deals:", e);
-    }
-  }, []);
-
-  // Fetch Giveaways
-  const fetchGiveaways = useCallback(async () => {
-    try {
-      const res = await invoke<Giveaway[]>("fetch_giveaways");
-      setGiveaways(res || []);
-      if (res && res.length > 0) {
-        setSelectedGiveaway(res[0]);
+    };
+    const giveawaysLoader = async () => {
+      try {
+        const res = await invoke<Giveaway[]>("fetch_giveaways");
+        const items = res ?? [];
+        setGiveaways({ items, error: null });
+        setSelectedGiveaway((prev) => prev ?? items[0] ?? null);
+      } catch (e) {
+        console.error("Failed to fetch giveaways:", e);
+        setGiveaways({ items: [], error: t("bigscreen.deals.loadGiveawaysError") });
       }
-    } catch (e) {
-      console.error("Failed to fetch giveaways:", e);
-    }
-  }, []);
+    };
+    return Promise.allSettled([gamepassLoader(), dealsLoader(), giveawaysLoader()]);
+  }, [t]);
 
   // All three sections live on the page now (no tabs), so fire every
   // fetch on mount in parallel. The single loading flag only clears
   // once all of them have settled.
   useEffect(() => {
     let active = true;
-    Promise.allSettled([fetchGamePass(), fetchDeals(), fetchGiveaways()]).then(() => {
+    loadAll().then(() => {
       if (active) setLoading(false);
     });
     return () => {
       active = false;
     };
-  }, [fetchGamePass, fetchDeals, fetchGiveaways]);
+  }, [loadAll]);
+
+  const retry = useCallback(async () => {
+    setLoading(true);
+    // A single-section retry reuses the batch loader; the other two
+    // lists refresh alongside it, which keeps state transitions and
+    // the loading flag simple.
+    await loadAll();
+    setLoading(false);
+  }, [loadAll]);
 
   return (
     <div className="bigscreen-store-dashboard">
@@ -143,75 +164,106 @@ export default function BigScreenDeals() {
         ) : null}
 
         {/* Game Pass section */}
-        {loading ? (
-          <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingGamepass")}</div>
-        ) : gamepassGames.length === 0 ? (
-          <div className="bigscreen-rail-empty">{t("bigscreen.deals.noGamepass")}</div>
-        ) : (
-          <div className="bigscreen-rail">
-            <div className="bigscreen-rail-header">
-              <h3 className="bigscreen-rail-title">{t("bigscreen.deals.gamepassTitles")}</h3>
-              <span className="bigscreen-rail-count">{gamepassGames.length}</span>
-            </div>
-            <div className="bigscreen-rail-viewport">
-              <div className="bigscreen-rail-track" role="list">
-                {gamepassGames.map((game) => (
-                  <div key={game.id} className="bigscreen-rail-item" role="listitem">
-                    <GamePassCard game={game} onSelect={() => setSelectedGamepass(game)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        <DealsRail
+          railId="deals-gamepass"
+          title={t("bigscreen.deals.gamepassTitles")}
+          loading={loading}
+          error={gamepass.error}
+          empty={gamepass.items.length === 0}
+          emptyMessage={t("bigscreen.deals.noGamepass")}
+          loadingMessage={t("bigscreen.deals.loadingGamepass")}
+          onRetry={retry}
+          items={gamepass.items}
+          renderItem={(game) => (
+            <GamePassCard game={game} onSelect={() => setSelectedGamepass(game)} />
+          )}
+          itemKey={(game) => game.id}
+        />
 
         {/* Deals section */}
-        {loading ? (
-          <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingDeals")}</div>
-        ) : deals.length === 0 ? (
-          <div className="bigscreen-rail-empty">{t("bigscreen.deals.noDeals")}</div>
-        ) : (
-          <div className="bigscreen-rail">
-            <div className="bigscreen-rail-header">
-              <h3 className="bigscreen-rail-title">{t("bigscreen.deals.topDiscounts")}</h3>
-              <span className="bigscreen-rail-count">{deals.length}</span>
-            </div>
-            <div className="bigscreen-rail-viewport">
-              <div className="bigscreen-rail-track" role="list">
-                {deals.map((deal) => (
-                  <div key={deal.id} className="bigscreen-rail-item" role="listitem">
-                    <DealCard item={deal} onSelect={() => setSelectedDeal(deal)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        <DealsRail
+          railId="deals-discounts"
+          title={t("bigscreen.deals.topDiscounts")}
+          loading={loading}
+          error={deals.error}
+          empty={deals.items.length === 0}
+          emptyMessage={t("bigscreen.deals.noDeals")}
+          loadingMessage={t("bigscreen.deals.loadingDeals")}
+          onRetry={retry}
+          items={deals.items}
+          renderItem={(deal) => (
+            <DealCard item={deal} onSelect={() => setSelectedDeal(deal)} />
+          )}
+          itemKey={(deal) => deal.id}
+        />
 
         {/* Giveaways section */}
-        {loading ? (
-          <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingGiveaways")}</div>
-        ) : giveaways.length === 0 ? (
-          <div className="bigscreen-rail-empty">{t("bigscreen.deals.noGiveaways")}</div>
-        ) : (
-          <div className="bigscreen-rail">
-            <div className="bigscreen-rail-header">
-              <h3 className="bigscreen-rail-title">{t("bigscreen.deals.freeGamesTitle")}</h3>
-              <span className="bigscreen-rail-count">{giveaways.length}</span>
-            </div>
-            <div className="bigscreen-rail-viewport">
-              <div className="bigscreen-rail-track" role="list">
-                {giveaways.map((giveaway) => (
-                  <div key={giveaway.id} className="bigscreen-rail-item" role="listitem">
-                    <GiveawayCard item={giveaway} onSelect={() => setSelectedGiveaway(giveaway)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        <DealsRail
+          railId="deals-giveaways"
+          title={t("bigscreen.deals.freeGamesTitle")}
+          loading={loading}
+          error={giveaways.error}
+          empty={giveaways.items.length === 0}
+          emptyMessage={t("bigscreen.deals.noGiveaways")}
+          loadingMessage={t("bigscreen.deals.loadingGiveaways")}
+          onRetry={retry}
+          items={giveaways.items}
+          renderItem={(giveaway) => (
+            <GiveawayCard item={giveaway} onSelect={() => setSelectedGiveaway(giveaway)} />
+          )}
+          itemKey={(giveaway) => giveaway.id}
+        />
       </div>
     </div>
+  );
+}
+
+interface DealsRailProps<T> {
+  railId: string;
+  title: string;
+  loading: boolean;
+  error: string | null;
+  empty: boolean;
+  loadingMessage: string;
+  emptyMessage: string;
+  onRetry: () => void;
+  items: T[];
+  renderItem: (item: T, index: number) => ReactNode;
+  itemKey: (item: T, index: number) => string;
+}
+
+/** One rail, one tri-state surface. Errors keep the rest of the page
+ *  interactive and land the controller on a Retry button. */
+function DealsRail<T>({
+  railId,
+  title,
+  loading,
+  error,
+  empty,
+  loadingMessage,
+  emptyMessage,
+  onRetry,
+  items,
+  renderItem,
+  itemKey,
+}: DealsRailProps<T>) {
+  if (loading) {
+    return <BigScreenLoadingState message={loadingMessage} />;
+  }
+  if (error) {
+    return <BigScreenErrorState message={error} onRetry={onRetry} />;
+  }
+  if (empty) {
+    return <BigScreenEmptyState message={emptyMessage} />;
+  }
+  return (
+    <BigScreenRailSection
+      railId={railId}
+      title={title}
+      items={items}
+      renderItem={renderItem}
+      itemKey={itemKey}
+    />
   );
 }
 
@@ -282,3 +334,4 @@ function GiveawayCard({ item, onSelect }: { item: Giveaway; onSelect: () => void
     </div>
   );
 }
+

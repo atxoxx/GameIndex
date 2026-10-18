@@ -5,14 +5,32 @@
 // the shared section model and block parser from
 // `src/components/docs/docsContent.tsx` so the two pages can never drift.
 //
-// Layout: a BigScreenBackHeader on top + a fully focusable scroll region
-// (`.bigscreen-dashboard-scrollable-content`) — the spatial-nav engine
-// auto-scrolls the focused element into view inside it.
+// Controller model: every guide section is a registered focusable, so
+// pressing down/down moves the focus section to section while the
+// spatial-nav engine scrolls the focused section into view. The
+// previous render had literally zero focusables in the content area —
+// the D-pad had no hook to scroll anything, and the page could only
+// be read with a mouse.
 
 import { useLanguage } from "../../context/LanguageContext";
 import { useDocsDictionary } from "../../hooks/useDocsDictionary";
-import { DOC_SECTIONS, DocBody } from "../docs/docsContent";
+import { DOC_SECTIONS, DocBody, type DocSectionDef } from "../docs/docsContent";
+import { useFocusable } from "../../hooks/useFocusable";
 import BigScreenBackHeader from "./BigScreenBackHeader";
+
+function DocsSection({ section }: { section: DocSectionDef }) {
+  const { t } = useLanguage();
+  // Activation is a no-op on purpose — the registration is what makes
+  // the section a D-pad stop and a scroll anchor.
+  const sectionField = useFocusable(() => {});
+
+  return (
+    <section className="bigscreen-docs-section" {...sectionField}>
+      <h2>{t(`docs.${section.id}.title`)}</h2>
+      <DocBody text={t(`docs.${section.id}.body`)} />
+    </section>
+  );
+}
 
 export default function BigScreenDocsPage() {
   const { t } = useLanguage();
@@ -28,16 +46,11 @@ export default function BigScreenDocsPage() {
         subtitle={t("docs.subtitle")}
       />
 
-      {/* Fully focusable scroll region — spatial navigation scrolls the
-          focused element into view automatically. */}
+      {/* Focusable section list — spatial navigation scrolls the
+          focused section into view automatically. */}
       <div className="bigscreen-dashboard-scrollable-content bigscreen-docs-content">
         {DOC_SECTIONS.map((section) => (
-          <section key={section.id}>
-            <h2>
-              {t(`docs.${section.id}.title`)}
-            </h2>
-            <DocBody text={t(`docs.${section.id}.body`)} />
-          </section>
+          <DocsSection key={section.id} section={section} />
         ))}
       </div>
     </div>

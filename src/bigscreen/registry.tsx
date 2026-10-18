@@ -87,6 +87,11 @@ const BigScreenLibrary = lazy(
 const BigScreenGamePage = lazy(
   () => import("../components/game/BigScreenGamePage"),
 );
+// Controller-safe chrome for routes without a dedicated variant yet:
+// back header + focusable scroll region around the desktop render.
+const BigScreenDesktopFallback = lazy(
+  () => import("../components/bigscreen/BigScreenDesktopFallback"),
+);
 
 // ── Section model ─────────────────────────────────────────────────
 
@@ -225,7 +230,14 @@ export function bigScreenParentOf(pathname: string): string | null {
 
   if (segments.length === 1) {
     const [segment] = segments;
-    if (segment === "mods" || segment === "emulators" || segment === "docs") {
+    // saves is rendered through the hub's System chrome, so Back walks
+    // up to the hub like mods/emulators/docs do.
+    if (
+      segment === "mods" ||
+      segment === "emulators" ||
+      segment === "docs" ||
+      segment === "saves"
+    ) {
       return "/settings";
     }
     if (segment === "activity") return "/home";
@@ -281,14 +293,14 @@ export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "achievements", desktop: () => <AchievementsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "downloads", desktop: () => <DownloadsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "storage", desktop: () => <StoragePage />, bigscreen: () => <BigScreenSystem /> },
-  { path: "saves", desktop: () => <SavesPage /> },
+  { path: "saves", desktop: () => <SavesPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="nav.saves"><SavesPage /></BigScreenDesktopFallback> },
   { path: "store", desktop: () => <StorePage />, bigscreen: () => <BigScreenStore /> },
   { path: "store/:gameSlug", desktop: () => <StoreGameDetail />, bigscreen: () => <BigScreenStoreGamePage /> },
   { path: "community", desktop: () => <CommunityPage />, bigscreen: () => <BigScreenCommunity /> },
   { path: "friends", desktop: () => <FriendsPage />, bigscreen: () => <BigScreenFriends /> },
   { path: "emulators", desktop: () => <EmulatorsPage />, bigscreen: () => <BigScreenEmulatorsPage /> },
   { path: "mods", desktop: () => <ModsPage />, bigscreen: () => <BigScreenModsPage /> },
-  { path: "mods/discover", desktop: () => <ModsDiscoverPage /> },
+  { path: "mods/discover", desktop: () => <ModsDiscoverPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="mods.discover.title" subtitleKey="mods.discover.subtitle"><ModsDiscoverPage /></BigScreenDesktopFallback> },
   { path: "settings", desktop: () => <SettingsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "settings/:tab", desktop: () => <SettingsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "docs", desktop: () => <DocsPage />, bigscreen: () => <BigScreenDocsPage /> },

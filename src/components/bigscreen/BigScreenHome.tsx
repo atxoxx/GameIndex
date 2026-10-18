@@ -11,7 +11,7 @@ import BigScreenRail from "../library/BigScreenRail";
 import BigScreenDashboardBackdrop from "./BigScreenDashboardBackdrop";
 import BigScreenPill from "./BigScreenPill";
 import BigScreenSpotlight, { type SpotlightFact } from "./BigScreenSpotlight";
-import { extractYear, formatLastPlayed } from "./bigscreenFormat";
+import { extractYear, formatLastPlayedLocalized } from "./bigscreenFormat";
 
 export default function BigScreenHome() {
   const { t } = useLanguage();
@@ -129,7 +129,7 @@ export default function BigScreenHome() {
     if (featuredGame.lastPlayed) {
       facts.push({
         label: t("game.lastPlayed"),
-        value: formatLastPlayed(featuredGame.lastPlayed),
+        value: formatLastPlayedLocalized(featuredGame.lastPlayed, t),
       });
     }
     if (status) {
@@ -264,3 +264,4 @@ export default function BigScreenHome() {
     </div>
   );
 }
+

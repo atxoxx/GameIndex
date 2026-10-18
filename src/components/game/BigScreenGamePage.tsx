@@ -80,7 +80,7 @@ import BigScreenTabBar, {
 import BigScreenTabPanel from "../bigscreen/BigScreenTabPanel";
 import {
   extractYear,
-  formatLastPlayed,
+  formatLastPlayedLocalized,
   isVideoUrl,
 } from "../bigscreen/bigscreenFormat";
 import { bigScreenParentOf } from "../../bigscreen/registry";
@@ -332,7 +332,7 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
     if (game.lastPlayed) {
       facts.push({
         label: t("game.lastPlayed"),
-        value: formatLastPlayed(game.lastPlayed),
+        value: formatLastPlayedLocalized(game.lastPlayed, t),
       });
     }
     if (rating != null && rating > 0) {
@@ -721,7 +721,7 @@ function BigScreenGamePageStats({ game }: { game: Game }) {
               {t("game.lastPlayed")}
             </span>
             <span className="bigscreen-rail-stat__value">
-              {formatLastPlayed(game.lastPlayed)}
+              {formatLastPlayedLocalized(game.lastPlayed, t)}
             </span>
           </div>
         ) : null}

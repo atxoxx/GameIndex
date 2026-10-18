@@ -4,6 +4,11 @@ import { useNewsFeeds, formatArticleDate, type NewsArticle } from "../../hooks/u
 import { useFocusable } from "../../hooks/useFocusable";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import BigScreenPill from "./BigScreenPill";
+import {
+  BigScreenEmptyState,
+  BigScreenErrorState,
+  BigScreenLoadingState,
+} from "./BigScreenState";
 
 export default function BigScreenNews() {
   const { t } = useLanguage();
@@ -21,6 +26,7 @@ export default function BigScreenNews() {
 
   // Left Sidebar Sources
   const allSources = useMemo(() => ["All Sources", ...sourceNames], [sourceNames]);
+  const hasFatalError = error !== null && articles.length === 0;
 
   return (
     <div className="bigscreen-system-hub">
@@ -49,28 +55,18 @@ export default function BigScreenNews() {
         <div className="bigscreen-system-section-view bigscreen-news-content">
           <div className="bigscreen-news-toolbar">
             <h3>{t("bigscreen.news.latestArticles")}</h3>
-            <button
-              type="button"
-              className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
-              {...useFocusable(refresh)}
-            >
-              {t("bigscreen.news.refresh")}
-            </button>
+            <NewsRefreshButton onRefresh={refresh} />
           </div>
 
           {loading ? (
-            <div className="store-tab-loading">
-              <div className="store-spinner" />
-              <span>{t("bigscreen.news.loading")}</span>
-            </div>
-          ) : error && articles.length === 0 ? (
-            <div className="system-view-empty">
-              <p>{t("bigscreen.news.loadError", { error })}</p>
-            </div>
+            <BigScreenLoadingState message={t("bigscreen.news.loading")} />
+          ) : hasFatalError ? (
+            <BigScreenErrorState
+              message={t("bigscreen.news.loadError", { error })}
+              onRetry={refresh}
+            />
           ) : articles.length === 0 ? (
-            <div className="system-view-empty">
-              <p>{t("bigscreen.news.noArticles")}</p>
-            </div>
+            <BigScreenEmptyState message={t("bigscreen.news.noArticles")} />
           ) : (
             <div className="bigscreen-news-grid">
               {articles.map((article, index) => (
@@ -90,6 +86,26 @@ export default function BigScreenNews() {
         <BigScreenNewsReader article={selectedArticle} onClose={() => setSelectedArticle(null)} />
       )}
     </div>
+  );
+}
+
+// ─── Refresh Button ───────────────────────────────────────────────
+// Owns its useFocusable call unconditionally (rules-of-hooks) — the
+// previous inline `{...useFocusable(refresh)}` in the toolbar JSX
+// skipped the hook whenever the loading branch rendered.
+
+function NewsRefreshButton({ onRefresh }: { onRefresh: () => void }) {
+  const { t } = useLanguage();
+  const refreshProps = useFocusable(onRefresh);
+
+  return (
+    <button
+      type="button"
+      className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
+      {...refreshProps}
+    >
+      {t("bigscreen.news.refresh")}
+    </button>
   );
 }
 
