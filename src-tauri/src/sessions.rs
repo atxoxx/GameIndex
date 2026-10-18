@@ -20,43 +20,19 @@ pub fn load_sessions(app: tauri::AppHandle) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("load_sessions: {e}"))
 }
 
-/// Strip the `samples` array from a serialised `SessionMetrics` blob so the
-/// history list stays compact. Returns the input untouched when it isn't
-/// valid JSON (better a larger payload than a dropped row).
-fn strip_metrics_samples(metrics_json: Option<String>) -> Option<String> {
-    let raw = metrics_json?;
-    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&raw) else {
-        return Some(raw);
-    };
-    if let Some(obj) = value.as_object_mut() {
-        obj.remove("samples");
-    }
-    Some(serde_json::to_string(&value).unwrap_or(raw))
-}
-
-/// Return every finished session from the SQLite `sessions` table
-/// (newest first). This is the canonical session history the Activity
-/// dashboard reads — no JSON file, crash-safe, append-only.
-///
-/// The per-sample telemetry is stripped from `metrics_json` (summary
-/// averages, min/max, resolution are kept) so the resident history is small;
+/// The per-sample telemetry is stripped inside SQLite (`json_remove`,
+/// see `db::sessions::list_all_light`) so the resident history is small;
 /// charts pull samples on demand via `get_session_samples`.
 ///
-/// Async + spawn_blocking: the strip parses and re-serializes every
-/// stored metrics blob per call, and sync command bodies run inline on
+/// Async + spawn_blocking: the resident query scans the whole table and
+/// decodes per-row telemetry blobs; sync command bodies run inline on
 /// the GTK main thread (see the note on `crate::games::save_games`).
 #[tauri::command]
 pub async fn get_sessions(app: tauri::AppHandle) -> Result<Vec<db::sessions::SessionRecord>, String> {
     let db = app.state::<db::Db>().inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let mut rows = db::sessions::list_all(&db)?;
-        for row in rows.iter_mut() {
-            row.metrics_json = strip_metrics_samples(row.metrics_json.take());
-        }
-        Ok(rows)
-    })
-    .await
-    .map_err(|e| format!("get_sessions task: {e}"))?
+    tauri::async_runtime::spawn_blocking(move || db::sessions::list_all_light(&db))
+        .await
+        .map_err(|e| format!("get_sessions task: {e}"))?
 }
 
 /// One session's per-sample telemetry, returned by `get_session_samples`.
@@ -76,18 +52,11 @@ pub fn get_session_samples(
     ids: Vec<i64>,
 ) -> Result<Vec<SessionSamples>, String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
-    let db = db_state.inner();
     let mut out = Vec::new();
-    for id in ids {
-        let Some(json) = db::sessions::metrics_json_for(db, id)? else {
-            continue;
-        };
+    for (id, json) in db::sessions::metrics_json_many(db_state.inner(), &ids)? {
         if let Ok(metrics) = serde_json::from_str::<SessionMetrics>(&json) {
             if !metrics.samples.is_empty() {
-                out.push(SessionSamples {
-                    id,
-                    samples: metrics.samples,
-                });
+                out.push(SessionSamples { id, samples: metrics.samples });
             }
         }
     }
@@ -158,23 +127,47 @@ pub fn insert_session(
 
 #[cfg(test)]
 mod tests {
-    use super::strip_metrics_samples;
-
     #[test]
-    fn strip_metrics_samples_removes_the_series_only() {
-        let json =
-            r#"{"avgFps":60,"avgCpuUsage":12,"samples":[{"t":0.0,"cpu":12.0}]}"#.to_string();
-        let out = strip_metrics_samples(Some(json)).unwrap();
-        let value: serde_json::Value = serde_json::from_str(&out).unwrap();
+    fn list_all_light_strips_samples_in_sql() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = crate::db::Db::open(dir.path()).unwrap();
+        {
+            let conn = db.sessions().unwrap();
+            conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    game_id TEXT NOT NULL,
+                    started_at INTEGER NOT NULL,
+                    ended_at INTEGER,
+                    elapsed_seconds INTEGER,
+                    avg_fps REAL,
+                    avg_cpu REAL,
+                    avg_gpu REAL,
+                    avg_ram REAL,
+                    metrics_json TEXT,
+                    game_name TEXT
+                );",
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO sessions (game_id, started_at, ended_at, metrics_json, game_name)
+                 VALUES (?, ?, ?, ?, ?)",
+                rusqlite::params![
+                    "g1",
+                    1i64,
+                    2i64,
+                    r#"{"avgFps":60,"samples":[{"t":0.0}]}"#,
+                    "Game"
+                ],
+            )
+            .unwrap();
+        }
+        let rows = crate::db::sessions::list_all_light(&db).unwrap();
+        assert_eq!(rows.len(), 1);
+        let value: serde_json::Value =
+            serde_json::from_str(rows[0].metrics_json.as_deref().unwrap_or("")).unwrap();
         assert!(value.get("samples").is_none());
         assert_eq!(value.get("avgFps").and_then(|v| v.as_f64()), Some(60.0));
-    }
-
-    #[test]
-    fn strip_metrics_samples_passes_through_none_and_invalid_json() {
-        assert!(strip_metrics_samples(None).is_none());
-        let bad = "not json".to_string();
-        assert_eq!(strip_metrics_samples(Some(bad.clone())), Some(bad));
     }
 }
 

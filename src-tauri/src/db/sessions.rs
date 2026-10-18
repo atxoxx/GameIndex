@@ -349,6 +349,53 @@ pub fn list_all(db: &Db) -> Result<Vec<SessionRecord>, String> {
     Ok(out)
 }
 
+/// Same rows as [`list_all`], but with the per-sample telemetry already
+/// stripped inside SQLite (`json_remove`) — the Activity dashboard's
+/// resident copy ships without curves and lazy-loads them via
+/// `sessions::get_session_samples`. The Rust path no longer parses and
+/// re-serializes every stored blob on each call. Blobs that are not
+/// valid JSON objects (legacy rows) pass through unchanged, matching
+/// the behaviour of the old Rust-side strip.
+pub fn list_all_light(db: &Db) -> Result<Vec<SessionRecord>, String> {
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, game_id, started_at, ended_at, elapsed_seconds,
+                    avg_fps, avg_cpu, avg_gpu, avg_ram,
+                    CASE WHEN metrics_json IS NULL THEN NULL
+                         WHEN json_type(metrics_json) = 'object'
+                         THEN json_remove(metrics_json, '$.samples')
+                         ELSE metrics_json END AS metrics_json,
+                    game_name
+                FROM sessions
+               WHERE ended_at IS NOT NULL
+               ORDER BY started_at DESC",
+        )
+        .map_err(|e| format!("sessions list_all_light prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(SessionRecord {
+                id: r.get::<_, i64>(0)?,
+                game_id: r.get(1)?,
+                started_at_ms: r.get::<_, i64>(2)? as u64,
+                ended_at_ms: r.get::<_, Option<i64>>(3)?.map(|n| n as u64),
+                elapsed_seconds: r.get::<_, Option<i64>>(4)?.map(|n| n as u64),
+                avg_fps: r.get::<_, Option<f64>>(5)?.map(|f| f as f32),
+                avg_cpu: r.get::<_, Option<f64>>(6)?.map(|f| f as f32),
+                avg_gpu: r.get::<_, Option<f64>>(7)?.map(|f| f as f32),
+                avg_ram: r.get::<_, Option<f64>>(8)?.map(|f| f as f32),
+                metrics_json: r.get(9)?,
+                game_name: r.get(10)?,
+            })
+        })
+        .map_err(|e| format!("sessions list_all_light query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("sessions row: {e}"))?);
+    }
+    Ok(out)
+}
+
 /// Return the raw `metrics_json` blob for one session, or `None` when the
 /// row is missing or carries no metrics. Paired with a list that has the
 /// per-sample array stripped (`sessions::get_sessions`), this lets the
@@ -363,6 +410,36 @@ pub fn metrics_json_for(db: &Db, id: i64) -> Result<Option<String>, String> {
     .optional()
     .map_err(|e| format!("sessions metrics_json_for: {e}"))
     .map(|opt| opt.flatten())
+}
+
+/// Raw `metrics_json` blobs for a batch of session ids, in one query —
+/// the batched samples endpoint used to checkout the pool once per id.
+/// Order is unspecified; absent ids simply don't appear.
+pub fn metrics_json_many(db: &Db, ids: &[i64]) -> Result<Vec<(i64, String)>, String> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    let placeholders = vec!["?"; ids.len()].join(",");
+    let sql = format!("SELECT id, metrics_json FROM sessions WHERE id IN ({placeholders})");
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| format!("sessions metrics_json_many prepare: {e}"))?;
+    let params: Vec<&dyn rusqlite::ToSql> =
+        ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+    let rows = stmt
+        .query_map(params.as_slice(), |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, Option<String>>(1)?.unwrap_or_default(),
+            ))
+        })
+        .map_err(|e| format!("sessions metrics_json_many query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("sessions metrics_json_many row: {e}"))?);
+    }
+    Ok(out)
 }
 
 /// Delete a single session row by its primary key. Returns the number
