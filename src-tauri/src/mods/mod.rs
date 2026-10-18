@@ -598,14 +598,12 @@ pub fn mods_reorder(
         return Err("invalid_load_order: ids must be unique and belong to this game".into());
     }
     let now = now_secs();
-    for (i, id) in ordered_ids.iter().enumerate() {
-        if let Some(m) = by_id.get(id) {
-            let mut m = m.clone();
-            m.load_order = i as i64;
-            m.updated_at = now;
-            db::mods::upsert_one(&db, &m)?;
-        }
-    }
+    let orders: Vec<(String, i64)> = ordered_ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| (id.clone(), i as i64))
+        .collect();
+    db::mods::set_load_orders(&db, &orders, now as i64)?;
     rewrite_plugins_txt(&db, &game_id)?;
     payload_from_db(&db, &game_id)
 }

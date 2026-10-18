@@ -206,6 +206,29 @@ pub fn upsert_one(db: &Db, m: &ModRow) -> Result<(), String> {
     bind_insert(&conn, m)
 }
 
+/// Persist a drag-and-drop load order in one transaction — one commit
+/// over `load_order` + `updated_at` updates instead of one full-row
+/// upsert (with its INSERT-to-fingerprint) per dragged mod. Entries not
+/// in the list keep their existing load order.
+pub fn set_load_orders(db: &Db, orders: &[(String, i64)], updated_at: i64) -> Result<(), String> {
+    if orders.is_empty() {
+        return Ok(());
+    }
+    let mut conn = db.mods().map_err(|e| e.to_string())?;
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("mods load_order tx begin: {e}"))?;
+    let mut stmt = tx
+        .prepare("UPDATE mods SET load_order = ?1, updated_at = ?2 WHERE id = ?3")
+        .map_err(|e| format!("mods load_order prepare: {e}"))?;
+    for (id, order) in orders {
+        stmt.execute(params![*order, updated_at, id])
+            .map_err(|e| format!("mods load_order {id}: {e}"))?;
+    }
+    drop(stmt);
+    tx.commit().map_err(|e| format!("mods load_order commit: {e}"))
+}
+
 /// Transactionally replace every mod row of a game with the freshly
 /// scanned set (delete + insert). Used by the scanner so a re-scan
 /// never leaves stale rows behind.
