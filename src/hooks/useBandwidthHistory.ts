@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useDownloads } from "../context/DownloadContext";
 
 export interface BandwidthPoint {
+  /** Epoch milliseconds — lets the graph honor the real time window instead of
+   *  assuming every retained sample is exactly one second apart. */
+  ts: number;
   time: string;
   down: number;
   up: number;
@@ -33,20 +36,15 @@ export function useBandwidthHistory(maxSamples = 300): BandwidthPoint[] {
         .toString()
         .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
 
-      // A fully idle graph has nothing new to draw: when both speeds are
-      // zero and the last point already flattened to zero, skip the tick
-      // entirely instead of appending copies forever (no visual change,
-      // no re-render, no array churn). Sampling resumes as soon as any
-      // download traffic shows up.
+      // Sample every second even while idle: the chart's time window is a
+      // promise, and sparse idle gaps would otherwise stretch old samples
+      // across a window that no longer matches the clock.
       setHistory((prev) => {
         const { down, up } = speedRef.current;
-        if (down === 0 && up === 0) {
-          const last = prev[prev.length - 1];
-          if (last && last.down === 0 && last.up === 0) return prev;
-        }
         const next = [
           ...prev,
           {
+            ts: now.getTime(),
             time: timeStr,
             down,
             up,

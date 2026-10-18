@@ -1,17 +1,20 @@
-import { useMemo, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useBandwidthHistory } from "../../hooks/useBandwidthHistory";
 import { useDownloads } from "../../context/DownloadContext";
 import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatBytesPerSecond } from "../../types/download";
 import { ActivityIcon, ChevronIcon } from "./DownloadIcons";
+import {
+  computeBandwidthScale,
+  formatAxisSpeed,
+  sliceToWindow,
+  timeAxisTicks,
+} from "./bandwidthChart";
 
-const VIEW_WIDTH = 600;
-const VIEW_HEIGHT = 116;
-const PADDING = 6;
-// Horizontal space reserved on the left for the Y-axis speed labels.
-const LABEL_WIDTH = 56;
-const FLOOR_BPS = 1_048_576; // 1 MiB/s — keeps idle/low-speed graphs readable.
+const VIEW_HEIGHT = 160;
+const MARGIN = { top: 14, right: 16, bottom: 26, left: 68 };
+const MIN_CHART_WIDTH = 320;
 
 type TimeWindow = 60 | 180 | 300;
 
@@ -20,39 +23,21 @@ interface SplinePoint {
   y: number;
 }
 
+interface ChartPoint extends SplinePoint {
+  speed: number;
+  time: string;
+}
+
 interface SparklinePaths {
   dlPath: string;
   ulPath: string;
   dlArea: string;
-  dlPoints: { x: number; y: number; speed: number; time: string }[];
-  ulPoints: { x: number; y: number; speed: number; time: string }[];
+  ulArea: string;
+  dlPoints: ChartPoint[];
+  ulPoints: ChartPoint[];
 }
 
 const fmt = (v: number) => v.toFixed(1);
-
-/** 95th percentile: the scale reflects *typical* traffic so a brief spike
- *  doesn't squash the whole trace to the baseline. */
-function p95(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const rank = Math.ceil(0.95 * sorted.length) - 1;
-  return sorted[Math.max(0, Math.min(rank, sorted.length - 1))];
-}
-
-/** Round `value` up to a "nice" number (1·10ⁿ, 2·10ⁿ or 5·10ⁿ) so axis
- *  labels are round and the scale only jumps at sensible thresholds. */
-function niceMax(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return FLOOR_BPS;
-  let exp = Math.floor(Math.log10(value));
-  const base = 10 ** exp;
-  const frac = value / base;
-  let n = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
-  if (n === 10) {
-    n = 1;
-    exp += 1;
-  }
-  return Math.max(n * (10 ** exp), FLOOR_BPS);
-}
 
 // Monotone cubic Hermite spline emitted as cubic Beziers. Fritsch-Carlson
 // keeps the curve smooth while never exceeding the sampled values between
@@ -108,11 +93,42 @@ function smoothPath(points: SplinePoint[]): string {
   return d;
 }
 
+function useChartWidth(active: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(MIN_CHART_WIDTH);
+
+  // The canvas unmounts while the card is collapsed. Re-attach the observer
+  // when it comes back, otherwise a 0-width reading from the removal would
+  // leave the reopened chart stuck at the minimum width.
+  useLayoutEffect(() => {
+    if (!active) return;
+    const el = ref.current;
+    if (!el) return;
+
+    const measure = () => {
+      const measured = Math.round(el.getBoundingClientRect().width);
+      if (measured > 0) setWidth(Math.max(MIN_CHART_WIDTH, measured));
+    };
+    measure();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [active]);
+
+  return { ref, width };
+}
+
 export default function BandwidthSparkline() {
   const history = useBandwidthHistory();
   const { activeDownloads } = useDownloads();
   const { unit } = useSpeedUnit();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const gradientId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
 
   const totalDownloadSpeed = activeDownloads.reduce((acc, d) => acc + (d.downloadSpeed || 0), 0);
   const totalUploadSpeed = activeDownloads.reduce((acc, d) => acc + (d.uploadSpeed || 0), 0);
@@ -120,111 +136,111 @@ export default function BandwidthSparkline() {
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(60);
   const [collapsed, setCollapsed] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const { ref: chartRef, width: chartWidth } = useChartWidth(!collapsed);
 
-  const visibleHistory = useMemo(() => {
-    return history.slice(-timeWindow);
-  }, [history, timeWindow]);
+  const windowMs = timeWindow * 1000;
+  const now = Date.now();
+  const visibleHistory = useMemo(
+    () => sliceToWindow(history, now, windowMs),
+    [history, now, windowMs],
+  );
 
-  const peakDown = useMemo(() => {
-    return Math.max(...visibleHistory.map((pt) => pt.down), totalDownloadSpeed, 0);
-  }, [visibleHistory, totalDownloadSpeed]);
-
-  const peakUp = useMemo(() => {
-    return Math.max(...visibleHistory.map((pt) => pt.up), totalUploadSpeed, 0);
-  }, [visibleHistory, totalUploadSpeed]);
-
+  const peakDown = useMemo(
+    () => Math.max(...visibleHistory.map((pt) => pt.down), totalDownloadSpeed, 0),
+    [visibleHistory, totalDownloadSpeed],
+  );
+  const peakUp = useMemo(
+    () => Math.max(...visibleHistory.map((pt) => pt.up), totalUploadSpeed, 0),
+    [visibleHistory, totalUploadSpeed],
+  );
   const peakSpeed = Math.max(peakDown, peakUp);
+  const scale = useMemo(
+    () => computeBandwidthScale(visibleHistory, totalDownloadSpeed, totalUploadSpeed),
+    [visibleHistory, totalDownloadSpeed, totalUploadSpeed],
+  );
 
-  // Stable scale: typical traffic (p95) fills the vertical range; brief spikes
-  // may clip at the top edge and are reported by the peak pill instead of
-  // squashing the rest of the trace.
-  const scaleMax = useMemo(() => {
-    const typical = Math.max(
-      p95(visibleHistory.map((pt) => pt.down)),
-      p95(visibleHistory.map((pt) => pt.up)),
-    );
-    return niceMax(Math.max(typical * 1.5, peakDown * 0.35, peakUp * 0.35));
-  }, [visibleHistory, peakDown, peakUp]);
+  const plotLeft = MARGIN.left;
+  const plotRight = Math.max(plotLeft + 1, chartWidth - MARGIN.right);
+  const plotTop = MARGIN.top;
+  const plotBottom = VIEW_HEIGHT - MARGIN.bottom;
+  const plotHeight = plotBottom - plotTop;
+  const plotWidth = plotRight - plotLeft;
+
+  const yFor = (speed: number) =>
+    plotBottom - Math.min(speed / scale.max, 1) * plotHeight;
 
   const spark = useMemo<SparklinePaths>(() => {
     const n = visibleHistory.length;
     if (n === 0) {
-      return { dlPath: "", ulPath: "", dlArea: "", dlPoints: [], ulPoints: [] };
+      return { dlPath: "", ulPath: "", dlArea: "", ulArea: "", dlPoints: [], ulPoints: [] };
     }
 
-    const plotLeft = LABEL_WIDTH + PADDING;
-    const plotRight = VIEW_WIDTH - PADDING;
-    const plotTop = PADDING + 16; // room for the top Y-axis label
-    const plotBottom = VIEW_HEIGHT - PADDING - 6; // room for the baseline label
-    const usableH = plotBottom - plotTop;
-    const xStep = n > 1 ? (plotRight - plotLeft) / (n - 1) : 0;
-    const bottomY = plotBottom;
+    const windowStart = now - windowMs;
+    const xFor = (ts: number) =>
+      plotLeft + ((ts - windowStart) / windowMs) * plotWidth;
+    const yForSample = (speed: number) =>
+      plotBottom - Math.min(speed / scale.max, 1) * plotHeight;
 
-    const yFor = (speed: number) =>
-      Math.round(
-        plotBottom - Math.min(speed / scaleMax, 1) * usableH,
-      );
-
-    const dlPts: { x: number; y: number; speed: number; time: string }[] = [];
-    const ulPts: { x: number; y: number; speed: number; time: string }[] = [];
-
-    for (let i = 0; i < n; i++) {
-      const pt = visibleHistory[i];
-      const x = plotLeft + i * xStep;
-      dlPts.push({ x, y: yFor(pt.down), speed: pt.down, time: pt.time });
-      ulPts.push({ x, y: yFor(pt.up), speed: pt.up, time: pt.time });
+    const dlPts: ChartPoint[] = [];
+    const ulPts: ChartPoint[] = [];
+    for (const sample of visibleHistory) {
+      const x = xFor(sample.ts);
+      dlPts.push({ x, y: yForSample(sample.down), speed: sample.down, time: sample.time });
+      ulPts.push({ x, y: yForSample(sample.up), speed: sample.up, time: sample.time });
     }
-
-    const firstX = plotLeft;
-    const lastX = plotRight;
 
     const dlLine = smoothPath(dlPts);
     const ulLine = smoothPath(ulPts);
-
-    const dlAreaPath = n > 0
-      ? `${dlLine} L ${fmt(lastX)} ${fmt(bottomY)} L ${fmt(firstX)} ${fmt(bottomY)} Z`
-      : "";
+    const firstX = dlPts[0].x;
+    const lastX = dlPts[n - 1].x;
+    const area = (line: string) =>
+      `${line} L ${fmt(lastX)} ${fmt(plotBottom)} L ${fmt(firstX)} ${fmt(plotBottom)} Z`;
 
     return {
       dlPath: dlLine,
       ulPath: ulLine,
-      dlArea: dlAreaPath,
+      dlArea: n > 1 ? area(dlLine) : "",
+      ulArea: n > 1 ? area(ulLine) : "",
       dlPoints: dlPts,
       ulPoints: ulPts,
     };
-  }, [visibleHistory, scaleMax]);
+  }, [visibleHistory, now, windowMs, scale.max, plotLeft, plotWidth, plotBottom, plotHeight]);
 
-  const { dlPath, ulPath, dlArea, dlPoints, ulPoints } = spark;
+  const { dlPath, ulPath, dlArea, ulArea, dlPoints, ulPoints } = spark;
+  const latestDl = dlPoints.length > 0 ? dlPoints[dlPoints.length - 1] : null;
+  const latestUl = ulPoints.length > 0 ? ulPoints[ulPoints.length - 1] : null;
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (dlPoints.length === 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const relX = (e.clientX - rect.left) / rect.width;
-    const idx = Math.round(relX * (visibleHistory.length - 1));
-    if (idx >= 0 && idx < visibleHistory.length) {
-      setHoverIndex(idx);
+    const x = ((e.clientX - rect.left) / rect.width) * chartWidth;
+    let best = 0;
+    let bestDistance = Infinity;
+    for (let i = 0; i < dlPoints.length; i++) {
+      const distance = Math.abs(dlPoints[i].x - x);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = i;
+      }
     }
+    setHoverIndex(best);
   };
 
-  const handleMouseLeave = () => {
-    setHoverIndex(null);
-  };
+  const handlePointerLeave = () => setHoverIndex(null);
 
   const hoveredDl = hoverIndex !== null ? dlPoints[hoverIndex] : null;
   const hoveredUl = hoverIndex !== null ? ulPoints[hoverIndex] : null;
+  const tooltipLeft = hoveredDl
+    ? Math.min(Math.max(hoveredDl.x, 96), chartWidth - 96)
+    : 0;
 
-  // Y-axis label levels (top / mid / bottom).
-  const labelLevels = useMemo(() => {
-    const plotTop = PADDING + 16;
-    const plotBottom = VIEW_HEIGHT - PADDING - 6;
-    const usableH = plotBottom - plotTop;
-    const yFor = (speed: number) =>
-      Math.round(plotBottom - Math.min(speed / scaleMax, 1) * usableH);
-    return [
-      { speed: scaleMax, y: yFor(scaleMax), label: formatBytesPerSecond(scaleMax, unit) },
-      { speed: scaleMax / 2, y: yFor(scaleMax / 2), label: formatBytesPerSecond(scaleMax / 2, unit) },
-      { speed: 0, y: plotBottom, label: formatBytesPerSecond(0, unit) },
-    ];
-  }, [scaleMax, unit]);
+  const xTickCount = chartWidth >= 760 ? 5 : chartWidth >= 520 ? 4 : 3;
+  const xTicks = useMemo(
+    () => timeAxisTicks(now, windowMs, xTickCount),
+    [now, windowMs, xTickCount],
+  );
+
+  const idle = peakSpeed <= 0;
 
   return (
     <div className="dl-sparkline-box" role="region" aria-label={t("downloads.networkTelemetry")}>
@@ -264,19 +280,19 @@ export default function BandwidthSparkline() {
           <div className="dl-sparkline-legend-item dl-sparkline-legend-dl">
             <span className="dl-sparkline-legend-swatch" />
             <span>
-              ↓ {formatBytesPerSecond(hoveredDl ? hoveredDl.speed : totalDownloadSpeed, unit)}
+              ↓ {formatBytesPerSecond(hoveredDl ? hoveredDl.speed : totalDownloadSpeed, unit, language)}
             </span>
           </div>
 
           <div className="dl-sparkline-legend-item dl-sparkline-legend-ul">
             <span className="dl-sparkline-legend-swatch" />
             <span>
-              ↑ {formatBytesPerSecond(hoveredUl ? hoveredUl.speed : totalUploadSpeed, unit)}
+              ↑ {formatBytesPerSecond(hoveredUl ? hoveredUl.speed : totalUploadSpeed, unit, language)}
             </span>
           </div>
 
           <span className="dl-sparkline-stat-pill" title={t("downloads.peakThroughput")}>
-            {t("downloads.maxSpeedLabel", { speed: formatBytesPerSecond(peakSpeed, unit) })}
+            {t("downloads.maxSpeedLabel", { speed: formatBytesPerSecond(peakSpeed, unit, language) })}
           </span>
 
           <button
@@ -299,97 +315,133 @@ export default function BandwidthSparkline() {
       </div>
 
       {!collapsed && (
-        <div className="dl-sparkline-canvas-wrapper">
+        <div className="dl-sparkline-canvas-wrapper" ref={chartRef}>
           <svg
             className="dl-sparkline-svg"
-            viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
-            preserveAspectRatio="none"
+            viewBox={`0 0 ${chartWidth} ${VIEW_HEIGHT}`}
             aria-hidden="true"
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
+            onPointerMove={handlePointerMove}
+            onPointerLeave={handlePointerLeave}
           >
             <defs>
-              <linearGradient id="dlAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.0" />
+              <linearGradient id={`${gradientId}-dl`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.32" />
+                <stop offset="70%" stopColor="var(--color-accent)" stopOpacity="0.07" />
+                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
               </linearGradient>
-              <linearGradient id="ulAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-success)" stopOpacity="0.15" />
-                <stop offset="100%" stopColor="var(--color-success)" stopOpacity="0.0" />
+              <linearGradient id={`${gradientId}-ul`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-success)" stopOpacity="0.16" />
+                <stop offset="100%" stopColor="var(--color-success)" stopOpacity="0" />
               </linearGradient>
+              <clipPath id={`${gradientId}-clip`}>
+                <rect
+                  x={plotLeft}
+                  y={plotTop}
+                  width={plotWidth}
+                  height={plotHeight}
+                />
+              </clipPath>
             </defs>
 
-            {/* Horizontal gridlines at each labeled Y level */}
-            {labelLevels.map((lvl, i) => (
-              <line
-                key={i}
-                x1={LABEL_WIDTH}
-                y1={lvl.y}
-                x2={VIEW_WIDTH}
-                y2={lvl.y}
-                className="dl-sparkline-gridline"
-              />
-            ))}
+            {scale.ticks.map((tick, i) => {
+              const y = yFor(tick);
+              return (
+                <g key={tick}>
+                  <line
+                    x1={plotLeft}
+                    x2={plotRight}
+                    y1={y}
+                    y2={y}
+                    className={i === 0 ? "dl-sparkline-baseline" : "dl-sparkline-gridline"}
+                  />
+                  <text
+                    x={plotLeft - 10}
+                    y={y}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    className="dl-sparkline-axis-label"
+                  >
+                    {formatAxisSpeed(tick, unit, language)}
+                  </text>
+                </g>
+              );
+            })}
 
-            {/* Y-axis speed labels */}
-            {labelLevels.map((lvl, i) => (
-              <text
-                key={i}
-                x={4}
-                y={lvl.y + (i === 2 ? 4 : 0)}
-                className="dl-sparkline-axis-label"
-                fill="var(--color-text-muted)"
-                fontSize="11"
-              >
-                {lvl.label}
-              </text>
-            ))}
+            <g clipPath={`url(#${gradientId}-clip)`}>
+              {ulArea && peakUp > 0 && <path d={ulArea} fill={`url(#${gradientId}-ul)`} />}
+              {dlArea && peakDown > 0 && <path d={dlArea} fill={`url(#${gradientId}-dl)`} />}
+              {ulPath && peakUp > 0 && <path d={ulPath} className="dl-sparkline-line-ul" />}
+              {dlPath && peakDown > 0 && <path d={dlPath} className="dl-sparkline-line-dl" />}
+            </g>
 
-            {/* Baseline */}
-            <line
-              x1={LABEL_WIDTH}
-              y1={VIEW_HEIGHT - PADDING - 6}
-              x2={VIEW_WIDTH}
-              y2={VIEW_HEIGHT - PADDING - 6}
-              className="dl-sparkline-baseline"
-            />
+            {latestDl && peakDown > 0 && (
+              <g className="dl-sparkline-live-dot dl-sparkline-live-dot-dl">
+                <circle cx={latestDl.x} cy={latestDl.y} r="6" className="dl-sparkline-live-halo" />
+                <circle cx={latestDl.x} cy={latestDl.y} r="3.5" className="dl-sparkline-live-core" />
+              </g>
+            )}
+            {latestUl && peakUp > 0 && (
+              <g className="dl-sparkline-live-dot dl-sparkline-live-dot-ul">
+                <circle cx={latestUl.x} cy={latestUl.y} r="5" className="dl-sparkline-live-halo" />
+                <circle cx={latestUl.x} cy={latestUl.y} r="3" className="dl-sparkline-live-core" />
+              </g>
+            )}
 
-            {/* Gradient Area Fill (download only — upload is a line on top) */}
-            {dlArea && <path d={dlArea} fill="url(#dlAreaGradient)" />}
+            {xTicks.map((tick, i) => {
+              const x =
+                plotLeft + ((tick.ts - (now - windowMs)) / windowMs) * plotWidth;
+              const anchor = i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle";
+              return (
+                <text
+                  key={tick.ts}
+                  x={x}
+                  y={VIEW_HEIGHT - 7}
+                  textAnchor={anchor}
+                  className="dl-sparkline-axis-label dl-sparkline-x-label"
+                >
+                  {tick.label}
+                </text>
+              );
+            })}
 
-            {/* Graph Lines */}
-            {dlPath && <path d={dlPath} className="dl-sparkline-line-dl" />}
-            {ulPath && <path d={ulPath} className="dl-sparkline-line-ul" />}
-
-            {/* Interactive Crosshair & Point Dots */}
             {hoverIndex !== null && hoveredDl && (
               <g className="dl-sparkline-hover-group">
                 <line
                   x1={hoveredDl.x}
-                  y1={PADDING + 16}
+                  y1={plotTop}
                   x2={hoveredDl.x}
-                  y2={VIEW_HEIGHT - PADDING - 6}
-                  stroke="var(--color-border-light)"
-                  strokeWidth="1"
-                  strokeDasharray="2 2"
+                  y2={plotBottom}
+                  className="dl-sparkline-crosshair"
                 />
-                <circle cx={hoveredDl.x} cy={hoveredDl.y} r="4" fill="var(--color-accent)" stroke="var(--color-bg-primary)" strokeWidth="1.5" />
+                <circle cx={hoveredDl.x} cy={hoveredDl.y} r="4" className="dl-sparkline-hover-dl" />
                 {hoveredUl && (
-                  <circle cx={hoveredUl.x} cy={hoveredUl.y} r="3.5" fill="var(--color-success)" stroke="var(--color-bg-primary)" strokeWidth="1.5" />
+                  <circle cx={hoveredUl.x} cy={hoveredUl.y} r="3.5" className="dl-sparkline-hover-ul" />
                 )}
               </g>
             )}
           </svg>
 
+          {idle && (
+            <div className="dl-sparkline-idle">
+              <span className="dl-sparkline-idle-title">{t("downloads.graphIdleTitle")}</span>
+              <span className="dl-sparkline-idle-hint">{t("downloads.graphIdleHint")}</span>
+            </div>
+          )}
+
           {hoverIndex !== null && hoveredDl && (
-            <div
-              className="dl-sparkline-hover-tooltip"
-              style={{ left: `${Math.min(92, Math.max(8, (hoveredDl.x / VIEW_WIDTH) * 100))}%` }}
-            >
-              <span className="dl-tooltip-time">{hoveredDl.time}</span>
-              <span className="dl-tooltip-dl">↓ {formatBytesPerSecond(hoveredDl.speed, unit)}</span>
+            <div className="dl-sparkline-hover-tooltip" style={{ left: tooltipLeft }}>
+              <span className="dl-sparkline-tooltip-time">{hoveredDl.time}</span>
+              <span className="dl-sparkline-tooltip-row dl-sparkline-tooltip-dl">
+                <span className="dl-sparkline-tooltip-dot" />
+                <span>↓</span>
+                <strong>{formatBytesPerSecond(hoveredDl.speed, unit, language)}</strong>
+              </span>
               {hoveredUl && (
-                <span className="dl-tooltip-ul">↑ {formatBytesPerSecond(hoveredUl.speed, unit)}</span>
+                <span className="dl-sparkline-tooltip-row dl-sparkline-tooltip-ul">
+                  <span className="dl-sparkline-tooltip-dot" />
+                  <span>↑</span>
+                  <strong>{formatBytesPerSecond(hoveredUl.speed, unit, language)}</strong>
+                </span>
               )}
             </div>
           )}

@@ -1699,6 +1699,8 @@ export const zhCN: TranslationDict = {
   "downloads.managerAria": "下载管理器",
   "downloads.maxSpeedLabel": "峰值：{speed}",
   "downloads.networkTelemetry": "网络遥测",
+  "downloads.graphIdleTitle": "等待流量",
+  "downloads.graphIdleHint": "传输开始后即可看到速度采样。",
   "downloads.newlyAddedSource": "新添加的来源",
   "downloads.noActive": "没有活动下载",
   "downloads.noActiveHint": "在上方粘贴磁力链接，或从游戏的商店 / 库页面发起一个。",

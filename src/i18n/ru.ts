@@ -1699,6 +1699,8 @@ export const ru: TranslationDict = {
   "downloads.managerAria": "Менеджер загрузок",
   "downloads.maxSpeedLabel": "Пик: {speed}",
   "downloads.networkTelemetry": "Сетевая телеметрия",
+  "downloads.graphIdleTitle": "Ожидание трафика",
+  "downloads.graphIdleHint": "Замеры скорости появятся, как только начнётся передача.",
   "downloads.newlyAddedSource": "Недавно добавленный источник",
   "downloads.noActive": "Нет активных загрузок",
   "downloads.noActiveHint": "Вставьте magnet-ссылку выше или запустите загрузку со страницы Магазина или Библиотеки игры.",

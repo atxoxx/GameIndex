@@ -1699,6 +1699,8 @@ export const en: TranslationDict = {
   "downloads.managerAria": "Downloads manager",
   "downloads.maxSpeedLabel": "Peak: {speed}",
   "downloads.networkTelemetry": "Network Telemetry",
+  "downloads.graphIdleTitle": "Waiting for traffic",
+  "downloads.graphIdleHint": "Speed samples will appear as soon as a transfer starts.",
   "downloads.newlyAddedSource": "Newly added source",
   "downloads.noActive": "No active downloads",
   "downloads.noActiveHint": "Paste a magnet link above, or start one from a game's Store or Library page.",

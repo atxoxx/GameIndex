@@ -4793,17 +4793,28 @@
   color: var(--color-text-primary);
 }
 
-/* ─── Bandwidth Sparkline & Telemetry Box ──────────────────────── */
+/* ─── Bandwidth Telemetry Chart ───────────────────────────────── */
 .dl-sparkline-box {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-secondary);
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  position: relative;
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in srgb, var(--color-accent) 7%, transparent) 0%,
+      transparent 58%
+    ),
+    var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  position: relative;
-  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dl-sparkline-box:hover {
+  border-color: var(--color-border-light);
 }
 
 .dl-sparkline-bar-header {
@@ -4818,6 +4829,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
+  min-width: 0;
 }
 
 .dl-sparkline-title {
@@ -4827,14 +4839,15 @@
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--color-text-muted);
+  letter-spacing: 0.7px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
 .dl-sparkline-icon {
-  width: 13px;
-  height: 13px;
-  color: var(--color-text-muted);
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent);
 }
 
 .dl-sparkline-time-toggles {
@@ -4855,8 +4868,9 @@
   color: var(--color-text-muted);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .dl-sparkline-time-btn:hover:not(.active) {
@@ -4866,12 +4880,13 @@
 .dl-sparkline-time-btn.active {
   background: var(--color-bg-tertiary);
   color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .dl-sparkline-stats-group {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--space-xs);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
@@ -4882,45 +4897,61 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
 }
 
 .dl-sparkline-legend-swatch {
   display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  width: 10px;
+  height: 2.5px;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
+}
+
+.dl-sparkline-legend-dl {
+  color: var(--color-accent);
 }
 
 .dl-sparkline-legend-dl .dl-sparkline-legend-swatch {
   background: var(--color-accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+.dl-sparkline-legend-ul {
+  color: var(--color-success);
 }
 
 .dl-sparkline-legend-ul .dl-sparkline-legend-swatch {
   background: var(--color-success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
 .dl-sparkline-stat-pill {
   font-size: var(--text-2xs);
-  padding: var(--space-3xs) var(--space-xs);
+  padding: var(--space-3xs) var(--space-sm);
   background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .dl-sparkline-collapse-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .dl-sparkline-collapse-btn:hover {
@@ -4931,8 +4962,8 @@
 .dl-sparkline-canvas-wrapper {
   position: relative;
   width: 100%;
-  height: 136px;
-  margin-top: var(--space-2xs);
+  height: 160px;
+  margin-top: var(--space-3xs);
 }
 
 .dl-sparkline-svg {
@@ -4941,78 +4972,209 @@
   height: 100%;
   overflow: visible;
   cursor: crosshair;
+  touch-action: none;
 }
 
 .dl-sparkline-gridline {
-  stroke: var(--color-border);
+  stroke: color-mix(in srgb, var(--color-border) 48%, transparent);
   stroke-width: 1;
-  stroke-dasharray: 1 3;
-  opacity: 0.35;
+  stroke-dasharray: 2 4;
   vector-effect: non-scaling-stroke;
 }
 
 .dl-sparkline-baseline {
-  stroke: var(--color-border);
+  stroke: color-mix(in srgb, var(--color-border) 85%, transparent);
   stroke-width: 1;
-  stroke-dasharray: 2 3;
   vector-effect: non-scaling-stroke;
 }
 
 .dl-sparkline-axis-label {
   fill: var(--color-text-muted);
   font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1px;
+}
+
+.dl-sparkline-x-label {
+  fill: color-mix(in srgb, var(--color-text-muted) 82%, transparent);
 }
 
 .dl-sparkline-line-dl {
   stroke: var(--color-accent);
-  stroke-width: 2.5;
+  stroke-width: 2.25;
   fill: none;
   vector-effect: non-scaling-stroke;
   stroke-linecap: round;
   stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-accent) 45%, transparent));
 }
 
 .dl-sparkline-line-ul {
   stroke: var(--color-success);
-  stroke-width: 2;
+  stroke-width: 1.75;
   fill: none;
   vector-effect: non-scaling-stroke;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.95;
+  stroke-dasharray: 5 3;
+  opacity: 0.9;
+}
+
+.dl-sparkline-live-halo {
+  fill: var(--color-accent);
+  opacity: 0.22;
+  animation: dl-sparkline-pulse 2.4s ease-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.dl-sparkline-live-dot-ul .dl-sparkline-live-halo {
+  fill: var(--color-success);
+  opacity: 0.18;
+}
+
+.dl-sparkline-live-core {
+  fill: var(--color-accent);
+  stroke: var(--color-bg-primary);
+  stroke-width: 1.5;
+}
+
+.dl-sparkline-live-dot-ul .dl-sparkline-live-core {
+  fill: var(--color-success);
+}
+
+@keyframes dl-sparkline-pulse {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.75);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+.dl-sparkline-crosshair {
+  stroke: var(--color-border-light);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.dl-sparkline-hover-dl {
+  fill: var(--color-accent);
+  stroke: var(--color-bg-primary);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.dl-sparkline-hover-ul {
+  fill: var(--color-success);
+  stroke: var(--color-bg-primary);
+  stroke-width: 1.5;
+  pointer-events: none;
 }
 
 .dl-sparkline-hover-tooltip {
   position: absolute;
-  top: 0;
+  top: 2px;
   transform: translateX(-50%);
+  display: grid;
+  gap: var(--space-3xs);
+  min-width: 128px;
+  padding: var(--space-xs) var(--space-sm);
   background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-sm);
-  padding: var(--space-2xs) var(--space-sm);
   box-shadow: var(--shadow-md);
   pointer-events: none;
   font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3xs);
   z-index: 10;
 }
 
-.dl-tooltip-time {
+.dl-sparkline-tooltip-time {
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
+  padding-bottom: var(--space-3xs);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.dl-tooltip-dl {
-  color: var(--color-accent);
+.dl-sparkline-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.dl-sparkline-tooltip-row strong {
+  margin-left: auto;
   font-weight: var(--font-weight-bold);
 }
 
-.dl-tooltip-ul {
+.dl-sparkline-tooltip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dl-sparkline-tooltip-dl {
+  color: var(--color-accent);
+}
+
+.dl-sparkline-tooltip-dl .dl-sparkline-tooltip-dot {
+  background: var(--color-accent);
+}
+
+.dl-sparkline-tooltip-ul {
   color: var(--color-success);
+}
+
+.dl-sparkline-tooltip-ul .dl-sparkline-tooltip-dot {
+  background: var(--color-success);
+}
+
+.dl-sparkline-idle {
+  position: absolute;
+  left: 68px;
+  right: 16px;
+  top: 14px;
+  bottom: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3xs);
+  text-align: center;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--color-bg-secondary) 55%, transparent)
+  );
+}
+
+.dl-sparkline-idle-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.dl-sparkline-idle-hint {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-sparkline-live-halo {
+    animation: none;
+  }
 }
 
 /* ─── Bulk Toolbar & Multi-Selection Bar ───────────────────────── */
