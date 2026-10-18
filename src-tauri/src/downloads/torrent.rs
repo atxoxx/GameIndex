@@ -27,13 +27,19 @@ use super::types::{DownloadFile, DownloadStatus};
 
 // ─── Session init ───────────────────────────────────────────────────────────
 
+/// Concurrent peer slots per torrent. librqbit defaults to 128, which is
+/// plenty for a healthy swarm but leaves little headroom when most tracker
+/// entries are stale: failed handshakes occupy a slot until they time out.
+const PEER_LIMIT_PER_TORRENT: usize = 200;
+
 fn build_peer_opts() -> Option<librqbit::PeerConnectionOptions> {
-    // Desktop-client tuning: cycle to fast peers quickly (2 s connect
-    // timeout vs the 10 s server-profile default), catch stuck peers at
+    // Desktop-client tuning: allow slow/high-latency peers to finish the
+    // handshake (8 s vs the 10 s server-profile default; the old 2 s limit
+    // rejected a large slice of the swarm outright), catch stuck peers at
     // 15 s so a dead peer doesn't hold a transfer slot at zero speed for
     // long, keep NAT bindings alive with a 30 s keep-alive.
     Some(librqbit::PeerConnectionOptions {
-        connect_timeout: Some(Duration::from_secs(2)),
+        connect_timeout: Some(Duration::from_secs(8)),
         read_write_timeout: Some(Duration::from_secs(15)),
         keep_alive_interval: Some(Duration::from_secs(30)),
     })
@@ -120,6 +126,7 @@ pub async fn init_session(
                 concurrent_init_limit: Some(4),
                 dht: Some(make_dht_config(dht_persist, dht_port)),
                 trackers: session_trackers(),
+                peer_limit: Some(PEER_LIMIT_PER_TORRENT),
                 ..Default::default()
             }
         };
@@ -1051,5 +1058,13 @@ mod tests {
     fn metadata_errors_are_not_classified_permanent() {
         let msg = "Timed out fetching metadata (attempt 3/3) — no peers responded";
         assert!(!is_permanent_add_error(&msg));
+    }
+
+    #[test]
+    fn peer_tuning_allows_slow_handshakes_and_extra_slots() {
+        let opts = build_peer_opts().expect("peer options");
+        assert_eq!(opts.connect_timeout, Some(Duration::from_secs(8)));
+        assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(15)));
+        assert!(PEER_LIMIT_PER_TORRENT >= 200);
     }
 }
