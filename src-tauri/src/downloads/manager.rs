@@ -37,6 +37,14 @@ const METADATA_FETCH_TIMEOUT_SECS: u64 = 360;
 /// a permanent failure is only declared after sustained errors (~5 min).
 const MAX_DEBRID_POLL_FAILURES: u32 = 8;
 
+/// How often (in refresh ticks) a torrent's per-file list is rebuilt
+/// from the live handle. `files_from_handle` re-allocates every file
+/// name per tick per torrent; the file list only needs to change when
+/// metadata first arrives or (visually) at a coarse cadence, so the 1 s
+/// tick rebuilds it at most every 5 s. Explicit only-files commands
+/// still write `files[].selected` directly, so selection never lags.
+const TORRENT_FILES_REBUILD_EVERY_TICKS: u64 = 5;
+
 pub type SharedManager = Arc<RwLock<DownloadManager>>;
 pub type WeakManager = std::sync::Weak<RwLock<DownloadManager>>;
 
@@ -118,6 +126,10 @@ pub struct DownloadManager {
     /// re-entrant completion/failure report can't run an action twice; a
     /// retry clears the flag.
     pub post_action_ran: HashSet<String>,
+    /// Monotonic count of `refresh_stats` invocations. Drives the
+    /// throttled per-file-list rebuild (see
+    /// `TORRENT_FILES_REBUILD_EVERY_TICKS`).
+    stats_tick: u64,
 }
 
 impl DownloadManager {
@@ -153,6 +165,7 @@ impl DownloadManager {
             automation_paused: HashMap::new(),
             settings: DownloadSettings::default(),
             post_action_ran: HashSet::new(),
+            stats_tick: 0,
         }
     }
 
@@ -448,6 +461,13 @@ impl DownloadManager {
 
         // ---- Torrents ----
         if let Some(session) = self.session.clone() {
+            // Per-file list rebuild throttle: `files_from_handle`
+            // re-allocates every file name for every torrent on every tick.
+            // Rebuild on the cadence tick, or immediately for a torrent
+            // whose record has no list yet (metadata just arrived).
+            self.stats_tick = self.stats_tick.wrapping_add(1);
+            let rebuild_files_now =
+                self.stats_tick % TORRENT_FILES_REBUILD_EVERY_TICKS == 0;
             struct StatsEntry {
                 fid: String,
                 downloaded: u64,
@@ -471,8 +491,20 @@ impl DownloadManager {
                     let downloaded = stats.progress_bytes;
                     let (download_speed, upload_speed, seeds, peers) =
                         torrent::extract_live_stats(&stats);
+                    let fid = torrent::frontend_id_from_hash(&mt.shared().info_hash.0);
+                    let files = if rebuild_files_now
+                        || self
+                            .downloads
+                            .get(&fid)
+                            .map(|d| d.files.is_empty())
+                            .unwrap_or(true)
+                    {
+                        torrent::files_from_handle(mt, &stats)
+                    } else {
+                        None
+                    };
                     entries.push(StatsEntry {
-                        fid: torrent::frontend_id_from_hash(&mt.shared().info_hash.0),
+                        fid,
                         downloaded,
                         uploaded: stats.uploaded_bytes,
                         total: if total > 0 { Some(total) } else { None },
@@ -492,7 +524,7 @@ impl DownloadManager {
                         upload_speed,
                         seeds,
                         peers,
-                        files: torrent::files_from_handle(mt, &stats),
+                        files,
                         handle: Arc::clone(mt),
                     });
                 }
@@ -719,24 +751,27 @@ impl DownloadManager {
             // Live session entry with no owning record — an invisible
             // download that writes files the UI never reports. Delete any
             // session torrent whose infohash has no record AND no
-            // in-flight add (see `add_is_in_flight`).
+            // in-flight add (see `classify_in_flight_adds`).
+            //
+            // The in-flight sets are precomputed ONCE per tick instead of
+            // re-parsing every record's magnet URI per orphan candidate
+            // (O(records × torrent-count) → O(records)).
             {
+                let (known_in_flight, opaque_pending) =
+                    classify_in_flight_adds(self.downloads.values());
                 let orphans: Vec<Arc<librqbit::ManagedTorrent>> =
                     session.with_torrents(|iter| {
                         let mut orphans = Vec::new();
                         for (_id, mt) in iter {
                             let fid =
                                 torrent::frontend_id_from_hash(&mt.shared().info_hash.0);
-                            if self.downloads.contains_key(&fid) {
+                            if self.downloads.contains_key(&fid)
+                                || opaque_pending
+                                || known_in_flight.contains(&fid)
+                            {
                                 continue;
                             }
-                            let in_flight = self
-                                .downloads
-                                .values()
-                                .any(|d| add_is_in_flight(d, &fid));
-                            if !in_flight {
-                                orphans.push(Arc::clone(mt));
-                            }
+                            orphans.push(Arc::clone(mt));
                         }
                         orphans
                     });
@@ -980,6 +1015,11 @@ impl DownloadManager {
 /// entry while `add_and_start` is still fetching metadata. Once the
 /// watchdog (or a real add failure) moves the record out of
 /// FetchingMetadata, the sweep can clean up any leftover again.
+///
+/// Reference implementation of the sweep's in-flight rule; the tick uses
+/// the once-per-tick [`classify_in_flight_adds`] instead of re-running
+/// this per record. Kept for the equivalence tests.
+#[cfg(test)]
 fn add_is_in_flight(d: &Download, fid: &str) -> bool {
     if d.kind != DownloadKind::Torrent {
         return false;
@@ -998,6 +1038,36 @@ fn add_is_in_flight(d: &Download, fid: &str) -> bool {
         // torrent-kind record must be treated as possibly ours.
         None => true,
     }
+}
+
+/// Precomputed orphan-sweep inputs for one tick: `(known_in_flight,
+/// opaque_pending)`. A shown fid is protected when it appears in
+/// `known_in_flight`; `opaque_pending` protects EVERY session torrent
+/// because some pending add could not prove its infohash. Equivalent to
+/// calling [`add_is_in_flight`] per (record, fid) pair, but the magnet
+/// URI parse happens once per record instead of once per pair.
+fn classify_in_flight_adds<'a>(
+    downloads: impl Iterator<Item = &'a Download>,
+) -> (HashSet<String>, bool) {
+    let mut known: HashSet<String> = HashSet::new();
+    let mut opaque = false;
+    for d in downloads {
+        if d.kind != DownloadKind::Torrent {
+            continue;
+        }
+        if !matches!(d.status, DownloadStatus::FetchingMetadata | DownloadStatus::Queued) {
+            continue;
+        }
+        match torrent::btih_from_magnet(&d.source_uri)
+            .and_then(|h| torrent::frontend_id_from_btih_hex(&h))
+        {
+            Some(hash) => {
+                known.insert(hash);
+            }
+            None => opaque = true,
+        }
+    }
+    (known, opaque)
 }
 
 /// Push download/upload speed limits to the torrent session and the direct
@@ -2437,8 +2507,40 @@ mod tests {
     }
 
     #[test]
-    fn non_torrent_records_never_block_the_sweep() {
-        let mut d = Download::new(
+    fn classify_matches_add_is_in_flight_semantics() {
+        let hex: String = "a".repeat(40);
+        let proven = torrent_record(
+            &format!("magnet:?xt=urn:btih:{hex}"),
+            DownloadStatus::FetchingMetadata,
+        );
+        let opaque = torrent_record(
+            "https://tracker.example/file.torrent",
+            DownloadStatus::Queued,
+        );
+        let other = torrent_record(
+            "magnet:?xt=urn:btih:0123456789012345678901234567890123456789",
+            DownloadStatus::Downloading,
+        );
+        let (known, opaque_pending) =
+            classify_in_flight_adds([&proven, &opaque, &other].into_iter());
+        let expected = torrent::frontend_id_from_btih_hex(&hex).unwrap();
+        assert!(known.contains(&expected));
+        // The finished add's hash must not be in the known set.
+        assert!(!known.contains(FID));
+        assert!(opaque_pending, "an unresolved add protects every fid");
+        // Equivalent to running add_is_in_flight per pair.
+        for fid_candidate in [expected.as_str(), FID] {
+            assert_eq!(
+                known.contains(fid_candidate) || opaque_pending,
+                add_is_in_flight(&proven, fid_candidate)
+                    || add_is_in_flight(&opaque, fid_candidate)
+                    || add_is_in_flight(&other, fid_candidate)
+            );
+        }
+    }
+
+    #[test]
+    fn non_torrent_records_never_block_the_sweep() {        let mut d = Download::new(
             "db_x".to_string(),
             DownloadKind::Debrid,
             "D".to_string(),

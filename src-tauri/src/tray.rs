@@ -85,14 +85,49 @@ pub struct TrayHandles {
     pub tray: TrayIcon<Wry>,
     /// Currently running game name, from `game-started`/`game-exited`.
     pub playing: Mutex<Option<String>>,
-    /// Raw snapshot of the last `download-progress` payload.
-    pub downloads: Mutex<Vec<Value>>,
+    /// Snapshot of the last `download-progress` payload, trimmed to the
+    /// fields the menu/taskbar/overlay render from (`TrayDownload`).
+    pub downloads: Mutex<Vec<TrayDownload>>,
     /// When the menu was last rebuilt (download throttle clock).
     pub last_rebuild: Mutex<Instant>,
     /// Signature of the downloads the menu was last rebuilt with.
     pub dl_signature: Mutex<String>,
     /// Localized menu/tooltip strings in the active UI language.
     pub strings: Mutex<TrayStrings>,
+}
+
+/// Light per-record view of a `download-progress` payload row. The event
+/// carries every record's files and URIs; deserializing only the fields
+/// the tray renders from skips walking those arrays ~1/s (the tray is a
+/// passive observer — it never touches the file lists).
+#[derive(Debug, Clone, serde::Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayDownload {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub status: Option<TrayDownloadStatus>,
+    #[serde(default)]
+    pub progress: Option<f64>,
+    #[serde(default)]
+    pub downloaded: u64,
+    #[serde(default)]
+    pub total_size: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayDownloadStatus {
+    #[serde(default)]
+    pub kind: String,
+}
+
+impl TrayDownload {
+    fn kind(&self) -> &str {
+        self.status.as_ref().map(|s| s.kind.as_str()).unwrap_or("")
+    }
 }
 
 /// Every user-facing tray string, emitted by the frontend as the
@@ -292,7 +327,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let app_handle_downloads = handle.clone();
     handle.listen("download-progress", move |event| {
         let app = app_handle_downloads.clone();
-        let Ok(snapshot) = serde_json::from_str::<Vec<Value>>(event.payload()) else {
+        let Ok(snapshot) = serde_json::from_str::<Vec<TrayDownload>>(event.payload()) else {
             return;
         };
         let state = app.state::<TrayHandles>();
@@ -456,8 +491,8 @@ fn build_recent_submenu(app: &AppHandle) -> tauri::Result<Submenu<Wry>> {
 
 /// "Downloads" submenu: a status header, one disabled row per
 /// in-flight download, and an "Open Downloads" shortcut.
-fn build_downloads_submenu(app: &AppHandle, downloads: &[Value]) -> tauri::Result<Submenu<Wry>> {
-    let active: Vec<&Value> = downloads.iter().filter(|d| !is_finished(d)).collect();
+fn build_downloads_submenu(app: &AppHandle, downloads: &[TrayDownload]) -> tauri::Result<Submenu<Wry>> {
+    let active: Vec<&TrayDownload> = downloads.iter().filter(|d| !is_finished(d)).collect();
     let s = app.state::<TrayHandles>().strings.lock().unwrap().clone();
 
     let mut rows: Vec<MenuItem<Wry>> = Vec::new();
@@ -469,24 +504,18 @@ fn build_downloads_submenu(app: &AppHandle, downloads: &[Value]) -> tauri::Resul
     rows.push(MenuItem::with_id(app, "dl-header", header, false, None::<&str>)?);
 
     for d in active {
-        let name = d.get("name").and_then(|v| v.as_str()).unwrap_or("Download");
-        let id = d.get("id").and_then(|v| v.as_str()).unwrap_or("");
-        let text = match (
-            d.get("progress").and_then(|v| v.as_f64()),
-            d.get("totalSize").and_then(|v| v.as_u64()),
-        ) {
-            (Some(p), Some(t)) if t > 0 => {
-                let downloaded = d.get("downloaded").and_then(|v| v.as_u64()).unwrap_or(0);
-                fill(
-                    &s.download_row,
-                    &[
-                        ("name", name),
-                        ("pct", &((p * 100.0).round() as u64).to_string()),
-                        ("downloaded", &human_size(downloaded)),
-                        ("total", &human_size(t)),
-                    ],
-                )
-            }
+        let name = if d.name.is_empty() { "Download" } else { d.name.as_str() };
+        let id = d.id.as_str();
+        let text = match (d.progress, d.total_size) {
+            (Some(p), Some(t)) if t > 0 => fill(
+                &s.download_row,
+                &[
+                    ("name", name),
+                    ("pct", &((p * 100.0).round() as u64).to_string()),
+                    ("downloaded", &human_size(d.downloaded)),
+                    ("total", &human_size(t)),
+                ],
+            ),
             _ => fill(&s.download_starting, &[("name", name)]),
         };
         rows.push(MenuItem::with_id(app, format!("dl-row:{id}"), text, false, None::<&str>)?);
@@ -678,29 +707,20 @@ fn paint_badge(
 }
 
 /// True when the download is still in flight (not completed/errored).
-fn is_finished(d: &Value) -> bool {
-    let kind = d
-        .get("status")
-        .and_then(|s| s.get("kind"))
-        .and_then(|k| k.as_str())
-        .unwrap_or("");
+fn is_finished(d: &TrayDownload) -> bool {
+    let kind = d.kind();
     kind == "completed" || kind == "error"
 }
 
 /// Throttle signature: download count + per-download status kind and
 /// rounded progress, order-independent.
-fn dl_signature(downloads: &[Value]) -> String {
+fn dl_signature(downloads: &[TrayDownload]) -> String {
     let mut parts: Vec<String> = downloads
         .iter()
         .map(|d| {
-            let kind = d
-                .get("status")
-                .and_then(|s| s.get("kind"))
-                .and_then(|k| k.as_str())
-                .unwrap_or("");
+            let kind = d.kind();
             let pct = d
-                .get("progress")
-                .and_then(|v| v.as_f64())
+                .progress
                 .map(|p| (p * 100.0).round() as u64)
                 .unwrap_or(u64::MAX);
             format!("{kind}:{pct}")
@@ -748,18 +768,11 @@ fn update_taskbar_progress(app: &AppHandle, state: &TrayHandles) {
     let mut any_active = false;
     let mut any_paused = false;
     for d in downloads.iter() {
-        let kind = d
-            .get("status")
-            .and_then(|s| s.get("kind"))
-            .and_then(|k| k.as_str())
-            .unwrap_or("");
+        let kind = d.kind();
         match kind {
             "downloading" | "fetchingMetadata" | "queued" => {
-                if d.get("progress").and_then(|v| v.as_f64()).is_some() {
-                    if let (Some(dl), Some(total)) = (
-                        d.get("downloaded").and_then(|v| v.as_u64()),
-                        d.get("totalSize").and_then(|v| v.as_u64()),
-                    ) {
+                if d.progress.is_some() {
+                    if let (Some(dl), Some(total)) = (Some(d.downloaded), d.total_size) {
                         if total > 0 {
                             any_active = true;
                             sum_downloaded += dl;
