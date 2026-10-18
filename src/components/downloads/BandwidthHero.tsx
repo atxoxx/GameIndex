@@ -44,7 +44,9 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
   const isUploading = totalUploadSpeed > 0;
 
   const isThrottled =
-    speedLimits.downloadEnabled || speedLimits.uploadEnabled || speedLimits.disableUpload;
+    (speedLimits.downloadEnabled && speedLimits.downloadValue > 0) ||
+    (speedLimits.uploadEnabled && speedLimits.uploadValue > 0) ||
+    speedLimits.disableUpload;
 
   return (
     <div className="dl-dashboard-card" role="region" aria-label={t("downloads.bandwidthDashboard")}>
