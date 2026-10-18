@@ -1198,17 +1198,32 @@ fn delete_download_files(download: &Download) {
         }
     }
 
-    // Remove the now-empty folders themselves, deepest first: the legacy
-    // `save_path/<name>` root, then the download folder `save_path`.
-    // Guarded by `is_dir()` + emptiness so a shared download folder is
-    // never removed while it still holds other downloads.
-    for folder in [&root_folder, &save_path_buf] {
-        if folder.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(folder) {
-                if entries.count() == 0 {
-                    let _ = std::fs::remove_dir(folder);
-                }
-            }
+    // The torrent's own root folder (`save_path/<name>`) belongs to this
+    // download, so anything still inside it after the per-file pass
+    // (extracted output, files librqbit did not track, partial artifacts)
+    // is removed recursively. Guarded to stay strictly inside this
+    // download's `save_path` so a shared or user-picked folder is never
+    // wiped wholesale.
+    if root_folder != save_path_buf
+        && root_folder.starts_with(&save_path_buf)
+        && root_folder.is_dir()
+    {
+        let _ = std::fs::remove_dir_all(&root_folder);
+    }
+
+    // Only drop `save_path` itself once nothing else lives there - it may
+    // be a shared downloads folder holding other transfers.
+    remove_dir_if_empty(&save_path_buf);
+}
+
+/// Remove `dir` only when it exists and holds no entries.
+fn remove_dir_if_empty(dir: &std::path::Path) {
+    if !dir.is_dir() {
+        return;
+    }
+    if let Ok(mut entries) = std::fs::read_dir(dir) {
+        if entries.next().is_none() {
+            let _ = std::fs::remove_dir(dir);
         }
     }
 }
@@ -2007,6 +2022,74 @@ mod tests {
     #[test]
     fn parse_torrent_files_rejects_garbage() {
         assert!(parse_torrent_files(b"this is not bencode").is_err());
+    }
+
+    fn torrent_download(
+        name: &str,
+        save_path: &std::path::Path,
+        files: Vec<DownloadFile>,
+    ) -> Download {
+        let mut download = Download::new(
+            "test-id".to_string(),
+            DownloadKind::Torrent,
+            name.to_string(),
+            "magnet:?xt=urn:btih:test".to_string(),
+            save_path.to_string_lossy().into_owned(),
+            None,
+            "test".to_string(),
+            false,
+        );
+        download.files = files;
+        download
+    }
+
+    fn file(name: &str) -> DownloadFile {
+        DownloadFile {
+            name: name.to_string(),
+            size: 1,
+            downloaded: 1,
+            progress: 1.0,
+            selected: true,
+        }
+    }
+
+    #[test]
+    fn delete_torrent_files_removes_root_folder_and_empty_save_path() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let save_path = tmp.path().join("Enshrouded");
+        let root = save_path.join("Enshrouded b25936191 by Pioneer");
+        std::fs::create_dir_all(root.join("bin")).expect("create tree");
+        std::fs::write(root.join("game.dat"), b"x").expect("write");
+        std::fs::write(root.join("bin/extra.dll"), b"y").expect("write");
+
+        let download = torrent_download(
+            "Enshrouded b25936191 by Pioneer",
+            &save_path,
+            vec![file("game.dat")],
+        );
+        delete_download_files(&download);
+
+        assert!(!root.exists(), "torrent root folder should be removed");
+        assert!(!save_path.exists(), "empty download folder should be removed");
+    }
+
+    #[test]
+    fn delete_torrent_files_keeps_shared_save_path() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let save_path = tmp.path().join("Downloads");
+        let root = save_path.join("Game");
+        std::fs::create_dir_all(&root).expect("create tree");
+        std::fs::write(root.join("data.bin"), b"x").expect("write");
+        std::fs::write(save_path.join("other.txt"), b"keep").expect("write");
+
+        let download = torrent_download("Game", &save_path, vec![file("data.bin")]);
+        delete_download_files(&download);
+
+        assert!(!root.exists(), "torrent root folder should be removed");
+        assert!(
+            save_path.join("other.txt").exists(),
+            "shared folder must survive"
+        );
     }
 }
 
