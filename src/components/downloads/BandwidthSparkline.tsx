@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useBandwidthHistory, type BandwidthPoint } from "../../hooks/useBandwidthHistory";
+import { useBandwidthHistory } from "../../hooks/useBandwidthHistory";
 import { useDownloads } from "../../context/DownloadContext";
 import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useLanguage } from "../../context/LanguageContext";
@@ -7,8 +7,11 @@ import { formatBytesPerSecond } from "../../types/download";
 import { ActivityIcon, ChevronIcon } from "./DownloadIcons";
 
 const VIEW_WIDTH = 600;
-const VIEW_HEIGHT = 64;
+const VIEW_HEIGHT = 116;
 const PADDING = 6;
+// Horizontal space reserved on the left for the Y-axis speed labels.
+const LABEL_WIDTH = 56;
+const FLOOR_BPS = 1_048_576; // 1 MiB/s — keeps idle/low-speed graphs readable.
 
 type TimeWindow = 60 | 180 | 300;
 
@@ -17,12 +20,43 @@ interface SplinePoint {
   y: number;
 }
 
+interface SparklinePaths {
+  dlPath: string;
+  ulPath: string;
+  dlArea: string;
+  dlPoints: { x: number; y: number; speed: number; time: string }[];
+  ulPoints: { x: number; y: number; speed: number; time: string }[];
+}
+
 const fmt = (v: number) => v.toFixed(1);
 
-// Monotone cubic Hermite spline emitted as cubic Beziers. A plain polyline
-// reads as a sawtooth at one-sample-per-pixel, and a Catmull-Rom curve would
-// overshoot below the baseline on spiky bandwidth data. Fritsch-Carlson keeps
-// the curve smooth while never exceeding the sampled values between points.
+/** 95th percentile: the scale reflects *typical* traffic so a brief spike
+ *  doesn't squash the whole trace to the baseline. */
+function p95(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = Math.ceil(0.95 * sorted.length) - 1;
+  return sorted[Math.max(0, Math.min(rank, sorted.length - 1))];
+}
+
+/** Round `value` up to a "nice" number (1·10ⁿ, 2·10ⁿ or 5·10ⁿ) so axis
+ *  labels are round and the scale only jumps at sensible thresholds. */
+function niceMax(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return FLOOR_BPS;
+  let exp = Math.floor(Math.log10(value));
+  const base = 10 ** exp;
+  const frac = value / base;
+  let n = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+  if (n === 10) {
+    n = 1;
+    exp += 1;
+  }
+  return Math.max(n * (10 ** exp), FLOOR_BPS);
+}
+
+// Monotone cubic Hermite spline emitted as cubic Beziers. Fritsch-Carlson
+// keeps the curve smooth while never exceeding the sampled values between
+// points (no overshoot below the baseline on spiky bandwidth data).
 function smoothPath(points: SplinePoint[]): string {
   const n = points.length;
   if (n === 0) return "";
@@ -87,50 +121,62 @@ export default function BandwidthSparkline() {
   const [collapsed, setCollapsed] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  // Slice history points based on selected time window
   const visibleHistory = useMemo(() => {
     return history.slice(-timeWindow);
   }, [history, timeWindow]);
 
   const peakDown = useMemo(() => {
-    return Math.max(...visibleHistory.map((pt: BandwidthPoint) => pt.down), totalDownloadSpeed, 1024);
+    return Math.max(...visibleHistory.map((pt) => pt.down), totalDownloadSpeed, 0);
   }, [visibleHistory, totalDownloadSpeed]);
 
   const peakUp = useMemo(() => {
-    return Math.max(...visibleHistory.map((pt: BandwidthPoint) => pt.up), totalUploadSpeed, 1024);
+    return Math.max(...visibleHistory.map((pt) => pt.up), totalUploadSpeed, 0);
   }, [visibleHistory, totalUploadSpeed]);
 
-  const maxSpeed = Math.max(peakDown, peakUp, 10 * 1024);
+  const peakSpeed = Math.max(peakDown, peakUp);
 
-  const { dlPath, ulPath, dlArea, ulArea, dlPoints, ulPoints } = useMemo(() => {
+  // Stable scale: typical traffic (p95) fills the vertical range; brief spikes
+  // may clip at the top edge and are reported by the peak pill instead of
+  // squashing the rest of the trace.
+  const scaleMax = useMemo(() => {
+    const typical = Math.max(
+      p95(visibleHistory.map((pt) => pt.down)),
+      p95(visibleHistory.map((pt) => pt.up)),
+    );
+    return niceMax(Math.max(typical * 1.5, peakDown * 0.35, peakUp * 0.35));
+  }, [visibleHistory, peakDown, peakUp]);
+
+  const spark = useMemo<SparklinePaths>(() => {
     const n = visibleHistory.length;
     if (n === 0) {
-      return { dlPath: "", ulPath: "", dlArea: "", ulArea: "", dlPoints: [], ulPoints: [] };
+      return { dlPath: "", ulPath: "", dlArea: "", dlPoints: [], ulPoints: [] };
     }
 
-    const usableH = VIEW_HEIGHT - PADDING * 2;
-    const xStep = n > 1 ? (VIEW_WIDTH - PADDING * 2) / (n - 1) : 0;
+    const plotLeft = LABEL_WIDTH + PADDING;
+    const plotRight = VIEW_WIDTH - PADDING;
+    const plotTop = PADDING + 16; // room for the top Y-axis label
+    const plotBottom = VIEW_HEIGHT - PADDING - 6; // room for the baseline label
+    const usableH = plotBottom - plotTop;
+    const xStep = n > 1 ? (plotRight - plotLeft) / (n - 1) : 0;
+    const bottomY = plotBottom;
+
+    const yFor = (speed: number) =>
+      Math.round(
+        plotBottom - Math.min(speed / scaleMax, 1) * usableH,
+      );
 
     const dlPts: { x: number; y: number; speed: number; time: string }[] = [];
     const ulPts: { x: number; y: number; speed: number; time: string }[] = [];
 
     for (let i = 0; i < n; i++) {
       const pt = visibleHistory[i];
-      const x = PADDING + i * xStep;
-
-      const normDl = Math.min(pt.down / maxSpeed, 1);
-      const yDl = VIEW_HEIGHT - PADDING - normDl * usableH;
-
-      const normUl = Math.min(pt.up / maxSpeed, 1);
-      const yUl = VIEW_HEIGHT - PADDING - normUl * usableH;
-
-      dlPts.push({ x, y: yDl, speed: pt.down, time: pt.time });
-      ulPts.push({ x, y: yUl, speed: pt.up, time: pt.time });
+      const x = plotLeft + i * xStep;
+      dlPts.push({ x, y: yFor(pt.down), speed: pt.down, time: pt.time });
+      ulPts.push({ x, y: yFor(pt.up), speed: pt.up, time: pt.time });
     }
 
-    const firstX = PADDING;
-    const lastX = PADDING + (n - 1) * xStep;
-    const bottomY = VIEW_HEIGHT - PADDING;
+    const firstX = plotLeft;
+    const lastX = plotRight;
 
     const dlLine = smoothPath(dlPts);
     const ulLine = smoothPath(ulPts);
@@ -139,19 +185,16 @@ export default function BandwidthSparkline() {
       ? `${dlLine} L ${fmt(lastX)} ${fmt(bottomY)} L ${fmt(firstX)} ${fmt(bottomY)} Z`
       : "";
 
-    const ulAreaPath = n > 0
-      ? `${ulLine} L ${fmt(lastX)} ${fmt(bottomY)} L ${fmt(firstX)} ${fmt(bottomY)} Z`
-      : "";
-
     return {
       dlPath: dlLine,
       ulPath: ulLine,
       dlArea: dlAreaPath,
-      ulArea: ulAreaPath,
       dlPoints: dlPts,
       ulPoints: ulPts,
     };
-  }, [visibleHistory, maxSpeed]);
+  }, [visibleHistory, scaleMax]);
+
+  const { dlPath, ulPath, dlArea, dlPoints, ulPoints } = spark;
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -168,6 +211,20 @@ export default function BandwidthSparkline() {
 
   const hoveredDl = hoverIndex !== null ? dlPoints[hoverIndex] : null;
   const hoveredUl = hoverIndex !== null ? ulPoints[hoverIndex] : null;
+
+  // Y-axis label levels (top / mid / bottom).
+  const labelLevels = useMemo(() => {
+    const plotTop = PADDING + 16;
+    const plotBottom = VIEW_HEIGHT - PADDING - 6;
+    const usableH = plotBottom - plotTop;
+    const yFor = (speed: number) =>
+      Math.round(plotBottom - Math.min(speed / scaleMax, 1) * usableH);
+    return [
+      { speed: scaleMax, y: yFor(scaleMax), label: formatBytesPerSecond(scaleMax, unit) },
+      { speed: scaleMax / 2, y: yFor(scaleMax / 2), label: formatBytesPerSecond(scaleMax / 2, unit) },
+      { speed: 0, y: plotBottom, label: formatBytesPerSecond(0, unit) },
+    ];
+  }, [scaleMax, unit]);
 
   return (
     <div className="dl-sparkline-box" role="region" aria-label={t("downloads.networkTelemetry")}>
@@ -219,7 +276,7 @@ export default function BandwidthSparkline() {
           </div>
 
           <span className="dl-sparkline-stat-pill" title={t("downloads.peakThroughput")}>
-            {t("downloads.maxSpeedLabel", { speed: formatBytesPerSecond(maxSpeed, unit) })}
+            {t("downloads.maxSpeedLabel", { speed: formatBytesPerSecond(peakSpeed, unit) })}
           </span>
 
           <button
@@ -257,51 +314,61 @@ export default function BandwidthSparkline() {
                 <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.0" />
               </linearGradient>
               <linearGradient id="ulAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-success)" stopOpacity="0.2" />
+                <stop offset="0%" stopColor="var(--color-success)" stopOpacity="0.15" />
                 <stop offset="100%" stopColor="var(--color-success)" stopOpacity="0.0" />
               </linearGradient>
             </defs>
 
-            {/* Subtle Grid Guidelines */}
+            {/* Horizontal gridlines at each labeled Y level */}
+            {labelLevels.map((lvl, i) => (
+              <line
+                key={i}
+                x1={LABEL_WIDTH}
+                y1={lvl.y}
+                x2={VIEW_WIDTH}
+                y2={lvl.y}
+                className="dl-sparkline-gridline"
+              />
+            ))}
+
+            {/* Y-axis speed labels */}
+            {labelLevels.map((lvl, i) => (
+              <text
+                key={i}
+                x={4}
+                y={lvl.y + (i === 2 ? 4 : 0)}
+                className="dl-sparkline-axis-label"
+                fill="var(--color-text-muted)"
+                fontSize="11"
+              >
+                {lvl.label}
+              </text>
+            ))}
+
+            {/* Baseline */}
             <line
-              x1={0}
-              y1={VIEW_HEIGHT - PADDING}
+              x1={LABEL_WIDTH}
+              y1={VIEW_HEIGHT - PADDING - 6}
               x2={VIEW_WIDTH}
-              y2={VIEW_HEIGHT - PADDING}
+              y2={VIEW_HEIGHT - PADDING - 6}
               className="dl-sparkline-baseline"
-            />
-            <line
-              x1={0}
-              y1={VIEW_HEIGHT / 2}
-              x2={VIEW_WIDTH}
-              y2={VIEW_HEIGHT / 2}
-              className="dl-sparkline-midline"
-            />
-            <line
-              x1={0}
-              y1={PADDING}
-              x2={VIEW_WIDTH}
-              y2={PADDING}
-              className="dl-sparkline-baseline"
-              strokeOpacity="0.2"
             />
 
-            {/* Gradient Area Fills */}
-            {ulArea && <path d={ulArea} fill="url(#ulAreaGradient)" />}
+            {/* Gradient Area Fill (download only — upload is a line on top) */}
             {dlArea && <path d={dlArea} fill="url(#dlAreaGradient)" />}
 
             {/* Graph Lines */}
-            {ulPath && <path d={ulPath} className="dl-sparkline-line-ul" />}
             {dlPath && <path d={dlPath} className="dl-sparkline-line-dl" />}
+            {ulPath && <path d={ulPath} className="dl-sparkline-line-ul" />}
 
             {/* Interactive Crosshair & Point Dots */}
             {hoverIndex !== null && hoveredDl && (
               <g className="dl-sparkline-hover-group">
                 <line
                   x1={hoveredDl.x}
-                  y1={0}
+                  y1={PADDING + 16}
                   x2={hoveredDl.x}
-                  y2={VIEW_HEIGHT}
+                  y2={VIEW_HEIGHT - PADDING - 6}
                   stroke="var(--color-border-light)"
                   strokeWidth="1"
                   strokeDasharray="2 2"
