@@ -62,58 +62,64 @@ pub async fn load_store_cache(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 fn load_store_cache_blocking(db: &db::Db) -> Result<String, String> {
-    let mut out = serde_json::Map::new();
-    out.insert(
-        "categories".to_string(),
-        serde_json::Value::Object(serde_json::Map::new()),
-    );
-    out.insert(
-        "detailCache".to_string(),
-        serde_json::Value::Object(serde_json::Map::new()),
-    );
-
-    // Categories â€” list every (category, page=0) row. We don't currently
-    // paginate beyond 0; if future code adds higher pages this JSON
-    // shape will need a `pages` sub-object.
     let conn = db.store_cache().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT category, payload_json FROM store_cache WHERE page = 0")
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-        })
-        .map_err(|e| e.to_string())?;
-    let cats = out
-        .get_mut("categories")
-        .and_then(|v| v.as_object_mut())
-        .unwrap();
-    for row in rows {
-        let (cat, payload) = row.map_err(|e| e.to_string())?;
-        let value: serde_json::Value =
-            serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null);
-        cats.insert(cat, value);
-    }
-    let mut stmt = conn
-        .prepare("SELECT slug, payload_json FROM store_detail")
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-        })
-        .map_err(|e| e.to_string())?;
-    let details = out
-        .get_mut("detailCache")
-        .and_then(|v| v.as_object_mut())
-        .unwrap();
-    for row in rows {
-        let (slug, payload) = row.map_err(|e| e.to_string())?;
-        let value: serde_json::Value =
-            serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null);
-        details.insert(slug, value);
-    }
 
-    serde_json::to_string(&out).map_err(|e| e.to_string())
+    // Stored payloads are already valid JSON text, so the combined blob
+    // is spliced together verbatim instead of parsing every row into a
+    // `Value` tree and re-serializing it (the old path paid parse +
+    // serialize per row per call). Each piece is still validated —
+    // `IgnoredAny` walks the syntax without materialising it — and
+    // anything unparsable degrades to `null`, matching the old
+    // fallback.
+    let splice = |rows: Vec<(String, String)>| -> Result<String, String> {
+        let mut buf = String::with_capacity(64);
+        buf.push('{');
+        for (i, (key, payload)) in rows.iter().enumerate() {
+            if i > 0 {
+                buf.push(',');
+            }
+            buf.push_str(&serde_json::to_string(key).map_err(|e| e.to_string())?);
+            buf.push(':');
+            if serde_json::from_str::<serde::de::IgnoredAny>(payload).is_ok() {
+                buf.push_str(payload);
+            } else {
+                buf.push_str("null");
+            }
+        }
+        buf.push('}');
+        Ok(buf)
+    };
+
+    {
+        let mut stmt = conn
+            .prepare("SELECT category, payload_json FROM store_cache WHERE page = 0")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })
+            .map_err(|e| e.to_string())?;
+        let cats_rows: Vec<(String, String)> = rows
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT slug, payload_json FROM store_detail")
+            .map_err(|e| e.to_string())?;
+        let detail_rows = stmt
+            .query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })
+            .map_err(|e| e.to_string())?;
+        let detail_rows: Vec<(String, String)> = detail_rows
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        let cats = splice(cats_rows)?;
+        let details = splice(detail_rows)?;
+        Ok(format!(
+            "{{\"categories\":{cats},\"detailCache\":{details}}}"
+        ))
+    }
 }
 
 /// Phase-1 wrapper around the wishlist DAO. The frontend sends a

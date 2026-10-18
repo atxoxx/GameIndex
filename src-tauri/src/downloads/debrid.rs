@@ -21,6 +21,22 @@ pub(crate) fn debrid_api_client() -> reqwest::Client {
         .clone()
 }
 
+static TORBOX_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+/// Same shared pool, but with TorBox's 60 s timeout (createwebdownload +
+/// the direct-URL handoff can legitimately take a while). Reuses the
+/// connection pool rather than rebuilding a client per unrestrict call.
+fn torbox_http_client() -> reqwest::Client {
+    TORBOX_CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(60))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new())
+        })
+        .clone()
+}
+
 // ─── Shared response types (consumed by mod.rs) ──────────────────────────────
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1202,10 +1218,7 @@ impl TorBoxClient {
     /// then request the direct link. This can take a few seconds if
     /// TorBox's servers need to fetch the file from the hoster.
     pub async fn unrestrict_link(apikey: &str, url: &str) -> Result<String, String> {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(60))
-            .build()
-            .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+        let client = torbox_http_client();
 
         // 1. Create the web download.
         let create_payload = serde_json::json!({

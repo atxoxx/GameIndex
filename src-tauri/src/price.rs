@@ -89,23 +89,35 @@ pub async fn fetch_game_prices_batch(
     let db_state: tauri::State<'_, Db> = app.state();
     let mut resolved: std::collections::HashMap<String, GamePrice> =
         std::collections::HashMap::new();
+    let mut norm_of: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     let mut cold: Vec<String> = Vec::new();
 
+    // One pooled checkout for every key instead of one per name.
+    let mut keys: Vec<String> = Vec::new();
     for name in game_names {
         let norm = normalize(&name);
         if norm.is_empty() {
             continue;
         }
+        norm_of.insert(norm.clone(), name.clone());
+        keys.push(format!("{}{}", CACHE_KEY_PREFIX, norm));
+    }
+    let cached_rows = crate::db::kv::get_many(db_state.inner(), &keys).unwrap_or_default();
+    for (norm, name) in &norm_of {
         let key = format!("{}{}", CACHE_KEY_PREFIX, norm);
-        if let Some(raw) = crate::db::kv::get(db_state.inner(), &key).ok().flatten() {
-            if let Ok(cached) = serde_json::from_str::<CachedPrice>(&raw) {
+        if let Some(raw) = cached_rows.get(&key) {
+            if let Ok(cached) = serde_json::from_str::<CachedPrice>(raw) {
                 if cached.updated_at + CACHE_TTL_MS > now_ms() {
-                    resolved.insert(name, cached.price);
-                    continue;
+                    resolved.insert(name.clone(), cached.price);
                 }
             }
         }
-        cold.push(name);
+    }
+    for name in norm_of.values() {
+        if !resolved.contains_key(name) {
+            cold.push(name.clone());
+        }
     }
 
     let scraped: Vec<(String, Option<GamePrice>)> = stream::iter(cold)
@@ -117,19 +129,29 @@ pub async fn fetch_game_prices_batch(
         .collect()
         .await;
 
-    for (name, price) in scraped {
-        if let Some(p) = price {
-            let norm = normalize(&name);
-            let key = format!("{}{}", CACHE_KEY_PREFIX, norm);
+    let writes: Vec<(String, String)> = scraped
+        .iter()
+        .filter_map(|(name, price)| {
+            let p = price.as_ref()?;
+            let norm = normalize(name);
+            if norm.is_empty() {
+                return None;
+            }
             let envelope = CachedPrice {
                 price: p.clone(),
                 updated_at: now_ms(),
             };
-            if let Ok(json) = serde_json::to_string(&envelope) {
-                if let Err(e) = crate::db::kv::set(db_state.inner(), &key, &json) {
-                    eprintln!("[price] cache write failed for {key}: {e}");
-                }
-            }
+            serde_json::to_string(&envelope)
+                .ok()
+                .map(|json| (format!("{}{}", CACHE_KEY_PREFIX, norm), json))
+        })
+        .collect();
+    if let Err(e) = crate::db::kv::set_many(db_state.inner(), &writes) {
+        eprintln!("[price] cache write failed: {e}");
+    }
+
+    for (name, price) in scraped {
+        if let Some(p) = price {
             resolved.insert(name, p);
         }
     }
@@ -139,11 +161,16 @@ pub async fn fetch_game_prices_batch(
 
 /// Perform the actual CheapShark query for a single title.
 async fn lookup(title: &str) -> Option<GamePrice> {
-    let client = reqwest::Client::builder()
-        .user_agent("GameIndex/1.0")
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .ok()?;
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    let client = CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .user_agent("GameIndex/1.0")
+                .timeout(std::time::Duration::from_secs(15))
+                .build()
+                .unwrap_or_default()
+        })
+        .clone();
 
     let url = format!(
         "https://www.cheapshark.com/api/1.0/games?title={}&limit=1",

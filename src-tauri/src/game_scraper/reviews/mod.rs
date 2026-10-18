@@ -242,31 +242,42 @@ fn parse_date_to_timestamp(date_str: &str) -> Option<u64> {
 }
 
 /// Build a shared reqwest client for external review scraping.
-/// Build a shared reqwest client for external review scraping.
 ///
 /// Includes browser-like `Accept` and `Accept-Language` headers so we
 /// don't get rejected by Cloudflare bot challenges on sites like OpenCritic.
 fn external_reviews_client() -> Option<reqwest::Client> {
     use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE};
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        ACCEPT,
-        HeaderValue::from_static(
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        ),
-    );
-    headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.5"));
+    use std::sync::OnceLock;
 
-    reqwest::Client::builder()
-        .user_agent(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
-             (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        )
-        .default_headers(headers)
-        .timeout(std::time::Duration::from_secs(15))
-        .redirect(reqwest::redirect::Policy::limited(5))
-        .build()
-        .ok()
+    /// One client reused across every reviews call — `Client::builder()`
+    /// builds a fresh connection pool (and TLS init) per call otherwise,
+    /// paying handshake latency that connection reuse would skip.
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    Some(
+        CLIENT
+            .get_or_init(|| {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    ACCEPT,
+                    HeaderValue::from_static(
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                    ),
+                );
+                headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.5"));
+
+                reqwest::Client::builder()
+                    .user_agent(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+                         (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    )
+                    .default_headers(headers)
+                    .timeout(std::time::Duration::from_secs(15))
+                    .redirect(reqwest::redirect::Policy::limited(5))
+                    .build()
+                    .unwrap_or_default()
+            })
+            .clone(),
+    )
 }
 
 /// Resolve a game page URL on a given site by trying the direct slug first,
