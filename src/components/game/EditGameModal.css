@@ -776,35 +776,91 @@
   margin: 0;
 }
 
-.edit-image-slot {
+.edit-image-panel {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm);
-  gap: var(--space-xs);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.edit-image-slot:hover {
+.edit-image-panel:hover {
   border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
 }
 
-.edit-image-slot-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-xs);
+.edit-image-panel.is-empty {
+  border-style: dashed;
 }
 
-.edit-image-slot-title-group {
+.edit-image-panel-preview {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Checkerboard behind alpha art (icons/logos) so transparency is visible. */
+.edit-image-panel-preview.transparent {
+  background-image:
+    linear-gradient(45deg, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 75%);
+  background-size: 14px 14px;
+  background-position: 0 0, 0 7px, 7px -7px, -7px 0;
+}
+
+.edit-image-panel-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.edit-image-panel-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  opacity: 0.55;
+}
+
+.edit-image-panel-info {
+  flex: 1 1 220px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4xs);
+  gap: var(--space-xs);
+  justify-content: center;
 }
 
-.edit-image-slot-status {
+.edit-image-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.edit-image-panel-label {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.edit-image-panel-subtitle {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.edit-image-panel-status {
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   padding: var(--space-4xs) var(--space-xs);
@@ -813,46 +869,41 @@
   letter-spacing: 0.4px;
 }
 
-.edit-image-slot-status.active {
+.edit-image-panel-status.active {
   background: color-mix(in srgb, var(--color-success) 16%, transparent);
   color: var(--color-success);
   border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
-.edit-image-slot-status.empty {
+.edit-image-panel-status.empty {
   background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
   color: var(--color-text-muted);
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
-.edit-image-slot-preview {
+.edit-image-panel-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  margin: var(--space-3xs) 0;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-2xs);
 }
 
-.edit-image-slot-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.edit-image-slot-placeholder {
+/* Heading row above the live candidate gallery in each artwork subtab. */
+.media-source-heading {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: var(--space-xs);
-  color: var(--color-text-muted);
-  font-size: var(--text-2xs);
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  opacity: 0.6;
+}
+
+.media-source-heading svg {
+  color: var(--color-accent);
 }
 
 .edit-slot-spinner {
@@ -1741,6 +1792,12 @@
   width: min(96vw, 1080px);
 }
 
+/* Inline variant of the gallery body (edit modal media tab): flows in the
+ * page instead of the modal's fixed-height scroll area. */
+.media-fetch-inline-body {
+  padding-top: var(--space-sm);
+}
+
 /* Title search above the scrollable results: prefilled with the game name,
  * editable so the user can look up remasters/ports the auto-match missed. */
 .media-fetch-search {
@@ -1979,12 +2036,15 @@
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
 
-/* Preview overlay */
-.media-fetch-preview-backdrop {
+/* Preview overlay. Portaled to <body>, so it must outrank the modal backdrop
+ * it was opened from (the compound selector beats `.modal-backdrop`). */
+.modal-backdrop.media-fetch-preview-backdrop {
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: calc(var(--z-toast) + 1);
 }
 
 .media-fetch-preview {
@@ -2162,7 +2222,7 @@
   margin: 0;
 }
 
-.edit-compat-subtabs {
+.edit-subtabs {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
@@ -2181,24 +2241,24 @@
 }
 
 /* Themed thin scrollbar so overflowing subtabs stay reachable. */
-.edit-compat-subtabs::-webkit-scrollbar {
+.edit-subtabs::-webkit-scrollbar {
   height: 6px;
 }
 
-.edit-compat-subtabs::-webkit-scrollbar-track {
+.edit-subtabs::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.edit-compat-subtabs::-webkit-scrollbar-thumb {
+.edit-subtabs::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: var(--radius-sm);
 }
 
-.edit-compat-subtabs::-webkit-scrollbar-thumb:hover {
+.edit-subtabs::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
 
-.edit-compat-subtab-btn {
+.edit-subtab-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
@@ -2215,12 +2275,12 @@
   transition: all var(--transition-fast);
 }
 
-.edit-compat-subtab-btn:hover {
+.edit-subtab-btn:hover {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
 }
 
-.edit-compat-subtab-btn.is-active {
+.edit-subtab-btn.is-active {
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   border-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
@@ -2228,7 +2288,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-.edit-compat-subtab-content {
+.edit-subtab-content {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);

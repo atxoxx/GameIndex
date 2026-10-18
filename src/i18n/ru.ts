@@ -1859,6 +1859,7 @@ export const ru: TranslationDict = {
   "edit.label.version": "Версия",
   "edit.launchArgsHint": "Пользовательские параметры командной строки, передаваемые исполняемому файлу при запуске.",
   "edit.launchboxImageBrowser": "Просмотр изображений LaunchBox",
+  "edit.media.fromSources": "Доступно из источников",
   "edit.metadata": "Метаданные",
   "edit.metadataSearchResults": "Результаты поиска метаданных",
   "edit.moreDetails": "Подробнее",

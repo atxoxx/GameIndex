@@ -30,6 +30,7 @@ import type { SteamLaunchOption } from "../../types/steam";
 import { Button } from "../../components/ui";
 import { EDIT_GAME_TABS, type EditGameTab } from "./editGameTabs";
 import { EditImageSlot } from "./EditImageSlot";
+import { MediaCandidateGallery } from "./MediaCandidateGallery";
 import { MediaFetchBrowser } from "./MediaFetchBrowser";
 import { UrlListEditor } from "./UrlListEditor";
 import { TagInput } from "../../components/ui/TagInput";
@@ -76,6 +77,100 @@ const COMMON_LAUNCH_ARGS = [
 ];
 
 type CompatSubtab = "runner" | "graphics" | "tools" | "env" | "maintenance";
+
+/** Sections of the Media tab: the four artwork slots plus the three
+ *  list-based media kinds. Each renders its own live/fetch UI. */
+type MediaSubtab = "icon" | "cover" | "hero" | "logo" | "screenshots" | "videos" | "websites";
+
+const IMAGE_SUBTABS: ("icon" | "cover" | "hero" | "logo")[] = ["icon", "cover", "hero", "logo"];
+
+/** Pinned-panel shape for each artwork slot: its i18n label keys and the
+ *  preview box that matches the artwork's natural aspect ratio. */
+const IMAGE_SUBTAB_CONFIG: Record<
+  "icon" | "cover" | "hero" | "logo",
+  { labelKey: string; subtitleKey: string; preview: { w: number; h: number }; transparent?: boolean }
+> = {
+  icon: { labelKey: "edit.label.icon", subtitleKey: "edit.label.sidebar", preview: { w: 64, h: 64 }, transparent: true },
+  cover: { labelKey: "edit.label.cover", subtitleKey: "edit.label.libraryCards", preview: { w: 120, h: 160 } },
+  hero: { labelKey: "edit.label.hero", subtitleKey: "edit.label.gamePageTop", preview: { w: 240, h: 100 } },
+  logo: { labelKey: "edit.label.logo", subtitleKey: "edit.label.titleImage", preview: { w: 200, h: 60 }, transparent: true },
+};
+
+const MEDIA_SUBTABS: { key: MediaSubtab; labelKey: string; icon: ReactNode }[] = [
+  {
+    key: "icon",
+    labelKey: "edit.label.icon",
+    icon: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+    ),
+  },
+  {
+    key: "cover",
+    labelKey: "edit.label.cover",
+    icon: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+        <line x1="3" y1="9" x2="21" y2="9" />
+      </svg>
+    ),
+  },
+  {
+    key: "hero",
+    labelKey: "edit.label.hero",
+    icon: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    key: "logo",
+    labelKey: "edit.label.logo",
+    icon: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 7V5a2 2 0 0 1 2-2h2M16 3h2a2 2 0 0 1 2 2v2M20 17v2a2 2 0 0 1-2 2h-2M8 21H6a2 2 0 0 1-2-2v-2" />
+        <path d="m7 12 3 3 7-7" />
+      </svg>
+    ),
+  },
+  {
+    key: "screenshots",
+    labelKey: "editExtras.screenshots",
+    icon: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="14" rx="2" ry="2" />
+        <line x1="8" y1="21" x2="16" y2="21" />
+        <line x1="12" y1="17" x2="12" y2="21" />
+      </svg>
+    ),
+  },
+  {
+    key: "videos",
+    labelKey: "editExtras.videosTrailers",
+    icon: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="23 7 16 12 23 17 23 7" />
+        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+      </svg>
+    ),
+  },
+  {
+    key: "websites",
+    labelKey: "editExtras.websites",
+    icon: (
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+    ),
+  },
+];
 
 interface EditGameModalProps {
   game: Game;
@@ -593,6 +688,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
   const [applyingMetadata, setApplyingMetadata] = useState(false);
 
+  const [mediaSubtab, setMediaSubtab] = useState<MediaSubtab>("cover");
   const [mediaFetchSlot, setMediaFetchSlot] = useState<
     "icon" | "cover" | "hero" | "logo" | null
   >(null);
@@ -737,15 +833,17 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
     }
   }
 
-  function handleFetchImage(key: "icon" | "cover" | "hero" | "logo") {
-    // Open the media browser so the user can pick a jpg/jpeg/png/webp from
-    // Steam, IGDB and SteamGridDB for this slot (no longer auto-fetches).
-    setMediaFetchSlot(key);
+  function handleFetchImage(slot: "icon" | "cover" | "hero" | "logo") {
+    // Open the focused search modal for manual title matching (remasters,
+    // ports, fan projects). The inline gallery already lists the auto-fetched
+    // sources under the pinned panel.
+    setMediaFetchSlot(slot);
   }
 
-  async function handleApplyFetchedImage(url: string): Promise<void> {
-    const slot = mediaFetchSlot;
-    if (!slot) return;
+  async function handleApplyFetchedImage(
+    slot: "icon" | "cover" | "hero" | "logo",
+    url: string
+  ): Promise<void> {
     await applyRemoteImage(slot, url);
   }
 
@@ -1872,98 +1970,119 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                   {t("edit.imagesDesc")}
                 </p>
               </div>
-              <div className="edit-images-grid">
-                <EditImageSlot
-                  label={t("edit.label.icon")}
-                  subtitle={t("edit.label.sidebar")}
-                  imageUrl={editIcon}
-                  previewSize={{ w: 64, h: 64 }}
-                  transparent
-                  isFetching={false}
-                  onChooseFile={() => handlePickImage("icon")}
-                  onFetchWeb={() => handleFetchImage("icon")}
-                  onRemove={() => handleRemoveImage("icon")}
-                />
-                <EditImageSlot
-                  label={t("edit.label.cover")}
-                  subtitle={t("edit.label.libraryCards")}
-                  imageUrl={editCover}
-                  previewSize={{ w: 120, h: 160 }}
-                  isFetching={false}
-                  onChooseFile={() => handlePickImage("cover")}
-                  onFetchWeb={() => handleFetchImage("cover")}
-                  onRemove={() => handleRemoveImage("cover")}
-                />
-                <EditImageSlot
-                  label={t("edit.label.hero")}
-                  subtitle={t("edit.label.gamePageTop")}
-                  imageUrl={editHero}
-                  previewSize={{ w: 240, h: 100 }}
-                  isFetching={false}
-                  onChooseFile={() => handlePickImage("hero")}
-                  onFetchWeb={() => handleFetchImage("hero")}
-                  onRemove={() => handleRemoveImage("hero")}
-                />
-                <EditImageSlot
-                  label={t("edit.label.logo")}
-                  subtitle={t("edit.label.titleImage")}
-                  imageUrl={editLogo}
-                  previewSize={{ w: 200, h: 60 }}
-                  transparent
-                  isFetching={false}
-                  onChooseFile={() => handlePickImage("logo")}
-                  onFetchWeb={() => handleFetchImage("logo")}
-                  onRemove={() => handleRemoveImage("logo")}
-                />
+              <div className="edit-subtabs" role="tablist" aria-label={t("edit.images")}>
+                {MEDIA_SUBTABS.map((sub) => (
+                  <button
+                    key={sub.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={mediaSubtab === sub.key}
+                    className={`edit-subtab-btn ${mediaSubtab === sub.key ? "is-active" : ""}`}
+                    onClick={() => setMediaSubtab(sub.key)}
+                  >
+                    {sub.icon}
+                    <span>{t(sub.labelKey)}</span>
+                  </button>
+                ))}
               </div>
 
-              <UrlListEditor
-                title="Screenshots"
-                items={editScreenshots}
-                onChange={setEditScreenshots}
-                placeholder="Add custom screenshot URL..."
-                emptyText="No screenshots added yet."
-                primaryActions={(url) => (
-                  <>
-                    <button
-                      type="button"
-                      className="lb-apply-btn"
-                      onClick={() => handleApplyIgdbImage(url, "cover")}
-                      disabled={fetchingImageKey !== null}
-                    >
-                      {t("edit.setAsCover")}
-                    </button>
-                    <button
-                      type="button"
-                      className="lb-apply-btn"
-                      onClick={() => handleApplyIgdbImage(url, "hero")}
-                      disabled={fetchingImageKey !== null}
-                    >
-                      {t("edit.setAsHero")}
-                    </button>
-                  </>
-                )}
-              />
+              {IMAGE_SUBTABS.includes(mediaSubtab as (typeof IMAGE_SUBTABS)[number]) ? (
+                (() => {
+                  const slot = mediaSubtab as "icon" | "cover" | "hero" | "logo";
+                  const cfg = IMAGE_SUBTAB_CONFIG[slot];
+                  const current = { icon: editIcon, cover: editCover, hero: editHero, logo: editLogo }[slot];
+                  return (
+                    <div className="edit-subtab-content">
+                      <EditImageSlot
+                        label={t(cfg.labelKey)}
+                        subtitle={t(cfg.subtitleKey)}
+                        imageUrl={current}
+                        previewSize={cfg.preview}
+                        transparent={cfg.transparent}
+                        isFetching={false}
+                        onChooseFile={() => handlePickImage(slot)}
+                        onFetchWeb={() => handleFetchImage(slot)}
+                        onRemove={() => handleRemoveImage(slot)}
+                      />
+                      <div className="media-source-heading">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2Z" />
+                          <path d="m10 9 5 3-5 3V9Z" />
+                        </svg>
+                        <span>{t("edit.media.fromSources")}</span>
+                      </div>
+                      <MediaCandidateGallery
+                        slot={slot}
+                        gameName={editName.trim() || game.name}
+                        steamAppId={game.steamAppId}
+                        onApply={(url) => handleApplyFetchedImage(slot, url)}
+                        variant="inline"
+                        showSearch={false}
+                      />
+                    </div>
+                  );
+                })()
+              ) : null}
 
-              <UrlListEditor
-                title="Videos & Trailers"
-                items={editVideos}
-                onChange={setEditVideos}
-                placeholder="Add custom YouTube video URL..."
-                emptyText="No trailers or videos added yet."
-                thumbnail={(url) => {
-                  const videoId = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)?.[1];
-                  return videoId ? `https://img.youtube.com/vi/${videoId}/default.jpg` : undefined;
-                }}
-              />
+              {mediaSubtab === "screenshots" && (
+                <div className="edit-subtab-content">
+                  <UrlListEditor
+                    title={t("editExtras.screenshots")}
+                    items={editScreenshots}
+                    onChange={setEditScreenshots}
+                    placeholder="Add custom screenshot URL..."
+                    emptyText="No screenshots added yet."
+                    primaryActions={(url) => (
+                      <>
+                        <button
+                          type="button"
+                          className="lb-apply-btn"
+                          onClick={() => handleApplyIgdbImage(url, "cover")}
+                          disabled={fetchingImageKey !== null}
+                        >
+                          {t("edit.setAsCover")}
+                        </button>
+                        <button
+                          type="button"
+                          className="lb-apply-btn"
+                          onClick={() => handleApplyIgdbImage(url, "hero")}
+                          disabled={fetchingImageKey !== null}
+                        >
+                          {t("edit.setAsHero")}
+                        </button>
+                      </>
+                    )}
+                  />
+                </div>
+              )}
 
-              <UrlListEditor
-                title="Websites & Links"
-                items={editWebsites}
-                onChange={setEditWebsites}
-                placeholder="Add official website, wiki, or community URL..."
-                emptyText="No official links added yet."
-              />
+              {mediaSubtab === "videos" && (
+                <div className="edit-subtab-content">
+                  <UrlListEditor
+                    title={t("editExtras.videosTrailers")}
+                    items={editVideos}
+                    onChange={setEditVideos}
+                    placeholder="Add custom YouTube video URL..."
+                    emptyText="No trailers or videos added yet."
+                    thumbnail={(url) => {
+                      const videoId = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)?.[1];
+                      return videoId ? `https://img.youtube.com/vi/${videoId}/default.jpg` : undefined;
+                    }}
+                  />
+                </div>
+              )}
+
+              {mediaSubtab === "websites" && (
+                <div className="edit-subtab-content">
+                  <UrlListEditor
+                    title={t("editExtras.websites")}
+                    items={editWebsites}
+                    onChange={setEditWebsites}
+                    placeholder="Add official website, wiki, or community URL..."
+                    emptyText="No official links added yet."
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -2488,7 +2607,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
               </div>
 
               {/* Categorised Subtab Navigation */}
-              <div className="edit-compat-subtabs">
+              <div className="edit-subtabs">
                 {[
                   {
                     key: "runner" as const,
@@ -2545,7 +2664,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                   <button
                     key={sub.key}
                     type="button"
-                    className={`edit-compat-subtab-btn ${compatSubtab === sub.key ? "is-active" : ""}`}
+                    className={`edit-subtab-btn ${compatSubtab === sub.key ? "is-active" : ""}`}
                     onClick={() => setCompatSubtab(sub.key)}
                   >
                     {sub.icon}
@@ -2556,7 +2675,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
 
               {/* Subtab 1: Runner & Prefix */}
               {compatSubtab === "runner" && (
-                <div className="edit-compat-subtab-content">
+                <div className="edit-subtab-content">
                   {/* Runner Selection Card */}
                   <div className="edit-launch-card">
                     <div className="edit-launch-card-header">
@@ -2774,7 +2893,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
 
               {/* Subtab 2: Graphics & Direct3D */}
               {compatSubtab === "graphics" && (
-                <div className="edit-compat-subtab-content">
+                <div className="edit-subtab-content">
                   <TriStateCard
                     title={t("gameEdit.compatibility.dxvkTitle") || "DXVK (Direct3D 9, 10, 11 to Vulkan)"}
                     desc={t("gameEdit.compatibility.dxvkDesc") || "Vulkan-based translation layer for Direct3D 9/10/11."}
@@ -2915,7 +3034,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
 
               {/* Subtab 3: Gaming Tools & Overlays */}
               {compatSubtab === "tools" && (
-                <div className="edit-compat-subtab-content">
+                <div className="edit-subtab-content">
                   <TriStateCard
                     title={t("gameEdit.compatibility.mangohudTitle") || "MangoHud Performance HUD"}
                     desc={t("gameEdit.compatibility.mangohudDesc") || "Vulkan and OpenGL overlay for monitoring FPS, frametimes, temperatures, and hardware load."}
@@ -3260,7 +3379,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
 
               {/* Subtab 4: Environment & DLL Overrides */}
               {compatSubtab === "env" && (
-                <div className="edit-compat-subtab-content">
+                <div className="edit-subtab-content">
                   {/* Inherited Global Environment Variables */}
                   <div className="edit-launch-card">
                     <div className="edit-launch-card-header">
@@ -3613,7 +3732,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
 
               {/* Subtab 5: Maintenance & Prefix Tools */}
               {compatSubtab === "maintenance" && (
-                <div className="edit-compat-subtab-content">
+                <div className="edit-subtab-content">
                   <div className="edit-launch-card">
                     <div className="edit-launch-card-header">
                       <div className="edit-launch-card-icon edit-launch-icon-secondary">
@@ -3759,7 +3878,7 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
           slot={mediaFetchSlot}
           gameName={editName.trim() || game.name}
           steamAppId={game.steamAppId}
-          onApply={(url) => handleApplyFetchedImage(url)}
+          onApply={(url) => handleApplyFetchedImage(mediaFetchSlot, url)}
           onClose={() => setMediaFetchSlot(null)}
         />
       )}

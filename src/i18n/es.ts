@@ -1859,6 +1859,7 @@ export const es: TranslationDict = {
   "edit.label.version": "Versión",
   "edit.launchArgsHint": "Parámetros de línea de comandos personalizados transmitidos directamente al ejecutable al iniciar.",
   "edit.launchboxImageBrowser": "Navegador de imágenes LaunchBox",
+  "edit.media.fromSources": "Disponibles en las fuentes",
   "edit.metadata": "Metadatos",
   "edit.metadataSearchResults": "Resultados de búsqueda de metadatos",
   "edit.moreDetails": "Más detalles",

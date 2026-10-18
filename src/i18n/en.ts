@@ -1860,6 +1860,7 @@ export const en: TranslationDict = {
   "edit.label.version": "Version",
   "edit.launchArgsHint": "Custom command-line parameters passed directly to the executable on startup.",
   "edit.launchboxImageBrowser": "LaunchBox Image Browser",
+  "edit.media.fromSources": "Available from sources",
   "edit.metadata": "Metadata",
   "edit.metadataSearchResults": "Metadata Search Results",
   "edit.moreDetails": "More details",

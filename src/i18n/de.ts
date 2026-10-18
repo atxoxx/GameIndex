@@ -1859,6 +1859,7 @@ export const de: TranslationDict = {
   "edit.label.version": "Version",
   "edit.launchArgsHint": "Benutzerdefinierte Befehlszeilenparameter, die beim Start direkt an die ausführbare Datei übergeben werden.",
   "edit.launchboxImageBrowser": "LaunchBox Bild-Browser",
+  "edit.media.fromSources": "Verfügbar aus Quellen",
   "edit.metadata": "Metadaten",
   "edit.metadataSearchResults": "Metadaten-Suchergebnisse",
   "edit.moreDetails": "Weitere Details",

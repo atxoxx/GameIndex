@@ -223,6 +223,30 @@ describe("EditGameModal initial tab", () => {
   });
 });
 
+describe("EditGameModal media subtabs", () => {
+  it("opens on Cover and switches the active artwork section", () => {
+    render(<EditGameModal game={makeGame()} initialTab="media" onClose={() => {}} />);
+
+    expect(screen.getByRole("tab", { name: "Cover" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Logo" }));
+
+    expect(screen.getByRole("tab", { name: "Logo" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(screen.getByRole("tab", { name: "Cover" })).toHaveAttribute(
+      "aria-selected",
+      "false"
+    );
+    // The pinned artwork panel follows the subtab: only the logo panel renders.
+    expect(screen.getByText("Title image")).toBeInTheDocument();
+  });
+});
+
 describe("EditGameModal runner selection", () => {
   const runner = {
     id: "steam-proton-9",
@@ -489,13 +513,16 @@ describe("EditGameModal instant artwork save", () => {
     invokeMock.mockImplementation(() => Promise.resolve([]));
   });
 
-  function openMediaTab() {
+  function openMediaTab(subtab?: string) {
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    if (subtab) fireEvent.click(screen.getByRole("tab", { name: subtab }));
   }
 
-  function iconFileButton() {
-    return screen.getAllByRole("button", { name: "File" })[0];
+  // Only the active artwork subtab renders its pinned panel, so there is a
+  // single "File" button on screen at a time.
+  function fileButton() {
+    return screen.getByRole("button", { name: "File" });
   }
 
   it("saves a chosen icon immediately, replacing the existing one", async () => {
@@ -517,7 +544,8 @@ describe("EditGameModal instant artwork save", () => {
       />
     );
     fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(iconFileButton());
+    fireEvent.click(screen.getByRole("tab", { name: "Icon" }));
+    fireEvent.click(fileButton());
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
@@ -569,7 +597,8 @@ describe("EditGameModal instant artwork save", () => {
       />
     );
     fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "File" })[1]);
+    fireEvent.click(screen.getByRole("tab", { name: "Cover" }));
+    fireEvent.click(fileButton());
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
@@ -610,7 +639,8 @@ describe("EditGameModal instant artwork save", () => {
       />
     );
     fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "File" })[2]);
+    fireEvent.click(screen.getByRole("tab", { name: "Hero" }));
+    fireEvent.click(fileButton());
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
@@ -644,7 +674,8 @@ describe("EditGameModal instant artwork save", () => {
       />
     );
     fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "File" })[3]);
+    fireEvent.click(screen.getByRole("tab", { name: "Logo" }));
+    fireEvent.click(fileButton());
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
@@ -690,6 +721,7 @@ describe("EditGameModal instant artwork save", () => {
       />
     );
     fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Logo" }));
     fireEvent.click(screen.getByTitle("Clear this image slot"));
 
     await waitFor(() =>
@@ -715,6 +747,7 @@ describe("EditGameModal instant artwork save", () => {
       />
     );
     fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Logo" }));
     fireEvent.click(screen.getByTitle("Clear this image slot"));
 
     await waitFor(() =>
@@ -741,8 +774,8 @@ describe("EditGameModal instant artwork save", () => {
       return Promise.resolve(null);
     });
 
-    openMediaTab();
-    fireEvent.click(iconFileButton());
+    openMediaTab("Icon");
+    fireEvent.click(fileButton());
 
     await waitFor(() =>
       expect(showToastMock).toHaveBeenCalledWith("Failed to load image", "error")

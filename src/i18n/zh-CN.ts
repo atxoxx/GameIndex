@@ -1859,6 +1859,7 @@ export const zhCN: TranslationDict = {
   "edit.label.version": "版本",
   "edit.launchArgsHint": "启动时直接传递给可执行文件的自定义命令行参数。",
   "edit.launchboxImageBrowser": "LaunchBox 图片图库",
+  "edit.media.fromSources": "来自各来源的可用图片",
   "edit.metadata": "元数据",
   "edit.metadataSearchResults": "元数据搜索结果",
   "edit.moreDetails": "更多详情",
