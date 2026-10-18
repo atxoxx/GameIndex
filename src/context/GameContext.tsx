@@ -111,6 +111,16 @@ interface LiveElapsedValue {
   getSnapshot: () => Record<string, number>;
 }
 
+// Narrow subscription surface for the running game id list. The watcher's
+// session events update it through `useSessions`; keeping the id list OUT of
+// a wide subscription lets shell-level consumers (the app shell itself,
+// Discord presence, tray bridges) observe it without re-rendering on
+// unrelated library mutations.
+interface RunningIdsValue {
+  subscribe: (cb: () => void) => () => void;
+  getSnapshot: () => string[];
+}
+
 // Stable action surface for library cards. A `React.memo` card can't bail out
 // on context changes, and `GameContext`'s value changes on every enrichment
 // patch, so cards read their launch/enrich actions from here instead. The
@@ -138,6 +148,7 @@ const globalGameObj = globalThis as unknown as {
   __gamelib_game_by_id_context__?: React.Context<GameByIdValue | null>;
   __gamelib_live_elapsed_context__?: React.Context<LiveElapsedValue | null>;
   __gamelib_game_card_actions_context__?: React.Context<GameCardActions | null>;
+  __gamelib_running_ids_context__?: React.Context<RunningIdsValue | null>;
 };
 const GameContext =
   globalGameObj.__gamelib_game_context__ ??
@@ -154,6 +165,10 @@ const LiveElapsedContext =
 const GameCardActionsContext =
   globalGameObj.__gamelib_game_card_actions_context__ ??
   (globalGameObj.__gamelib_game_card_actions_context__ = createContext<GameCardActions | null>(null));
+
+const RunningIdsContext =
+  globalGameObj.__gamelib_running_ids_context__ ??
+  (globalGameObj.__gamelib_running_ids_context__ = createContext<RunningIdsValue | null>(null));
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 
@@ -401,6 +416,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
       getSnapshot: () => sessions.liveElapsed,
     }),
     [subscribeLiveElapsed, sessions.liveElapsed]
+  );
+
+  // ── Running id narrow subscriptions ─────────────────────────────
+  // Same fan-out pattern as liveElapsed: subscribers are notified exactly
+  // when the running-ids reference changes (game start/exit), so shell-level
+  // consumers don't need the wide context.
+  const runningIdsSubsRef = useRef(new Set<() => void>());
+
+  useEffect(() => {
+    const subs = runningIdsSubsRef.current;
+    for (const cb of subs) cb();
+  }, [sessions.runningGameIds]);
+
+  const subscribeRunningIds = useCallback((cb: () => void) => {
+    runningIdsSubsRef.current.add(cb);
+    return () => {
+      runningIdsSubsRef.current.delete(cb);
+    };
+  }, []);
+
+  const runningIdsValue = useMemo<RunningIdsValue>(
+    () => ({
+      subscribe: subscribeRunningIds,
+      getSnapshot: () => sessions.runningGameIds,
+    }),
+    [subscribeRunningIds, sessions.runningGameIds]
   );
 
   // ── Launch: launchGame / forceCloseGame / splash timers ─────────
@@ -897,7 +938,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       <GameByIdContext.Provider value={gameByIdValue}>
         <GameCardActionsContext.Provider value={gameCardActions}>
           <LiveElapsedContext.Provider value={liveElapsedValue}>
-            {children}
+            <RunningIdsContext.Provider value={runningIdsValue}>
+              {children}
+            </RunningIdsContext.Provider>
           </LiveElapsedContext.Provider>
         </GameCardActionsContext.Provider>
       </GameByIdContext.Provider>
@@ -921,6 +964,26 @@ export function useOptionalGames(): GameContextType | null {
 export function useRunningGames(): string[] {
   const { runningGameIds } = useGames();
   return runningGameIds;
+}
+
+const EMPTY_RUNNING_IDS: string[] = [];
+
+/**
+ * Narrow selector: running game ids via `useSyncExternalStore`. Re-renders the
+ * consumer only when a game starts/exits — never on library mutations,
+ * enrichment patches or playtime bumps. Must sit inside `GameProvider`.
+ */
+export function useRunningIds(): string[] {
+  const value = useContext(RunningIdsContext);
+  if (!value) {
+    throw new Error("useRunningIds must be used within a GameProvider");
+  }
+  const subscribe = useCallback(
+    (cb: () => void) => value.subscribe(cb),
+    [value]
+  );
+  const getSnapshot = useCallback(() => value.getSnapshot(), [value]);
+  return useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_RUNNING_IDS);
 }
 
 /**

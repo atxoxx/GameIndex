@@ -10,7 +10,7 @@ import ResizeHandles from "./components/ResizeHandles";
 // the desktop initial bundle entirely.
 const BigScreenLayout = lazy(() => import("./components/BigScreenLayout"));
 import { BIGSCREEN_ROUTE_PAIRS, ShellSwitch } from "./bigscreen/registry";
-import { GameProvider, useGames } from "./context/GameContext";
+import { GameProvider, useRunningIds } from "./context/GameContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { WishlistProvider } from "./context/WishlistContext";
@@ -116,12 +116,24 @@ function PageLoadingFallback() {
   );
 }
 
-function AppShell() {
+/**
+ * ShellBridges — zero-JSX side-effect components (Discord Rich Presence,
+ * tray navigation + tray strings) that used to run inline inside AppShell.
+ * Every one of them subscribes to high-frequency contexts (downloads,
+ * games, achievements); keeping them out of AppShell means a download
+ * progress tick or enrichment patch re-renders only these leaf components
+ * instead of the whole shell + route tree.
+ */
+function ShellBridges() {
   useDiscordPresence();
   useTrayNavigation();
   useTrayStrings();
+  return null;
+}
+
+function AppShell() {
   const { isBigScreen } = useBigScreen();
-  const { runningGameIds } = useGames();
+  const runningGameIds = useRunningIds();
 
   useEffect(() => {
     // The main window is created hidden and revealed once the library has
@@ -235,6 +247,7 @@ function App() {
                                               <SetupWizardProvider>
                                                 <AdaptiveThemeSync />
                                                 <GameAccentSync />
+                                                <ShellBridges />
                                                 <AppShell />
                                                 <SetupWizard />
                                                 <UpdateModal />
