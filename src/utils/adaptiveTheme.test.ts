@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  applyAdaptiveTheme,
   deriveAdaptiveTheme,
   DEFAULT_ADAPTIVE_COLORS,
+  sampledPaletteClose,
   samplePixelData,
 } from "./adaptiveTheme";
 import { contrastRatio, luminance } from "./color";
@@ -74,6 +76,102 @@ describe("samplePixelData", () => {
     const sampled = samplePixelData(black, 4);
     expect(sampled.dominant).toEqual({ r: 0, g: 0, b: 0 });
     expect(sampled.average).toEqual({ r: 0, g: 0, b: 0 });
+  });
+
+  it("ignores black letterbox bars when picking the dominant color", () => {
+    // Wide hero art with black bars top and bottom and an orange subject.
+    const rows: Array<[number, number, number]> = [
+      [0, 0, 0],
+      [0, 0, 0],
+      [230, 120, 20],
+      [230, 120, 20],
+      [230, 120, 20],
+      [230, 120, 20],
+      [0, 0, 0],
+      [0, 0, 0],
+    ];
+    const sampled = samplePixelData(rgbaImage(rows), 8);
+    expect(sampled.dominant.r).toBeGreaterThan(180);
+    expect(sampled.dominant.g).toBeGreaterThan(60);
+    expect(sampled.dominant.b).toBeLessThan(90);
+  });
+
+  it("ignores white matte bars when picking the dominant color", () => {
+    const rows: Array<[number, number, number]> = [
+      [255, 255, 255],
+      [255, 255, 255],
+      [20, 70, 220],
+      [20, 70, 220],
+      [20, 70, 220],
+      [20, 70, 220],
+      [255, 255, 255],
+      [255, 255, 255],
+    ];
+    const sampled = samplePixelData(rgbaImage(rows), 8);
+    expect(sampled.dominant.b).toBeGreaterThan(150);
+    expect(sampled.dominant.r).toBeLessThan(120);
+  });
+});
+
+describe("sampledPaletteClose", () => {
+  const red = { dominant: { r: 220, g: 30, b: 25 }, average: { r: 40, g: 20, b: 20 } };
+
+  it("treats a near-identical palette as a continuation", () => {
+    expect(
+      sampledPaletteClose(red, {
+        dominant: { r: 225, g: 40, b: 30 },
+        average: { r: 44, g: 24, b: 22 },
+      })
+    ).toBe(true);
+  });
+
+  it("treats a different hue as a real change", () => {
+    expect(
+      sampledPaletteClose(red, {
+        dominant: { r: 20, g: 70, b: 220 },
+        average: { r: 20, g: 30, b: 60 },
+      })
+    ).toBe(false);
+  });
+});
+
+describe("applyAdaptiveTheme", () => {
+  function fakeRoot() {
+    const store = new Map<string, string>();
+    const writes: string[] = [];
+    const root = {
+      style: {
+        getPropertyValue: (key: string) => store.get(key) ?? "",
+        setProperty: (key: string, value: string) => {
+          writes.push(key);
+          store.set(key, value);
+        },
+        removeProperty: (key: string) => {
+          writes.push(key);
+          store.delete(key);
+        },
+      },
+    } as unknown as HTMLElement;
+    return { root, writes };
+  }
+
+  it("skips writes when the tokens are unchanged", () => {
+    const tokens = deriveAdaptiveTheme(DEFAULT_ADAPTIVE_COLORS);
+    const { root, writes } = fakeRoot();
+    applyAdaptiveTheme(root, tokens);
+    const initialWrites = writes.length;
+    expect(initialWrites).toBeGreaterThan(0);
+
+    applyAdaptiveTheme(root, tokens);
+    expect(writes.length).toBe(initialWrites);
+  });
+
+  it("still applies a changed token", () => {
+    const tokens = deriveAdaptiveTheme(DEFAULT_ADAPTIVE_COLORS);
+    const { root } = fakeRoot();
+    applyAdaptiveTheme(root, tokens);
+    applyAdaptiveTheme(root, { ...tokens, "--color-accent": "#ff0000" });
+    expect(root.style.getPropertyValue("--color-accent")).toBe("#ff0000");
   });
 });
 

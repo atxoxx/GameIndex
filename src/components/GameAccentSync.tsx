@@ -3,7 +3,38 @@ import { useSettings } from "../context/SettingsContext";
 import { useTheme } from "../context/ThemeContext";
 import { useActiveGameArtwork } from "../utils/activeGameArtwork";
 import { useGameAccent, type GameAccentPalette } from "../hooks/useGameAccent";
-import { applyAccentFamily, applyGameAccentFamily } from "../utils/color";
+import {
+  applyAccentFamily,
+  applyGameAccentFamily,
+  parseCssColor,
+  sampledColorsClose,
+} from "../utils/color";
+
+/**
+ * True when the newly extracted accent palette is a perceptual continuation of
+ * the applied one — used to skip a needless re-application (and the subtle
+ * colour drift it causes) when two covers share a similar identity.
+ */
+function accentPalettesClose(
+  prev: GameAccentPalette,
+  next: GameAccentPalette
+): boolean {
+  const prevPrimary = parseCssColor(prev.primary);
+  const nextPrimary = parseCssColor(next.primary);
+  if (!prevPrimary || !nextPrimary) return false;
+  if (!sampledColorsClose(prevPrimary, nextPrimary, 12, 0.1, 0.1)) return false;
+
+  const prevSecondary = parseCssColor(prev.secondary);
+  const nextSecondary = parseCssColor(next.secondary);
+  if (
+    prevSecondary &&
+    nextSecondary &&
+    !sampledColorsClose(prevSecondary, nextSecondary, 20, 0.15, 0.15)
+  ) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * GameAccentSync
@@ -45,6 +76,16 @@ export function GameAccentSync() {
     }
 
     if (palette) {
+      // Similar artwork keeps the applied family — no visible drift between
+      // covers that share a palette. The ref keeps the applied palette, not
+      // the latest sample, so a chain of near-identical covers cannot drift.
+      if (
+        lastAppliedPaletteRef.current &&
+        accentPalettesClose(lastAppliedPaletteRef.current, palette)
+      ) {
+        root.dataset.gameAccent = "true";
+        return;
+      }
       applyGameAccentFamily(root, palette);
       root.dataset.gameAccent = "true";
       lastAppliedPaletteRef.current = palette;

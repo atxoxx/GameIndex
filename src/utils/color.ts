@@ -380,9 +380,31 @@ function chromaOf({ r, g, b }: RgbColor): number {
 }
 
 /** Shortest angular hue distance (0–180°) between two HSL hues. */
-function hueDistance(h1: number, h2: number): number {
+export function hueDistance(h1: number, h2: number): number {
   const d = Math.abs(h1 - h2);
   return Math.min(d, 360 - d);
+}
+
+/**
+ * True when two colors are perceptually a continuation of each other:
+ * hue within `hueTol°`, saturation within `satTol` and lightness within
+ * `lumTol` (both 0–1). Used as palette hysteresis so near-identical
+ * artwork does not produce a needless token drift.
+ */
+export function sampledColorsClose(
+  prev: RgbColor,
+  next: RgbColor,
+  hueTol = 12,
+  satTol = 0.08,
+  lumTol = 0.08
+): boolean {
+  const a = rgbToHsl(prev);
+  const b = rgbToHsl(next);
+  return (
+    hueDistance(a.h, b.h) <= hueTol &&
+    Math.abs(a.s - b.s) <= satTol &&
+    Math.abs(a.l - b.l) <= lumTol
+  );
 }
 
 /**

@@ -6,7 +6,9 @@ import {
   applyAdaptiveTheme,
   DEFAULT_ADAPTIVE_COLORS,
   deriveAdaptiveTheme,
+  sampledPaletteClose,
   sampleArtworkColors,
+  type SampledColors,
 } from "../utils/adaptiveTheme";
 
 /**
@@ -67,6 +69,7 @@ export function OverlayAdaptiveTheme() {
 
   const lastAppliedTokensRef = useRef<Record<string, string> | null>(null);
   const lastSampledUrlRef = useRef<string | null>(null);
+  const lastSampledColorsRef = useRef<SampledColors | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -74,6 +77,7 @@ export function OverlayAdaptiveTheme() {
     if (!isAdaptive) {
       applyAdaptiveTheme(root, null);
       lastSampledUrlRef.current = null;
+      lastSampledColorsRef.current = null;
       return;
     }
 
@@ -103,9 +107,18 @@ export function OverlayAdaptiveTheme() {
         applyAdaptiveTheme(root, lastAppliedTokensRef.current);
         return;
       }
+      if (
+        lastAppliedTokensRef.current &&
+        lastSampledColorsRef.current &&
+        sampledPaletteClose(lastSampledColorsRef.current, sampled)
+      ) {
+        applyAdaptiveTheme(root, lastAppliedTokensRef.current);
+        return;
+      }
       const tokens = deriveAdaptiveTheme(sampled);
       lastAppliedTokensRef.current = tokens;
       lastSampledUrlRef.current = targetArtworkUrl;
+      lastSampledColorsRef.current = sampled;
       applyAdaptiveTheme(root, tokens);
     });
 

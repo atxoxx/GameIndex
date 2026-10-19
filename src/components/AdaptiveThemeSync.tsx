@@ -11,7 +11,9 @@ import {
   applyAdaptiveTheme,
   DEFAULT_ADAPTIVE_COLORS,
   deriveAdaptiveTheme,
+  sampledPaletteClose,
   sampleArtworkColors,
+  type SampledColors,
 } from "../utils/adaptiveTheme";
 
 export const ADAPTIVE_PALETTE_STORAGE_KEY = "gamelib_adaptive_palette";
@@ -117,6 +119,7 @@ export function AdaptiveThemeSync() {
 
   const lastAppliedTokensRef = useRef<Record<string, string> | null>(null);
   const lastSampledUrlRef = useRef<string | null>(null);
+  const lastSampledColorsRef = useRef<SampledColors | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -124,6 +127,7 @@ export function AdaptiveThemeSync() {
     if (!isAdaptive) {
       applyAdaptiveTheme(root, null);
       lastSampledUrlRef.current = null;
+      lastSampledColorsRef.current = null;
       return;
     }
 
@@ -155,9 +159,23 @@ export function AdaptiveThemeSync() {
         applyAdaptiveTheme(root, lastAppliedTokensRef.current);
         return;
       }
+      // Hysteresis: artwork that is perceptually a continuation of the
+      // applied palette keeps the current tokens, so browsing similar covers
+      // does not produce a small distracting drift. The sampled refs keep
+      // pointing at the applied palette so a chain of near-identical covers
+      // can never drift away from what is actually on screen.
+      if (
+        lastAppliedTokensRef.current &&
+        lastSampledColorsRef.current &&
+        sampledPaletteClose(lastSampledColorsRef.current, sampled)
+      ) {
+        applyAdaptiveTheme(root, lastAppliedTokensRef.current);
+        return;
+      }
       const tokens = deriveAdaptiveTheme(sampled);
       lastAppliedTokensRef.current = tokens;
       lastSampledUrlRef.current = targetArtworkUrl;
+      lastSampledColorsRef.current = sampled;
       applyAdaptiveTheme(root, tokens);
       persistAdaptivePalette(tokens);
     });

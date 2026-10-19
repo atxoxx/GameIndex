@@ -18,6 +18,7 @@ import {
   medianCutQuantize,
   rgbToHex,
   rgbToHsl,
+  sampledColorsClose,
   selectGamePalette,
   textColorFor,
   type RgbColor,
@@ -164,16 +165,31 @@ export function samplePixelData(
       const dy = y - size / 2;
       const distWeight = 1 + (size - Math.hypot(dx, dy)) / size;
       const chroma = Math.max(r, g, b) - Math.min(r, g, b);
-      // Center bias + vibrancy weight so letterbox bars and dull fills lose
-      // out to the actual subject; the average is chroma-free (center bias
-      // only) because it is the ambient tone.
-      const w = distWeight * (1 + (chroma / 255) * 1.5);
-      pixels.push({ r, g, b, w });
+      const avg = (r + g + b) / 3;
+      // Letterbox / dead bars: near-black or near-white pixels with no chroma
+      // carry no artwork identity. They are excluded from the dominant-cluster
+      // vote (otherwise wide hero bars spend median-cut boxes on empty space)
+      // but stay in the ambient average at a quarter weight, so a genuinely
+      // dark cover still reads dark.
+      const dead =
+        (chroma < 14 && avg < 30) || (chroma < 8 && avg > 232);
+      if (!dead) {
+        // Center bias + vibrancy weight so letterbox bars and dull fills lose
+        // out to the actual subject; the average is chroma-free (center bias
+        // only) because it is the ambient tone.
+        pixels.push({
+          r,
+          g,
+          b,
+          w: distWeight * (1 + (chroma / 255) * 1.5),
+        });
+      }
 
-      avgR += r * distWeight;
-      avgG += g * distWeight;
-      avgB += b * distWeight;
-      avgCount += distWeight;
+      const avgWeight = dead ? distWeight * 0.25 : distWeight;
+      avgR += r * avgWeight;
+      avgG += g * avgWeight;
+      avgB += b * avgWeight;
+      avgCount += avgWeight;
     }
   }
 
@@ -258,6 +274,24 @@ export function sampleArtworkColors(imageUrl: string): Promise<SampledColors | n
 
     img.src = imageUrl;
   });
+}
+
+/**
+ * Palette hysteresis: true when the freshly sampled artwork is perceptually a
+ * continuation of the currently applied palette. Callers keep their present
+ * tokens in that case, so browsing between similar covers does not produce a
+ * small, distracting drift — the crossfade only runs when the artwork really
+ * changed character (dominant hue within 12°, saturation/lightness within
+ * 0.08, and the ambient average must agree too).
+ */
+export function sampledPaletteClose(
+  prev: SampledColors,
+  next: SampledColors
+): boolean {
+  return (
+    sampledColorsClose(prev.dominant, next.dominant) &&
+    sampledColorsClose(prev.average, next.average, 20, 0.12, 0.12)
+  );
 }
 
 /**
@@ -414,6 +448,11 @@ export function applyAdaptiveTheme(
   }
 
   for (const [key, value] of Object.entries(tokens)) {
-    root.style.setProperty(key, value);
+    // Only touch properties that actually changed — re-setting an identical
+    // inline value still dirties the style recalc, which runs on every
+    // navigation of the theme-sync effects.
+    if (root.style.getPropertyValue(key) !== value) {
+      root.style.setProperty(key, value);
+    }
   }
 }
