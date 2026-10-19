@@ -65,6 +65,143 @@ export function rgbToHex({ r, g, b }: RgbColor): string {
     .join("")}`;
 }
 
+export interface RgbaColor extends RgbColor {
+  a: number;
+}
+
+/**
+ * Parse a concrete CSS color (`#rgb[a]`, `#rrggbb[aa]`, `rgb()` or `rgba()`)
+ * into RGBA. Unlike `parseCssColor`, alpha is preserved and unparseable
+ * token streams return `null` — the adaptive crossfade uses this to read
+ * back the exact colour it last painted.
+ */
+export function parseRgbaColor(value: string): RgbaColor | null {
+  const v = value.trim();
+  if (!v) return null;
+
+  if (/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v)) {
+    let h = v.slice(1);
+    if (h.length === 3 || h.length === 4) {
+      h = h
+        .split("")
+        .map((c) => c + c)
+        .join("");
+    }
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+      a: h.length === 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1,
+    };
+  }
+
+  const m = v.match(
+    /^rgba?\(\s*([\d.]+%?)\s*[, ]\s*([\d.]+%?)\s*[, ]\s*([\d.]+%?)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/i
+  );
+  if (!m) return null;
+  const channel = (s: string) =>
+    s.endsWith("%") ? (parseFloat(s) / 100) * 255 : parseFloat(s);
+  const alpha = m[4]
+    ? m[4].endsWith("%")
+      ? parseFloat(m[4]) / 100
+      : parseFloat(m[4])
+    : 1;
+  return {
+    r: channel(m[1]),
+    g: channel(m[2]),
+    b: channel(m[3]),
+    a: Math.min(1, Math.max(0, alpha)),
+  };
+}
+
+export interface OklabColor {
+  l: number;
+  a: number;
+  b: number;
+}
+
+function srgbChannelToLinear(c: number): number {
+  const s = c / 255;
+  return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+}
+
+function linearChannelToSrgb(c: number): number {
+  const v = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  return Math.min(255, Math.max(0, v * 255));
+}
+
+/** Convert sRGB to OKLab (Björn Ottosson's perceptual space). */
+export function rgbToOklab({ r, g, b }: RgbColor): OklabColor {
+  const lr = srgbChannelToLinear(r);
+  const lg = srgbChannelToLinear(g);
+  const lb = srgbChannelToLinear(b);
+
+  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb);
+  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb);
+  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb);
+
+  return {
+    l: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    a: 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    b: 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  };
+}
+
+/** Convert OKLab back to sRGB (unclamped channels, clamped by callers). */
+export function oklabToRgb({ l, a, b }: OklabColor): RgbColor {
+  const l_ = l + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = l - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = l - 0.0894841775 * a - 1.291485548 * b;
+
+  const lc = l_ * l_ * l_;
+  const mc = m_ * m_ * m_;
+  const sc = s_ * s_ * s_;
+
+  return {
+    r: linearChannelToSrgb(
+      4.0767416621 * lc - 3.3077115913 * mc + 0.2309699292 * sc
+    ),
+    g: linearChannelToSrgb(
+      -1.2684380046 * lc + 2.6097574011 * mc - 0.3413193965 * sc
+    ),
+    b: linearChannelToSrgb(
+      -0.0041960863 * lc - 0.7034186147 * mc + 1.707614701 * sc
+    ),
+  };
+}
+
+/**
+ * Mix two colours in OKLab, preserving perceptual hue/chroma much better than
+ * gamma-encoded sRGB (which drags opposite hues through a muddy grey).
+ * Alpha is mixed linearly.
+ */
+export function mixOklabColors(
+  from: RgbaColor,
+  to: RgbaColor,
+  t: number
+): RgbaColor {
+  const k = Math.min(1, Math.max(0, t));
+  if (k === 0) return from;
+  if (k === 1) return to;
+  const a = rgbToOklab(from);
+  const b = rgbToOklab(to);
+  const rgb = oklabToRgb({
+    l: a.l + (b.l - a.l) * k,
+    a: a.a + (b.a - a.a) * k,
+    b: a.b + (b.b - a.b) * k,
+  });
+  return { ...rgb, a: from.a + (to.a - from.a) * k };
+}
+
+/** Serialize RGBA as a CSS colour, dropping the alpha channel when opaque. */
+export function rgbaToCss({ r, g, b, a }: RgbaColor): string {
+  const clamp = (v: number) => Math.min(255, Math.max(0, Math.round(v)));
+  const alpha = Math.round(Math.min(1, Math.max(0, a)) * 1000) / 1000;
+  return alpha >= 1
+    ? `rgb(${clamp(r)}, ${clamp(g)}, ${clamp(b)})`
+    : `rgba(${clamp(r)}, ${clamp(g)}, ${clamp(b)}, ${alpha})`;
+}
+
 /**
  * Lighten an RGB color by mixing it with white.
  * @param factor 0–1 where 0 = no change, 1 = full white.

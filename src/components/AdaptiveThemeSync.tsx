@@ -9,6 +9,8 @@ import {
 } from "../utils/activeGameArtwork";
 import {
   applyAdaptiveTheme,
+  cancelAdaptiveThemeCrossfade,
+  crossfadeAdaptiveTheme,
   DEFAULT_ADAPTIVE_COLORS,
   deriveAdaptiveTheme,
   sampledPaletteClose,
@@ -125,6 +127,7 @@ export function AdaptiveThemeSync() {
     const root = document.documentElement;
 
     if (!isAdaptive) {
+      cancelAdaptiveThemeCrossfade();
       applyAdaptiveTheme(root, null);
       lastSampledUrlRef.current = null;
       lastSampledColorsRef.current = null;
@@ -176,7 +179,7 @@ export function AdaptiveThemeSync() {
       lastAppliedTokensRef.current = tokens;
       lastSampledUrlRef.current = targetArtworkUrl;
       lastSampledColorsRef.current = sampled;
-      applyAdaptiveTheme(root, tokens);
+      crossfadeAdaptiveTheme(root, tokens);
       persistAdaptivePalette(tokens);
     });
 
@@ -184,6 +187,9 @@ export function AdaptiveThemeSync() {
       cancelled = true;
     };
   }, [isAdaptive, targetArtworkUrl]);
+
+  // Stop a rAF-driven crossfade if the app unmounts mid-fade.
+  useEffect(() => () => cancelAdaptiveThemeCrossfade(), []);
 
   return null;
 }

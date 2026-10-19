@@ -16,12 +16,16 @@ import {
   hslToRgb,
   luminance,
   medianCutQuantize,
+  mixOklabColors,
+  parseRgbaColor,
   rgbToHex,
   rgbToHsl,
+  rgbaToCss,
   sampledColorsClose,
   selectGamePalette,
   textColorFor,
   type RgbColor,
+  type RgbaColor,
   type WeightedPixel,
 } from "./color";
 
@@ -128,6 +132,53 @@ export const ADAPTIVE_THEME_KEYS: readonly string[] = [
   "--color-focus-ring",
   "--shadow-glow",
 ];
+
+/**
+ * Tokens the adaptive crossfade interpolates itself. Everything else the
+ * theme writes is an alias (`var(--color-bg-secondary)`) or a `color-mix()`
+ * over one of these, so it follows the animated source without a second,
+ * lagging easing pass.
+ */
+export const ADAPTIVE_CROSSFADE_KEYS: readonly string[] = [
+  "--color-bg-primary",
+  "--color-bg-secondary",
+  "--color-bg-tertiary",
+  "--color-bg-hover",
+  "--color-bg-active",
+  "--color-surface-overlay",
+  "--color-surface-glass",
+  "--color-text-primary",
+  "--color-text-secondary",
+  "--color-text-tertiary",
+  "--color-text-muted",
+  "--color-text-inverse",
+  "--color-accent",
+  "--color-accent-2",
+  "--color-accent-deep",
+  "--color-accent-contrast",
+];
+
+const ANIMATED_KEY_SET = new Set(ADAPTIVE_CROSSFADE_KEYS);
+
+/**
+ * Marks the document while the adaptive palette is moving. Descendants with
+ * their own `transition: background/color …` rules would otherwise restart a
+ * short transition on every frame of the inherited token change, lagging
+ * behind the fade and arriving at different times.
+ */
+const CROSSFADE_CLASS = "adaptive-palette-crossfade";
+
+/**
+ * Palette crossfade duration. Long enough for the eye to follow a hue change,
+ * short enough that it still reads as a reaction to navigation. The matching
+ * `--duration-palette` in theme.css covers accent picks outside Adaptive.
+ */
+export const ADAPTIVE_CROSSFADE_MS = 700;
+
+/** Symmetric acceleration/deceleration — no snap-then-crawl tail. */
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
 
 /** Sample size for the off-DOM canvas — 48×48 keeps the per-pixel pass
  *  (~2 300 weighted pixels) negligible while preserving color identity. */
@@ -381,13 +432,13 @@ export function deriveAdaptiveTheme(sampled: SampledColors): Record<string, stri
     "--color-bg-hover": bgHoverHex,
     "--color-bg-active": bgActiveHex,
 
-    "--color-surface": bgSecondaryHex,
-    "--color-surface-raised": bgTertiaryHex,
+    "--color-surface": "var(--color-bg-secondary)",
+    "--color-surface-raised": "var(--color-bg-tertiary)",
     "--color-surface-overlay": `rgba(${Math.round(bgPrimaryRgb.r)}, ${Math.round(bgPrimaryRgb.g)}, ${Math.round(bgPrimaryRgb.b)}, 0.92)`,
     "--color-surface-glass": `rgba(${secR}, ${secG}, ${secB}, 0.74)`,
 
-    "--color-bg-card": bgSecondaryHex,
-    "--color-bg-elevated": bgTertiaryHex,
+    "--color-bg-card": "var(--color-bg-secondary)",
+    "--color-bg-elevated": "var(--color-bg-tertiary)",
 
     "--color-border": "color-mix(in srgb, var(--color-text-primary) 10%, transparent)",
     "--color-border-light": "color-mix(in srgb, var(--color-text-primary) 14%, transparent)",
@@ -431,8 +482,25 @@ export function deriveAdaptiveTheme(sampled: SampledColors): Record<string, stri
   };
 }
 
+/** Write tokens, skipping unchanged values (re-setting an identical inline
+ *  value still dirties the style recalc on every theme-sync pass). */
+function writeTokens(
+  root: HTMLElement,
+  tokens: Record<string, string>,
+  skip?: ReadonlySet<string>
+): void {
+  for (const [key, value] of Object.entries(tokens)) {
+    if (skip?.has(key)) continue;
+    if (root.style.getPropertyValue(key) !== value) {
+      root.style.setProperty(key, value);
+    }
+  }
+}
+
 /**
  * Apply or remove adaptive theme tokens on an element (typically documentElement).
+ *
+ * Instant by design — use `crossfadeAdaptiveTheme` for artwork changes.
  */
 export function applyAdaptiveTheme(
   root: HTMLElement,
@@ -441,18 +509,139 @@ export function applyAdaptiveTheme(
   if (!root) return;
 
   if (!tokens) {
+    cancelAdaptiveThemeCrossfade();
+    root.classList?.remove(CROSSFADE_CLASS);
     for (const key of ADAPTIVE_THEME_KEYS) {
       root.style.removeProperty(key);
     }
     return;
   }
 
-  for (const [key, value] of Object.entries(tokens)) {
-    // Only touch properties that actually changed — re-setting an identical
-    // inline value still dirties the style recalc, which runs on every
-    // navigation of the theme-sync effects.
-    if (root.style.getPropertyValue(key) !== value) {
-      root.style.setProperty(key, value);
-    }
+  writeTokens(root, tokens);
+}
+
+let activeCrossfade: { root: HTMLElement; raf: number } | null = null;
+
+/** Stop an in-flight palette crossfade, leaving the colours where they are. */
+export function cancelAdaptiveThemeCrossfade(): void {
+  if (!activeCrossfade) return;
+  if (typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(activeCrossfade.raf);
   }
+  activeCrossfade.root.classList?.remove(CROSSFADE_CLASS);
+  activeCrossfade = null;
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/** Read the colour currently painted for a token, inlining or computed. */
+function readRenderedColor(root: HTMLElement, key: string): RgbaColor | null {
+  const inline = root.style.getPropertyValue(key);
+  if (inline) {
+    const parsed = parseRgbaColor(inline);
+    if (parsed) return parsed;
+  }
+  try {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.getComputedStyle === "function"
+    ) {
+      return parseRgbaColor(
+        window.getComputedStyle(root).getPropertyValue(key)
+      );
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
+/**
+ * Crossfade the adaptive palette to `tokens`.
+ *
+ * CSS transitions of registered custom properties interpolate legacy colours
+ * in gamma-encoded sRGB, and every derived `color-mix()` token would then
+ * chase the accent with its own transition — a hue change drags through muddy
+ * grey and arrives unevenly. This runs the fade in OKLab at one rAF cadence
+ * with a symmetric curve instead, starting from the colour currently painted
+ * so an interrupted change never jumps backwards. Only the source tokens are
+ * written each frame; aliases and `color-mix()` tokens follow automatically.
+ */
+export function crossfadeAdaptiveTheme(
+  root: HTMLElement,
+  tokens: Record<string, string>,
+  durationMs: number = ADAPTIVE_CROSSFADE_MS
+): void {
+  cancelAdaptiveThemeCrossfade();
+  if (!root) return;
+
+  if (
+    prefersReducedMotion() ||
+    typeof requestAnimationFrame !== "function" ||
+    (typeof document !== "undefined" && document.hidden)
+  ) {
+    applyAdaptiveTheme(root, tokens);
+    return;
+  }
+
+  const from = new Map<string, RgbaColor>();
+  const to = new Map<string, RgbaColor>();
+  for (const key of ADAPTIVE_CROSSFADE_KEYS) {
+    const target = parseRgbaColor(tokens[key] ?? "");
+    if (!target) {
+      // A token we cannot parse cannot be interpolated; never half-fade it.
+      applyAdaptiveTheme(root, tokens);
+      return;
+    }
+    to.set(key, target);
+    from.set(key, readRenderedColor(root, key) ?? target);
+  }
+
+  writeTokens(root, tokens, ANIMATED_KEY_SET);
+  root.classList?.add(CROSSFADE_CLASS);
+
+  let startedAt: number | null = null;
+  const tick = (now: number) => {
+    if (startedAt === null) startedAt = now;
+    const progress =
+      durationMs <= 0
+        ? 1
+        : Math.min(1, Math.max(0, (now - startedAt) / durationMs));
+    const eased = easeInOutCubic(progress);
+
+    for (const key of ADAPTIVE_CROSSFADE_KEYS) {
+      const start = from.get(key)!;
+      const end = to.get(key)!;
+      // Contrast text is a binary white/black choice. Easing it through grey
+      // for the whole fade looks dirty and dips below readable contrast, so
+      // flip it once at the midpoint instead.
+      const color =
+        key === "--color-accent-contrast"
+          ? progress < 0.5
+            ? start
+            : end
+          : mixOklabColors(start, end, eased);
+      const value = rgbaToCss(color);
+      if (root.style.getPropertyValue(key) !== value) {
+        root.style.setProperty(key, value);
+      }
+    }
+
+    if (progress < 1) {
+      activeCrossfade = { root, raf: requestAnimationFrame(tick) };
+    } else {
+      activeCrossfade = null;
+      root.classList?.remove(CROSSFADE_CLASS);
+      // Land on the exact declared values (not re-serialized rounded ones).
+      writeTokens(root, tokens);
+    }
+  };
+
+  activeCrossfade = { root, raf: requestAnimationFrame(tick) };
 }

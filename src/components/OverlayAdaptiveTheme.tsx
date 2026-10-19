@@ -4,6 +4,8 @@ import { useGames } from "../context/GameContext";
 import { useActiveGameArtwork } from "../utils/activeGameArtwork";
 import {
   applyAdaptiveTheme,
+  cancelAdaptiveThemeCrossfade,
+  crossfadeAdaptiveTheme,
   DEFAULT_ADAPTIVE_COLORS,
   deriveAdaptiveTheme,
   sampledPaletteClose,
@@ -75,6 +77,7 @@ export function OverlayAdaptiveTheme() {
     const root = document.documentElement;
 
     if (!isAdaptive) {
+      cancelAdaptiveThemeCrossfade();
       applyAdaptiveTheme(root, null);
       lastSampledUrlRef.current = null;
       lastSampledColorsRef.current = null;
@@ -119,13 +122,15 @@ export function OverlayAdaptiveTheme() {
       lastAppliedTokensRef.current = tokens;
       lastSampledUrlRef.current = targetArtworkUrl;
       lastSampledColorsRef.current = sampled;
-      applyAdaptiveTheme(root, tokens);
+      crossfadeAdaptiveTheme(root, tokens);
     });
 
     return () => {
       cancelled = true;
     };
   }, [isAdaptive, targetArtworkUrl]);
+
+  useEffect(() => () => cancelAdaptiveThemeCrossfade(), []);
 
   return null;
 }

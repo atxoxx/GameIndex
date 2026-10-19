@@ -1,6 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
+  ADAPTIVE_CROSSFADE_KEYS,
   applyAdaptiveTheme,
+  cancelAdaptiveThemeCrossfade,
+  crossfadeAdaptiveTheme,
   deriveAdaptiveTheme,
   DEFAULT_ADAPTIVE_COLORS,
   sampledPaletteClose,
@@ -175,6 +178,150 @@ describe("applyAdaptiveTheme", () => {
   });
 });
 
+describe("crossfadeAdaptiveTheme", () => {
+  type FrameCallback = (time: number) => void;
+
+  let frames: Map<number, FrameCallback>;
+  let nextFrameId: number;
+
+  function fakeRoot() {
+    const store = new Map<string, string>();
+    const classes = new Set<string>();
+    return {
+      style: {
+        getPropertyValue: (key: string) => store.get(key) ?? "",
+        setProperty: (key: string, value: string) => {
+          store.set(key, value);
+        },
+        removeProperty: (key: string) => {
+          store.delete(key);
+        },
+      },
+      classList: {
+        add: (name: string) => classes.add(name),
+        remove: (name: string) => classes.delete(name),
+        contains: (name: string) => classes.has(name),
+      },
+    } as unknown as HTMLElement;
+  }
+
+  function seed(root: HTMLElement, tokens: Record<string, string>) {
+    for (const key of ADAPTIVE_CROSSFADE_KEYS) {
+      root.style.setProperty(key, tokens[key]);
+    }
+    applyAdaptiveTheme(root, tokens);
+  }
+
+  function runFrame(time: number) {
+    const first = frames.entries().next();
+    if (first.done) throw new Error("no animation frame scheduled");
+    const [id, callback] = first.value;
+    frames.delete(id);
+    callback(time);
+  }
+
+  beforeEach(() => {
+    frames = new Map();
+    nextFrameId = 1;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameCallback) => {
+      const id = nextFrameId++;
+      frames.set(id, callback);
+      return id;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      frames.delete(id);
+    });
+  });
+
+  afterEach(() => {
+    cancelAdaptiveThemeCrossfade();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const blueTokens = deriveAdaptiveTheme({
+    dominant: { r: 0, g: 0, b: 255 },
+    average: { r: 20, g: 20, b: 50 },
+  });
+  const orangeTokens = deriveAdaptiveTheme({
+    dominant: { r: 255, g: 128, b: 0 },
+    average: { r: 50, g: 30, b: 10 },
+  });
+
+  it("eases from the rendered palette to the exact target", () => {
+    const root = fakeRoot();
+    seed(root, blueTokens);
+
+    crossfadeAdaptiveTheme(root, orangeTokens, 100);
+    expect(frames.size).toBe(1);
+    expect(root.classList.contains("adaptive-palette-crossfade")).toBe(true);
+
+    runFrame(0);
+    runFrame(50);
+    const midAccent = root.style.getPropertyValue("--color-accent");
+    expect(midAccent).not.toBe(blueTokens["--color-accent"]);
+    expect(midAccent).not.toBe(orangeTokens["--color-accent"]);
+
+    runFrame(100);
+    expect(root.style.getPropertyValue("--color-accent")).toBe(
+      orangeTokens["--color-accent"]
+    );
+    expect(root.style.getPropertyValue("--color-bg-primary")).toBe(
+      orangeTokens["--color-bg-primary"]
+    );
+    expect(frames.size).toBe(0);
+    expect(root.classList.contains("adaptive-palette-crossfade")).toBe(false);
+  });
+
+  it("interrupted fades restart from the colour currently on screen", () => {
+    const root = fakeRoot();
+    seed(root, blueTokens);
+
+    crossfadeAdaptiveTheme(root, orangeTokens, 100);
+    runFrame(0);
+    runFrame(50);
+    const midAccent = root.style.getPropertyValue("--color-accent");
+
+    const thirdTokens = deriveAdaptiveTheme({
+      dominant: { r: 0, g: 180, b: 120 },
+      average: { r: 10, g: 40, b: 30 },
+    });
+    crossfadeAdaptiveTheme(root, thirdTokens, 100);
+    runFrame(50);
+    expect(root.style.getPropertyValue("--color-accent")).toBe(midAccent);
+
+    runFrame(150);
+    expect(root.style.getPropertyValue("--color-accent")).toBe(
+      thirdTokens["--color-accent"]
+    );
+  });
+
+  it("applies instantly under reduced motion", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+
+    const root = fakeRoot();
+    seed(root, blueTokens);
+    crossfadeAdaptiveTheme(root, orangeTokens, 100);
+
+    expect(frames.size).toBe(0);
+    expect(root.classList.contains("adaptive-palette-crossfade")).toBe(false);
+    expect(root.style.getPropertyValue("--color-accent")).toBe(
+      orangeTokens["--color-accent"]
+    );
+  });
+
+  it("clears the fade marker when cancelled", () => {
+    const root = fakeRoot();
+    seed(root, blueTokens);
+    crossfadeAdaptiveTheme(root, orangeTokens, 100);
+    expect(root.classList.contains("adaptive-palette-crossfade")).toBe(true);
+
+    cancelAdaptiveThemeCrossfade();
+    expect(frames.size).toBe(0);
+    expect(root.classList.contains("adaptive-palette-crossfade")).toBe(false);
+  });
+});
+
 describe("deriveAdaptiveTheme contrast guarantees", () => {
   const accentCountries: Array<{ dominant: [number, number, number]; name: string }> = [
     { name: "blue", dominant: [0, 80, 200] }, // hsl ~240 hue, low lightness (worst case)
@@ -247,6 +394,14 @@ describe("deriveAdaptiveTheme contrast guarantees", () => {
     for (const key of required) {
       expect(tokens[key], `missing ${key}`).toBeTruthy();
     }
+  });
+
+  it("derives surface aliases instead of duplicate animated literals", () => {
+    const tokens = deriveAdaptiveTheme(DEFAULT_ADAPTIVE_COLORS);
+    expect(tokens["--color-surface"]).toBe("var(--color-bg-secondary)");
+    expect(tokens["--color-surface-raised"]).toBe("var(--color-bg-tertiary)");
+    expect(tokens["--color-bg-card"]).toBe("var(--color-bg-secondary)");
+    expect(tokens["--color-bg-elevated"]).toBe("var(--color-bg-tertiary)");
   });
 
   it("blends accent lightness upward for cool hues (not a flat clamp)", () => {

@@ -17,6 +17,11 @@ import {
   selectGamePalette,
   boostSaturation,
   findUnsupportedColorCalls,
+  parseRgbaColor,
+  rgbToOklab,
+  oklabToRgb,
+  mixOklabColors,
+  rgbaToCss,
   type WeightedPixel,
 } from "./color";
 
@@ -49,6 +54,71 @@ describe("hexToRgb / rgbToHex", () => {
   });
   it("clamps rgbToHex", () => {
     expect(rgbToHex({ r: 300, g: -10, b: 128 })).toBe("#ff0080");
+  });
+});
+
+describe("parseRgbaColor", () => {
+  it("parses hex with and without alpha", () => {
+    expect(parseRgbaColor("#ff8000")).toEqual({ r: 255, g: 128, b: 0, a: 1 });
+    expect(parseRgbaColor("#0f08")).toEqual({ r: 0, g: 255, b: 0, a: 0x88 / 255 });
+  });
+
+  it("parses comma and slash rgb/rgba forms", () => {
+    expect(parseRgbaColor("rgb(7, 7, 13)")).toEqual({ r: 7, g: 7, b: 13, a: 1 });
+    expect(parseRgbaColor("rgba(7, 7, 13, 0.92)")).toEqual({
+      r: 7,
+      g: 7,
+      b: 13,
+      a: 0.92,
+    });
+    expect(parseRgbaColor("rgb(7 7 13 / 0.5)")).toEqual({
+      r: 7,
+      g: 7,
+      b: 13,
+      a: 0.5,
+    });
+  });
+
+  it("rejects token streams and malformed values", () => {
+    expect(parseRgbaColor("var(--color-accent)")).toBeNull();
+    expect(parseRgbaColor("color-mix(in srgb, red, blue)")).toBeNull();
+    expect(parseRgbaColor("")).toBeNull();
+  });
+});
+
+describe("OKLab mixing", () => {
+  it("round-trips sRGB through OKLab", () => {
+    const rgb = { r: 124, g: 102, b: 255 };
+    const back = oklabToRgb(rgbToOklab(rgb));
+    expect(back.r).toBeCloseTo(rgb.r, 3);
+    expect(back.g).toBeCloseTo(rgb.g, 3);
+    expect(back.b).toBeCloseTo(rgb.b, 3);
+  });
+
+  it("keeps opposite hues perceptually even instead of collapsing to grey", () => {
+    const blue = { r: 0, g: 0, b: 255, a: 1 };
+    const orange = { r: 255, g: 128, b: 0, a: 1 };
+    const mid = mixOklabColors(blue, orange, 0.5);
+    // Gamma-encoded sRGB midpoint is (128, 64, 128) — a dull purple. OKLab
+    // preserves luminance far better, so the green channel is much higher.
+    expect(mid.g).toBeGreaterThan(90);
+    expect(mid.b).toBeGreaterThan(140);
+    expect(mid.a).toBe(1);
+  });
+
+  it("interpolates alpha and returns exact endpoints", () => {
+    const a = { r: 0, g: 0, b: 0, a: 1 };
+    const b = { r: 255, g: 255, b: 255, a: 0 };
+    expect(mixOklabColors(a, b, 0)).toEqual(a);
+    expect(mixOklabColors(a, b, 1)).toEqual(b);
+    expect(mixOklabColors(a, b, 0.5).a).toBeCloseTo(0.5, 5);
+  });
+
+  it("serializes opaque colours without an alpha channel", () => {
+    expect(rgbaToCss({ r: 1, g: 2, b: 3, a: 1 })).toBe("rgb(1, 2, 3)");
+    expect(rgbaToCss({ r: 1, g: 2, b: 3, a: 0.5 })).toBe(
+      "rgba(1, 2, 3, 0.5)"
+    );
   });
 });
 

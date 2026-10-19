@@ -238,14 +238,20 @@
   --ease-bounce: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Symmetric, low-jerk curve for palette fades. The UI `--ease-standard`
+     curve front-loads ~80% of its travel into the first fifth of the
+     duration, which makes a colour crossfade read as a snap followed by a
+     slow crawl. */
+  --ease-palette: cubic-bezier(0.645, 0.045, 0.355, 1);
 
   --duration-instant: 70ms;
   --duration-fast: 120ms;
   --duration-normal: 180ms;
   --duration-slow: 280ms;
   --duration-slower: 400ms;
-  /* Full-palette crossfade between game pages — pace of the adaptive breathe. */
-  --duration-palette: 550ms;
+  /* Accent-family crossfade outside Adaptive (the Adaptive theme runs its
+     full-palette crossfade in JS on this same cadence). */
+  --duration-palette: 700ms;
 
   --transition-instant: var(--duration-instant) var(--ease-standard);
   --transition-fast: var(--duration-fast) var(--ease-standard);
@@ -411,23 +417,17 @@ html[data-ui-scale="200"] { zoom: 2.00; }
    Palette interpolation
    ==============================
 
-   The palette tokens are registered as typed custom properties so the
-   whole app can ease between palette states (accent pick, game-page
-   switch, theme switch) without per-selector transition rules. When
-   the inline override on <html> changes, these properties interpolate
-   on the root and every consumer — buttons, cards, gradients, focus
-   rings — repaints smoothly. Layout-affecting properties are never
-   involved, so nothing reflows during the crossfade.
+   Accent tokens are registered as typed custom properties so an accent
+   pick eases across the app without per-selector rules. Registration
+   also makes color-mix() resolve eagerly at computed-value time, which
+   the html2canvas capture pipeline relies on.
 
-   Every token the Adaptive theme rewrites is registered: when only the
-   accent family was, a game-page switch faded the backgrounds and
-   accent but snapped hover/surface/text-muted tones, which read as a
-   patchy half-transition.
-
-   Registration also makes the computed values concrete colors
-   (color-mix eagerly resolved), which the html2canvas capture
-   pipeline benefits from. Browsers without @property support simply
-   snap to the new palette — a graceful degradation. */
+   The Adaptive theme registers its palette here too, but runs the fade
+   itself in `adaptiveTheme.ts`: registered-property transitions of
+   legacy colours interpolate in gamma-encoded sRGB (opposite hues drag
+   through grey), and every derived color-mix() token would chase the
+   accent with a second, lagging easing pass. Browsers without @property
+   support simply snap — a graceful degradation. */
 @property --color-bg-hover { syntax: "<color>"; inherits: true; initial-value: #1b1f2e; }
 @property --color-bg-active { syntax: "<color>"; inherits: true; initial-value: #23283b; }
 @property --color-surface { syntax: "<color>"; inherits: true; initial-value: #0e1017; }
@@ -454,51 +454,37 @@ html[data-ui-scale="200"] { zoom: 2.00; }
 @property --color-text-secondary { syntax: "<color>"; inherits: true; initial-value: #a3abc0; }
 @property --color-text-tertiary { syntax: "<color>"; inherits: true; initial-value: #6b758e; }
 
-/* Palette crossfade: every color token in the family interpolates over the
-   cinematic palette duration, so a change (accent pick, game-page switch,
-   theme switch) reads as one coherent breathe instead of a 280ms partial
-   fade with half the tokens snapping. Layout-affecting properties are never
-   involved, so nothing reflows during the crossfade. */
+/* Accent-family crossfade for every non-Adaptive theme. Only the source
+   accents transition: their derived tokens (`--color-accent-hover`,
+   `--color-accent-glow`, borders, badges, gradients) reference the animating
+   accent with `color-mix()`/`var()`, so they follow exactly instead of
+   chasing it with a second, lagging easing pass. */
 :root {
   transition:
-    --color-accent var(--duration-palette) var(--ease-standard),
-    --color-accent-2 var(--duration-palette) var(--ease-standard),
-    --color-accent-deep var(--duration-palette) var(--ease-standard),
-    --color-accent-contrast var(--duration-palette) var(--ease-standard),
-    --color-accent-hover var(--duration-palette) var(--ease-standard),
-    --color-accent-active var(--duration-palette) var(--ease-standard),
-    --color-accent-glow var(--duration-palette) var(--ease-standard),
-    --color-accent-soft var(--duration-palette) var(--ease-standard),
-    --color-accent-border var(--duration-palette) var(--ease-standard);
+    --color-accent var(--duration-palette) var(--ease-palette),
+    --color-accent-2 var(--duration-palette) var(--ease-palette),
+    --color-accent-deep var(--duration-palette) var(--ease-palette);
 }
 
+/* --color-accent-contrast is deliberately absent: it is a binary white/black
+   choice, and easing it through grey looks dirty and dips below readable
+   contrast mid-fade. */
+
+/* Adaptive owns a full-palette OKLab crossfade in `adaptiveTheme.ts`.
+   Registered-property transitions here would interpolate in legacy sRGB and
+   fight the per-frame writes, so they are explicitly off. */
 [data-theme="adaptive"] {
-  transition:
-    --color-bg-primary var(--duration-palette) var(--ease-standard),
-    --color-bg-secondary var(--duration-palette) var(--ease-standard),
-    --color-bg-tertiary var(--duration-palette) var(--ease-standard),
-    --color-bg-hover var(--duration-palette) var(--ease-standard),
-    --color-bg-active var(--duration-palette) var(--ease-standard),
-    --color-surface var(--duration-palette) var(--ease-standard),
-    --color-surface-raised var(--duration-palette) var(--ease-standard),
-    --color-surface-overlay var(--duration-palette) var(--ease-standard),
-    --color-surface-glass var(--duration-palette) var(--ease-standard),
-    --color-bg-card var(--duration-palette) var(--ease-standard),
-    --color-bg-elevated var(--duration-palette) var(--ease-standard),
-    --color-text-primary var(--duration-palette) var(--ease-standard),
-    --color-text-secondary var(--duration-palette) var(--ease-standard),
-    --color-text-tertiary var(--duration-palette) var(--ease-standard),
-    --color-text-muted var(--duration-palette) var(--ease-standard),
-    --color-text-inverse var(--duration-palette) var(--ease-standard),
-    --color-accent var(--duration-palette) var(--ease-standard),
-    --color-accent-2 var(--duration-palette) var(--ease-standard),
-    --color-accent-deep var(--duration-palette) var(--ease-standard),
-    --color-accent-contrast var(--duration-palette) var(--ease-standard),
-    --color-accent-hover var(--duration-palette) var(--ease-standard),
-    --color-accent-active var(--duration-palette) var(--ease-standard),
-    --color-accent-glow var(--duration-palette) var(--ease-standard),
-    --color-accent-soft var(--duration-palette) var(--ease-standard),
-    --color-accent-border var(--duration-palette) var(--ease-standard);
+  transition: none;
+}
+
+/* While the adaptive palette moves, element-level colour transitions would
+   restart on every frame of the inherited token change — cards and buttons
+   would trail the fade by their own 120–280ms and settle at different times.
+   Freeze transitions for the duration; keyframe animations keep running. */
+:root.adaptive-palette-crossfade *,
+:root.adaptive-palette-crossfade *::before,
+:root.adaptive-palette-crossfade *::after {
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
