@@ -1019,7 +1019,7 @@ mod tests {
         let json = serde_json::to_value(&assets).unwrap();
         assert!(json.get("gridUrl").is_some());
         assert!(json.get("gridThumbUrl").is_some(), "thumb must serialize camelCase");
-        assert!(
+        assert_eq!(
             json.get("gridThumbUrl").unwrap().as_str(),
             Some("https://cdn/grid-thumb.png")
         );
