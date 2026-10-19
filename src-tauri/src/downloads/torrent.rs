@@ -32,6 +32,37 @@ use super::types::{DownloadFile, DownloadStatus};
 /// entries are stale: failed handshakes occupy a slot until they time out.
 const PEER_LIMIT_PER_TORRENT: usize = 200;
 
+/// Whether to also listen for uTP peers. Off by default: librqbit's
+/// userspace uTP stack cannot match the kernel TCP stack and its UDP
+/// receive buffer is shared by every connection, which makes high-speed
+/// swarms drop packets and crawl — upstream ships TCP-only for exactly
+/// this reason. Set `GAMEINDEX_TORRENT_UTP=1` to opt back in for swarms
+/// that only accept uTP.
+fn utp_enabled() -> bool {
+    std::env::var("GAMEINDEX_TORRENT_UTP")
+        .map(|v| {
+            let v = v.trim();
+            v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes")
+        })
+        .unwrap_or(false)
+}
+
+/// Build the incoming-peer listener options. Kept separate from
+/// [`init_session`] so the TCP/uTP choice is unit-testable without
+/// mutating process-wide environment variables.
+fn build_listener_opts(enable_utp: bool) -> librqbit::ListenerOptions {
+    librqbit::ListenerOptions {
+        mode: if enable_utp {
+            librqbit::ListenerMode::TcpAndUtp
+        } else {
+            librqbit::ListenerMode::TcpOnly
+        },
+        listen_addr: (std::net::Ipv6Addr::UNSPECIFIED, 0).into(),
+        enable_upnp_port_forwarding: true,
+        ..Default::default()
+    }
+}
+
 fn build_peer_opts() -> Option<librqbit::PeerConnectionOptions> {
     // Desktop-client tuning: allow slow/high-latency peers to finish the
     // handshake (8 s vs the 10 s server-profile default; the old 2 s limit
@@ -92,19 +123,13 @@ pub async fn init_session(
             .collect()
     };
 
-    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) TCP + uTP
-    // ports. Replaces the old 6881..6891 range — no conflict risk, the
-    // bound port is read back and announced to trackers.
-    let make_listener = || librqbit::ListenerOptions {
-        mode: librqbit::ListenerMode::TcpAndUtp,
-        listen_addr: (std::net::Ipv6Addr::UNSPECIFIED, 0).into(),
-        enable_upnp_port_forwarding: true,
-        ..Default::default()
-    };
+    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) TCP port.
+    // Replaces the old 6881..6891 range — no conflict risk, the bound
+    // port is read back and announced to trackers.
+    let make_listener = || build_listener_opts(utp_enabled());
 
-    // Outgoing peer connections: cycle to fast peers quickly (2 s
-    // connect timeout vs the 10 s server-profile default), catch stuck
-    // peers at 20 s, keep NAT bindings alive with a 30 s keep-alive.
+    // Outgoing peer connections: the peer tuning from `build_peer_opts`
+    // (8 s connect timeout, 15 s read/write timeout, 30 s keep-alive).
     let make_connect = || librqbit::ConnectionOptions {
         peer_opts: build_peer_opts(),
         ..Default::default()
@@ -1091,6 +1116,23 @@ mod tests {
         assert_eq!(opts.connect_timeout, Some(Duration::from_secs(8)));
         assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(15)));
         assert!(PEER_LIMIT_PER_TORRENT >= 200);
+    }
+
+    #[test]
+    fn listener_defaults_to_tcp_only() {
+        let opts = build_listener_opts(false);
+        assert!(matches!(opts.mode, librqbit::ListenerMode::TcpOnly));
+        assert!(opts.mode.tcp_enabled());
+        assert!(!opts.mode.utp_enabled());
+        assert!(opts.enable_upnp_port_forwarding);
+    }
+
+    #[test]
+    fn listener_can_opt_into_utp() {
+        let opts = build_listener_opts(true);
+        assert!(matches!(opts.mode, librqbit::ListenerMode::TcpAndUtp));
+        assert!(opts.mode.tcp_enabled());
+        assert!(opts.mode.utp_enabled());
     }
 
     #[test]
