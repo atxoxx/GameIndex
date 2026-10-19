@@ -33,27 +33,40 @@ use super::types::{DownloadFile, DownloadStatus};
 /// connection attempts: a 200-slot probe measured ~175 slots connecting
 /// and only ~25 live peers. 400 keeps the dead-entry churn from crowding
 /// out the peers that can actually transfer.
-const PEER_LIMIT_PER_TORRENT: usize = 400;
+pub(crate) const PEER_LIMIT_PER_TORRENT: usize = 400;
 
-/// Whether to also listen for uTP peers. Off by default: librqbit's
-/// userspace uTP stack cannot match the kernel TCP stack and its UDP
-/// receive buffer is shared by every connection, which makes high-speed
-/// swarms drop packets and crawl — upstream ships TCP-only for exactly
-/// this reason. Set `GAMEINDEX_TORRENT_UTP=1` to opt back in for swarms
-/// that only accept uTP.
-fn utp_enabled() -> bool {
+/// Public DHT bootstrap routers used by standard BitTorrent clients
+/// (qBittorrent, Transmission, libtorrent, uTorrent). Librqbit's fallback
+/// only includes two nodes; configuring the full set guarantees fast
+/// bootstrap and magnet resolution even if specific routers are congested
+/// or unreachable.
+pub(crate) const DEFAULT_DHT_BOOTSTRAP: &[&str] = &[
+    "router.bittorrent.com:6881",
+    "router.utorrent.com:6881",
+    "dht.transmissionbt.com:6881",
+    "dht.libtorrent.org:25401",
+    "dht.aelitis.com:6881",
+];
+
+/// Whether to enable uTP alongside TCP. Enabled by default so GameIndex
+/// can connect to the entire BitTorrent swarm (NAT-traversal peers,
+/// home seeders without forwarded TCP ports, and uTP-only clients).
+/// TCP is prioritized by librqbit with a 1-second connect lead before
+/// attempting uTP.
+/// Set `GAMEINDEX_TORRENT_UTP=0` (or "false" / "no") to force TCP-only.
+pub(crate) fn utp_enabled() -> bool {
     std::env::var("GAMEINDEX_TORRENT_UTP")
         .map(|v| {
             let v = v.trim();
-            v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes")
+            !(v == "0" || v.eq_ignore_ascii_case("false") || v.eq_ignore_ascii_case("no"))
         })
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 /// Build the incoming-peer listener options. Kept separate from
 /// [`init_session`] so the TCP/uTP choice is unit-testable without
 /// mutating process-wide environment variables.
-fn build_listener_opts(enable_utp: bool) -> librqbit::ListenerOptions {
+pub(crate) fn build_listener_opts(enable_utp: bool) -> librqbit::ListenerOptions {
     librqbit::ListenerOptions {
         mode: if enable_utp {
             librqbit::ListenerMode::TcpAndUtp
@@ -66,17 +79,19 @@ fn build_listener_opts(enable_utp: bool) -> librqbit::ListenerOptions {
     }
 }
 
-fn build_peer_opts() -> Option<librqbit::PeerConnectionOptions> {
-    // Desktop-client tuning. The read/write timeout is the idle timeout:
-    // librqbit applies it to every socket read, and choked peers have
-    // nothing to send besides keep-alives. Real clients use ~120 s; the
-    // old 15 s dropped perfectly healthy peers that simply hadn't
-    // unchoked us yet, losing their transfer slot and forcing a full
-    // reconnect/backoff cycle. Connect timeout stays short (8 s) so dead
-    // tracker entries release their slot quickly.
+pub(crate) fn build_peer_opts() -> Option<librqbit::PeerConnectionOptions> {
+    // Desktop-client tuning:
+    // - connect_timeout (3 s): rapidly drop unresponsive / offline peers
+    //   returned by public trackers and DHT, preventing connection slots
+    //   from stalling during peer discovery.
+    // - read_write_timeout (15 s): provides ample tolerance for packet
+    //   jitter while preventing dead/stalled peers from hanging chunk
+    //   transfers for minutes and freezing piece completion across the swarm.
+    // - keep_alive_interval (30 s): regularly sends BitTorrent keep-alives
+    //   to prevent healthy remote peers from dropping idle connections.
     Some(librqbit::PeerConnectionOptions {
-        connect_timeout: Some(Duration::from_secs(8)),
-        read_write_timeout: Some(Duration::from_secs(120)),
+        connect_timeout: Some(Duration::from_secs(3)),
+        read_write_timeout: Some(Duration::from_secs(15)),
         keep_alive_interval: Some(Duration::from_secs(30)),
     })
 }
@@ -105,7 +120,12 @@ pub async fn init_session(
     let dht_persist_path = state_dir.join("dht.json");
     let session_json_path = state_dir.join("session.json");
     let make_dht_config = |persist: bool, port: Option<u16>| librqbit::DhtSessionConfig {
-        bootstrap_addrs: None,
+        bootstrap_addrs: Some(
+            DEFAULT_DHT_BOOTSTRAP
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        ),
         port,
         persistence: if persist {
             Some(librqbit::dht::DhtPersistenceConfig {
@@ -128,17 +148,25 @@ pub async fn init_session(
             .collect()
     };
 
-    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) TCP port.
-    // Replaces the old 6881..6891 range — no conflict risk, the bound
-    // port is read back and announced to trackers.
+    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) port
+    // accepting both TCP and uTP peers.
     let make_listener = || build_listener_opts(utp_enabled());
 
-    // Outgoing peer connections: the peer tuning from `build_peer_opts`
-    // (8 s connect timeout, 15 s read/write timeout, 30 s keep-alive).
+    // Outgoing peer connections: desktop peer tuning
+    // (3 s connect timeout, 15 s read/write timeout, 30 s keep-alive).
     let make_connect = || librqbit::ConnectionOptions {
         peer_opts: build_peer_opts(),
         ..Default::default()
     };
+
+    // Concurrency for disk I/O, piece hash checks, and file allocation.
+    // Defaulting to 8 threads causes thread starvation and I/O bottlenecks
+    // on fast drives and high-speed broadband swarms.
+    let worker_threads = 16.max(
+        std::thread::available_parallelism()
+            .map(|n| n.get() * 2)
+            .unwrap_or(16),
+    );
 
     let make_opts =
         |session_persist: bool, dht_persist: bool, dht_port: Option<u16>| {
@@ -157,6 +185,7 @@ pub async fn init_session(
                 dht: Some(make_dht_config(dht_persist, dht_port)),
                 trackers: session_trackers(),
                 peer_limit: Some(PEER_LIMIT_PER_TORRENT),
+                runtime_worker_threads: Some(worker_threads),
                 ..Default::default()
             }
         };
@@ -804,6 +833,8 @@ pub async fn add_and_start(
             // post-add update_only_files retry loop was redundant.
             only_files: only_files.map(|v| v.to_vec()),
             trackers: Some(default_trackers_vec()),
+            peer_opts: build_peer_opts(),
+            peer_limit: Some(PEER_LIMIT_PER_TORRENT),
             ..Default::default()
         };
 
@@ -1115,16 +1146,24 @@ mod tests {
     fn peer_tuning_matches_desktop_clients() {
         let opts = build_peer_opts().expect("peer options");
         // Short connect timeout so dead tracker entries free their slot.
-        assert_eq!(opts.connect_timeout, Some(Duration::from_secs(8)));
-        // Long idle timeout: choked peers can go a while without sending
-        // anything except keep-alives, and dropping them loses the slot.
-        assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(120)));
+        assert_eq!(opts.connect_timeout, Some(Duration::from_secs(3)));
+        // 15 s timeout tolerates jitter without letting stalled chunk requests block pieces for minutes.
+        assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(15)));
         assert!(PEER_LIMIT_PER_TORRENT >= 400);
         assert_eq!(opts.keep_alive_interval, Some(Duration::from_secs(30)));
     }
 
     #[test]
-    fn listener_defaults_to_tcp_only() {
+    fn listener_defaults_to_tcp_and_utp() {
+        let opts = build_listener_opts(true);
+        assert!(matches!(opts.mode, librqbit::ListenerMode::TcpAndUtp));
+        assert!(opts.mode.tcp_enabled());
+        assert!(opts.mode.utp_enabled());
+        assert!(opts.enable_upnp_port_forwarding);
+    }
+
+    #[test]
+    fn listener_can_opt_out_of_utp() {
         let opts = build_listener_opts(false);
         assert!(matches!(opts.mode, librqbit::ListenerMode::TcpOnly));
         assert!(opts.mode.tcp_enabled());
@@ -1133,10 +1172,10 @@ mod tests {
     }
 
     #[test]
-    fn listener_can_opt_into_utp() {
-        let opts = build_listener_opts(true);
-        assert!(matches!(opts.mode, librqbit::ListenerMode::TcpAndUtp));
-        assert!(opts.mode.tcp_enabled());
-        assert!(opts.mode.utp_enabled());
+    fn dht_bootstrap_routers_configured() {
+        assert!(DEFAULT_DHT_BOOTSTRAP.len() >= 5);
+        assert!(DEFAULT_DHT_BOOTSTRAP.iter().any(|r| r.contains("bittorrent.com")));
+        assert!(DEFAULT_DHT_BOOTSTRAP.iter().any(|r| r.contains("utorrent.com")));
+        assert!(DEFAULT_DHT_BOOTSTRAP.iter().any(|r| r.contains("transmissionbt.com")));
     }
 }

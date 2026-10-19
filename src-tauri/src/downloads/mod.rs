@@ -708,6 +708,8 @@ pub async fn torrent_add(
             overwrite: true,
             list_only: true,
             trackers: Some(torrent::default_trackers_vec()),
+            peer_opts: torrent::build_peer_opts(),
+            peer_limit: Some(torrent::PEER_LIMIT_PER_TORRENT),
             ..Default::default()
         };
 
