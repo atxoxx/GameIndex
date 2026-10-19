@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { thumbVariantUrl } from "../../utils/artworkUrl";
 
 /**
  * A small, square thumbnail for a game with an image-resolution chain that
@@ -35,9 +36,12 @@ export function GameThumbnail({
   }
 
   if (coverArtUrl && !coverExhausted) {
+    // Thumbs are small enough that a genuine render (not a CSS scale)
+    // stays sharp; the Steam-CDN fallback chain still resolves.
+    const coverSrc = thumbVariantUrl(coverArtUrl) ?? coverArtUrl;
     return (
       <img
-        src={coverArtUrl}
+        src={coverSrc}
         alt={name}
         loading="lazy"
         decoding="async"

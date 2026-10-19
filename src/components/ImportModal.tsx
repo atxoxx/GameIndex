@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { gameNameFromPath } from "../types/game";
+import { thumbVariantUrl } from "../utils/artworkUrl";
 import { Button } from "./ui";
 import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, StoreGameSummary } from "../types/game";
@@ -634,7 +635,7 @@ function LinkStep({
                         >
                           <div className="suggestion-cover">
                             {game.coverUrl ? (
-                              <img src={game.coverUrl} alt={game.name} />
+                              <img src={thumbVariantUrl(game.coverUrl) ?? game.coverUrl} alt={game.name} loading="lazy" />
                             ) : (
                               <div className="suggestion-cover-placeholder">?</div>
                             )}
@@ -703,7 +704,7 @@ function LinkStep({
                         <div className="preview-main-info">
                           <div className="preview-cover">
                             {activeDetail.images.cover ? (
-                              <img src={activeDetail.images.cover} alt={activeDetail.title} />
+                              <img src={thumbVariantUrl(activeDetail.images.cover) ?? activeDetail.images.cover} alt={activeDetail.title} loading="lazy" />
                             ) : (
                               <div className="preview-cover-placeholder">?</div>
                             )}
@@ -761,7 +762,7 @@ function LinkStep({
                         <div className="preview-main-info">
                           <div className="preview-cover">
                             {activeMatch.coverUrl ? (
-                              <img src={activeMatch.coverUrl} alt={activeMatch.name} />
+                              <img src={thumbVariantUrl(activeMatch.coverUrl) ?? activeMatch.coverUrl} alt={activeMatch.name} loading="lazy" />
                             ) : (
                               <div className="preview-cover-placeholder">?</div>
                             )}

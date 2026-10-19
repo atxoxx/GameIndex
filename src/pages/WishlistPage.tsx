@@ -700,7 +700,11 @@ function WishlistCard({
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (release?.released) return;
-    const id = setInterval(() => setNow(Date.now()), 60_000);
+    const id = setInterval(() => {
+      // Day/hour countdown doesn't need to tick in a hidden tab.
+      if (document.hidden) return;
+      setNow(Date.now());
+    }, 60_000);
     return () => clearInterval(id);
   }, [release?.released]);
 

@@ -88,7 +88,11 @@ function UpdatedAgoLabel({ lastUpdated }: { lastUpdated: number | null }) {
 
   useEffect(() => {
     if (lastUpdated === null) return;
-    const timer = window.setInterval(() => setTick((tick) => tick + 1), 1000);
+    const timer = window.setInterval(() => {
+      // The "updated Ns ago" countdown can coast while hidden.
+      if (document.hidden) return;
+      setTick((tick) => tick + 1);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [lastUpdated]);
 

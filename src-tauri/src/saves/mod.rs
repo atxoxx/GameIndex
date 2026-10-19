@@ -15,6 +15,7 @@ mod engine;
 mod pcgw;
 mod registry;
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -359,6 +360,11 @@ pub async fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
     }
     let total = targets.len() as u64;
     let mut added_total = 0u32;
+    // Per-target pass-1 outcome: `Some(n)` = n locations were added
+    // (game resolved), `None` = the merge errored. Recorded once here so
+    // the pass-2 "who still needs the wiki" filter doesn't re-query
+    // `list_locations` per game (both passes used to pay the same N+1).
+    let mut pass1_added: HashMap<String, Option<u32>> = HashMap::new();
     for (i, game) in targets.iter().enumerate() {
         let _ = app.emit(
             "saves-progress",
@@ -372,7 +378,9 @@ pub async fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
                 message: format!("Scanning {}", game.name),
             },
         );
-        added_total += merge_detected(&db, game, settings.include_emulator_saves).unwrap_or(0);
+        let added = merge_detected(&db, game, settings.include_emulator_saves).ok();
+        added_total += added.unwrap_or(0);
+        pass1_added.insert(game.id.clone(), added);
     }
 
     if settings.include_pcgw {
@@ -380,11 +388,7 @@ pub async fn saves_detect_all(app: AppHandle) -> Result<u32, String> {
         // ones need a (paced) wiki lookup.
         let unresolved: Vec<&db::games::GameRow> = targets
             .iter()
-            .filter(|game| {
-                saves::list_locations(&db, &game.id)
-                    .map(|l| l.is_empty())
-                    .unwrap_or(false)
-            })
+            .filter(|game| matches!(pass1_added.get(&game.id), Some(Some(0))))
             .collect();
         let pcgw_total = unresolved.len() as u64;
         for (i, game) in unresolved.iter().enumerate() {

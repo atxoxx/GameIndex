@@ -22,7 +22,6 @@ const SAVE_EVERY_TICKS = 5;
 
 let samples: BandwidthPoint[] = [];
 let speeds = { down: 0, up: 0 };
-let intervalId: ReturnType<typeof setInterval> | null = null;
 let ticksSinceSave = 0;
 let hydrated = false;
 const listeners = new Set<() => void>();
@@ -126,15 +125,41 @@ export function setBandwidthSpeeds(down: number, up: number) {
   speeds = { down, up };
 }
 
+// The 1 Hz sampler only produces samples while the window is visible
+// (a hidden tick used to bail out before appending). Pausing the
+// interval outright instead of leaving it alive to do nothing avoids a
+// wake-up every second for the whole app lifetime; hidden windows lose
+// nothing because they appended no samples anyway.
+let intervalId: ReturnType<typeof setInterval> | null = null;
+let samplingActive = false;
+
+function setSamplingActive(active: boolean) {
+  samplingActive = active;
+  if (active && intervalId === null) {
+    intervalId = setInterval(tick, 1000);
+  } else if (!active && intervalId !== null) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+}
+
+function onVisibilityChange() {
+  // Persist first (the snapshot at hide time is what users would last
+  // see), then stop/start the sampler for the new visibility state.
+  persist();
+  setSamplingActive(!document.hidden);
+}
+
 export function startBandwidthSampling() {
   hydrate();
-  if (intervalId !== null) return;
-  intervalId = setInterval(tick, 1000);
-  if (typeof window !== "undefined") {
-    window.addEventListener("pagehide", persist);
-    window.addEventListener("beforeunload", persist);
-    document.addEventListener("visibilitychange", persist);
+  if (typeof window === "undefined" || samplingActive) {
+    setSamplingActive(!document.hidden);
+    return;
   }
+  window.addEventListener("pagehide", persist);
+  window.addEventListener("beforeunload", persist);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  setSamplingActive(!document.hidden);
 }
 
 export function getBandwidthSamples(): BandwidthPoint[] {

@@ -129,6 +129,11 @@ pub struct SgdbAssets {
     /// Best static vertical grid / poster (600×900-style community art).
     pub grid_url: Option<String>,
     pub grid_mime: Option<String>,
+    /// Small variant of the best static grid (the per-item `thumb`
+    /// rendition, roughly 500x750→ smaller). Grid/list cards decode this
+    /// instead of the full-size poster; detail surfaces keep `grid_url`.
+    #[serde(default)]
+    pub grid_thumb_url: Option<String>,
     /// Best animated grid (APNG / animated WebP) — shown on card hover.
     pub grid_animated_url: Option<String>,
     pub grid_animated_mime: Option<String>,
@@ -584,7 +589,10 @@ async fn fetch_assets(api_key: &str, target: SgdbTarget) -> SgdbAssets {
     let (hero_animated, hero_static) = hero;
     SgdbAssets {
         grid_url: grid_static.as_ref().and_then(|g| g.url.clone()),
-        grid_mime: grid_static.and_then(|g| g.mime),
+        grid_mime: grid_static.as_ref().and_then(|g| g.mime.clone()),
+        // SGDB's per-item `thumb` rendition — small enough that decoding
+        // it into a 200-300px card box doesn't waste most of the bitmap.
+        grid_thumb_url: grid_static.as_ref().and_then(|g| g.thumb.clone()),
         grid_animated_url: grid_animated.as_ref().and_then(|g| g.url.clone()),
         grid_animated_mime: grid_animated.and_then(|g| g.mime),
         hero_url: hero_static.as_ref().and_then(|h| h.url.clone()),
@@ -996,6 +1004,7 @@ mod tests {
         let assets = SgdbAssets {
             grid_url: Some("https://cdn/grid.png".into()),
             grid_mime: Some("image/png".into()),
+            grid_thumb_url: Some("https://cdn/grid-thumb.png".into()),
             grid_animated_url: Some("https://cdn/grid.webp".into()),
             grid_animated_mime: Some("image/webp".into()),
             hero_url: Some("https://cdn/hero.png".into()),
@@ -1009,6 +1018,11 @@ mod tests {
         };
         let json = serde_json::to_value(&assets).unwrap();
         assert!(json.get("gridUrl").is_some());
+        assert!(json.get("gridThumbUrl").is_some(), "thumb must serialize camelCase");
+        assert!(
+            json.get("gridThumbUrl").unwrap().as_str(),
+            Some("https://cdn/grid-thumb.png")
+        );
         assert!(json.get("grid_animated_url").is_none());
         assert!(json.get("gridAnimatedUrl").is_some());
         assert!(json.get("heroUrl").is_some());
@@ -1025,6 +1039,7 @@ mod tests {
         let none = SgdbAssets {
             grid_url: None,
             grid_mime: None,
+            grid_thumb_url: None,
             grid_animated_url: None,
             grid_animated_mime: None,
             hero_url: None,

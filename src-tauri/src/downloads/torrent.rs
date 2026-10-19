@@ -20,7 +20,7 @@
 //! - `TorrentStatsState::Initializing { paused }` carries the file-check
 //!   pause flag (pausing during the initial check is now allowed).
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use super::types::{DownloadFile, DownloadStatus};
@@ -621,15 +621,31 @@ pub async fn build_add_torrent(
 /// won't change.
 const NON_TORRENT_MARKER: &str = "not a .torrent file";
 
+/// Shared `.torrent` fetch client. Stateless (no cookie jar), so one
+/// pooled instance serves every add — rebuilding it per fetch discarded
+/// its connection pool and made the 3× add-retry budget pay three
+/// handshakes instead of reusing one keep-alive connection.
+static TORRENT_FETCH_CLIENT: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
+
+const TORRENT_HTTP_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+fn torrent_fetch_client() -> Result<&'static reqwest::Client, String> {
+    match TORRENT_FETCH_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .user_agent(TORRENT_HTTP_UA)
+            .build()
+            .map_err(|e| format!("Failed to build .torrent fetch client: {e}"))
+    }) {
+        Ok(client) => Ok(client),
+        Err(e) => Err(e.clone()),
+    }
+}
+
 /// Download a `.torrent` file over HTTP(S), optionally with a `Referer`
 /// header for anti-hotlink hosts that reject requests without the right
 /// one (librqbit's `from_url` sends none), and return its bytes.
 async fn fetch_torrent_bytes(uri: &str, referer: Option<&str>) -> Result<Vec<u8>, String> {
-    const TORRENT_HTTP_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-    let client = reqwest::Client::builder()
-        .user_agent(TORRENT_HTTP_UA)
-        .build()
-        .map_err(|e| format!("Failed to build .torrent fetch client: {e}"))?;
+    let client = torrent_fetch_client()?;
     let mut req = client.get(uri);
     if let Some(r) = referer {
         req = req.header(reqwest::header::REFERER, r);

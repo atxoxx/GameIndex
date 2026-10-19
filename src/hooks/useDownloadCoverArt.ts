@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../context/GameContext";
+import { thumbVariantUrl } from "../utils/artworkUrl";
 import type { Game, GameMetadataResult } from "../types/game";
 import type { TorrentDownload } from "../types/download";
 
@@ -206,11 +207,13 @@ export function useDownloadCoverArt(download: TorrentDownload): {
     };
   }, [cleanedName, normCleaned, localArtwork, download.gamePoster]);
 
+  const rawArtwork = download.gamePoster || localArtwork || remoteArtwork;
   return {
     matchedGame,
     // The game page poster (persisted on the download record when the
     // download started from a store/game page) wins over every fallback.
-    coverArtUrl: download.gamePoster || localArtwork || remoteArtwork,
+    // Both consumers render small tiles, so serve the thumb variant first.
+    coverArtUrl: thumbVariantUrl(rawArtwork) ?? rawArtwork,
     loading,
   };
 }

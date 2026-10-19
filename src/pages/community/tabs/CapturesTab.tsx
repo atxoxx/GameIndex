@@ -690,7 +690,10 @@ export function CapturesTab({ games }: CapturesTabProps) {
   // Slideshow timer
   useEffect(() => {
     if (!slideshow || lightboxIndex === null) return;
-    const timer = setInterval(() => goNext(), 3500);
+    const timer = setInterval(() => {
+      // Don't churn the slideshow while the app is hidden.
+      if (!document.hidden) goNext();
+    }, 3500);
     return () => clearInterval(timer);
   }, [slideshow, lightboxIndex, goNext]);
 

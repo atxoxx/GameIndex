@@ -85,7 +85,7 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
       return;
     }
 
-    let rafId: number;
+    let rafId: number | null = null;
     // Track visibility so we can fully hide the element (display:none)
     // whenever the cursor is toggled off — an opacity-only fade left
     // the pointer visible at its last opacity after an L3 hide.
@@ -107,9 +107,15 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
           el.style.opacity = "0";
           lastVisible = false;
         }
-        // Keep the loop alive — an alt-tab (document.hidden) must not
-        // cancel the frame chain, or the cursor stays dead after the
-        // window comes back until `visible` is toggled off and on.
+        if (document.hidden) {
+          // Park the frame chain while the window is hidden — a hidden
+          // window runs ~60 Hz no-op frames for nothing. The
+          // visibilitychange listener below re-arms the chain the
+          // moment the window is shown again, so an alt-tab (previously
+          // the reason the chain was kept alive) resumes automatically.
+          rafId = null;
+          return;
+        }
         rafId = requestAnimationFrame(tick);
         return;
       }
@@ -184,7 +190,16 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
     }
 
     rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
+    const handleVisibilityChange = () => {
+      if (!document.hidden && rafId === null) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [gamepad.virtualMouse.visible]);
 
   if (typeof document === "undefined") return null;

@@ -77,7 +77,11 @@ export default function SessionCard({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    const timer = setInterval(() => {
+      // "x minutes ago" labels don't need to tick in a hidden tab.
+      if (document.hidden) return;
+      setNow(Date.now());
+    }, 30_000);
     return () => clearInterval(timer);
   }, []);
 

@@ -183,7 +183,7 @@ export const DownloadRow = React.memo(
           {!compact && (
             <div className="dl-row-thumb" title={displayName}>
               {artworkUrl ? (
-                <img src={artworkUrl} alt={displayName} className="dl-row-thumb-img" />
+                <img src={artworkUrl} alt={displayName} className="dl-row-thumb-img" loading="lazy" decoding="async" />
               ) : (
                 <div className="dl-row-thumb-placeholder">
                   <GameFallbackIcon style={{ width: 22, height: 22, opacity: 0.4 }} />

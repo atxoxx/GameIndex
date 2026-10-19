@@ -7,6 +7,7 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import type { LibraryStatus } from "../../hooks/useLibraryFilters";
+import { thumbVariantUrl } from "../../utils/artworkUrl";
 import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface LibraryHeroProps {
@@ -88,7 +89,7 @@ function LibraryHeroBase({
       games
         .filter((g) => g.coverArtUrl)
         .slice(0, 8)
-        .map((g) => g.coverArtUrl as string),
+        .map((g) => thumbVariantUrl(g.coverArtUrl as string) ?? (g.coverArtUrl as string)),
     [games]
   );
 

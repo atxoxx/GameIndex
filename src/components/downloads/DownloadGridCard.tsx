@@ -104,7 +104,7 @@ export const DownloadGridCard = React.memo(
         {/* Artwork Media Header */}
         <div className="dl-card-media">
           {artworkUrl ? (
-            <img src={artworkUrl} alt={displayName} className="dl-card-img" />
+            <img src={artworkUrl} alt={displayName} className="dl-card-img" loading="lazy" decoding="async" />
           ) : (
             <div className="dl-card-placeholder">
               <GameFallbackIcon style={{ width: 44, height: 44, opacity: 0.4 }} />

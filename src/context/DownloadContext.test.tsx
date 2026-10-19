@@ -157,6 +157,69 @@ describe("DownloadProvider queue state", () => {
     expect(result.current.history).toHaveLength(1);
   });
 
+  it("keeps unchanged rows at their previous identity across progress ticks", async () => {
+    // Regression for the re-render storm: the engine emits fresh row
+    // objects every second, so without identity reuse a single moving
+    // download handed every memoized row (and all ~30 useDownloads
+    // subscribers) a new object identity per tick even though their
+    // content never changed.
+    installInvoke({
+      torrent_get_all: () => [
+        makeDownload({ id: "a", addedAt: 1, status: { kind: "downloading" } }),
+        makeDownload({ id: "b", addedAt: 2, status: { kind: "downloading" } }),
+      ],
+    });
+
+    const { result } = renderDownloadsHook();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // One engine event: only "b" progresses; "a" is byte-identical.
+    emitProgress([
+      makeDownload({ id: "a", addedAt: 1, status: { kind: "downloading" } }),
+      makeDownload({ id: "b", addedAt: 2, status: { kind: "downloading" }, downloaded: 100, progress: 0.1 }),
+    ]);
+
+    const before = result.current.downloads.map((d) => ({ id: d.id, ref: d }));
+    // A later event where nothing changed at all must not swap identities.
+    emitProgress([
+      makeDownload({ id: "a", addedAt: 1, status: { kind: "downloading" } }),
+      makeDownload({ id: "b", addedAt: 2, status: { kind: "downloading" }, downloaded: 100, progress: 0.1 }),
+    ]);
+    const after = result.current.downloads.map((d) => ({ id: d.id, ref: d }));
+    expect(after.map((r) => r.id)).toEqual(before.map((r) => r.id));
+    for (let i = 0; i < before.length; i++) {
+      expect(after[i].ref).toBe(before[i].ref); // rows stay reference-stable
+    }
+    expect(result.current.downloads.find((d) => d.id === "b")!.downloaded).toBe(100);
+  });
+
+  it("hands an untouched row its previous identity when a sibling row progresses", async () => {
+    installInvoke({
+      torrent_get_all: () => [
+        makeDownload({ id: "a", addedAt: 1, status: { kind: "downloading" } }),
+        makeDownload({ id: "b", addedAt: 2, status: { kind: "downloading" } }),
+      ],
+    });
+
+    const { result } = renderDownloadsHook();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitProgress([
+      makeDownload({ id: "a", addedAt: 1, status: { kind: "downloading" } }),
+      makeDownload({ id: "b", addedAt: 2, status: { kind: "downloading" }, downloaded: 100 }),
+    ]);
+    const rowA = result.current.downloads.find((d) => d.id === "a")!;
+
+    // "b" keeps moving; "a" stays byte-identical and must keep its ref.
+    emitProgress([
+      makeDownload({ id: "a", addedAt: 1, status: { kind: "downloading" } }),
+      makeDownload({ id: "b", addedAt: 2, status: { kind: "downloading" }, downloaded: 200 }),
+    ]);
+    const rowAAfter = result.current.downloads.find((d) => d.id === "a")!;
+    expect(rowAAfter).toBe(rowA);
+    expect(rowAAfter.downloaded).toBe(0);
+  });
+
   it("keeps several active downloads side by side (single-active enforcement is backend-owned)", async () => {
     installInvoke({
       torrent_get_all: () => [

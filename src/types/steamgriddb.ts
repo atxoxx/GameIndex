@@ -13,6 +13,10 @@ export interface SgdbAssets {
   /** Best static vertical grid / poster (600×900-style community art). */
   gridUrl: string | null;
   gridMime: string | null;
+  /** Small rendition of the best static grid. Grid/list cards decode this
+   *  instead of the full-size poster; detail surfaces keep `gridUrl`.
+   *  Optional/derive-free: older cached envelopes predate it. */
+  gridThumbUrl?: string | null;
   /** Best animated grid (APNG / animated WebP) — card hover. */
   gridAnimatedUrl: string | null;
   gridAnimatedMime: string | null;

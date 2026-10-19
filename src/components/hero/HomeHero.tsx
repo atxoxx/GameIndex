@@ -11,6 +11,7 @@ import PlayerCountBadge from "../PlayerCountBadge";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useSteamGridArt, usePrefetchImage } from "../../context/SteamGridDbContext";
 import { resolveSteamAppId } from "../../hooks/useGameCardArt";
+import { thumbVariantUrl } from "../../utils/artworkUrl";
 import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface HomeHeroProps {
@@ -260,7 +261,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
       games
         .filter((g) => g.coverArtUrl)
         .slice(0, 10)
-        .map((g) => g.coverArtUrl as string),
+        .map((g) => thumbVariantUrl(g.coverArtUrl as string) ?? (g.coverArtUrl as string)),
     [games]
   );
 

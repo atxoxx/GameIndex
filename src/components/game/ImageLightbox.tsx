@@ -90,7 +90,10 @@ export default function ImageLightbox({
   // Auto-advance while the slideshow is running.
   useEffect(() => {
     if (!isOpen || !slideshow || total <= 1) return;
-    const timer = window.setInterval(() => handleNext(), 3500);
+    const timer = window.setInterval(() => {
+      // Don't churn the slideshow (sharing scans/decodes) while hidden.
+      if (!document.hidden) handleNext();
+    }, 3500);
     return () => window.clearInterval(timer);
   }, [isOpen, slideshow, handleNext, total]);
 

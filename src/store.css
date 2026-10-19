@@ -945,8 +945,12 @@
   opacity: 0;
   transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
-  /* The animated WebP repaints every frame; isolate it on its own
-     composited layer so the card (and grid) isn't re-rasterised. */
+}
+
+/* Only the actively animating WebP gets its own composited layer, so the
+   card (and grid) isn't re-rasterised while it repaints. Inactive covers
+   stay un-promoted: every idle card would otherwise pin GPU memory. */
+.store-card-cover-animated.is-active {
   will-change: opacity, transform;
 }
 

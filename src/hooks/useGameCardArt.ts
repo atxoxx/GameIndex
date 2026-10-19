@@ -106,6 +106,7 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
 
   const [sgdbAnimatedFailed, setSgdbAnimatedFailed] = useState(false);
   const [sgdbStaticFailed, setSgdbStaticFailed] = useState(false);
+  const [sgdbStaticThumbFailed, setSgdbStaticThumbFailed] = useState(false);
   const [sgdbIconFailed, setSgdbIconFailed] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const [coverThumbFailed, setCoverThumbFailed] = useState(false);
@@ -119,6 +120,7 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
   useEffect(() => {
     setSgdbAnimatedFailed(false);
     setSgdbStaticFailed(false);
+    setSgdbStaticThumbFailed(false);
     setSgdbIconFailed(false);
     setCoverFailed(false);
     setCoverThumbFailed(false);
@@ -158,7 +160,14 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
     return null;
   }, [defaultIconUrl, game]);
 
-  const sgdbStatic = sgdb?.gridUrl && !sgdbStaticFailed ? sgdb.gridUrl : null;
+  const sgdbStaticFull = sgdb?.gridUrl && !sgdbStaticFailed ? sgdb.gridUrl : null;
+  // Community grids go up to ~1000×1500; SGDB exposes a small `thumb`
+  // rendition for each upload. Cards decode the thumb (mirroring how the
+  // own-cover path prefers `*_thumb`); a broken thumb falls back to the
+  // full grid instead of a placeholder.
+  const sgdbStaticThumb =
+    !sgdbStaticThumbFailed && sgdb?.gridThumbUrl ? sgdb.gridThumbUrl : null;
+  const sgdbStatic = sgdbStaticThumb ?? sgdbStaticFull;
   const sgdbAnimated =
     animatedMediaEnabled && sgdb?.gridAnimatedUrl && !sgdbAnimatedFailed
       ? sgdb.gridAnimatedUrl
@@ -216,6 +225,15 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
         setSgdbAnimatedFailed(true);
         return;
       }
+      if (
+        sgdbStaticThumb &&
+        (src === sgdbStaticThumb || src.includes(sgdbStaticThumb))
+      ) {
+        // Thumb missing/failed — retry with the full-size grid rather
+        // than a placeholder.
+        setSgdbStaticThumbFailed(true);
+        return;
+      }
       if (sgdbStatic && (src === sgdbStatic || src.includes(sgdbStatic))) {
         setSgdbStaticFailed(true);
         return;
@@ -249,7 +267,7 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
 
       setCoverFailed(true);
     },
-    [sgdbAnimated, sgdbStatic, sgdbIcon, ownCoverThumb, ownIcon, steamAppId]
+    [sgdbAnimated, sgdbStatic, sgdbStaticThumb, sgdbIcon, ownCoverThumb, ownIcon, steamAppId]
   );
 
   return {

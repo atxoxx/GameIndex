@@ -274,7 +274,7 @@ pub async fn initialize_engine(
             // refresh and capture what needs persisting/emitting. The
             // frontend emit and the session-op heals then run with the
             // lock released.
-            let (heals, progress) = {
+            let (heals, progress, persist) = {
                 let mut guard = loop_handle.write().await;
                 // Nothing can change on its own: skip the refresh without
                 // even flushing the (clean) record set.
@@ -284,11 +284,17 @@ pub async fn initialize_engine(
                 let heals = guard.refresh_stats();
                 // Coalesce the per-second stat churn into a bounded write
                 // cadence; the live UI still gets every tick via the emit
-                // below, and explicit mutations flush immediately.
-                guard.flush_if_dirty_throttled(Duration::from_secs(3));
+                // below, and explicit mutations flush immediately. The
+                // snapshot is cloned under this lock, but the actual
+                // (serialize + write + rename) file IO then runs off it so
+                // a slow disk cannot stall every other downloader command.
+                let persist = guard.take_flush_snapshot_throttled(Duration::from_secs(3));
                 let progress = guard.take_progress_update();
-                (heals, progress)
+                (heals, progress, persist)
             };
+            if let Some(snapshot) = persist {
+                snapshot.commit();
+            }
             if let Some(snapshot) = progress {
                 let _ = app.emit("download-progress", &snapshot);
             }

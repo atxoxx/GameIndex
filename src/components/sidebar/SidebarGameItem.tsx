@@ -6,7 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game";
 import { accentForPlatform } from "../../types/emulator";
 import { preloadGameDetail } from "../../utils/routePreload";
-import { toWebviewAssetUrl } from "../../utils/artworkUrl";
+import { thumbVariantUrl, toWebviewAssetUrl } from "../../utils/artworkUrl";
 import { useSharedViewportVisibility } from "../../hooks/useSharedViewportVisibility";
 import HighlightedName from "./HighlightedName";
 import type { SidebarGameItemProps } from "./types";
@@ -171,7 +171,7 @@ function SidebarGameItemBase({
               const img = e.currentTarget;
               if (game.coverArtUrl && img.dataset.fallback !== "cover") {
                 img.dataset.fallback = "cover";
-                img.src = game.coverArtUrl;
+                img.src = thumbVariantUrl(game.coverArtUrl) ?? game.coverArtUrl;
                 return;
               }
               // Icon and cover both fail (e.g. an artwork file was removed):
@@ -186,7 +186,7 @@ function SidebarGameItemBase({
           />
         ) : game.coverArtUrl ? (
           <img
-            src={game.coverArtUrl}
+            src={thumbVariantUrl(game.coverArtUrl) ?? game.coverArtUrl}
             alt={displayName}
             loading="lazy"
             decoding="async"

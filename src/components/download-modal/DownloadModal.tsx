@@ -75,6 +75,7 @@ import {
 } from "./StepStates";
 import { parseQuery } from "./searchQuery";
 import { compareVersions, parseVersionFromTitle } from "../../utils/gameVersions";
+import { thumbVariantUrl } from "../../utils/artworkUrl";
 import { rankByRecommendation, recommendationScore } from "./ranking";
 import { useSourceReliability } from "./useSourceReliability";
 import {
@@ -1247,7 +1248,11 @@ export default function DownloadModal({
       setElapsedSec(0);
       return;
     }
-    const id = window.setInterval(() => setElapsedSec((s) => s + 1), 1000);
+    const id = window.setInterval(() => {
+      // The sequence banner's elapsed counter can coast while hidden.
+      if (document.hidden) return;
+      setElapsedSec((s) => s + 1);
+    }, 1000);
     return () => window.clearInterval(id);
   }, [step]);
 
@@ -1293,7 +1298,9 @@ export default function DownloadModal({
 
   const showResultsUI = step === "results" || step === "starting";
   const filesFetching = step === "fetching_metadata";
-  const gameCover = targetGame?.coverArtUrl || targetGame?.iconUrl || gamePoster;
+  const rawGameCover = targetGame?.coverArtUrl || targetGame?.iconUrl || gamePoster;
+  // Header avatar + blurred glow only; the thumb variant is plenty sharp.
+  const gameCover = thumbVariantUrl(rawGameCover) ?? rawGameCover;
 
   const hasActiveFilters =
     sourceFilter !== "all" ||

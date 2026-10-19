@@ -151,27 +151,86 @@ pub async fn portable_update_download(
     let total = resp.content_length();
     let _ = on_event.send(PortableDownloadEvent::Started { content_length: total });
 
-    let mut stream = resp.bytes_stream();
-    let mut bytes: Vec<u8> = Vec::new();
-    let mut downloaded: u64 = 0;
-    while let Some(chunk) = stream.next().await {
-        if CANCEL_REQUESTED.load(Ordering::SeqCst) {
-            return Err("Update download cancelled".to_string());
-        }
-        let chunk = chunk.map_err(|e| format!("Failed to read update stream: {e}"))?;
-        downloaded += chunk.len() as u64;
-        bytes.extend_from_slice(&chunk);
-        let _ = on_event.send(PortableDownloadEvent::Progress { downloaded, total });
-    }
-
-    verify_tauri_signature(&bytes, &signature, &pubkey)
-        .map_err(|_| "Update signature verification failed".to_string())?;
+    // Stream the artifact straight to the staging temp file instead of
+    // accumulating it in memory: a portable update can be hundreds of
+    // MB, and buffering the whole exe transiently doubled the RSS for
+    // the same result. Verification runs incrementally when the
+    // signature is a modern pre-hashed one (what `tauri signer`
+    // produces today); a legacy signature falls back to a buffered
+    // one-shot check read back from disk, so acceptance behaviour is
+    // unchanged — only the memory profile differs.
+    let public_key = decode_pubkey_b64(&pubkey)?;
+    let signature = decode_signature_b64(&signature)?;
+    let mut verifier = match public_key.verify_stream(&signature) {
+        Ok(streamer) => Some(streamer),
+        Err(minisign_verify::Error::UnsupportedLegacyMode) => None,
+        Err(_) => return Err("Update signature verification failed".to_string()),
+    };
 
     let staging = std::env::temp_dir().join("gameindex-update");
     std::fs::create_dir_all(&staging).map_err(|e| format!("Failed to create staging dir: {e}"))?;
     let final_path = staging.join("GameIndex.exe");
     let tmp_path = staging.join("GameIndex.exe.tmp");
-    std::fs::write(&tmp_path, &bytes).map_err(|e| format!("Failed to write staged update: {e}"))?;
+    // Every early exit below removes the partial file so a cancelled or
+    // failed attempt never leaves a truncated staged exe behind.
+    let mut file = std::fs::File::create(&tmp_path)
+        .map(std::io::BufWriter::new)
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&tmp_path);
+            format!("Failed to write staged update: {e}")
+        })?;
+
+    let mut stream = resp.bytes_stream();
+    let mut downloaded: u64 = 0;
+    let write_result: Result<(), String> = loop {
+        let Some(chunk) = stream.next().await else {
+            break Ok(());
+        };
+        if CANCEL_REQUESTED.load(Ordering::SeqCst) {
+            break Err("Update download cancelled".to_string());
+        }
+        let chunk = match chunk.map_err(|e| format!("Failed to read update stream: {e}")) {
+            Ok(c) => c,
+            Err(e) => break Err(e),
+        };
+        downloaded += chunk.len() as u64;
+        if let Err(e) = std::io::Write::write_all(&mut file, &chunk) {
+            break Err(format!("Failed to write staged update: {e}"));
+        }
+        if let Some(streamer) = verifier.as_mut() {
+            streamer.update(&chunk);
+        }
+        let _ = on_event.send(PortableDownloadEvent::Progress { downloaded, total });
+    };
+    if let Err(e) = write_result {
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err(e);
+    }
+    if let Err(e) = std::io::Write::flush(&mut file) {
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err(format!("Failed to write staged update: {e}"));
+    }
+    drop(file);
+
+    let verified = if let Some(mut streamer) = verifier.take() {
+        streamer.finalize().is_ok()
+    } else {
+        // Legacy signature: check the staged file with the one-shot
+        // verifier (rare path; old fixtures keep passing verbatim).
+        (|| -> Result<bool, String> {
+            let mut data = Vec::new();
+            std::fs::File::open(&tmp_path)
+                .and_then(|mut f| std::io::Read::read_to_end(&mut f, &mut data))
+                .map_err(|e| format!("Failed to read staged update: {e}"))?;
+            Ok(public_key.verify(&data, &signature, true).is_ok())
+        })()
+        .unwrap_or(false)
+    };
+    if !verified {
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err("Update signature verification failed".to_string());
+    }
+
     std::fs::rename(&tmp_path, &final_path).map_err(|e| {
         let _ = std::fs::remove_file(&tmp_path);
         format!("Failed to finalize staged update: {e}")
@@ -179,7 +238,7 @@ pub async fn portable_update_download(
 
     Ok(PortableStageInfo {
         path: final_path.to_string_lossy().into_owned(),
-        size_bytes: bytes.len() as u64,
+        size_bytes: downloaded,
     })
 }
 
@@ -211,25 +270,36 @@ fn updater_pubkey(app: &tauri::AppHandle) -> Result<String, String> {
 /// `signature` are base64-wrapped minisign TEXT files, so each needs two
 /// layers of unwrapping before the minisign types can parse them (the
 /// plugin does the same in `updater::verify_signature`).
-fn verify_tauri_signature(data: &[u8], signature_b64: &str, pubkey_b64: &str) -> Result<(), String> {
+fn decode_pubkey_b64(pubkey_b64: &str) -> Result<minisign_verify::PublicKey, String> {
     let pubkey_text = String::from_utf8(
         STANDARD
             .decode(pubkey_b64)
             .map_err(|e| format!("invalid public key encoding: {e}"))?,
     )
     .map_err(|e| format!("invalid public key text: {e}"))?;
-    let public_key = minisign_verify::PublicKey::decode(&pubkey_text)
-        .map_err(|e| format!("invalid public key: {e}"))?;
+    minisign_verify::PublicKey::decode(&pubkey_text)
+        .map_err(|e| format!("invalid public key: {e}"))
+}
 
+fn decode_signature_b64(signature_b64: &str) -> Result<minisign_verify::Signature, String> {
     let signature_text = String::from_utf8(
         STANDARD
             .decode(signature_b64)
             .map_err(|e| format!("invalid signature encoding: {e}"))?,
     )
     .map_err(|e| format!("invalid signature text: {e}"))?;
-    let signature = minisign_verify::Signature::decode(&signature_text)
-        .map_err(|e| format!("invalid signature: {e}"))?;
+    minisign_verify::Signature::decode(&signature_text)
+        .map_err(|e| format!("invalid signature: {e}"))
+}
 
+// One-shot wrapper used by the fixture tests. Production goes through
+// `decode_pubkey_b64`/`decode_signature_b64` directly (the streamed
+// download verifies incrementally or, for legacy signatures, verifies
+// the staged bytes in place instead of a second base64 round-trip).
+#[cfg(test)]
+fn verify_tauri_signature(data: &[u8], signature_b64: &str, pubkey_b64: &str) -> Result<(), String> {
+    let public_key = decode_pubkey_b64(pubkey_b64)?;
+    let signature = decode_signature_b64(signature_b64)?;
     public_key
         .verify(data, &signature, true) // allow_legacy, matching the plugin
         .map_err(|e| format!("signature verification failed: {e}"))
@@ -319,6 +389,38 @@ mod tests {
     fn verify_accepts_genuine_signature() {
         let data = STANDARD.decode(FIXTURE_B64).unwrap();
         verify_tauri_signature(&data, SIGNATURE_B64, PUBKEY_B64).unwrap();
+    }
+
+    #[test]
+    fn streaming_verify_accepts_genuine_signature() {
+        // Same fixture through the incremental verifier chunks go
+        // through during a streamed download (verify_stream requires the
+        // modern pre-hashed signature mode `tauri signer` emits).
+        let data = STANDARD.decode(FIXTURE_B64).unwrap();
+        let public_key = decode_pubkey_b64(PUBKEY_B64).unwrap();
+        let signature = decode_signature_b64(SIGNATURE_B64).unwrap();
+        let mut streamer = public_key
+            .verify_stream(&signature)
+            .expect("expected a pre-hashed (streamable) signature");
+        for chunk in data.chunks(6) {
+            streamer.update(chunk);
+        }
+        streamer.finalize().unwrap();
+    }
+
+    #[test]
+    fn streaming_verify_rejects_tampered_data() {
+        let mut data = STANDARD.decode(FIXTURE_B64).unwrap();
+        data[0] ^= 0xff;
+        let public_key = decode_pubkey_b64(PUBKEY_B64).unwrap();
+        let signature = decode_signature_b64(SIGNATURE_B64).unwrap();
+        let mut streamer = public_key
+            .verify_stream(&signature)
+            .expect("expected a pre-hashed (streamable) signature");
+        for chunk in data.chunks(6) {
+            streamer.update(chunk);
+        }
+        assert!(streamer.finalize().is_err());
     }
 
     #[test]

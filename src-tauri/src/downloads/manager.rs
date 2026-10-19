@@ -48,6 +48,43 @@ const TORRENT_FILES_REBUILD_EVERY_TICKS: u64 = 5;
 pub type SharedManager = Arc<RwLock<DownloadManager>>;
 pub type WeakManager = std::sync::Weak<RwLock<DownloadManager>>;
 
+/// A record set cloned for an off-lock persist (see
+/// [`DownloadManager::take_flush_snapshot_throttled`]).
+pub struct AsyncPersist {
+    gen: u64,
+    state_dir: PathBuf,
+    downloads: HashMap<String, Download>,
+    removed_torrents: HashMap<String, bool>,
+    commit_lock: Arc<std::sync::Mutex<u64>>,
+}
+
+impl AsyncPersist {
+    /// Apply the snapshot unless a newer generation was already
+    /// committed. The generation guard makes out-of-order background
+    /// writes harmless: a late one is discarded instead of resurrecting
+    /// a stale record set over a newer write (the sync persists from
+    /// explicit mutations run through the same lock).
+    fn apply(&self) -> bool {
+        let mut committed = self.commit_lock.lock().unwrap();
+        if *committed >= self.gen {
+            return false;
+        }
+        persistence::save(&self.state_dir, &self.downloads, &self.removed_torrents);
+        *committed = self.gen;
+        true
+    }
+
+    /// Run the snapshot's file write off the manager lock. The write
+    /// itself is moved onto the blocking pool so a slow disk stalls a
+    /// worker thread instead of the task that drives the 1 s status
+    /// loop.
+    pub fn commit(self) {
+        tokio::spawn(async move {
+            let _ = tokio::task::spawn_blocking(move || self.apply()).await;
+        });
+    }
+}
+
 pub struct DownloadManager {
     session: Option<Arc<librqbit::Session>>,
     downloads: HashMap<String, Download>,
@@ -130,6 +167,16 @@ pub struct DownloadManager {
     /// throttled per-file-list rebuild (see
     /// `TORRENT_FILES_REBUILD_EVERY_TICKS`).
     stats_tick: u64,
+    /// Monotonic generation stamped onto every persist snapshot. A
+    /// background write only commits when its generation is still the
+    /// newest, so an off-lock write that lands late can never resurrect
+    /// a record set older than one the sync path already wrote.
+    persist_gen: u64,
+    /// Guards the commit step of both persist paths (sync and async) so
+    /// record-set writes and their `*.tmp` handoff never race. The
+    /// value is the generation of the newest commit. Held only for the
+    /// (few-ms) file write.
+    persist_lock: Arc<std::sync::Mutex<u64>>,
 }
 
 impl DownloadManager {
@@ -166,6 +213,8 @@ impl DownloadManager {
             settings: DownloadSettings::default(),
             post_action_ran: HashSet::new(),
             stats_tick: 0,
+            persist_gen: 0,
+            persist_lock: Arc::new(std::sync::Mutex::new(0)),
         }
     }
 
@@ -220,27 +269,50 @@ impl DownloadManager {
         }
     }
 
-    /// Persist a dirty record set at most once per `min_interval`. The 1 s
-    /// status loop uses this: an active transfer re-dirties the records every
-    /// tick (speed + byte counters), and rewriting the whole `downloads.json`
-    /// every second is pure write amplification. Progress is re-derived from
-    /// the partial file / HTTP resume on the next boot, so a few seconds of
-    /// staleness costs nothing. Explicit mutations still use
-    /// [`flush_if_dirty`] for an immediate write.
-    pub fn flush_if_dirty_throttled(&mut self, min_interval: Duration) {
+    /// Optionally hand the dirty record set to a background persist,
+    /// at most once per `min_interval`. The 1 s status loop calls this
+    /// while holding the manager write lock, but instead of blocking
+    /// that lock on the (serialize + write + rename) file IO like the
+    /// inline flush used to, it clones the snapshot under the lock and
+    /// returns it for a caller to [`AsyncPersist::commit`] off-lock.
+    /// Progress is re-derived from the partial file / HTTP resume on the
+    /// next boot, so a few seconds of staleness costs nothing. Explicit
+    /// mutations still use [`flush_if_dirty`] for an immediate write.
+    ///
+    /// Returns `None` when nothing is pending or the throttle window is
+    /// still open (dirty stays set so the next tick retries, matching
+    /// the old inline behaviour).
+    pub fn take_flush_snapshot_throttled(
+        &mut self,
+        min_interval: Duration,
+    ) -> Option<AsyncPersist> {
         if !self.dirty {
-            return;
+            return None;
         }
         if let Some(last) = self.last_persist {
             if last.elapsed() < min_interval {
-                return;
+                return None;
             }
         }
-        self.persist_now();
+        self.persist_gen += 1;
+        let snapshot = AsyncPersist {
+            gen: self.persist_gen,
+            state_dir: self.state_dir.clone(),
+            downloads: self.downloads.clone(),
+            removed_torrents: self.removed_torrents.clone(),
+            commit_lock: self.persist_lock.clone(),
+        };
+        self.dirty = false;
+        self.last_persist = Some(Instant::now());
+        Some(snapshot)
     }
 
     fn persist_now(&mut self) {
+        self.persist_gen += 1;
+        let mut guard = self.persist_lock.lock().unwrap();
         persistence::save(&self.state_dir, &self.downloads, &self.removed_torrents);
+        *guard = self.persist_gen;
+        drop(guard);
         self.dirty = false;
         self.last_persist = Some(Instant::now());
     }
@@ -906,10 +978,16 @@ impl DownloadManager {
     ///
     /// Reconciliation only matters while a record can still change on its
     /// own: an in-flight transfer, a torrent that is seeding, or a
-    /// manager-owned Queued/Paused state whose intent is re-enforced
-    /// against the session every tick. Once every record is terminal
-    /// (Completed / Error / Removed) and nothing is pending a persist, the
-    /// loop can skip the lock-heavy refresh entirely.
+    /// manager-owned Queued state whose intent is re-enforced against the
+    /// session every tick. Paused records are covered by the session scan
+    /// below rather than the record gate: a paused torrent whose session
+    /// entry is also fully paused does no work on its own, so it no
+    /// longer keeps the loop awake forever (previously every app-lifetime
+    /// paused torrent cost a lock + refresh cycle every second). They
+    /// wake again on the next mutation, boot or live entry. Once every
+    /// record is terminal (Completed / Error / Removed) and nothing is
+    /// pending a persist, the loop can skip the lock-heavy refresh
+    /// entirely.
     pub fn needs_tick(&self) -> bool {
         if self.dirty {
             return true;
@@ -920,16 +998,29 @@ impl DownloadManager {
                 DownloadStatus::FetchingMetadata
                     | DownloadStatus::Downloading
                     | DownloadStatus::Queued
-                    | DownloadStatus::Paused
                     | DownloadStatus::Seeding
             )
         }) {
             return true;
         }
         // A session torrent can outlive its record (a timed-out add that
-        // resolved late). Keep ticking so the orphan sweep can remove it.
+        // resolved late). Keep ticking while any session torrent is still
+        // able to change on its own — the orphan sweep removes it, and
+        // live entries with a paused record still need the pause sweep.
+        // Fully stalled entries (paused, paused-mid-check, errored) do no
+        // self-driven work, so they stop the ticking instead of paying a
+        // lock + stats cycle every second for zero visible change; a
+        // later mutation (`dirty`), a manual resume or the next app boot
+        // re-arms the loop.
         match &self.session {
-            Some(session) => session.with_torrents(|iter| iter.next().is_some()),
+            Some(session) => session.with_torrents(|iter| {
+                for (_id, mt) in iter {
+                    if !torrent_quiescent(&mt.stats().state) {
+                        return true;
+                    }
+                }
+                false
+            }),
             None => false,
         }
     }
@@ -1005,6 +1096,21 @@ impl DownloadManager {
 }
 
 // ─── Start orchestration (needs the shared Arc, so free functions) ──────────
+
+/// True while a session torrent's librqbit state does no self-driven
+/// work: fully paused, paused mid-file-check, or dead (errored). Such
+/// entries stay exactly where they are until a mutation re-arms the 1 s
+/// status loop, so they must not keep `needs_tick` awake. Mirrors
+/// `torrent::map_state_to_status`, which maps the paused-Initializing
+/// state to Paused (never something live).
+fn torrent_quiescent(state: &librqbit::TorrentStatsState) -> bool {
+    matches!(
+        state,
+        librqbit::TorrentStatsState::Paused
+            | librqbit::TorrentStatsState::Error
+            | librqbit::TorrentStatsState::Initializing { paused: true }
+    )
+}
 
 /// True while a torrent add whose infohash resolves to `fid` can still
 /// be in-flight. Protects the orphan sweep: the record is still keyed by
@@ -2645,26 +2751,80 @@ mod tests {
         );
         mgr.downloads_mut().insert(d.id.clone(), d);
 
-        // A zero interval always writes (and records the flush time).
+        // A zero interval always snapshots (and records the flush time).
         mgr.mark_dirty();
-        mgr.flush_if_dirty_throttled(Duration::ZERO);
+        let job = mgr
+            .take_flush_snapshot_throttled(Duration::ZERO)
+            .expect("first flush must emit a snapshot");
+        assert!(job.apply());
         assert_eq!(persistence::load(dir.path()).downloads.len(), 1);
 
         // A change made within the window is coalesced: the on-disk copy
-        // still holds the pre-change value.
+        // still holds the pre-change value and no new snapshot exists.
         mgr.downloads_mut().get_mut("dl_1").unwrap().name = "Renamed".to_string();
         mgr.mark_dirty();
-        mgr.flush_if_dirty_throttled(Duration::from_secs(3600));
+        assert!(mgr
+            .take_flush_snapshot_throttled(Duration::from_secs(3600))
+            .is_none());
         assert_eq!(
             persistence::load(dir.path()).downloads["dl_1"].name,
             "One"
         );
 
-        // The coalesced change lands on the next unthrottled flush.
-        mgr.flush_if_dirty_throttled(Duration::ZERO);
+        // The coalesced change lands on the next unthrottled snapshot.
+        let job2 = mgr
+            .take_flush_snapshot_throttled(Duration::ZERO)
+            .expect("unthrottled flush must emit a snapshot");
+        // An out-of-order apply of the older snapshot must be discarded,
+        // not resurrect its stale record set over a newer commit.
+        assert!(!job.apply());
+        assert!(job2.apply());
         assert_eq!(
             persistence::load(dir.path()).downloads["dl_1"].name,
             "Renamed"
         );
+    }
+
+    #[test]
+    fn quiescent_states_match_pause_like_states() {
+        use librqbit::TorrentStatsState;
+        // Fully paused, paused mid-check and errored entries do no
+        // self-driven work: the 1 s loop may rest on them.
+        assert!(torrent_quiescent(&TorrentStatsState::Paused));
+        assert!(torrent_quiescent(&TorrentStatsState::Initializing {
+            paused: true
+        }));
+        assert!(torrent_quiescent(&TorrentStatsState::Error));
+        // Anything that can still move a record keeps the loop awake.
+        assert!(!torrent_quiescent(&TorrentStatsState::Live));
+        assert!(!torrent_quiescent(&TorrentStatsState::Initializing {
+            paused: false
+        }));
+    }
+
+    #[test]
+    fn needs_tick_rests_on_paused_leftovers_without_a_session() {
+        // Regression: a paused record used to wake the 1 s status loop
+        // forever (write lock + refresh every second) even though a
+        // paused torrent without a session entry cannot change by
+        // itself. Contrast with the still-urgent states.
+        let mut mgr = DownloadManager::new(std::path::PathBuf::from("."));
+        let paused = torrent_record("magnet:?xt=urn:btih:d", DownloadStatus::Paused);
+        let paused_id = paused.id.clone();
+        mgr.downloads_mut().insert(paused_id.clone(), paused);
+        assert!(!mgr.needs_tick());
+
+        for urgent in [
+            DownloadStatus::Downloading,
+            DownloadStatus::FetchingMetadata,
+            DownloadStatus::Queued,
+            DownloadStatus::Seeding,
+        ] {
+            mgr.downloads_mut()
+                .get_mut(paused_id.as_str())
+                .unwrap()
+                .status = urgent.clone();
+            assert!(mgr.needs_tick(), "status {urgent:?} must keep ticking");
+        }
     }
 }

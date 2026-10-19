@@ -297,54 +297,77 @@ function hasUsableStatus(entry: unknown): entry is TorrentDownload {
   );
 }
 
+function downloadsEqual(a: TorrentDownload, b: TorrentDownload): boolean {
+  if (
+    a.id !== b.id ||
+    a.name !== b.name ||
+    a.downloaded !== b.downloaded ||
+    a.totalSize !== b.totalSize ||
+    a.progress !== b.progress ||
+    a.downloadSpeed !== b.downloadSpeed ||
+    a.uploadSpeed !== b.uploadSpeed ||
+    a.peers !== b.peers ||
+    a.seeds !== b.seeds ||
+    a.status.kind !== b.status.kind ||
+    a.sourceUri !== b.sourceUri ||
+    (a.queuePosition ?? -1) !== (b.queuePosition ?? -1) ||
+    a.kind !== b.kind ||
+    a.extracted !== b.extracted ||
+    a.autoExtract !== b.autoExtract ||
+    a.savePath !== b.savePath ||
+    a.gameId !== b.gameId ||
+    a.gamePoster !== b.gamePoster ||
+    a.sourceName !== b.sourceName ||
+    a.addedAt !== b.addedAt ||
+    a.completedAt !== b.completedAt ||
+    a.peakSpeed !== b.peakSpeed ||
+    a.debridCached !== b.debridCached ||
+    a.shouldSeed !== b.shouldSeed ||
+    a.magnetUri !== b.magnetUri ||
+    a.scheduledStartAt !== b.scheduledStartAt ||
+    a.priority !== b.priority ||
+    a.uploaded !== b.uploaded ||
+    a.postActionStatus !== b.postActionStatus
+  ) {
+    return false;
+  }
+  if (a.status.kind === "error" && b.status.kind === "error" && a.status.message !== b.status.message) {
+    return false;
+  }
+  if ((a.uris?.length ?? 0) !== (b.uris?.length ?? 0)) return false;
+  if (a.uris && b.uris) {
+    for (let j = 0; j < a.uris.length; j++) {
+      if (a.uris[j] !== b.uris[j]) return false;
+    }
+  }
+  if ((a.files?.length ?? 0) !== (b.files?.length ?? 0)) return false;
+  if (a.files && b.files) {
+    for (let j = 0; j < a.files.length; j++) {
+      const fa = a.files[j];
+      const fb = b.files[j];
+      if (
+        fa.name !== fb.name ||
+        fa.size !== fb.size ||
+        fa.selected !== fb.selected ||
+        fa.progress !== fb.progress ||
+        fa.downloaded !== fb.downloaded
+      ) {
+        return false;
+      }
+    }
+  }
+  // Post-actions are write-once (add-time or settings sync); a JSON
+  // fingerprint is simpler than a field walk and these arrays are tiny.
+  const ap = a.postActions ? JSON.stringify(a.postActions) : "";
+  const bp = b.postActions ? JSON.stringify(b.postActions) : "";
+  if (ap !== bp) return false;
+  return true;
+}
+
 function areDownloadsEqual(a: TorrentDownload[], b: TorrentDownload[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
-    const da = a[i];
-    const db = b[i];
-    if (
-      da.id !== db.id ||
-      da.name !== db.name ||
-      da.downloaded !== db.downloaded ||
-      da.totalSize !== db.totalSize ||
-      da.progress !== db.progress ||
-      da.downloadSpeed !== db.downloadSpeed ||
-      da.uploadSpeed !== db.uploadSpeed ||
-      da.peers !== db.peers ||
-      da.seeds !== db.seeds ||
-      da.status.kind !== db.status.kind ||
-      da.sourceUri !== db.sourceUri ||
-      (da.queuePosition ?? -1) !== (db.queuePosition ?? -1) ||
-      da.kind !== db.kind ||
-      da.extracted !== db.extracted ||
-      da.autoExtract !== db.autoExtract
-    ) {
-      return false;
-    }
-    if (da.status.kind === "error" && db.status.kind === "error" && da.status.message !== db.status.message) {
-      return false;
-    }
-    if ((da.uris?.length ?? 0) !== (db.uris?.length ?? 0)) return false;
-    if (da.uris && db.uris) {
-      for (let j = 0; j < da.uris.length; j++) {
-        if (da.uris[j] !== db.uris[j]) return false;
-      }
-    }
-    if ((da.files?.length ?? 0) !== (db.files?.length ?? 0)) return false;
-    if (da.files && db.files) {
-      for (let j = 0; j < da.files.length; j++) {
-        const fa = da.files[j];
-        const fb = db.files[j];
-        if (
-          fa.name !== fb.name ||
-          fa.selected !== fb.selected ||
-          fa.progress !== fb.progress ||
-          fa.downloaded !== fb.downloaded
-        ) {
-          return false;
-        }
-      }
-    }
+    if (!downloadsEqual(a[i], b[i])) return false;
   }
   return true;
 }
@@ -378,14 +401,22 @@ const SPEED_FLOOR = 1;
  * (downloading / fetching metadata / seeding) keep a smoothed value; paused,
  * completed and errored records show exactly 0 and drop their smoothed state.
  * Entries that leave the snapshot are pruned so the map doesn't grow.
+ *
+ * Unchanged entries reuse the previous tick's object identity (see
+ * `prevRows`): every engine event produces fresh row objects, and without
+ * the reuse a single moving download would hand all ~30 `useDownloads`
+ * subscribers + every memoized row a new identity per second, each paying
+ * a re-render even though their content never changed.
  */
 function smoothSnapshot(
   snapshot: TorrentDownload[],
   speedState: { current: Map<string, { down: number; up: number }> },
+  prevRows: { current: Map<string, TorrentDownload> },
 ): TorrentDownload[] {
   const liveIds = new Set<string>();
   const smoothed = snapshot.map((d) => {
     liveIds.add(d.id);
+    const prevRow = prevRows.current.get(d.id);
     const prev = speedState.current.get(d.id);
     const transferring =
       d.status.kind === "downloading" ||
@@ -402,10 +433,20 @@ function smoothSnapshot(
     } else {
       speedState.current.delete(d.id);
     }
-    return { ...d, downloadSpeed: down, uploadSpeed: up };
+    const candidate: TorrentDownload = { ...d, downloadSpeed: down, uploadSpeed: up };
+    if (prevRow && downloadsEqual(prevRow, candidate)) {
+      // Same content as the tick before: keep the reference so memoized
+      // rows bail out instead of re-rendering.
+      return prevRow;
+    }
+    prevRows.current.set(d.id, candidate);
+    return candidate;
   });
   for (const id of speedState.current.keys()) {
     if (!liveIds.has(id)) speedState.current.delete(id);
+  }
+  for (const id of prevRows.current.keys()) {
+    if (!liveIds.has(id)) prevRows.current.delete(id);
   }
   return smoothed;
 }
@@ -500,6 +541,10 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   // librqbit sample flickers between pieces; smoothing keeps the speed
   // column (and ETA) from appearing to collapse to zero between bursts.
   const speedStateRef = useRef<Map<string, { down: number; up: number }>>(new Map());
+  // Latest smoothed row per download id, used by `smoothSnapshot` to hand
+  // unchanged rows back their previous object identity (memoized rows can
+  // then bail out of re-renders during active transfers).
+  const prevRowsRef = useRef<Map<string, TorrentDownload>>(new Map());
 
   /**
    * Compare an incoming list against the last-seen statuses and fire
@@ -660,6 +705,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           const snapshot = smoothSnapshot(
             event.payload.filter(hasUsableStatus),
             speedStateRef,
+            prevRowsRef,
           );
           if (event.payload.length > 0 && snapshot.length === 0) return;
           // Skip the identical-snapshot case before doing any work: a
@@ -692,7 +738,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         try {
           const initial = await invoke<TorrentDownload[]>("torrent_get_all");
           if (!cancelled && Array.isArray(initial)) {
-            const smoothed = smoothSnapshot(initial, speedStateRef);
+            const smoothed = smoothSnapshot(initial, speedStateRef, prevRowsRef);
             notifyCompletionsRef.current(smoothed);
             setDownloads(smoothed);
           }

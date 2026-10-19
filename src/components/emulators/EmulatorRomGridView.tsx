@@ -1,6 +1,7 @@
 import { useMemo, memo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
+import { thumbVariantUrl } from "../../utils/artworkUrl";
 import { formatBytesShort } from "../../types/download";
 
 interface RomGridViewProps {
@@ -48,7 +49,8 @@ function EmulatorRomGridViewBase({
       {games.map((g) => {
         const isSelected = selectedGameIds.has(g.id);
         const isRunning = runningSet.has(g.id);
-        const cover = g.coverArtUrl || g.iconUrl;
+        const rawCover = g.coverArtUrl || g.iconUrl;
+        const cover = thumbVariantUrl(rawCover) ?? rawCover;
 
         return (
           <div

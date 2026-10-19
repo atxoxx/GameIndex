@@ -79,6 +79,9 @@ export default function OverlayPage() {
 
     applyOpacity(1);
     const handle = window.setInterval(() => {
+      // While hidden there is no input to observe; the visibilitychange
+      // listener below bumps activity on return, so idle can coast.
+      if (document.hidden) return;
       const elapsed = (performance.now() - lastActivity) / 1000;
       const next = idleAction(elapsed, dimSeconds, hideSeconds);
       if (next === idleStateRef.current) return;
