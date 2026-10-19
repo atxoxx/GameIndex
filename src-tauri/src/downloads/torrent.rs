@@ -27,10 +27,13 @@ use super::types::{DownloadFile, DownloadStatus};
 
 // ─── Session init ───────────────────────────────────────────────────────────
 
-/// Concurrent peer slots per torrent. librqbit defaults to 128, which is
-/// plenty for a healthy swarm but leaves little headroom when most tracker
-/// entries are stale: failed handshakes occupy a slot until they time out.
-const PEER_LIMIT_PER_TORRENT: usize = 200;
+/// Concurrent peer slots per torrent. librqbit defaults to 128. Its
+/// semaphore is shared by *connecting* and live peers, so on swarms whose
+/// tracker lists are full of dead entries most of the cap sits in
+/// connection attempts: a 200-slot probe measured ~175 slots connecting
+/// and only ~25 live peers. 400 keeps the dead-entry churn from crowding
+/// out the peers that can actually transfer.
+const PEER_LIMIT_PER_TORRENT: usize = 400;
 
 /// Whether to also listen for uTP peers. Off by default: librqbit's
 /// userspace uTP stack cannot match the kernel TCP stack and its UDP
@@ -64,14 +67,16 @@ fn build_listener_opts(enable_utp: bool) -> librqbit::ListenerOptions {
 }
 
 fn build_peer_opts() -> Option<librqbit::PeerConnectionOptions> {
-    // Desktop-client tuning: allow slow/high-latency peers to finish the
-    // handshake (8 s vs the 10 s server-profile default; the old 2 s limit
-    // rejected a large slice of the swarm outright), catch stuck peers at
-    // 15 s so a dead peer doesn't hold a transfer slot at zero speed for
-    // long, keep NAT bindings alive with a 30 s keep-alive.
+    // Desktop-client tuning. The read/write timeout is the idle timeout:
+    // librqbit applies it to every socket read, and choked peers have
+    // nothing to send besides keep-alives. Real clients use ~120 s; the
+    // old 15 s dropped perfectly healthy peers that simply hadn't
+    // unchoked us yet, losing their transfer slot and forcing a full
+    // reconnect/backoff cycle. Connect timeout stays short (8 s) so dead
+    // tracker entries release their slot quickly.
     Some(librqbit::PeerConnectionOptions {
         connect_timeout: Some(Duration::from_secs(8)),
-        read_write_timeout: Some(Duration::from_secs(15)),
+        read_write_timeout: Some(Duration::from_secs(120)),
         keep_alive_interval: Some(Duration::from_secs(30)),
     })
 }
@@ -745,19 +750,16 @@ pub enum AddOutcome {
     AlreadyManaged { handle: Arc<librqbit::ManagedTorrent> },
 }
 
-/// Tracker re-announce cadence forced on every torrent (overrides each
-/// tracker's own `interval` for the torrent's whole lifetime — not just
-/// metadata resolution). Public trackers throttle or temporarily ban
-/// clients announcing faster than roughly once per minute, so 30 s
-/// waves across the full tracker list erode peer discovery mid-download.
-/// 90 s stays inside librqbit's own 10 s–600 s announce pacing window
-/// (`tracker_comms.rs` clamps retries to that range).
-const FORCE_TRACKER_INTERVAL_SECS: u64 = 90;
+/// Tracker announcements follow the interval each tracker returns. An
+/// earlier version forced a 90 s re-announce for the torrent's whole
+/// lifetime; that ignores the tracker's own `interval`/`min_interval`
+/// and gets clients rate-limited or temporarily banned by public
+/// trackers, which erodes peer discovery exactly when it is needed.
+/// The initial announce is still immediate (and magnet resolution is
+/// backed by DHT plus the add retries), so nothing needs overriding.
 
-/// How long ONE metadata-fetch attempt may run before we retry. During
-/// resolution librqbit re-announces to the tracker set every
-/// `FORCE_TRACKER_INTERVAL_SECS`, so a single attempt covers one
-/// announce round plus a DHT query.
+/// How long ONE metadata-fetch attempt may run before we retry. Each
+/// retry starts a fresh announce round plus a DHT query.
 const ADD_ATTEMPT_TIMEOUT_SECS: u64 = 90;
 /// Maximum add attempts. Each retry re-announces to the (now
 /// session-wide) tracker set and re-queries the DHT — with the
@@ -802,7 +804,6 @@ pub async fn add_and_start(
             // post-add update_only_files retry loop was redundant.
             only_files: only_files.map(|v| v.to_vec()),
             trackers: Some(default_trackers_vec()),
-            force_tracker_interval: Some(Duration::from_secs(FORCE_TRACKER_INTERVAL_SECS)),
             ..Default::default()
         };
 
@@ -1111,11 +1112,15 @@ mod tests {
     }
 
     #[test]
-    fn peer_tuning_allows_slow_handshakes_and_extra_slots() {
+    fn peer_tuning_matches_desktop_clients() {
         let opts = build_peer_opts().expect("peer options");
+        // Short connect timeout so dead tracker entries free their slot.
         assert_eq!(opts.connect_timeout, Some(Duration::from_secs(8)));
-        assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(15)));
-        assert!(PEER_LIMIT_PER_TORRENT >= 200);
+        // Long idle timeout: choked peers can go a while without sending
+        // anything except keep-alives, and dropping them loses the slot.
+        assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(120)));
+        assert!(PEER_LIMIT_PER_TORRENT >= 400);
+        assert_eq!(opts.keep_alive_interval, Some(Duration::from_secs(30)));
     }
 
     #[test]
@@ -1133,19 +1138,5 @@ mod tests {
         assert!(matches!(opts.mode, librqbit::ListenerMode::TcpAndUtp));
         assert!(opts.mode.tcp_enabled());
         assert!(opts.mode.utp_enabled());
-    }
-
-    #[test]
-    fn forced_tracker_interval_is_tracker_friendly() {
-        // Announcing faster than ~1/min per torrent gets rate-limited or
-        // temp-banned by public trackers, which erodes mid-download peer
-        // discovery. The interval must stay at or above that mark while
-        // remaining short enough to resolve magnet metadata actively.
-        assert!(FORCE_TRACKER_INTERVAL_SECS >= 60);
-        assert!(
-            FORCE_TRACKER_INTERVAL_SECS <= ADD_ATTEMPT_TIMEOUT_SECS,
-            "the interval should still allow a full announce round \
-             within one metadata attempt"
-        );
     }
 }

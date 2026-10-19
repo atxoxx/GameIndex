@@ -708,7 +708,6 @@ pub async fn torrent_add(
             overwrite: true,
             list_only: true,
             trackers: Some(torrent::default_trackers_vec()),
-            force_tracker_interval: Some(Duration::from_secs(30)),
             ..Default::default()
         };
 
