@@ -21,6 +21,10 @@ use super::pool::Db;
 // and some helpers (e.g. `list_all`, `clear`) are intentionally kept on
 // stand-by for upcoming cache-invalidation paths. Suppressing the
 /// Upsert a game-level achievement payload.
+///
+/// Writes go through the same merge rules as the batch path: a re-sync
+/// can never relock an achievement already cached for the same source,
+/// and a transient empty payload never wipes a previously-good list.
 pub fn upsert(
     db: &Db,
     game_id: &str,
@@ -30,8 +34,16 @@ pub fn upsert(
     source: &str,
     provider_id: Option<&str>,
 ) -> Result<(), String> {
-    let conn = db.achievements().map_err(|e| e.to_string())?;
-    conn.execute(
+    let mut conn = db.achievements().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let value: serde_json::Value = serde_json::from_str(payload_json)
+        .map_err(|e| format!("achievements upsert parse: {e}"))?;
+    let Some(value) = merge_with_existing(&tx, game_id, source, value)? else {
+        return Ok(());
+    };
+    let payload = serde_json::to_string(&value)
+        .map_err(|e| format!("achievements upsert serialize: {e}"))?;
+    tx.execute(
         "INSERT INTO achievements_cache(game_id, steam_app_id, payload_json, last_synced, source, provider_id)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(game_id) DO UPDATE SET
@@ -40,9 +52,11 @@ pub fn upsert(
              last_synced  = excluded.last_synced,
              source       = excluded.source,
              provider_id  = excluded.provider_id",
-        params![game_id, steam_app_id, payload_json, last_synced, source, provider_id],
+        params![game_id, steam_app_id, payload, last_synced, source, provider_id],
     )
     .map_err(|e| format!("achievements upsert: {e}"))?;
+    tx.commit()
+        .map_err(|e| format!("achievements upsert commit: {e}"))?;
     Ok(())
 }
 
@@ -236,32 +250,9 @@ pub fn upsert_many_from_payload(
                 .and_then(|v| v.as_str())
                 .unwrap_or("steam");
             let provider_id = payload.get("providerId").and_then(|v| v.as_str());
-            let mut payload = payload.clone();
-            if let Ok(existing) = read_payload_row(&tx, game_id) {
-                if let Some((existing_source, existing)) = existing {
-                    if existing_source == source {
-                        // A re-sync whose schema came back empty (transient
-                        // Steam hiccup) must not wipe a previously-good
-                        // cached list: the union below can only protect
-                        // already-unlocked flags, it can't restore the rows
-                        // themselves. Skip the write instead.
-                        let incoming_empty = payload
-                            .get("achievements")
-                            .and_then(|v| v.as_array())
-                            .map(|a| a.is_empty())
-                            .unwrap_or(true);
-                        let existing_nonempty = existing
-                            .get("achievements")
-                            .and_then(|v| v.as_array())
-                            .map(|a| !a.is_empty())
-                            .unwrap_or(false);
-                        if incoming_empty && existing_nonempty {
-                            continue;
-                        }
-                        union_achieved_into(&mut payload, &existing);
-                    }
-                }
-            }
+            let Some(payload) = merge_with_existing(&tx, game_id, source, payload.clone())? else {
+                continue;
+            };
             let serialized = serde_json::to_string(&payload)
                 .map_err(|e| format!("serialize achievements: {e}"))?;
             let last_synced = payload
@@ -283,14 +274,54 @@ pub fn upsert_many_from_payload(
     Ok(())
 }
 
-/// Read the persisted payload JSON for one game inside a transaction,
-/// together with the row's `source` tag (needed for the never-relock
-/// union's source guard in [`upsert_many_from_payload`]).
+/// Apply the shared write rules to an incoming payload: compare it with
+/// the persisted row for the same game. Returns `None` when the write
+/// must be skipped (empty re-sync over a populated same-source row),
+/// otherwise the payload with previously-unlocked achievements unioned
+/// in. A source change replaces the cache unconditionally — unlock
+/// flags from another provider are meaningless here.
+fn merge_with_existing(
+    conn: &rusqlite::Connection,
+    game_id: &str,
+    source: &str,
+    mut incoming: serde_json::Value,
+) -> Result<Option<serde_json::Value>, String> {
+    let Some((existing_source, existing)) = read_payload_row(conn, game_id)? else {
+        return Ok(Some(incoming));
+    };
+    if existing_source != source {
+        return Ok(Some(incoming));
+    }
+
+    // A re-sync whose schema came back empty (transient Steam hiccup)
+    // must not wipe a previously-good cached list: the union below can
+    // only protect already-unlocked flags, it can't restore the rows
+    // themselves. Skip the write instead.
+    let incoming_empty = incoming
+        .get("achievements")
+        .and_then(|v| v.as_array())
+        .map(|a| a.is_empty())
+        .unwrap_or(true);
+    let existing_nonempty = existing
+        .get("achievements")
+        .and_then(|v| v.as_array())
+        .map(|a| !a.is_empty())
+        .unwrap_or(false);
+    if incoming_empty && existing_nonempty {
+        return Ok(None);
+    }
+
+    union_achieved_into(&mut incoming, &existing);
+    Ok(Some(incoming))
+}
+
+/// Read the persisted payload JSON for one game, together with the row's
+/// `source` tag (needed for the never-relock union's source guard).
 fn read_payload_row(
-    tx: &rusqlite::Transaction,
+    conn: &rusqlite::Connection,
     game_id: &str,
 ) -> Result<Option<(String, serde_json::Value)>, String> {
-    let mut stmt = tx
+    let mut stmt = conn
         .prepare("SELECT source, payload_json FROM achievements_cache WHERE game_id = ?1")
         .map_err(|e| format!("achievements read_payload prepare: {e}"))?;
     let mut rows = stmt
@@ -434,4 +465,152 @@ pub fn read_all_as_payload_json(db: &Db) -> Result<String, String> {
         games.insert(game_id, value);
     }
     Ok(serde_json::json!({ "games": games }).to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_db() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        let conn = db.achievements().unwrap();
+        conn.execute_batch(crate::db::schema::ACHIEVEMENTS_DDL)
+            .unwrap();
+        conn.execute_batch(crate::db::schema::ACHIEVEMENTS_V2_DDL)
+            .unwrap();
+        drop(conn);
+        (dir, db)
+    }
+
+    fn payload(achievements: serde_json::Value, source: &str) -> String {
+        serde_json::json!({
+            "steamAppId": 10,
+            "achievements": achievements,
+            "total": 0,
+            "unlocked": 0,
+            "locked": 0,
+            "source": source,
+        })
+        .to_string()
+    }
+
+    fn stored(db: &Db, game_id: &str) -> serde_json::Value {
+        let (_, payload, _, _, _) = get(db, game_id).unwrap().unwrap();
+        serde_json::from_str(&payload).unwrap()
+    }
+
+    #[test]
+    fn resync_never_relocks_same_source_achievements() {
+        let (_dir, db) = test_db();
+        upsert(
+            &db,
+            "g1",
+            10,
+            &payload(
+                serde_json::json!([
+                    {"apiName": "A", "achieved": true, "unlockTime": 100},
+                    {"apiName": "B", "achieved": false, "unlockTime": 0}
+                ]),
+                "steam",
+            ),
+            1000,
+            "steam",
+            None,
+        )
+        .unwrap();
+
+        // A later fetch reports both locked (e.g. Steam's cache lagging).
+        upsert(
+            &db,
+            "g1",
+            10,
+            &payload(
+                serde_json::json!([
+                    {"apiName": "A", "achieved": false, "unlockTime": 0},
+                    {"apiName": "B", "achieved": false, "unlockTime": 0}
+                ]),
+                "steam",
+            ),
+            2000,
+            "steam",
+            None,
+        )
+        .unwrap();
+
+        let value = stored(&db, "g1");
+        let a = &value["achievements"][0];
+        assert_eq!(a["apiName"], "A");
+        assert_eq!(a["achieved"], true);
+        assert_eq!(a["unlockTime"], 100);
+        assert_eq!(value["unlocked"], 1);
+        assert_eq!(value["locked"], 1);
+    }
+
+    #[test]
+    fn empty_same_source_payload_does_not_wipe_cache() {
+        let (_dir, db) = test_db();
+        upsert(
+            &db,
+            "g1",
+            10,
+            &payload(
+                serde_json::json!([{"apiName": "A", "achieved": true, "unlockTime": 100}]),
+                "steam",
+            ),
+            1000,
+            "steam",
+            None,
+        )
+        .unwrap();
+
+        upsert(
+            &db,
+            "g1",
+            10,
+            &payload(serde_json::json!([]), "steam"),
+            2000,
+            "steam",
+            None,
+        )
+        .unwrap();
+
+        let value = stored(&db, "g1");
+        assert_eq!(value["achievements"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn source_switch_replaces_instead_of_unioning() {
+        let (_dir, db) = test_db();
+        upsert(
+            &db,
+            "g1",
+            10,
+            &payload(
+                serde_json::json!([{"apiName": "A", "achieved": true, "unlockTime": 100}]),
+                "steam",
+            ),
+            1000,
+            "steam",
+            None,
+        )
+        .unwrap();
+
+        upsert(
+            &db,
+            "g1",
+            0,
+            &payload(
+                serde_json::json!([{"apiName": "A", "achieved": false, "unlockTime": 0}]),
+                "manual",
+            ),
+            2000,
+            "manual",
+            Some("10"),
+        )
+        .unwrap();
+
+        let value = stored(&db, "g1");
+        assert_eq!(value["achievements"][0]["achieved"], false);
+    }
 }

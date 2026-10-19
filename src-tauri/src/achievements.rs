@@ -773,10 +773,26 @@ fn sort_achievements(achievements: &mut [Achievement]) {
     });
 }
 
-fn now_secs() -> u64 {
+/// Normalize a cached `last_synced` value to milliseconds. Rows written
+/// before the unit fix stored seconds; without this they render as 1970
+/// dates and sort as the oldest entries.
+pub(crate) fn normalize_last_synced(ts: u64) -> u64 {
+    // Seconds are ~1e9, milliseconds ~1e12. The threshold is well above
+    // any plausible second timestamp and below any millisecond one.
+    if ts > 0 && ts < 100_000_000_000 {
+        ts * 1000
+    } else {
+        ts
+    }
+}
+
+/// Unix milliseconds - `lastSynced` is milliseconds everywhere else
+/// (frontend `Date.now()`, the Steam sync), so local scans must not
+/// stamp seconds or the overview renders 1970 dates and sorts them last.
+fn now_millis() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
+        .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
 }
 
@@ -829,7 +845,7 @@ pub fn merge_into_cache(
                 total: 0,
                 unlocked: 0,
                 locked: 0,
-                last_synced: Some(now_secs()),
+                last_synced: Some(now_millis()),
                 source: default_source(),
                 provider_id: None,
             }),
@@ -877,13 +893,13 @@ pub fn merge_into_cache(
         total,
         unlocked: unlocked_count,
         locked: total - unlocked_count,
-        last_synced: Some(now_secs()),
+        last_synced: Some(now_millis()),
         source: default_source(),
         provider_id: None,
     };
 
     let payload = serde_json::to_string(&data).map_err(|e| e.to_string())?;
-    db::achievements::upsert(db, game_id, steam_app_id, &payload, now_secs(), "steam", None)?;
+    db::achievements::upsert(db, game_id, steam_app_id, &payload, now_millis(), "steam", None)?;
 
     Ok((data, new_count))
 }

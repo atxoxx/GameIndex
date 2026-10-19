@@ -17,7 +17,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Manager};
 
-use crate::achievements::Achievement;
+use crate::achievements::{normalize_last_synced, Achievement};
 use crate::db;
 
 /// Number of unlocked entries shipped for the recent-unlocks feed. The
@@ -304,16 +304,16 @@ pub fn build_overview(db: &db::Db) -> Result<AchievementOverview, String> {
                 COUNT(je.key),
                 SUM(CASE WHEN {ach} THEN 1 ELSE 0 END),
                 SUM(CASE WHEN {ach} THEN {pts} ELSE 0 END),
-                SUM({pts}),
-                MAX(CASE WHEN {ach} THEN {ut} END),
+                SUM(CASE WHEN je.key IS NOT NULL THEN {pts} ELSE 0 END),
+                COALESCE(MAX(CASE WHEN {ach} THEN {ut} END), 0),
                 SUM(CASE WHEN {ach} AND {pct} >= 50.0 THEN 1 ELSE 0 END),
                 SUM(CASE WHEN {ach} AND {pct} >= 20.0 AND {pct} < 50.0 THEN 1 ELSE 0 END),
                 SUM(CASE WHEN {ach} AND {pct} >= 5.0  AND {pct} < 20.0 THEN 1 ELSE 0 END),
                 SUM(CASE WHEN {ach} AND {pct} < 5.0 THEN 1 ELSE 0 END),
-                SUM(CASE WHEN {pct} >= 50.0 THEN 1 ELSE 0 END),
-                SUM(CASE WHEN {pct} >= 20.0 AND {pct} < 50.0 THEN 1 ELSE 0 END),
-                SUM(CASE WHEN {pct} >= 5.0  AND {pct} < 20.0 THEN 1 ELSE 0 END),
-                SUM(CASE WHEN {pct} < 5.0 THEN 1 ELSE 0 END)
+                SUM(CASE WHEN je.key IS NOT NULL AND {pct} >= 50.0 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN je.key IS NOT NULL AND {pct} >= 20.0 AND {pct} < 50.0 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN je.key IS NOT NULL AND {pct} >= 5.0  AND {pct} < 20.0 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN je.key IS NOT NULL AND {pct} < 5.0 THEN 1 ELSE 0 END)
            FROM {entries}
           GROUP BY c.game_id"
     );
@@ -378,7 +378,7 @@ pub fn build_overview(db: &db::Db) -> Result<AchievementOverview, String> {
             steam_app_id: NON_NEGATIVE(steam_app_id),
             total: total_u,
             unlocked: unlocked_u,
-            last_synced: last_synced.map(|n| n.max(0) as u64),
+            last_synced: last_synced.map(|n| normalize_last_synced(n.max(0) as u64)),
             source: source.clone(),
             provider_id,
             points_earned: NON_NEGATIVE(points_earned),
@@ -509,7 +509,10 @@ pub async fn get_achievements_for_game(
             map.insert("steamAppId".into(), serde_json::json!(steam_app_id));
             map.insert("source".into(), serde_json::json!(source));
             if let Some(ts) = last_synced {
-                map.insert("lastSynced".into(), serde_json::json!(ts));
+                map.insert(
+                    "lastSynced".into(),
+                    serde_json::json!(normalize_last_synced(ts)),
+                );
             }
             if let Some(pid) = provider_id {
                 map.insert("providerId".into(), serde_json::json!(pid));
@@ -684,6 +687,53 @@ mod tests {
         assert_eq!(ov.perfect_games[0].game_id, "g2");
         // Monthly buckets always present (6).
         assert_eq!(ov.monthly.len(), 6);
+    }
+
+    #[test]
+    fn overview_handles_games_with_no_unlocks_and_empty_lists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = db::Db::open(tmp.path()).unwrap();
+        crate::db::migrate::run_migrations(&db).unwrap();
+        db::achievements::upsert(
+            &db,
+            "locked",
+            303,
+            &payload(vec![ach("A", false, 0, 30.0)]),
+            1_788_262_874,
+            "steam",
+            None,
+        )
+        .unwrap();
+        db::achievements::upsert(
+            &db,
+            "empty",
+            404,
+            &payload(vec![]),
+            0,
+            "steam",
+            None,
+        )
+        .unwrap();
+
+        let ov = build_overview(&db).unwrap();
+        let locked = &ov.summaries["locked"];
+        assert_eq!(locked.total, 1);
+        assert_eq!(locked.unlocked, 0);
+        assert_eq!(locked.last_unlock_time, 0);
+        assert_eq!(locked.last_synced, Some(1_788_262_874_000));
+        assert_eq!(locked.points_total, 25);
+        assert_eq!(locked.rarity.uncommon, 0);
+
+        let empty = &ov.summaries["empty"];
+        assert_eq!(empty.total, 0);
+        assert_eq!(empty.points_total, 0);
+        assert_eq!(empty.rarity.ultra_rare, 0);
+
+        assert_eq!(ov.stats.total, 1);
+        assert_eq!(ov.stats.games_with_data, 1);
+        assert_eq!(ov.stats.gamerscore_total, 25);
+        assert_eq!(ov.stats.rarity_total.uncommon, 1);
+        assert_eq!(ov.stats.rarity_total.ultra_rare, 0);
     }
 
     #[test]
