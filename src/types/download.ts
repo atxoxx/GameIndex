@@ -155,6 +155,72 @@ export interface TorrentDownload {
 }
 
 /**
+ * Aggregate peer-state counters for one torrent, plus librqbit's ETA and
+ * average piece time. Mirrors the Rust `torrent::PeerBreakdown`.
+ */
+export interface TorrentPeerBreakdown {
+  live: number;
+  liveTcp: number;
+  liveUtp: number;
+  queued: number;
+  connecting: number;
+  dead: number;
+  seen: number;
+  etaSecs: number | null;
+  averagePieceMs: number | null;
+}
+
+/** One connected peer, as reported by librqbit's per-peer stats snapshot. */
+export interface TorrentPeerInfo {
+  /** "ip:port" of the peer. */
+  address: string;
+  /** librqbit peer state name (e.g. "live", "connecting"). */
+  state: string;
+  /** Client string from the extended handshake (qBittorrent/Transmission/…). */
+  client?: string | null;
+  /** "tcp" or "utp"; null unless the peer reached Live. */
+  connection?: string | null;
+  downloaded: number;
+  uploaded: number;
+  pieces: number;
+  errors: number;
+}
+
+/**
+ * Full detail for one torrent, returned by the `download_torrent_detail`
+ * Tauri command and rendered by `TorrentDetailModal`. Mirrors the Rust
+ * `torrent::TorrentDetail` (camelCase on the wire).
+ */
+export interface TorrentDetail {
+  id: string;
+  infoHash: string;
+  name: string;
+  magnetUri?: string | null;
+  savePath: string;
+  sourceName: string;
+  status: DownloadStatus;
+  totalSize: number | null;
+  downloaded: number;
+  uploaded: number;
+  /** uploaded / downloaded; 0 until any bytes are downloaded. */
+  ratio: number;
+  downloadSpeed: number;
+  uploadSpeed: number;
+  peers: number;
+  seeds: number;
+  peakSpeed: number;
+  addedAt: number;
+  completedAt: number | null;
+  breakdown: TorrentPeerBreakdown;
+  peerList: TorrentPeerInfo[];
+  trackers: string[];
+  files: TorrentFile[];
+  onlyFiles: number[] | null;
+  /** True when no live peer has been seen for the stall window. */
+  stalled: boolean;
+}
+
+/**
  * One row of the persistent download-history table. The Rust side records
  * every completed or removed download (including partials) here, so the
  * stats modal keeps counting them even after the user deletes the file

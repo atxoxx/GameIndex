@@ -177,9 +177,11 @@ serde_yaml = "0.9"
 # - `default-tls` enables rustls for HTTPS magnet/`.torrent` URL fetching.
 # - `http-api` is left OFF — we only use the in-process async API, not
 #   the embedded HTTP server. Saves the axum/serde_html_form dep tree.
-# - Upload disablement is configured at runtime via `SessionOptions`.
-#   The `disable_upload` field is a runtime toggle in 9.x.
-librqbit = { version = "9", default-features = false, features = ["default-tls"] }
+# - `disable-upload` exposes `SessionOptions.disable_upload`, which makes the
+#   engine suppress bitfield/have advertisements and refuse piece requests.
+#   It is applied when the session opens, not toggled at runtime; the speed
+#   limiter itself is not wired into the peer write path in 9.0.1.
+librqbit = { version = "9", default-features = false, features = ["default-tls", "disable-upload"] }
 igd-next = "0.17"
 # Magnet URI parsing — extract the info-hash, trackers, and
 # exact-topic fields without rolling our own URI parser.

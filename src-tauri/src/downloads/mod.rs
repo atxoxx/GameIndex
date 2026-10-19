@@ -95,6 +95,33 @@ pub async fn initialize_engine(
             mgr.settings = s.normalized();
         }
     }
+    // Transport preference (uTP listener). Read before `initialize` so the
+    // session opens with the right listener mode.
+    if let Ok(Some(raw)) = crate::db::kv::get(&db, "download_transport") {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            mgr.utp_enabled = v.get("utp").and_then(|x| x.as_bool()).unwrap_or(false);
+        }
+    }
+    // Persisted speed-limit preference. `disable_upload` has to be baked
+    // into the session at creation (librqbit has no runtime setter), so
+    // restoring it here is what makes the toggle survive a restart.
+    if let Ok(Some(raw)) = crate::db::kv::get(&db, "download_speed_limits") {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            mgr.disable_upload = v
+                .get("disableUpload")
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false);
+            mgr.base_disable_upload = mgr.disable_upload;
+            mgr.base_download_kbps = v
+                .get("downloadKbps")
+                .and_then(|x| x.as_u64())
+                .map(|x| x as u32);
+            mgr.base_upload_kbps = v
+                .get("uploadKbps")
+                .and_then(|x| x.as_u64())
+                .map(|x| x as u32);
+        }
+    }
     mgr.set_history_db(db);
     mgr.initialize().await?;
     let shared = Arc::new(tokio::sync::RwLock::new(mgr));
@@ -274,7 +301,7 @@ pub async fn initialize_engine(
             // refresh and capture what needs persisting/emitting. The
             // frontend emit and the session-op heals then run with the
             // lock released.
-            let (heals, progress, persist) = {
+            let (heals, progress, persist, reannounce) = {
                 let mut guard = loop_handle.write().await;
                 // Nothing can change on its own: skip the refresh without
                 // even flushing the (clean) record set.
@@ -290,7 +317,8 @@ pub async fn initialize_engine(
                 // a slow disk cannot stall every other downloader command.
                 let persist = guard.take_flush_snapshot_throttled(Duration::from_secs(3));
                 let progress = guard.take_progress_update();
-                (heals, progress, persist)
+                let reannounce = guard.take_reannounce_targets();
+                (heals, progress, persist, reannounce)
             };
             if let Some(snapshot) = persist {
                 snapshot.commit();
@@ -324,6 +352,14 @@ pub async fn initialize_engine(
                     Duration::from_secs(torrent::SESSION_OP_TIMEOUT_SECS),
                 )
                 .await;
+            }
+            // Stalled-torrent re-announce: spawn so the delete + re-add
+            // (which can briefly await session I/O) never stalls the tick.
+            for id in reannounce {
+                let handle = loop_handle.clone();
+                tokio::spawn(async move {
+                    manager::reannounce_torrent(&handle, &id).await;
+                });
             }
         }
     });
@@ -1242,6 +1278,54 @@ pub async fn torrent_get_all() -> Result<Vec<Download>, String> {
     Ok(guard.list())
 }
 
+/// Full detail for a single torrent, for the download row's info modal:
+/// info hash, magnet, trackers, per-file progress, the peer breakdown and
+/// the live connected-peer list. Errors when the torrent is not (or no
+/// longer) active in the session, which the modal renders as a hint.
+#[tauri::command]
+pub async fn download_torrent_detail(id: String) -> Result<torrent::TorrentDetail, String> {
+    let mgr = wait_for_manager().await?;
+    let (session, record, stalled) = {
+        let guard = mgr.read().await;
+        let record = guard
+            .downloads_map()
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| format!("Download not found: {}", id))?;
+        if record.kind != DownloadKind::Torrent {
+            return Err("Torrent details are only available for torrents.".to_string());
+        }
+        (guard.session().cloned(), record, guard.is_stalled(&id))
+    };
+    let Some(session) = session else {
+        return Err("Torrent engine is not initialized.".to_string());
+    };
+    let handle = torrent::find_handle(&session, &id)
+        .ok_or_else(|| "This torrent is not active in the engine.".to_string())?;
+    Ok(torrent::build_torrent_detail(&handle, &record, stalled))
+}
+
+/// Read the transport preference (uTP listener). Takes effect on the next
+/// session start.
+#[tauri::command]
+pub async fn download_get_transport() -> Result<bool, String> {
+    let mgr = wait_for_manager().await?;
+    let enabled = mgr.read().await.utp_enabled;
+    Ok(enabled)
+}
+
+/// Set the transport preference (uTP listener). Persisted to the kv store;
+/// the running session keeps its current listener mode until restart.
+#[tauri::command]
+pub async fn download_set_transport(utp: bool, app: AppHandle) -> Result<(), String> {
+    let mgr = wait_for_manager().await?;
+    mgr.write().await.utp_enabled = utp;
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+    let payload = serde_json::json!({ "utp": utp });
+    crate::db::kv::set(&db, "download_transport", &payload.to_string())?;
+    Ok(())
+}
+
 /// Return the append-only download-history ledger (newest first). The
 /// frontend reads this for download-page statistics that must survive
 /// deletion of the live download record.
@@ -1340,6 +1424,7 @@ pub async fn torrent_set_speed_limits(
     download_limit_kbps: Option<u32>,
     upload_limit_kbps: Option<u32>,
     disable_upload: bool,
+    app: AppHandle,
 ) -> Result<(), String> {
     let mgr = wait_for_manager().await?;
 
@@ -1350,7 +1435,18 @@ pub async fn torrent_set_speed_limits(
         guard.base_download_kbps = download_limit_kbps;
         guard.base_upload_kbps = upload_limit_kbps;
         guard.base_disable_upload = disable_upload;
+        guard.disable_upload = disable_upload;
     }
+
+    // Persist so `disable_upload` can be applied when the torrent session
+    // is recreated on the next start (librqbit only accepts it at init).
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+    let payload = serde_json::json!({
+        "downloadKbps": download_limit_kbps,
+        "uploadKbps": upload_limit_kbps,
+        "disableUpload": disable_upload,
+    });
+    crate::db::kv::set(&db, "download_speed_limits", &payload.to_string())?;
 
     manager::apply_speed_limits(&mgr, download_limit_kbps, upload_limit_kbps, disable_upload)
         .await;

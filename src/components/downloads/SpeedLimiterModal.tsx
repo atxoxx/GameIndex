@@ -33,7 +33,14 @@ const UL_PRESETS = [
 ];
 
 export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalProps) {
-  const { speedLimits, setSpeedLimits, setSeedConfig, seedAfterComplete } = useDownloads();
+  const {
+    speedLimits,
+    setSpeedLimits,
+    setSeedConfig,
+    seedAfterComplete,
+    transportUtp,
+    setTransportUtp,
+  } = useDownloads();
   const { showToast } = useToast();
   const { t, language } = useLanguage();
   const { unit: speedUnit } = useSpeedUnit();
@@ -42,6 +49,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
   const [ulLimit, setUlLimit] = useState<number>(0);
   const [disableUpload, setDisableUpload] = useState<boolean>(false);
   const [seedingEnabled, setSeedingEnabled] = useState<boolean>(seedAfterComplete);
+  const [utpEnabled, setUtpEnabled] = useState<boolean>(transportUtp);
   const [saving, setSaving] = useState(false);
   // Custom-limit inputs (MB/s as text) — empty when the current value
   // matches a preset or is unlimited/disabled.
@@ -60,6 +68,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
         : 0,
     );
     setSeedingEnabled(seedAfterComplete);
+    setUtpEnabled(transportUtp);
     setDlCustom(
       speedLimits.downloadEnabled && speedLimits.downloadValue > 0
         ? DL_PRESETS.some((p) => p.value === speedLimits.downloadValue)
@@ -74,7 +83,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
           : String(speedLimits.uploadValue / 1024)
         : "",
     );
-  }, [open, speedLimits, seedAfterComplete]);
+  }, [open, speedLimits, seedAfterComplete, transportUtp]);
 
   // Escape key handler
   useEffect(() => {
@@ -121,6 +130,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
         disableUpload: isUlDisabled,
       });
       await setSeedConfig(seedingEnabled);
+      await setTransportUtp(utpEnabled);
 
       showToast(t("downloads.limitsApplied"), "success");
       onClose();
@@ -236,6 +246,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
               />
               <span className="dl-speed-custom-unit">{language === "fr" ? "Mo/s" : "MB/s"}</span>
             </div>
+            <p className="dl-speed-hint">{t("downloads.uploadDisableRestart")}</p>
           </div>
 
           {/* Seeding Preferences */}
@@ -258,6 +269,30 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                 </span>
               </div>
             </label>
+          </div>
+
+          {/* Transport (uTP listener) */}
+          <div className="dl-speed-section">
+            <div className="dl-speed-section-title">
+              <span>{t("downloads.transportTitle")}</span>
+            </div>
+            <label className="dl-speed-toggle-row">
+              <div className="dl-speed-toggle-info">
+                <span className="dl-speed-toggle-title">{t("downloads.transportUtp")}</span>
+                <span className="dl-speed-toggle-desc">{t("downloads.transportDesc")}</span>
+              </div>
+              <div className="dl-switch">
+                <input
+                  type="checkbox"
+                  checked={utpEnabled}
+                  onChange={(e) => setUtpEnabled(e.target.checked)}
+                />
+                <span className="dl-switch-track">
+                  <span className="dl-switch-thumb" />
+                </span>
+              </div>
+            </label>
+            <p className="dl-speed-hint">{t("downloads.transportRestart")}</p>
           </div>
         </div>
 

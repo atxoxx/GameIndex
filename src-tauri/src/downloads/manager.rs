@@ -32,6 +32,14 @@ use super::types::{
 /// the add task itself gave up (or died) without failing the record.
 const METADATA_FETCH_TIMEOUT_SECS: u64 = 360;
 
+/// How long an active torrent may report zero live peers (and zero speed)
+/// before the manager treats it as stalled in the detail modal.
+pub(crate) const STALL_PEER_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Minimum spacing between automatic peer-discovery re-announces of the
+/// same torrent, so a swarm that stays empty can't be restarted in a loop.
+pub(crate) const STALL_REANNOUNCE_COOLDOWN: Duration = Duration::from_secs(60);
+
 /// Consecutive poll failures tolerated before failing a debrid download.
 /// AllDebrid's API rate-limits at 12 req/s (429/503) and servers blip —
 /// a permanent failure is only declared after sustained errors (~5 min).
@@ -145,6 +153,21 @@ pub struct DownloadManager {
     /// pushed to librqbit/HTTP. Used by the scheduler to avoid re-applying
     /// identical limits every tick.
     pub last_applied_limits: Option<(Option<u32>, Option<u32>, bool)>,
+    /// Open a uTP listener alongside TCP on the next session start. Read
+    /// from the `download_transport` kv setting before `initialize`.
+    pub utp_enabled: bool,
+    /// Hard-disable uploads for the torrent session (next start). Read from
+    /// the persisted speed-limit preference; see `torrent::init_session`.
+    pub disable_upload: bool,
+    /// Per-torrent first-observed `0 live peers` instant. A torrent stays
+    /// stalled while it has no live peers; the entry drops the moment a
+    /// peer (or any transfer) shows up.
+    stall_since: HashMap<String, Instant>,
+    /// Last automatic re-announce per torrent (cooldown bookkeeping).
+    last_reannounce: HashMap<String, Instant>,
+    /// Torrents the current tick wants re-announced. Drained by the loop,
+    /// which performs the delete + re-add with the manager lock released.
+    pending_reannounce: Vec<String>,
     /// Seed-ratio limit (`uploaded / total`); `0.0` = unlimited.
     pub seed_ratio_limit: f32,
     /// Seed-time limit in minutes after completion; `0` = unlimited.
@@ -206,6 +229,11 @@ impl DownloadManager {
             base_upload_kbps: None,
             base_disable_upload: false,
             last_applied_limits: None,
+            utp_enabled: false,
+            disable_upload: false,
+            stall_since: HashMap::new(),
+            last_reannounce: HashMap::new(),
+            pending_reannounce: Vec::new(),
             seed_ratio_limit: 0.0,
             seed_time_limit_mins: 0,
             game_running: false,
@@ -252,6 +280,21 @@ impl DownloadManager {
 
     pub fn downloads_mut(&mut self) -> &mut HashMap<String, Download> {
         &mut self.downloads
+    }
+
+    /// True when the torrent has reported no live peers for at least the
+    /// stall window (used by the detail modal).
+    pub fn is_stalled(&self, id: &str) -> bool {
+        self.stall_since
+            .get(id)
+            .map(|since| since.elapsed() >= STALL_PEER_TIMEOUT)
+            .unwrap_or(false)
+    }
+
+    /// Drain the torrent ids the last `refresh_stats` tick wants
+    /// re-announced. The caller restarts them with the lock released.
+    pub fn take_reannounce_targets(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.pending_reannounce)
     }
 
     // ── Persistence / emission ─────────────────────────────────────────
@@ -399,7 +442,8 @@ impl DownloadManager {
         if self.session.is_some() {
             return Ok(());
         }
-        let session = torrent::init_session(&self.state_dir).await?;
+        let session =
+            torrent::init_session(&self.state_dir, self.utp_enabled, self.disable_upload).await?;
         self.session = Some(session.clone());
 
         let loaded = persistence::load(&self.state_dir);
@@ -607,6 +651,9 @@ impl DownloadManager {
             let mut to_stop_seeding: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
             let mut to_record: Vec<Download> = Vec::new();
             let mut save_needed = false;
+            // (id, currently-silent, downloaded) — collected so the stall
+            // bookkeeping runs after the `&mut Download` borrow ends.
+            let mut stall_facts: Vec<(String, bool, u64)> = Vec::new();
             let mut pause_sweep: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
 
             for entry in collected {
@@ -715,6 +762,17 @@ impl DownloadManager {
                     }
                 }
 
+                // ---- Stall tracking (live torrent with no live peers) ----
+                // `silent` means the swarm has gone quiet while bytes are
+                // still missing; the manager re-announces only the cheap
+                // case (nothing on disk yet, so a restart costs no recheck).
+                let silent = d.kind == DownloadKind::Torrent
+                    && matches!(d.status, DownloadStatus::Downloading)
+                    && d.peers == 0
+                    && d.download_speed == 0
+                    && d.total_size.map(|t| t > d.downloaded).unwrap_or(false);
+                stall_facts.push((d.id.clone(), silent, d.downloaded));
+
                 // ---- Seed limits (ratio / time) ----
                 // A seeding record stops once either configured cap is
                 // reached; the session entry is dropped afterwards so the
@@ -735,10 +793,14 @@ impl DownloadManager {
                                     >= u64::from(self.seed_time_limit_mins) * 60
                             })
                             .unwrap_or(false);
-                    if ratio_hit || time_hit {
+                    if ratio_hit || time_hit || self.base_disable_upload {
                         println!(
-                            "[downloads] Seed limit reached for {} (uploaded={} ratio_hit={} time_hit={})",
-                            d.name, d.uploaded, ratio_hit, time_hit
+                            "[downloads] Stopping seeding for {} (uploaded={} ratio_hit={} time_hit={} upload_disabled={})",
+                            d.name,
+                            d.uploaded,
+                            ratio_hit,
+                            time_hit,
+                            self.base_disable_upload
                         );
                         d.status = DownloadStatus::Completed;
                         d.should_seed = Some(false);
@@ -777,6 +839,37 @@ impl DownloadManager {
                 // ---- Failure transition (torrent errored this tick) ----
                 if !was_error && matches!(d.status, DownloadStatus::Error(_)) {
                     queue_post_completion(d.id.clone(), false);
+                }
+            }
+
+            // ---- Stall bookkeeping ----
+            // Update the per-torrent silent window, and queue a re-announce
+            // for torrents that have been silent past the timeout, are past
+            // their cooldown, and have no bytes on disk to re-verify.
+            for (id, silent, downloaded) in stall_facts {
+                if silent {
+                    let entry = self
+                        .stall_since
+                        .entry(id.clone())
+                        .or_insert_with(Instant::now);
+                    let stalled_long = entry.elapsed() >= STALL_PEER_TIMEOUT;
+                    let cooled_down = self
+                        .last_reannounce
+                        .get(&id)
+                        .map(|t| t.elapsed() >= STALL_REANNOUNCE_COOLDOWN)
+                        .unwrap_or(true);
+                    if stalled_long && cooled_down && downloaded == 0 {
+                        println!(
+                            "[downloads] Torrent {} stalled with no live peers; \
+                             re-announcing peer discovery.",
+                            id
+                        );
+                        self.pending_reannounce.push(id.clone());
+                        self.last_reannounce.insert(id.clone(), Instant::now());
+                        *entry = Instant::now();
+                    }
+                } else {
+                    self.stall_since.remove(&id);
                 }
             }
 
@@ -1284,6 +1377,39 @@ pub async fn start_download(manager: &SharedManager, id: &str) -> bool {
         DownloadKind::Direct => start_direct(manager, id).await,
         DownloadKind::Debrid => start_debrid(manager, id).await,
     }
+}
+
+/// Force a fresh peer-discovery round for a stalled torrent: drop its
+/// session entry (keeping files) and re-add it, which rebuilds librqbit's
+/// tracker/DHT/LSD peer stream. Only called for torrents with no bytes on
+/// disk, so the re-add re-checks nothing.
+pub async fn reannounce_torrent(manager: &SharedManager, id: &str) {
+    let session = { manager.read().await.session().cloned() };
+    let Some(session) = session else {
+        return;
+    };
+    torrent::delete_from_session(&session, id).await;
+    {
+        let mut guard = manager.write().await;
+        // Confirm the record still exists and is still a silent,
+        // zero-byte torrent before resetting it to a non-active state so
+        // `start_download` will actually re-add.
+        let Some(d) = guard.downloads_mut().get_mut(id) else {
+            return;
+        };
+        if d.downloaded > 0 || matches!(d.status, DownloadStatus::Completed | DownloadStatus::Seeding)
+        {
+            return;
+        }
+        d.status = DownloadStatus::Queued;
+        d.peers = 0;
+        d.seeds = 0;
+        d.download_speed = 0;
+        d.upload_speed = 0;
+        guard.mark_dirty();
+        guard.emit_progress_force();
+    }
+    let _ = start_download(manager, id).await;
 }
 
 /// Start (or resume) a torrent download.

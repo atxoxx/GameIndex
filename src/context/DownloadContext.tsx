@@ -52,6 +52,7 @@ import {
   type SchedulerConfig,
   type DownloadSettings,
   type PostAction,
+  type TorrentDetail,
 } from "../types/download";
 
 /** Bandwidth-limit configuration. Values in kbps; 0 = unlimited. */
@@ -210,6 +211,16 @@ interface DownloadContextValue {
   downloadSettings: DownloadSettings;
   /** Persist new engine-wide download preferences (state + backend). */
   setDownloadSettings: (next: DownloadSettings) => Promise<void>;
+  /**
+   * Fetch the full detail snapshot for one torrent (peer breakdown, peer
+   * list, trackers, files). Rejects when the torrent is not active in the
+   * engine — the detail modal renders that as a hint rather than an error.
+   */
+  getTorrentDetail: (id: string) => Promise<TorrentDetail>;
+  /** Whether the uTP listener is enabled (takes effect on next app start). */
+  transportUtp: boolean;
+  /** Persist the uTP transport preference. */
+  setTransportUtp: (next: boolean) => Promise<void>;
 }
 
 /** Global seed-stop caps. `0` disables either cap. */
@@ -457,6 +468,9 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [seedAfterComplete, setSeedAfterComplete] = useState(
     () => localStorage.getItem("gamelib-seed-after-complete") === "true",
+  );
+  const [transportUtp, setTransportUtpState] = useState(
+    () => localStorage.getItem("gamelib-transport-utp") === "true",
   );
   const [speedLimits, setSpeedLimitsState] = useState<DownloadSpeedLimits>(() => ({
     downloadEnabled: localStorage.getItem("gamelib-dl-limit-download-enabled") === "true",
@@ -749,6 +763,18 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           console.debug("[DownloadContext] initial get_all skipped:", err);
         } finally {
           if (!cancelled) setLoading(false);
+        }
+
+        // 3. Mirror the backend transport preference (the kv store is the
+        //    source of truth; localStorage is only the first-paint hint).
+        try {
+          const utp = await invoke<boolean>("download_get_transport");
+          if (!cancelled) {
+            setTransportUtpState(utp);
+            localStorage.setItem("gamelib-transport-utp", String(utp));
+          }
+        } catch (err) {
+          console.debug("[DownloadContext] transport pref read skipped:", err);
         }
 
         // 3. Load the persistent download history so the stats modal
@@ -1165,6 +1191,16 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     await invoke("download_set_seeding", { id, seed });
   }, []);
 
+  const getTorrentDetail = useCallback(async (id: string) => {
+    return await invoke<TorrentDetail>("download_torrent_detail", { id });
+  }, []);
+
+  const setTransportUtp = useCallback(async (next: boolean) => {
+    localStorage.setItem("gamelib-transport-utp", String(next));
+    setTransportUtpState(next);
+    await invoke("download_set_transport", { utp: next });
+  }, []);
+
   const setSchedulerConfig = useCallback(async (next: SchedulerConfig) => {
     setSchedulerConfigState(next);
     localStorage.setItem("gamelib-download-scheduler", JSON.stringify(next));
@@ -1300,6 +1336,9 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       setSeedLimits,
       downloadSettings,
       setDownloadSettings,
+      getTorrentDetail,
+      transportUtp,
+      setTransportUtp,
     }),
     [
       sorted,
@@ -1350,6 +1389,9 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       setSeedLimits,
       downloadSettings,
       setDownloadSettings,
+      getTorrentDetail,
+      transportUtp,
+      setTransportUtp,
     ],
   );
 

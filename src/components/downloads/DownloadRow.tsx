@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { RotateCcw } from "lucide-react";
+import { Info, RotateCcw } from "lucide-react";
+import TorrentDetailModal from "./TorrentDetailModal";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useDownloadCoverArt } from "../../hooks/useDownloadCoverArt";
@@ -69,6 +70,7 @@ export const DownloadRow = React.memo(
     const { showToast } = useToast();
     const { t } = useLanguage();
     const [expanded, setExpanded] = useState(false);
+    const [showDetail, setShowDetail] = useState(false);
 
     // Resolve game artwork from library or automated metadata search
     const { matchedGame, coverArtUrl: artworkUrl } = useDownloadCoverArt(download);
@@ -372,6 +374,18 @@ export const DownloadRow = React.memo(
               </button>
             )}
 
+            {/* Torrent detail modal */}
+            {download.kind === "torrent" && (
+              <button
+                type="button"
+                className="dl-row-btn"
+                onClick={() => setShowDetail(true)}
+                title={t("torrentDetail.open")}
+              >
+                <Info size={15} />
+              </button>
+            )}
+
             {/* Open Download Folder */}
             <button
               type="button"
@@ -531,6 +545,10 @@ export const DownloadRow = React.memo(
               </>
             }
           />
+        )}
+
+        {showDetail && download.kind === "torrent" && (
+          <TorrentDetailModal download={download} onClose={() => setShowDetail(false)} />
         )}
       </div>
     );

@@ -23,7 +23,7 @@
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use super::types::{DownloadFile, DownloadStatus};
+use super::types::{Download, DownloadFile, DownloadStatus};
 
 // ─── Session init ───────────────────────────────────────────────────────────
 
@@ -31,9 +31,10 @@ use super::types::{DownloadFile, DownloadStatus};
 /// semaphore is shared by *connecting* and live peers, so on swarms whose
 /// tracker lists are full of dead entries most of the cap sits in
 /// connection attempts: a 200-slot probe measured ~175 slots connecting
-/// and only ~25 live peers. 400 keeps the dead-entry churn from crowding
-/// out the peers that can actually transfer.
-pub(crate) const PEER_LIMIT_PER_TORRENT: usize = 400;
+/// and only ~25 live peers. 1000 widens the candidate pool enough that a
+/// large swarm can fill its live slots from the peers that actually
+/// transfer instead of burning them on dead tracker entries.
+pub(crate) const PEER_LIMIT_PER_TORRENT: usize = 1000;
 
 /// Public DHT bootstrap routers used by standard BitTorrent clients
 /// (qBittorrent, Transmission, libtorrent, uTorrent). Librqbit's fallback
@@ -48,19 +49,28 @@ pub(crate) const DEFAULT_DHT_BOOTSTRAP: &[&str] = &[
     "dht.aelitis.com:6881",
 ];
 
-/// Whether to enable uTP alongside TCP. Enabled by default so GameIndex
-/// can connect to the entire BitTorrent swarm (NAT-traversal peers,
-/// home seeders without forwarded TCP ports, and uTP-only clients).
-/// TCP is prioritized by librqbit with a 1-second connect lead before
-/// attempting uTP.
-/// Set `GAMEINDEX_TORRENT_UTP=0` (or "false" / "no") to force TCP-only.
-pub(crate) fn utp_enabled() -> bool {
+/// Environment override for uTP. The user-facing switch lives in the
+/// `download_transport` kv setting (see `mod.rs`); this only lets a
+/// developer force uTP on without touching the settings UI.
+/// Set `GAMEINDEX_TORRENT_UTP=1` (or "true" / "yes") to opt in.
+pub(crate) fn utp_env_override() -> bool {
     std::env::var("GAMEINDEX_TORRENT_UTP")
         .map(|v| {
             let v = v.trim();
-            !(v == "0" || v.eq_ignore_ascii_case("false") || v.eq_ignore_ascii_case("no"))
+            v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes")
         })
-        .unwrap_or(true)
+        .unwrap_or(false)
+}
+
+/// Whether to open a uTP listener alongside TCP. Off unless the user turns
+/// it on: librqbit's userspace uTP uses LEDBAT congestion control over a
+/// single shared UDP socket, which on high-speed swarms and Windows can
+/// cause UDP drops, backoff and throttled throughput versus kernel TCP.
+/// Upstream therefore defaults to `ListenerMode::TcpOnly`. uTP still helps
+/// on swarms/NATs that only accept it, so it is exposed as a setting that
+/// takes effect on the next session start.
+pub(crate) fn utp_enabled(setting: bool) -> bool {
+    setting || utp_env_override()
 }
 
 /// Build the incoming-peer listener options. Kept separate from
@@ -80,18 +90,19 @@ pub(crate) fn build_listener_opts(enable_utp: bool) -> librqbit::ListenerOptions
 }
 
 pub(crate) fn build_peer_opts() -> Option<librqbit::PeerConnectionOptions> {
-    // Desktop-client tuning:
-    // - connect_timeout (3 s): rapidly drop unresponsive / offline peers
-    //   returned by public trackers and DHT, preventing connection slots
-    //   from stalling during peer discovery.
-    // - read_write_timeout (15 s): provides ample tolerance for packet
-    //   jitter while preventing dead/stalled peers from hanging chunk
-    //   transfers for minutes and freezing piece completion across the swarm.
+    // Desktop-client tuning (matches libtorrent / qBittorrent and BEP 3):
+    // - connect_timeout (12 s): gives worldwide / cross-continental peers
+    //   sufficient time for TCP handshake and SYN retransmission without
+    //   holding connection slots indefinitely on dead endpoints.
+    // - read_write_timeout (120 s): BitTorrent BEP 3 protocol standard. Choked
+    //   peers can sit idle between keep-alives (sent every 60–120 s) or unchoke
+    //   evaluation cycles (every 30 s). Dropping them at 15 s kills choked peers
+    //   and wipes the swarm into exponential backoff.
     // - keep_alive_interval (30 s): regularly sends BitTorrent keep-alives
-    //   to prevent healthy remote peers from dropping idle connections.
+    //   to prevent remote NAT firewalls and peers from closing idle connections.
     Some(librqbit::PeerConnectionOptions {
-        connect_timeout: Some(Duration::from_secs(3)),
-        read_write_timeout: Some(Duration::from_secs(15)),
+        connect_timeout: Some(Duration::from_secs(12)),
+        read_write_timeout: Some(Duration::from_secs(120)),
         keep_alive_interval: Some(Duration::from_secs(30)),
     })
 }
@@ -110,6 +121,8 @@ pub(crate) const SESSION_OP_TIMEOUT_SECS: u64 = 10;
 /// session persistence unless nothing else opens.
 pub async fn init_session(
     state_dir: &std::path::Path,
+    enable_utp: bool,
+    disable_upload: bool,
 ) -> Result<Arc<librqbit::Session>, String> {
     std::fs::create_dir_all(state_dir)
         .map_err(|e| format!("Failed to create state dir: {}", e))?;
@@ -148,12 +161,12 @@ pub async fn init_session(
             .collect()
     };
 
-    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) port
-    // accepting both TCP and uTP peers.
-    let make_listener = || build_listener_opts(utp_enabled());
+    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) TCP port,
+    // plus uTP when the transport setting (or the env override) asks for it.
+    let make_listener = || build_listener_opts(utp_enabled(enable_utp));
 
     // Outgoing peer connections: desktop peer tuning
-    // (3 s connect timeout, 15 s read/write timeout, 30 s keep-alive).
+    // (8 s connect timeout, 120 s read/write timeout, 30 s keep-alive).
     let make_connect = || librqbit::ConnectionOptions {
         peer_opts: build_peer_opts(),
         ..Default::default()
@@ -186,6 +199,11 @@ pub async fn init_session(
                 trackers: session_trackers(),
                 peer_limit: Some(PEER_LIMIT_PER_TORRENT),
                 runtime_worker_threads: Some(worker_threads),
+                // Hard upload disable (librqbit `disable-upload` feature):
+                // suppresses bitfield/have advertisements and refuses
+                // piece requests. A rate limit of ~0 is not enough — the
+                // limiter is not on the peer write path in 9.0.1.
+                disable_upload,
                 ..Default::default()
             }
         };
@@ -452,6 +470,28 @@ fn hex_digit(c: u8) -> u8 {
     }
 }
 
+/// Extract BEP 9 `x.pe=` peer hints from a magnet URI. These are
+/// addresses the magnet's author already knew about, so seeding them
+/// into `AddTorrentOptions.initial_peers` lets the swarm bootstrap from
+/// peers that likely hold the content instead of waiting on a tracker
+/// announce. Only `ip:port` (v4/v6) forms are accepted; hostnames would
+/// need resolution and are skipped (trackers/DHT cover them).
+pub fn magnet_initial_peers(uri: &str) -> Vec<std::net::SocketAddr> {
+    let Some(query) = uri.strip_prefix("magnet:?") else {
+        return Vec::new();
+    };
+    let mut peers = Vec::new();
+    for pair in query.split('&') {
+        if let Some(v) = pair.strip_prefix("x.pe=") {
+            let decoded = v.replace("%3A", ":").replace("%3a", ":");
+            if let Ok(addr) = decoded.parse::<std::net::SocketAddr>() {
+                peers.push(addr);
+            }
+        }
+    }
+    peers
+}
+
 /// Find a `ManagedTorrent` by the numeric part of its frontend id.
 pub fn find_handle(
     session: &Arc<librqbit::Session>,
@@ -615,6 +655,186 @@ pub fn files_from_handle(
                 .collect::<Vec<DownloadFile>>()
         })
         .ok()
+}
+
+// ─── Torrent detail (modal) ─────────────────────────────────────────────────
+
+/// One connected peer, flattened for the detail modal. Built from
+/// librqbit's per-peer stats snapshot (which is not nameable through the
+/// crate's public re-exports, so we read it through its serde shape).
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TorrentPeerInfo {
+    pub address: String,
+    pub state: String,
+    /// BitTorrent client string reported in the extended handshake.
+    pub client: Option<String>,
+    /// "tcp" or "utp" (absent unless the peer reached Live).
+    pub connection: Option<String>,
+    pub downloaded: u64,
+    pub uploaded: u64,
+    pub pieces: u64,
+    pub errors: u64,
+}
+
+/// Full torrent detail for the download row's info modal. Torrent-side
+/// fields come from the live handle; record-side fields (added date,
+/// peak speed, magnet, ...) are merged from the persisted `Download`.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TorrentDetail {
+    pub id: String,
+    pub info_hash: String,
+    pub name: String,
+    pub magnet_uri: Option<String>,
+    pub save_path: String,
+    pub source_name: String,
+    pub status: DownloadStatus,
+    pub total_size: Option<u64>,
+    pub downloaded: u64,
+    pub uploaded: u64,
+    /// `uploaded / downloaded`; `0.0` until any bytes are downloaded.
+    pub ratio: f64,
+    pub download_speed: u64,
+    pub upload_speed: u64,
+    pub peers: u32,
+    pub seeds: u32,
+    pub peak_speed: u64,
+    pub added_at: u64,
+    pub completed_at: Option<u64>,
+    pub breakdown: PeerBreakdown,
+    pub peer_list: Vec<TorrentPeerInfo>,
+    pub trackers: Vec<String>,
+    pub files: Vec<DownloadFile>,
+    pub only_files: Option<Vec<usize>>,
+    /// True when no live peer has been seen for the stall window.
+    pub stalled: bool,
+}
+
+/// Hex-encode a 20-byte info hash as the canonical 40-char v1 string.
+pub fn info_hash_hex(info_hash: &[u8; 20]) -> String {
+    let mut s = String::with_capacity(40);
+    for b in info_hash {
+        s.push_str(&format!("{:02x}", b));
+    }
+    s
+}
+
+/// Read the per-peer snapshot and flatten it. Reads `PeerStats` through
+/// its serde representation because the underlying types are re-exported
+/// only through the (private) `torrent_state` module.
+fn peer_list_from_handle(handle: &Arc<librqbit::ManagedTorrent>) -> Vec<TorrentPeerInfo> {
+    let Some(live) = handle.live() else {
+        return Vec::new();
+    };
+    let snapshot = live.per_peer_stats_snapshot(Default::default());
+    let Ok(value) = serde_json::to_value(&snapshot) else {
+        return Vec::new();
+    };
+    let Some(peers) = value.get("peers").and_then(|p| p.as_object()) else {
+        return Vec::new();
+    };
+    peers
+        .iter()
+        .map(|(address, p)| {
+            let counters = p.get("counters");
+            let counter = |key: &str| {
+                counters
+                    .and_then(|c| c.get(key))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0)
+            };
+            TorrentPeerInfo {
+                address: address.clone(),
+                state: p
+                    .get("state")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string(),
+                client: p
+                    .get("client_name")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string),
+                connection: p
+                    .get("conn_kind")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                downloaded: counter("fetched_bytes"),
+                uploaded: counter("uploaded_bytes"),
+                pieces: counter("downloaded_and_checked_pieces"),
+                errors: counter("errors"),
+            }
+        })
+        .collect()
+}
+
+/// Build the detail modal payload for a live torrent handle, merging the
+/// persisted record's bookkeeping fields. `stalled` is decided by the
+/// manager (it tracks the no-live-peer window across ticks).
+pub fn build_torrent_detail(
+    handle: &Arc<librqbit::ManagedTorrent>,
+    record: &Download,
+    stalled: bool,
+) -> TorrentDetail {
+    let stats = handle.stats();
+    let (download_speed, upload_speed, seeds, peers) = extract_live_stats(&stats);
+    let total_size = if stats.total_bytes > 0 {
+        Some(stats.total_bytes)
+    } else {
+        record.total_size
+    };
+    let downloaded = stats.progress_bytes.max(record.downloaded);
+    let uploaded = stats.uploaded_bytes.max(record.uploaded);
+    let ratio = if downloaded > 0 {
+        uploaded as f64 / downloaded as f64
+    } else {
+        0.0
+    };
+
+    // Session trackers are registered on `ManagedTorrentShared.trackers`;
+    // sorting keeps the list stable between ticks.
+    let mut trackers: Vec<String> = handle
+        .shared()
+        .trackers
+        .iter()
+        .map(|u| u.to_string())
+        .collect();
+    trackers.sort();
+
+    let files = files_from_handle(handle, &stats).unwrap_or_else(|| record.files.clone());
+
+    let magnet_uri = record
+        .magnet_uri
+        .clone()
+        .or_else(|| record.source_uri.starts_with("magnet:").then(|| record.source_uri.clone()));
+
+    TorrentDetail {
+        id: record.id.clone(),
+        info_hash: info_hash_hex(&handle.shared().info_hash.0),
+        name: handle.name().unwrap_or_else(|| record.name.clone()),
+        magnet_uri,
+        save_path: record.save_path.clone(),
+        source_name: record.source_name.clone(),
+        status: record.status.clone(),
+        total_size,
+        downloaded,
+        uploaded,
+        ratio,
+        download_speed,
+        upload_speed,
+        peers,
+        seeds,
+        peak_speed: record.peak_speed.unwrap_or(0),
+        added_at: record.added_at,
+        completed_at: record.completed_at,
+        breakdown: peer_breakdown(&stats),
+        peer_list: peer_list_from_handle(handle),
+        trackers,
+        files,
+        only_files: record.only_files.clone(),
+        stalled,
+    }
 }
 
 // ─── Add / start ────────────────────────────────────────────────────────────
@@ -825,6 +1045,9 @@ pub async fn add_and_start(
     loop {
         attempt += 1;
         let add = build_add_torrent(source_uri, referer).await?;
+        // BEP 9 peer hints turn a trackless magnet into something that can
+        // start moving before the first announce lands.
+        let initial_peers = magnet_initial_peers(source_uri);
         let add_opts = librqbit::AddTorrentOptions {
             output_folder: Some(save_path.into()),
             overwrite: true,
@@ -835,6 +1058,11 @@ pub async fn add_and_start(
             trackers: Some(default_trackers_vec()),
             peer_opts: build_peer_opts(),
             peer_limit: Some(PEER_LIMIT_PER_TORRENT),
+            initial_peers: if initial_peers.is_empty() {
+                None
+            } else {
+                Some(initial_peers)
+            },
             ..Default::default()
         };
 
@@ -1145,29 +1373,58 @@ mod tests {
     #[test]
     fn peer_tuning_matches_desktop_clients() {
         let opts = build_peer_opts().expect("peer options");
-        // Short connect timeout so dead tracker entries free their slot.
-        assert_eq!(opts.connect_timeout, Some(Duration::from_secs(3)));
-        // 15 s timeout tolerates jitter without letting stalled chunk requests block pieces for minutes.
-        assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(15)));
-        assert!(PEER_LIMIT_PER_TORRENT >= 400);
+        // Bounded connect timeout so dead tracker entries free their slot,
+        // but generous enough for slow/overseas peers to finish a handshake.
+        assert_eq!(opts.connect_timeout, Some(Duration::from_secs(12)));
+        // Long idle timeout: choked peers can go a while without sending
+        // anything except keep-alives, and dropping them loses the slot.
+        assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(120)));
+        // Wide candidate pool so a big swarm fills its live slots.
+        assert!(PEER_LIMIT_PER_TORRENT >= 1000);
         assert_eq!(opts.keep_alive_interval, Some(Duration::from_secs(30)));
     }
 
     #[test]
-    fn listener_defaults_to_tcp_and_utp() {
-        let opts = build_listener_opts(true);
-        assert!(matches!(opts.mode, librqbit::ListenerMode::TcpAndUtp));
-        assert!(opts.mode.tcp_enabled());
-        assert!(opts.mode.utp_enabled());
-        assert!(opts.enable_upnp_port_forwarding);
+    fn magnet_peer_hints_are_parsed() {
+        let uri = "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567\
+            &dn=Example&x.pe=203.0.113.7:6881&x.pe=[2001:db8::1]:51413";
+        let peers = magnet_initial_peers(uri);
+        assert_eq!(peers.len(), 2);
+        assert!(peers.contains(&"203.0.113.7:6881".parse().unwrap()));
+        assert!(peers.contains(&"[2001:db8::1]:51413".parse().unwrap()));
     }
 
     #[test]
-    fn listener_can_opt_out_of_utp() {
+    fn magnet_peer_hints_ignore_hostnames_and_other_schemes() {
+        // Hostnames need resolution and are skipped; a non-magnet URI has none.
+        assert!(magnet_initial_peers("magnet:?x.pe=seed.example.com:6881").is_empty());
+        assert!(magnet_initial_peers("https://example.com/a.torrent").is_empty());
+    }
+
+    #[test]
+    fn info_hash_hex_is_canonical() {
+        let hash = [
+            0x00, 0x01, 0x0a, 0x0f, 0x10, 0x7f, 0xa0, 0xff, 0xde, 0xad, 0xbe, 0xef, 0x01, 0x02,
+            0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        ];
+        assert_eq!(info_hash_hex(&hash), "00010a0f107fa0ffdeadbeef0102030405060708");
+    }
+
+    #[test]
+    fn listener_defaults_to_tcp_only() {
         let opts = build_listener_opts(false);
         assert!(matches!(opts.mode, librqbit::ListenerMode::TcpOnly));
         assert!(opts.mode.tcp_enabled());
         assert!(!opts.mode.utp_enabled());
+        assert!(opts.enable_upnp_port_forwarding);
+    }
+
+    #[test]
+    fn listener_can_opt_into_utp() {
+        let opts = build_listener_opts(true);
+        assert!(matches!(opts.mode, librqbit::ListenerMode::TcpAndUtp));
+        assert!(opts.mode.tcp_enabled());
+        assert!(opts.mode.utp_enabled());
         assert!(opts.enable_upnp_port_forwarding);
     }
 
