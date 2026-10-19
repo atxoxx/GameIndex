@@ -704,10 +704,19 @@ pub enum AddOutcome {
     AlreadyManaged { handle: Arc<librqbit::ManagedTorrent> },
 }
 
+/// Tracker re-announce cadence forced on every torrent (overrides each
+/// tracker's own `interval` for the torrent's whole lifetime — not just
+/// metadata resolution). Public trackers throttle or temporarily ban
+/// clients announcing faster than roughly once per minute, so 30 s
+/// waves across the full tracker list erode peer discovery mid-download.
+/// 90 s stays inside librqbit's own 10 s–600 s announce pacing window
+/// (`tracker_comms.rs` clamps retries to that range).
+const FORCE_TRACKER_INTERVAL_SECS: u64 = 90;
+
 /// How long ONE metadata-fetch attempt may run before we retry. During
 /// resolution librqbit re-announces to the tracker set every
-/// `force_tracker_interval` (30 s), so a single attempt covers several
-/// announce rounds plus a DHT query.
+/// `FORCE_TRACKER_INTERVAL_SECS`, so a single attempt covers one
+/// announce round plus a DHT query.
 const ADD_ATTEMPT_TIMEOUT_SECS: u64 = 90;
 /// Maximum add attempts. Each retry re-announces to the (now
 /// session-wide) tracker set and re-queries the DHT — with the
@@ -752,7 +761,7 @@ pub async fn add_and_start(
             // post-add update_only_files retry loop was redundant.
             only_files: only_files.map(|v| v.to_vec()),
             trackers: Some(default_trackers_vec()),
-            force_tracker_interval: Some(Duration::from_secs(30)),
+            force_tracker_interval: Some(Duration::from_secs(FORCE_TRACKER_INTERVAL_SECS)),
             ..Default::default()
         };
 
@@ -1066,5 +1075,19 @@ mod tests {
         assert_eq!(opts.connect_timeout, Some(Duration::from_secs(8)));
         assert_eq!(opts.read_write_timeout, Some(Duration::from_secs(15)));
         assert!(PEER_LIMIT_PER_TORRENT >= 200);
+    }
+
+    #[test]
+    fn forced_tracker_interval_is_tracker_friendly() {
+        // Announcing faster than ~1/min per torrent gets rate-limited or
+        // temp-banned by public trackers, which erodes mid-download peer
+        // discovery. The interval must stay at or above that mark while
+        // remaining short enough to resolve magnet metadata actively.
+        assert!(FORCE_TRACKER_INTERVAL_SECS >= 60);
+        assert!(
+            FORCE_TRACKER_INTERVAL_SECS <= ADD_ATTEMPT_TIMEOUT_SECS,
+            "the interval should still allow a full announce round \
+             within one metadata attempt"
+        );
     }
 }
