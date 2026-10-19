@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
-const { invokeMock, results, pluginResults } = vi.hoisted(() => {
+const { invokeMock, results, pluginResults, ctx } = vi.hoisted(() => {
   const results = [
     {
       sourceName: "AlphaSource",
@@ -87,7 +87,11 @@ const { invokeMock, results, pluginResults } = vi.hoisted(() => {
       provider: "plugin" as const,
     },
   ];
-  return { invokeMock, results, pluginResults };
+  const ctx = {
+    debridProvider: "none",
+    debridApiKey: "",
+  };
+  return { invokeMock, results, pluginResults, ctx };
 });
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
@@ -121,8 +125,8 @@ vi.mock("../../context/DownloadContext", () => ({
     activeDownloads: [],
     completedDownloads: [],
     history: [],
-    debridProvider: "none",
-    debridApiKey: "",
+    debridProvider: ctx.debridProvider,
+    debridApiKey: ctx.debridApiKey,
   }),
 }));
 
@@ -237,6 +241,49 @@ describe("DownloadModal sorting", () => {
     fireEvent.change(sortSelect, { target: { value: "size_desc" } });
     await waitFor(() => {
       expect(titlesInOrder()).toEqual(["Plugin Beta", "Plugin Alpha"]);
+    });
+  });
+});
+
+describe("DownloadModal debrid activation gating", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockClear();
+    emitSearch(results);
+    ctx.debridProvider = "alldebrid";
+    ctx.debridApiKey = "staging-key";
+  });
+
+  it("touches no debrid API while the debrid toggle is off", async () => {
+    render(<DownloadModal gameName="Test Game" onClose={() => {}} />);
+    await waitFor(() => {
+      expect(titlesInOrder().length).toBe(3);
+    });
+
+    expect(
+      invokeMock.mock.calls.some(([cmd]) => cmd === "debrid_check_cache"),
+    ).toBe(false);
+  });
+
+  it("probes debrid availability once the toggle is switched on", async () => {
+    render(<DownloadModal gameName="Test Game" onClose={() => {}} />);
+    await waitFor(() => {
+      expect(titlesInOrder().length).toBe(3);
+    });
+
+    const card = screen.getByText("downloadModal.useDebrid").closest("label");
+    const toggle = card!.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(
+        invokeMock.mock.calls.some(
+          (call) =>
+            call[0] === "debrid_check_cache" &&
+            (call as unknown as [string, { provider: string }])[1].provider ===
+              "alldebrid",
+        ),
+      ).toBe(true);
     });
   });
 });

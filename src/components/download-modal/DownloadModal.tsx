@@ -304,14 +304,19 @@ export default function DownloadModal({
     return debridProvider !== "none" && !!debridApiKey;
   }, [debridProvider, debridApiKey]);
 
+  // Debrid must be explicitly activated in the options toggle before the
+  // provider's API is touched at all — configured-but-off means offline
+  // (middleware badges, the cache filter and these probes stay idle).
+  const debridEnabled = useDebrid && debridConfigured;
+
   // Automatic per-row debrid cache probes for every checkable result.
   const rowCacheStatuses = useRowCacheChecks({
     matches,
     provider: debridProvider,
     apikey: debridApiKey,
-    enabled: debridConfigured,
+    enabled: debridEnabled,
   });
-  const cacheFilterAvailable = debridConfigured && cacheCapableProvider(debridProvider);
+  const cacheFilterAvailable = debridEnabled && cacheCapableProvider(debridProvider);
 
   // Available source filter options extracted from raw matches
   const sourceFilterOptions = useMemo(
@@ -333,7 +338,7 @@ export default function DownloadModal({
       updatesOnly,
       installedVersion,
     );
-    if (cacheFilter === "cached") {
+    if (cacheFilterAvailable && cacheFilter === "cached") {
       return base.filter((m) => rowCacheStatuses.get(m.id) === "cached");
     }
     return base;
@@ -347,6 +352,7 @@ export default function DownloadModal({
     updatesOnly,
     installedVersion,
     cacheFilter,
+    cacheFilterAvailable,
     rowCacheStatuses,
   ]);
 
