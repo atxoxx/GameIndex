@@ -65,7 +65,9 @@ pub struct ExeInfo {
     pub(crate) modified_at: u64,
 }
 
-/// Recursively scan multiple directories for .exe files with live progress events and cancellation.
+/// Recursively scan multiple directories for game executables and launch
+/// scripts (see [`PROGRAM_EXTENSIONS`]) with live progress events and
+/// cancellation.
 #[tauri::command]
 pub async fn scan_folders_for_exes(
     app: tauri::AppHandle,
@@ -125,6 +127,17 @@ pub fn cancel_scan_exes(app: tauri::AppHandle, scan_id: Option<String>) -> Resul
         }
     }
     Ok(())
+}
+
+/// File extensions the importer can turn into a game entry. Mirrors
+/// `EXECUTABLE_EXTENSIONS` in `src/utils/executableTypes.ts`.
+pub(crate) const PROGRAM_EXTENSIONS: &[&str] = &[
+    "exe", "bat", "cmd", "com", "ps1", "sh", "appimage", "x86_64",
+];
+
+/// True for a program extension, matched case-insensitively.
+pub(crate) fn is_program_extension(ext: &str) -> bool {
+    PROGRAM_EXTENSIONS.iter().any(|e| ext.eq_ignore_ascii_case(e))
 }
 
 /// Non-game executables to skip during folder scanning.
@@ -530,11 +543,11 @@ fn scan_folders_inner(
             }
             accum.files_examined.fetch_add(1, Ordering::Relaxed);
 
-            let is_exe = entry
+            let is_program = entry
                 .extension()
                 .and_then(|e| e.to_str())
-                .is_some_and(|e| e.eq_ignore_ascii_case("exe"));
-            let is_skipped = is_exe
+                .is_some_and(is_program_extension);
+            let is_skipped = is_program
                 && entry
                     .file_stem()
                     .and_then(|s| s.to_str())
@@ -543,7 +556,7 @@ fn scan_folders_inner(
                         SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw))
                     });
 
-            if !is_exe || is_skipped {
+            if !is_program || is_skipped {
                 maybe_emit_scan_progress(app, scan_id, &accum, dir, folder_index, total_folders);
                 return;
             }
@@ -717,6 +730,25 @@ fn emit_scan_event(
             cancelled,
         },
     );
+}
+
+#[cfg(test)]
+mod program_tests {
+    use super::is_program_extension;
+
+    #[test]
+    fn accepts_native_and_script_program_types() {
+        for ext in ["exe", "EXE", "bat", "cmd", "com", "ps1", "sh", "AppImage", "x86_64"] {
+            assert!(is_program_extension(ext), "{ext} should be a program");
+        }
+    }
+
+    #[test]
+    fn rejects_non_program_files() {
+        for ext in ["zip", "png", "txt", "lnk", "json"] {
+            assert!(!is_program_extension(ext), "{ext} should not be a program");
+        }
+    }
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { gameNameFromPath } from "../../types/game";
+import { EXECUTABLE_DIALOG_FILTERS } from "../../utils/executableTypes";
 
 interface LibraryEmptyStateProps {
   onImported?: () => void;
@@ -26,7 +27,7 @@ export default function LibraryEmptyState({ onImported }: LibraryEmptyStateProps
         multiple: false,
         directory: false,
         title: t("library.importDialogTitle"),
-        filters: [{ name: "Executable", extensions: ["exe"] }],
+        filters: EXECUTABLE_DIALOG_FILTERS,
       });
       if (filePath && typeof filePath === "string") {
         await importLocalGames([{ path: filePath, metadata: null }]);

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { gameNameFromPath } from "../types/game";
 import { thumbVariantUrl } from "../utils/artworkUrl";
+import { stripExecutableExtension } from "../utils/executableTypes";
 import { Button } from "./ui";
 import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, StoreGameSummary } from "../types/game";
@@ -110,9 +111,8 @@ function relDirOf(exePath: string, groupRoot: string): string {
 function scoreExe(exe: ExeInfo, folderName: string): number {
   let score = 0;
   const fn = folderName.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const stem = baseOf(exe.path)
+  const stem = stripExecutableExtension(baseOf(exe.path))
     .toLowerCase()
-    .replace(/\.exe$/i, "")
     .replace(/[^a-z0-9]/g, "");
 
   if (fn && stem.includes(fn)) score += 60;

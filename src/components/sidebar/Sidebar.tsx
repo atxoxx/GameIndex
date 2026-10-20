@@ -7,6 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLibraryFilters } from "../../hooks/useLibraryFilters";
 import { useOsFileDrop } from "../../hooks/useOsFileDrop";
 import { commonParentDir, isImportableExecutablePath } from "../../utils/exeDrop";
+import { EXECUTABLE_DIALOG_FILTERS } from "../../utils/executableTypes";
 import { useSidebarCollapse } from "../../context/SidebarCollapseContext";
 import { useSidebarSectionVisible } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -511,7 +512,7 @@ export default function Sidebar() {
         multiple: false,
         directory: false,
         title: t("sidebar.selectGameExe"),
-        filters: [{ name: "Executable", extensions: ["exe"] }],
+        filters: EXECUTABLE_DIALOG_FILTERS,
       });
       if (filePath && typeof filePath === "string") {
         const existing = games.find(

@@ -575,16 +575,45 @@ pub(crate) fn run_script_blocking(script: &str, admin: bool) -> Result<(), Strin
     run_script_direct(script)
 }
 
+/// Build a `Command` that can actually execute `path` on this platform.
+///
+/// Windows `CreateProcess` refuses to run batch / PowerShell scripts
+/// directly, so route those through their interpreter. Native binaries
+/// (`.exe`, `.com`) and Linux launchers run as-is.
+fn program_command(path: &std::path::Path) -> std::process::Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        match ext.as_str() {
+            "bat" | "cmd" => {
+                let mut cmd = std::process::Command::new("cmd.exe");
+                cmd.arg("/C");
+                // `raw_arg` keeps the quotes intact so paths containing
+                // spaces or cmd metacharacters reach the interpreter as one
+                // file name.
+                cmd.raw_arg(format!("\"{}\"", path.display()));
+                return cmd;
+            }
+            "ps1" => {
+                let mut cmd = std::process::Command::new("powershell.exe");
+                cmd.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+                    .arg(path);
+                return cmd;
+            }
+            _ => {}
+        }
+    }
+    std::process::Command::new(path)
+}
+
 #[cfg(windows)]
 fn run_script_direct(script: &str) -> Result<(), String> {
-    let lower = script.to_lowercase();
-    let mut cmd = if lower.ends_with(".ps1") {
-        let mut c = std::process::Command::new("powershell");
-        c.args(["-NoProfile", "-File", script]);
-        c
-    } else {
-        std::process::Command::new(script)
-    };
+    let mut cmd = program_command(std::path::Path::new(script));
     let status = cmd
         .status()
         .map_err(|e| format!("Failed to run script {}: {}", script, e))?;
@@ -657,7 +686,7 @@ fn spawn_companion(app: CompanionApp) {
                 return;
             }
         }
-        let mut cmd = std::process::Command::new(&app.path);
+        let mut cmd = program_command(std::path::Path::new(&app.path));
         if let Some(args) = &app.arguments {
             if !args.trim().is_empty() {
                 #[cfg(windows)]
@@ -923,7 +952,7 @@ pub fn launch_game(
                 return Err("Running as administrator is only supported on Windows".to_string());
             }
         } else {
-            let mut cmd = std::process::Command::new(path);
+            let mut cmd = program_command(path);
             cmd.current_dir(cwd);
 
             #[cfg(target_os = "linux")]
@@ -1144,6 +1173,28 @@ mod tests {
     fn empty_args_yield_no_argv() {
         assert!(split_launch_args("").is_empty());
         assert!(split_launch_args("   ").is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn program_command_runs_batch_and_powershell_scripts() {
+        let dir = tempfile::tempdir().unwrap();
+        let batch = dir.path().join("launch game.bat");
+        std::fs::write(&batch, "@echo off\r\nexit /b 0\r\n").unwrap();
+        assert!(program_command(&batch).status().unwrap().success());
+
+        let ps1 = dir.path().join("launch game.ps1");
+        std::fs::write(&ps1, "exit 0\r\n").unwrap();
+        assert!(program_command(&ps1).status().unwrap().success());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn program_command_reports_missing_batch_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing.bat");
+        let status = program_command(&missing).status().unwrap();
+        assert!(!status.success());
     }
 
     #[test]

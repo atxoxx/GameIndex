@@ -8,6 +8,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import type { LibraryStatus } from "../../hooks/useLibraryFilters";
 import { thumbVariantUrl } from "../../utils/artworkUrl";
+import { EXECUTABLE_DIALOG_FILTERS } from "../../utils/executableTypes";
 import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface LibraryHeroProps {
@@ -99,7 +100,7 @@ function LibraryHeroBase({
         multiple: false,
         directory: false,
         title: t("library.importDialogTitle"),
-        filters: [{ name: "Executable", extensions: ["exe"] }],
+        filters: EXECUTABLE_DIALOG_FILTERS,
       });
       if (filePath && typeof filePath === "string") {
         await importLocalGames([{ path: filePath, metadata: null }]);

@@ -8,6 +8,7 @@ import { useToast } from "../../../context/ToastContext";
 import { useIntegrations } from "../../../pages/settings/useIntegrations";
 import IntegrationsTab from "../../../pages/settings/IntegrationsTab";
 import { gameNameFromPath, type GameMetadataResult } from "../../../types/game";
+import { EXECUTABLE_DIALOG_FILTERS } from "../../../utils/executableTypes";
 import ImportModal, { type ExeInfo } from "../../ImportModal";
 import FolderScanProgressModal from "../../library/FolderScanProgressModal";
 import { Button } from "../../ui";
@@ -49,7 +50,7 @@ export default function LibrariesStep() {
         multiple: false,
         directory: false,
         title: t("sidebar.selectGameExe"),
-        filters: [{ name: "Executable", extensions: ["exe"] }],
+        filters: EXECUTABLE_DIALOG_FILTERS,
       });
       if (filePath && typeof filePath === "string") {
         const existing = games.find(

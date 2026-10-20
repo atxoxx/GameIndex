@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
+import { stripExecutableExtension } from "../../utils/executableTypes";
 import type { ExeInfo } from "../ImportModal";
 
 export interface FolderScanProgressModalProps {
@@ -29,10 +30,6 @@ interface ExeScanProgressPayload {
 
 function fileNameFromPath(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
-}
-
-function cleanGameName(fileName: string): string {
-  return fileName.replace(/\.exe$/i, "");
 }
 
 export default function FolderScanProgressModal({
@@ -118,7 +115,7 @@ export default function FolderScanProgressModal({
             setFilesExamined(payload.filesExamined);
 
             if (payload.lastFoundExe) {
-              const name = cleanGameName(fileNameFromPath(payload.lastFoundExe));
+              const name = stripExecutableExtension(fileNameFromPath(payload.lastFoundExe));
               setRecentFoundNames((prev) => {
                 if (prev.includes(name)) return prev;
                 return [name, ...prev.slice(0, 9)];

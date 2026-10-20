@@ -11,6 +11,9 @@ describe("isImportableExecutablePath", () => {
     expect(isImportableExecutablePath("C:\\Games\\Foo\\FOO.EXE")).toBe(true);
     expect(isImportableExecutablePath("/home/u/games/foo.exe")).toBe(true);
     expect(isImportableExecutablePath("/home/u/games/run.bat")).toBe(true);
+    expect(isImportableExecutablePath("C:\\Games\\Foo\\launch.cmd")).toBe(true);
+    expect(isImportableExecutablePath("C:\\Games\\Foo\\setup.ps1")).toBe(true);
+    expect(isImportableExecutablePath("C:\\Games\\Foo\\old.com")).toBe(true);
     expect(isImportableExecutablePath("/home/u/games/launch.sh")).toBe(true);
     expect(isImportableExecutablePath("/home/u/App/Game.AppImage")).toBe(true);
     expect(isImportableExecutablePath("/home/u/games/game.x86_64")).toBe(true);

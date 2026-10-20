@@ -6,21 +6,12 @@
  * same way `splitPath` does in `components/ImportModal.tsx`.
  */
 
-const EXECUTABLE_EXTENSIONS = new Set([
-  "exe",
-  "bat",
-  "cmd",
-  "sh",
-  "appimage",
-  "x86_64",
-]);
+import { hasExecutableExtension } from "./executableTypes";
 
 /** True for paths the import flow can turn into a game entry. */
 export function isImportableExecutablePath(path: string): boolean {
   const name = path.split(/[\\/]/).pop() ?? "";
-  const dot = name.lastIndexOf(".");
-  if (dot <= 0) return false;
-  return EXECUTABLE_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
+  return hasExecutableExtension(name);
 }
 
 /** Directory holding `path`, keeping the leading separator of absolute paths. */

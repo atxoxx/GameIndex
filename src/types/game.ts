@@ -1,4 +1,5 @@
 import { getActiveLocale } from "../i18n";
+import { stripExecutableExtension } from "../utils/executableTypes";
 import type { RomProfile } from "./emulator";
 
 /** Generate a URL-safe slug from a game name (for store navigation and API matching). */
@@ -1760,12 +1761,8 @@ export interface CrackWatchStatus {
 
 /** Extract a human-readable game name from an executable file path. */
 export function gameNameFromPath(filePath: string): string {
-  return (
-    filePath
-      .split(/[\\/]/)
-      .pop()
-      ?.replace(/\.exe$/i, "") || "Unknown Game"
-  );
+  const fileName = filePath.split(/[\\/]/).pop();
+  return (fileName ? stripExecutableExtension(fileName) : "") || "Unknown Game";
 }
 
 /** Extract a Steam app id from a `steam://run/12345` path. Returns `null` if
