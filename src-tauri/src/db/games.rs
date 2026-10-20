@@ -142,6 +142,13 @@ pub struct GameRow {
     pub post_exit_admin: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub companion_apps: Option<Vec<serde_json::Value>>,
+    // ── Additional launch executables (v15 migration) ──
+    /// Alternate launch targets configured by the user; the hero play
+    /// button offers them through the launcher picker. Stored as a
+    /// JSON column (`extra_executables_json`) the same way
+    /// `companion_apps` is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra_executables: Option<Vec<serde_json::Value>>,
     // ── Emulation linkage (v2 migration) ──
     /// Id of the owning emulator instance. Lets `delete_emulator`
     /// cascade-remove its ROMs.
@@ -373,7 +380,8 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                   display_name,
                   content_hash,
                   logo_source_url,
-                  is_vr
+                  is_vr,
+                  extra_executables_json
               ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -398,6 +406,7 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                  ?70,?71,?72,?73,?74,
                   ?75,?76,
                   ?77,?78,?79
+                 ,?80
               )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -499,6 +508,8 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
             r.logo_source_url,
             // v14 VR flag.
             r.is_vr.map(|b| b as i32),
+            // v15 extra-executables column (LAST in the column list).
+            json_opt(&r.extra_executables),
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -568,7 +579,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             display_name,
             content_hash,
             logo_source_url,
-            is_vr
+            is_vr,
+            extra_executables_json
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -593,6 +605,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?70,?71,?72,?73,?74,
             ?75,?76,
             ?77,?78,?79
+           ,?80
         )",
         params![
             r.id,
@@ -676,6 +689,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             hash,
             r.logo_source_url,
             r.is_vr.map(|b| b as i32),
+            // v15 extra-executables column (LAST in the column list).
+            json_opt(&r.extra_executables),
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -1033,7 +1048,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url, is_vr FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url, is_vr, extra_executables_json FROM games";
 
 /// The heavy summary columns (multi-MB JSON), in their `games` column
 /// positions. Must stay in sync with `crate::games::HEAVY_GAME_FIELDS`.
@@ -1184,6 +1199,9 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // v14 is_vr column — read after logo_source_url.
         // NULL rows (pre-v14) read back as `None` (unknown).
         is_vr: r.get::<_, Option<i64>>(79)?.map(|n| n != 0),
+        // v15 extra-executables column — read after is_vr.
+        // NULL rows (pre-v15) read back as `None`.
+        extra_executables: json_opt_get(r, 80)?,
         // Compatibility profile is isolated into compatibility.db
         compatibility_json: None,
     })

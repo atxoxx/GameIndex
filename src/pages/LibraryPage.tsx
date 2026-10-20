@@ -582,6 +582,10 @@ export default function LibraryPage() {
           onClose={() => setContextMenu(null)}
           onLaunch={() => handleLaunch(contextMenu.game)}
           onLaunchAdmin={() => handleLaunchAdmin(contextMenu.game)}
+          onLaunchExe={(exe) => {
+            setContextMenu(null);
+            launchGame(contextMenu.game, exe);
+          }}
           onForceClose={() => handleForceClose(contextMenu.game)}
           onViewDetails={() => handleViewDetails(contextMenu.game)}
           onEdit={() => handleEditGame(contextMenu.game)}

@@ -192,6 +192,11 @@ pub(crate) struct GameData {
     pub(crate) post_exit_admin: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) companion_apps: Option<Vec<CompanionApp>>,
+    /// Additional launch executables configured by the user (raw JSON —
+    /// { path, label?, arguments?, runAsAdmin? } entries; the launcher
+    /// passes the chosen path/args straight through `launch_game`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) extra_executables: Option<Vec<serde_json::Value>>,
     /// Unix-millisecond timestamp of when the user most recently exited a
     /// session for this game. `None` until the first session ends. Used by
     /// the Library page's "Continue Playing" rail to surface recently-active
@@ -398,6 +403,7 @@ impl From<GameData> for db::games::GameRow {
             post_exit_script: g.post_exit_script,
             post_exit_admin: g.post_exit_admin,
             companion_apps: to_json_array(&g.companion_apps),
+            extra_executables: g.extra_executables,
             emulator_id: g.emulator_id,
             rom_path: g.rom_path,
             rom_hash: g.rom_hash,
@@ -519,6 +525,7 @@ impl From<db::games::GameRow> for GameData {
             post_exit_script: r.post_exit_script,
             post_exit_admin: r.post_exit_admin,
             companion_apps: from_json_array(r.companion_apps),
+            extra_executables: r.extra_executables,
             last_played: r.last_played,
             play_status: r.play_status,
             emulator_id: r.emulator_id,

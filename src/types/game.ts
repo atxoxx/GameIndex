@@ -272,6 +272,10 @@ export interface Game {
   postExitAdmin?: boolean;
   /** Extra executables launched alongside the game (e.g. a server or overlay). */
   companionApps?: CompanionApp[];
+  /** Alternate launch executables the user configured; offered through the
+   *  hero play-button chevron, the context menu and the command palette.
+   *  `path` always remains the default launch target. */
+  extraExecutables?: GameExecutable[];
   playStatus?: PlayStatus;
   /** When true, the game is excluded from playtime tracking and passive process detection. */
   untracked?: boolean;
@@ -305,6 +309,18 @@ export interface CompanionApp {
   arguments?: string;
   /** Delay in milliseconds before this app is launched (timer). */
   delayMs: number;
+  /** Run with UAC elevation (Windows). */
+  runAsAdmin?: boolean;
+}
+
+/** An alternate executable the game can be launched with. */
+export interface GameExecutable {
+  /** Full path to the executable. */
+  path: string;
+  /** Optional display label shown in the launch picker (falls back to the file name). */
+  label?: string;
+  /** Optional command-line arguments overriding the game's launch arguments. */
+  arguments?: string;
   /** Run with UAC elevation (Windows). */
   runAsAdmin?: boolean;
 }

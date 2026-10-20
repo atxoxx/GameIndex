@@ -16,6 +16,7 @@ import {
   extractSteamAppIdFromWebsites,
   dedupeGamesById,
   type Game,
+  type GameExecutable,
   type GameMetadataResult,
 } from "../types/game";
 import { useToast } from "./ToastContext";
@@ -58,7 +59,7 @@ interface GameContextType {
    *  watcher's grace period (e.g. a launcher handing off to the real game).
    *  The UI shows these as "closing" instead of flipping straight to stopped. */
   closingGameIds: string[];
-  launchGame: (game: Game) => void;
+  launchGame: (game: Game, exeOverride?: GameExecutable) => void;
   /**
    * Force-terminate the running game process and record the session.
    * Visible from the Game page "Force Close" button — pairs with the
@@ -127,7 +128,7 @@ interface RunningIdsValue {
 // callbacks are ref-forwarded, so this value's identity never changes even
 // when `launchGame` is re-created for a new running-game set.
 export interface GameCardActions {
-  launchGame: (game: Game) => void;
+  launchGame: (game: Game, exeOverride?: GameExecutable) => void;
   enrichGameMetadata: (gameId: string, gameName: string, steamAppId?: number) => Promise<void>;
   /** Queue a newly visible card's missing cover for paced enrichment. */
   enqueueEnrich: (
@@ -500,8 +501,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const gameCardActions = useMemo<GameCardActions>(
     () => ({
-      launchGame: (game: Game) => {
-        void launchGameActionRef.current(game);
+      launchGame: (game: Game, exeOverride?: GameExecutable) => {
+        void launchGameActionRef.current(game, exeOverride);
       },
       enrichGameMetadata: (gameId: string, gameName: string, steamAppId?: number) =>
         enrichGameMetadataActionRef.current(gameId, gameName, steamAppId),

@@ -25,7 +25,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
 import { copyTextToClipboard } from "../../utils/clipboard";
-import { PLAY_STATUS_DETAILS, gameDisplayName, type Game, type PlayStatus } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName, type Game, type GameExecutable, type PlayStatus } from "../../types/game";
 
 const STATUS_ORDER: PlayStatus[] = ["backlog", "playing", "completed", "on_hold", "abandoned"];
 
@@ -39,6 +39,9 @@ export interface GameContextMenuProps {
   onClose: () => void;
   onLaunch: () => void;
   onLaunchAdmin?: () => void;
+  /** Launch with a specific additional executable (offered when the game
+   *  has any configured). */
+  onLaunchExe?: (exe: GameExecutable) => void;
   onForceClose?: () => void;
   onViewDetails: () => void;
   onEdit?: () => void;
@@ -64,6 +67,7 @@ export default function GameContextMenu({
   onClose,
   onLaunch,
   onLaunchAdmin,
+  onLaunchExe,
   onForceClose,
   onViewDetails,
   onEdit,
@@ -182,6 +186,20 @@ export default function GameContextMenu({
             label: t("sidebar.runAsAdmin"),
             icon: <Shield size={15} />,
             onSelect: onLaunchAdmin,
+          }
+        : null,
+      // Additional executables — a "Launch with…" submenu only appears
+      // once the user configured some in the edit modal / picker.
+      !isRunning && onLaunchExe && game.extraExecutables && game.extraExecutables.length > 0
+        ? {
+            id: "launch-extras",
+            label: t("game.execExtras.contextTitle"),
+            icon: <Play size={15} />,
+            submenu: game.extraExecutables.map((exe, i) => ({
+              id: `launch-exe-${i}`,
+              label: exe.label?.trim() || game.path.split(/[/\\]/).pop() || exe.path,
+              onSelect: () => onLaunchExe(exe),
+            })),
           }
         : null,
       {

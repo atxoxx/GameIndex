@@ -12,6 +12,7 @@ import {
   type Game,
   type GameMetadataResult,
   type CompanionApp,
+  type GameExecutable,
   type SimilarGame,
   type ReleaseDateInfo,
   type LanguageSupportInfo,
@@ -311,6 +312,12 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
   const [editCompanionApps, setEditCompanionApps] = useState<CompanionApp[]>(
     game.companionApps && game.companionApps.length > 0
       ? game.companionApps.map((c) => ({ ...c }))
+      : []
+  );
+
+  const [editExtraExecutables, setEditExtraExecutables] = useState<GameExecutable[]>(
+    game.extraExecutables && game.extraExecutables.length > 0
+      ? game.extraExecutables.map((e) => ({ ...e }))
       : []
   );
 
@@ -1134,6 +1141,40 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
     setEditCompanionApps((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // ── Additional executables (alternate launch targets) ──────────────
+  function updateExtraExe(index: number, patch: Partial<GameExecutable>) {
+    setEditExtraExecutables((prev) =>
+      prev.map((e, i) => (i === index ? { ...e, ...patch } : e))
+    );
+  }
+
+  function addExtraExe() {
+    setEditExtraExecutables((prev) => [...prev, { path: "" }]);
+  }
+
+  function removeExtraExe(index: number) {
+    setEditExtraExecutables((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handlePickExtraExe(index: number) {
+    try {
+      const filePath = await open({
+        multiple: false,
+        directory: false,
+        title: "Select Executable",
+        filters: [
+          { name: "Executables", extensions: ["exe", "bat", "lnk", "cmd"] },
+          { name: "All Files", extensions: ["*"] },
+        ],
+      });
+      if (filePath && typeof filePath === "string") {
+        updateExtraExe(index, { path: filePath });
+      }
+    } catch {
+      showToast("Failed to select file", "error");
+    }
+  }
+
   function appendLaunchArg(arg: string) {
     const trimmed = editLaunchArguments.trim();
     if (!trimmed) {
@@ -1259,6 +1300,17 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                 arguments: c.arguments?.trim() || undefined,
                 delayMs: Math.max(0, Number(c.delayMs) || 0),
                 runAsAdmin: c.runAsAdmin || undefined,
+              }))
+          : undefined,
+      extraExecutables:
+        editExtraExecutables.length > 0
+          ? editExtraExecutables
+              .filter((e) => e.path.trim())
+              .map((e) => ({
+                path: e.path.trim(),
+                label: e.label?.trim() || undefined,
+                arguments: e.arguments?.trim() || undefined,
+                runAsAdmin: e.runAsAdmin || undefined,
               }))
           : undefined,
       mo2LaunchEnabled: editMo2LaunchEnabled,
@@ -2138,6 +2190,103 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                     {t("edit.browse")}
                   </Button>
                 </div>
+              </div>
+
+              {/* Additional Executables Card — alternate launch targets
+                  offered through the play button chevron, the context
+                  menu and the command palette. `game.path` always stays
+                  the default. */}
+              <div className="edit-launch-card">
+                <div className="edit-launch-card-header">
+                  <div className="edit-launch-card-icon edit-launch-icon-primary">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <circle cx="9" cy="9" r="2" />
+                      <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                    </svg>
+                  </div>
+                  <div className="edit-launch-card-header-text">
+                    <div className="edit-launch-card-title-row">
+                      <h4 className="edit-launch-card-title">{t("edit.execExtrasTitle")}</h4>
+                      <span className="edit-launch-card-counter">{editExtraExecutables.length}</span>
+                    </div>
+                    <p className="edit-launch-card-desc">{t("edit.execExtrasDesc")}</p>
+                  </div>
+                </div>
+
+                {editExtraExecutables.length === 0 ? (
+                  <p className="edit-companion-empty-text">{t("game.execExtras.empty")}</p>
+                ) : (
+                  <div className="edit-extra-exe-list">
+                    {editExtraExecutables.map((exe, idx) => (
+                      <div key={idx} className="edit-extra-exe-card">
+                        <div className="edit-extra-exe-path-row">
+                          <input
+                            className="edit-input edit-extra-exe-path"
+                            type="text"
+                            value={exe.path}
+                            onChange={(e) => updateExtraExe(idx, { path: e.target.value })}
+                            placeholder="Path to executable (.exe, .bat, .lnk)"
+                          />
+                          <Button variant="secondary" size="sm" onClick={() => handlePickExtraExe(idx)}>
+                            {t("edit.browse")}
+                          </Button>
+                          <button
+                            type="button"
+                            className="companion-app-delete-btn"
+                            onClick={() => removeExtraExe(idx)}
+                            title={t("game.execExtras.remove")}
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="edit-extra-exe-meta-row">
+                          <input
+                            className="edit-input edit-extra-exe-args"
+                            aria-label={t("game.execExtras.labelPlaceholder")}
+                            type="text"
+                            value={exe.label || ""}
+                            onChange={(e) => updateExtraExe(idx, { label: e.target.value })}
+                            placeholder={t("game.execExtras.labelPlaceholder")}
+                          />
+                          <input
+                            className="edit-input edit-extra-exe-args"
+                            aria-label={t("game.execExtras.argsPlaceholder")}
+                            type="text"
+                            value={exe.arguments || ""}
+                            onChange={(e) => updateExtraExe(idx, { arguments: e.target.value })}
+                            placeholder={t("game.execExtras.argsPlaceholder")}
+                          />
+                          {isWindowsHost && (
+                            <label className="companion-app-admin-toggle">
+                              <input
+                                type="checkbox"
+                                checked={exe.runAsAdmin || false}
+                                onChange={(e) => updateExtraExe(idx, { runAsAdmin: e.target.checked })}
+                              />
+                              <span className="companion-app-admin-label">
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                </svg>
+                                {t("game.execExtras.runAsAdmin")}
+                              </span>
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button type="button" className="edit-companion-add-btn primary" onClick={addExtraExe}>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  {t("game.execExtras.add")}
+                </button>
               </div>
 
               {/* Launch Arguments & Flags Card */}

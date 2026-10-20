@@ -5,6 +5,7 @@ import { useGames, useLiveElapsed } from "../../context/GameContext";
 import { useGameUpdateCheck } from "../../hooks/useGameUpdateCheck";
 import { IconDownload, IconPlay } from "./icons";
 import DownloadButton from "../DownloadButton";
+import GameExecutablePickerModal from "./GameExecutablePickerModal";
 import { formatPlayTime, gameDisplayName, type Game } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -34,7 +35,7 @@ export default function GameLaunchActions({
   onLaunch,
   size = "md",
 }: GameLaunchActionsProps) {
-  const { runningGameIds, closingGameIds, forceCloseGame } = useGames();
+  const { runningGameIds, closingGameIds, forceCloseGame, launchGame } = useGames();
   const liveElapsed = useLiveElapsed();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -56,6 +57,8 @@ export default function GameLaunchActions({
   //   2. Surface a "Closing…" status so the user has feedback the
   //      click registered before the underlying OS process dies.
   const [isClosing, setIsClosing] = useState(false);
+  // Open state for the executables picker (per-exe hero launch).
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Reset the in-flight flag once the running indicator has cleared.
   // Listening to `isRunning` (not the click) means we never race the
@@ -139,13 +142,39 @@ export default function GameLaunchActions({
           </button>
         </>
       ) : (
-        <button
-          className="game-launch-btn"
-          onClick={onLaunch}
-        >
-          <IconPlay size={16} />
-          {t("launch.launchGame")}
-        </button>
+        <>
+          {game.extraExecutables && game.extraExecutables.length > 0 ? (
+            // Multi-exe layout: play stays the default launch target; the
+            // attached chevron opens the executables picker.
+            <div className="game-launch-split">
+              <button
+                className="game-launch-btn game-launch-btn--main"
+                onClick={onLaunch}
+              >
+                <IconPlay size={16} />
+                {t("launch.launchGame")}
+              </button>
+              <button
+                className="game-launch-btn game-launch-btn--chevron"
+                onClick={() => setPickerOpen(true)}
+                title={t("game.execExtras.chooserTitle")}
+                aria-label={t("game.execExtras.chooserTitle")}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              className="game-launch-btn"
+              onClick={onLaunch}
+            >
+              <IconPlay size={16} />
+              {t("launch.launchGame")}
+            </button>
+          )}
+        </>
       )}
       <DownloadButton
         gameName={game.name}
@@ -154,6 +183,13 @@ export default function GameLaunchActions({
         steamAppId={game.steamAppId}
         updateAvailable={updateStatus === "update-available"}
         upToDate={updateStatus === "up-to-date"}
+      />
+      <GameExecutablePickerModal
+        game={game}
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onLaunch={(exe) => launchGame(game, exe)}
+        launchGame={launchGame}
       />
     </div>
   );

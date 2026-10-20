@@ -28,7 +28,7 @@ interface CommandPaletteActionDrawerProps {
   t: (key: string, vars?: Record<string, unknown>) => string;
   showToast: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
   navigate: (path: string) => void;
-  launchGame?: (game: any) => void;
+  launchGame?: (game: any, exeOverride?: { path: string; arguments?: string; runAsAdmin?: boolean }) => void;
   isGameUntracked?: (id: string) => boolean;
   toggleGameTracking?: (id: string) => void;
   isWishlisted?: (slug: string) => boolean;
@@ -83,7 +83,28 @@ export default function CommandPaletteActionDrawer({
         });
       }
 
-      // 2. Open in Library Details
+      // 2.. Additional executables — one "Launch <label>" action each;
+      // MO2-style secondary actions, only when configured.
+      if (game.installed && launchGame && Array.isArray(game.extraExecutables)) {
+        game.extraExecutables.forEach((exe, i) => {
+          if (!exe?.path) return;
+          const label = String(exe.label || "").trim() ||
+            String(exe.path).split(/[/\\]/).pop() ||
+            String(exe.path);
+          acts.push({
+            id: `act-launch-exe-${i}`,
+            title: t("game.execExtras.launchNamed", { label }),
+            description: t("game.execExtras.launchNamedDesc"),
+            icon: <ExternalLink size={15} />,
+            badge: t("game.execExtras.badgeAlt"),
+            onExecute: () => {
+              onClose();
+              launchGame(game, exe);
+            },
+          });
+        });
+      }
+      // 3. Open in Library Details
       acts.push({
         id: "act-library-page",
         title: t("commandPalette.open"),

@@ -1,0 +1,253 @@
+/* Executables picker (extra launch executables) — shared by the hero
+   play-button chevron modal. Dark-first, token-driven. */
+.exe-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 1000);
+  background: var(--color-scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exe-picker {
+  width: min(560px, calc(100vw - var(--space-xl) * 2));
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  box-shadow: var(--elevation-4, var(--elevation-3));
+}
+
+.exe-picker-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.exe-picker-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.exe-picker-header h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.exe-picker-game-name {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.exe-picker-close {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: var(--space-2xs) var(--space-sm);
+}
+
+.exe-picker-close:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
+}
+
+.exe-picker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+}
+
+.exe-picker-row-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.exe-picker-label,
+.exe-picker-path {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exe-picker-label {
+  font-weight: var(--font-weight-medium);
+}
+
+.exe-picker-path {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.exe-picker-input {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  padding: var(--space-2xs) var(--space-sm);
+  min-width: 0;
+}
+
+.exe-picker-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.exe-picker-launch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-md);
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #fff);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.exe-picker-launch:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.exe-picker-badge {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2xs) var(--space-sm);
+}
+
+.exe-picker-admin,
+.exe-picker-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.exe-picker-admin:hover,
+.exe-picker-remove:hover {
+  color: var(--color-text-primary);
+}
+
+.exe-picker-admin.active {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.exe-picker-remove:hover {
+  color: var(--color-danger);
+}
+
+.exe-picker-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  align-self: flex-start;
+  padding: var(--space-2xs) var(--space-md);
+  border-radius: var(--radius-full);
+  border: 1px dashed var(--color-border);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.exe-picker-add-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
+}
+
+.exe-picker-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.exe-picker-empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Edit-game modal — additional executables.
+   Two-line card: the path gets the full first row (with browse + remove),
+   then label / arguments / admin share the second. */
+.edit-extra-exe-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.edit-extra-exe-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+}
+
+.edit-extra-exe-path-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.edit-extra-exe-path {
+  flex: 1;
+  min-width: 0;
+}
+
+.edit-extra-exe-meta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+}
+
+.edit-extra-exe-meta-row .edit-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  font-size: var(--text-xs, var(--text-sm));
+}
+
+.edit-extra-exe-meta-row .companion-app-admin-toggle {
+  margin-left: auto;
+}

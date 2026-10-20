@@ -1184,6 +1184,10 @@ export default function Sidebar() {
             onClose={() => setContextMenu(null)}
             onLaunch={() => handleLaunchFromContextMenu(contextMenu.game)}
             onLaunchAdmin={() => handleLaunchAdminFromContextMenu(contextMenu.game)}
+            onLaunchExe={(exe) => {
+              setContextMenu(null);
+              launchGame(contextMenu.game, exe);
+            }}
             onViewDetails={() => handleViewDetailsFromContextMenu(contextMenu.game)}
             onTogglePin={() => {
               togglePin(contextMenu.game);

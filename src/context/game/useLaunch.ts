@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Game } from "../../types/game";
+import type { Game, GameExecutable } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import type { Mo2Instance } from "../../types/mo2";
 import { getGameMo2Config } from "../../utils/mo2Storage";
@@ -51,7 +51,7 @@ export function useLaunch(options: {
   const splashFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Stable self-reference so the splash's Retry action can re-invoke the
   // latest `launchGame` (defined below) for the same game after a failure.
-  const launchGameRef = useRef<(game: Game) => void>(() => {});
+  const launchGameRef = useRef<(game: Game, exeOverride?: GameExecutable) => void>(() => {});
 
   /** Flip a still-"launching" splash to "started" once the watcher confirms
    *  the game process is up. Ignored for passively-detected games whose
@@ -123,7 +123,7 @@ export function useLaunch(options: {
     }
   }, [showToast, t]);
 
-  const launchGame = useCallback(async (game: Game) => {
+  const launchGame = useCallback(async (game: Game, exeOverride?: GameExecutable) => {
     if (runningGameIds.includes(game.id)) {
       showToast(t("gameContext.alreadyRunning", { name: game.name }), "info");
       return;
@@ -175,7 +175,7 @@ export function useLaunch(options: {
     // Show the launch splash if the user has it enabled
     const splashOn = isSplashEnabled();
     if (splashOn) {
-      splash.open({ game: gameForSplash }, { retry: () => launchGameRef.current(game) });
+      splash.open({ game: gameForSplash }, { retry: () => launchGameRef.current(game, exeOverride) });
     }
 
     setRunningGameIds((prev) => [...prev, game.id]);
@@ -285,8 +285,8 @@ export function useLaunch(options: {
       // extracts zip/7z archives into the managed cache, and reports
       // save-backup health. Abort with a warning when saves are
       // newer than the latest backup.
-      let gamePath = game.path || "";
-      let launchArgs = game.launchArguments || null;
+      let gamePath = exeOverride?.path || game.path || "";
+      let launchArgs = exeOverride?.arguments || game.launchArguments || null;
       if (game.emulatorId && game.romPath) {
         const plan = await invoke<RomLaunchPlan>("rom_launch_plan", { gameId: game.id });
         gamePath = plan.executablePath;
@@ -317,7 +317,7 @@ export function useLaunch(options: {
         gpuName,
         gpuSelection,
         launchArguments: launchArgs,
-        runAsAdmin: IS_WINDOWS_HOST ? (game.runAsAdmin || null) : null,
+        runAsAdmin: IS_WINDOWS_HOST ? (exeOverride?.runAsAdmin ?? (game.runAsAdmin || null)) : null,
         showSteamLaunchSelection: game.showSteamLaunchSelection || null,
         preLaunchScript: game.preLaunchScript || null,
         preLaunchAdmin: game.preLaunchAdmin || null,

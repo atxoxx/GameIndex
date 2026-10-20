@@ -147,4 +147,25 @@ describe("GameContextMenu", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("offers a Launch-with submenu when additional executables are configured", async () => {
+    const onLaunchExe = vi.fn();
+    const altExe = { path: "/games/Test/dev-build.exe", label: "Dev Build", arguments: "-dev" };
+
+    renderMenu({
+      game: makeGame({ extraExecutables: [altExe] }),
+      onLaunchExe,
+    });
+
+    fireEvent.click(menuItem("Launch with…"));
+    fireEvent.click(await screen.findByText("Dev Build"));
+
+    expect(onLaunchExe).toHaveBeenCalledWith(altExe);
+  });
+
+  it("hides the Launch-with entry when no additional executables exist", () => {
+    renderMenu();
+
+    expect(screen.queryByText("Launch with…")).toBeNull();
+  });
 });

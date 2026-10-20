@@ -37,6 +37,29 @@
 .game-launch-btn:focus-visible { outline: none; box-shadow: var(--ring-accent); }
 .game-launch-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 
+/* Play + chevron split for games with configured extra executables.
+   The chevron shares the play button's pill so they read as one
+   control; it opens the executables picker modal. */
+.game-launch-split {
+  display: inline-flex;
+  align-items: stretch;
+  gap: var(--space-2xs);
+  flex-shrink: 0;
+}
+
+.game-launch-btn--main {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.game-launch-btn--chevron {
+  padding: var(--space-md) var(--space-sm);
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.game-launch-btn--chevron svg { width: 14px; height: 14px; }
+
 /* Game Tabs — sticky, glass "segmented pill" bar with icons */
 .game-tabs::-webkit-scrollbar {
   display: none;
