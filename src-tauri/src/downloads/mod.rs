@@ -322,7 +322,7 @@ pub async fn initialize_engine(
             // refresh and capture what needs persisting/emitting. The
             // frontend emit and the session-op heals then run with the
             // lock released.
-            let (heals, progress, persist, reannounce) = {
+            let (heals, progress, persist, reannounce, recoveries) = {
                 let mut guard = loop_handle.write().await;
                 // Nothing can change on its own: skip the refresh without
                 // even flushing the (clean) record set.
@@ -339,7 +339,8 @@ pub async fn initialize_engine(
                 let persist = guard.take_flush_snapshot_throttled(Duration::from_secs(3));
                 let progress = guard.take_progress_update();
                 let reannounce = guard.take_reannounce_targets();
-                (heals, progress, persist, reannounce)
+                let recoveries = guard.take_recovery_targets();
+                (heals, progress, persist, reannounce, recoveries)
             };
             if let Some(snapshot) = persist {
                 snapshot.commit();
@@ -380,6 +381,15 @@ pub async fn initialize_engine(
                 let handle = loop_handle.clone();
                 tokio::spawn(async move {
                     manager::reannounce_torrent(&handle, &id).await;
+                });
+            }
+            // Stalled mid-download recovery: spawn so the bounded pause →
+            // unpause cycle (quiesce wait + 2 s settle + session op) never
+            // stalls the tick.
+            for id in recoveries {
+                let handle = loop_handle.clone();
+                tokio::spawn(async move {
+                    manager::recover_stalled_torrent(&handle, &id).await;
                 });
             }
         }

@@ -40,6 +40,19 @@ pub(crate) const STALL_PEER_TIMEOUT: Duration = Duration::from_secs(30);
 /// same torrent, so a swarm that stays empty can't be restarted in a loop.
 pub(crate) const STALL_REANNOUNCE_COOLDOWN: Duration = Duration::from_secs(60);
 
+/// How long a MID-DOWNLOAD torrent (bytes on disk, zero speed, zero live
+/// peers) must stay silent before the manager rebuilds its connections.
+/// Choke cycles and ratelimit recovery can legitimately show 0 speed for
+/// tens of seconds, so this is far more patient than the 30 s
+/// [`STALL_PEER_TIMEOUT`] used for the modal's stall badge and the
+/// bytes-less re-announce.
+pub(crate) const STALL_RECOVERY_WINDOW: Duration = Duration::from_secs(180);
+
+/// Minimum spacing between automatic pause→unpause recoveries of the same
+/// torrent, so a persistently dead swarm can't be bounced in a loop while
+/// the user is away.
+pub(crate) const STALL_RECOVERY_COOLDOWN: Duration = Duration::from_secs(900);
+
 /// Consecutive poll failures tolerated before failing a debrid download.
 /// AllDebrid's API rate-limits at 12 req/s (429/503) and servers blip —
 /// a permanent failure is only declared after sustained errors (~5 min).
@@ -168,6 +181,12 @@ pub struct DownloadManager {
     /// Torrents the current tick wants re-announced. Drained by the loop,
     /// which performs the delete + re-add with the manager lock released.
     pending_reannounce: Vec<String>,
+    /// Last automatic stall-recovery per torrent (cooldown bookkeeping).
+    last_recovery: HashMap<String, Instant>,
+    /// Torrents the current tick wants a connection-rebuild recovery (a
+    /// bounded pause → unpause). Drained by the loop, which runs the
+    /// cycle with the manager lock released.
+    pending_stall_recovery: Vec<String>,
     /// Seed-ratio limit (`uploaded / total`); `0.0` = unlimited.
     pub seed_ratio_limit: f32,
     /// Seed-time limit in minutes after completion; `0` = unlimited.
@@ -234,6 +253,8 @@ impl DownloadManager {
             stall_since: HashMap::new(),
             last_reannounce: HashMap::new(),
             pending_reannounce: Vec::new(),
+            last_recovery: HashMap::new(),
+            pending_stall_recovery: Vec::new(),
             seed_ratio_limit: 0.0,
             seed_time_limit_mins: 0,
             game_running: false,
@@ -295,6 +316,13 @@ impl DownloadManager {
     /// re-announced. The caller restarts them with the lock released.
     pub fn take_reannounce_targets(&mut self) -> Vec<String> {
         std::mem::take(&mut self.pending_reannounce)
+    }
+
+    /// Drain the torrent ids the last `refresh_stats` tick wants a
+    /// connection-rebuild recovery. The caller performs the bounded
+    /// pause → unpause with the manager lock released.
+    pub fn take_recovery_targets(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.pending_stall_recovery)
     }
 
     // ── Persistence / emission ─────────────────────────────────────────
@@ -878,6 +906,25 @@ impl DownloadManager {
                         self.pending_reannounce.push(id.clone());
                         self.last_reannounce.insert(id.clone(), Instant::now());
                         *entry = Instant::now();
+                    } else if stall_recovery_due(
+                        Some(entry.elapsed()),
+                        downloaded,
+                        self.last_recovery.get(&id).map(|t| t.elapsed()),
+                    ) {
+                        // Mid-download stall: bytes on disk mean a full
+                        // re-add would re-verify everything, so rebuild the
+                        // connections in place — librqbit's pause→unpause
+                        // keeps the chunk tracker in memory (no re-hash)
+                        // and unpause issues fresh tracker/DHT/LSD
+                        // announces.
+                        println!(
+                            "[downloads] Torrent {} stalled mid-download; \
+                             rebuilding peer connections.",
+                            id
+                        );
+                        self.pending_stall_recovery.push(id.clone());
+                        self.last_recovery.insert(id.clone(), Instant::now());
+                        *entry = Instant::now();
                     }
                 } else {
                     self.stall_since.remove(&id);
@@ -1390,6 +1437,25 @@ pub async fn start_download(manager: &SharedManager, id: &str) -> bool {
     }
 }
 
+/// Decide whether a silent MID-DOWNLOAD torrent (bytes already on disk)
+/// is due for a connection rebuild. Split out of `refresh_stats` so the
+/// timing rules are unit-testable. Byte-less torrents never match — they
+/// take the cheaper delete + re-add re-announce path instead.
+pub(crate) fn stall_recovery_due(
+    silent_elapsed: Option<Duration>,
+    downloaded: u64,
+    last_recovery_elapsed: Option<Duration>,
+) -> bool {
+    let Some(elapsed) = silent_elapsed else {
+        return false;
+    };
+    elapsed >= STALL_RECOVERY_WINDOW
+        && downloaded > 0
+        && last_recovery_elapsed
+            .map(|t| t >= STALL_RECOVERY_COOLDOWN)
+            .unwrap_or(true)
+}
+
 /// Force a fresh peer-discovery round for a stalled torrent: drop its
 /// session entry (keeping files) and re-add it, which rebuilds librqbit's
 /// tracker/DHT/LSD peer stream. Only called for torrents with no bytes on
@@ -1421,6 +1487,95 @@ pub async fn reannounce_torrent(manager: &SharedManager, id: &str) {
         guard.emit_progress_force();
     }
     let _ = start_download(manager, id).await;
+}
+
+/// Rebuild peer connections for a torrent that has bytes on disk but has
+/// been silent past [`STALL_RECOVERY_WINDOW`]: a bounded pause (draining
+/// in-flight writes) followed by an unpause, which makes librqbit issue
+/// fresh tracker + DHT + LSD announces and re-open every peer connection
+/// WITHOUT re-hashing (the chunk tracker survives the pause in memory).
+///
+/// Never runs when the record has meanwhile completed, been paused by the
+/// user or errored — a stall snapshot can land right before any of those.
+/// If the unpause itself fails, the record is left Paused (matching the
+/// session) so the user can resume manually instead of flapping.
+pub async fn recover_stalled_torrent(manager: &SharedManager, id: &str) {
+    {
+        let guard = manager.read().await;
+        if !matches!(
+            guard.downloads_map().get(id).map(|d| &d.status),
+            Some(DownloadStatus::Downloading)
+        ) {
+            return;
+        }
+    }
+    let session = { manager.read().await.session().cloned() };
+    let Some(session) = session else { return };
+    let Some(handle) = torrent::find_handle(&session, id) else { return };
+
+    torrent::pause_torrent(&session, &handle).await;
+
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    // User intent can change during the pause + sleep; never resurrect a
+    // record the user paused in the meantime.
+    {
+        let mut guard = manager.write().await;
+        if !matches!(
+            guard.downloads_mut().get(id).map(|d| &d.status),
+            Some(DownloadStatus::Downloading)
+        ) {
+            return;
+        }
+    }
+
+    // Clone so the (moved) future keeps its own refs; session+handle are
+    // reused afterwards to re-enforce a user pause that raced the cycle.
+    let session_for_fut = Arc::clone(&session);
+    let handle_for_fut = Arc::clone(&handle);
+    let fut = async move { session_for_fut.unpause(&handle_for_fut).await };
+    let unpaused =
+        torrent::run_session_op_bounded(
+            "torrent stall-recovery unpause",
+            fut,
+            Duration::from_secs(torrent::SESSION_OP_TIMEOUT_SECS),
+        )
+        .await;
+    match unpaused {
+        Some(Ok(())) => {
+            // A user pause can still land between the pre-check and the
+            // (seconds-long) unpause; re-enforce it so user intent wins.
+            let user_paused = manager
+                .read()
+                .await
+                .downloads_map()
+                .get(id)
+                .map(|d| {
+                    matches!(
+                        d.status,
+                        DownloadStatus::Paused | DownloadStatus::Queued
+                    )
+                })
+                .unwrap_or(false);
+            if user_paused {
+                torrent::pause_torrent(&session, &handle).await;
+            }
+        }
+        _ => {
+            // The unpause did not land: surface Paused (the session entry
+            // IS paused) instead of leaving the record claiming
+            // Downloading with no way back to Live.
+            let mut guard = manager.write().await;
+            if let Some(d) = guard.downloads_mut().get_mut(id) {
+                if matches!(d.status, DownloadStatus::Downloading) {
+                    d.status = DownloadStatus::Paused;
+                    d.download_speed = 0;
+                    guard.mark_dirty();
+                    guard.emit_progress_force();
+                }
+            }
+        }
+    }
 }
 
 /// Start (or resume) a torrent download.
@@ -2707,6 +2862,44 @@ mod tests {
     use super::*;
 
     const FID: &str = "dl_1234567";
+
+    #[test]
+    fn stall_recovery_fires_on_long_silent_mid_download() {
+        // Happy path: silent long enough, bytes on disk, never recovered.
+        assert!(stall_recovery_due(
+            Some(STALL_RECOVERY_WINDOW),
+            1024,
+            None
+        ));
+    }
+
+    #[test]
+    fn stall_recovery_gates_are_enforced() {
+        // Not silent long enough (choke cycles show 0 speed routinely).
+        assert!(!stall_recovery_due(
+            Some(STALL_RECOVERY_WINDOW - Duration::from_secs(1)),
+            1024,
+            None
+        ));
+        // No bytes on disk → the cheaper re-announce path owns this case.
+        assert!(!stall_recovery_due(
+            Some(STALL_RECOVERY_WINDOW + Duration::from_secs(600)),
+            0,
+            None
+        ));
+        // Cooldown open since the previous recovery.
+        assert!(!stall_recovery_due(
+            Some(STALL_RECOVERY_WINDOW + Duration::from_secs(60)),
+            1024,
+            Some(STALL_RECOVERY_COOLDOWN - Duration::from_secs(1)),
+        ));
+        // Fires again once the cooldown opens.
+        assert!(stall_recovery_due(
+            Some(STALL_RECOVERY_WINDOW),
+            1024,
+            Some(STALL_RECOVERY_COOLDOWN),
+        ));
+    }
 
     fn torrent_record(source: &str, status: DownloadStatus) -> Download {
         let mut d = Download::new(

@@ -179,8 +179,12 @@ serde_yaml = "0.9"
 #   the embedded HTTP server. Saves the axum/serde_html_form dep tree.
 # - `disable-upload` exposes `SessionOptions.disable_upload`, which makes the
 #   engine suppress bitfield/have advertisements and refuse piece requests.
-#   It is applied when the session opens, not toggled at runtime; the speed
-#   limiter itself is not wired into the peer write path in 9.0.1.
+#   It is applied when the session opens, not toggled at runtime. Note the
+#   distinction from the rate limiter: `session.ratelimits` IS wired into
+#   9.0.1's request path (`prepare_for_download`) and upload scheduler
+#   (`prepare_for_upload`), so an upload RATE cap is a functional runtime
+#   alternative to the hard disable — a small cap keeps tit-for-tat peers
+#   unchoking us while practically stopping the transfer.
 librqbit = { version = "9", default-features = false, features = ["default-tls", "disable-upload"] }
 igd-next = "0.17"
 # Magnet URI parsing — extract the info-hash, trackers, and

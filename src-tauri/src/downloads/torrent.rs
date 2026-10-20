@@ -180,7 +180,6 @@ pub async fn init_session(
             .map(|n| n.get() * 2)
             .unwrap_or(16),
     );
-
     let make_opts =
         |session_persist: bool, dht_persist: bool, dht_port: Option<u16>| {
             librqbit::SessionOptions {
@@ -194,15 +193,23 @@ pub async fn init_session(
                 fastresume: true,
                 listen: Some(make_listener()),
                 connect: Some(make_connect()),
-                concurrent_init_limit: Some(4),
+                // Concurrent torrent initializations (file checks). Each
+                // init is a blocking hash pass over the on-disk files, so
+                // this bounds the disk burst when many torrents enter the
+                // session at once (bulk add, app resume). Raised from 4 to
+                // 8 so a busy resume reaches Live quicker without
+                // saturating a spinning drive.
+                concurrent_init_limit: Some(8),
                 dht: Some(make_dht_config(dht_persist, dht_port)),
                 trackers: session_trackers(),
                 peer_limit: Some(PEER_LIMIT_PER_TORRENT),
                 runtime_worker_threads: Some(worker_threads),
                 // Hard upload disable (librqbit `disable-upload` feature):
                 // suppresses bitfield/have advertisements and refuses
-                // piece requests. A rate limit of ~0 is not enough — the
-                // limiter is not on the peer write path in 9.0.1.
+                // piece requests, and cannot be changed at runtime. A
+                // plain rate limit of ~0 is not equivalent — the limiter
+                // DOES gate both directions, but only disable-upload also
+                // stops the advertisements.
                 disable_upload,
                 ..Default::default()
             }
