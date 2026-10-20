@@ -321,6 +321,32 @@ export default function DownloadsTab() {
               />
               <span>{t("settings.downloads.disableUpload")}</span>
             </label>
+            <p className="settings-helper-text">
+              {t("settings.downloads.disableUploadHint")}
+            </p>
+            {speedLimits.disableUpload && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const cap = speedLimits.uploadValue > 0 ? speedLimits.uploadValue : 1024;
+                  void setSpeedLimits({
+                    ...speedLimits,
+                    uploadEnabled: true,
+                    uploadValue: cap,
+                    disableUpload: false,
+                  });
+                  showToast(
+                    t("settings.downloads.disableUploadCapApplied", { v: cap }),
+                    "success",
+                  );
+                }}
+              >
+                {t("settings.downloads.disableUploadUseCap", {
+                  v: speedLimits.uploadValue > 0 ? speedLimits.uploadValue : 1024,
+                })}
+              </Button>
+            )}
           </div>
 
           <div className="settings-limit-row settings-limit-row--seed">
