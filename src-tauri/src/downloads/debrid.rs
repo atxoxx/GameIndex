@@ -966,33 +966,35 @@ impl TorBoxClient {
             "queued".to_string()
         };
 
-        // Resolve per-file direct links once the transfer is ready.
+        // Per-file CDN links are minted lazily by the HTTP worker: status
+        // only reports the ids, names and sizes. Calling `requestdl` for
+        // every file here costs one API call per file (serially) and can
+        // stall a large torrent for minutes before the first byte lands.
+        // The URL refresher mints a fresh link when a file starts, and
+        // again if it expires mid-download.
         //
-        // TorBox rejects `requestdl` unless the API key is passed as a
-        // `token` QUERY param — the Authorization header alone earns
-        // HTTP 422 `{"loc":["query","token"],"msg":"Field required"}` — and
-        // asking per file is what lets the modal's file selection skip
-        // optional content (a repack's bonus soundtrack, sample files)
-        // instead of forcing the whole torrent through as one archive.
+        // `requestdl` needs the ids because TorBox mints per-file links;
+        // it also requires the API key as a `token` query param.
         let mut files: Vec<DebridFile> = Vec::new();
         if status == "ready" {
             for f in item.files.clone().unwrap_or_default() {
                 // A file listed without an id cannot be addressed by
                 // `requestdl`, so skip it rather than fail the whole download.
                 let Some(file_id) = f.id else { continue };
-                if let Some(link) =
-                    Self::request_file_link(&client, apikey, numeric_id, file_id).await
-                {
-                    let name = f.name.clone().filter(|n| !n.trim().is_empty());
-                    files.push(DebridFile {
-                        name: name.or_else(|| f.short_name.clone()).unwrap_or_default(),
-                        // -1 / null means TorBox does not know the size; the
-                        // manager sums these for the progress bar.
-                        size: f.size.filter(|s| *s > 0).map(|s| s as u64).unwrap_or(0),
-                        link,
-                        file_id: Some(file_id),
-                    });
-                }
+                let name = f
+                    .name
+                    .clone()
+                    .filter(|n| !n.trim().is_empty())
+                    .or_else(|| f.short_name.clone())
+                    .unwrap_or_default();
+                files.push(DebridFile {
+                    name,
+                    // -1 / null means TorBox does not know the size; the
+                    // manager sums these for the progress bar.
+                    size: f.size.filter(|s| *s > 0).map(|s| s as u64).unwrap_or(0),
+                    link: String::new(),
+                    file_id: Some(file_id),
+                });
             }
 
             // Torrents that expose no per-file tree must still download:
@@ -1360,6 +1362,19 @@ struct RealDebridAddMagnetResponse {
 }
 
 #[derive(Deserialize, Debug)]
+struct RealDebridFileInfo {
+    /// Full path inside the torrent (e.g. `/Game/setup.exe`).
+    #[serde(default)]
+    path: String,
+    #[serde(default)]
+    bytes: u64,
+    /// 1 when the file was selected for download. `links` only contains
+    /// entries for selected files, in this same order.
+    #[serde(default)]
+    selected: u8,
+}
+
+#[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 struct RealDebridTorrentInfo {
     id: String,
@@ -1367,7 +1382,38 @@ struct RealDebridTorrentInfo {
     status: String,
     progress: f32,
     #[serde(default)]
+    bytes: u64,
+    #[serde(default)]
     links: Vec<String>,
+    #[serde(default)]
+    files: Vec<RealDebridFileInfo>,
+}
+
+/// Pair the torrent's selected files with its download links. Real-Debrid
+/// returns names/sizes separately from the links; zipping selected files
+/// with `links` in order restores the per-file metadata the progress bar
+/// and on-disk naming need.
+fn build_real_debrid_files(
+    files: &[RealDebridFileInfo],
+    links: &[String],
+) -> Vec<DebridFile> {
+    let selected: Vec<&RealDebridFileInfo> =
+        files.iter().filter(|f| f.selected != 0).collect();
+    links
+        .iter()
+        .enumerate()
+        .map(|(i, link)| {
+            let meta = selected.get(i);
+            DebridFile {
+                name: meta
+                    .map(|f| f.path.trim_start_matches('/').to_string())
+                    .unwrap_or_default(),
+                size: meta.map(|f| f.bytes).unwrap_or(0),
+                link: link.clone(),
+                file_id: None,
+            }
+        })
+        .collect()
 }
 
 impl RealDebridClient {
@@ -1496,26 +1542,15 @@ impl RealDebridClient {
             _ => "error".to_string(),
         };
 
-        let mut files = Vec::new();
-        if status == "ready" {
-            for link in info.links {
-                if let Ok(unrestricted) = Self::unrestrict_link(apikey, &link).await {
-                    files.push(DebridFile {
-                        name: String::new(),
-                        size: 0,
-                        link: unrestricted,
-                        file_id: None,
-                    });
-                } else {
-                    files.push(DebridFile {
-                        name: String::new(),
-                        size: 0,
-                        link,
-                        file_id: None,
-                    });
-                }
-            }
-        }
+        // Do not unrestrict every link here: each call is a provider API
+        // round-trip and they were issued serially, delaying the transfer
+        // for the whole file list. The HTTP worker unlocks each link
+        // lazily (and re-unlocks it if it expires mid-download).
+        let files = if status == "ready" {
+            build_real_debrid_files(&info.files, &info.links)
+        } else {
+            Vec::new()
+        };
 
         Ok(DebridStatusResult {
             id: id.to_string(),
@@ -1523,7 +1558,11 @@ impl RealDebridClient {
             status,
             files,
             name: Some(info.filename),
-            magnet_size: None,
+            magnet_size: if info.bytes > 0 {
+                Some(info.bytes)
+            } else {
+                None
+            },
             error_message: None,
         })
     }
@@ -1731,6 +1770,48 @@ mod tests {
         assert!(list[0].files.is_none());
         let files = list[1].files.as_ref().expect("second torrent has files");
         assert_eq!(files[0].id, Some(7));
+    }
+
+    #[test]
+    fn real_debrid_files_map_selected_names_and_sizes_to_links() {
+        let files = vec![
+            RealDebridFileInfo {
+                path: "/Game/setup.exe".to_string(),
+                bytes: 10,
+                selected: 1,
+            },
+            RealDebridFileInfo {
+                path: "/Game/skip.txt".to_string(),
+                bytes: 5,
+                selected: 0,
+            },
+            RealDebridFileInfo {
+                path: "/Game/data.bin".to_string(),
+                bytes: 20,
+                selected: 1,
+            },
+        ];
+        let links = vec![
+            "https://real-debrid.com/d/one".to_string(),
+            "https://real-debrid.com/d/two".to_string(),
+        ];
+
+        let out = build_real_debrid_files(&files, &links);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].name, "Game/setup.exe");
+        assert_eq!(out[0].size, 10);
+        assert_eq!(out[0].link, "https://real-debrid.com/d/one");
+        assert_eq!(out[1].name, "Game/data.bin");
+        assert_eq!(out[1].size, 20);
+        assert_eq!(out[1].link, "https://real-debrid.com/d/two");
+    }
+
+    #[test]
+    fn real_debrid_files_without_metadata_keep_empty_names() {
+        let out = build_real_debrid_files(&[], &["https://real-debrid.com/d/x".to_string()]);
+        assert_eq!(out.len(), 1);
+        assert!(out[0].name.is_empty());
+        assert_eq!(out[0].size, 0);
     }
 
     #[test]

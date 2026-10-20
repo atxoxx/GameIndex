@@ -549,7 +549,18 @@ impl DownloadManager {
                 .files
                 .iter()
                 .enumerate()
-                .filter_map(|(i, f)| uris.get(i).map(|u| (f.name.clone(), f.size, u.clone(), u.clone())))
+                .filter_map(|(i, f)| {
+                    uris.get(i).map(|u| {
+                        // Provider pages/raw links must be unlocked again;
+                        // direct CDN URLs from older records stay usable.
+                        let direct = if super::http::url_needs_debrid_resolution(u) {
+                            String::new()
+                        } else {
+                            u.clone()
+                        };
+                        (f.name.clone(), f.size, direct, u.clone())
+                    })
+                })
                 .collect();
             if !rebuilt.is_empty() {
                 self.debrid_files.insert(d.id.clone(), rebuilt);
@@ -2076,94 +2087,70 @@ async fn run_debrid_flow(
                 "[downloads] Debrid ready. {} file(s)",
                 status.files.len()
             );
-            // AllDebrid's `/f/…` links are short download *pages* — fetching
-            // them directly yields HTML. Unlock each into a direct CDN URL
-            // (`.debrid.it`) before handing them to the HTTP worker, falling
-            // back to the raw link if unlocking fails.
+            // Provider links are kept as-is: the HTTP worker unlocks each
+            // file lazily, right before it starts. Resolving every link up
+            // front costs one API call per file and can delay a large
+            // torrent by minutes (and trip provider rate limits).
             //
-            // AllDebrid unlock calls are independent and take one RTT each —
-            // unlock in parallel (2 in flight, staying well under the 12 req/s
-            // API limit) instead of serially. The result order is preserved so
-            // the per-file naming below stays deterministic.
-            let links: Vec<String> = if provider == "alldebrid" {
-                let sem = Arc::new(tokio::sync::Semaphore::new(2));
-                let mut set = tokio::task::JoinSet::new();
-                for (i, f) in status.files.iter().enumerate() {
-                    let sem = Arc::clone(&sem);
-                    let apikey = apikey.clone();
-                    let link = f.link.clone();
-                    set.spawn(async move {
-                        let _permit = sem.acquire_owned().await;
-                        (i, AllDebridClient::unrestrict_link(&apikey, &link).await)
-                    });
-                }
-                let mut results = vec![None; status.files.len()];
-                while let Some(joined) = set.join_next().await {
-                    if let Ok((i, res)) = joined {
-                        results[i] = Some(res);
-                    }
-                }
-                status
-                    .files
-                    .iter()
-                    .zip(results)
-                    .map(|(f, res)| match res {
-                        Some(Ok(direct)) if !direct.is_empty() => direct,
-                        _ => f.link.clone(),
-                    })
-                    .collect()
-            } else {
-                status.files.iter().map(|f| f.link.clone()).collect()
-            };
-
-            // Build the final (name, size, direct_url, orig_url) list, sanitising names and
-            // de-duplicating so same-named files in different folders can't
-            // collide on disk.
-            let mut files: Vec<(String, u64, String, String)> = Vec::with_capacity(status.files.len());
+            // An empty `direct_url` means "resolve via the refresher on
+            // first use". TorBox mints links per file, so its refresher
+            // receives `torbox:<torrent id>:<file id>` instead of an
+            // expiring CDN URL; AllDebrid and Real-Debrid re-unlock their
+            // original page/raw link.
+            //
+            // Names are sanitised and de-duplicated so same-named files in
+            // different torrent folders cannot collide on disk.
+            let mut files: Vec<(String, u64, String, String)> =
+                Vec::with_capacity(status.files.len());
             let mut used = std::collections::HashSet::new();
-            for (f, link) in status.files.iter().zip(links) {
+            for f in status.files.iter() {
                 let mut name = if f.name.trim().is_empty() {
-                    filename_from_url(&link)
+                    filename_from_url(&f.link)
                 } else {
                     sanitize_rel_path(f.name.clone())
                 };
                 name = uniquify(name, &mut used);
-                // The 4th element is the "original" URL the URL refresher
-                // re-resolves from when a link expires mid-download. TorBox
-                // mints its links per file (`requestdl?file_id=…`), so the
-                // refresher needs the ids — passing the expiring CDN URL
-                // would send TorBox its own CDN link. AllDebrid and
-                // Real-Debrid re-unlock the original link instead.
                 let orig_url = match (provider.as_str(), f.file_id) {
                     ("torbox", Some(file_id)) => format!("torbox:{}:{}", status.id, file_id),
+                    // Aggregate zip fallback: re-mint the torrent's zip
+                    // link instead of feeding a CDN URL to the unlock path.
+                    ("torbox", None) => format!("torbox-zip:{}", status.id),
                     _ => f.link.clone(),
                 };
-                files.push((name, f.size, link, orig_url));
+                let direct_url = match provider.as_str() {
+                    "alldebrid" | "realdebrid" => String::new(),
+                    "torbox" if f.file_id.is_some() => String::new(),
+                    _ => f.link.clone(),
+                };
+                files.push((name, f.size, direct_url, orig_url));
             }
 
             // Apply the file selection chosen in the modal ("Choose
-            // files"): only the picked indices are downloaded. Indices
-            // follow the provider's file order, which matches the order
-            // the listing (debrid_list_files) presented.
-            let files = {
+            // files"): only the picked indices are downloaded. The resolved
+            // list keeps EVERY file so `onlyFiles` indices stay aligned
+            // across pause/resume and later selection edits — filtering the
+            // list here made a resume re-filter already-filtered indices and
+            // download nothing.
+            let only_files = {
                 let guard = manager.read().await;
-                let only_files = guard
+                guard
                     .downloads_map()
                     .get(&id)
                     .and_then(|d| d.only_files.clone())
-                    .unwrap_or_default();
-                if only_files.is_empty() {
-                    files
-                } else {
-                    files
-                        .into_iter()
-                        .enumerate()
-                        .filter(|(i, _)| only_files.contains(i))
-                        .map(|(_, f)| f)
-                        .collect::<Vec<_>>()
-                }
+                    .filter(|v| !v.is_empty())
             };
-            if files.is_empty() {
+            let selected: Option<std::collections::HashSet<usize>> =
+                only_files.as_ref().map(|v| v.iter().copied().collect());
+            let is_selected =
+                |i: usize| selected.as_ref().map(|s| s.contains(&i)).unwrap_or(true);
+
+            let selected_files: Vec<&(String, u64, String, String)> = files
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| is_selected(*i))
+                .map(|(_, f)| f)
+                .collect();
+            if selected_files.is_empty() {
                 fail_download(
                     &manager,
                     &id,
@@ -2177,8 +2164,8 @@ async fn run_debrid_flow(
 
             // Single-file downloads keep the file name as the record name;
             // multi-file downloads fall back to the torrent/archive title.
-            let record_name = if files.len() == 1 {
-                files[0].0.clone()
+            let record_name = if selected_files.len() == 1 {
+                selected_files[0].0.clone()
             } else {
                 status
                     .name
@@ -2187,7 +2174,7 @@ async fn run_debrid_flow(
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "debrid_download".to_string())
             };
-            let total: u64 = files.iter().map(|(_, s, _, _)| *s).sum();
+            let total: u64 = selected_files.iter().map(|(_, s, _, _)| *s).sum();
             let total_size = resolved_total_size(total, status.magnet_size);
 
             {
@@ -2196,26 +2183,40 @@ async fn run_debrid_flow(
                     return;
                 };
                 // `save_path` stays the folder the command was given; the
-                // worker drops every file into it.
-                d.source_uri = files[0].2.clone();
+                // worker drops every file into it. Lazy files have no
+                // direct URL yet — keep their provider URL as the source
+                // so the record is never left with an empty URI. Start from
+                // the first SELECTED file: deselected ones are never
+                // fetched.
+                d.source_uri = if selected_files[0].2.is_empty() {
+                    selected_files[0].3.clone()
+                } else {
+                    selected_files[0].2.clone()
+                };
                 // Preserve the original magnet: `source_uri` now points at
-                // the first file's direct URL only, so a restart-resume of
+                // the first file's provider URL only, so a restart-resume of
                 // a record that lost its resolved file list needs the
                 // magnet to re-resolve the FULL list.
                 d.magnet_uri = Some(magnet.clone());
-                d.uris = Some(files.iter().map(|(_, _, l, _)| l.clone()).collect());
+                // Persist the provider URLs, not the expiring CDN links:
+                // `load_persisted` re-derives lazy records from these.
+                d.uris = Some(files.iter().map(|(_, _, _, orig)| orig.clone()).collect());
+                // Normalise `Some([])` to `None` so a resume treats it as
+                // "all files" instead of "none".
+                d.only_files = only_files.clone();
                 d.name = record_name;
                 d.total_size = total_size;
                 d.status = DownloadStatus::Downloading;
                 d.progress = Some(0.0);
                 d.files = files
                     .iter()
-                    .map(|(n, s, _, _)| super::types::DownloadFile {
+                    .enumerate()
+                    .map(|(i, (n, s, _, _))| super::types::DownloadFile {
                         name: n.clone(),
                         size: *s,
                         downloaded: 0,
                         progress: 0.0,
-                        selected: true,
+                        selected: is_selected(i),
                     })
                     .collect();
                 // Remember the resolved list so pause → resume re-runs the
@@ -2239,8 +2240,16 @@ async fn run_debrid_flow(
                 guard.settings.effective_segments()
             };
             let (segments, url_refresher) = debrid_worker_options(&provider, &apikey, desired);
-            spawn_debrid_files_worker(&manager, &id, files, None, 0, segments, url_refresher)
-                .await;
+            spawn_debrid_files_worker(
+                &manager,
+                &id,
+                files,
+                only_files,
+                0,
+                segments,
+                url_refresher,
+            )
+            .await;
             return;
         } else if status.status == "error" {
             let err_msg = status
@@ -2412,6 +2421,17 @@ fn debrid_worker_options(
                 // Anything else — a hoster URL the frontend unrestricted —
                 // keeps using the webdl unlock path.
                 let client = super::debrid::debrid_api_client();
+                // Aggregate zip fallback links are minted from the torrent
+                // id, not from a per-file id.
+                if let Some(tid) = orig_url
+                    .strip_prefix("torbox-zip:")
+                    .and_then(|s| s.parse::<u64>().ok())
+                {
+                    return super::debrid::TorBoxClient::request_zip_link(
+                        &client, &apikey, tid,
+                    )
+                    .await;
+                }
                 if let Some(rest) = orig_url.strip_prefix("torbox:") {
                     let mut parts = rest.split(':');
                     let tid = parts.next().and_then(|s| s.parse::<u64>().ok());

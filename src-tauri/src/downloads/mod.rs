@@ -122,6 +122,27 @@ pub async fn initialize_engine(
                 .map(|x| x as u32);
         }
     }
+    // Debrid provider + key must be known before `resume_in_progress`, or
+    // a restart cannot resume a debrid transfer (its file links are
+    // resolved lazily, so the worker needs the provider credentials). The
+    // provider is mirrored into kv by the settings command; the key stays
+    // in the OS keychain.
+    if let Ok(Some(raw)) = crate::db::kv::get(&db, "download_debrid_provider") {
+        if let Ok(provider) = serde_json::from_str::<String>(&raw) {
+            let provider = provider.trim().to_string();
+            if !provider.is_empty() && provider != "none" {
+                mgr.default_debrid_provider = Some(provider);
+            }
+        }
+    }
+    if let Ok(Some(key)) = crate::db::secrets::SecretStore::new()
+        .get(crate::db::secrets::DEBRID_API_KEY_ACCOUNT)
+    {
+        let key = key.trim().to_string();
+        if !key.is_empty() {
+            mgr.default_debrid_apikey = Some(key);
+        }
+    }
     mgr.set_history_db(db);
     mgr.initialize().await?;
     let shared = Arc::new(tokio::sync::RwLock::new(mgr));
@@ -491,9 +512,23 @@ async fn resume_in_progress(shared: &SharedManager) {
     let ids: Vec<String> = {
         let guard = shared.read().await;
         let cfg = guard.scheduler.clone();
+        // Debrid links are resolved lazily, so a record cannot resume
+        // before the key the frontend restores after boot. Skip those and
+        // let `resume_debrid_waiting_for_credentials` pick them up.
+        let debrid_ready = guard
+            .default_debrid_apikey
+            .as_deref()
+            .map(|k| !k.trim().is_empty())
+            .unwrap_or(false)
+            && guard
+                .default_debrid_provider
+                .as_deref()
+                .map(|p| !p.trim().is_empty() && p != "none")
+                .unwrap_or(false);
         guard
             .downloads_map()
             .values()
+            .filter(|d| d.kind != DownloadKind::Debrid || debrid_ready)
             .filter(|d| {
                 matches!(
                     d.status,
@@ -502,6 +537,54 @@ async fn resume_in_progress(shared: &SharedManager) {
                         | DownloadStatus::FetchingMetadata
                 )
             })
+            .filter(|d| {
+                scheduler::config_allows_start(&cfg, d.scheduled_start_at, now, now_min, weekday)
+            })
+            .map(|d| d.id.clone())
+            .collect()
+    };
+    for id in ids {
+        manager::start_download(shared, &id).await;
+    }
+}
+
+/// Resume debrid records that `resume_in_progress` skipped at boot because
+/// the provider key was not available yet. Called once the frontend (or a
+/// keychain read at startup) supplies the credentials.
+async fn resume_debrid_waiting_for_credentials(shared: &SharedManager) {
+    let (now, now_min, weekday) = current_time_parts();
+    let ids: Vec<String> = {
+        let guard = shared.read().await;
+        let has_provider = guard
+            .default_debrid_provider
+            .as_deref()
+            .map(|p| !p.trim().is_empty() && p != "none")
+            .unwrap_or(false);
+        if !has_provider
+            || guard
+                .default_debrid_apikey
+                .as_deref()
+                .map(|k| k.trim().is_empty())
+                .unwrap_or(true)
+        {
+            return;
+        }
+        let cfg = guard.scheduler.clone();
+        guard
+            .downloads_map()
+            .values()
+            .filter(|d| d.kind == DownloadKind::Debrid)
+            .filter(|d| {
+                matches!(
+                    d.status,
+                    DownloadStatus::Queued
+                        | DownloadStatus::Downloading
+                        | DownloadStatus::FetchingMetadata
+                )
+            })
+            // A live/paused worker already owns the record; only start the
+            // ones that never got a worker (no counter was registered).
+            .filter(|d| !guard.direct_counters.contains_key(&d.id))
             .filter(|d| {
                 scheduler::config_allows_start(&cfg, d.scheduled_start_at, now, now_min, weekday)
             })
@@ -2028,15 +2111,33 @@ pub async fn debrid_unrestrict_link(
 
 #[tauri::command]
 pub async fn download_set_debrid_config(
+    app: AppHandle,
     provider: String,
     apikey: String,
 ) -> Result<(), String> {
     let mgr = wait_for_manager().await?;
-    let mut guard = mgr.write().await;
     let prov = provider.trim().to_string();
     let key = apikey.trim().to_string();
-    guard.default_debrid_provider = if prov.is_empty() { None } else { Some(prov) };
-    guard.default_debrid_apikey = if key.is_empty() { None } else { Some(key) };
+    {
+        let mut guard = mgr.write().await;
+        guard.default_debrid_provider = if prov.is_empty() || prov == "none" {
+            None
+        } else {
+            Some(prov.clone())
+        };
+        guard.default_debrid_apikey = if key.is_empty() { None } else { Some(key) };
+    }
+
+    // Mirror the provider into kv so the next boot can resume debrid
+    // transfers before the WebView calls this command again. The key is
+    // already persisted in the OS keychain.
+    let db = app.state::<Db>().inner().clone();
+    if let Ok(json) = serde_json::to_string(&prov) {
+        let _ = crate::db::kv::set(&db, "download_debrid_provider", &json);
+    }
+
+    // A restart may have skipped debrid records until this key arrived.
+    resume_debrid_waiting_for_credentials(&mgr).await;
     Ok(())
 }
 

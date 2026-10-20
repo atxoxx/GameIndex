@@ -28,21 +28,106 @@ use super::types::{unix_now, Download, DownloadStatus};
 const MAX_RETRY_ATTEMPTS: u32 = 10;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
 const MAX_RETRY_DELAY_MS: u64 = 15000;
+/// Cap on re-unlocking one file's link within a single worker. Without it
+/// a provider that keeps minting unusable URLs could loop forever.
+const MAX_FILE_REFRESHES: u32 = 6;
 const STALL_TIMEOUT_SECS: u64 = 30;
-const SEGMENT_STALL_TIMEOUT_SECS: u64 = 15;
+/// A Range chunk may stall a little longer than a single stream: CDN
+/// edges under load can pause briefly while another task on the same
+/// connection makes progress.
+const SEGMENT_STALL_TIMEOUT_SECS: u64 = 30;
 const REQUEST_TIMEOUT_SECS: u64 = 60;
 const RETRYABLE_STATUSES: &[u16] = &[429, 500, 502, 503, 504];
 
-/// Number of parallel Range streams per AllDebrid file — the service's
+/// Number of parallel Range streams per file — the debrid services'
 /// documented IDM/FDM recommendation ("8 connections per file").
 pub const SEGMENT_COUNT: u32 = 8;
 /// Files smaller than this per-segment floor stay single-connection;
 /// segmentation only pays off once files are large enough to split.
 const SEGMENT_MIN_BYTES: u64 = 8 * 1024 * 1024;
-/// Internal reconnects per segment before the whole file attempt gives up
+/// Internal reconnects per chunk before the whole file attempt gives up
 /// and bubbles a retryable error (one flaky connection must not restart
-/// the other segments' streams).
-const SEGMENT_RECONNECTS: u32 = 5;
+/// the other workers' chunks).
+const SEGMENT_RECONNECTS: u32 = 8;
+
+/// Work-stealing chunk sizing. Equal static segments leave every other
+/// connection idle while the slowest one finishes; fixed-size chunks let
+/// a fast worker pick up the next unfinished range instead.
+const CHUNK_MIN_BYTES: u64 = 4 * 1024 * 1024;
+const CHUNK_MAX_BYTES: u64 = 32 * 1024 * 1024;
+/// Chunks per worker used to size the split: enough work-stealing
+/// granularity to smooth out slow connections without flooding the CDN
+/// with tiny requests.
+const CHUNKS_PER_WORKER: u64 = 4;
+
+/// Exponential backoff for worker retries, capped and optionally
+/// overridden by a server's `Retry-After`.
+fn retry_delay(attempt: u32, retry_after: Option<Duration>, base_ms: u64, max_ms: u64) -> Duration {
+    if let Some(d) = retry_after {
+        return d.min(Duration::from_millis(max_ms));
+    }
+    let exp = base_ms
+        .checked_mul(1u64 << attempt.saturating_sub(1).min(20))
+        .unwrap_or(max_ms);
+    Duration::from_millis(exp.min(max_ms))
+}
+
+/// Split a file into a work-stealing plan: `(workers, chunk_size, chunk_count)`.
+///
+/// Small files stay single-stream (one worker, one chunk). Larger files
+/// get up to `max_workers` parallel connections and chunks sized so each
+/// worker has several ranges to steal, clamped to keep requests efficient
+/// and the resume metadata compact.
+fn chunk_plan(total: u64, max_workers: u32) -> (u32, u64, usize) {
+    if total < SEGMENT_MIN_BYTES || max_workers <= 1 {
+        return (1, total.max(1), 1);
+    }
+    let workers = max_workers.min((total / SEGMENT_MIN_BYTES).max(1) as u32);
+    if workers <= 1 {
+        return (1, total, 1);
+    }
+    let target_chunks = (workers as u64 * CHUNKS_PER_WORKER).max(1);
+    let chunk_size = (total / target_chunks).clamp(CHUNK_MIN_BYTES, CHUNK_MAX_BYTES);
+    let chunk_count = total.div_ceil(chunk_size) as usize;
+    (workers, chunk_size, chunk_count.max(1))
+}
+
+/// Parse the first byte offset out of a `Content-Range: bytes 100-199/1000`
+/// header. Used to reject a CDN that answers a mid-file Range with bytes
+/// from somewhere else (which would silently corrupt the temp file).
+fn content_range_start(value: &str) -> Option<u64> {
+    let rest = value.trim().strip_prefix("bytes ")?;
+    let (start, _) = rest.split_once('-')?;
+    start.trim().parse().ok()
+}
+
+/// True when a URL is a provider page/raw link that must be unlocked into
+/// a direct CDN URL before it can be streamed. Newly resolved downloads
+/// leave the direct slot empty; after a restart the persisted record
+/// carries the original provider link in both slots, so shape-detect it.
+pub fn url_needs_debrid_resolution(url: &str) -> bool {
+    let url = url.trim();
+    if url.is_empty() {
+        return true;
+    }
+    if url.starts_with("torbox:") || url.starts_with("torbox-zip:") {
+        return true;
+    }
+    let Ok(parsed) = url::Url::parse(url) else {
+        return false;
+    };
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    let host = host.to_ascii_lowercase();
+    if host == "alldebrid.com" || host.ends_with(".alldebrid.com") {
+        return parsed.path().starts_with("/f/");
+    }
+    if host == "real-debrid.com" || host.ends_with(".real-debrid.com") {
+        return parsed.path().starts_with("/d/");
+    }
+    false
+}
 
 /// Refreshes an expiring direct link (AllDebrid unlock URLs die after
 /// hours). Takes `(current_url, original_url)` and returns the fresh URL,
@@ -178,6 +263,10 @@ pub async fn run_direct_download(
             if stale.exists() {
                 let _ = std::fs::remove_file(&stale);
             }
+            let stale_meta = parent.join(format!("{}.gamelib_tmp.meta", fname));
+            if stale_meta.exists() {
+                let _ = std::fs::remove_file(&stale_meta);
+            }
         }
     }
 
@@ -185,6 +274,12 @@ pub async fn run_direct_download(
 
     let mut current_url = url;
     let current_save_path = save_path;
+
+    // A pre-allocated temp from a segmented attempt cannot be resumed by
+    // the single-stream path (it would see a "complete" file).
+    if segments <= 1 {
+        clear_segmented_partial(&current_save_path);
+    }
 
     'mirrors: loop {
         // Resolve the raw source URI into a real file URL (plus any
@@ -305,15 +400,12 @@ pub async fn run_direct_download(
                         return;
                     }
 
-                    let delay = match retry_after {
-                        Some(d) => d.min(Duration::from_millis(MAX_RETRY_DELAY_MS)),
-                        None => {
-                            let exp = INITIAL_RETRY_DELAY_MS
-                                .checked_mul(1u64 << (attempt - 1))
-                                .unwrap_or(MAX_RETRY_DELAY_MS);
-                            Duration::from_millis(exp.min(MAX_RETRY_DELAY_MS))
-                        }
-                    };
+                    let delay = retry_delay(
+                        attempt,
+                        retry_after,
+                        INITIAL_RETRY_DELAY_MS,
+                        MAX_RETRY_DELAY_MS,
+                    );
                     println!(
                         "[downloads] Retryable error ({}). Retry {}/{} in {:?}",
                         msg, attempt, MAX_RETRY_ATTEMPTS, delay
@@ -328,11 +420,17 @@ pub async fn run_direct_download(
 /// Download every file in a debrid-resolved torrent into `save_dir`,
 /// updating the record's per-file list as each one lands, then finalise
 /// once all files are done. Files are streamed sequentially; when
-/// `segments > 1` each file is fetched over that many parallel Range
-/// streams (AllDebrid), otherwise via a single connection. Reuses
-/// `attempt_download`'s retry/backoff, stall-watchdog and resume
-/// machinery; the `base_offset` counter keeps the record's progress
-/// reflecting the whole transfer rather than just the current file.
+/// `segments > 1` each file is fetched over work-stealing Range chunks,
+/// otherwise via a single connection. Reuses `attempt_download`'s
+/// retry/backoff, stall-watchdog and resume machinery; the `base_offset`
+/// counter keeps the record's progress reflecting the whole transfer
+/// rather than just the current file.
+///
+/// An empty `direct_url` (or a provider page/raw link left in both slots
+/// by a persisted record) is resolved through `url_refresher` lazily,
+/// right before that file starts. Resolving every file up front costs one
+/// provider API call per file and delays the transfer for minutes on
+/// large torrents.
 pub async fn run_debrid_files_download(
     id: String,
     files: Vec<(String, u64, String, String)>, // (name, size, direct_url, orig_url)
@@ -370,6 +468,9 @@ pub async fn run_debrid_files_download(
             .to_string_lossy()
             .into_owned();
         let path = Path::new(&save_path);
+        if segments <= 1 {
+            clear_segmented_partial(&save_path);
+        }
 
         // Skip files that already landed on disk (pause→resume / app restart
         // must not re-download a completed file). The final file existing at
@@ -385,10 +486,37 @@ pub async fn run_debrid_files_download(
         }
 
         let mut file_url = direct_url.clone();
+        let mut needs_resolution = url_needs_debrid_resolution(&file_url);
         let mut attempt: u32 = 0;
+        let mut refreshes: u32 = 0;
         loop {
             if is_superseded(&manager_weak, &id, generation).await {
                 return;
+            }
+            if needs_resolution {
+                let resolved = match &url_refresher {
+                    Some(refresh) => refresh(file_url.clone(), orig_url.clone()).await,
+                    None => None,
+                };
+                match resolved {
+                    Some(fresh) if !fresh.trim().is_empty() => {
+                        println!("[downloads] Resolved debrid link for {}", save_path);
+                        file_url = fresh;
+                        needs_resolution = false;
+                    }
+                    _ => {
+                        finish_with_error(
+                            &manager_weak,
+                            &id,
+                            "Could not resolve the debrid download link. The provider \
+                             did not return a usable URL."
+                                .to_string(),
+                            generation,
+                        )
+                        .await;
+                        return;
+                    }
+                }
             }
             let outcome = if segments > 1 {
                 attempt_segmented_download(
@@ -427,16 +555,20 @@ pub async fn run_debrid_files_download(
                 AttemptResult::Aborted => return,
                 AttemptResult::Fatal(msg) => {
                     // If the link expired (401/403/410/HTML) or became invalid, try refreshing
-                    if let Some(refresh) = &url_refresher {
-                        if let Some(fresh) = refresh(file_url.clone(), orig_url.clone()).await {
-                            if !fresh.is_empty() && fresh != file_url {
-                                println!(
-                                    "[downloads] Refreshed expired debrid link after status ({}) for {}",
-                                    msg, save_path
-                                );
-                                file_url = fresh;
-                                tokio::time::sleep(Duration::from_millis(500)).await;
-                                continue;
+                    if refreshes < MAX_FILE_REFRESHES {
+                        if let Some(refresh) = &url_refresher {
+                            if let Some(fresh) = refresh(file_url.clone(), orig_url.clone()).await {
+                                if !fresh.is_empty() && fresh != file_url {
+                                    println!(
+                                        "[downloads] Refreshed expired debrid link after status ({}) for {}",
+                                        msg, save_path
+                                    );
+                                    refreshes += 1;
+                                    file_url = fresh;
+                                    needs_resolution = false;
+                                    tokio::time::sleep(Duration::from_millis(500)).await;
+                                    continue;
+                                }
                             }
                         }
                     }
@@ -457,26 +589,27 @@ pub async fn run_debrid_files_download(
                     }
                     // Unlock URLs expire after hours — refresh before the retry
                     // sleeps so a long-stalled download resumes with a live link.
-                    if let Some(refresh) = &url_refresher {
-                        if let Some(fresh) = refresh(file_url.clone(), orig_url.clone()).await {
-                            if !fresh.is_empty() && fresh != file_url {
-                                println!(
-                                    "[downloads] Refreshed expired debrid link for {}",
-                                    save_path
-                                );
-                                file_url = fresh;
+                    if refreshes < MAX_FILE_REFRESHES {
+                        if let Some(refresh) = &url_refresher {
+                            if let Some(fresh) = refresh(file_url.clone(), orig_url.clone()).await {
+                                if !fresh.is_empty() && fresh != file_url {
+                                    println!(
+                                        "[downloads] Refreshed expired debrid link for {}",
+                                        save_path
+                                    );
+                                    refreshes += 1;
+                                    file_url = fresh;
+                                    needs_resolution = false;
+                                }
                             }
                         }
                     }
-                    let delay = match retry_after {
-                        Some(d) => d.min(Duration::from_millis(MAX_RETRY_DELAY_MS)),
-                        None => {
-                            let exp = INITIAL_RETRY_DELAY_MS
-                                .checked_mul(1u64 << (attempt - 1))
-                                .unwrap_or(MAX_RETRY_DELAY_MS);
-                            Duration::from_millis(exp.min(MAX_RETRY_DELAY_MS))
-                        }
-                    };
+                    let delay = retry_delay(
+                        attempt,
+                        retry_after,
+                        INITIAL_RETRY_DELAY_MS,
+                        MAX_RETRY_DELAY_MS,
+                    );
                     tokio::time::sleep(delay).await;
                 }
             }
@@ -511,6 +644,24 @@ async fn mark_file_complete(manager_weak: &WeakManager, id: &str, idx: usize, by
     }
     guard.mark_dirty();
     guard.emit_progress_force();
+}
+
+/// Drop a segmented partial left by a prior multi-connection attempt so the
+/// single-stream path can start from zero. A plain partial (no `.meta`) is
+/// left untouched and resumed.
+fn clear_segmented_partial(save_path: &str) {
+    let path = Path::new(save_path);
+    let filename = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("direct_download");
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let meta = parent.join(format!("{}.gamelib_tmp.meta", filename));
+    if meta.exists() {
+        let temp = parent.join(format!("{}.gamelib_tmp", filename));
+        let _ = std::fs::remove_file(&temp);
+        let _ = std::fs::remove_file(&meta);
+    }
 }
 
 /// Advance the record to its next mirror URL (dropping the stale
@@ -561,6 +712,10 @@ async fn next_mirror(
     let stale_temp = parent.join(format!("{}.gamelib_tmp", fname));
     if stale_temp.exists() {
         let _ = std::fs::remove_file(&stale_temp);
+    }
+    let stale_meta = parent.join(format!("{}.gamelib_tmp.meta", fname));
+    if stale_meta.exists() {
+        let _ = std::fs::remove_file(&stale_meta);
     }
     Some(next_url)
 }
@@ -1038,25 +1193,54 @@ async fn attempt_download(
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 struct SegmentMeta {
     total_size: u64,
-    seg_count: u32,
-    segments: Vec<u64>,
+    chunk_size: u64,
+    #[serde(default)]
+    chunks: Vec<u64>,
 }
 
+/// Shared resume state for a work-stealing download. `chunks[i]` is the
+/// number of bytes written for chunk `i`; `next` hands out chunks so two
+/// workers can never fetch the same range.
 struct SegmentProgressTracker {
     meta_path: std::path::PathBuf,
     total_size: u64,
-    seg_count: u32,
-    segments: Vec<u64>,
+    chunk_size: u64,
+    chunks: Vec<u64>,
+    next: usize,
     dirty: bool,
 }
 
 impl SegmentProgressTracker {
+    fn chunk_len(&self, idx: usize) -> u64 {
+        let start = idx as u64 * self.chunk_size;
+        self.total_size
+            .saturating_sub(start)
+            .min(self.chunk_size)
+    }
+
+    fn completed_bytes(&self) -> u64 {
+        self.chunks.iter().sum()
+    }
+
+    fn claim(&mut self) -> Option<(usize, u64, u64, u64)> {
+        while self.next < self.chunks.len() {
+            let idx = self.next;
+            self.next += 1;
+            let start = idx as u64 * self.chunk_size;
+            let end = (start + self.chunk_size).min(self.total_size);
+            if self.chunks[idx] < self.chunk_len(idx) {
+                return Some((idx, start, end, self.chunks[idx]));
+            }
+        }
+        None
+    }
+
     async fn save(&mut self) {
         if self.dirty {
             let meta = SegmentMeta {
                 total_size: self.total_size,
-                seg_count: self.seg_count,
-                segments: self.segments.clone(),
+                chunk_size: self.chunk_size,
+                chunks: self.chunks.clone(),
             };
             if let Ok(json) = serde_json::to_string(&meta) {
                 let _ = tokio::fs::write(&self.meta_path, json).await;
@@ -1076,20 +1260,37 @@ enum SegmentResult {
     Aborted,
     /// Permanent failure for this URL (dead link, HTML page, ...).
     Fatal(String),
-    /// Temporary failure (connection drop, stall, transient HTTP).
-    Transient(String),
+    /// Temporary failure. `downloaded` carries this chunk's committed
+    /// bytes so the reconnect resumes where it stopped instead of
+    /// restarting the whole range.
+    Transient {
+        msg: String,
+        downloaded: u64,
+        retry_after: Option<Duration>,
+    },
 }
 
-/// Download one byte-range segment of `url` directly into `temp_path` at offset `seg_start + existing`.
-async fn stream_segment(
+impl SegmentResult {
+    fn transient(msg: String, downloaded: u64, retry_after: Option<Duration>) -> Self {
+        Self::Transient {
+            msg,
+            downloaded,
+            retry_after,
+        }
+    }
+}
+
+/// Download one byte-range chunk of `url` directly into `temp_path` at
+/// offset `chunk_start + existing`.
+async fn stream_chunk(
     client: &reqwest::Client,
     id: &str,
     url: &str,
     temp_path: &std::path::Path,
-    seg_start: u64,
-    seg_end: u64,
+    chunk_start: u64,
+    chunk_end: u64,
     initial_existing: u64,
-    seg_index: usize,
+    chunk_index: usize,
     progress_tracker: &Arc<tokio::sync::Mutex<SegmentProgressTracker>>,
     bytes_counter: &Arc<AtomicU64>,
     manager_weak: &WeakManager,
@@ -1097,16 +1298,16 @@ async fn stream_segment(
     referer: Option<&str>,
     generation: u64,
 ) -> SegmentResult {
-    let seg_len = seg_end - seg_start;
-    let mut current_downloaded = initial_existing.min(seg_len);
-    if current_downloaded >= seg_len {
+    let chunk_len = chunk_end - chunk_start;
+    let mut current_downloaded = initial_existing.min(chunk_len);
+    if current_downloaded >= chunk_len {
         return SegmentResult::Done;
     }
-    let resume_from = seg_start + current_downloaded;
+    let resume_from = chunk_start + current_downloaded;
 
     let mut req = client.get(url);
     req = req.header("Accept-Encoding", "identity");
-    req = req.header(RANGE, format!("bytes={}-{}", resume_from, seg_end - 1));
+    req = req.header(RANGE, format!("bytes={}-{}", resume_from, chunk_end - 1));
     if let Some(r) = referer {
         req = req.header(reqwest::header::REFERER, r);
     }
@@ -1118,12 +1319,19 @@ async fn stream_segment(
         .await;
     let mut resp = match send_res {
         Ok(Ok(r)) => r,
-        Ok(Err(e)) => return SegmentResult::Transient(format!("Connection failed: {}", e)),
+        Ok(Err(e)) => {
+            return SegmentResult::transient(
+                format!("Connection failed: {}", e),
+                current_downloaded,
+                None,
+            )
+        }
         Err(_) => {
-            return SegmentResult::Transient(format!(
-                "No response from server within {}s",
-                REQUEST_TIMEOUT_SECS
-            ))
+            return SegmentResult::transient(
+                format!("No response from server within {}s", REQUEST_TIMEOUT_SECS),
+                current_downloaded,
+                None,
+            )
         }
     };
 
@@ -1136,7 +1344,11 @@ async fn stream_segment(
         let code = status.as_u16();
         if RETRYABLE_STATUSES.contains(&code) {
             TRANSIENT_ERROR_COUNT.fetch_add(1, Ordering::Relaxed);
-            return SegmentResult::Transient(format!("HTTP {} (transient)", code));
+            return SegmentResult::transient(
+                format!("HTTP {} (transient)", code),
+                current_downloaded,
+                parse_retry_after(&resp),
+            );
         }
         if let Some(content_type) = resp.headers().get(CONTENT_TYPE) {
             if let Ok(ct) = content_type.to_str() {
@@ -1158,6 +1370,24 @@ async fn stream_segment(
         ));
     }
 
+    if let Some(start) = resp
+        .headers()
+        .get(CONTENT_RANGE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(content_range_start)
+    {
+        if start != resume_from {
+            return SegmentResult::transient(
+                format!(
+                    "Server returned byte range starting at {} (expected {})",
+                    start, resume_from
+                ),
+                current_downloaded,
+                None,
+            );
+        }
+    }
+
     // Resume-mode open: `create` but never `truncate` — the file may hold
     // bytes before `resume_from` that the seek positions us to preserve.
     let file_res = OpenOptions::new()
@@ -1168,11 +1398,21 @@ async fn stream_segment(
         .await;
     let mut file = match file_res {
         Ok(f) => f,
-        Err(e) => return SegmentResult::Transient(format!("Failed to open destination file: {}", e)),
+        Err(e) => {
+            return SegmentResult::transient(
+                format!("Failed to open destination file: {}", e),
+                current_downloaded,
+                None,
+            )
+        }
     };
 
     if let Err(e) = file.seek(std::io::SeekFrom::Start(resume_from)).await {
-        return SegmentResult::Transient(format!("Failed to seek to byte {}: {}", resume_from, e));
+        return SegmentResult::transient(
+            format!("Failed to seek to byte {}: {}", resume_from, e),
+            current_downloaded,
+            None,
+        );
     }
 
     let mut abort_check = std::time::Instant::now();
@@ -1213,40 +1453,52 @@ async fn stream_segment(
         let chunk = match chunk_res {
             Ok(inner) => match inner {
                 Ok(Some(c)) => c,
-                Ok(None) => break, // Segment complete.
+                Ok(None) => break, // Chunk complete.
                 Err(e) => {
                     let _ = file.flush().await;
                     drop(file);
-                    return SegmentResult::Transient(format!("Download interrupted: {}", e));
+                    return SegmentResult::transient(
+                        format!("Download interrupted: {}", e),
+                        current_downloaded,
+                        None,
+                    );
                 }
             },
             Err(_) => {
                 let _ = file.flush().await;
                 drop(file);
                 STALL_COUNT.fetch_add(1, Ordering::Relaxed);
-                return SegmentResult::Transient(format!(
-                    "Segment download stalled (no data received for {}s)",
-                    SEGMENT_STALL_TIMEOUT_SECS
-                ));
+                return SegmentResult::transient(
+                    format!(
+                        "Segment download stalled (no data received for {}s)",
+                        SEGMENT_STALL_TIMEOUT_SECS
+                    ),
+                    current_downloaded,
+                    None,
+                );
             }
         };
 
         if let Err(e) = file.write_all(&chunk).await {
             drop(file);
-            return SegmentResult::Transient(format!("Disk write failed: {}", e));
+            return SegmentResult::transient(
+                format!("Disk write failed: {}", e),
+                current_downloaded,
+                None,
+            );
         }
 
-        let chunk_len = chunk.len() as u64;
-        current_downloaded += chunk_len;
-        uncommitted_bytes += chunk_len;
-        bytes_counter.fetch_add(chunk_len, Ordering::SeqCst);
-        throttle_account(chunk_len).await;
+        let chunk_bytes = chunk.len() as u64;
+        current_downloaded = (current_downloaded + chunk_bytes).min(chunk_len);
+        uncommitted_bytes += chunk_bytes;
+        bytes_counter.fetch_add(chunk_bytes, Ordering::SeqCst);
+        throttle_account(chunk_bytes).await;
 
         if uncommitted_bytes >= 2 * 1024 * 1024 || last_save.elapsed() >= Duration::from_secs(2) {
             uncommitted_bytes = 0;
             last_save = std::time::Instant::now();
             if let Ok(mut tracker) = progress_tracker.try_lock() {
-                if let Some(val) = tracker.segments.get_mut(seg_index) {
+                if let Some(val) = tracker.chunks.get_mut(chunk_index) {
                     *val = current_downloaded;
                     tracker.dirty = true;
                 }
@@ -1260,7 +1512,7 @@ async fn stream_segment(
 
     {
         let mut tracker = progress_tracker.lock().await;
-        if let Some(val) = tracker.segments.get_mut(seg_index) {
+        if let Some(val) = tracker.chunks.get_mut(chunk_index) {
             *val = current_downloaded;
             tracker.dirty = true;
         }
@@ -1270,8 +1522,8 @@ async fn stream_segment(
     SegmentResult::Done
 }
 
-/// Multi-connection download of one file via N parallel byte ranges directly into
-/// a single `.gamelib_tmp` pre-allocated file.
+/// Multi-connection download of one file via work-stealing byte ranges
+/// directly into a single `.gamelib_tmp` pre-allocated file.
 ///
 /// `report_total` mirrors `attempt_download`: when `false` (multi-file debrid,
 /// where the record's `total_size` is already the full magnet sum) the per-file
@@ -1408,14 +1660,16 @@ async fn attempt_segmented_download(
         }
     }
 
-    // ── Split the file into segments (small files stay single-stream).
-    let seg_count = if total >= SEGMENT_MIN_BYTES * max_segments as u64 {
-        max_segments
-    } else {
-        (total / SEGMENT_MIN_BYTES).max(1) as u32
-    };
-
-    if seg_count <= 1 {
+    // ── Plan the work-stealing split (small files stay single-stream).
+    let (workers, chunk_size, chunk_count) = chunk_plan(total, max_segments);
+    if workers <= 1 {
+        // A previous *segmented* attempt may have left a pre-allocated temp
+        // at the full size; that must not be mistaken for a complete single
+        // stream. A plain partial has no `.meta` and is kept for resume.
+        if meta_path.exists() {
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            let _ = tokio::fs::remove_file(&meta_path).await;
+        }
         return attempt_download(
             &client,
             id,
@@ -1432,19 +1686,24 @@ async fn attempt_segmented_download(
         .await;
     }
 
-    let seg_size = total / seg_count as u64;
-
     // ── Resume metadata checking & preallocation
-    let mut segments: Vec<u64> = vec![0; seg_count as usize];
+    let mut chunks: Vec<u64> = vec![0; chunk_count];
     let mut is_valid_resume = false;
     if meta_path.exists() && temp_path.exists() {
         if let Ok(content) = tokio::fs::read_to_string(&meta_path).await {
             if let Ok(meta) = serde_json::from_str::<SegmentMeta>(&content) {
+                let lengths_ok = meta.chunks.iter().enumerate().all(|(i, done)| {
+                    let len = total
+                        .saturating_sub(i as u64 * chunk_size)
+                        .min(chunk_size);
+                    *done <= len
+                });
                 if meta.total_size == total
-                    && meta.seg_count == seg_count
-                    && meta.segments.len() == seg_count as usize
+                    && meta.chunk_size == chunk_size
+                    && meta.chunks.len() == chunk_count
+                    && lengths_ok
                 {
-                    segments = meta.segments;
+                    chunks = meta.chunks;
                     is_valid_resume = true;
                 }
             }
@@ -1471,32 +1730,29 @@ async fn attempt_segmented_download(
                 return AttemptResult::Fatal(format!("Failed to create temp file: {}", e));
             }
         }
+    } else if let Ok(f) = OpenOptions::new().write(true).open(&temp_path).await {
+        // A crash before the last `set_len` can leave the sparse temp
+        // shorter than the resume metadata claims.
+        let _ = f.set_len(total).await;
     }
-
-    let on_disk: u64 = segments.iter().sum();
-    bytes_counter.store(base_offset + on_disk, Ordering::SeqCst);
 
     let progress_tracker = Arc::new(tokio::sync::Mutex::new(SegmentProgressTracker {
         meta_path: meta_path.clone(),
         total_size: total,
-        seg_count,
-        segments: segments.clone(),
+        chunk_size,
+        chunks,
+        next: 0,
         dirty: false,
     }));
+    let on_disk = progress_tracker.lock().await.completed_bytes();
+    bytes_counter.store(base_offset + on_disk, Ordering::SeqCst);
 
     let mut set = tokio::task::JoinSet::new();
-    for i in 0..seg_count {
-        let seg_start = i as u64 * seg_size;
-        let seg_end = if (i as u64 + 1) == seg_count as u64 {
-            total
-        } else {
-            (i as u64 + 1) * seg_size
-        };
+    for _ in 0..workers {
         let client_ref = client.clone();
         let id_owned = id.to_string();
         let url_owned = url.to_string();
         let temp_path_owned = temp_path.clone();
-        let initial_existing = segments[i as usize];
         let tracker = Arc::clone(&progress_tracker);
         let counter = Arc::clone(bytes_counter);
         let weak = manager_weak.clone();
@@ -1504,45 +1760,71 @@ async fn attempt_segmented_download(
         let referer = referer.map(|s| s.to_string());
 
         set.spawn(async move {
-            let mut attempt: u32 = 0;
             loop {
-                let res = stream_segment(
-                    &client_ref,
-                    &id_owned,
-                    &url_owned,
-                    &temp_path_owned,
-                    seg_start,
-                    seg_end,
-                    initial_existing,
-                    i as usize,
-                    &tracker,
-                    &counter,
-                    &weak,
-                    &headers,
-                    referer.as_deref(),
-                    generation,
-                )
-                .await;
-                match res {
-                    SegmentResult::Transient(e) => {
-                        attempt += 1;
-                        RETRY_COUNT.fetch_add(1, Ordering::Relaxed);
-                        SEGMENT_RECONNECT_COUNT.fetch_add(1, Ordering::Relaxed);
-                        if attempt >= SEGMENT_RECONNECTS {
-                            return SegmentResult::Transient(e);
+                let claimed = { tracker.lock().await.claim() };
+                let Some((chunk_index, chunk_start, chunk_end, existing)) = claimed else {
+                    break;
+                };
+                let mut downloaded = existing;
+                let mut attempt: u32 = 0;
+                loop {
+                    let res = stream_chunk(
+                        &client_ref,
+                        &id_owned,
+                        &url_owned,
+                        &temp_path_owned,
+                        chunk_start,
+                        chunk_end,
+                        downloaded,
+                        chunk_index,
+                        &tracker,
+                        &counter,
+                        &weak,
+                        &headers,
+                        referer.as_deref(),
+                        generation,
+                    )
+                    .await;
+                    match res {
+                        SegmentResult::Done => break,
+                        SegmentResult::Transient {
+                            msg,
+                            downloaded: after,
+                            retry_after,
+                        } => {
+                            downloaded = after;
+                            // Persist the chunk offset before sleeping so a
+                            // pause/restart never re-fetches committed bytes.
+                            {
+                                let mut t = tracker.lock().await;
+                                if let Some(val) = t.chunks.get_mut(chunk_index) {
+                                    *val = after;
+                                    t.dirty = true;
+                                }
+                                t.save().await;
+                            }
+                            attempt += 1;
+                            RETRY_COUNT.fetch_add(1, Ordering::Relaxed);
+                            SEGMENT_RECONNECT_COUNT.fetch_add(1, Ordering::Relaxed);
+                            if attempt >= SEGMENT_RECONNECTS {
+                                return SegmentResult::transient(msg, after, retry_after);
+                            }
+                            if !still_downloading(&weak, &id_owned, generation).await {
+                                return SegmentResult::Aborted;
+                            }
+                            println!(
+                                "[downloads] Chunk {} transient error ({}), reconnecting \
+                                 attempt {}/{} from byte {}",
+                                chunk_index, msg, attempt, SEGMENT_RECONNECTS, after
+                            );
+                            let delay = retry_delay(attempt, retry_after, 500, 8_000);
+                            tokio::time::sleep(delay).await;
                         }
-                        if !still_downloading(&weak, &id_owned, generation).await {
-                            return SegmentResult::Aborted;
-                        }
-                        println!(
-                            "[downloads] Segment {} transient error ({}), reconnecting attempt {}/{}",
-                            i, e, attempt, SEGMENT_RECONNECTS
-                        );
-                        tokio::time::sleep(Duration::from_millis(500)).await;
+                        other => return other,
                     }
-                    other => return other,
                 }
             }
+            SegmentResult::Done
         });
     }
 
@@ -1559,8 +1841,8 @@ async fn attempt_segmented_download(
             Ok(SegmentResult::Fatal(e)) => {
                 fatal.get_or_insert(e);
             }
-            Ok(SegmentResult::Transient(e)) => {
-                transient.get_or_insert(e);
+            Ok(SegmentResult::Transient { msg, .. }) => {
+                transient.get_or_insert(msg);
             }
             Ok(SegmentResult::RangeUnsupported) => range_unsupported = true,
             Err(e) => {
@@ -1661,5 +1943,93 @@ async fn set_total_size(manager_weak: &WeakManager, id: &str, size: u64) {
         }
         guard.mark_dirty();
         guard.emit_progress_force();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chunk_plan_keeps_small_and_single_worker_files_whole() {
+        assert_eq!(chunk_plan(7 * 1024 * 1024, 8), (1, 7 * 1024 * 1024, 1));
+        assert_eq!(chunk_plan(1024 * 1024 * 1024, 1), (1, 1024 * 1024 * 1024, 1));
+    }
+
+    #[test]
+    fn chunk_plan_splits_large_files_into_work_stealing_ranges() {
+        let (workers, chunk_size, count) = chunk_plan(100 * 1024 * 1024, 8);
+        assert_eq!(workers, 8);
+        assert_eq!(chunk_size, CHUNK_MIN_BYTES);
+        assert_eq!(count, 25);
+
+        let (workers, chunk_size, count) = chunk_plan(1024 * 1024 * 1024, 8);
+        assert_eq!(workers, 8);
+        assert_eq!(chunk_size, CHUNK_MAX_BYTES);
+        assert_eq!(count, 32);
+    }
+
+    #[test]
+    fn retry_delay_grows_exponentially_and_respects_retry_after() {
+        assert_eq!(retry_delay(1, None, 500, 8_000), Duration::from_millis(500));
+        assert_eq!(retry_delay(3, None, 500, 8_000), Duration::from_millis(2_000));
+        assert_eq!(
+            retry_delay(20, None, 500, 8_000),
+            Duration::from_millis(8_000)
+        );
+        assert_eq!(
+            retry_delay(1, Some(Duration::from_secs(60)), 500, 8_000),
+            Duration::from_millis(8_000)
+        );
+    }
+
+    #[test]
+    fn content_range_start_rejects_unparseable_headers() {
+        assert_eq!(content_range_start("bytes 100-199/1000"), Some(100));
+        assert_eq!(content_range_start("bytes 0-0/*"), Some(0));
+        assert_eq!(content_range_start("nonsense"), None);
+        assert_eq!(content_range_start("bytes nope"), None);
+    }
+
+    #[test]
+    fn url_needs_debrid_resolution_detects_provider_links() {
+        assert!(url_needs_debrid_resolution(""));
+        assert!(url_needs_debrid_resolution("torbox:12:34"));
+        assert!(url_needs_debrid_resolution("torbox-zip:12"));
+        assert!(url_needs_debrid_resolution("https://alldebrid.com/f/abc"));
+        assert!(url_needs_debrid_resolution("https://www.alldebrid.com/f/abc"));
+        assert!(url_needs_debrid_resolution("https://real-debrid.com/d/abc"));
+
+        assert!(!url_needs_debrid_resolution(
+            "https://cdn.alldebrid.com/dl/abc/game.rar"
+        ));
+        assert!(!url_needs_debrid_resolution(
+            "https://download.torbox.app/abc/game.rar"
+        ));
+        assert!(!url_needs_debrid_resolution("https://example.com/game.rar"));
+        assert!(!url_needs_debrid_resolution(
+            "https://alldebrid.com/dl/game.rar"
+        ));
+    }
+
+    #[test]
+    fn tracker_claims_incomplete_chunks_once_and_skips_done_ones() {
+        let mut tracker = SegmentProgressTracker {
+            meta_path: std::path::PathBuf::new(),
+            total_size: 10,
+            chunk_size: 4,
+            chunks: vec![4, 0, 2],
+            next: 0,
+            dirty: false,
+        };
+        assert_eq!(tracker.chunk_len(0), 4);
+        assert_eq!(tracker.chunk_len(2), 2);
+        assert_eq!(tracker.completed_bytes(), 6);
+
+        let mut claimed = Vec::new();
+        while let Some((idx, start, end, existing)) = tracker.claim() {
+            claimed.push((idx, start, end, existing));
+        }
+        assert_eq!(claimed, vec![(1, 4, 8, 0)]);
     }
 }
