@@ -235,9 +235,22 @@ export function isBigScreenOverlayOpen(): boolean {
 
 // ── Provider ────────────────────────────────────────────────────
 
-export function BigScreenProvider({ children }: { children: ReactNode }) {
+export function BigScreenProvider({
+  children,
+  headless = false,
+}: {
+  children: ReactNode;
+  /**
+   * Secondary windows (the game-detail popout) mount the provider only so
+   * pages can read `isBigScreen`. Headless skips the localStorage hydration,
+   * the fullscreen calls and the global F11 / Ctrl+B / Escape listener, so a
+   * popout can never yank itself fullscreen or steal the shortcut because the
+   * main window happened to be in Big Screen.
+   */
+  headless?: boolean;
+}) {
   const [isBigScreen, setIsBigScreenState] = useState<boolean>(() => {
-    return lsGet(LS_BIG_SCREEN) === "true";
+    return !headless && lsGet(LS_BIG_SCREEN) === "true";
   });
   const [ready, setReady] = useState(false);
 
@@ -247,10 +260,10 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
   // who leave Big Screen off.
   useEffect(() => {
     setReady(true);
-    if (lsGet(LS_BIG_SCREEN) === "true") {
+    if (!headless && lsGet(LS_BIG_SCREEN) === "true") {
       setTauriFullscreen(true);
     }
-  }, []);
+  }, [headless]);
 
   // Lazy-load the 204 KB Big Screen stylesheet only when the mode is
   // active so desktop users never pay the upfront CSS cost. Vite splits
@@ -302,6 +315,7 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
   // macOS; this listener also handles the in-app case where
   // fullscreen is bypassed (browser dev).
   useEffect(() => {
+    if (headless) return;
     function handleKeyDown(e: KeyboardEvent) {
       if (isTypingInField(e.target)) return;
 
@@ -339,10 +353,11 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isBigScreen, setBigScreen, toggleBigScreen]);
+  }, [isBigScreen, setBigScreen, toggleBigScreen, headless]);
 
   // Sync state if browser fullscreen is exited (e.g. Esc button pressed in browser)
   useEffect(() => {
+    if (headless) return;
     function handleFullscreenChange() {
       if (typeof document !== "undefined") {
         const isFullscreen = !!document.fullscreenElement;
@@ -357,7 +372,7 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
-  }, [isBigScreen]);
+  }, [isBigScreen, headless]);
 
   const value = useMemo<BigScreenContextValue>(
     () => ({

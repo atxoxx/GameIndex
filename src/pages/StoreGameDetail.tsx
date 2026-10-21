@@ -124,7 +124,7 @@ const VALID_STORE_TABS = new Set<StoreTab>([
   "map",
 ]);
 
-export default function StoreGameDetail() {
+export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink?: boolean }) {
   const { gameSlug } = useParams<{ gameSlug: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -513,6 +513,7 @@ export default function StoreGameDetail() {
         {topBarOrder.map((key) => {
           if (topBarHidden[key]) return null;
           if (key === "back") {
+            if (hideBackLink) return null;
             return (
               <button
                 key="back"

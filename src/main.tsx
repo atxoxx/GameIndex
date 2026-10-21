@@ -44,6 +44,7 @@ const root = document.getElementById("root") as HTMLElement;
 /** Window discriminators set on the Tauri URL by the Rust window builder. */
 const LAUNCH_SPLASH_PARAM = "launch-splash";
 const OVERLAY_PARAM = "overlay";
+const GAME_DETAIL_PARAM = "detail";
 
 async function bootstrap() {
   const windowParam = new URLSearchParams(window.location.search).get("window");
@@ -75,6 +76,22 @@ async function bootstrap() {
       <React.StrictMode>
         <BootstrapErrorBoundary>
           <OverlayWindow />
+        </BootstrapErrorBoundary>
+      </React.StrictMode>,
+    );
+    return;
+  }
+
+  // The game-detail popout is its own reusable webview. It mounts the detail
+  // pages without the shell bridges, so never pull the full App chunk there.
+  if (windowParam === GAME_DETAIL_PARAM) {
+    const { default: GameDetailWindow } = await import(
+      "./components/GameDetailWindow"
+    );
+    ReactDOM.createRoot(root).render(
+      <React.StrictMode>
+        <BootstrapErrorBoundary>
+          <GameDetailWindow />
         </BootstrapErrorBoundary>
       </React.StrictMode>,
     );

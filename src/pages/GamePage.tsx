@@ -149,7 +149,7 @@ function GameNotFound() {
   );
 }
 
-function GameDetail({ game }: { game: Game }) {
+function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?: boolean }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
@@ -469,6 +469,7 @@ function GameDetail({ game }: { game: Game }) {
 
       flushGroup();
       if (key === "back") {
+        if (hideBackLink) continue;
         nodes.push(
           <button
             key="back"
@@ -843,7 +844,7 @@ function GameDetail({ game }: { game: Game }) {
   );
 }
 
-export default function GamePage() {
+export default function GamePage({ hideBackLink = false }: { hideBackLink?: boolean }) {
   const { gameId } = useParams<{ gameId: string }>();
   const { setSelectedGameId } = useGames();
 
@@ -863,5 +864,5 @@ export default function GamePage() {
     return <GameNotFound />;
   }
 
-  return <GameDetail key={game.id} game={game} />;
+  return <GameDetail key={game.id} game={game} hideBackLink={hideBackLink} />;
 }

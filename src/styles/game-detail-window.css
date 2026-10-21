@@ -1,0 +1,62 @@
+/* Standalone `game-detail` window (middle-click / "Open in New Window").
+   The window is frameless, so this sheet owns the slim chrome and the scroll
+   container the desktop shell normally provides via `.app-main`. */
+
+.game-detail-window-body {
+  background: var(--color-bg-primary);
+}
+
+.game-detail-window {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg-primary);
+}
+
+.game-detail-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  height: 38px;
+  padding-left: var(--space-sm);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  user-select: none;
+}
+
+.game-detail-titlebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.game-detail-window__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.game-detail-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.game-detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--space-xl);
+  color: var(--color-text-secondary);
+}
