@@ -677,29 +677,11 @@ fn recalc_rom_sizes_blocking(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{
-        EMULATORS_DDL, EMULATORS_V2_DDL, GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL,
-        GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL,
-        GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL, GAMES_V12_DDL, GAMES_V13_DDL,
-        GAMES_V14_DDL,
-    };
 
     fn test_db() -> (tempfile::TempDir, db::Db) {
         let dir = tempfile::tempdir().unwrap();
         let db = db::Db::open(dir.path()).unwrap();
-        {
-            let emu = db.emulators().unwrap();
-            emu.execute_batch(EMULATORS_DDL).unwrap();
-            emu.execute_batch(EMULATORS_V2_DDL).unwrap();
-            let games = db.games().unwrap();
-            for ddl in [
-                GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL,
-                GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL,
-                GAMES_V11_DDL, GAMES_V12_DDL, GAMES_V13_DDL, GAMES_V14_DDL,
-            ] {
-                games.execute_batch(ddl).unwrap();
-            }
-        }
+        db::migrate::run_migrations(&db).unwrap();
         (dir, db)
     }
 

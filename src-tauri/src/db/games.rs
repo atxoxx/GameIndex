@@ -1240,29 +1240,12 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL, GAMES_V8_DDL, GAMES_V9_DDL, GAMES_V10_DDL, GAMES_V11_DDL, GAMES_V12_DDL, GAMES_V13_DDL, GAMES_V14_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open(dir.path()).unwrap();
-        {
-            let conn = db.games().unwrap();
-            conn.execute_batch(GAMES_DDL).unwrap();
-            conn.execute_batch(GAMES_V2_DDL).unwrap();
-            conn.execute_batch(GAMES_V3_DDL).unwrap();
-            conn.execute_batch(GAMES_V4_DDL).unwrap();
-            conn.execute_batch(GAMES_V5_DDL).unwrap();
-            conn.execute_batch(GAMES_V6_DDL).unwrap();
-            conn.execute_batch(GAMES_V7_DDL).unwrap();
-            conn.execute_batch(GAMES_V8_DDL).unwrap();
-            conn.execute_batch(GAMES_V9_DDL).unwrap();
-            conn.execute_batch(GAMES_V10_DDL).unwrap();
-            conn.execute_batch(GAMES_V11_DDL).unwrap();
-            conn.execute_batch(GAMES_V12_DDL).unwrap();
-            conn.execute_batch(GAMES_V13_DDL).unwrap();
-            conn.execute_batch(GAMES_V14_DDL).unwrap();
-        }
+        crate::db::migrate::run_migrations(&db).unwrap();
         (dir, db)
     }
 

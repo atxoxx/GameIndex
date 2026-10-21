@@ -130,18 +130,11 @@ fn row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<EmulatorRow> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{EMULATORS_DDL, EMULATORS_V2_DDL, GAMES_DDL};
 
     fn test_db() -> (tempfile::TempDir, Db) {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open(dir.path()).unwrap();
-        {
-            let c = db.emulators().unwrap();
-            c.execute_batch(EMULATORS_DDL).unwrap();
-            c.execute_batch(EMULATORS_V2_DDL).unwrap();
-            let g = db.games().unwrap();
-            g.execute_batch(GAMES_DDL).unwrap();
-        }
+        crate::db::migrate::run_migrations(&db).unwrap();
         (dir, db)
     }
 
