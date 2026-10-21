@@ -603,3 +603,115 @@
     --duration-slower: 0.01ms;
   }
 }
+
+/* =============================================================================
+   Wave 2 — Vibrancy dial: aurora drift, gel controls, sheen sweeps
+   ─────────────────────────────────────────────────────────────────────────────
+   The most theatrical turn of the six: two wide colour curtains drift slowly
+   behind the frosted chrome (the blur ladder turns them into living vibrancy),
+   primary controls read like backlit gel, and cards answer hover with a light
+   sheen sweeping across the pane. Squircle radii generosity is token-driven.
+   ============================================================================= */
+
+[data-ui-style="liquidglass"] {
+  /* Super-rounded continuous-feel ladder. */
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-3xl: 32px;
+}
+
+/* Aurora drift: two slow curtains wander behind the glass shell (nearly full
+   viewport scale, accent-family tints only). z-index -1 keeps them behind all
+   content while remaining visible through every translucent blur pane. */
+[data-ui-style="liquidglass"] .app-layout { position: relative !important; }
+[data-ui-style="liquidglass"] .app-layout::before,
+[data-ui-style="liquidglass"] .app-layout::after {
+  content: "" !important;
+  position: absolute !important;
+  width: 58vw !important;
+  height: 58vw !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+[data-ui-style="liquidglass"] .app-layout::before {
+  top: -20vw !important; left: -14vw !important;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--brand-2, var(--color-accent-2)) 28%, transparent) 0%, transparent 68%) !important;
+}
+[data-ui-style="liquidglass"] .app-layout::after {
+  bottom: -26vw !important; right: -18vw !important;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--brand-3, var(--color-accent)) 24%, transparent) 0%, transparent 68%) !important;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-ui-style="liquidglass"] .app-layout::before {
+    animation: lgAuroraA 46s ease-in-out infinite alternate !important;
+  }
+  [data-ui-style="liquidglass"] .app-layout::after {
+    animation: lgAuroraB 58s ease-in-out infinite alternate !important;
+  }
+  @keyframes lgAuroraA {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(9vw, 14vh) scale(1.15); }
+  }
+  @keyframes lgAuroraB {
+    from { transform: translate(0, 0) scale(1.1); }
+    to { transform: translate(-10vw, -12vh) scale(0.95); }
+  }
+}
+
+/* Primary controls read like backlit Aqua gel: vertical luminance ramp, a lit
+   top lip, a dark under-belly, and a letterpress on the label. */
+[data-ui-style="liquidglass"] .ui-btn--primary {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-accent) 74%, var(--color-text-primary)) 0%,
+    var(--color-accent) 52%,
+    color-mix(in srgb, var(--color-accent) 84%, var(--color-scrim)) 100%
+  ) !important;
+  border-color: color-mix(in srgb, var(--color-text-primary) 26%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 46%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-scrim) 42%, transparent),
+    var(--elevation-2) !important;
+  text-shadow: 0 1px 1px color-mix(in srgb, var(--color-scrim) 35%, transparent) !important;
+}
+[data-ui-style="liquidglass"] .ui-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-accent-hover) 74%, var(--color-text-primary)) 0%,
+    var(--color-accent-hover) 52%,
+    color-mix(in srgb, var(--color-accent-hover) 84%, var(--color-scrim)) 100%
+  ) !important;
+  transform: translateY(-1px) !important;
+  border-color: color-mix(in srgb, var(--color-text-primary) 32%, transparent) !important;
+}
+[data-ui-style="liquidglass"] .ui-btn--primary:active:not(:disabled) {
+  transform: scale(0.96) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 30%, transparent),
+    inset 0 2px 8px color-mix(in srgb, var(--color-scrim) 45%, transparent) !important;
+}
+
+/* Cards answer hover with a light sheen sweeping across the pane. */
+[data-ui-style="liquidglass"] .ui-card::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important; bottom: 0 !important; left: -60% !important;
+  width: 48% !important;
+  background: linear-gradient(100deg, transparent 0%, color-mix(in srgb, var(--color-text-primary) 13%, transparent) 50%, transparent 100%) !important;
+  transform: skewX(-16deg) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+[data-ui-style="liquidglass"] .ui-card:hover { transform: translateY(-1px) !important; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-ui-style="liquidglass"] .ui-card:hover::after {
+    animation: lgSheen 0.9s var(--ease-standard) 1 !important;
+  }
+  @keyframes lgSheen {
+    from { left: -60%; opacity: 1; }
+    to { left: 140%; opacity: 0; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="liquidglass"] .ui-card::after { display: none !important; }
+}

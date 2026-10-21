@@ -469,3 +469,58 @@
     --duration-slower: 0.01ms;
   }
 }
+
+/* =============================================================================
+   Wave 2 — Fluent dial: softer depth, one quiet shine
+   ─────────────────────────────────────────────────────────────────────────────
+   Fluent's identity is restraint, so the dial here is the smallest of the six:
+   the whole elevation ladder loosens into long, soft, low-opacity Fluent
+   shadows so every feature page feels airier than the crisp styles around it,
+   and the primary button runs a single quiet light sweep on hover. No noise,
+   no grids, no scanlines — calm IS the signature.
+   ============================================================================= */
+
+[data-ui-style="modern"] {
+  /* Long, diffuse, low-opacity depth — the Fluent shadow grammar. */
+  --shadow-xs: 0 1px 2px color-mix(in srgb, var(--color-scrim) 10%, transparent);
+  --shadow-sm: 0 2px 6px color-mix(in srgb, var(--color-scrim) 9%, transparent);
+  --shadow-md: 0 4px 16px color-mix(in srgb, var(--color-scrim) 10%, transparent);
+  --shadow-lg: 0 12px 36px color-mix(in srgb, var(--color-scrim) 12%, transparent);
+  --shadow-xl: 0 22px 60px color-mix(in srgb, var(--color-scrim) 14%, transparent);
+  --elevation-1: 0 2px 6px color-mix(in srgb, var(--color-scrim) 9%, transparent);
+  --elevation-2: 0 4px 14px color-mix(in srgb, var(--color-scrim) 10%, transparent);
+  --elevation-3: 0 8px 24px color-mix(in srgb, var(--color-scrim) 11%, transparent);
+  --elevation-4: 0 12px 36px color-mix(in srgb, var(--color-scrim) 12%, transparent);
+  --elevation-5: 0 22px 60px color-mix(in srgb, var(--color-scrim) 14%, transparent);
+}
+
+/* Cards drift up by a single hairline — never a jump. */
+[data-ui-style="modern"] .ui-card:hover { transform: translateY(-1px) !important; }
+
+/* One quiet light sweep across the primary button on hover. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-ui-style="modern"] .ui-btn--primary {
+    position: relative !important;
+    overflow: hidden !important;
+  }
+  [data-ui-style="modern"] .ui-btn--primary::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 0 !important; bottom: 0 !important; left: -50% !important;
+    width: 38% !important;
+    background: linear-gradient(105deg, transparent 0%, color-mix(in srgb, var(--color-accent-contrast) 16%, transparent) 50%, transparent 100%) !important;
+    transform: skewX(-18deg) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+  [data-ui-style="modern"] .ui-btn--primary:hover::after {
+    animation: fluentSweep 0.7s var(--ease-standard) 1 !important;
+  }
+  @keyframes fluentSweep {
+    from { left: -50%; opacity: 1; }
+    to { left: 135%; opacity: 0; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="modern"] .ui-btn--primary::after { display: none !important; }
+}

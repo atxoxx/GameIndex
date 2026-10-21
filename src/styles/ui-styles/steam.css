@@ -681,3 +681,53 @@
     --duration-slower: 0.01ms;
   }
 }
+
+/* =============================================================================
+   Wave 2 — Switchgear dial: bevel presses, phosphor ignition, mono voice
+   ─────────────────────────────────────────────────────────────────────────────
+   Nothing here lifts or springs. Buttons answer like real switchgear: hover
+   ignites a phosphor halo on a glass tube, press physically sinks the cap into
+   the panel. Every control label carries the mono-uppercase rack voice.
+   Geometry, colour and existing chrome stay untouched.
+   ============================================================================= */
+
+[data-ui-style="steam"] {
+  /* Every figure reads like a rack-unit readout. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Control labels: tracked mono caps — the rack's silkscreen. */
+[data-ui-style="steam"] .ui-btn__label {
+  font-family: var(--font-mono) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  font-size: 0.92em !important;
+}
+[data-ui-style="steam"] .sidebar-section-header {
+  font-family: var(--font-mono) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+}
+
+/* Card = beveled module: lit top lip, sunk interior, flat hover that ignites. */
+[data-ui-style="steam"] .ui-card {
+  box-shadow: var(--steam-bevel), inset 0 0 0 1px color-mix(in srgb, var(--color-scrim) 22%, transparent) !important;
+  transform: none !important;
+}
+[data-ui-style="steam"] .ui-card:hover {
+  box-shadow: var(--steam-bevel), var(--steam-phosphor-soft) !important;
+  transform: none !important;
+}
+
+/* Primary buttons ignite on hover; every press sinks into the chassis. */
+[data-ui-style="steam"] .ui-btn--primary:hover:not(:disabled) {
+  box-shadow: var(--steam-phosphor-soft), inset 0 1px 0 var(--color-border-highlight) !important;
+  filter: brightness(1.08) !important;
+}
+[data-ui-style="steam"] .ui-btn:active:not(:disabled) {
+  transform: translateY(1px) !important;
+  box-shadow: inset 0 2px 5px color-mix(in srgb, var(--color-scrim) 55%, transparent) !important;
+}
+[data-ui-style="steam"] .ui-btn--secondary:active:not(:disabled) {
+  box-shadow: var(--steam-well) !important;
+}

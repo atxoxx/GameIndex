@@ -539,3 +539,114 @@
     --duration-slower: 0.01ms;
   }
 }
+
+/* =============================================================================
+   Wave 2 — Expressive dial: pills, springs, tonal containers
+   ─────────────────────────────────────────────────────────────────────────────
+   Turns the screw the base layer only hints at: every interactive atom becomes
+   a pill, every container a generous tile, and every transform rides a spring.
+   Colour tokens untouched — the identity here is geometry + kinetics. Matches
+   the "Expressive tonal containers, shape-morphing tiles, springy M3 motion"
+   promise on the settings card.
+   ============================================================================= */
+
+[data-ui-style="materialyou"] {
+  /* M3 emphasized easing everywhere; --ease-spring is reserved for transforms. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.35, 0.64, 1);
+  --transition-instant: var(--duration-instant) var(--ease-standard);
+  --transition-fast: var(--duration-fast) var(--ease-standard);
+  --transition-normal: var(--duration-normal) var(--ease-standard);
+  --transition-slow: var(--duration-slow) var(--ease-standard);
+  /* Tonal, diffuse depth — M3 elevation never reads as a hard drop shadow. */
+  --shadow-xs: 0 1px 2px color-mix(in srgb, var(--color-scrim) 18%, transparent);
+  --shadow-sm: 0 2px 4px color-mix(in srgb, var(--color-scrim) 16%, transparent);
+  --shadow-md: 0 4px 12px color-mix(in srgb, var(--color-scrim) 16%, transparent);
+  --shadow-lg: 0 12px 30px color-mix(in srgb, var(--color-scrim) 18%, transparent);
+  --shadow-xl: 0 20px 50px color-mix(in srgb, var(--color-scrim) 22%, transparent);
+}
+
+/* Buttons: the pill IS the control. Hover swells (spring), press squeezes. */
+[data-ui-style="materialyou"] .ui-btn {
+  border-radius: var(--radius-full) !important;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard),
+    transform var(--duration-normal) var(--ease-spring) !important;
+}
+[data-ui-style="materialyou"] .ui-btn--sm,
+[data-ui-style="materialyou"] .ui-btn--lg { border-radius: var(--radius-full) !important; }
+[data-ui-style="materialyou"] .ui-btn:hover:not(:disabled) { transform: scale(1.02) !important; }
+[data-ui-style="materialyou"] .ui-btn:active:not(:disabled) {
+  transform: scale(0.95) !important;
+  transition-duration: var(--duration-fast) !important;
+}
+/* Secondary becomes a tonal container: accent-tinted fill, no border, no lip. */
+[data-ui-style="materialyou"] .ui-btn--secondary {
+  background: color-mix(in srgb, var(--color-accent) 13%, var(--color-surface)) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+[data-ui-style="materialyou"] .ui-btn--secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface)) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+[data-ui-style="materialyou"] .ui-btn--secondary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 26%, var(--color-surface)) !important;
+}
+
+/* Top nav: a floating pill rail — no tray, no border, just capsules on a field. */
+[data-ui-style="materialyou"] .topnav-tabs {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+[data-ui-style="materialyou"] .topnav-tab {
+  border-radius: var(--radius-full) !important;
+  border: 1px solid transparent !important;
+}
+[data-ui-style="materialyou"] .topnav-tab:not(.active):hover {
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent) !important;
+  border-color: transparent !important;
+}
+
+/* Sidebar rows shape-morph: rectangle at rest, stadium when selected. */
+[data-ui-style="materialyou"] .sidebar-game-item {
+  border-radius: var(--radius-md) !important;
+  transition: background-color var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard),
+    border-radius var(--duration-slow) var(--ease-spring) !important;
+}
+[data-ui-style="materialyou"] .sidebar-game-item:hover:not(.active) {
+  border-radius: var(--radius-lg) !important;
+}
+[data-ui-style="materialyou"] .sidebar-game-item.active,
+[data-ui-style="materialyou"] .sidebar-game-item.active:hover,
+[data-ui-style="materialyou"] .sidebar-game-item.bulk-selected,
+[data-ui-style="materialyou"] .sidebar-game-item.bulk-selected:hover {
+  border-radius: var(--radius-full) !important;
+}
+
+/* Containers: generous radii and a slow springy hover lift. */
+[data-ui-style="materialyou"] .ui-card,
+[data-ui-style="materialyou"] .kpi-tile,
+[data-ui-style="materialyou"] .lib-hero,
+[data-ui-style="materialyou"] .settings-section {
+  border-radius: var(--radius-2xl) !important;
+}
+[data-ui-style="materialyou"] .ui-card {
+  transition: border-color var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-slow) var(--ease-spring),
+    transform var(--duration-slow) var(--ease-spring),
+    background-color var(--duration-normal) var(--ease-standard) !important;
+}
+[data-ui-style="materialyou"] .ui-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--color-scrim) 20%, transparent) !important;
+}
+/* Voice: friendly semibold, no tracking games — M3 talks plain. */
+[data-ui-style="materialyou"] .sidebar-section-header {
+  font-weight: var(--font-weight-bold) !important;
+  letter-spacing: normal !important;
+}

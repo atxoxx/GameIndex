@@ -479,3 +479,63 @@
   }
   [data-ui-style="epic"] .topnav::after { display: none !important; }
 }
+
+/* =============================================================================
+   Wave 2 — Terminal dial: prompt glyphs, mono controls, ambient scanfall
+   ─────────────────────────────────────────────────────────────────────────────
+   Deepens the HUD voice without repeating it: card headers prompt like a
+   shell, every button label types in mono caps, brackets extend to the hero
+   banner, and a faint scanline falls slowly through the content pane. All
+   colour stays on tokens; all motion is guarded.
+   ============================================================================= */
+
+/* Buttons type like commands, not like labels. */
+[data-ui-style="epic"] .ui-btn__label {
+  font-family: var(--font-mono) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.09em !important;
+  font-size: 0.9em !important;
+}
+[data-ui-style="epic"] .ui-btn:active:not(:disabled) { transform: none !important; }
+
+/* Card headers prompt like a shell line: "> SECTION". */
+[data-ui-style="epic"] .ui-card__header::before {
+  content: "> " !important;
+  color: var(--color-accent) !important;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 60%, transparent) !important;
+}
+
+/* Corner brackets extend to the hero banner (card brackets stay as they were). */
+[data-ui-style="epic"] .lib-hero { position: relative !important; }
+[data-ui-style="epic"] .lib-hero::before {
+  content: "" !important; position: absolute !important; top: 6px !important; left: 6px !important;
+  width: 14px !important; height: 14px !important;
+  border-top: 2px solid var(--color-accent) !important; border-left: 2px solid var(--color-accent) !important;
+  pointer-events: none !important; z-index: 2 !important; opacity: 0.85 !important;
+}
+[data-ui-style="epic"] .lib-hero::after {
+  content: "" !important; position: absolute !important; bottom: 6px !important; right: 6px !important;
+  width: 14px !important; height: 14px !important;
+  border-bottom: 2px solid var(--color-accent) !important; border-right: 2px solid var(--color-accent) !important;
+  pointer-events: none !important; z-index: 2 !important; opacity: 0.85 !important;
+}
+
+/* Ambient scanfall: a faint light drifts down the content pane — pure paint,
+   behind the content (z-index -1 paints over the pane's own background only). */
+[data-ui-style="epic"] .app-main::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important; right: 0 !important; top: -25% !important;
+  height: 22% !important;
+  background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--color-accent) 5%, transparent) 50%, transparent 100%) !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+  animation: epicFall 10s linear infinite !important;
+}
+@keyframes epicFall {
+  from { transform: translateY(0); }
+  to { transform: translateY(560%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-style="epic"] .app-main::after { display: none !important; }
+}
