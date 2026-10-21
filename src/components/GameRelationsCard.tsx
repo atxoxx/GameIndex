@@ -1033,6 +1033,10 @@ function RelationRowCard({
   return (
     <div
       className="game-relation-card"
+      data-game-detail-route={
+        game.libraryGameId ? `/library/${game.libraryGameId}` : game.slug ? `/store/${game.slug}` : undefined
+      }
+      data-game-detail-title={game.name}
       {...(isBigScreen ? focusProps : { onClick })}
       role="button"
       tabIndex={isBigScreen ? -1 : 0}

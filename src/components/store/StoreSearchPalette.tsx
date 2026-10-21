@@ -217,6 +217,8 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
                         role="option"
                         aria-selected={isActive}
                         className={`store-search-suggestion${isActive ? " selected" : ""}`}
+                        data-game-detail-route={`/store/${g.slug}`}
+                        data-game-detail-title={g.name}
                         onClick={() => {
                           setOpen(false);
                           if (catalogue.onCardClick) catalogue.onCardClick(g);
@@ -268,6 +270,8 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
                     role="option"
                     aria-selected={isActive}
                     className={`store-search-suggestion${isActive ? " selected" : ""}`}
+                    data-game-detail-route={`/store/${g.slug}`}
+                    data-game-detail-title={g.name}
                     onClick={() => {
                       setOpen(false);
                       if (catalogue.onCardClick) catalogue.onCardClick(g);

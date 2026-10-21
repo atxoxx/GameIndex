@@ -59,6 +59,8 @@ export default function AchievementsRecentFeed({
               key={`${item.gameId}-${item.achievement.apiName}-${i}`}
               className="ach-recent-feed-card"
               data-rarity={rarity}
+              data-game-detail-route={`/library/${item.gameId}`}
+              data-game-detail-title={item.game ? gameDisplayName(item.game) : undefined}
               style={{
                 borderColor: `color-mix(in srgb, ${rarityColor} 35%, var(--color-border))`,
               }}

@@ -454,6 +454,8 @@ export default function TopNav() {
               <button
                 type="button"
                 className="topnav-now-playing-chip"
+                data-game-detail-route={`/library/${runningGame.id}`}
+                data-game-detail-title={runningGame.name}
                 onClick={() => {
                   playTabSound();
                   navigate(`/library/${runningGame.id}`);

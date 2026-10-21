@@ -47,6 +47,7 @@ import { useTrayNavigation } from "./hooks/useTrayNavigation";
 import { useTrayStrings } from "./hooks/useTrayStrings";
 import { LandingRedirect } from "./components/LandingRedirect";
 import AppContextMenu from "./components/AppContextMenu";
+import GamePopoutBridge from "./components/GamePopoutBridge";
 import Splashscreen from "./components/Splashscreen";
 import LaunchSplashBridge from "./components/LaunchSplashBridge";
 import WindowReveal from "./components/WindowReveal";
@@ -129,7 +130,7 @@ function ShellBridges() {
   useDiscordPresence();
   useTrayNavigation();
   useTrayStrings();
-  return null;
+  return <GamePopoutBridge />;
 }
 
 function AppShell() {

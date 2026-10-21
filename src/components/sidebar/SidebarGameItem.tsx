@@ -149,6 +149,8 @@ function SidebarGameItemBase({
       tabIndex={0}
       ref={coverRef}
       data-sidebar-game-id={game.id}
+      data-game-detail-route={`/library/${game.id}`}
+      data-game-detail-title={displayName}
       className={rowClasses}
       onMouseEnter={() => {
         preloadGameDetail();

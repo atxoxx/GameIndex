@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Activity,
+  AppWindow,
   ArrowLeft,
   ArrowRight,
   Compass,
@@ -32,6 +33,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useTheme } from "../context/ThemeContext";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import { findGameDetailTarget, openGameDetailWindow } from "../utils/gameDetailWindow";
 
 const NAV_LINKS: { path: string; labelKey: string; icon: LucideIcon }[] = [
   { path: "/home", labelKey: "nav.home", icon: Home },
@@ -53,6 +55,8 @@ interface MenuPosition {
   x: number;
   y: number;
   linkHref?: string;
+  gameRoute?: string;
+  gameTitle?: string;
 }
 
 /**
@@ -102,7 +106,14 @@ export default function AppContextMenu() {
 
       e.preventDefault();
       const anchor = target.closest("a[href]") as HTMLAnchorElement | null;
-      setPosition({ x: e.clientX, y: e.clientY, linkHref: anchor?.href || undefined });
+      const game = findGameDetailTarget(e);
+      setPosition({
+        x: e.clientX,
+        y: e.clientY,
+        linkHref: anchor?.href || undefined,
+        gameRoute: game?.route,
+        gameTitle: game?.title,
+      });
     };
     document.addEventListener("contextmenu", handleContextMenu);
     return () => document.removeEventListener("contextmenu", handleContextMenu);
@@ -123,6 +134,23 @@ export default function AppContextMenu() {
 
     const linkHref = position?.linkHref;
     return [
+      ...(position?.gameRoute
+        ? ([
+            {
+              id: "open-game-window",
+              label: t("gameMenu.openInNewWindow"),
+              icon: <AppWindow size={15} />,
+              accent: true,
+              onSelect: () => {
+                close();
+                if (position.gameRoute) {
+                  openGameDetailWindow(position.gameRoute, position.gameTitle);
+                }
+              },
+            },
+            { id: "sep-game", separator: true },
+          ] as ContextMenuItem[])
+        : []),
       ...(linkHref
         ? ([
             {

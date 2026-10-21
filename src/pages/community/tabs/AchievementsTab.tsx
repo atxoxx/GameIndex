@@ -144,6 +144,8 @@ export function AchievementsTab({
               <div
                 key={g.gameId}
                 className="stats-perfect-game-card"
+                data-game-detail-route={`/library/${g.gameId}`}
+                data-game-detail-title={g.gameName}
                 onClick={() => navigate(`/library/${g.gameId}`)}
                 role="button"
                 tabIndex={0}
@@ -186,6 +188,8 @@ export function AchievementsTab({
               <div
                 key={g.gameId}
                 className="stats-near-game-card"
+                data-game-detail-route={`/library/${g.gameId}`}
+                data-game-detail-title={g.gameName}
                 onClick={() => navigate(`/library/${g.gameId}`)}
                 role="button"
                 tabIndex={0}

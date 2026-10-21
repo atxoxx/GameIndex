@@ -650,6 +650,8 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
         <div
           className="store-spotlight-stage"
           ref={stageRef}
+          data-game-detail-route={`/store/${activeGame.slug}`}
+          data-game-detail-title={activeGame.name}
           onMouseMove={reduceMotion ? undefined : handleStageMouseMove}
           onMouseLeave={reduceMotion ? undefined : handleStageMouseLeave}
         >

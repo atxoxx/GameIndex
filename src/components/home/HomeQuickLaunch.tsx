@@ -51,6 +51,8 @@ export default function HomeQuickLaunch() {
             <div
               key={game.id}
               className={`home-quick-launch__item${isRunning ? " is-running" : ""}`}
+              data-game-detail-route={`/library/${game.id}`}
+              data-game-detail-title={gameDisplayName(game)}
               onClick={() => navigate(`/library/${game.id}`)}
               role="button"
               tabIndex={0}

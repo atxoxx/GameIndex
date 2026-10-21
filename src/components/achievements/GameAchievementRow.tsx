@@ -45,7 +45,12 @@ function GameAchievementRowBase({
   const isPerfect = pct === 100 && total > 0;
 
   return (
-    <div className={`achievements-game-row ${isPerfect ? "is-perfect" : ""}`} onClick={onClick}>
+    <div
+      className={`achievements-game-row ${isPerfect ? "is-perfect" : ""}`}
+      data-game-detail-route={`/library/${game.id}`}
+      data-game-detail-title={gameDisplayName(game)}
+      onClick={onClick}
+    >
       <div className="achievements-game-cover">
         {game.coverArtUrl ? (
           <img src={game.coverArtUrl} alt={gameDisplayName(game)} loading="lazy" />

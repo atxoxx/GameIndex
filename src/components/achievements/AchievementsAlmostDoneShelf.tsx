@@ -46,6 +46,8 @@ export default function AchievementsAlmostDoneShelf({
           <div
             key={item.game.id}
             className="ach-almost-done-card"
+            data-game-detail-route={`/library/${item.game.id}`}
+            data-game-detail-title={gameDisplayName(item.game)}
             onClick={() => navigate(`/library/${item.game.id}`)}
           >
             <div className="ach-almost-done-cover">

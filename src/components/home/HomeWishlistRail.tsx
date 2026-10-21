@@ -66,6 +66,8 @@ function HomeWishlistCard({
     <button
       type="button"
       className="home-rail-card"
+      data-game-detail-route={`/store/${entry.slug}`}
+      data-game-detail-title={entry.name}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

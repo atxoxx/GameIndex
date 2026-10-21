@@ -1,5 +1,5 @@
 import { Fragment, useContext, useState, useEffect, useRef, memo, type MouseEvent } from "react";
-import { BarChart3, Copy, Eye, EyeOff, Heart } from "lucide-react";
+import { BarChart3, Copy, Eye, EyeOff, Heart, AppWindow } from "lucide-react";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
@@ -12,6 +12,7 @@ import { useToast } from "../../context/ToastContext";
 import { useCardDisplaySettings } from "../../context/SettingsContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { copyTextToClipboard } from "../../utils/clipboard";
+import { openGameDetailWindow } from "../../utils/gameDetailWindow";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import { ArtworkImage } from "../ui/ArtworkImage";
 import StoreHighlightText from "./StoreHighlightText";
@@ -114,6 +115,15 @@ function StoreGameCardBase({
       label: t("game.viewDetails"),
       icon: <Eye size={15} />,
       onSelect: () => onClick(game),
+    },
+    {
+      id: "view-window",
+      label: t("gameMenu.openInNewWindow"),
+      icon: <AppWindow size={15} />,
+      onSelect: () => {
+        storeMenu.close();
+        openGameDetailWindow(`/store/${game.slug}`, game.name);
+      },
     },
     { id: "sep-1", separator: true },
     ...(onToggleWishlist
@@ -218,6 +228,8 @@ function StoreGameCardBase({
     return (
       <div
         className={`store-game-card store-game-card-list${selectable ? " selectable" : ""}${selected ? " selected" : ""}`}
+        data-game-detail-route={`/store/${game.slug}`}
+        data-game-detail-title={game.name}
         onClick={(e) => {
           if (selectable && onToggleSelect) {
             onToggleSelect(game, e);
@@ -409,6 +421,8 @@ function StoreGameCardBase({
   return (
     <div
       className={`store-game-card density-${density}${selectable ? " selectable" : ""}${selected ? " selected" : ""}`}
+      data-game-detail-route={`/store/${game.slug}`}
+      data-game-detail-title={game.name}
       onClick={(e) => {
         if (selectable && onToggleSelect) {
           onToggleSelect(game, e);

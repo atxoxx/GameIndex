@@ -192,6 +192,8 @@ function LibraryHeroBase({
         {mostRecentGame && (
           <div
             className="lib-hero-spotlight"
+            data-game-detail-route={`/library/${mostRecentGame.id}`}
+            data-game-detail-title={mostRecentGame.name}
             onClick={() => onCardClick?.(mostRecentGame)}
             role="button"
             tabIndex={0}

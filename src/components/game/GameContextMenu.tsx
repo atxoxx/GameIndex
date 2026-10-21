@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
+  AppWindow,
   Copy,
   ExternalLink,
   Eye,
@@ -25,6 +26,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
 import { copyTextToClipboard } from "../../utils/clipboard";
+import { openGameDetailWindow } from "../../utils/gameDetailWindow";
 import { PLAY_STATUS_DETAILS, gameDisplayName, type Game, type GameExecutable, type PlayStatus } from "../../types/game";
 
 const STATUS_ORDER: PlayStatus[] = ["backlog", "playing", "completed", "on_hold", "abandoned"];
@@ -120,6 +122,11 @@ export default function GameContextMenu({
     openUrl(`https://store.steampowered.com/app/${game.steamAppId}`).catch(() => undefined);
   }, [game.steamAppId, onClose]);
 
+  const handleOpenInNewWindow = useCallback(() => {
+    onClose();
+    openGameDetailWindow(`/library/${game.id}`, gameDisplayName(game));
+  }, [game, onClose]);
+
   const handleRefreshMetadata = useCallback(() => {
     onClose();
     showToast(t("sidebar.refreshingMetadata", { name: gameDisplayName(game) }), "info");
@@ -207,6 +214,12 @@ export default function GameContextMenu({
         label: t("game.viewDetails"),
         icon: <Eye size={15} />,
         onSelect: onViewDetails,
+      },
+      {
+        id: "open-new-window",
+        label: t("gameMenu.openInNewWindow"),
+        icon: <AppWindow size={15} />,
+        onSelect: handleOpenInNewWindow,
       },
       onEdit
         ? {

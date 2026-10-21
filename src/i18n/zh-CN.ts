@@ -6179,6 +6179,7 @@ export const zhCN: TranslationDict = {
   "gameMenu.favorite": "添加到收藏",
   "gameMenu.unfavorite": "从收藏中移除",
   "gameMenu.copyName": "复制名称",
+  "gameMenu.openInNewWindow": "在新窗口中打开",
   "gameMenu.copyGameId": "复制游戏 ID",
   "gameMenu.openSteamPage": "打开 Steam 商店页面",
   "ctx.addToWishlist": "加入愿望单",

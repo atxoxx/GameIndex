@@ -598,6 +598,8 @@ export default function SavesPage() {
                         <button
                           type="button"
                           className="saves-game-card__main"
+                          data-game-detail-route={`/library/${game.id}?tab=saves`}
+                          data-game-detail-title={gameDisplayName(game)}
                           onClick={() => navigate(`/library/${game.id}?tab=saves`)}
                           title={t("saves.action.manage")}
                         >
@@ -652,6 +654,8 @@ export default function SavesPage() {
                         <button
                           type="button"
                           className="saves-game-row__main"
+                          data-game-detail-route={`/library/${game.id}?tab=saves`}
+                          data-game-detail-title={gameDisplayName(game)}
                           onClick={() => navigate(`/library/${game.id}?tab=saves`)}
                         >
                           <GameCoverThumb game={game} />

@@ -109,6 +109,8 @@ function LibraryGameCardBase({
         role="button"
         tabIndex={0}
         className={`lib-card lib-card--list${isRunning ? " running" : ""}${selectable ? " selectable" : ""}${selected ? " selected" : ""}${className ? ` ${className}` : ""}`}
+        data-game-detail-route={`/library/${game.id}`}
+        data-game-detail-title={displayName}
         onClick={() => {
           if (selectable && onToggleSelect) {
             onToggleSelect(game);
@@ -251,6 +253,8 @@ function LibraryGameCardBase({
       role="button"
       tabIndex={0}
       className={`lib-card density-${density}${isRunning ? " running" : ""}${selectable ? " selectable" : ""}${selected ? " selected" : ""}${className ? ` ${className}` : ""}`}
+      data-game-detail-route={`/library/${game.id}`}
+      data-game-detail-title={displayName}
       onClick={() => {
         if (selectable && onToggleSelect) {
           onToggleSelect(game);

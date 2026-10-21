@@ -47,6 +47,8 @@ function GameAchievementCardBase({
   return (
     <div
       className={`ach-game-card ${isPerfect ? "is-perfect" : ""}`}
+      data-game-detail-route={`/library/${game.id}`}
+      data-game-detail-title={gameDisplayName(game)}
       onClick={onClick}
     >
       {/* Top Banner / Cover */}

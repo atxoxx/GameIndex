@@ -612,6 +612,8 @@ export function OverviewTab({
                   <div
                     key={g.gameId}
                     className={`stats-podium-card stats-podium-${rankClass}`}
+                    data-game-detail-route={`/library/${g.gameId}`}
+                    data-game-detail-title={g.gameName}
                     onClick={() => navigate(`/library/${g.gameId}`)}
                     role="button"
                     tabIndex={0}
@@ -645,6 +647,8 @@ export function OverviewTab({
                     <li
                       key={g.gameId}
                       className="stats-ranked-row"
+                      data-game-detail-route={`/library/${g.gameId}`}
+                      data-game-detail-title={g.gameName}
                       onClick={() => navigate(`/library/${g.gameId}`)}
                       role="button"
                       tabIndex={0}

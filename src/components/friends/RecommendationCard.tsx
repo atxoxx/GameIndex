@@ -55,7 +55,11 @@ export default function RecommendationCard({
   };
 
   return (
-    <div className="rec-card">
+    <div
+      className="rec-card"
+      data-game-detail-route={rec.slug ? `/store/${rec.slug}` : undefined}
+      data-game-detail-title={rec.slug ? rec.gameName : undefined}
+    >
       <div className="rec-card-head">
         <div className="rec-card-game-info">
           {gameCover ? (

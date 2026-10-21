@@ -6180,6 +6180,7 @@ export const ru: TranslationDict = {
   "gameMenu.favorite": "Добавить в избранное",
   "gameMenu.unfavorite": "Убрать из избранного",
   "gameMenu.copyName": "Копировать название",
+  "gameMenu.openInNewWindow": "Открыть в новом окне",
   "gameMenu.copyGameId": "Копировать ID игры",
   "gameMenu.openSteamPage": "Открыть страницу Steam",
   "ctx.addToWishlist": "Добавить в список желаний",

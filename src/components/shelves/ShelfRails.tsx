@@ -156,6 +156,8 @@ const ShelfRailCard = memo(function ShelfRailCard({
       elevation="1"
       hoverLift
       className="lib-rail-card"
+      data-game-detail-route={`/library/${game.id}`}
+      data-game-detail-title={gameDisplayName(game)}
       onClick={() => onClick(game)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

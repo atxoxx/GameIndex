@@ -469,6 +469,8 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
               className={`home-spotlight${isRunning ? " is-running" : ""}`}
               role="button"
               tabIndex={0}
+              data-game-detail-route={`/library/${activeGame.id}`}
+              data-game-detail-title={gameDisplayName(activeGame)}
               onClick={handleOpenActiveGame}
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;

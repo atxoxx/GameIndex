@@ -163,6 +163,21 @@ describe("GameContextMenu", () => {
     expect(onLaunchExe).toHaveBeenCalledWith(altExe);
   });
 
+  it("offers to open the game page in a new window", () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { onClose } = renderMenu();
+
+    fireEvent.click(menuItem("Open in New Window"));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(open).toHaveBeenCalledWith(
+      `${window.location.origin}${window.location.pathname}#/library/game-1`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+    open.mockRestore();
+  });
+
   it("hides the Launch-with entry when no additional executables exist", () => {
     renderMenu();
 

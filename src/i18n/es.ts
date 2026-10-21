@@ -6180,6 +6180,7 @@ export const es: TranslationDict = {
   "gameMenu.favorite": "Añadir a favoritos",
   "gameMenu.unfavorite": "Quitar de favoritos",
   "gameMenu.copyName": "Copiar nombre",
+  "gameMenu.openInNewWindow": "Abrir en una ventana nueva",
   "gameMenu.copyGameId": "Copiar ID del juego",
   "gameMenu.openSteamPage": "Abrir página de Steam",
   "ctx.addToWishlist": "Añadir a la lista de deseos",
