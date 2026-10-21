@@ -16,6 +16,88 @@ import {
 } from "../../utils/gameVersions";
 import { matchesQuery, parseQuery } from "./searchQuery";
 
+/** A search result row after duplicate merging, carrying the count of
+ *  listings folded into it (`mirrorCount` >= 1 means there were N rows;
+ *  the property itself is `undefined` on un-merged rows). */
+export type DownloadSearchResultWithMirrors = DownloadSearchResult & {
+  mirrorCount?: number;
+};
+
+/**
+ * Normalised title key used for cross-provider dedupe: lowercase with
+ * diacritics folded and every non-alphanumeric character collapsed to a
+ * space, so "Hollow.Knight™ — Voidheart Edition" and the clean listing
+ * share a key. Kept deliberately lighter than the Rust `normalize_title`
+ * (no noise-token stripping) — two listings of the *same release* seen
+ * from different sources differ far more in punctuation than in words.
+ */
+export function normalizeTitleKey(title: string): string {
+  return title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Collapse duplicate search results into the best row.
+ *
+ * Rows merge when they share a non-empty infohash (same torrent listed by
+ * several plugins) or — for rows without one, which is every built-in
+ * source hit — the same normalised title (see [`normalizeTitleKey`]). The
+ * highest-scored row survives; the duplicates contribute nothing but their
+ * mirrors: `uris` are appended (deduped), and `seeds`/`peers`/`verified`/
+ * `torrentUrl` are only adopted when the kept row lacks them. `mirrorCount`
+ * records how many listings were folded in, so the UI can badge rows that
+ * are available from several sources.
+ */
+export function mergeDuplicateResults(
+  results: DownloadSearchResult[],
+): DownloadSearchResultWithMirrors[] {
+  const out: DownloadSearchResultWithMirrors[] = [];
+  const index = new Map<string, number>();
+  for (const result of results) {
+    const infohash = result.infohash?.trim().toLowerCase() ?? "";
+    const title = normalizeTitleKey(result.title);
+    // A one-word normalised title ("Tetris") is too collision-prone —
+    // only multi-word titles participate in the title-key merge.
+    const key =
+      infohash || (title.split(/\s+/).length >= 2 ? `t:${title}` : "");
+    if (!key) {
+      out.push(result);
+      continue;
+    }
+    const at = index.get(key);
+    if (at == null) {
+      index.set(key, out.length);
+      out.push(result);
+      continue;
+    }
+    const kept = out[at];
+    const [winner, loser] =
+      result.matchScore > kept.matchScore ? [result, kept] : [kept, result];
+    const winnerMirrors = "mirrorCount" in winner ? (winner.mirrorCount ?? 1) : 1;
+    const loserMirrors = "mirrorCount" in loser ? (loser.mirrorCount ?? 1) : 1;
+    // The winner keeps its whole shape; the loser contributes its
+    // mirrors and any missing swarm/verification data.
+    const merged: DownloadSearchResultWithMirrors = {
+      ...winner,
+      mirrorCount: winnerMirrors + loserMirrors,
+    };
+    for (const uri of loser.uris) {
+      if (uri && !merged.uris.includes(uri)) merged.uris.push(uri);
+    }
+    merged.seeds = merged.seeds ?? loser.seeds;
+    merged.peers = merged.peers ?? loser.peers;
+    merged.verified = merged.verified ?? loser.verified;
+    merged.torrentUrl = merged.torrentUrl ?? loser.torrentUrl;
+    merged.uploadDate = merged.uploadDate ?? loser.uploadDate;
+    out[at] = merged;
+  }
+  return out;
+}
+
 /**
  * Single source of truth for "which URI does the user actually want to
  * download". The Rust match can carry explicit `uris` (mirrors) and an

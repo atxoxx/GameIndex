@@ -945,12 +945,15 @@ pub async fn search_downloads(
 
     // 5. Convert + apply the match floor, append after source results.
     for (row, raw) in raw_all {
-        if let Some(result) = raw_to_download_search_result(&row, &raw, &query) {
+        if let Some(result) =
+            raw_to_download_search_result(&row, &raw, &query, &[], None)
+        {
             out.push(result);
         }
     }
-    // 6. Collapse duplicate releases that share an infohash.
-    Ok(merge_by_infohash(out))
+    // 6. Collapse duplicate releases (same infohash or the same
+    //    normalised title across sources/plugins).
+    Ok(merge_duplicates(out))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -967,13 +970,28 @@ pub struct SearchProgressEvent {
 /// Streaming parallel search: queries built-in sources and every enabled plugin
 /// concurrently, emitting `search-downloads-progress` events in real time as each
 /// source finishes so the UI can render files live and display an incremental progress bar.
+///
+/// `release_year` and `aliases` carry identity hints from the game record
+/// (its own release date and IGDB/local alternative names). They sharpen
+/// scoring — a release that matches an alias perfectly still scores full
+/// marks, and a title whose embedded year conflicts with the game's is
+/// penalised — without changing which results are *requested*.
 #[tauri::command]
 pub async fn search_downloads_stream(
     app: tauri::AppHandle,
     query: String,
     steam_app_id: Option<u32>,
     search_id: String,
+    release_year: Option<i32>,
+    aliases: Option<Vec<String>>,
 ) -> Result<Vec<DownloadSearchResult>, String> {
+    let alias_list: Vec<String> = aliases
+        .unwrap_or_default()
+        .into_iter()
+        .map(|a| a.trim().to_string())
+        .filter(|a| !a.is_empty() && a != &query)
+        .take(8)
+        .collect();
     let source_manager = app.state::<Arc<source_manager::SourceManager>>();
     let plugin_manager = app.state::<Arc<PluginManager>>();
     plugin_manager.ensure_loaded();
@@ -995,20 +1013,40 @@ pub async fn search_downloads_stream(
     let completed_counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let all_results = Arc::new(tokio::sync::Mutex::new(Vec::new()));
 
-    // Task 1: Built-in sources
+    // Task 1: Built-in sources. Scored against the raw query *and* the
+    // game's alternative names, then year-adjusted. A cleaned short
+    // query is used as a one-shot fallback when the full title index
+    // has nothing useful (verbose titles often miss the FTS index).
     let sm = Arc::clone(&source_manager);
     let app_handle = app.clone();
     let query_sm = query.clone();
+    let aliases_sm = alias_list.clone();
     let search_id_sm = search_id.clone();
     let counter_sm = Arc::clone(&completed_counter);
     let all_results_sm = Arc::clone(&all_results);
 
     let builtin_task = tokio::spawn(async move {
-        let source_results: Vec<DownloadSearchResult> = sm
-            .search_online(&query_sm, steam_app_id)
-            .await
-            .unwrap_or_default()
+        let mut matched = sm.search_online(&query_sm, steam_app_id).await.unwrap_or_default();
+        if matched.is_empty() {
+            if let Some(cleaned) = source_manager::clean_search_query(&query_sm) {
+                matched = sm.search_online(&cleaned, steam_app_id).await.unwrap_or_default();
+            }
+        }
+        let source_results: Vec<DownloadSearchResult> = matched
             .into_iter()
+            .map(|mut m| {
+                m.match_score = source_manager::best_title_similarity(
+                    &query_sm,
+                    &aliases_sm,
+                    &m.title,
+                );
+                if let Some(year) = release_year {
+                    m.match_score =
+                        source_manager::apply_release_year_adj(m.match_score, &m.title, year);
+                }
+                m
+            })
+            .filter(|m| m.match_score >= MIN_MATCH_SCORE)
             .map(source_to_download_search_result)
             .collect();
 
@@ -1033,7 +1071,10 @@ pub async fn search_downloads_stream(
         );
     });
 
-    // Task 2..N: Run each enabled plugin in parallel
+    // Task 2..N: Run each enabled plugin in parallel, retrying with the
+    // cleaned short query when the full title produced nothing usable
+    // (subtitle/edition-heavy titles often miss on upstream sites that
+    // do plain substring matching).
     let mut plugin_tasks = Vec::new();
     for (row, source) in enabled {
         let pm = Arc::clone(&plugin_manager);
@@ -1042,28 +1083,32 @@ pub async fn search_downloads_stream(
         let search_id_p = search_id.clone();
         let counter_p = Arc::clone(&completed_counter);
         let all_results_p = Arc::clone(&all_results);
+        let aliases_p = alias_list.clone();
 
         let t = tokio::spawn(async move {
-            let plugin_raw = match pm.search_plugin(&row, &source, &query_p).await {
-                Ok(mut results) => {
-                    results.sort_by(|a, b| {
-                        b.upload_date
-                            .unwrap_or(i64::MIN)
-                            .cmp(&a.upload_date.unwrap_or(i64::MIN))
-                    });
-                    results
-                }
-                Err(e) => {
-                    eprintln!("[plugins] search {} failed: {e}", row.id);
-                    let _ = db::plugins::set_plugin_error(&pm.db, &row.id, Some(&e));
-                    Vec::new()
-                }
-            };
+            let mut query_used = query_p.clone();
+            let plugin_raw = plugin_search_raw(&pm, &row, &source, &query_used).await;
 
-            let plugin_results: Vec<DownloadSearchResult> = plugin_raw
-                .into_iter()
-                .filter_map(|raw| raw_to_download_search_result(&row, &raw, &query_p))
-                .collect();
+            let convert_all = |query: &str, raws: &[PluginRawResult]| -> Vec<DownloadSearchResult> {
+                raws.iter()
+                    .filter_map(|raw| {
+                        raw_to_download_search_result(&row, raw, query, &aliases_p, release_year)
+                    })
+                    .collect()
+            };
+            let mut matches = convert_all(&query_used, &plugin_raw);
+
+            if matches.is_empty() {
+                if let Some(cleaned) = source_manager::clean_search_query(&query_used) {
+                    let retry_raw = plugin_search_raw(&pm, &row, &source, &cleaned).await;
+                    if !retry_raw.is_empty() {
+                        query_used = cleaned;
+                        matches = convert_all(&query_used, &retry_raw);
+                    }
+                }
+            }
+
+            let plugin_results: Vec<DownloadSearchResult> = matches;
 
             let completed = counter_p.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
             let is_done = completed == total_sources;
@@ -1098,10 +1143,36 @@ pub async fn search_downloads_stream(
     // Collapse duplicate releases that share an infohash (the per-source
     // progress events above intentionally stay unmerged so the UI can
     // render results as they arrive).
-    Ok(merge_by_infohash(out))
+    Ok(merge_duplicates(out))
 }
 
 // ─── Mapping helpers ────────────────────────────────────────────────────────
+
+/// Shorthand for [`PluginManager::search_plugin`] that folds the error
+/// path into an empty result list (`last_error` is still recorded). Used
+/// by both the streaming and the initial plugin search rounds.
+async fn plugin_search_raw(
+    pm: &PluginManager,
+    row: &db::plugins::PluginRow,
+    source: &str,
+    query: &str,
+) -> Vec<PluginRawResult> {
+    match pm.search_plugin(row, source, query).await {
+        Ok(mut results) => {
+            results.sort_by(|a, b| {
+                b.upload_date
+                    .unwrap_or(i64::MIN)
+                    .cmp(&a.upload_date.unwrap_or(i64::MIN))
+            });
+            results
+        }
+        Err(e) => {
+            eprintln!("[plugins] search {} failed: {e}", row.id);
+            let _ = db::plugins::set_plugin_error(&pm.db, &row.id, Some(&e));
+            Vec::new()
+        }
+    }
+}
 
 fn source_to_download_search_result(m: MatchedDownload) -> DownloadSearchResult {
     DownloadSearchResult {
@@ -1143,10 +1214,18 @@ fn source_to_download_search_result(m: MatchedDownload) -> DownloadSearchResult 
 /// below the match floor. The `uris` array is built from the magnet,
 /// torrent URL and any direct download URLs (deduped, non-empty only);
 /// `magnet` falls back to the first `magnet:` URI inside `uris`.
+///
+/// Scoring takes the best of [`source_manager::title_similarity`] over the
+/// requested query plus the game's alternative names, then applies the
+/// release-year adjustment. The year penalty runs *after* the floor check
+/// so a decisive title match stays listed even if its year looks off —
+/// the modal hides it behind the weak-match accordion instead of losing it.
 fn raw_to_download_search_result(
     row: &db::plugins::PluginRow,
     raw: &PluginRawResult,
     query: &str,
+    aliases: &[String],
+    release_year: Option<i32>,
 ) -> Option<DownloadSearchResult> {
     // Score against `matchTitle` when the plugin supplies a clean one;
     // the display `title` is left untouched.
@@ -1156,10 +1235,13 @@ fn raw_to_download_search_result(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .unwrap_or(raw.title.as_str());
-    let match_score = source_manager::title_similarity(query, match_source);
+    let match_score = source_manager::best_title_similarity(query, aliases, match_source);
     if match_score < MIN_MATCH_SCORE {
         return None;
     }
+    let match_score = release_year
+        .map(|year| source_manager::apply_release_year_adj(match_score, match_source, year))
+        .unwrap_or(match_score);
 
     let mut uris: Vec<String> = Vec::with_capacity(4);
     for u in raw
@@ -1272,47 +1354,98 @@ fn normalize_infohash(raw: &str) -> String {
     raw.trim().to_ascii_lowercase()
 }
 
-/// Collapse results that share a normalised, non-empty `infohash`:
-/// keep the first occurrence, append any `uris` the later duplicates
-/// carry, and keep the larger `seeds`/`peers`. Results without an
-/// infohash (and all differing hashes) pass through untouched.
-fn merge_by_infohash(results: Vec<DownloadSearchResult>) -> Vec<DownloadSearchResult> {
+/// Collapse duplicate releases. Two key shapes:
+/// 1. an exact shared infohash (same torrent listed by several plugins), or
+/// 2. no infohash (built-in source results never carry one) but the same
+///    normalised primary title — editions/repack noise is folded away by
+///    [`source_manager::normalize_title`], so "Hollow Knight: Voidheart
+///    Edition" listings from different sources merge into one row.
+///
+/// The higher-scored row survives (its metadata is kept wholesale); the
+/// loser contributes any `uris` the winner lacks, and `seeds`/`peers`,
+/// `verified`, `torrentUrl`, `uploadDate` fall back to the loser's values
+/// when the winner has none. A *differing* infohash always stays a
+/// separate row — two distinct torrents of one release are two downloads.
+fn merge_duplicates(results: Vec<DownloadSearchResult>) -> Vec<DownloadSearchResult> {
     let mut out: Vec<DownloadSearchResult> = Vec::with_capacity(results.len());
     let mut index: HashMap<String, usize> = HashMap::new();
     for result in results {
-        let key = result
-            .infohash
-            .as_deref()
-            .map(normalize_infohash)
-            .filter(|h| !h.is_empty());
-        let Some(key) = key else {
-            out.push(result);
-            continue;
-        };
-        match index.get(&key) {
-            Some(&at) => {
-                let kept = &mut out[at];
-                for uri in result.uris {
-                    if !uri.is_empty() && !kept.uris.contains(&uri) {
-                        kept.uris.push(uri);
-                    }
+        match merge_key(&result) {
+            Some(key) => match index.get(&key) {
+                Some(&at) => merge_into(&mut out[at], result),
+                None => {
+                    index.insert(key, out.len());
+                    out.push(result);
                 }
-                kept.seeds = match (kept.seeds, result.seeds) {
-                    (Some(a), Some(b)) => Some(a.max(b)),
-                    (a, b) => a.or(b),
-                };
-                kept.peers = match (kept.peers, result.peers) {
-                    (Some(a), Some(b)) => Some(a.max(b)),
-                    (a, b) => a.or(b),
-                };
-            }
-            None => {
-                index.insert(key, out.len());
-                out.push(result);
-            }
+            },
+            None => out.push(result),
         }
     }
     out
+}
+
+/// Dedupe key for one result: `h:<infohash>` when the row carries one,
+/// else `t:<normalised-title>` when the title normalises to something
+/// usable. `None` rows never merge.
+fn merge_key(result: &DownloadSearchResult) -> Option<String> {
+    if let Some(hash) = result
+        .infohash
+        .as_deref()
+        .map(normalize_infohash)
+        .filter(|h| !h.is_empty())
+    {
+        return Some(format!("h:{hash}"));
+    }
+    let title = source_manager::normalize_title(&result.title);
+    if title.chars().count() >= 2 {
+        Some(format!("t:{title}"))
+    } else {
+        None
+    }
+}
+
+/// Fold `result` into the row already indexed under the same key.
+fn merge_into(kept: &mut DownloadSearchResult, result: DownloadSearchResult) {
+    let opt_max = |a: Option<u32>, b: Option<u32>| match (a, b) {
+        (Some(x), Some(y)) => Some(x.max(y)),
+        (x, y) => x.or(y),
+    };
+    if result.match_score > kept.match_score {
+        let loser = std::mem::replace(kept, result);
+        for uri in loser.uris {
+            if !uri.is_empty() && !kept.uris.contains(&uri) {
+                kept.uris.push(uri);
+            }
+        }
+        kept.seeds = opt_max(kept.seeds, loser.seeds);
+        kept.peers = opt_max(kept.peers, loser.peers);
+        if kept.verified.is_none() {
+            kept.verified = loser.verified;
+        }
+        if kept.torrent_url.is_none() {
+            kept.torrent_url = loser.torrent_url;
+        }
+        if kept.upload_date.is_none() {
+            kept.upload_date = loser.upload_date;
+        }
+    } else {
+        for uri in result.uris {
+            if !uri.is_empty() && !kept.uris.contains(&uri) {
+                kept.uris.push(uri);
+            }
+        }
+        kept.seeds = opt_max(kept.seeds, result.seeds);
+        kept.peers = opt_max(kept.peers, result.peers);
+        if kept.verified.is_none() {
+            kept.verified = result.verified;
+        }
+        if kept.torrent_url.is_none() {
+            kept.torrent_url = result.torrent_url;
+        }
+        if kept.upload_date.is_none() {
+            kept.upload_date = result.upload_date;
+        }
+    }
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -1572,7 +1705,7 @@ mod tests {
         // The first two share a hash modulo case/whitespace and must
         // collapse (union uris, keep the larger seeds/peers); the
         // different hash and the hashless result stay separate.
-        let merged = merge_by_infohash(vec![
+        let merged = merge_duplicates(vec![
             result_with(Some("ABC123"), &["magnet:a"], Some(5), Some(1)),
             result_with(Some("  abc123 "), &["magnet:b", "magnet:a"], Some(9), Some(2)),
             result_with(Some("deadbeef"), &["magnet:c"], Some(1), None),
@@ -1587,6 +1720,38 @@ mod tests {
             .iter()
             .any(|r| r.infohash.as_deref() == Some("deadbeef")));
         assert!(merged.iter().any(|r| r.infohash.is_none()));
+    }
+
+    #[test]
+    fn merge_duplicates_merges_same_title_without_infohash() {
+        // Built-in source rows carry no infohash — the normalised title
+        // is the merge key. The higher-scored row wins and the loser's
+        // uris + swarm data fold into it.
+        let mut a = result_with(None, &["magnet:a"], Some(2), None);
+        a.title = "Hollow Knight: Voidheart Edition".into();
+        a.match_score = 0.8;
+        let mut b = result_with(None, &["magnet:b"], Some(7), Some(3));
+        b.title = "Hollow Knight [FitGirl Repack]".into();
+        b.match_score = 0.9;
+        let merged = merge_duplicates(vec![a, b]);
+        assert_eq!(merged.len(), 1, "same game merges across sources/plugins");
+        assert_eq!(merged[0].uris, vec!["magnet:b", "magnet:a"]);
+        assert_eq!(merged[0].seeds, Some(7));
+    }
+
+    #[test]
+    fn merge_duplicates_keeps_different_games_apart() {
+        let mut a = result_with(None, &["magnet:a"], None, None);
+        a.title = "Elden Ring".into();
+        // Edition/repack noise normalises away, so this one merges with `a`.
+        let mut b = result_with(None, &["magnet:b"], None, None);
+        b.title = "Elden Ring [Gold Edition]".into();
+        let mut c = result_with(None, &["magnet:c"], None, None);
+        c.title = "Farming Simulator 22".into();
+        let merged = merge_duplicates(vec![a, b, c]);
+        assert_eq!(merged.len(), 2);
+        assert!(merged.iter().any(|r| r.title.contains("Elden")));
+        assert!(merged.iter().any(|r| r.title.contains("Farming")));
     }
 
     #[test]

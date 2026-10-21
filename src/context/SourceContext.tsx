@@ -33,6 +33,14 @@ import { useLanguage } from "./LanguageContext";
 import type { BulkAddResult, MatchedDownload, SourceLink } from "../types/source";
 import type { DownloadSearchResult, SearchProgressEvent } from "../types/plugins";
 
+/** Identity hints passed with a search so the backend can score matches
+ *  against the game's real metadata. Only releaseYear (from the game's
+ *  release date) and aliases (IGDB/local alternative names) today. */
+export interface SearchHints {
+  releaseYear?: number | null;
+  aliases?: string[];
+}
+
 interface SourceContextValue {
   /** Current list of sources, in user-added order. */
   sources: SourceLink[];
@@ -54,11 +62,14 @@ interface SourceContextValue {
    *  plugin-provided results pre-sorted newest-first. This is the default order;
    *  the download modal re-sorts both blocks when the user picks a sort. */
   searchDownloads: (query: string, steamAppId?: number) => Promise<DownloadSearchResult[]>;
-  /** Streaming parallel search: streams matches in real time with progress events per source. */
+  /** Streaming parallel search: streams matches in real time with progress events per source.
+   *  `hints` carries optional identity metadata (release year, alternative names) that
+   *  the backend uses to score matches; omitting it keeps the historical behaviour. */
   searchDownloadsStream: (
     query: string,
     steamAppId?: number,
     onProgress?: (event: SearchProgressEvent) => void,
+    hints?: SearchHints,
   ) => Promise<DownloadSearchResult[]>;
 }
 
@@ -264,6 +275,7 @@ export async function searchDownloadsStream(
   query: string,
   steamAppId?: number,
   onProgress?: (event: SearchProgressEvent) => void,
+  hints?: SearchHints,
 ): Promise<DownloadSearchResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
@@ -283,6 +295,8 @@ export async function searchDownloadsStream(
       query: trimmed,
       steamAppId: steamAppId ?? null,
       searchId,
+      releaseYear: hints?.releaseYear ?? null,
+      aliases: hints?.aliases?.length ? hints.aliases : null,
     });
   } finally {
     if (unlisten) unlisten();

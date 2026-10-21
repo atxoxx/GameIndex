@@ -41,6 +41,7 @@ import {
   extractSourceFilters,
   filterMatches,
   hosterNeedsBrowser,
+  mergeDuplicateResults,
   resolveSourceUri,
   sortMatches,
   webUrlFor,
@@ -151,6 +152,19 @@ export default function DownloadModal({
     return games.find((g) => g.id === gameId || (gameName && g.name.toLowerCase() === gameName.toLowerCase())) ?? null;
   }, [games, gameId, gameName]);
   const { installedVersion } = useGameUpdateCheck(currentGame);
+
+  // Identity hints for the download search: the game's release year and
+  // its IGDB/local alternative names sharpen backend scoring (year
+  // mismatch penalties, alias-perfect matches).
+  const gameHints = useMemo(() => {
+    const yearText = currentGame?.releaseDate?.trim().match(/(19|20)\d{2}/)?.[0];
+    const year = yearText ? Number.parseInt(yearText, 10) : null;
+    const aliases = (currentGame?.alternativeNames ?? [])
+      .map((a) => a.trim())
+      .filter((a) => a.length > 0 && a !== gameName)
+      .slice(0, 8);
+    return { releaseYear: year, aliases };
+  }, [currentGame, gameName]);
 
   const [step, setStep] = useState<DownloadStep>("checking");
   const [ownership, setOwnership] = useState<OwnershipResult | null>(null);
@@ -397,8 +411,11 @@ export default function DownloadModal({
 
   const scoreFor = useCallback(
     (m: DisplayMatch) =>
-      recommendationScore(m, { reliability: reliabilityFor(m.sourceName) }),
-    [reliabilityFor],
+      recommendationScore(m, {
+        reliability: reliabilityFor(m.sourceName),
+        gameYear: gameHints.releaseYear,
+      }),
+    [reliabilityFor, gameHints.releaseYear],
   );
 
   const sortedMatches = useMemo(() => {
@@ -427,9 +444,10 @@ export default function DownloadModal({
     if (pluginPick) return pluginPick.id;
     const ranked = rankByRecommendation(filteredMatches, (m) => ({
       reliability: reliabilityFor(m.sourceName),
+      gameYear: gameHints.releaseYear,
     }));
     return ranked[0]?.id ?? null;
-  }, [filteredMatches, reliabilityFor]);
+  }, [filteredMatches, reliabilityFor, gameHints.releaseYear]);
 
   const selectedMatch = useMemo(
     () => matches.find((m) => m.id === selectedId) ?? null,
@@ -638,8 +656,11 @@ export default function DownloadModal({
 
           if (progressEvt.newResults && progressEvt.newResults.length > 0) {
             accumulatedRaw.push(...progressEvt.newResults);
-            const sourceItems = accumulatedRaw.filter((r) => r.provider !== "plugin");
-            const pluginItems = accumulatedRaw.filter((r) => r.provider === "plugin");
+            // Cross-provider dedupe: the same release listed by several
+            // sources/plugins collapses into its best row (mirrors kept).
+            const merged = mergeDuplicateResults(accumulatedRaw);
+            const sourceItems = merged.filter((r) => r.provider !== "plugin");
+            const pluginItems = merged.filter((r) => r.provider === "plugin");
             const ordered = [
               ...[...sourceItems].sort((a, b) => b.matchScore - a.matchScore),
               ...pluginItems,
@@ -656,6 +677,7 @@ export default function DownloadModal({
             setStep((curr) => (curr === "checking" ? "results" : curr));
           }
         },
+        gameHints,
       ).catch((e: unknown) => {
         console.error("[DownloadModal] searchDownloadsStream failed:", e);
         return [];
@@ -667,7 +689,7 @@ export default function DownloadModal({
       setError(String(err));
       setStep("error");
     }
-  }, [gameName, steamAppId, searchDownloadsStream, localLibraryNames]);
+  }, [gameName, steamAppId, searchDownloadsStream, localLibraryNames, gameHints]);
 
   useEffect(() => {
     runSearch();

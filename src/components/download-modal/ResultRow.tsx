@@ -168,6 +168,15 @@ export function ResultRow({
 
             <ReliabilityBadge reliability={reliability} compact />
 
+            {(match.mirrorCount ?? 1) > 1 && (
+              <span
+                className="dl-badge dl-badge--format dl-badge--mirrors"
+                title={t("downloadModal.mirrorCountTooltip", { count: match.mirrorCount })}
+              >
+                {t("downloadModal.mirrorCount", { count: match.mirrorCount })}
+              </span>
+            )}
+
             {formatBadge && <span className="dl-badge dl-badge--format">{formatBadge}</span>}
 
             {versionLabel && (

@@ -1702,6 +1702,8 @@ export const zhCN: TranslationDict = {
   "downloads.graphIdleTitle": "等待流量",
   "downloads.graphIdleHint": "传输开始后即可看到速度采样。",
   "downloads.newlyAddedSource": "新添加的来源",
+  "downloadModal.mirrorCount": "{count} 个镜像",
+  "downloadModal.mirrorCountTooltip": "该资源在您的来源与插件中共找到 {count} 次",
   "downloads.noActive": "没有活动下载",
   "downloads.noActiveHint": "在上方粘贴磁力链接，或从游戏的商店 / 库页面发起一个。",
   "downloads.noActiveMatch": "没有符合筛选条件的活动下载。",

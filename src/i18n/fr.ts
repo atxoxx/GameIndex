@@ -1702,6 +1702,8 @@ export const fr: TranslationDict = {
   "downloads.graphIdleTitle": "En attente de trafic",
   "downloads.graphIdleHint": "Les mesures de débit apparaîtront dès qu'un transfert démarrera.",
   "downloads.newlyAddedSource": "Source nouvellement ajoutée",
+  "downloadModal.mirrorCount": "{count} miroirs",
+  "downloadModal.mirrorCountTooltip": "Cette version a été trouvée {count} fois dans tes sources et plugins",
   "downloads.noActive": "Aucun téléchargement actif",
   "downloads.noActiveHint": "Collez un lien magnet ci-dessus, ou lancez-en un depuis la page Boutique ou Bibliothèque d'un jeu.",
   "downloads.noActiveMatch": "Aucun téléchargement actif ne correspond à vos filtres.",

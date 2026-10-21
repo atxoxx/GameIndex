@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { filterMatches, sortMatches } from "./helpers";
+import {
+  filterMatches,
+  mergeDuplicateResults,
+  sortMatches,
+} from "./helpers";
 import type { DisplayMatch } from "./types";
 
 function match(overrides: Partial<DisplayMatch>): DisplayMatch {
@@ -60,5 +64,51 @@ describe("sortMatches recommended", () => {
     ];
     const sorted = sortMatches(list, "size_desc", false);
     expect(sorted.map((m) => m.id)).toEqual(["s1", "p2", "p1"]);
+  });
+});
+
+
+describe("mergeDuplicateResults", () => {
+  it("merges rows with the same infohash and unions mirrors", () => {
+    const merged = mergeDuplicateResults([
+      match({ id: "a", infohash: "ABC", uris: ["magnet:a"], matchScore: 0.5 }),
+      match({ id: "b", infohash: "abc ", uris: ["magnet:b"], matchScore: 0.7 }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].matchScore).toBe(0.7);
+    expect(merged[0].uris).toEqual(["magnet:b", "magnet:a"]);
+    expect(merged[0].mirrorCount).toBe(2);
+  });
+
+  it("merges same-title rows across provider without an infohash", () => {
+    const merged = mergeDuplicateResults([
+      match({ id: "a", title: "Elden Ring", matchScore: 0.8 }),
+      match({ id: "b", title: "elden.ring", matchScore: 0.6, provider: "plugin" }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].matchScore).toBe(0.8);
+    expect(merged[0].mirrorCount).toBe(2);
+  });
+
+  it("keeps different games apart", () => {
+    const merged = mergeDuplicateResults([
+      match({ id: "a", title: "Elden Ring" }),
+      match({ id: "b", title: "Farming Simulator 22" }),
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+
+  it("adopts swarm and verification data the winner lacks", () => {
+    const merged = mergeDuplicateResults([
+      match({ id: "a", title: "Elden Ring", matchScore: 0.9 }),
+      match({
+        id: "b", title: "Elden_RING", matchScore: 0.4,
+        seeds: 42, peers: 5, verified: true,
+      }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].seeds).toBe(42);
+    expect(merged[0].peers).toBe(5);
+    expect(merged[0].verified).toBe(true);
   });
 });

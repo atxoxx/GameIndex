@@ -1702,6 +1702,8 @@ export const de: TranslationDict = {
   "downloads.graphIdleTitle": "Warte auf Datenverkehr",
   "downloads.graphIdleHint": "Geschwindigkeitswerte erscheinen, sobald ein Transfer startet.",
   "downloads.newlyAddedSource": "Neu hinzugefügte Quelle",
+  "downloadModal.mirrorCount": "{count} Spiegel",
+  "downloadModal.mirrorCountTooltip": "Dieser Release wurde {count}× über deine Quellen und Plugins gefunden",
   "downloads.noActive": "Keine aktiven Downloads",
   "downloads.noActiveHint": "Füge oben einen Magnet-Link ein oder starte einen von der Store- oder Bibliotheksseite eines Spiels.",
   "downloads.noActiveMatch": "Keine aktiven Downloads passen zu deinen Filtern.",

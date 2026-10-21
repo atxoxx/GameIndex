@@ -13,6 +13,10 @@ export interface RecommendationContext {
   reliability?: number | null;
   /** Current time in ms (injectable for tests). */
   now?: number;
+  /** The requested game's release year (from its releaseDate). When set,
+   *  a result whose title embeds a conflicting year is heavily down-ranked
+   *  so the right game beats a wrong one with a buzzing swarm. */
+  gameYear?: number | null;
 }
 
 const WEIGHTS = {
@@ -50,6 +54,14 @@ function recencyScore(
   return clamp01(Math.exp(-ageDays / 365));
 }
 
+/** First 19xx/20xx year embedded in a release title, or null. */
+function titleYear(match: DownloadSearchResult): number | null {
+  const text = match.matchTitle ?? match.title;
+  if (!text) return null;
+  const found = text.match(/\b(19|20)\d{2}\b/);
+  return found ? Number.parseInt(found[0], 10) : null;
+}
+
 /**
  * Composite recommendation score 0–1. Missing signals are dropped and the
  * remaining weights renormalised, so a result without reliability data is
@@ -73,7 +85,23 @@ export function recommendationScore(
   const weighted = parts.reduce((sum, [weight, value]) => sum + weight * value, 0);
   const base = totalWeight > 0 ? weighted / totalWeight : 0;
   const verifiedBonus = match.verified ? 0.03 : 0;
-  return clamp01(base + verifiedBonus);
+  const score = clamp01(base + verifiedBonus);
+
+  // Year disambiguation, applied multiplicatively so it dominates the
+  // swarm/recency residuals but never flips an ordering on its own among
+  // equally right-or-wrong results. Titles carry the game's own year in
+  // many listings ("Elden Ring (2022)"); a *big* healthy swarm for the
+  // wrong game must not outrank the right one.
+  if (ctx.gameYear != null) {
+    const titleYearValue = titleYear(match);
+    if (titleYearValue != null) {
+      if (titleYearValue !== ctx.gameYear) {
+        return score * 0.55;
+      }
+      return clamp01(score + 0.02);
+    }
+  }
+  return score;
 }
 
 /**

@@ -545,7 +545,7 @@ fn derive_name_from_url(url: &str) -> String {
 /// subtitle; the subtitle is dropped so a search for "Elden Ring"
 /// doesn't get dragged down by a "Shadow of the Erdtree" repack
 /// whose primary name is still "Elden Ring".
-fn normalize_title(title: &str) -> String {
+pub(crate) fn normalize_title(title: &str) -> String {
     // 1. Insert spaces at camelCase / letter-digit boundaries so
     //    "Cyberpunk2077", "cyberpunk.2077" and "cyberpunk_2077" all
     //    tokenise identically.
@@ -590,14 +590,6 @@ fn normalize_title(title: &str) -> String {
 
     // 5. Remove edition / collection / platform noise that inflates
     //    catalog titles without changing identity.
-    const NOISE_TOKENS: &[&str] = &[
-        "edition", "definitive", "game", "of", "the", "year", "goty", "deluxe", "collectors",
-        "collector", "complete", "special", "ultimate", "premium", "standard", "gold", "platinum",
-        "anniversary", "remastered", "remaster", "enhanced", "directors", "director", "cut",
-        "pc", "windows", "linux", "mac", "steam", "gog", "epic", "fitgirl", "repack", "v",
-        "for", "and", "with", "pack", "iso", "setup", "installer", "portable", "build", "update",
-        "patch", "hotfix", "multi", "nintendo", "switch", "playstation", "xbox", "ps4", "ps5",
-    ];
     let tokens: Vec<String> = without_parens
         .split_whitespace()
         .map(|tok| tok.trim_matches('-').to_string())
@@ -735,6 +727,15 @@ pub(crate) fn title_similarity(raw_query: &str, title: &str) -> f32 {
             // Bounded credit for prefix / truncation (typo tolerance)
             // without pretending it is a full match.
             weighted_match += position_weight * 0.75;
+        } else if let Some(fuzzy_credit) =
+            fuzzy_token_credit(qt, t_tokens_ordered.iter().map(|s| s.as_str()))
+        {
+            // Bounded edit-distance tolerance for mid-word typos, which
+            // neither the exact nor the prefix branch can rescue
+            // ("eldne ring", "cyberpnk 2077"). Credit sits below the
+            // prefix tier (0.75) because a 1–2 edit typo may also be a
+            // genuinely different word of the same length.
+            weighted_match += position_weight * fuzzy_credit;
         }
     }
     let recall = if weight_total > 0.0 {
@@ -778,6 +779,220 @@ pub(crate) fn title_similarity(raw_query: &str, title: &str) -> f32 {
     let score =
         (recall - noise_penalty).max(0.0) * 0.85 + containment + year_adj + all_exact_bonus;
     score.clamp(0.0, 1.0)
+}
+
+/// Bounded edit distance between two short strings (Wagner–Fischer with an
+/// early-exit band). Returns `Some(distance)` when the distance is `<= max`,
+/// `None` otherwise. Titles are short (≤ ~40 chars) so the O(n·m) table is
+/// cheap, but `max` is always 2 in practice which keeps the inner loops tiny.
+fn bounded_edit_distance(a: &[char], b: &[char], max: usize) -> Option<usize> {
+    let (shorter, longer) = if a.len() <= b.len() { (a, b) } else { (b, a) };
+    // Distance is at least the length difference; bail before building a table.
+    if longer.len() - shorter.len() > max {
+        return None;
+    }
+    let m = shorter.len();
+    let mut prev: Vec<usize> = (0..=m).collect();
+    for (i, lc) in longer.iter().enumerate() {
+        let mut cur = vec![i + 1];
+        for (j, sc) in shorter.iter().enumerate() {
+            let cost = usize::from(lc != sc);
+            let val = (prev[j] + cost).min(cur[j] + 1).min(prev[j + 1] + 1);
+            cur.push(val);
+        }
+        // Row pruning: if every cell of this row is beyond `max`, the final
+        // distance cannot come back down.
+        if *cur.iter().min().unwrap_or(&usize::MAX) > max {
+            return None;
+        }
+        prev = cur;
+    }
+    let d = prev[m];
+    if d <= max {
+        Some(d)
+    } else {
+        None
+    }
+}
+
+/// Per-token fuzzy credit for a query token that failed both the exact and
+/// the prefix branch. Tokens shorter than 4 characters are skipped — short
+/// words collide too easily under edit distance ("war"/"ward"/"earn") — and
+/// all-digit tokens never fuzz (years must conflict, not approximately
+/// match). A 1-edit match earns the same credit as a prefix match (0.75); a
+/// 2-edit match earns less (0.6) because it may well be a different word.
+fn fuzzy_token_credit<'a, I: Iterator<Item = &'a str>>(
+    query_tok: &str,
+    title_tokens: I,
+) -> Option<f32> {
+    let q_chars: Vec<char> = query_tok.chars().collect();
+    if q_chars.len() < 4 || q_chars.iter().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let best = title_tokens
+        .filter_map(|tt| {
+            let t_chars: Vec<char> = tt.chars().collect();
+            if t_chars.len() < 3 {
+                return None;
+            }
+            if single_transposition(&q_chars, &t_chars) {
+                return Some(1);
+            }
+            bounded_edit_distance(&q_chars, &t_chars, 2)
+        })
+        .min()?;
+    match best {
+        0 | 1 => Some(0.75),
+        _ => Some(0.6),
+    }
+}
+
+/// True when the two tokens differ by exactly one adjacent pair swap
+/// ("elden"/"eldne") — the classic one-keystroke transposition that plain
+/// Levenshtein counts as two edits.
+fn single_transposition(a: &[char], b: &[char]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut first: Option<usize> = None;
+    for (i, (ca, cb)) in a.iter().zip(b.iter()).enumerate() {
+        if ca != cb {
+            if let Some(prev) = first {
+                // Only two mismatches qualify, adjacent and swapped.
+                return i == prev + 1 && a[prev] == *cb && *ca == b[prev];
+            }
+            first = Some(i);
+        }
+    }
+    false
+}
+
+/// Edition / platform / repack noise tokens, shared between
+/// [`normalize_title`] (matching) and [`clean_search_query`] (query
+/// preparation). Case-insensitive comparisons use the lowercase forms here.
+static NOISE_TOKENS: &[&str] = &[
+    "edition", "definitive", "game", "of", "the", "year", "goty", "deluxe", "collectors",
+    "collector", "complete", "special", "ultimate", "premium", "standard", "gold", "platinum",
+    "anniversary", "remastered", "remaster", "enhanced", "directors", "director", "cut", "pc",
+    "windows", "linux", "mac", "steam", "gog", "epic", "fitgirl", "repack", "v", "for", "and",
+    "with", "pack", "iso", "setup", "installer", "portable", "build", "update", "patch",
+    "hotfix", "multi", "nintendo", "switch", "playstation", "xbox", "ps4", "ps5",
+    // Repack / scene groups. camelCase splitting turns "FitGirl" into two
+    // tokens, so both halves are listed; the rest collapse 1:1.
+    "fit", "girl", "codex", "plaza", "skidrow", "cpy", "goldberg", "empress", "tenoke",
+];
+
+/// Produce the fallback search string for a raw game title: the primary
+/// name before a subtitle separator, with edition/platform noise tokens
+/// and a trailing year removed, whitespace collapsed. Unlike
+/// [`normalize_title`] it preserves the original casing (plugins may
+/// render the query on their request URL) and it falls back progressively
+/// — primary name, then the raw query — so it never returns a
+/// too-short-to-search string.
+///
+/// Returns `None` when the clean-up would not change anything (the
+/// caller then skips the retry rather than duplicating the first pass).
+///
+/// ```text
+/// "Hollow Knight: Voidheart Edition" -> Some("Hollow Knight")
+/// "ELDEN RING™ (2022) Deluxe v3"     -> Some("ELDEN RING")
+/// "Elden Ring"                       -> None
+/// ```
+pub fn clean_search_query(query: &str) -> Option<String> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    // Primary name before `:` / spaced dash (case preserved, trademark
+    // glyphs stripped so the plugin request URL stays clean).
+    let primary = split_primary(trimmed).replace(['®', '™', '©'], "");
+    let primary = primary.as_str();
+
+    // Strip parens/brackets content keywords and noise tokens, keeping case.
+    let is_versionish = |tok: &str| {
+        // "v3", "v1.4" style build markers — not part of the game name.
+        let l = tok.to_ascii_lowercase();
+        l.len() > 1
+            && l.starts_with('v')
+            && l[1..].chars().next().map_or(false, |c| c.is_ascii_digit())
+    };
+    let flattened = primary.replace(['(', ')', '[', ']', '{', '}'], " ");
+    let tokens: Vec<&str> = flattened
+        .split_whitespace()
+        .map(|tok| tok.trim_matches('.').trim_matches('-'))
+        .filter(|tok| !tok.is_empty())
+        .collect();
+    let kept: Vec<&str> = tokens
+        .iter()
+        .copied()
+        .filter(|tok| {
+            let last = tok.ends_with(|c: char| c.is_ascii_digit());
+            // Drop a trailing 4-digit year token, keep "Cyberpunk2077" (one word).
+            !last || tok.len() != 4
+        })
+        .filter(|tok| !NOISE_TOKENS.contains(&tok.to_ascii_lowercase().as_str()))
+        .filter(|tok| !is_versionish(tok))
+        .map(|tok| tok.trim())
+        .filter(|tok| !tok.is_empty())
+        .collect();
+
+    let joined = kept.join(" ");
+    let cleaned = {
+        let candidate = if joined.chars().count() >= 3 {
+            joined
+        } else {
+            // Prefer the raw primary (may already be noise-free when the
+            // tokens collapsed to nothing, e.g. "The Dukes").
+            split_primary(trimmed).to_string()
+        };
+        if candidate.chars().count() >= 3 {
+            candidate
+        } else {
+            trimmed.to_string()
+        }
+    };
+
+    let same_tokens = cleaned.split_whitespace().eq(trimmed.split_whitespace());
+    let differs = !same_tokens && !cleaned.eq_ignore_ascii_case(trimmed);
+    if differs {
+        Some(cleaned)
+    } else {
+        None
+    }
+}
+
+/// Similarity of a title against the best of several query candidates —
+/// the raw game name plus optional alternative names (local/IGDB
+/// aliases). A hit that matches any alias perfectly is a perfect hit.
+pub fn best_title_similarity(query: &str, aliases: &[String], title: &str) -> f32 {
+    let mut best = title_similarity(query, title);
+    for alias in aliases {
+        if alias == query {
+            continue;
+        }
+        let s = title_similarity(alias, title);
+        if s > best {
+            best = s;
+        }
+    }
+    best
+}
+
+/// Adjust a similarity score using an independent release-year signal
+/// (game `releaseDate`). Only applies when the title itself contains a
+/// 4-digit year: matching year → bonus, conflicting year → penalty.
+pub fn apply_release_year_adj(score: f32, title: &str, release_year: i32) -> f32 {
+    let tn = normalize_title(title);
+    if tn.is_empty() {
+        return score;
+    }
+    let tokens = token_list(&tn);
+    match find_year(&tokens) {
+        Some(year) if year == release_year.unsigned_abs() => (score + 0.08).clamp(0.0, 1.0),
+        Some(_) => (score - 0.12).clamp(0.0, 1.0),
+        None => score,
+    }
 }
 
 /// Count `tr=` parameter occurrences in a magnet URI.
@@ -1050,6 +1265,84 @@ mod tests {
     #[test]
     fn word_order_does_not_matter() {
         assert!(title_similarity("ring elden", "Elden Ring") >= 0.9);
+    }
+
+    #[test]
+    fn typo_mid_word_is_tolerated() {
+        // A one-edit typo inside a token now earns credit instead of zero,
+        // keeping the hit far above the 0.2 match floor.
+        let score = title_similarity("eldne ring", "Elden Ring");
+        assert!(score >= 0.6, "expected a strong score, got {score}");
+    }
+
+    #[test]
+    fn two_edit_typo_stays_above_the_floor() {
+        let score = title_similarity("cyberpnk", "Cyberpunk 2077");
+        assert!(score >= 0.3, "expected a usable score, got {score}");
+    }
+
+    #[test]
+    fn short_tokens_are_not_fuzzy_matched() {
+        // Edit distance must not rescue unrelated short words.
+        let clean = title_similarity("war ii", "Rayman Legends");
+        assert!(clean < 0.3, "expected a low score, got {clean}");
+    }
+
+    #[test]
+    fn fuzzy_does_not_rescue_unrelated_titles() {
+        let score = title_similarity("Dark Souls", "Farm Frenzy");
+        assert!(score < 0.3, "expected a low score, got {score}");
+    }
+
+    #[test]
+    fn clean_query_strips_subtitle_and_edition_noise() {
+        assert_eq!(
+            clean_search_query("Hollow Knight: Voidheart Edition").as_deref(),
+            Some("Hollow Knight")
+        );
+        assert_eq!(
+            clean_search_query("ELDEN RING Deluxe v3").as_deref(),
+            Some("ELDEN RING")
+        );
+    }
+
+    #[test]
+    fn clean_query_skips_already_clean_titles() {
+        assert_eq!(clean_search_query("Elden Ring"), None);
+        assert_eq!(clean_search_query("Half-Life 2"), None);
+    }
+
+    #[test]
+    fn clean_query_falls_back_to_primary() {
+        // The primary is kept even when every token looks like noise —
+        // a worse fallback would return an empty and useless query.
+        let cleaned = clean_search_query("The Dukes: The");
+        assert!(cleaned.is_some());
+        assert!(cleaned.unwrap().chars().count() >= 3);
+    }
+
+    #[test]
+    fn alias_match_scores_as_a_perfect_hit() {
+        let aliases = vec!["Hollow Knight: Voidheart Edition".to_string()];
+        let score = best_title_similarity(
+            "hollow knight",
+            &aliases,
+            "Hollow Knight Voidheart Edition",
+        );
+        assert!(score >= 0.95, "expected a near-perfect score, got {score}");
+    }
+
+    #[test]
+    fn release_year_adjusts_score() {
+        let same = apply_release_year_adj(0.8, "Elden Ring (2022) Repack", 2022);
+        let other = apply_release_year_adj(0.8, "Elden Ring (2019) Trailer", 2022);
+        assert!(same > 0.8);
+        assert!(other < 0.8);
+    }
+
+    #[test]
+    fn release_year_ignored_when_title_has_no_year() {
+        assert_eq!(apply_release_year_adj(0.7, "Hollow Knight", 2022), 0.7);
     }
 }
 

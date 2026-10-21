@@ -57,6 +57,26 @@ describe("recommendationScore", () => {
     const verified = recommendationScore(match({ verified: true }), { now });
     expect(verified).toBeGreaterThan(base);
   });
+
+  it("down-ranks a release whose year conflicts with the game", () => {
+    const now = Date.parse("2026-01-01T00:00:00Z");
+    const right = recommendationScore(
+      match({ title: "Elden Ring (2022)", seeds: 90 }),
+      { now, gameYear: 2022 },
+    );
+    const wrong = recommendationScore(
+      match({ title: "Elden Ring (2019) Trainer", seeds: 90 }),
+      { now, gameYear: 2022 },
+    );
+    expect(right).toBeGreaterThan(wrong);
+  });
+
+  it("ignores the year signal when the title carries no year", () => {
+    const now = Date.parse("2026-01-01T00:00:00Z");
+    const base = recommendationScore(match({}), { now });
+    const withYear = recommendationScore(match({}), { now, gameYear: 2022 });
+    expect(withYear).toBe(base);
+  });
 });
 
 describe("rankByRecommendation", () => {
@@ -67,5 +87,25 @@ describe("rankByRecommendation", () => {
     const c = match({ title: "C", matchScore: 0.9, seeds: 30 });
     const ranked = rankByRecommendation([a, b, c], () => ({ now }));
     expect(ranked.map((m) => m.title)).toEqual(["C", "B", "A"]);
+  });
+
+  it("lets the year-correct but smaller swarm win over the wrong year", () => {
+    const now = Date.parse("2026-01-01T00:00:00Z");
+    const rightGame = match({
+      title: "Elden Ring (2022) FitGirl",
+      matchScore: 0.95,
+      seeds: 8,
+    });
+    const wrongGame = match({
+      title: "Elden Ring (2019) chiptuneOST",
+      matchScore: 0.95,
+      seeds: 400,
+      peers: 120,
+    });
+    const ranked = rankByRecommendation(
+      [wrongGame, rightGame],
+      () => ({ now, gameYear: 2022 }),
+    );
+    expect(ranked[0].title).toContain("(2022)");
   });
 });

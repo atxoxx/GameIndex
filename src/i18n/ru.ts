@@ -1702,6 +1702,8 @@ export const ru: TranslationDict = {
   "downloads.graphIdleTitle": "Ожидание трафика",
   "downloads.graphIdleHint": "Замеры скорости появятся, как только начнётся передача.",
   "downloads.newlyAddedSource": "Недавно добавленный источник",
+  "downloadModal.mirrorCount": "{count} зеркал",
+  "downloadModal.mirrorCountTooltip": "Этот релиз найден {count} раз(а) в ваших источниках и плагинах",
   "downloads.noActive": "Нет активных загрузок",
   "downloads.noActiveHint": "Вставьте magnet-ссылку выше или запустите загрузку со страницы Магазина или Библиотеки игры.",
   "downloads.noActiveMatch": "Нет активных загрузок по вашим фильтрам.",

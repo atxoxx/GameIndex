@@ -40,7 +40,12 @@ import type { VersionComparisonResult } from "../../utils/gameVersions";
 /** A search match (source or plugin) plus a stable id (assigned per
  *  search) so selection survives re-sorting of the list. Plugin items
  *  extend the shape with `provider: "plugin"` + their extra fields. */
-export type DisplayMatch = DownloadSearchResult & { id: string };
+export type DisplayMatch = DownloadSearchResult & {
+  id: string;
+  /** Number of duplicate listings folded into this row by
+   *  `mergeDuplicateResults` (1 = no duplicates were present). */
+  mirrorCount?: number;
+};
 
 /** Option item for the download source selection / filter controls. */
 export interface SourceFilterOption {
