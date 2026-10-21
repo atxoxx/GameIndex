@@ -31,6 +31,8 @@ import { AdaptiveThemeSync } from "./AdaptiveThemeSync";
 import { GameAccentSync } from "./GameAccentSync";
 import GameDetailTitleBar from "./game/GameDetailTitleBar";
 import ResizeHandles from "./ResizeHandles";
+import { GamepadProvider } from "../hooks/GamepadProvider";
+import LaunchSplashBridge from "./LaunchSplashBridge";
 import { Skeleton } from "./ui/Skeleton";
 import { isTauriRuntime } from "../utils/gameDetailWindow";
 // The popout renders the same pages as the main shell, so it needs the same
@@ -152,24 +154,27 @@ export default function GameDetailWindow() {
                                         <PriceProvider>
                                           <BigScreenProvider headless>
                                             <PresenceProvider>
-                                              <AdaptiveThemeSync />
-                                              <GameAccentSync />
-                                              <MemoryRouter initialEntries={[initialRoute]}>
-                                                <div className="game-detail-window">
-                                                  <GameDetailTitleBar />
-                                                  <ResizeHandles />
-                                                  <main className="game-detail-window__body">
-                                                    <DetailNavigator />
-                                                    <Suspense fallback={<DetailWindowSkeleton />}>
-                                                      <Routes>
-                                                        <Route path="/library/:gameId" element={<LibraryDetailRoute />} />
-                                                        <Route path="/store/:gameSlug" element={<StoreGameDetail hideBackLink />} />
-                                                        <Route path="*" element={<UnknownDetailRoute />} />
-                                                      </Routes>
-                                                    </Suspense>
-                                                  </main>
-                                                </div>
-                                              </MemoryRouter>
+                                              <GamepadProvider enabled={false}>
+                                                <GameAccentSync />
+                                                <LaunchSplashBridge />
+                                                <MemoryRouter initialEntries={[initialRoute]}>
+                                                  <AdaptiveThemeSync />
+                                                  <div className="game-detail-window">
+                                                    <GameDetailTitleBar />
+                                                    <ResizeHandles />
+                                                    <main className="game-detail-window__body">
+                                                      <DetailNavigator />
+                                                      <Suspense fallback={<DetailWindowSkeleton />}>
+                                                        <Routes>
+                                                          <Route path="/library/:gameId" element={<LibraryDetailRoute />} />
+                                                          <Route path="/store/:gameSlug" element={<StoreGameDetail hideBackLink />} />
+                                                          <Route path="*" element={<UnknownDetailRoute />} />
+                                                        </Routes>
+                                                      </Suspense>
+                                                    </main>
+                                                  </div>
+                                                </MemoryRouter>
+                                              </GamepadProvider>
                                             </PresenceProvider>
                                           </BigScreenProvider>
                                         </PriceProvider>
