@@ -17,6 +17,7 @@ import {
 import WebviewControls from "../webview/WebviewControls";
 import { IconExternalLink, IconMap } from "./icons";
 import type { MapSourceResult } from "../../types/game";
+import { currentWindowLabel } from "../../utils/windowLabel";
 
 const MAP_WEBVIEW_PREFIX = "mapgenie-preview-";
 
@@ -324,6 +325,7 @@ export default function MapTab({
           width: rect.width,
           height: rect.height,
           contentFilter: contentFilterEnabled,
+          window: currentWindowLabel(),
         });
         const webview = await Webview.getByLabel(label);
         if (!webview) throw new Error("map webview was not created");

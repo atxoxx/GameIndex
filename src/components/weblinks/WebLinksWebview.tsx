@@ -8,6 +8,7 @@ import { OpenExternalIcon, SteamIcon } from "./WebLinksIcons";
 import type { SourceDef, SteamSectionDef } from "./types";
 import type { Game } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
+import { currentWindowLabel } from "../../utils/windowLabel";
 
 const PREVIEW_LABEL_PREFIX = "weblinks-preview-";
 
@@ -227,6 +228,7 @@ export default function WebLinksWebview({
           width: rect.width,
           height: rect.height,
           contentFilter: contentFilterEnabled,
+          window: currentWindowLabel(),
         });
         const webview = await Webview.getByLabel(uniqueLabel);
         if (!webview) throw new Error("preview webview was not created");
