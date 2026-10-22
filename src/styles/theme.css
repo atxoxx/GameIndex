@@ -316,6 +316,9 @@
   --shadow-pop: var(--elevation-4);
   --size-xs: var(--text-xs);
   --page-padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+  /* Inline gutter as its own token: pages that bleed a hero to the panel
+   * edge need the horizontal value alone (see `.game-page--immersive`). */
+  --page-padding-inline: var(--space-2xl);
 }
 
 /* ============================================================================
@@ -326,6 +329,7 @@
 @media (max-width: 1280px), (max-height: 800px) {
   :root {
     --page-padding: var(--space-md) var(--space-lg) var(--space-2xl);
+    --page-padding-inline: var(--space-lg);
     --space-xl: 18px;
     --space-2xl: 24px;
     --space-3xl: 36px;
@@ -342,6 +346,7 @@
     --space-3xl: 28px;
     --space-4xl: 48px;
     --page-padding: var(--space-sm) var(--space-lg) var(--space-xl);
+    --page-padding-inline: var(--space-lg);
   }
 }
 
@@ -352,6 +357,7 @@
     --space-xl: 14px;
     --space-2xl: 18px;
     --page-padding: var(--space-sm) var(--space-md) var(--space-lg);
+    --page-padding-inline: var(--space-md);
   }
 }
 
@@ -685,7 +691,7 @@ html[data-ui-mode="simple"] .ui-complete-only {
   display: none !important;
 }
 
-html[data-ui-mode="simple"] .game-hero__kpis {
+html[data-ui-mode="simple"] .game-hero__stats {
   gap: var(--space-xs);
 }
 

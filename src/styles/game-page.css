@@ -5,6 +5,77 @@
   box-sizing: border-box;
 }
 
+/* ── Immersive detail pages (Library game + Store detail) ─────────────────
+ * The hero is full-bleed: it drops the page's top gutter, escapes the inline
+ * gutter to the panel edges, and the page's own top bar floats over the art
+ * instead of sitting above it. `:has()` keeps the ordinary flow whenever the
+ * hero is switched off in the Layout Studio, so a hidden hero never leaves a
+ * transparent bar stranded over the content that follows. */
+.game-page--immersive {
+  position: relative;
+  padding-top: 0;
+}
+
+.game-page--immersive:not(:has(.game-hero)) {
+  padding-top: var(--space-xl);
+}
+
+.game-page--immersive > .ui-item-gameHero,
+.game-page--immersive > .store-detail-hero {
+  margin-inline: calc(-1 * var(--page-padding-inline, var(--space-2xl)));
+}
+
+.game-page--immersive:has(.game-hero) > .game-top-bar {
+  position: absolute;
+  top: var(--space-md);
+  inset-inline: var(--space-md);
+  z-index: 5;
+  margin: 0;
+}
+
+/* Controls that live on top of artwork read as scrim ink, not surface ink. */
+.game-page--immersive .game-top-bar .game-back-link,
+.game-page--immersive .game-top-bar .game-edit-btn,
+.game-page--immersive .game-top-bar .game-quick-actions__trigger {
+  color: var(--scrim-text-muted);
+  background: color-mix(in srgb, var(--scrim-dark) 28%, transparent);
+  border-color: color-mix(in srgb, var(--scrim-text) 14%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: none;
+}
+
+.game-page--immersive .game-top-bar .game-back-link:hover,
+.game-page--immersive .game-top-bar .game-edit-btn:hover,
+.game-page--immersive .game-top-bar .game-quick-actions__trigger:hover,
+.game-page--immersive .game-top-bar .game-quick-actions__trigger.active {
+  color: var(--scrim-text);
+  background: color-mix(in srgb, var(--scrim-dark) 52%, transparent);
+  border-color: color-mix(in srgb, var(--scrim-text) 26%, transparent);
+}
+
+.game-page--immersive .game-top-bar .game-edit-tab-shortcuts {
+  border-left-color: color-mix(in srgb, var(--scrim-text) 18%, transparent);
+}
+
+/* Let the tab strip sit on the tail of the hero's fade instead of starting a
+ * new block below it. The `position` of `.game-tabs` is deliberately left
+ * alone: the base rule makes it `sticky` and carries a `top` offset for that
+ * mode, and switching it to `relative` would turn that `top` into a visual
+ * shift that drags the strip out of its flow slot and over the content
+ * below. Only the wrapper (a plain div) is positioned, so it can carry the
+ * stacking order for the Library page. */
+.game-page--immersive > .ui-item-gameTabs {
+  position: relative;
+  z-index: 6;
+  margin-top: calc(-1 * var(--space-md));
+}
+
+.game-page--immersive > .game-tabs {
+  z-index: 6;
+  margin-top: calc(-1 * var(--space-md));
+}
+
 
 /* Alias .game-launch-btn → .ui-btn (primary + glow) */
 .game-launch-btn {
@@ -2031,121 +2102,6 @@
   color: var(--color-danger);
 }
 
-/* Hero Head Top Layout */
-.game-hero__head-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  margin-bottom: var(--space-xs);
-}
-
-.game-hero-rating-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2xs);
-  padding: var(--space-3xs) var(--space-sm);
-  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
-  color: var(--color-stale);
-  border-radius: var(--radius-full);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  transition: all var(--transition-fast);
-}
-
-.game-hero-rating-badge--high {
-  background: color-mix(in srgb, var(--color-success) 22%, transparent);
-  border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
-  color: var(--color-success);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-success) 25%, transparent);
-}
-.game-hero-rating-badge--high .game-hero-rating-star {
-  color: var(--color-success);
-}
-
-.game-hero-rating-badge--mid {
-  background: color-mix(in srgb, var(--color-warning) 22%, transparent);
-  border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
-  color: var(--color-warning);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 25%, transparent);
-}
-.game-hero-rating-badge--mid .game-hero-rating-star {
-  color: var(--color-warning);
-}
-
-.game-hero-rating-badge--low {
-  background: color-mix(in srgb, var(--color-danger) 22%, transparent);
-  border-color: color-mix(in srgb, var(--color-danger) 45%, transparent);
-  color: var(--color-danger);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-danger) 25%, transparent);
-}
-.game-hero-rating-badge--low .game-hero-rating-star {
-  color: var(--color-danger);
-}
-
-.game-hero-rating-star {
-  color: var(--color-warning);
-}
-
-.game-hero-genres {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-top: var(--space-3xs);
-}
-
-.game-hero-genre-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-3xs) var(--space-sm);
-  border-radius: var(--radius-full);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: 0.2px;
-  background: color-mix(in srgb, var(--color-surface) 60%, transparent);
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-text-secondary);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: all var(--transition-fast);
-}
-
-.game-hero-genre-chip:hover {
-  border-color: color-mix(in srgb, var(--game-accent, var(--color-accent)) 40%, var(--color-border-light));
-  color: var(--color-text-primary);
-  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
-}
-
-.game-hero__poster {
-  position: relative;
-}
-
-.game-hero__poster-badge {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  z-index: 3;
-  padding: var(--space-3xs) var(--space-sm);
-  border-radius: var(--radius-full);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  background: var(--scrim-dark);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--scrim-border);
-  color: var(--scrim-text);
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.game-hero__poster-badge--installed {
-  background: color-mix(in srgb, var(--color-success) 14%, var(--scrim-dark));
-  border-color: color-mix(in srgb, var(--color-success) 45%, var(--scrim-border));
-}
-
 /* Info KPI Card Exe & AppID */
 .info-exe-path-container {
   display: flex;
@@ -3004,32 +2960,14 @@
 
 /* ── Handhelds / Steam Deck (<= 1024px) ──────────────────────────────────── */
 @media (max-width: 1024px) {
-  .game-hero {
-    height: auto;
-    min-height: 0;
-  }
-
   .game-hero__actions {
     flex-wrap: wrap;
-    gap: var(--space-xs);
-  }
-
-  .game-hero__kpis {
     gap: var(--space-xs);
   }
 }
 
 /* ── 4K & Ultra-wide Displays (>= 2561px) ─────────────────────────────────── */
 @media (min-width: 2561px) {
-  .game-hero {
-    min-height: 520px;
-    padding: var(--space-2xl) var(--space-3xl);
-  }
-
-  .game-hero__title {
-    font-size: var(--text-5xl);
-  }
-
   .game-launch-btn {
     padding: var(--space-lg) var(--space-3xl);
     font-size: var(--text-lg);

@@ -8,6 +8,7 @@
 @import "./styles/settings.css";
 @import "./styles/game-cards.css";
 @import "./styles/game-page.css";
+@import "./styles/game-hero.css";
 @import "./styles/exec-extras.css";
 @import "./styles/game-edit.css";
 @import "./styles/toasts.css";

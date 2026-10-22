@@ -526,8 +526,8 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
     activeTab !== "overview" && !isTabVisible(activeTab) ? "overview" : activeTab;
 
   return (
-    <div className="game-page store-detail-page">
-      {/* Top Breadcrumb Bar */}
+    <div className="game-page game-page--immersive store-detail-page">
+      {/* Top Breadcrumb Bar — floats over the hero art. */}
       <div className="game-top-bar">
         {topBarOrder.map((key) => {
           if (topBarHidden[key]) return null;

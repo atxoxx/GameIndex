@@ -9,20 +9,14 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { KpiTile } from "../ui";
 import PageWidget from "../PageWidget";
 import { gameDisplayName, type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
-import { useSettings, useHeroElementLayout, useHeroGridLayout, useAnimatedMediaEnabled } from "../../context/SettingsContext";
+import { useSettings, useHeroElementLayout, useAnimatedMediaEnabled } from "../../context/SettingsContext";
 import { applyGameAccentFamily } from "../../utils/color";
 import { useAchievements } from "../../context/AchievementContext";
 import { useToast } from "../../context/ToastContext";
 import { HERO_ELEMENTS, type HeroElementKey } from "../../context/interfaceLayout";
-import {
-  HERO_GRID_ITEM_KEYS,
-  sortHeroGridItems,
-  type HeroGridItemKey,
-} from "../../context/heroGrid";
 import {
   useSteamGridArt,
   usePrefetchImage,
@@ -37,7 +31,6 @@ import {
   IconShield,
   IconUsers,
   IconStar,
-  IconTag,
   IconMaximize,
   IconCopy,
   IconChevronLeft,
@@ -54,21 +47,19 @@ import { usePublishGameArtwork } from "../../utils/activeGameArtwork";
  *
  *  Shared, presentational hero used by BOTH the Library game page and the
  *  Store detail page (normal / desktop mode — BigScreen has its own hero).
- *  Unifying the two through this one component keeps the banner, poster,
- *  glass KPI strip and info layout perfectly consistent.
  *
- *  The hero is a single rounded card with a blurred art backdrop (banner /
- *  trailer), a crisp 2:3 poster docked left (or right), and a content column
- *  holding the eyebrow + title/logo, the meta row, the genre chips + friends
- *  strip, and the KPI strip + action cluster.
+ *  It is deliberately not a card: the artwork bleeds edge-to-edge across the
+ *  content panel, dissolves into the page through a mask, and the page's top
+ *  bar floats over it (see `.game-page--immersive`). A crisp 2:3 poster
+ *  anchors the inline start, and the content column carries the eyebrow +
+ *  logo/title, the meta line, the genre labels, and a footer holding the
+ *  hairline stat row and the action cluster.
  *
  *  Settings → Interface can hide and reorder the elements per scope (`game`
  *  for the Library page, `store` for the Store detail page). The persisted
  *  order is applied with CSS `order` on a stable wrapper per element, so the
- *  layout is content-driven: hiding elements collapses the card cleanly
- *  instead of leaving gaps. The shipped order reproduces the previous hero
- *  exactly (poster left; title / meta / genres stacked; KPI strip and action
- *  cluster as a footer row at the bottom).
+ *  layout is content-driven: hiding elements collapses cleanly instead of
+ *  leaving gaps.
  */
 
 interface GameHeroProps {
@@ -86,7 +77,7 @@ interface GameHeroProps {
   accentSrc?: string | null;
   /** Small label above the logo/title (e.g. "GameLib Store"). */
   eyebrow?: ReactNode;
-  /** Resolved Steam app id for the "Players Now" KPI. */
+  /** Resolved Steam app id for the "Players Now" stat. */
   steamAppId?: number | null;
   /** Info-row meta fragments (Store). Library derives its own when omitted. */
   metaItems?: ReactNode[];
@@ -96,9 +87,9 @@ interface GameHeroProps {
   friends?: { gameName: string; gameId: string } | null;
   /** Banner height profile. Defaults to "cinematic" for Library, "compact" for Store. */
   variant?: "cinematic" | "compact";
-  /** Optional rating score to show in meta row (0-100) */
+  /** Optional rating score to show in the stat row (0-100) */
   rating?: number | null;
-  /** Genre tags to show as chips */
+  /** Genre tags to show as labels */
   genres?: string[];
   /** Callback to change tabs (e.g. "achievements", "activity", "reviews") */
   onTabChange?: (tab: any) => void;
@@ -119,6 +110,44 @@ const FOOTER_KEYS: HeroElementKey[] = ["kpis", "actions"];
 function formatHeroPlayTime(playTime: string): string {
   if (!playTime) return "0h";
   return playTime;
+}
+
+interface HeroStatProps {
+  icon?: ReactNode;
+  value: ReactNode;
+  label?: string;
+  /** Tooltip / accessible name when the stat is a shortcut. */
+  title?: string;
+  onClick?: () => void;
+}
+
+/**
+ * One entry of the hairline stat row. Rendered as a button when it shortcuts
+ * into a tab, otherwise as plain text — no tiles, no pills.
+ */
+function HeroStat({ icon, value, label, title, onClick }: HeroStatProps) {
+  const body = (
+    <>
+      {icon && <span className="game-hero__stat-icon">{icon}</span>}
+      <span className="game-hero__stat-value">{value}</span>
+      {label && <span className="game-hero__stat-label">{label}</span>}
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="game-hero__stat">{body}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      className="game-hero__stat game-hero__stat--interactive"
+      title={title}
+      onClick={onClick}
+    >
+      {body}
+    </button>
+  );
 }
 
 export default function GameHero({
@@ -250,21 +279,19 @@ export default function GameHero({
       if (rect.width <= 0 || rect.height <= 0) return;
       const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-      const tiltX = (x - 0.5) * 2;
-      const tiltY = (y - 0.5) * 2;
       const el = heroRef.current;
       el.style.setProperty("--mouse-x", `${(x * 100).toFixed(1)}%`);
       el.style.setProperty("--mouse-y", `${(y * 100).toFixed(1)}%`);
-      el.style.setProperty("--tilt-x", tiltX.toFixed(3));
-      el.style.setProperty("--tilt-y", tiltY.toFixed(3));
+      el.style.setProperty("--tilt-x", ((x - 0.5) * 2).toFixed(3));
+      el.style.setProperty("--tilt-y", ((y - 0.5) * 2).toFixed(3));
       el.style.setProperty("--hero-hovered", "1");
     },
-    [reduceMotion]
+    [reduceMotion, showHeroTilt]
   );
 
   const handlePointerLeave = useCallback(() => {
-    if (!heroRef.current) return;
     const el = heroRef.current;
+    if (!el) return;
     el.style.setProperty("--tilt-x", "0");
     el.style.setProperty("--tilt-y", "0");
     el.style.setProperty("--hero-hovered", "0");
@@ -381,7 +408,6 @@ export default function GameHero({
     [displayName, showToast, t]
   );
 
-
   const handleGenreClick = useCallback(
     (g: string) => {
       if (isGame) {
@@ -410,8 +436,6 @@ export default function GameHero({
   // ── Layout Studio: per-scope element order + visibility ──────────────
   const heroScope = isGame ? "game" : "store";
   const { order, hidden } = useHeroElementLayout(heroScope);
-  const gridLayout = useHeroGridLayout(heroScope);
-  const gridMode = gridLayout !== null;
 
   const isElementVisible = (key: HeroElementKey) => hidden[key] !== false;
 
@@ -420,14 +444,9 @@ export default function GameHero({
     return index === -1 ? HERO_ELEMENTS.indexOf(key) : index;
   };
 
-  // ── Info-row meta ────────────────────────────────────────────
-  const ratingBadgeClass =
-    rating && rating >= 75
-      ? "game-hero-rating-badge--high"
-      : rating && rating >= 50
-      ? "game-hero-rating-badge--mid"
-      : "game-hero-rating-badge--low";
+  const canInteract = showHeroInteractiveControls && !!onTabChange;
 
+  // ── Info-row meta ────────────────────────────────────────────
   const metaRow = isGame ? (
     <>
       {showHeroInteractiveControls ? (
@@ -450,29 +469,6 @@ export default function GameHero({
           <span>{game!.platform}</span>
         </span>
       )}
-      <span className="game-hero-meta-dot" />
-      <span>{t("hero.playTime")}: {game!.playTime}</span>
-      {rating && (
-        <>
-          <span className="game-hero-meta-dot" />
-          {showHeroInteractiveControls && onTabChange ? (
-            <button
-              type="button"
-              className={`game-hero-rating-badge ${ratingBadgeClass} game-hero-rating-badge--interactive`}
-              title={t("hero.viewReviews")}
-              onClick={() => onTabChange("reviews")}
-            >
-              <IconStar size={11} className="game-hero-rating-star" />
-              <span>{Math.round(rating)}</span>
-            </button>
-          ) : (
-            <span className={`game-hero-rating-badge ${ratingBadgeClass}`} title={t("ratings.title")}>
-              <IconStar size={11} className="game-hero-rating-star" />
-              <span>{Math.round(rating)}</span>
-            </span>
-          )}
-        </>
-      )}
     </>
   ) : (
     <>
@@ -482,116 +478,46 @@ export default function GameHero({
           {i < (metaItems?.length ?? 0) - 1 && <span className="game-hero-meta-dot" />}
         </Fragment>
       ))}
-      {rating && (
-        <>
-          {(metaItems?.length ?? 0) > 0 && <span className="game-hero-meta-dot" />}
-          {showHeroInteractiveControls && onTabChange ? (
-            <button
-              type="button"
-              className={`game-hero-rating-badge ${ratingBadgeClass} game-hero-rating-badge--interactive`}
-              title={t("hero.viewReviews")}
-              onClick={() => onTabChange("reviews")}
-            >
-              <IconStar size={11} className="game-hero-rating-star" />
-              <span>{Math.round(rating)}</span>
-            </button>
-          ) : (
-            <span className={`game-hero-rating-badge ${ratingBadgeClass}`} title={t("ratings.title")}>
-              <IconStar size={11} className="game-hero-rating-star" />
-              <span>{Math.round(rating)}</span>
-            </span>
-          )}
-        </>
-      )}
     </>
   );
 
-  // ── KPI strip ────────────────────────────────────────────────
-  const kpis = (
-    <>
-      {steamAppId != null && (
-        <KpiTile
-          glass
-          size="sm"
-          label={t("hero.playersNow")}
-          icon={<IconUsers size={12} />}
-          value={<PlayerCountBadge appId={steamAppId} />}
-          intent="accent"
+  // ── Hairline stat row ────────────────────────────────────────
+  const stats = (
+    <div className="game-hero__stats">
+      {isGame && (
+        <HeroStat
+          icon={<IconClock size={13} />}
+          value={formatHeroPlayTime(game!.playTime)}
+          label={t("hero.playTime")}
+          title={canInteract ? t("hero.viewActivity") : undefined}
+          onClick={canInteract ? () => onTabChange!("activity") : undefined}
         />
       )}
-      {isGame &&
-        (showHeroInteractiveControls && onTabChange ? (
-          <div
-            className="game-hero-kpi-interactive game-hero-kpi-interactive--active"
-            onClick={() => onTabChange("activity")}
-            title={t("hero.viewActivity")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onTabChange("activity");
-              }
-            }}
-          >
-            <KpiTile
-              glass
-              size="sm"
-              label={t("hero.playTime")}
-              icon={<IconClock size={12} />}
-              value={formatHeroPlayTime(game!.playTime)}
-              subtext={game!.installed ? t("filter.installed") : t("game.notInstalled")}
-              intent={game!.installed ? "success" : "default"}
-            />
-          </div>
-        ) : (
-          <KpiTile
-            glass
-            size="sm"
-            label={t("hero.playTime")}
-            icon={<IconClock size={12} />}
-            value={formatHeroPlayTime(game!.playTime)}
-            subtext={game!.installed ? t("filter.installed") : t("game.notInstalled")}
-            intent={game!.installed ? "success" : "default"}
-          />
-        ))}
-      {achPercent != null &&
-        (showHeroInteractiveControls && onTabChange ? (
-          <div
-            className="game-hero-kpi-interactive game-hero-kpi-interactive--active"
-            onClick={() => onTabChange("achievements")}
-            title={t("hero.viewAchievements")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onTabChange("achievements");
-              }
-            }}
-          >
-            <KpiTile
-              glass
-              size="sm"
-              label={t("nav.achievements")}
-              icon={<IconShield size={12} />}
-              value={`${achPercent}%`}
-              subtext={`${achUnlocked}/${achTotal}`}
-              intent={achPercent >= 100 ? "success" : "default"}
-            />
-          </div>
-        ) : (
-          <KpiTile
-            glass
-            size="sm"
-            label={t("nav.achievements")}
-            icon={<IconShield size={12} />}
-            value={`${achPercent}%`}
-            subtext={`${achUnlocked}/${achTotal}`}
-            intent={achPercent >= 100 ? "success" : "default"}
-          />
-        ))}
-    </>
+      {achPercent != null && (
+        <HeroStat
+          icon={<IconShield size={13} />}
+          value={`${achPercent}%`}
+          label={t("nav.achievements")}
+          title={canInteract ? `${t("hero.viewAchievements")} — ${achUnlocked}/${achTotal}` : `${achUnlocked}/${achTotal}`}
+          onClick={canInteract ? () => onTabChange!("achievements") : undefined}
+        />
+      )}
+      {rating != null && (
+        <HeroStat
+          icon={<IconStar size={13} />}
+          value={Math.round(rating)}
+          label={t("ratings.title")}
+          title={canInteract ? t("hero.viewReviews") : t("ratings.title")}
+          onClick={canInteract ? () => onTabChange!("reviews") : undefined}
+        />
+      )}
+      {steamAppId != null && (
+        <HeroStat
+          icon={<IconUsers size={13} />}
+          value={<PlayerCountBadge appId={steamAppId} />}
+        />
+      )}
+    </div>
   );
 
   // ── Element payloads ─────────────────────────────────────────────────
@@ -622,17 +548,15 @@ export default function GameHero({
                 <button
                   key={g}
                   type="button"
-                  className="game-hero-genre-chip game-hero-genre-chip--interactive"
+                  className="game-hero-genre-chip"
                   onClick={() => handleGenreClick(g)}
                   title={t("hero.filterByGenre", { genre: g })}
                 >
-                  <IconTag size={10} className="game-hero-genre-chip-icon" />
-                  <span>{g}</span>
+                  {g}
                 </button>
               ) : (
                 <span key={g} className="game-hero-genre-chip">
-                  <IconTag size={10} className="game-hero-genre-chip-icon" />
-                  <span>{g}</span>
+                  {g}
                 </span>
               ),
             )}
@@ -645,7 +569,7 @@ export default function GameHero({
     ),
     kpis: (
       <PageWidget page="game" widget="kpis">
-        <div className="game-hero__kpis ui-item-kpis">{kpis}</div>
+        {stats}
       </PageWidget>
     ),
     actions: (
@@ -656,9 +580,8 @@ export default function GameHero({
     ),
   };
 
-  // The genre block only exists when it has something to show (matching the
-  // old conditional chips + friends render); the others always render so the
-  // footer keeps its structure.
+  // The genre block only exists when it has something to show; the others
+  // always render so the footer keeps its structure.
   const canRenderBlock = (key: HeroElementKey) =>
     key === "genres" ? genres.length > 0 || !!friends : true;
 
@@ -676,7 +599,7 @@ export default function GameHero({
   const groupFooter =
     kpisPos !== -1 && actionsPos !== -1 && Math.abs(kpisPos - actionsPos) === 1;
 
-  // Pin the trailing run of footer blocks to the bottom of the card (as the
+  // Pin the trailing run of footer blocks to the bottom of the hero (as the
   // shipped layout does) with an auto top margin, so hiding the head blocks
   // doesn't leave the footer floating mid-card. If the footer isn't last, we
   // let it follow the chosen order naturally.
@@ -708,10 +631,7 @@ export default function GameHero({
     "game-hero",
     `game-hero--${variant}`,
     isGame ? "" : "game-hero--store",
-    // Only an explicit hide collapses the card; a game that simply has no
-    // poster (or whose art failed to load) keeps the original backdrop cap.
     posterHiddenByUser ? "game-hero--no-poster" : "",
-    gridMode ? "game-hero--grid" : "",
     !showHeroTilt ? "game-hero--no-tilt" : "",
     !showHeroInteractiveControls ? "game-hero--no-interactive" : "",
   ]
@@ -756,89 +676,53 @@ export default function GameHero({
     contentNodes.push(renderBlock(key, pinTrailingFooter && boundaryKey === key));
   }
 
-  // ── Grid-mode rendering ─────────────────────────────────────────────
-  // Only used when an authored grid exists; the flex subtree above stays the
-  // default for every existing user. Each item carries its rect as CSS custom
-  // properties, and DOM order follows the row-major reading order.
-  const gridStyle = (key: HeroGridItemKey): CSSProperties =>
-    ({
-      "--hero-col": gridLayout![key].col,
-      "--hero-col-span": gridLayout![key].colSpan,
-      "--hero-row": gridLayout![key].row,
-      "--hero-row-span": gridLayout![key].rowSpan,
-    }) as CSSProperties;
-
-  const gridItemKeys = HERO_GRID_ITEM_KEYS.filter((key) => {
-    if (key === "poster") return posterVisible;
-    return isElementVisible(key) && canRenderBlock(key);
-  });
-  const orderedGridKeys = gridLayout
-    ? sortHeroGridItems(gridLayout, gridItemKeys)
-    : [];
-
-  const renderGridItem = (key: HeroGridItemKey) => {
-    if (key === "poster") {
-      return (
-        <div
-          key="poster"
-          className={`game-hero__poster game-hero__block--poster${
-            !showHeroInteractiveControls ? " game-hero__poster--static" : ""
-          }`}
-          style={gridStyle("poster")}
-          onClick={showHeroInteractiveControls ? handleOpenPoster : undefined}
-          onKeyDown={
-            showHeroInteractiveControls
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handleOpenPoster();
-                  }
-                }
-              : undefined
-          }
-          tabIndex={showHeroInteractiveControls ? 0 : undefined}
-          role={showHeroInteractiveControls ? "button" : undefined}
-          aria-label={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
-        >
-          <img
-            src={posterSrc!}
-            alt={displayName}
-            className="game-hero__poster-img"
-            onError={() => {
-              if (sgdbGridUrl) {
-                setSgdbPosterFailed(true);
-              } else {
-                setCoverErrored(true);
+  const posterNode = (
+    <div
+      className={`game-hero__poster${!showHeroInteractiveControls ? " game-hero__poster--static" : ""}`}
+      style={{ order: posterOrder }}
+      onClick={showHeroInteractiveControls ? handleOpenPoster : undefined}
+      onKeyDown={
+        showHeroInteractiveControls
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleOpenPoster();
               }
-            }}
-          />
-          {showHeroTilt && <div className="game-hero__poster-sheen" aria-hidden="true" />}
-          {showHeroInteractiveControls && (
-            <div className="game-hero__poster-overlay" aria-hidden="true">
-              <span className="game-hero__poster-inspect-pill">
-                <IconMaximize size={11} />
-                <span>{t("hero.viewPoster")}</span>
-              </span>
-            </div>
-          )}
-          {isGame && game!.installed && (
-            <span className="game-hero__poster-badge game-hero__poster-badge--installed">
-              {t("filter.installed")}
-            </span>
-          )}
+            }
+          : undefined
+      }
+      tabIndex={showHeroInteractiveControls ? 0 : undefined}
+      role={showHeroInteractiveControls ? "button" : undefined}
+      aria-label={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
+    >
+      <img
+        src={posterSrc!}
+        alt={displayName}
+        className="game-hero__poster-img"
+        onError={() => {
+          if (sgdbGridUrl) {
+            setSgdbPosterFailed(true);
+          } else {
+            setCoverErrored(true);
+          }
+        }}
+      />
+      {showHeroTilt && <div className="game-hero__poster-sheen" aria-hidden="true" />}
+      {showHeroInteractiveControls && (
+        <div className="game-hero__poster-overlay" aria-hidden="true">
+          <span className="game-hero__poster-inspect-pill">
+            <IconMaximize size={11} />
+            <span>{t("hero.viewPoster")}</span>
+          </span>
         </div>
-      );
-    }
-    return (
-      <div
-        key={key}
-        className={`game-hero__block game-hero__block--${key}`}
-        style={gridStyle(key)}
-      >
-        {blockInner[key]}
-      </div>
-    );
-  };
+      )}
+      {isGame && game!.installed && (
+        <span className="game-hero__poster-badge game-hero__poster-badge--installed">
+          {t("filter.installed")}
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -856,7 +740,7 @@ export default function GameHero({
           : undefined
       }
     >
-      {/* Background art: a blurred copy of the banner/cover with glow. */}
+      {/* Art layer: full-bleed backdrop that dissolves into the page. */}
       {showAmbientArt && currentBackdrop ? (
         <>
           <img
@@ -882,14 +766,14 @@ export default function GameHero({
       <div className="game-hero__scrim" aria-hidden="true" />
       {showHeroTilt && <div className="game-hero__spotlight" aria-hidden="true" />}
 
-      {/* Interactive Backdrop & Wallpaper Toolbar */}
+      {/* Artwork rail: cycle the wallpapers and inspect the current one. */}
       {showHeroBackdropControls && (
         <div className="game-hero__backdrop-controls">
           {allBackdrops.length > 1 && (
             <>
               <button
                 type="button"
-                className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
+                className="game-hero__ctrl-btn"
                 onClick={handlePrevBackdrop}
                 title={t("hero.prevArtwork")}
                 aria-label={t("hero.prevArtwork")}
@@ -902,7 +786,7 @@ export default function GameHero({
               </span>
               <button
                 type="button"
-                className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
+                className="game-hero__ctrl-btn"
                 onClick={handleNextBackdrop}
                 title={t("hero.nextArtwork")}
                 aria-label={t("hero.nextArtwork")}
@@ -918,6 +802,7 @@ export default function GameHero({
               className="game-hero__ctrl-btn"
               onClick={handleOpenBackdrop}
               title={t("hero.viewWallpaper")}
+              aria-label={t("hero.viewWallpaper")}
             >
               <IconMaximize size={12} />
               <span className="game-hero__ctrl-label">{t("hero.viewWallpaper")}</span>
@@ -925,7 +810,7 @@ export default function GameHero({
           )}
           <button
             type="button"
-            className="game-hero__ctrl-btn game-hero__ctrl-btn--icon-only"
+            className="game-hero__ctrl-btn"
             onClick={handleCopyTitle}
             title={t("hero.copyTitle")}
             aria-label={t("hero.copyTitle")}
@@ -935,72 +820,17 @@ export default function GameHero({
         </div>
       )}
 
-      {gridMode ? (
-        <div className="game-hero__grid">
-          {orderedGridKeys.map((key) => renderGridItem(key))}
-        </div>
-      ) : (
-        <div className="game-hero__inner">
-          {/* 2:3 poster — docks left or right based on its order index. */}
-          {posterVisible && (
-            <div
-              className={`game-hero__poster${!showHeroInteractiveControls ? " game-hero__poster--static" : ""}`}
-              style={{ order: posterOrder }}
-              onClick={showHeroInteractiveControls ? handleOpenPoster : undefined}
-              onKeyDown={
-                showHeroInteractiveControls
-                  ? (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleOpenPoster();
-                      }
-                    }
-                  : undefined
-              }
-              tabIndex={showHeroInteractiveControls ? 0 : undefined}
-              role={showHeroInteractiveControls ? "button" : undefined}
-              aria-label={showHeroInteractiveControls ? t("hero.viewPoster") : undefined}
-            >
-              <img
-                src={posterSrc!}
-                alt={displayName}
-                className="game-hero__poster-img"
-                onError={() => {
-                  if (sgdbGridUrl) {
-                    setSgdbPosterFailed(true);
-                  } else {
-                    setCoverErrored(true);
-                  }
-                }}
-              />
-              {showHeroTilt && <div className="game-hero__poster-sheen" aria-hidden="true" />}
-              {showHeroInteractiveControls && (
-                <div className="game-hero__poster-overlay" aria-hidden="true">
-                  <span className="game-hero__poster-inspect-pill">
-                    <IconMaximize size={11} />
-                    <span>{t("hero.viewPoster")}</span>
-                  </span>
-                </div>
-              )}
-              {isGame && game.installed && (
-                <span className="game-hero__poster-badge game-hero__poster-badge--installed">
-                  {t("filter.installed")}
-                </span>
-              )}
-            </div>
-          )}
+      <div className="game-hero__inner">
+        {/* 2:3 poster — docks left or right based on its order index. */}
+        {posterVisible && posterNode}
 
-          {/* Content column — an orderable block stack. */}
-          {visibleContentKeys.length > 0 && (
-            <div
-              className="game-hero__content"
-              style={{ order: contentOrder }}
-            >
-              {contentNodes}
-            </div>
-          )}
-        </div>
-      )}
+        {/* Content column — an orderable block stack. */}
+        {visibleContentKeys.length > 0 && (
+          <div className="game-hero__content" style={{ order: contentOrder }}>
+            {contentNodes}
+          </div>
+        )}
+      </div>
 
       {/* Built-in Lightbox for inspecting poster or wallpaper */}
       {internalLightboxOpen && (

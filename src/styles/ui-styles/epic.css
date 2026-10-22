@@ -367,7 +367,7 @@
 [data-ui-style="epic"] .emu-games-total-pill, [data-ui-style="epic"] .emu-group-count, [data-ui-style="epic"] .emu-rom-running-pill { border-radius: 0 !important; }
 [data-ui-style="epic"] .emu-status-pill, [data-ui-style="epic"] .emu-storage-platform-tag, [data-ui-style="epic"] .emulators-list-pane-count { border-radius: 0 !important; }
 [data-ui-style="epic"] .folder-scan-feed-badge, [data-ui-style="epic"] .friends-tab-badge, [data-ui-style="epic"] .friends-tab-count { border-radius: 0 !important; }
-[data-ui-style="epic"] .game-hero__poster-badge, [data-ui-style="epic"] .game-hero-genre-chip, [data-ui-style="epic"] .game-hero-rating-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .game-hero__poster-badge, [data-ui-style="epic"] .game-hero-genre-chip { border-radius: 0 !important; }
 [data-ui-style="epic"] .game-news-badge, [data-ui-style="epic"] .game-news-category-count, [data-ui-style="epic"] .game-news-category-pill { border-radius: 0 !important; }
 [data-ui-style="epic"] .game-news-source-pill, [data-ui-style="epic"] .game-relations-group-count, [data-ui-style="epic"] .game-section-title__count { border-radius: 0 !important; }
 [data-ui-style="epic"] .game-tab-count, [data-ui-style="epic"] .gamescope-pill-btn, [data-ui-style="epic"] .hltb-chip { border-radius: 0 !important; }

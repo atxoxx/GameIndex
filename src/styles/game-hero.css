@@ -1,0 +1,760 @@
+/* ══ GameHero — full-bleed cinematic header ════════════════════════════════
+   The detail header is no longer a card. The artwork bleeds edge-to-edge
+   across the content panel and dissolves into the page through a mask, so
+   the game reads as part of the surface instead of a framed widget: no
+   border, radius, background or height cap. Poster, title block, hairline
+   stat row and actions sit directly on the art.
+
+   Settings → Interface still reorders/hides the element blocks (the inline
+   `order` model lives in GameHero) and the poster still docks left or right
+   by its order index. Text sits on artwork in every theme, so foreground
+   colour comes from the scrim tokens rather than the theme's surface ink. */
+
+.game-hero {
+  /* No cap: the art is the page's opening statement. Short viewports fall
+   * back to a tighter floor further down. */
+  --hero-h: clamp(380px, 54vh, 600px);
+  --hero-pad-x: clamp(var(--space-lg), 2.6vw, var(--space-3xl));
+  --hero-pad-top: clamp(var(--space-2xl), 6vh, var(--space-4xl));
+  --hero-pad-bottom: clamp(var(--space-2xl), 5vh, 52px);
+  --hero-fade: 34%;
+  --hero-poster-h: clamp(210px, 31vh, 330px);
+
+  --hero-ink: var(--scrim-text);
+  --hero-ink-muted: var(--scrim-text-muted);
+  --hero-ink-faint: var(--scrim-text-faint);
+  --hero-hairline: color-mix(in srgb, var(--scrim-text) 22%, transparent);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: var(--hero-h);
+  margin: 0;
+  padding: var(--hero-pad-top) var(--hero-pad-x) var(--hero-pad-bottom);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  isolation: isolate;
+  color: var(--hero-ink);
+
+  --game-accent: var(--color-accent);
+  --game-accent-hover: var(--color-accent-hover);
+  --game-accent-glow: var(--color-accent-glow);
+  --game-accent-2: var(--color-accent-2, var(--color-accent-hover));
+  --game-accent-deep: var(--color-accent-deep, color-mix(in srgb, var(--game-accent) 62%, black 38%));
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+  --tilt-x: 0;
+  --tilt-y: 0;
+  --hero-hovered: 0;
+}
+
+/* The Store detail header sits above its own content and reads a little
+ * shorter, but uses the same full-bleed composition. */
+.game-hero--compact {
+  --hero-h: clamp(340px, 46vh, 500px);
+  --hero-poster-h: clamp(180px, 26vh, 280px);
+}
+
+/* A game without a poster keeps its cinematic floor — the content column
+ * simply takes the full width. */
+.game-hero--no-poster {
+  --hero-h: clamp(280px, 38vh, 420px);
+}
+
+/* ── Art layers ───────────────────────────────────────────────────────── */
+
+/* Backdrop art. The mask dissolves the bottom of every art layer into the
+ * page, which is what removes the card edge without faking a matching
+ * background colour (the app panel carries a mesh gradient). */
+.game-hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center 30%;
+  filter: saturate(114%);
+  animation: heroBgDrift 46s ease-in-out 3 alternate both;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - var(--hero-fade)), transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - var(--hero-fade)), transparent 100%);
+}
+
+@keyframes heroBgDrift {
+  from { transform: scale(1) translateY(0); }
+  to   { transform: scale(1.06) translateY(-1.2%); }
+}
+
+/* No-art fallback keeps the game's palette: deepened accent into the panel
+ * tone. Nothing to drift here. */
+.game-hero__bg--fallback {
+  animation: none;
+  background:
+    radial-gradient(120% 140% at 18% 0%,
+      color-mix(in srgb, var(--game-accent) 34%, var(--color-bg-secondary)),
+      transparent 62%),
+    linear-gradient(120deg,
+      color-mix(in srgb, var(--game-accent-deep) 42%, var(--color-bg-secondary)),
+      color-mix(in srgb, var(--game-accent-2) 14%, var(--color-bg-tertiary)));
+}
+
+/* Legibility wash: dense at the inline start (poster + title), opening up on
+ * the far side so the art still reads, plus a bottom lift under the footer.
+ * Masked with the art so the two layers fade together. */
+.game-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(96deg,
+      color-mix(in srgb, var(--scrim-dark-soft) 92%, transparent) 0%,
+      color-mix(in srgb, var(--scrim-dark) 74%, transparent) 34%,
+      color-mix(in srgb, var(--scrim-dark) 26%, transparent) 64%,
+      transparent 88%),
+    linear-gradient(0deg,
+      color-mix(in srgb, var(--scrim-dark-soft) 88%, transparent) 0%,
+      color-mix(in srgb, var(--scrim-dark-mid) 52%, transparent) 38%,
+      transparent 72%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - var(--hero-fade)), transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - var(--hero-fade)), transparent 100%);
+}
+
+/* Film-grain veil: the tactile "printed art" texture that keeps large flat
+ * gradients from looking plastic. Soft-light keeps it gentle over text. */
+.game-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: soft-light;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - var(--hero-fade)), transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - var(--hero-fade)), transparent 100%);
+}
+
+/* Cursor spotlight tinted with the game's accent. */
+.game-hero__spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    620px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    color-mix(in srgb, var(--game-accent) 20%, transparent),
+    transparent 64%
+  );
+  opacity: var(--hero-hovered, 0);
+  transition: opacity var(--duration-normal) var(--ease-standard);
+  mix-blend-mode: screen;
+}
+
+/* ── Composition ──────────────────────────────────────────────────────── */
+
+.game-hero__inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(var(--space-lg), 2.4vw, var(--space-2xl));
+  width: 100%;
+  pointer-events: none;
+}
+.game-hero__content,
+.game-hero__poster,
+.game-hero__footer,
+.game-hero__stats,
+.game-hero__actions {
+  pointer-events: auto;
+}
+
+.game-hero__content {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* 2:3 poster — a floating art object, no frame around it. */
+.game-hero__poster {
+  position: relative;
+  flex: 0 0 auto;
+  height: var(--hero-poster-h);
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--scrim-text) 18%, transparent);
+  background: var(--scrim-dark);
+  box-shadow:
+    0 28px 54px -22px rgba(0, 0, 0, 0.9),
+    0 2px 10px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 color-mix(in srgb, var(--scrim-text) 16%, transparent);
+  cursor: pointer;
+  outline: none;
+  transform-style: preserve-3d;
+  transition:
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.4, 1),
+    box-shadow 0.28s cubic-bezier(0.2, 0.8, 0.4, 1),
+    border-color var(--transition-fast);
+}
+.game-hero__poster:focus-visible {
+  border-color: var(--game-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow), 0 28px 54px -22px rgba(0, 0, 0, 0.9);
+}
+.game-hero:hover .game-hero__poster {
+  transform:
+    perspective(1100px)
+    rotateX(calc(var(--tilt-y, 0) * -5deg))
+    rotateY(calc(var(--tilt-x, 0) * 5deg))
+    translateY(-5px);
+  border-color: color-mix(in srgb, var(--scrim-text) 30%, transparent);
+  box-shadow:
+    0 34px 64px -24px rgba(0, 0, 0, 0.95),
+    0 4px 14px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 color-mix(in srgb, var(--scrim-text) 20%, transparent);
+}
+.game-hero__poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Specular sheen across the poster, tied to the cursor. */
+.game-hero__poster-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    calc(118deg + calc(var(--tilt-x, 0) * 30deg)),
+    transparent 28%,
+    rgba(255, 255, 255, 0.16) 50%,
+    transparent 72%
+  );
+  opacity: var(--hero-hovered, 0);
+  transition: opacity 0.25s ease;
+  mix-blend-mode: overlay;
+}
+
+/* Hover affordance: one quiet pill instead of a full wash. */
+.game-hero__poster-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: var(--space-sm);
+  background: linear-gradient(0deg, color-mix(in srgb, var(--scrim-dark-soft) 78%, transparent) 0%, transparent 46%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+.game-hero__poster:hover .game-hero__poster-overlay {
+  opacity: 1;
+}
+.game-hero__poster-inspect-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  color: var(--scrim-text);
+  background: color-mix(in srgb, var(--scrim-dark-soft) 72%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--scrim-text) 18%, transparent);
+  transform: translateY(4px);
+  transition: transform var(--transition-fast);
+}
+.game-hero__poster:hover .game-hero__poster-inspect-pill {
+  transform: translateY(0);
+}
+@media (max-width: 900px) {
+  .game-hero__poster-inspect-pill span {
+    display: none;
+  }
+}
+
+.game-hero__poster-badge {
+  position: absolute;
+  inset-block-end: 8px;
+  inset-inline-start: 8px;
+  z-index: 4;
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--scrim-dark-soft) 82%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--scrim-border);
+  color: var(--scrim-text);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.game-hero__poster-badge--installed {
+  border-color: color-mix(in srgb, var(--color-success) 50%, var(--scrim-border));
+}
+.game-hero__poster-badge--installed::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-inline-end: var(--space-2xs);
+  border-radius: 50%;
+  background: var(--color-success);
+  vertical-align: 1px;
+}
+
+/* ── Title block ──────────────────────────────────────────────────────── */
+
+.game-hero__head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.game-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--hero-ink-faint);
+}
+.game-hero__eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--game-accent);
+}
+
+.game-hero-title {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 44px);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--hero-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-wrap: balance;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.game-hero-logo {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: clamp(56px, 7.5vw, 104px);
+  object-fit: contain;
+  object-position: left center;
+  display: block;
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.55));
+}
+
+/* ── Meta / genres ────────────────────────────────────────────────────── */
+
+.game-hero-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  width: fit-content;
+  max-width: 100%;
+  font-size: var(--text-sm);
+  color: var(--hero-ink-muted);
+}
+.game-hero-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: inherit;
+  white-space: nowrap;
+}
+.game-hero-meta-dot {
+  width: 3px;
+  height: 3px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--scrim-text) 40%, transparent);
+}
+button.game-hero-meta-item--btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+button.game-hero-meta-item--btn:hover {
+  color: var(--hero-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Genres are typography, not chrome: uppercase micro-labels separated by
+ * dots. They stay individually clickable. */
+.game-hero-genres {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: var(--space-2xs);
+}
+.game-hero-genre-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--hero-ink-faint);
+  transition: color var(--transition-fast);
+}
+.game-hero-genre-chip + .game-hero-genre-chip::before {
+  content: "";
+  width: 3px;
+  height: 3px;
+  margin-inline: var(--space-sm);
+  border-radius: 50%;
+  background: var(--hero-hairline);
+}
+button.game-hero-genre-chip {
+  cursor: pointer;
+}
+button.game-hero-genre-chip:hover {
+  color: var(--hero-ink);
+}
+
+/* ── Footer: hairline stat row + actions ──────────────────────────────── */
+
+.game-hero__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  margin-top: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--hero-hairline);
+}
+
+.game-hero__stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: var(--space-sm);
+  min-width: 0;
+}
+
+.game-hero__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0 var(--space-md);
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  white-space: nowrap;
+}
+.game-hero__stats > .game-hero__stat:first-child {
+  padding-inline-start: 0;
+}
+.game-hero__stat + .game-hero__stat {
+  border-inline-start: 1px solid var(--hero-hairline);
+}
+.game-hero__stat-icon {
+  display: inline-flex;
+  color: var(--hero-ink-faint);
+  transition: color var(--transition-fast);
+}
+.game-hero__stat-value {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--hero-ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.game-hero__stat-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--hero-ink-faint);
+}
+.game-hero__stat--interactive {
+  cursor: pointer;
+  outline: none;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+.game-hero__stat--interactive:hover .game-hero__stat-value,
+.game-hero__stat--interactive:hover .game-hero__stat-icon {
+  color: var(--game-accent);
+}
+.game-hero__stat--interactive:hover .game-hero__stat-label {
+  color: var(--hero-ink-muted);
+}
+.game-hero__stat--interactive:focus-visible {
+  box-shadow: var(--ring-accent);
+}
+
+/* The Steam player pill becomes a flat stat; its popover is untouched. */
+.game-hero__stats .steam-player-count {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--hero-ink);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.game-hero__stats .steam-player-count:hover {
+  color: var(--game-accent);
+}
+.game-hero__stats .steam-player-count-text {
+  color: inherit;
+}
+.game-hero__stats .steam-player-count-suffix {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--hero-ink-faint);
+}
+
+.game-hero__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* ── Artwork rail (right edge) ────────────────────────────────────────── */
+
+.game-hero__backdrop-controls {
+  position: absolute;
+  z-index: 6;
+  inset-inline-end: var(--hero-pad-x);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--scrim-dark-soft) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--scrim-text) 14%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  opacity: 0.62;
+  transition: opacity var(--transition-fast), border-color var(--transition-fast);
+}
+.game-hero:hover .game-hero__backdrop-controls,
+.game-hero__backdrop-controls:focus-within {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--scrim-text) 26%, transparent);
+}
+
+.game-hero__ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--scrim-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.game-hero__ctrl-btn:hover {
+  color: var(--scrim-text);
+  background: color-mix(in srgb, var(--scrim-text) 14%, transparent);
+}
+.game-hero__ctrl-btn:active {
+  transform: scale(0.94);
+}
+.game-hero__ctrl-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--scrim-text) 45%, transparent);
+}
+/* The rail is icon-only; the label lives in the button's title/aria-label. */
+.game-hero__ctrl-label {
+  display: none;
+}
+.game-hero__ctrl-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--scrim-text-faint);
+}
+.game-hero__ctrl-icon {
+  display: none;
+}
+.game-hero__ctrl-divider {
+  width: 14px;
+  height: 1px;
+  margin: var(--space-3xs) 0;
+  background: color-mix(in srgb, var(--scrim-text) 22%, transparent);
+}
+
+/* ── Friends strip ────────────────────────────────────────────────────── */
+
+.game-hero .friends-playing {
+  color: var(--hero-ink-muted);
+  background: none;
+  border-color: color-mix(in srgb, var(--scrim-text) 16%, transparent);
+}
+.game-hero .friends-playing__label,
+.game-hero .friends-playing__session {
+  color: inherit;
+}
+
+/* ── Block wrappers (Layout Studio order/hide) ────────────────────────── */
+
+.game-hero__block {
+  min-width: 0;
+}
+.game-hero__block--genres {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+.game-hero__block--genres:empty {
+  display: none;
+}
+
+/* ── Settings-driven variants ─────────────────────────────────────────── */
+
+.game-hero--no-tilt:hover .game-hero__poster {
+  transform: translateY(-3px);
+}
+.game-hero--no-tilt .game-hero__spotlight,
+.game-hero--no-tilt .game-hero__poster-sheen {
+  display: none;
+}
+.game-hero__poster--static,
+.game-hero--no-interactive .game-hero__poster {
+  cursor: default;
+}
+.game-hero--no-interactive:hover .game-hero__poster {
+  transform: none;
+}
+.game-hero--no-interactive .game-hero__poster-overlay {
+  display: none;
+}
+
+/* ── Motion & size adaptations ────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .game-hero__bg {
+    animation: none;
+  }
+  .game-hero:hover .game-hero__poster {
+    transform: none;
+  }
+  .game-hero__spotlight,
+  .game-hero__poster-sheen {
+    display: none;
+  }
+}
+
+/* Short viewports: keep the hero from swallowing the fold. */
+@media (max-height: 760px) {
+  .game-hero {
+    --hero-h: clamp(300px, 46vh, 400px);
+    --hero-poster-h: clamp(170px, 25vh, 230px);
+    --hero-pad-top: var(--space-xl);
+  }
+}
+
+/* Stacked layout: poster becomes a small floating cover above the text. */
+@media (max-width: 860px) {
+  .game-hero {
+    --hero-h: auto;
+    --hero-poster-h: auto;
+    min-height: 0;
+    padding-top: calc(var(--space-4xl) + var(--space-xl));
+  }
+  .game-hero__inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-lg);
+  }
+  .game-hero__poster {
+    height: auto;
+    width: clamp(124px, 32vw, 168px);
+  }
+  .game-hero__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .game-hero__actions {
+    justify-content: flex-start;
+  }
+  .game-hero__backdrop-controls {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .game-hero {
+    --hero-pad-x: var(--space-md);
+  }
+  .game-hero-meta {
+    font-size: var(--text-xs);
+  }
+  .game-hero-logo {
+    max-height: clamp(46px, 15vw, 76px);
+  }
+  .game-hero__stat {
+    padding-inline: var(--space-sm);
+  }
+}
+
+@media (min-width: 2561px) {
+  .game-hero {
+    --hero-h: clamp(560px, 56vh, 760px);
+    --hero-poster-h: clamp(320px, 34vh, 420px);
+  }
+}

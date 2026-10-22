@@ -515,14 +515,12 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
   };
 
   return (
-    <div className="game-page">
-      {/* Top Bar with Return Link and Edit / Remove actions */}
+    <div className="game-page game-page--immersive">
+      {/* Top Bar with Return Link and Edit / Remove actions — floats over the
+          hero art on the immersive page shell. */}
       <div className="game-top-bar">{renderTopBar()}</div>
 
-      {/* Steam Family Sharing: which family member owns this copy */}
-      <GameFamilyShareBanner game={game} />
-
-      {/* Hero Banner */}
+      {/* Hero Banner — full-bleed art that dissolves into the page. */}
       <PageWidget page="game" widget="gameHero">
         <div className="ui-item-gameHero">
           <GameHero
@@ -534,6 +532,9 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
           />
         </div>
       </PageWidget>
+
+      {/* Steam Family Sharing: which family member owns this copy */}
+      <GameFamilyShareBanner game={game} />
 
       {/* Sticky Segmented Tabs with Sliding Indicator */}
       <PageWidget page="game" widget="gameTabs">
