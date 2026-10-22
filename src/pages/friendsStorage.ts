@@ -370,6 +370,16 @@ export interface SessionMessage {
   reactions?: Record<string, string>;
   /** Images attached to this message. */
   attachments?: DmAttachment[];
+  /**
+   * Tombstone for a locally deleted message. Kept instead of removing the
+   * message so a merge with the peer's copy cannot resurrect it.
+   */
+  deleted?: boolean;
+}
+
+/** Messages that should be rendered / counted (tombstones excluded). */
+export function visibleMessages(messages?: SessionMessage[]): SessionMessage[] {
+  return (messages || []).filter((m) => !m.deleted);
 }
 
 export interface GameSession {
@@ -540,6 +550,25 @@ export function dmThreadId(a: string, b: string): string {
 }
 
 /**
+ * Thread id for a brand-new conversation. Differs from `dmThreadId` on purpose:
+ * a deleted thread leaves a tombstone under the deterministic id, and reusing
+ * it would keep the new conversation invisible for us.
+ */
+export function newDmThreadId(a: string, b: string): string {
+  return `${dmThreadId(a, b)}_${Date.now().toString(36)}`;
+}
+
+/**
+ * Id to open a conversation with when none is live: the deterministic id both
+ * sides converge on, unless that id is a deleted tombstone — then a fresh id so
+ * the new thread is visible without resurrecting the old one.
+ */
+export function startDmThreadId(a: string, b: string, threads: DmThread[] = []): string {
+  const base = dmThreadId(a, b);
+  return threads.some((t) => t.id === base && t.deleted) ? newDmThreadId(a, b) : base;
+}
+
+/**
  * Strips the reader's own read-state out of DM threads before the outbox is
  * pushed, used when the user disabled read receipts — the badge logic stays
  * local, but the friend never sees when we read their messages.
@@ -573,6 +602,10 @@ export function mergeDms(local: DmThread[], remote: DmThread[], myName: string):
   local.forEach((t) => mergedMap.set(t.id, t));
 
   for (const remoteThread of remote || []) {
+    // Tombstones only apply to threads we actually take part in — an outbox
+    // received from a third party must never delete our private thread.
+    if (!remoteThread.participants || !remoteThread.participants.includes(myName)) continue;
+
     if (remoteThread.deleted) {
       const existing = mergedMap.get(remoteThread.id);
       if (existing) {
@@ -580,7 +613,6 @@ export function mergeDms(local: DmThread[], remote: DmThread[], myName: string):
       }
       continue;
     }
-    if (!remoteThread.participants || !remoteThread.participants.includes(myName)) continue;
 
     const localThread = mergedMap.get(remoteThread.id);
     if (!localThread) {
@@ -590,15 +622,20 @@ export function mergeDms(local: DmThread[], remote: DmThread[], myName: string):
 
     // Messages merge id-by-id with the newer timestamp winning, but reactions
     // union per-author so a react on an older copy of a message isn't lost.
+    // Deletion is a tombstone that unions too, otherwise the peer's undeleted
+    // copy would resurrect a message we removed.
     const msgMap = new Map<string, SessionMessage>();
     [...(localThread.messages || []), ...(remoteThread.messages || [])].forEach((m) => {
       const existing = msgMap.get(m.id);
       if (!existing) {
         msgMap.set(m.id, m);
-      } else if (m.timestamp >= existing.timestamp) {
-        msgMap.set(m.id, { ...m, reactions: { ...(existing.reactions || {}), ...(m.reactions || {}) } });
       } else {
-        msgMap.set(m.id, { ...existing, reactions: { ...(m.reactions || {}), ...(existing.reactions || {}) } });
+        const newer = m.timestamp >= existing.timestamp ? m : existing;
+        msgMap.set(m.id, {
+          ...newer,
+          deleted: !!(existing.deleted || m.deleted),
+          reactions: { ...(existing.reactions || {}), ...(m.reactions || {}) },
+        });
       }
     });
 
@@ -748,6 +785,12 @@ export function loadUserProfile(): UserProfile {
     bio,
     region,
   };
+  // Presence + shared stats must survive this normalizer: every
+  // `persistLocalStorageToDisk` round-trip rewrites the profile through it, so
+  // dropping these fields silently reset the presence heartbeat on restart.
+  if (profile.lastActive !== undefined) updated.lastActive = profile.lastActive;
+  if (profile.lastPublished !== undefined) updated.lastPublished = profile.lastPublished;
+  if (profile.libStats) updated.libStats = profile.libStats;
   // Persist the resolved identity as soon as the backend key is loaded —
   // that is when the real pubkey replaces the stored/empty placeholder.
   if (isNostrIdentityReady() && (!profile.syncId || profile.syncId !== syncId)) {
@@ -991,6 +1034,10 @@ export function decodeFriendCode(code: string): Friend | null {
       }
     }
     
+    // Nostr pubkeys are canonically lowercase hex; normalizing here keeps a
+    // pasted uppercase key from creating a duplicate friend entry.
+    if (/^[0-9a-fA-F]{64}$/.test(syncId)) syncId = syncId.toLowerCase();
+
     const isNostrPubkey = /^[0-9a-fA-F]{64}$/.test(syncId);
     const isLegacySyncId = syncId.startsWith("device_");
     if (!isNostrPubkey && !isLegacySyncId) {
@@ -1061,11 +1108,22 @@ export function mergeSessions(local: GameSession[], remote: GameSession[]): Game
         if (!participantsMap.has(p.name)) participantsMap.set(p.name, { ...p });
       });
 
-      // Merge the chat thread; remote message wins on timestamp tie-break.
+      // Merge the chat thread; remote message wins on timestamp tie-break, but
+      // deletion tombstones and reactions union so neither side resurrects a
+      // removed message or drops a reaction.
       const messagesMap = new Map<string, SessionMessage>();
       [...(localSession.messages || []), ...(remoteSession.messages || [])].forEach((m) => {
         const existing = messagesMap.get(m.id);
-        if (!existing || m.timestamp >= existing.timestamp) messagesMap.set(m.id, m);
+        if (!existing) {
+          messagesMap.set(m.id, m);
+          return;
+        }
+        const newer = m.timestamp >= existing.timestamp ? m : existing;
+        messagesMap.set(m.id, {
+          ...newer,
+          deleted: !!(existing.deleted || m.deleted),
+          reactions: { ...(existing.reactions || {}), ...(m.reactions || {}) },
+        });
       });
       const messages = Array.from(messagesMap.values()).sort((a, b) => a.timestamp - b.timestamp);
 
@@ -1619,7 +1677,7 @@ export function buildOutboxPayload(
       lastActive: profile.lastActive || 0,
       libStats: stats,
     },
-    friends: localFriends.map((f) => f.syncId),
+    friends: localFriends.filter((f) => !f.blocked).map((f) => f.syncId),
     games: capSharedGames(sharedGames),
     sessions,
     recommendations: recs,
