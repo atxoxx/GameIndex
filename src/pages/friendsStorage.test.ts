@@ -15,9 +15,15 @@ import {
   loadFriends,
   loadRecommendations,
   loadSuggestions,
+  mergeDms,
   mergeRecommendations,
   mergeSessions,
   mergeSuggestions,
+  buildOutboxPayload,
+  loadUserProfile,
+  visibleMessages,
+  dmThreadId,
+  startDmThreadId,
 } from "./friendsStorage";
 import type { NostrOutboxPayload } from "./friendsStorage";
 
@@ -672,5 +678,142 @@ describe("load normalization", () => {
     expect(loadRecommendations()[0].reactions).toEqual({});
     expect(loadSuggestions()[0].comments).toEqual([]);
     expect(loadSuggestions()[0].reactions).toEqual({});
+  });
+});
+
+describe("message tombstones", () => {
+  const thread = (messages: any[], overrides: Record<string, unknown> = {}) => ({
+    id: "dm_Me_Other",
+    participants: ["Me", "Other"],
+    messages,
+    updatedAt: 20,
+    ...overrides,
+  });
+
+  it("does not resurrect a locally deleted message when the peer still has it", () => {
+    const deleted = { id: "m1", author: "Me", text: "oops", timestamp: 10, deleted: true };
+    const peerCopy = { id: "m1", author: "Me", text: "oops", timestamp: 10 };
+
+    const merged = mergeDms([thread([deleted])], [thread([peerCopy])], "Me");
+
+    expect(merged[0].messages[0].deleted).toBe(true);
+    expect(visibleMessages(merged[0].messages)).toHaveLength(0);
+  });
+
+  it("keeps reactions from both copies while the tombstone unions", () => {
+    const local = { id: "m1", author: "Me", text: "hi", timestamp: 10, deleted: true, reactions: { Me: "👍" } };
+    const remote = { id: "m1", author: "Me", text: "hi", timestamp: 10, reactions: { Other: "🔥" } };
+
+    const merged = mergeDms([thread([local])], [thread([remote])], "Me");
+
+    expect(merged[0].messages[0].deleted).toBe(true);
+    expect(merged[0].messages[0].reactions).toEqual({ Me: "👍", Other: "🔥" });
+  });
+
+  it("ignores a thread tombstone from a conversation we take no part in", () => {
+    const mine = thread([]);
+    const foreignTombstone = {
+      id: mine.id,
+      participants: ["Someone", "Else"],
+      messages: [],
+      updatedAt: 99,
+      deleted: true,
+    };
+
+    const merged = mergeDms([mine], [foreignTombstone], "Me");
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].deleted).toBeFalsy();
+  });
+
+  it("unions a session message tombstone across a merge", () => {
+    const baseSession = {
+      id: "s1",
+      gameId: "g1",
+      gameName: "Game X",
+      scheduledAt: "2026-01-01T20:00",
+      maxPlayers: 4,
+      description: "",
+      creatorName: "Me",
+      attendees: ["Me"],
+      updatedAt: 5,
+      messages: [{ id: "m1", author: "Me", text: "removed", timestamp: 10, deleted: true }],
+    };
+    const remoteSession = {
+      ...baseSession,
+      updatedAt: 6,
+      messages: [{ id: "m1", author: "Me", text: "removed", timestamp: 10 }],
+    };
+
+    const merged = mergeSessions([baseSession], [remoteSession]);
+
+    expect(merged[0].messages?.[0].deleted).toBe(true);
+  });
+});
+
+describe("profile normalization", () => {
+  it("preserves presence and shared stats across a load", () => {
+    localStorage.setItem(
+      "gamelib.friends.profile.A",
+      JSON.stringify({
+        name: "Me",
+        avatar: "procedural",
+        status: "Ready to Play!",
+        syncId: "",
+        lastActive: 1234,
+        lastPublished: 500,
+        libStats: { gamesCount: 3, playtimeMinutes: 120, achievementsCount: 7 },
+      }),
+    );
+
+    const profile = loadUserProfile();
+
+    expect(profile.lastActive).toBe(1234);
+    expect(profile.lastPublished).toBe(500);
+    expect(profile.libStats).toEqual({ gamesCount: 3, playtimeMinutes: 120, achievementsCount: 7 });
+  });
+});
+
+describe("folder outbox payload", () => {
+  it("omits blocked peers from the broadcast friend graph", () => {
+    const allowed = "a".repeat(64);
+    const blocked = "b".repeat(64);
+    localStorage.setItem(
+      "gamelib.friends.list.A",
+      JSON.stringify([
+        { id: "f1", name: "Allowed", avatar: "procedural", status: "", addedAt: 1, syncId: allowed },
+        { id: "f2", name: "Blocked", avatar: "procedural", status: "", addedAt: 2, syncId: blocked, blocked: true },
+      ]),
+    );
+
+    const payload = buildOutboxPayload(
+      { name: "Me", avatar: "procedural", status: "Ready", syncId: allowed },
+      { gamesCount: 0, playtimeMinutes: 0, achievementsCount: 0 },
+      [],
+      [],
+      [],
+      [],
+      [],
+    );
+
+    expect(payload.friends).toEqual([allowed]);
+  });
+});
+
+describe("startDmThreadId", () => {
+  it("uses the shared deterministic id when no tombstone exists", () => {
+    const id = startDmThreadId("Me", "Ada");
+
+    expect(id).toBe(dmThreadId("Me", "Ada"));
+    expect(id).toBe(startDmThreadId("Ada", "Me"));
+  });
+
+  it("starts a fresh thread when the deterministic id was deleted", () => {
+    const deleted = { id: dmThreadId("Me", "Ada"), participants: ["Ada", "Me"], messages: [], updatedAt: 1, deleted: true };
+
+    const id = startDmThreadId("Me", "Ada", [deleted]);
+
+    expect(id).not.toBe(deleted.id);
+    expect(id.startsWith(deleted.id)).toBe(true);
   });
 });
